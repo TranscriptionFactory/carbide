@@ -3,15 +3,6 @@ import { create_test_workspace_index_adapter } from "../../adapters/test_workspa
 import { as_note_path, as_vault_id } from "$lib/shared/types/ids";
 
 describe("test_workspace_index_adapter", () => {
-  it("touch_index resolves", async () => {
-    const adapter = create_test_workspace_index_adapter();
-    await expect(
-      adapter.touch_index(as_vault_id("vault-1"), {
-        kind: "force_scan",
-      }),
-    ).resolves.toBeUndefined();
-  });
-
   it("sync_index resolves", async () => {
     const adapter = create_test_workspace_index_adapter();
     await expect(
@@ -44,6 +35,31 @@ describe("test_workspace_index_adapter", () => {
     const adapter = create_test_workspace_index_adapter();
     await expect(
       adapter.remove_note(as_vault_id("vault-1"), as_note_path("note.md")),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rename_note_path resolves", async () => {
+    const adapter = create_test_workspace_index_adapter();
+    await expect(
+      adapter.rename_note_path(
+        as_vault_id("vault-1"),
+        as_note_path("old.md"),
+        as_note_path("new.md"),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("remove_notes_by_prefix resolves", async () => {
+    const adapter = create_test_workspace_index_adapter();
+    await expect(
+      adapter.remove_notes_by_prefix(as_vault_id("vault-1"), "docs/"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rename_folder_paths resolves", async () => {
+    const adapter = create_test_workspace_index_adapter();
+    await expect(
+      adapter.rename_folder_paths(as_vault_id("vault-1"), "old/", "new/"),
     ).resolves.toBeUndefined();
   });
 });

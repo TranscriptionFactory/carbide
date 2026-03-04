@@ -38,6 +38,13 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "keyboard",
   },
   {
+    id: "sync_index",
+    label: "Sync index",
+    description: "Rescan vault files and sync search index",
+    keywords: ["index", "sync", "search", "vault", "refresh", "rescan"],
+    icon: "refresh-cw",
+  },
+  {
     id: "reindex_vault",
     label: "Reindex vault",
     description: "Rebuild search index for the current vault",

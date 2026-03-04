@@ -65,17 +65,7 @@ export interface SearchPort {
   ): Promise<string | null>;
 }
 
-export type IndexChange =
-  | { kind: "upsert_path"; path: NoteId }
-  | { kind: "remove_path"; path: NoteId }
-  | { kind: "rename_path"; old_path: NoteId; new_path: NoteId }
-  | { kind: "remove_prefix"; prefix: string }
-  | { kind: "rename_prefix"; old_prefix: string; new_prefix: string }
-  | { kind: "force_scan" }
-  | { kind: "force_rebuild" };
-
 export interface WorkspaceIndexPort {
-  touch_index(vault_id: VaultId, change: IndexChange): Promise<void>;
   cancel_index(vault_id: VaultId): Promise<void>;
   sync_index(vault_id: VaultId): Promise<void>;
   rebuild_index(vault_id: VaultId): Promise<void>;

@@ -159,6 +159,9 @@ async function execute_command(
     case "open_hotkeys":
       await registry.execute(ACTION_IDS.settings_open, "hotkeys");
       break;
+    case "sync_index":
+      await registry.execute(ACTION_IDS.vault_sync_index);
+      break;
     case "reindex_vault":
       await registry.execute(ACTION_IDS.vault_reindex);
       break;

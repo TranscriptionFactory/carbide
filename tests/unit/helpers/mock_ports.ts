@@ -1,7 +1,6 @@
 import type { VaultPort } from "$lib/features/vault/ports";
 import type { NotesPort, FolderStats } from "$lib/features/note/ports";
 import type { WorkspaceIndexPort } from "$lib/features/search/ports";
-import type { IndexChange } from "$lib/features/search/ports";
 import type {
   VaultId,
   VaultPath,
@@ -398,7 +397,6 @@ export function create_mock_notes_port(): NotesPort & {
 
 export function create_mock_index_port(): WorkspaceIndexPort & {
   _calls: {
-    touch_index: { vault_id: VaultId; change: IndexChange }[];
     cancel_index: VaultId[];
     sync_index: VaultId[];
     rebuild_index: VaultId[];
@@ -420,7 +418,6 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
 } {
   const mock = {
     _calls: {
-      touch_index: [] as { vault_id: VaultId; change: IndexChange }[],
       cancel_index: [] as VaultId[],
       sync_index: [] as VaultId[],
       rebuild_index: [] as VaultId[],
@@ -438,10 +435,6 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
         old_prefix: string;
         new_prefix: string;
       }[],
-    },
-    touch_index(vault_id: VaultId, change: IndexChange) {
-      mock._calls.touch_index.push({ vault_id, change });
-      return Promise.resolve();
     },
     cancel_index(vault_id: VaultId) {
       mock._calls.cancel_index.push(vault_id);

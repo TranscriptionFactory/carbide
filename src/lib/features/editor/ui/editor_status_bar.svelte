@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Info, FolderOpen, RefreshCw } from "@lucide/svelte";
+  import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
@@ -23,6 +24,7 @@
     on_vault_click: () => void;
     on_info_click: () => void;
     on_git_click: () => void;
+    on_sync_click: () => void;
   }
 
   let {
@@ -42,13 +44,21 @@
     on_vault_click,
     on_info_click,
     on_git_click,
+    on_sync_click,
   }: Props = $props();
 
   const line = $derived(cursor_info?.line ?? null);
   const column = $derived(cursor_info?.column ?? null);
+  const is_indexing = $derived(index_progress.status === "indexing");
   const show_index_counts = $derived(
     index_progress.total > 1 || index_progress.indexed > 0,
   );
+  const sync_tooltip = $derived.by(() => {
+    if (is_indexing) return "Indexing in progress…";
+    if (index_progress.status === "failed")
+      return "Last index failed — click to retry";
+    return "Sync index";
+  });
 
   let show_completed = $state(false);
   let completed_timer: ReturnType<typeof setTimeout> | null = null;
@@ -110,9 +120,8 @@
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}
 
-    {#if index_progress.status === "indexing"}
+    {#if is_indexing}
       <span class="StatusBar__item StatusBar__item--indexing">
-        <RefreshCw class="StatusBar__spinner" />
         {#if show_index_counts}
           <span>Indexing {index_progress.indexed}/{index_progress.total}</span>
         {:else}
@@ -131,6 +140,24 @@
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        <button
+          type="button"
+          class="StatusBar__action"
+          class:StatusBar__action--active={is_indexing}
+          onclick={on_sync_click}
+          disabled={!vault_name || is_indexing}
+          aria-label={sync_tooltip}
+        >
+          <RefreshCw class={is_indexing ? "StatusBar__spinner" : ""} />
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Content side="top" sideOffset={4}>
+        {sync_tooltip}
+      </Tooltip.Content>
+    </Tooltip.Root>
+    <span class="StatusBar__separator" aria-hidden="true"></span>
     <button
       type="button"
       class="StatusBar__vault-action"
@@ -278,6 +305,11 @@
   .StatusBar__action:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .StatusBar__action--active {
+    color: var(--primary);
+    opacity: 1;
   }
 
   :global(.StatusBar__item svg),

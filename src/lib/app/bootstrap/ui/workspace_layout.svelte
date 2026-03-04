@@ -698,6 +698,8 @@
       on_info_click={() => (details_dialog_open = true)}
       on_git_click={() =>
         void action_registry.execute(ACTION_IDS.git_open_history)}
+      on_sync_click={() =>
+        void action_registry.execute(ACTION_IDS.vault_sync_index)}
     />
   </div>
 

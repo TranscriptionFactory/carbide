@@ -42,6 +42,7 @@ function create_vault_actions_harness() {
       remove_vault_from_registry: vi.fn(),
       toggle_vault_pin: vi.fn(),
       rebuild_index: vi.fn(),
+      sync_index: vi.fn().mockResolvedValue({ status: "started" }),
       reset_change_operation: vi.fn(),
       apply_opened_vault: vi.fn().mockResolvedValue(undefined),
     },
@@ -262,5 +263,72 @@ describe("register_vault_actions", () => {
     await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
 
     expect(execute_open_dashboard).not.toHaveBeenCalled();
+  });
+
+  describe("vault_sync_index", () => {
+    it("calls sync_index on the vault service", async () => {
+      const { registry, stores, services } = create_vault_actions_harness();
+      stores.vault.set_vault({
+        id: as_vault_id("v1"),
+        name: "Test",
+        path: as_vault_path("/test"),
+        created_at: 1,
+      });
+
+      await registry.execute(ACTION_IDS.vault_sync_index);
+
+      expect(services.vault.sync_index).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips execution when no vault is open", async () => {
+      const { registry, services } = create_vault_actions_harness();
+
+      await registry.execute(ACTION_IDS.vault_sync_index);
+
+      expect(services.vault.sync_index).not.toHaveBeenCalled();
+    });
+
+    it("is listed as available when a vault is open", () => {
+      const { registry, stores } = create_vault_actions_harness();
+      stores.vault.set_vault({
+        id: as_vault_id("v1"),
+        name: "Test",
+        path: as_vault_path("/test"),
+        created_at: 1,
+      });
+
+      const available = registry.get_available();
+      const sync_action = available.find(
+        (a) => a.id === ACTION_IDS.vault_sync_index,
+      );
+      expect(sync_action).toBeDefined();
+    });
+
+    it("is not listed as available when no vault is open", () => {
+      const { registry } = create_vault_actions_harness();
+
+      const available = registry.get_available();
+      const sync_action = available.find(
+        (a) => a.id === ACTION_IDS.vault_sync_index,
+      );
+      expect(sync_action).toBeUndefined();
+    });
+
+    it("reports failure from sync_index without throwing", async () => {
+      const { registry, stores, services } = create_vault_actions_harness();
+      stores.vault.set_vault({
+        id: as_vault_id("v1"),
+        name: "Test",
+        path: as_vault_path("/test"),
+        created_at: 1,
+      });
+      services.vault.sync_index = vi
+        .fn()
+        .mockResolvedValue({ status: "failed", error: "network error" });
+
+      await registry.execute(ACTION_IDS.vault_sync_index);
+
+      expect(services.vault.sync_index).toHaveBeenCalledTimes(1);
+    });
   });
 });

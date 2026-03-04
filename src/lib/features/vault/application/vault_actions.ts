@@ -347,6 +347,18 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.vault_sync_index,
+    label: "Sync Vault Index",
+    when: () => stores.vault.vault !== null,
+    execute: async () => {
+      const result = await services.vault.sync_index();
+      if (result.status === "failed") {
+        toast.error(result.error);
+      }
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.vault_reindex,
     label: "Reindex Vault",
     when: () => stores.vault.vault !== null,

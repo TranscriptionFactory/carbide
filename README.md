@@ -76,4 +76,3 @@ pnpm format     # Prettier
 ## License
 
 MIT - See [LICENSE](./LICENSE) for details.
-

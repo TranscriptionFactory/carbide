@@ -40,6 +40,7 @@ export const ACTION_IDS = {
   vault_select_pinned_slot: "vault.select_pinned_slot",
   vault_remove_from_registry: "vault.remove_from_registry",
   vault_toggle_pin: "vault.toggle_pin",
+  vault_sync_index: "vault.sync_index",
   vault_reindex: "vault.reindex",
 
   folder_request_create: "folder.request_create",

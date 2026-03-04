@@ -6,7 +6,6 @@ export type { IndexProgress } from "$lib/features/search/state/search_store.svel
 export type {
   SearchPort,
   WorkspaceIndexPort,
-  IndexChange,
 } from "$lib/features/search/ports";
 export { create_search_tauri_adapter } from "$lib/features/search/adapters/search_tauri_adapter";
 export { create_workspace_index_tauri_adapter } from "$lib/features/search/adapters/workspace_index_tauri_adapter";
