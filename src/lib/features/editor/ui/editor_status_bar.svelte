@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Info, FolderOpen, RefreshCw } from "@lucide/svelte";
+  import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
@@ -19,9 +20,11 @@
     git_is_dirty: boolean;
     git_pending_files: number;
     git_sync_status: GitSyncStatus;
+    is_repairing_links: boolean;
     on_vault_click: () => void;
     on_info_click: () => void;
     on_git_click: () => void;
+    on_sync_click: () => void;
   }
 
   let {
@@ -37,16 +40,25 @@
     git_is_dirty,
     git_pending_files,
     git_sync_status,
+    is_repairing_links,
     on_vault_click,
     on_info_click,
     on_git_click,
+    on_sync_click,
   }: Props = $props();
 
   const line = $derived(cursor_info?.line ?? null);
   const column = $derived(cursor_info?.column ?? null);
+  const is_indexing = $derived(index_progress.status === "indexing");
   const show_index_counts = $derived(
     index_progress.total > 1 || index_progress.indexed > 0,
   );
+  const sync_tooltip = $derived.by(() => {
+    if (is_indexing) return "Indexing in progress…";
+    if (index_progress.status === "failed")
+      return "Last index failed — click to retry";
+    return "Sync index";
+  });
 
   let show_completed = $state(false);
   let completed_timer: ReturnType<typeof setTimeout> | null = null;
@@ -100,9 +112,16 @@
     {/if}
   </div>
   <div class="StatusBar__section">
-    {#if index_progress.status === "indexing"}
-      <span class="StatusBar__item StatusBar__item--indexing">
+    {#if is_repairing_links}
+      <span class="StatusBar__item StatusBar__item--repairing">
         <RefreshCw class="StatusBar__spinner" />
+        <span>Repairing links...</span>
+      </span>
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+    {/if}
+
+    {#if is_indexing}
+      <span class="StatusBar__item StatusBar__item--indexing">
         {#if show_index_counts}
           <span>Indexing {index_progress.indexed}/{index_progress.total}</span>
         {:else}
@@ -151,6 +170,28 @@
         on_click={on_git_click}
       />
     {/if}
+    <Tooltip.Provider delayDuration={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <button
+              {...props}
+              type="button"
+              class="StatusBar__action"
+              class:StatusBar__action--active={is_indexing}
+              onclick={on_sync_click}
+              disabled={!vault_name || is_indexing}
+              aria-label={sync_tooltip}
+            >
+              <RefreshCw class={is_indexing ? "StatusBar__spinner" : ""} />
+            </button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top" sideOffset={4}>
+          {sync_tooltip}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   </div>
 </div>
 
@@ -182,6 +223,10 @@
   }
 
   .StatusBar__item--indexing {
+    color: var(--primary);
+  }
+
+  .StatusBar__item--repairing {
     color: var(--primary);
   }
 
@@ -264,6 +309,11 @@
   .StatusBar__action:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .StatusBar__action--active {
+    color: var(--primary);
+    opacity: 1;
   }
 
   :global(.StatusBar__item svg),

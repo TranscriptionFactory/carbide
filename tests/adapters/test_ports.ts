@@ -9,7 +9,6 @@ import type { Ports } from "$lib/app/di/app_ports";
 import { create_milkdown_editor_port } from "$lib/features/editor";
 import { create_test_clipboard_adapter } from "./test_clipboard_adapter";
 import { create_test_shell_adapter } from "./test_shell_adapter";
-import { create_test_watcher_adapter } from "./test_watcher_adapter";
 import { create_test_git_adapter } from "./test_git_adapter";
 
 export function create_test_ports(): Ports {
@@ -28,7 +27,6 @@ export function create_test_ports(): Ports {
         assets.resolve_asset_url(vault_id, asset_path),
     }),
     clipboard: create_test_clipboard_adapter(),
-    watcher: create_test_watcher_adapter(),
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
   };

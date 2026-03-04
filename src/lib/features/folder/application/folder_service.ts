@@ -19,7 +19,10 @@ import { create_logger } from "$lib/shared/utils/logger";
 import { move_destination_path } from "$lib/features/folder/domain/filetree";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
-import type { LinkRepairService } from "$lib/features/links";
+import {
+  run_link_repair_operation,
+  type LinkRepairService,
+} from "$lib/features/links";
 
 const log = create_logger("folder_service");
 type MoveItemResult = Awaited<ReturnType<NotesPort["move_items"]>>[number];
@@ -66,6 +69,28 @@ export class FolderService {
     );
     this.op_store.fail(operation_key, message);
     return message;
+  }
+
+  private async run_link_repair(
+    vault_id: VaultId,
+    path_map: Map<string, string>,
+  ): Promise<void> {
+    await run_link_repair_operation({
+      link_repair: this.link_repair,
+      vault_id,
+      path_map,
+      on_start: () => {
+        this.start_operation("links.repair");
+      },
+      on_success: (message) => {
+        this.op_store.succeed("links.repair", message);
+      },
+      on_failed: (message) => {
+        this.op_store.fail("links.repair", message);
+      },
+      on_error: (error) =>
+        this.fail_operation("links.repair", "Link repair failed", error),
+    });
   }
 
   private build_note_path_map_for_prefix_move(
@@ -355,9 +380,7 @@ export class FolderService {
 
       await this.notes_port.rename_folder(vault_id, folder_path, new_path);
 
-      if (path_map.size > 0) {
-        await this.link_repair?.repair_links(vault_id, path_map);
-      }
+      await this.run_link_repair(vault_id, path_map);
 
       this.succeed_operation("folder.rename");
       return { status: "success" };
@@ -399,9 +422,7 @@ export class FolderService {
       );
       const path_map = this.build_move_path_map(results, items_by_path);
 
-      if (path_map.size > 0) {
-        await this.link_repair?.repair_links(vault_id, path_map);
-      }
+      await this.run_link_repair(vault_id, path_map);
 
       for (const result of results) {
         if (!result.success) {

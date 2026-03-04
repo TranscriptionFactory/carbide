@@ -1,12 +1,8 @@
-import type { IndexChange, WorkspaceIndexPort } from "$lib/features/search";
+import type { WorkspaceIndexPort } from "$lib/features/search";
 import type { NoteId, VaultId } from "$lib/shared/types/ids";
 
 export function create_test_workspace_index_adapter(): WorkspaceIndexPort {
   return {
-    async touch_index(
-      _vault_id: VaultId,
-      _change: IndexChange,
-    ): Promise<void> {},
     async cancel_index(_vault_id: VaultId): Promise<void> {},
     async sync_index(_vault_id: VaultId): Promise<void> {},
     async rebuild_index(_vault_id: VaultId): Promise<void> {},

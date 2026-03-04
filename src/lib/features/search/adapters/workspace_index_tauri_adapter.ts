@@ -1,12 +1,7 @@
-import {
-  create_index_actor,
-  type PrefixRename,
-} from "$lib/features/search/adapters/index_actor";
 import { create_abort_error } from "$lib/features/search/adapters/index_run_abort";
-import { wrap_index_actor_as_port } from "$lib/features/search/adapters/workspace_index_facade";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import type { WorkspaceIndexPort } from "$lib/features/search/ports";
-import type { VaultId } from "$lib/shared/types/ids";
+import type { NoteId, VaultId } from "$lib/shared/types/ids";
 import type { IndexProgressEvent } from "$lib/shared/types/search";
 import { listen } from "@tauri-apps/api/event";
 
@@ -25,6 +20,7 @@ function as_error(value: unknown): Error {
 
 export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
   const run_waiters_by_vault = new Map<string, RunWaiter[]>();
+  const progress_listeners = new Set<(event: IndexProgressEvent) => void>();
   let progress_listener_ready: Promise<void> | null = null;
 
   function remove_waiter(vault_id: string, waiter: RunWaiter): void {
@@ -51,6 +47,9 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
       "index_progress",
       (event) => {
         const payload = event.payload;
+        for (const listener of progress_listeners) {
+          listener(payload);
+        }
         const queue = run_waiters_by_vault.get(payload.vault_id);
         if (!queue || queue.length === 0) {
           return;
@@ -212,40 +211,34 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
     }
   }
 
-  const actor = create_index_actor({
-    async sync_index(
-      vault_id: VaultId,
-      on_progress?: (indexed: number, total: number) => void,
-      signal?: AbortSignal,
-    ): Promise<void> {
-      await run_index_command("index_build", vault_id, on_progress, signal);
+  return {
+    async cancel_index(vault_id: VaultId): Promise<void> {
+      await cancel_tauri_index_run(vault_id);
     },
-    async rebuild_index(
-      vault_id: VaultId,
-      on_progress?: (indexed: number, total: number) => void,
-      signal?: AbortSignal,
-    ): Promise<void> {
-      await run_index_command("index_rebuild", vault_id, on_progress, signal);
+    async sync_index(vault_id: VaultId): Promise<void> {
+      await run_index_command("index_build", vault_id);
     },
-    async upsert_paths(vault_id: VaultId, paths: string[]): Promise<void> {
-      for (const path of paths) {
-        try {
-          await tauri_invoke<undefined>("index_upsert_note", {
-            vaultId: vault_id,
-            noteId: path,
-          });
-        } catch {
-          await tauri_invoke<undefined>("index_remove_note", {
-            vaultId: vault_id,
-            noteId: path,
-          }).catch(() => undefined);
+    async rebuild_index(vault_id: VaultId): Promise<void> {
+      await run_index_command("index_rebuild", vault_id);
+    },
+    async upsert_note(vault_id: VaultId, note_id: NoteId): Promise<void> {
+      await tauri_invoke<undefined>("index_upsert_note", {
+        vaultId: vault_id,
+        noteId: note_id,
+      });
+    },
+    async remove_note(vault_id: VaultId, note_id: NoteId): Promise<void> {
+      await tauri_invoke<undefined>("index_remove_note", {
+        vaultId: vault_id,
+        noteId: note_id,
+      });
+    },
+    async remove_notes(vault_id: VaultId, note_ids: NoteId[]): Promise<void> {
+      if (note_ids.length === 1) {
+        const first = note_ids[0];
+        if (!first) {
+          return;
         }
-      }
-    },
-    async remove_paths(vault_id: VaultId, paths: string[]): Promise<void> {
-      if (paths.length === 1) {
-        const first = paths[0];
-        if (!first) return;
         await tauri_invoke<undefined>("index_remove_note", {
           vaultId: vault_id,
           noteId: first,
@@ -254,45 +247,46 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
       }
       await tauri_invoke<undefined>("index_remove_notes", {
         vaultId: vault_id,
-        noteIds: paths,
+        noteIds: note_ids,
       });
     },
-    async remove_prefixes(
+    async rename_note_path(
       vault_id: VaultId,
-      prefixes: string[],
+      old_path: NoteId,
+      new_path: NoteId,
     ): Promise<void> {
-      for (const prefix of prefixes) {
-        await tauri_invoke<undefined>("index_remove_notes_by_prefix", {
-          vaultId: vault_id,
-          prefix,
-        });
-      }
+      await tauri_invoke<undefined>("index_rename_note", {
+        vaultId: vault_id,
+        oldPath: old_path,
+        newPath: new_path,
+      });
     },
-    async rename_paths(
+    async remove_notes_by_prefix(
       vault_id: VaultId,
-      renames: Array<{ old_path: string; new_path: string }>,
+      prefix: string,
     ): Promise<void> {
-      for (const rename of renames) {
-        await tauri_invoke<undefined>("index_rename_note", {
-          vaultId: vault_id,
-          oldPath: rename.old_path,
-          newPath: rename.new_path,
-        });
-      }
+      await tauri_invoke<undefined>("index_remove_notes_by_prefix", {
+        vaultId: vault_id,
+        prefix,
+      });
     },
-    async rename_prefixes(
+    async rename_folder_paths(
       vault_id: VaultId,
-      renames: PrefixRename[],
+      old_prefix: string,
+      new_prefix: string,
     ): Promise<void> {
-      for (const rename of renames) {
-        await tauri_invoke<number>("index_rename_folder", {
-          vaultId: vault_id,
-          oldPrefix: rename.old_prefix,
-          newPrefix: rename.new_prefix,
-        });
-      }
+      await tauri_invoke<number>("index_rename_folder", {
+        vaultId: vault_id,
+        oldPrefix: old_prefix,
+        newPrefix: new_prefix,
+      });
     },
-  });
-
-  return wrap_index_actor_as_port(actor, cancel_tauri_index_run);
+    subscribe_index_progress(callback: (event: IndexProgressEvent) => void) {
+      void ensure_progress_listener();
+      progress_listeners.add(callback);
+      return () => {
+        progress_listeners.delete(callback);
+      };
+    },
+  };
 }

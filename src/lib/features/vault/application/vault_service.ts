@@ -1,11 +1,9 @@
 import type { VaultPort } from "$lib/features/vault/ports";
 import type { NotesPort } from "$lib/features/note";
-import type { WorkspaceIndexPort, IndexChange } from "$lib/features/search";
-import type { WatcherPort } from "$lib/features/watcher";
+import type { WorkspaceIndexPort } from "$lib/features/search";
 import type { SettingsPort } from "$lib/features/settings";
 import type { VaultSettingsPort } from "$lib/features/vault/ports";
 import {
-  as_note_path,
   as_vault_id,
   type VaultId,
   type VaultPath,
@@ -33,7 +31,6 @@ import { create_untitled_open_note } from "$lib/features/note";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
-import type { VaultFsEvent } from "$lib/features/watcher";
 
 const log = create_logger("vault_service");
 
@@ -45,8 +42,6 @@ export type AppMountConfig = {
 const RECENT_NOTES_KEY = "recent_notes";
 const STARRED_PATHS_KEY = "starred_paths";
 const PINNED_VAULT_IDS_KEY = "pinned_vault_ids";
-const WATCHER_INDEX_FLUSH_DELAY_MS = 120;
-const WATCHER_BULK_FORCE_SCAN_THRESHOLD = 256;
 
 type VaultOpenSnapshot = {
   root_contents: Awaited<ReturnType<NotesPort["list_folder_contents"]>>;
@@ -69,7 +64,6 @@ export class VaultService {
     private readonly vault_port: VaultPort,
     private readonly notes_port: NotesPort,
     private readonly index_port: WorkspaceIndexPort,
-    private readonly watcher_port: WatcherPort,
     private readonly settings_port: SettingsPort,
     private readonly vault_settings_port: VaultSettingsPort,
     private readonly vault_store: VaultStore,
@@ -81,15 +75,7 @@ export class VaultService {
   ) {}
 
   private index_progress_unsubscribe: (() => void) | null = null;
-  private watcher_event_unsubscribe: (() => void) | null = null;
   private active_open_revision = 0;
-  private watcher_index_flush_timer: ReturnType<typeof setTimeout> | null =
-    null;
-  private watcher_index_buffer_vault_id: VaultId | null = null;
-  private watcher_index_buffer_revision = 0;
-  private watcher_force_scan_buffered = false;
-  private watcher_upsert_paths_buffer = new Set<string>();
-  private watcher_remove_paths_buffer = new Set<string>();
 
   private get_active_vault_id(): VaultId | null {
     return this.vault_store.vault?.id ?? null;
@@ -279,7 +265,7 @@ export class VaultService {
   }
 
   async rebuild_index(): Promise<
-    | { status: "started" }
+    | { status: "success" }
     | { status: "skipped" }
     | { status: "failed"; error: string }
   > {
@@ -296,11 +282,43 @@ export class VaultService {
     try {
       await this.index_port.rebuild_index(vault_id);
       this.succeed_operation("vault.reindex");
-      return { status: "started" };
+      return { status: "success" };
     } catch (error) {
       const message = this.fail_operation(
         "vault.reindex",
         "Reindex vault failed",
+        error,
+      );
+      return {
+        status: "failed",
+        error: message,
+      };
+    }
+  }
+
+  async sync_index(): Promise<
+    | { status: "success" }
+    | { status: "skipped" }
+    | { status: "failed"; error: string }
+  > {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      return { status: "skipped" };
+    }
+    if (this.search_store.index_progress.status === "indexing") {
+      return { status: "skipped" };
+    }
+
+    this.start_operation("vault.sync_index");
+
+    try {
+      await this.index_port.sync_index(vault_id);
+      this.succeed_operation("vault.sync_index");
+      return { status: "success" };
+    } catch (error) {
+      const message = this.fail_operation(
+        "vault.sync_index",
+        "Sync vault index failed",
         error,
       );
       return {
@@ -350,27 +368,14 @@ export class VaultService {
     vault: Vault,
     open_revision: number,
   ): Promise<EditorSettings> {
-    this.throw_if_stale(open_revision);
-    await this.unwatch_vault_with_logging();
-    this.throw_if_stale(open_revision);
-
     const snapshot = await this.load_open_vault_snapshot(vault, open_revision);
     this.throw_if_stale(open_revision);
 
     this.apply_open_vault_snapshot(vault, snapshot);
     this.subscribe_open_vault_index_progress(vault.id, open_revision);
-    await this.watch_open_vault_fs_events(vault.id, open_revision);
     this.trigger_background_index_sync(vault.id, open_revision);
 
     return snapshot.editor_settings;
-  }
-
-  private async unwatch_vault_with_logging() {
-    try {
-      await this.watcher_port.unwatch_vault();
-    } catch (error) {
-      log.error("Unwatch vault failed", { error });
-    }
   }
 
   private async load_open_vault_snapshot(
@@ -434,29 +439,6 @@ export class VaultService {
         }
       },
     );
-  }
-
-  private async watch_open_vault_fs_events(
-    vault_id: VaultId,
-    open_revision: number,
-  ) {
-    try {
-      await this.watcher_port.watch_vault(vault_id);
-      this.throw_if_stale(open_revision);
-      this.watcher_event_unsubscribe = this.watcher_port.subscribe_fs_events(
-        (event) => {
-          if (!this.is_current_open_revision(open_revision)) {
-            return;
-          }
-          if (event.vault_id !== vault_id) {
-            return;
-          }
-          this.handle_watcher_event(vault_id, event, open_revision);
-        },
-      );
-    } catch (error) {
-      log.error("Watch vault failed", { error });
-    }
   }
 
   private trigger_background_index_sync(
@@ -623,7 +605,6 @@ export class VaultService {
     this.active_open_revision += 1;
     const revision = this.active_open_revision;
     this.clear_open_runtime_subscriptions();
-    this.reset_watcher_index_buffer();
     if (current_vault_id) {
       try {
         await this.index_port.cancel_index(current_vault_id);
@@ -631,181 +612,12 @@ export class VaultService {
         log.error("Cancel index failed", { error });
       }
     }
-    await this.unwatch_vault_with_logging();
     return revision;
   }
 
   private clear_open_runtime_subscriptions(): void {
     this.index_progress_unsubscribe?.();
     this.index_progress_unsubscribe = null;
-    this.watcher_event_unsubscribe?.();
-    this.watcher_event_unsubscribe = null;
-  }
-
-  private handle_watcher_event(
-    vault_id: VaultId,
-    event: VaultFsEvent,
-    revision: number,
-  ): void {
-    if (!this.is_current_open_revision(revision)) {
-      return;
-    }
-
-    let change: IndexChange | null = null;
-    if (
-      event.type === "note_changed_externally" ||
-      event.type === "note_added"
-    ) {
-      if (event.note_path) {
-        change = { kind: "upsert_path", path: as_note_path(event.note_path) };
-      }
-    } else if (event.type === "note_removed") {
-      if (event.note_path) {
-        change = { kind: "remove_path", path: as_note_path(event.note_path) };
-      }
-    } else {
-      change = { kind: "force_scan" };
-    }
-
-    if (!change) {
-      return;
-    }
-
-    this.buffer_watcher_index_change(vault_id, revision, change);
-  }
-
-  private reset_watcher_index_buffer(): void {
-    if (this.watcher_index_flush_timer) {
-      clearTimeout(this.watcher_index_flush_timer);
-      this.watcher_index_flush_timer = null;
-    }
-    this.watcher_index_buffer_vault_id = null;
-    this.watcher_index_buffer_revision = 0;
-    this.watcher_force_scan_buffered = false;
-    this.watcher_upsert_paths_buffer.clear();
-    this.watcher_remove_paths_buffer.clear();
-  }
-
-  private schedule_watcher_index_flush(
-    vault_id: VaultId,
-    revision: number,
-  ): void {
-    if (this.watcher_index_flush_timer) {
-      return;
-    }
-    this.watcher_index_flush_timer = setTimeout(() => {
-      this.watcher_index_flush_timer = null;
-      void this.flush_watcher_index_buffer(vault_id, revision);
-    }, WATCHER_INDEX_FLUSH_DELAY_MS);
-  }
-
-  private buffer_watcher_index_change(
-    vault_id: VaultId,
-    revision: number,
-    change: IndexChange,
-  ): void {
-    if (
-      this.watcher_index_buffer_vault_id !== null &&
-      (this.watcher_index_buffer_vault_id !== vault_id ||
-        this.watcher_index_buffer_revision !== revision)
-    ) {
-      this.reset_watcher_index_buffer();
-    }
-
-    this.watcher_index_buffer_vault_id = vault_id;
-    this.watcher_index_buffer_revision = revision;
-
-    if (change.kind === "force_scan") {
-      this.watcher_force_scan_buffered = true;
-      this.watcher_upsert_paths_buffer.clear();
-      this.watcher_remove_paths_buffer.clear();
-      this.schedule_watcher_index_flush(vault_id, revision);
-      return;
-    }
-
-    if (this.watcher_force_scan_buffered) {
-      this.schedule_watcher_index_flush(vault_id, revision);
-      return;
-    }
-
-    if (change.kind === "remove_path") {
-      const path = String(change.path);
-      this.watcher_upsert_paths_buffer.delete(path);
-      this.watcher_remove_paths_buffer.add(path);
-    } else if (change.kind === "upsert_path") {
-      const path = String(change.path);
-      this.watcher_remove_paths_buffer.delete(path);
-      this.watcher_upsert_paths_buffer.add(path);
-    }
-
-    if (
-      this.watcher_upsert_paths_buffer.size +
-        this.watcher_remove_paths_buffer.size >=
-      WATCHER_BULK_FORCE_SCAN_THRESHOLD
-    ) {
-      this.watcher_force_scan_buffered = true;
-      this.watcher_upsert_paths_buffer.clear();
-      this.watcher_remove_paths_buffer.clear();
-    }
-
-    this.schedule_watcher_index_flush(vault_id, revision);
-  }
-
-  private async flush_watcher_index_buffer(
-    vault_id: VaultId,
-    revision: number,
-  ): Promise<void> {
-    if (
-      this.watcher_index_buffer_vault_id !== vault_id ||
-      this.watcher_index_buffer_revision !== revision
-    ) {
-      return;
-    }
-
-    const force_scan = this.watcher_force_scan_buffered;
-    const remove_paths = [...this.watcher_remove_paths_buffer];
-    const upsert_paths = [...this.watcher_upsert_paths_buffer];
-
-    this.watcher_force_scan_buffered = false;
-    this.watcher_upsert_paths_buffer.clear();
-    this.watcher_remove_paths_buffer.clear();
-
-    if (!this.is_current_open_revision(revision)) {
-      return;
-    }
-
-    try {
-      if (force_scan) {
-        await this.index_port.touch_index(vault_id, { kind: "force_scan" });
-        return;
-      }
-      if (remove_paths.length === 0 && upsert_paths.length === 0) {
-        return;
-      }
-      const tasks: Promise<void>[] = [];
-      for (const path of remove_paths) {
-        tasks.push(
-          this.index_port.touch_index(vault_id, {
-            kind: "remove_path",
-            path: as_note_path(path),
-          }),
-        );
-      }
-      for (const path of upsert_paths) {
-        tasks.push(
-          this.index_port.touch_index(vault_id, {
-            kind: "upsert_path",
-            path: as_note_path(path),
-          }),
-        );
-      }
-      await Promise.all(tasks);
-    } catch (error) {
-      if (!this.is_current_open_revision(revision)) {
-        return;
-      }
-      log.error("Watcher-triggered index sync failed", { error });
-    }
   }
 
   private is_current_open_revision(revision: number): boolean {

@@ -25,7 +25,7 @@ For adding/updating any feature, always refer to the decision tree in the archit
 
 ## Post edit tasks
 
-- For major features, code-changes, invoke a code-simplifier subagent with full context to simplify WITHOUT breaking the logic or the "requirements" that user proposed. Simplification will be penalized if it breaks existing code patterns, standards or guidelines
+- For major features, code-changes, invoke a subagent (code-simplifier subagent/skill) with full context to simplify WITHOUT breaking the logic or the "requirements" that user proposed. Simplification will be penalized if it breaks existing code patterns, standards or guidelines
 - When you have made **code changes** run the following and fix any issues:
   - `pnpm check` — Svelte/TypeScript type checking
   - `pnpm lint` — oxlint linting

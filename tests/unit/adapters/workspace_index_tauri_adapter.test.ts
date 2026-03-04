@@ -37,14 +37,14 @@ describe("workspace_index_tauri_adapter", () => {
     );
   });
 
-  it("sync_index enqueues force_scan and emits lifecycle progress", async () => {
+  it("sync_index invokes index_build and emits lifecycle progress", async () => {
     const adapter = create_workspace_index_tauri_adapter();
     const events: string[] = [];
     adapter.subscribe_index_progress((event) => {
       events.push(event.status);
     });
 
-    await adapter.sync_index(as_vault_id("vault-1"));
+    const run = adapter.sync_index(as_vault_id("vault-1"));
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -66,11 +66,12 @@ describe("workspace_index_tauri_adapter", () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    await run;
 
     expect(tauri_invoke_mock).toHaveBeenCalledWith("index_build", {
       vaultId: "vault-1",
     });
-    expect(events).toEqual(["started", "progress", "completed"]);
+    expect(events).toEqual(["started", "completed"]);
   });
 
   it("batches remove_paths through index_remove_notes", async () => {

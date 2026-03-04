@@ -69,6 +69,10 @@ pnpm test       # Vitest unit tests
 pnpm format     # Prettier
 ```
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ajkdrag/otterly&type=date&legend=top-left)](https://www.star-history.com/#ajkdrag/otterly&type=date&legend=top-left)
+
 ## License
 
 MIT - See [LICENSE](./LICENSE) for details.

@@ -6,6 +6,7 @@ export type SearchCommandDefinition = {
     | "change_vault"
     | "open_settings"
     | "open_hotkeys"
+    | "sync_index"
     | "reindex_vault"
     | "show_vault_dashboard"
     | "git_version_history"

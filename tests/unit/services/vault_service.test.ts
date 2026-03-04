@@ -73,7 +73,6 @@ describe("VaultService", () => {
     };
 
     const index_port = {
-      touch_index: vi.fn().mockResolvedValue(undefined),
       cancel_index: vi.fn().mockResolvedValue(undefined),
       sync_index: vi.fn().mockResolvedValue(undefined),
       rebuild_index: vi.fn().mockResolvedValue(undefined),
@@ -81,13 +80,9 @@ describe("VaultService", () => {
       remove_note: vi.fn(),
       remove_notes: vi.fn(),
       remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-    };
-    const watcher_port = {
-      watch_vault: vi.fn().mockResolvedValue(undefined),
-      unwatch_vault: vi.fn().mockResolvedValue(undefined),
-      subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
     };
 
     const settings_port = {
@@ -115,7 +110,6 @@ describe("VaultService", () => {
       vault_port as never,
       notes_port as never,
       index_port as never,
-      watcher_port as never,
       settings_port as never,
       vault_settings_port as never,
       vault_store,
@@ -141,120 +135,72 @@ describe("VaultService", () => {
     expect(vault_store.vault?.id).toBe(vault_b.id);
   });
 
-  it("watches opened vault and forwards fs note changes to touch_index", async () => {
-    vi.useFakeTimers();
-    try {
-      const vault: Vault = {
-        id: as_vault_id("vault-a"),
-        name: "Vault A",
-        path: as_vault_path("/vault/a"),
-        created_at: 1,
-      };
+  it("syncs index after opening vault", async () => {
+    const vault: Vault = {
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+    };
 
-      const vault_port = {
-        choose_vault: vi.fn(),
-        open_vault: vi.fn().mockResolvedValue(vault),
-        open_vault_by_id: vi.fn(),
-        list_vaults: vi.fn().mockResolvedValue([vault]),
-        remember_last_vault: vi.fn().mockResolvedValue(undefined),
-        get_last_vault_id: vi.fn().mockResolvedValue(null),
-      };
+    const vault_port = {
+      choose_vault: vi.fn(),
+      open_vault: vi.fn().mockResolvedValue(vault),
+      open_vault_by_id: vi.fn(),
+      list_vaults: vi.fn().mockResolvedValue([vault]),
+      remember_last_vault: vi.fn().mockResolvedValue(undefined),
+      get_last_vault_id: vi.fn().mockResolvedValue(null),
+    };
 
-      const notes_port = {
-        list_folder_contents: vi.fn().mockResolvedValue({
-          notes: [],
-          subfolders: [],
-          total_count: 0,
-          has_more: false,
-        }),
-      };
+    const notes_port = {
+      list_folder_contents: vi.fn().mockResolvedValue({
+        notes: [],
+        subfolders: [],
+        total_count: 0,
+        has_more: false,
+      }),
+    };
 
-      const index_port = {
-        touch_index: vi.fn().mockResolvedValue(undefined),
-        cancel_index: vi.fn().mockResolvedValue(undefined),
-        sync_index: vi.fn().mockResolvedValue(undefined),
-        rebuild_index: vi.fn().mockResolvedValue(undefined),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      };
+    const index_port = {
+      cancel_index: vi.fn().mockResolvedValue(undefined),
+      sync_index: vi.fn().mockResolvedValue(undefined),
+      rebuild_index: vi.fn().mockResolvedValue(undefined),
+      upsert_note: vi.fn(),
+      remove_note: vi.fn(),
+      remove_notes: vi.fn(),
+      remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
+      rename_folder_paths: vi.fn(),
+      subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+    };
 
-      let fs_callback: unknown = null;
-      const watcher_unsubscribe = vi.fn();
-      const watcher_port = {
-        watch_vault: vi.fn().mockResolvedValue(undefined),
-        unwatch_vault: vi.fn().mockResolvedValue(undefined),
-        subscribe_fs_events: vi.fn().mockImplementation((callback: unknown) => {
-          fs_callback = callback;
-          return watcher_unsubscribe;
-        }),
-      };
+    const settings_port = {
+      get_setting: vi.fn().mockResolvedValue(null),
+      set_setting: vi.fn(),
+    };
+    const vault_settings_port = {
+      get_vault_setting: vi.fn().mockResolvedValue(null),
+      set_vault_setting: vi.fn().mockResolvedValue(undefined),
+      delete_vault_setting: vi.fn(),
+    };
+    const service = new VaultService(
+      vault_port as never,
+      notes_port as never,
+      index_port as never,
+      settings_port as never,
+      vault_settings_port as never,
 
-      const settings_port = {
-        get_setting: vi.fn().mockResolvedValue(null),
-        set_setting: vi.fn(),
-      };
-      const vault_settings_port = {
-        get_vault_setting: vi.fn().mockResolvedValue(null),
-        set_vault_setting: vi.fn().mockResolvedValue(undefined),
-        delete_vault_setting: vi.fn(),
-      };
-      const service = new VaultService(
-        vault_port as never,
-        notes_port as never,
-        index_port as never,
-        watcher_port as never,
-        settings_port as never,
-        vault_settings_port as never,
+      new VaultStore(),
+      new NotesStore(),
+      new EditorStore(),
+      new OpStore(),
+      new SearchStore(),
+      () => 1,
+    );
 
-        new VaultStore(),
-        new NotesStore(),
-        new EditorStore(),
-        new OpStore(),
-        new SearchStore(),
-        () => 1,
-      );
-
-      const result = await service.change_vault_by_path(vault.path);
-      expect(result.status).toBe("opened");
-      expect(index_port.sync_index).toHaveBeenCalledTimes(1);
-      expect(watcher_port.watch_vault).toHaveBeenCalledWith(vault.id);
-      expect(watcher_port.subscribe_fs_events).toHaveBeenCalledTimes(1);
-
-      if (typeof fs_callback === "function") {
-        const emit_event = fs_callback as (event: {
-          vault_id: string;
-          type: string;
-          note_path?: string;
-        }) => void;
-        emit_event({
-          vault_id: vault.id,
-          type: "note_changed_externally",
-          note_path: "notes/a.md",
-        });
-        emit_event({
-          vault_id: vault.id,
-          type: "note_removed",
-          note_path: "notes/b.md",
-        });
-      }
-      await vi.runAllTimersAsync();
-
-      expect(index_port.touch_index).toHaveBeenCalledTimes(2);
-      expect(index_port.touch_index).toHaveBeenCalledWith(vault.id, {
-        kind: "upsert_path",
-        path: "notes/a.md",
-      });
-      expect(index_port.touch_index).toHaveBeenCalledWith(vault.id, {
-        kind: "remove_path",
-        path: "notes/b.md",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+    const result = await service.change_vault_by_path(vault.path);
+    expect(result.status).toBe("opened");
+    expect(index_port.sync_index).toHaveBeenCalledTimes(1);
   });
 
   it("returns failure when selecting an unavailable vault by id", async () => {
@@ -286,7 +232,6 @@ describe("VaultService", () => {
         }),
       } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn(),
         rebuild_index: vi.fn(),
@@ -294,13 +239,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue(null),
@@ -338,7 +279,6 @@ describe("VaultService", () => {
       } as never,
       { list_folder_contents: vi.fn() } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn().mockResolvedValue(undefined),
         rebuild_index: vi.fn(),
@@ -346,13 +286,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -420,7 +356,6 @@ describe("VaultService", () => {
         }),
       } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn().mockResolvedValue(undefined),
         rebuild_index: vi.fn(),
@@ -428,13 +363,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -501,7 +432,6 @@ describe("VaultService", () => {
         }),
       } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn().mockResolvedValue(undefined),
         rebuild_index: vi.fn(),
@@ -509,13 +439,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue([vault_b.id]),
@@ -545,7 +471,7 @@ describe("VaultService", () => {
     expect(skipped).toEqual({ status: "skipped" });
   });
 
-  it("unsubscribes previous watcher subscription when vault changes", async () => {
+  it("cancels in-flight index when vault changes", async () => {
     const vault_a: Vault = {
       id: as_vault_id("vault-a"),
       name: "Vault A",
@@ -580,7 +506,6 @@ describe("VaultService", () => {
     };
 
     const index_port = {
-      touch_index: vi.fn().mockResolvedValue(undefined),
       cancel_index: vi.fn().mockResolvedValue(undefined),
       sync_index: vi.fn().mockResolvedValue(undefined),
       rebuild_index: vi.fn().mockResolvedValue(undefined),
@@ -588,19 +513,9 @@ describe("VaultService", () => {
       remove_note: vi.fn(),
       remove_notes: vi.fn(),
       remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-    };
-
-    const unwatch_a = vi.fn();
-    const unwatch_b = vi.fn();
-    const watcher_port = {
-      watch_vault: vi.fn().mockResolvedValue(undefined),
-      unwatch_vault: vi.fn().mockResolvedValue(undefined),
-      subscribe_fs_events: vi
-        .fn()
-        .mockReturnValueOnce(unwatch_a)
-        .mockReturnValueOnce(unwatch_b),
     };
 
     const settings_port = {
@@ -616,7 +531,6 @@ describe("VaultService", () => {
       vault_port as never,
       notes_port as never,
       index_port as never,
-      watcher_port as never,
       settings_port as never,
       vault_settings_port as never,
 
@@ -632,9 +546,6 @@ describe("VaultService", () => {
     await service.change_vault_by_path(vault_b.path);
 
     expect(index_port.cancel_index).toHaveBeenCalledWith(vault_a.id);
-    expect(unwatch_a).toHaveBeenCalledTimes(1);
-    expect(watcher_port.watch_vault).toHaveBeenNthCalledWith(1, vault_a.id);
-    expect(watcher_port.watch_vault).toHaveBeenNthCalledWith(2, vault_b.id);
   });
 
   it("skips rebuild while indexing is active", async () => {
@@ -656,7 +567,6 @@ describe("VaultService", () => {
     });
 
     const index_port = {
-      touch_index: vi.fn().mockResolvedValue(undefined),
       cancel_index: vi.fn().mockResolvedValue(undefined),
       sync_index: vi.fn().mockResolvedValue(undefined),
       rebuild_index: vi.fn().mockResolvedValue(undefined),
@@ -664,6 +574,7 @@ describe("VaultService", () => {
       remove_note: vi.fn(),
       remove_notes: vi.fn(),
       remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
     };
@@ -679,11 +590,6 @@ describe("VaultService", () => {
       } as never,
       { list_folder_contents: vi.fn() } as never,
       index_port as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
-      } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
         get_vault_setting: vi.fn(),
@@ -704,107 +610,66 @@ describe("VaultService", () => {
     expect(index_port.rebuild_index).not.toHaveBeenCalled();
   });
 
-  it("coalesces watcher bursts into a single force_scan touch", async () => {
-    vi.useFakeTimers();
-    try {
-      const vault: Vault = {
-        id: as_vault_id("vault-a"),
-        name: "Vault A",
-        path: as_vault_path("/vault/a"),
-        created_at: 1,
-      };
+  it("sync_index skips while indexing is active", async () => {
+    const vault: Vault = {
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+    };
 
-      const vault_port = {
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+
+    const search_store = new SearchStore();
+    search_store.set_index_progress({
+      status: "started",
+      vault_id: vault.id,
+      total: 100,
+    });
+
+    const index_port = {
+      cancel_index: vi.fn().mockResolvedValue(undefined),
+      sync_index: vi.fn().mockResolvedValue(undefined),
+      rebuild_index: vi.fn().mockResolvedValue(undefined),
+      upsert_note: vi.fn(),
+      remove_note: vi.fn(),
+      remove_notes: vi.fn(),
+      remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
+      rename_folder_paths: vi.fn(),
+      subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+    };
+
+    const service = new VaultService(
+      {
         choose_vault: vi.fn(),
-        open_vault: vi.fn().mockResolvedValue(vault),
+        open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
-        list_vaults: vi.fn().mockResolvedValue([vault]),
-        remember_last_vault: vi.fn().mockResolvedValue(undefined),
-        get_last_vault_id: vi.fn().mockResolvedValue(null),
-      };
+        list_vaults: vi.fn(),
+        remember_last_vault: vi.fn(),
+        get_last_vault_id: vi.fn(),
+      } as never,
+      { list_folder_contents: vi.fn() } as never,
+      index_port as never,
+      { get_setting: vi.fn(), set_setting: vi.fn() } as never,
+      {
+        get_vault_setting: vi.fn(),
+        set_vault_setting: vi.fn(),
+        delete_vault_setting: vi.fn(),
+      } as never,
 
-      const notes_port = {
-        list_folder_contents: vi.fn().mockResolvedValue({
-          notes: [],
-          subfolders: [],
-          total_count: 0,
-          has_more: false,
-        }),
-      };
+      vault_store,
+      new NotesStore(),
+      new EditorStore(),
+      new OpStore(),
+      search_store,
+      () => 1,
+    );
 
-      const index_port = {
-        touch_index: vi.fn().mockResolvedValue(undefined),
-        cancel_index: vi.fn().mockResolvedValue(undefined),
-        sync_index: vi.fn().mockResolvedValue(undefined),
-        rebuild_index: vi.fn().mockResolvedValue(undefined),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      };
-
-      let fs_callback: unknown = null;
-      const watcher_port = {
-        watch_vault: vi.fn().mockResolvedValue(undefined),
-        unwatch_vault: vi.fn().mockResolvedValue(undefined),
-        subscribe_fs_events: vi.fn().mockImplementation((callback: unknown) => {
-          fs_callback = callback;
-          return () => {};
-        }),
-      };
-
-      const service = new VaultService(
-        vault_port as never,
-        notes_port as never,
-        index_port as never,
-        watcher_port as never,
-        {
-          get_setting: vi.fn().mockResolvedValue(null),
-          set_setting: vi.fn(),
-        } as never,
-        {
-          get_vault_setting: vi.fn().mockResolvedValue(null),
-          set_vault_setting: vi.fn().mockResolvedValue(undefined),
-          delete_vault_setting: vi.fn(),
-        } as never,
-
-        new VaultStore(),
-        new NotesStore(),
-        new EditorStore(),
-        new OpStore(),
-        new SearchStore(),
-        () => 1,
-      );
-
-      const result = await service.change_vault_by_path(vault.path);
-      expect(result.status).toBe("opened");
-
-      if (typeof fs_callback === "function") {
-        const emit_event = fs_callback as (event: {
-          vault_id: string;
-          type: string;
-          note_path?: string;
-        }) => void;
-        for (let i = 0; i < 300; i += 1) {
-          emit_event({
-            vault_id: vault.id,
-            type: "note_added",
-            note_path: `bulk/${String(i)}.md`,
-          });
-        }
-      }
-
-      await vi.runAllTimersAsync();
-
-      expect(index_port.touch_index).toHaveBeenCalledTimes(1);
-      expect(index_port.touch_index).toHaveBeenCalledWith(vault.id, {
-        kind: "force_scan",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+    const result = await service.sync_index();
+    expect(result).toEqual({ status: "skipped" });
+    expect(index_port.sync_index).not.toHaveBeenCalled();
   });
 
   it("removes non-active vault from registry and prunes pinned state", async () => {
@@ -845,7 +710,6 @@ describe("VaultService", () => {
       vault_port as never,
       { list_folder_contents: vi.fn() } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn(),
         rebuild_index: vi.fn(),
@@ -853,13 +717,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -915,7 +775,6 @@ describe("VaultService", () => {
       vault_port as never,
       { list_folder_contents: vi.fn() } as never,
       {
-        touch_index: vi.fn(),
         cancel_index: vi.fn(),
         sync_index: vi.fn(),
         rebuild_index: vi.fn(),
@@ -923,13 +782,9 @@ describe("VaultService", () => {
         remove_note: vi.fn(),
         remove_notes: vi.fn(),
         remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        watch_vault: vi.fn(),
-        unwatch_vault: vi.fn(),
-        subscribe_fs_events: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {

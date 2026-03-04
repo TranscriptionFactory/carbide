@@ -15,7 +15,8 @@
     "dist/**",
     "node_modules/**",
     "src-tauri/target/**",
-    "src/lib/components/ui/**"
+    "src/lib/components/ui/**",
+    "vite.config.ts.timestamp-*.mjs"
   ],
   "rules": {
     "constructor-super": "error",
