@@ -6,6 +6,21 @@ import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 
+export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
+  create_new_note: ACTION_IDS.note_create,
+  change_vault: ACTION_IDS.vault_request_change,
+  open_settings: ACTION_IDS.settings_open,
+  open_hotkeys: ACTION_IDS.settings_open,
+  sync_index: ACTION_IDS.vault_sync_index,
+  reindex_vault: ACTION_IDS.vault_reindex,
+  show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
+  git_version_history: ACTION_IDS.git_open_history,
+  git_create_checkpoint: ACTION_IDS.git_open_checkpoint,
+  git_init_repo: ACTION_IDS.git_init,
+  toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
+  check_for_updates: ACTION_IDS.app_check_for_updates,
+};
+
 function set_omnibar_state(
   input: ActionRegistrationInput,
   patch: Partial<ActionRegistrationInput["stores"]["ui"]["omnibar"]>,
@@ -145,44 +160,11 @@ async function execute_command(
   command_id: CommandId,
 ) {
   const { registry } = input;
-
-  switch (command_id) {
-    case "create_new_note":
-      await registry.execute(ACTION_IDS.note_create);
-      break;
-    case "change_vault":
-      await registry.execute(ACTION_IDS.vault_request_change);
-      break;
-    case "open_settings":
-      await registry.execute(ACTION_IDS.settings_open);
-      break;
-    case "open_hotkeys":
-      await registry.execute(ACTION_IDS.settings_open, "hotkeys");
-      break;
-    case "sync_index":
-      await registry.execute(ACTION_IDS.vault_sync_index);
-      break;
-    case "reindex_vault":
-      await registry.execute(ACTION_IDS.vault_reindex);
-      break;
-    case "show_vault_dashboard":
-      await registry.execute(ACTION_IDS.ui_open_vault_dashboard);
-      break;
-    case "git_version_history":
-      await registry.execute(ACTION_IDS.git_open_history);
-      break;
-    case "git_create_checkpoint":
-      await registry.execute(ACTION_IDS.git_open_checkpoint);
-      break;
-    case "git_init_repo":
-      await registry.execute(ACTION_IDS.git_init);
-      break;
-    case "toggle_links_panel":
-      await registry.execute(ACTION_IDS.ui_toggle_context_rail);
-      break;
-    case "check_for_updates":
-      await registry.execute(ACTION_IDS.app_check_for_updates);
-      break;
+  const action_id = COMMAND_TO_ACTION_ID[command_id];
+  if (command_id === "open_hotkeys") {
+    await registry.execute(action_id, "hotkeys");
+  } else {
+    await registry.execute(action_id);
   }
 }
 

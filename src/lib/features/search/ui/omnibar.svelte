@@ -21,6 +21,9 @@
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
   import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+  import { COMMAND_TO_ACTION_ID } from "$lib/features/search/application/omnibar_actions";
+  import { HotkeyKey } from "$lib/features/hotkey";
+  import type { HotkeyConfig } from "$lib/features/hotkey";
   import type { Component } from "svelte";
 
   const COMMAND_ICONS: Record<CommandIconType, Component> = {
@@ -46,6 +49,7 @@
     items: OmnibarItem[];
     recent_notes: NoteMeta[];
     recent_command_ids: string[];
+    hotkeys_config: HotkeyConfig;
     has_multiple_vaults: boolean;
     on_open_change: (open: boolean) => void;
     on_query_change: (query: string) => void;
@@ -63,6 +67,7 @@
     items,
     recent_notes,
     recent_command_ids,
+    hotkeys_config,
     has_multiple_vaults,
     on_open_change,
     on_query_change,
@@ -190,6 +195,14 @@
       if (item.kind !== "cross_vault_note") return true;
       return !collapsed_vaults.has(item.vault_id);
     });
+  });
+
+  const action_id_to_key = $derived.by(() => {
+    const map = new Map<string, string>();
+    for (const b of hotkeys_config.bindings) {
+      if (b.key !== null) map.set(b.action_id, b.key);
+    }
+    return map;
   });
 
   const show_recent_header = $derived(
@@ -488,9 +501,17 @@
               </div>
             {:else if item.kind === "command"}
               {@const IconComponent = COMMAND_ICONS[item.command.icon]}
+              {@const command_key = action_id_to_key.get(
+                COMMAND_TO_ACTION_ID[item.command.id],
+              )}
               <div class="Omnibar__item-row">
                 <span class="Omnibar__item-icon"><IconComponent /></span>
                 <span class="Omnibar__item-title">{item.command.label}</span>
+                {#if command_key}
+                  <span class="Omnibar__item-shortcut"
+                    ><HotkeyKey hotkey={command_key} /></span
+                  >
+                {/if}
               </div>
               <div class="Omnibar__item-desc">{item.command.description}</div>
             {:else if item.kind === "setting"}
@@ -825,6 +846,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+  }
+
+  .Omnibar__item-shortcut {
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   :global(.Omnibar__item-row svg) {

@@ -334,6 +334,7 @@
   items={stores.search.omnibar_items}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
+  hotkeys_config={stores.ui.hotkeys_config}
   {has_multiple_vaults}
   on_open_change={(open) => {
     if (open) {
