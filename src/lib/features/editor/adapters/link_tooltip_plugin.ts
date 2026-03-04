@@ -93,45 +93,32 @@ function create_icon_button(
 }
 
 function build_preview_dom(callbacks: {
+  on_copy: () => void;
   on_edit: () => void;
   on_remove: () => void;
 }): {
   root: HTMLDivElement;
-  display_text_el: HTMLSpanElement;
-  link_url_el: HTMLSpanElement;
+  link_display_el: HTMLSpanElement;
 } {
   const root = document.createElement("div");
   root.className = "link-preview";
 
-  const icon_col = document.createElement("span");
-  icon_col.className = "link-icon";
-  icon_col.innerHTML = ICONS.link;
-  root.appendChild(icon_col);
+  root.appendChild(
+    create_icon_button(ICONS.link, "link-icon", callbacks.on_copy),
+  );
 
-  const text_stack = document.createElement("div");
-  text_stack.className = "link-text-stack";
+  const link_display_el = document.createElement("span");
+  link_display_el.className = "link-display";
+  root.appendChild(link_display_el);
 
-  const display_text_el = document.createElement("span");
-  display_text_el.className = "link-display-text";
-
-  const link_url_el = document.createElement("span");
-  link_url_el.className = "link-url";
-
-  text_stack.appendChild(display_text_el);
-  text_stack.appendChild(link_url_el);
-  root.appendChild(text_stack);
-
-  const actions = document.createElement("div");
-  actions.className = "link-actions";
-  actions.appendChild(
+  root.appendChild(
     create_icon_button(ICONS.edit, "link-edit-button", callbacks.on_edit),
   );
-  actions.appendChild(
+  root.appendChild(
     create_icon_button(ICONS.trash, "link-remove-button", callbacks.on_remove),
   );
-  root.appendChild(actions);
 
-  return { root, display_text_el, link_url_el };
+  return { root, link_display_el };
 }
 
 function build_edit_dom(callbacks: {
@@ -291,7 +278,14 @@ export function create_link_tooltip_plugin() {
           edit_provider.hide();
         };
 
+        const copy_link = () => {
+          if (!current_link) return;
+          const href = String(current_link.mark.attrs.href ?? "");
+          if (href) void navigator.clipboard.writeText(href).catch(() => {});
+        };
+
         const preview_dom = build_preview_dom({
+          on_copy: copy_link,
           on_edit: enter_edit_mode,
           on_remove: remove_link,
         });
@@ -349,8 +343,7 @@ export function create_link_tooltip_plugin() {
             if (info) {
               current_link = info;
               mode = "preview";
-              preview_dom.display_text_el.textContent = info.display_text;
-              preview_dom.link_url_el.textContent = String(
+              preview_dom.link_display_el.textContent = String(
                 info.mark.attrs.href ?? "",
               );
               preview_provider.show(
