@@ -516,8 +516,11 @@
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VaultDashboardPanel
-                          note_count={stores.notes.notes.length}
-                          folder_count={stores.notes.folder_paths.length}
+                          stats_status={stores.notes.dashboard_stats.status}
+                          note_count={stores.notes.dashboard_stats.value
+                            ?.note_count ?? null}
+                          folder_count={stores.notes.dashboard_stats.value
+                            ?.folder_count ?? null}
                           recent_notes={stores.notes.recent_notes}
                           vault_name={stores.vault.vault.name}
                           vault_path={stores.vault.vault.path}

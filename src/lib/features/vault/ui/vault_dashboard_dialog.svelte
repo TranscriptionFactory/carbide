@@ -22,8 +22,9 @@
     open: boolean;
     vault_name: string | null;
     vault_path: string | null;
-    note_count: number;
-    folder_count: number;
+    stats_status: "idle" | "loading" | "ready" | "error";
+    note_count: number | null;
+    folder_count: number | null;
     recent_notes: RecentNote[];
     created_at: number | null;
     last_opened_at: number | null;
@@ -40,6 +41,7 @@
     open,
     vault_name,
     vault_path,
+    stats_status,
     note_count,
     folder_count,
     recent_notes,
@@ -56,6 +58,15 @@
 
   const capped_recent = $derived(recent_notes.slice(0, 5));
   const has_recent = $derived(capped_recent.length > 0);
+  const stats_loading = $derived(
+    stats_status === "loading" || stats_status === "idle",
+  );
+  const notes_display = $derived(
+    note_count === null || stats_loading ? "—" : String(note_count),
+  );
+  const folders_display = $derived(
+    folder_count === null || stats_loading ? "—" : String(folder_count),
+  );
 
   function format_date(timestamp: number | null): string {
     if (timestamp === null) return "—";
@@ -94,16 +105,16 @@
         <div class="VaultDashboard__stats">
           <div class="VaultDashboard__stat">
             <FileTextIcon class="VaultDashboard__stat-icon" />
-            <span class="VaultDashboard__stat-value">{note_count}</span>
+            <span class="VaultDashboard__stat-value">{notes_display}</span>
             <span class="VaultDashboard__stat-label">
-              {note_count === 1 ? "note" : "notes"}
+              {note_count === 1 && !stats_loading ? "note" : "notes"}
             </span>
           </div>
           <div class="VaultDashboard__stat">
             <FolderIcon class="VaultDashboard__stat-icon" />
-            <span class="VaultDashboard__stat-value">{folder_count}</span>
+            <span class="VaultDashboard__stat-value">{folders_display}</span>
             <span class="VaultDashboard__stat-label">
-              {folder_count === 1 ? "folder" : "folders"}
+              {folder_count === 1 && !stats_loading ? "folder" : "folders"}
             </span>
           </div>
         </div>
@@ -198,7 +209,11 @@
             </span>
             <span class="VaultDashboard__info-label">Notes</span>
             <span class="VaultDashboard__info-value">
-              {note_count}
+              {notes_display}
+            </span>
+            <span class="VaultDashboard__info-label">Folders</span>
+            <span class="VaultDashboard__info-value">
+              {folders_display}
             </span>
             <span class="VaultDashboard__info-label">Created</span>
             <span class="VaultDashboard__info-value">

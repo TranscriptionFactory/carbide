@@ -55,7 +55,11 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.ui_set_sidebar_view,
     label: "Set Sidebar View",
     execute: (view: unknown) => {
-      stores.ui.set_sidebar_view(parse_sidebar_view(view));
+      const next_view = parse_sidebar_view(view);
+      stores.ui.set_sidebar_view(next_view);
+      if (next_view === "dashboard") {
+        void services.vault.refresh_dashboard_stats();
+      }
     },
   });
 
@@ -74,6 +78,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     shortcut: "CmdOrCtrl+Shift+D",
     execute: () => {
       set_vault_dashboard_open(true);
+      void services.vault.refresh_dashboard_stats();
     },
   });
 

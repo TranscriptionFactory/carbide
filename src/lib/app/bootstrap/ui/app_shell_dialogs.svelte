@@ -136,8 +136,9 @@
     open={vault_dashboard_open}
     vault_name={stores.vault.vault?.name ?? null}
     vault_path={stores.vault.vault?.path ?? null}
-    note_count={stores.notes.notes.length}
-    folder_count={stores.notes.folder_paths.length}
+    stats_status={stores.notes.dashboard_stats.status}
+    note_count={stores.notes.dashboard_stats.value?.note_count ?? null}
+    folder_count={stores.notes.dashboard_stats.value?.folder_count ?? null}
     recent_notes={vault_dashboard_recent}
     created_at={stores.vault.vault?.created_at ?? null}
     last_opened_at={stores.vault.vault?.last_opened_at ?? null}

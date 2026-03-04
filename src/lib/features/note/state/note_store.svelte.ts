@@ -1,6 +1,6 @@
 import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
-import type { FolderContents } from "$lib/shared/types/filetree";
+import type { FolderContents, FolderStats } from "$lib/shared/types/filetree";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 
 function normalized_note_path(path: NotePath): NotePath {
@@ -41,6 +41,15 @@ export class NotesStore {
   folder_paths = $state<string[]>([]);
   recent_notes = $state<NoteMeta[]>([]);
   starred_paths = $state<string[]>([]);
+  dashboard_stats = $state<{
+    status: "idle" | "loading" | "ready" | "error";
+    value: FolderStats | null;
+    error: string | null;
+  }>({
+    status: "idle",
+    value: null,
+    error: null,
+  });
 
   set_notes(notes: NoteMeta[]) {
     this.notes = [...notes].sort((a, b) => a.path.localeCompare(b.path));
@@ -307,10 +316,43 @@ export class NotesStore {
     this.folder_paths = [];
   }
 
+  set_dashboard_stats_loading() {
+    this.dashboard_stats = {
+      status: "loading",
+      value: null,
+      error: null,
+    };
+  }
+
+  set_dashboard_stats(stats: FolderStats) {
+    this.dashboard_stats = {
+      status: "ready",
+      value: stats,
+      error: null,
+    };
+  }
+
+  set_dashboard_stats_error(message: string) {
+    this.dashboard_stats = {
+      status: "error",
+      value: null,
+      error: message,
+    };
+  }
+
+  clear_dashboard_stats() {
+    this.dashboard_stats = {
+      status: "idle",
+      value: null,
+      error: null,
+    };
+  }
+
   reset() {
     this.notes = [];
     this.folder_paths = [];
     this.recent_notes = [];
     this.starred_paths = [];
+    this.clear_dashboard_stats();
   }
 }

@@ -70,6 +70,10 @@ describe("VaultService", () => {
           has_more: false,
         }),
       ),
+      get_folder_stats: vi.fn().mockResolvedValue({
+        note_count: 1,
+        folder_count: 0,
+      }),
     };
 
     const index_port = {
@@ -159,6 +163,10 @@ describe("VaultService", () => {
         total_count: 0,
         has_more: false,
       }),
+      get_folder_stats: vi.fn().mockResolvedValue({
+        note_count: 0,
+        folder_count: 0,
+      }),
     };
 
     const index_port = {
@@ -230,6 +238,10 @@ describe("VaultService", () => {
           total_count: 0,
           has_more: false,
         }),
+        get_folder_stats: vi.fn().mockResolvedValue({
+          note_count: 0,
+          folder_count: 0,
+        }),
       } as never,
       {
         cancel_index: vi.fn(),
@@ -277,7 +289,7 @@ describe("VaultService", () => {
         remember_last_vault: vi.fn(),
         get_last_vault_id: vi.fn(),
       } as never,
-      { list_folder_contents: vi.fn() } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       {
         cancel_index: vi.fn(),
         sync_index: vi.fn().mockResolvedValue(undefined),
@@ -353,6 +365,10 @@ describe("VaultService", () => {
           subfolders: [],
           total_count: 0,
           has_more: false,
+        }),
+        get_folder_stats: vi.fn().mockResolvedValue({
+          note_count: 0,
+          folder_count: 0,
         }),
       } as never,
       {
@@ -430,6 +446,10 @@ describe("VaultService", () => {
           total_count: 0,
           has_more: false,
         }),
+        get_folder_stats: vi.fn().mockResolvedValue({
+          note_count: 0,
+          folder_count: 0,
+        }),
       } as never,
       {
         cancel_index: vi.fn(),
@@ -502,6 +522,10 @@ describe("VaultService", () => {
         subfolders: [],
         total_count: 0,
         has_more: false,
+      }),
+      get_folder_stats: vi.fn().mockResolvedValue({
+        note_count: 0,
+        folder_count: 0,
       }),
     };
 
@@ -588,7 +612,7 @@ describe("VaultService", () => {
         remember_last_vault: vi.fn(),
         get_last_vault_id: vi.fn(),
       } as never,
-      { list_folder_contents: vi.fn() } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       index_port as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -650,7 +674,7 @@ describe("VaultService", () => {
         remember_last_vault: vi.fn(),
         get_last_vault_id: vi.fn(),
       } as never,
-      { list_folder_contents: vi.fn() } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       index_port as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -670,6 +694,139 @@ describe("VaultService", () => {
     const result = await service.sync_index();
     expect(result).toEqual({ status: "skipped" });
     expect(index_port.sync_index).not.toHaveBeenCalled();
+  });
+
+  it("refreshes dashboard stats on demand", async () => {
+    const vault: Vault = {
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+    };
+
+    const notes_store = new NotesStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+
+    const notes_port = {
+      list_folder_contents: vi.fn(),
+      get_folder_stats: vi.fn().mockResolvedValue({
+        note_count: 12345,
+        folder_count: 678,
+      }),
+    };
+
+    const service = new VaultService(
+      {
+        choose_vault: vi.fn(),
+        open_vault: vi.fn(),
+        open_vault_by_id: vi.fn(),
+        list_vaults: vi.fn(),
+        remember_last_vault: vi.fn(),
+        get_last_vault_id: vi.fn(),
+      } as never,
+      notes_port as never,
+      {
+        cancel_index: vi.fn(),
+        sync_index: vi.fn(),
+        rebuild_index: vi.fn(),
+        upsert_note: vi.fn(),
+        remove_note: vi.fn(),
+        remove_notes: vi.fn(),
+        remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
+        rename_folder_paths: vi.fn(),
+        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      } as never,
+      { get_setting: vi.fn(), set_setting: vi.fn() } as never,
+      {
+        get_vault_setting: vi.fn(),
+        set_vault_setting: vi.fn(),
+        delete_vault_setting: vi.fn(),
+      } as never,
+      vault_store,
+      notes_store,
+      new EditorStore(),
+      new OpStore(),
+      new SearchStore(),
+      () => 1,
+    );
+
+    const result = await service.refresh_dashboard_stats();
+
+    expect(result).toEqual({
+      status: "ready",
+      stats: { note_count: 12345, folder_count: 678 },
+    });
+    expect(notes_port.get_folder_stats).toHaveBeenCalledWith(vault.id, "");
+    expect(notes_store.dashboard_stats).toEqual({
+      status: "ready",
+      value: { note_count: 12345, folder_count: 678 },
+      error: null,
+    });
+  });
+
+  it("sets dashboard stats error when stats load fails", async () => {
+    const vault: Vault = {
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+    };
+
+    const notes_store = new NotesStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+
+    const notes_port = {
+      list_folder_contents: vi.fn(),
+      get_folder_stats: vi.fn().mockRejectedValue(new Error("scan failed")),
+    };
+
+    const service = new VaultService(
+      {
+        choose_vault: vi.fn(),
+        open_vault: vi.fn(),
+        open_vault_by_id: vi.fn(),
+        list_vaults: vi.fn(),
+        remember_last_vault: vi.fn(),
+        get_last_vault_id: vi.fn(),
+      } as never,
+      notes_port as never,
+      {
+        cancel_index: vi.fn(),
+        sync_index: vi.fn(),
+        rebuild_index: vi.fn(),
+        upsert_note: vi.fn(),
+        remove_note: vi.fn(),
+        remove_notes: vi.fn(),
+        remove_notes_by_prefix: vi.fn(),
+        rename_note_path: vi.fn(),
+        rename_folder_paths: vi.fn(),
+        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      } as never,
+      { get_setting: vi.fn(), set_setting: vi.fn() } as never,
+      {
+        get_vault_setting: vi.fn(),
+        set_vault_setting: vi.fn(),
+        delete_vault_setting: vi.fn(),
+      } as never,
+      vault_store,
+      notes_store,
+      new EditorStore(),
+      new OpStore(),
+      new SearchStore(),
+      () => 1,
+    );
+
+    const result = await service.refresh_dashboard_stats();
+
+    expect(result).toEqual({ status: "failed", error: "scan failed" });
+    expect(notes_store.dashboard_stats).toEqual({
+      status: "error",
+      value: null,
+      error: "scan failed",
+    });
   });
 
   it("removes non-active vault from registry and prunes pinned state", async () => {
@@ -708,7 +865,7 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       vault_port as never,
-      { list_folder_contents: vi.fn() } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       {
         cancel_index: vi.fn(),
         sync_index: vi.fn(),
@@ -773,7 +930,7 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       vault_port as never,
-      { list_folder_contents: vi.fn() } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       {
         cancel_index: vi.fn(),
         sync_index: vi.fn(),

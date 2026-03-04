@@ -12,8 +12,9 @@
   import type { NoteMeta } from "$lib/shared/types/note";
 
   type Props = {
-    note_count: number;
-    folder_count: number;
+    stats_status: "idle" | "loading" | "ready" | "error";
+    note_count: number | null;
+    folder_count: number | null;
     recent_notes: NoteMeta[];
     vault_name: string;
     vault_path: string;
@@ -24,6 +25,7 @@
   };
 
   let {
+    stats_status,
     note_count,
     folder_count,
     recent_notes,
@@ -42,6 +44,18 @@
   const total_size_bytes = $derived(
     recent_notes.reduce((sum, note) => sum + note.size_bytes, 0),
   );
+
+  const stats_loading = $derived(
+    stats_status === "loading" || stats_status === "idle",
+  );
+
+  const notes_display = $derived(
+    note_count === null || stats_loading ? "—" : String(note_count),
+  );
+
+  const folders_display = $derived(
+    folder_count === null || stats_loading ? "—" : String(folder_count),
+  );
 </script>
 
 <div class="DashboardPanel">
@@ -51,14 +65,14 @@
       <div class="DashboardPanel__card">
         <FileText class="DashboardPanel__card-icon" />
         <div class="DashboardPanel__card-body">
-          <span class="DashboardPanel__card-value">{note_count}</span>
+          <span class="DashboardPanel__card-value">{notes_display}</span>
           <span class="DashboardPanel__card-label">Notes</span>
         </div>
       </div>
       <div class="DashboardPanel__card">
         <Folder class="DashboardPanel__card-icon" />
         <div class="DashboardPanel__card-body">
-          <span class="DashboardPanel__card-value">{folder_count}</span>
+          <span class="DashboardPanel__card-value">{folders_display}</span>
           <span class="DashboardPanel__card-label">Folders</span>
         </div>
       </div>

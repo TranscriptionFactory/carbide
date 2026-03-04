@@ -1,4 +1,4 @@
-import type { NotesPort, FolderStats } from "$lib/features/note/ports";
+import type { NotesPort } from "$lib/features/note/ports";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import type {
   MarkdownText,
@@ -9,6 +9,7 @@ import type {
 import type { NoteDoc, NoteMeta } from "$lib/shared/types/note";
 import type {
   FolderContents,
+  FolderStats,
   MoveItem,
   MoveItemResult,
 } from "$lib/shared/types/filetree";

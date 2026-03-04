@@ -24,6 +24,11 @@ export type FolderContents = {
   has_more: boolean;
 };
 
+export type FolderStats = {
+  note_count: number;
+  folder_count: number;
+};
+
 export type FolderPaginationState = {
   loaded_count: number;
   total_count: number;

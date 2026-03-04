@@ -8,9 +8,12 @@ import type {
 import type { NoteDoc, NoteMeta } from "$lib/shared/types/note";
 import type {
   FolderContents,
+  FolderStats,
   MoveItem,
   MoveItemResult,
 } from "$lib/shared/types/filetree";
+
+export type { FolderStats } from "$lib/shared/types/filetree";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
 
 export type WriteImageAssetInput = {
@@ -30,11 +33,6 @@ export interface AssetsPort {
     input: WriteImageAssetInput,
   ): Promise<AssetPath>;
 }
-
-export type FolderStats = {
-  note_count: number;
-  folder_count: number;
-};
 
 export interface NotesPort {
   list_notes(vault_id: VaultId): Promise<NoteMeta[]>;

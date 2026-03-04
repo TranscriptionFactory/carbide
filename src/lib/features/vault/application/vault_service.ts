@@ -15,6 +15,7 @@ import type { EditorStore } from "$lib/features/editor";
 import type { OpStore } from "$lib/app";
 import type { SearchStore } from "$lib/features/search";
 import type { NoteMeta } from "$lib/shared/types/note";
+import type { FolderStats } from "$lib/shared/types/filetree";
 import {
   DEFAULT_EDITOR_SETTINGS,
   SETTINGS_KEY,
@@ -372,6 +373,7 @@ export class VaultService {
     this.throw_if_stale(open_revision);
 
     this.apply_open_vault_snapshot(vault, snapshot);
+    this.trigger_dashboard_stats_refresh(vault.id, open_revision);
     this.subscribe_open_vault_index_progress(vault.id, open_revision);
     this.trigger_background_index_sync(vault.id, open_revision);
 
@@ -419,10 +421,77 @@ export class VaultService {
     this.vault_store.set_pinned_vault_ids(snapshot.pinned_vault_ids);
     this.notes_store.set_recent_notes(snapshot.recent_notes);
     this.notes_store.set_starred_paths(snapshot.starred_paths);
+    this.notes_store.set_dashboard_stats_loading();
 
     this.editor_store.set_open_note(
       create_untitled_open_note({ open_names: [], now_ms: this.now_ms() }),
     );
+  }
+
+  async refresh_dashboard_stats(): Promise<
+    | { status: "ready"; stats: FolderStats }
+    | { status: "skipped" }
+    | { status: "failed"; error: string }
+  > {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      return { status: "skipped" };
+    }
+
+    this.notes_store.set_dashboard_stats_loading();
+    const result = await this.fetch_dashboard_stats(vault_id);
+    if (this.get_active_vault_id() !== vault_id) {
+      return { status: "skipped" };
+    }
+
+    if (result.status === "ready") {
+      this.notes_store.set_dashboard_stats(result.stats);
+      return result;
+    }
+
+    this.notes_store.set_dashboard_stats_error(result.error);
+    return result;
+  }
+
+  private trigger_dashboard_stats_refresh(
+    vault_id: VaultId,
+    open_revision: number,
+  ) {
+    void this.fetch_dashboard_stats(vault_id).then((result) => {
+      if (!this.is_current_open_revision(open_revision)) {
+        return;
+      }
+      if (this.get_active_vault_id() !== vault_id) {
+        return;
+      }
+      if (result.status === "ready") {
+        this.notes_store.set_dashboard_stats(result.stats);
+        return;
+      }
+      this.notes_store.set_dashboard_stats_error(result.error);
+    });
+  }
+
+  private async fetch_dashboard_stats(
+    vault_id: VaultId,
+  ): Promise<
+    | { status: "ready"; stats: FolderStats }
+    | { status: "failed"; error: string }
+  > {
+    try {
+      const stats = await this.notes_port.get_folder_stats(vault_id, "");
+      return {
+        status: "ready",
+        stats,
+      };
+    } catch (error) {
+      const message = error_message(error);
+      log.error("Load dashboard stats failed", { error: message, vault_id });
+      return {
+        status: "failed",
+        error: message,
+      };
+    }
   }
 
   private subscribe_open_vault_index_progress(
