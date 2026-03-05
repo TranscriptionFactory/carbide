@@ -820,12 +820,15 @@ export function create_milkdown_editor_port(args?: {
           if (!editor) return;
           run_editor_action((ctx) => {
             const view = ctx.get(editorViewCtx);
-            const dom = view.domAtPos(pos);
-            const node =
-              dom.node instanceof HTMLElement
-                ? dom.node
-                : dom.node.parentElement;
-            node?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const node = view.nodeDOM(pos);
+            if (node instanceof HTMLElement) {
+              node.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else if (node instanceof Node) {
+              (node as ChildNode).parentElement?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
           });
         },
       };
