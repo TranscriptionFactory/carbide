@@ -81,7 +81,7 @@
       fontSize: 13,
       lineHeight: 1.3,
       cursorBlink: true,
-      allowProposedApi: true,
+      scrollback: 5000,
       theme: build_xterm_theme(),
     });
 
