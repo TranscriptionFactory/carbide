@@ -243,6 +243,19 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs[0]?.id).toBe("a.md");
     });
 
+    it("clears outline store when last tab is closed", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.outline.set_headings([
+        { id: "h-1", level: 1, text: "Title", pos: 0 },
+      ]);
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.outline.headings).toHaveLength(0);
+    });
+
     it("shows confirmation dialog for dirty tab", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");

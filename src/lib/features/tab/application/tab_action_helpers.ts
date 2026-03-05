@@ -75,6 +75,7 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   const active_tab = stores.tab.active_tab;
   if (!active_tab) {
     stores.editor.clear_open_note();
+    stores.outline.clear();
     return;
   }
 
