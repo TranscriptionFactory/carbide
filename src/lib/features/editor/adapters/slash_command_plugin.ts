@@ -44,11 +44,20 @@ export function extract_slash_query_from_state(
   const { $from } = selection;
   if (!$from.parent.isTextblock) return null;
   if ($from.parent.type.name === "code_block") return null;
+  for (let depth = $from.depth; depth >= 0; depth--) {
+    if ($from.node(depth).type.name === "list_item") return null;
+  }
 
   const text = $from.parent.textBetween(0, $from.parentOffset);
-  if (!text.startsWith("/")) return null;
+  const first_non_whitespace_index = text.search(/\S/);
+  if (first_non_whitespace_index === -1) return null;
+  if (text[first_non_whitespace_index] !== "/") return null;
+  if ($from.parentOffset <= first_non_whitespace_index) return null;
 
-  return { query: text.slice(1), from: $from.start() };
+  return {
+    query: text.slice(first_non_whitespace_index + 1),
+    from: $from.start(),
+  };
 }
 
 function extract_slash_query(
@@ -61,8 +70,9 @@ export function filter_commands(
   all: SlashCommand[],
   query: string,
 ): SlashCommand[] {
-  if (!query) return all;
-  const q = query.toLowerCase();
+  const normalized_query = query.trim();
+  if (!normalized_query) return all;
+  const q = normalized_query.toLowerCase();
   return all.filter(
     (cmd) =>
       cmd.id.startsWith(q) ||
@@ -129,6 +139,34 @@ function make_list_insert(list_type_name: string) {
       $pos.before(),
       $pos.after(),
       list.create(null, item.create(null, para.create())),
+    );
+    const sel = TextSelection.findFrom(tr.doc.resolve($pos.before() + 1), 1);
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
+function make_todo_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const list = state.schema.nodes["bullet_list"];
+    const item = state.schema.nodes["list_item"];
+    const para = state.schema.nodes["paragraph"];
+    if (!list || !item || !para) return;
+
+    const item_spec_attrs = item.spec.attrs ?? {};
+    const item_attrs = Object.prototype.hasOwnProperty.call(
+      item_spec_attrs,
+      "checked",
+    )
+      ? { checked: false }
+      : null;
+
+    const $pos = state.doc.resolve(from);
+    const tr = state.tr.replaceWith(
+      $pos.before(),
+      $pos.after(),
+      list.create(null, item.create(item_attrs, para.create())),
     );
     const sel = TextSelection.findFrom(tr.doc.resolve($pos.before() + 1), 1);
     if (sel) tr.setSelection(sel);
@@ -272,6 +310,14 @@ export function create_commands(): SlashCommand[] {
       insert: make_list_insert("ordered_list"),
     },
     {
+      id: "todo",
+      label: "Task List",
+      description: "Checklist item with a checkbox",
+      icon: "☐",
+      keywords: ["task", "todo", "checkbox", "check", "list"],
+      insert: make_todo_insert(),
+    },
+    {
       id: "blockquote",
       label: "Blockquote",
       description: "Indented quote or callout",
@@ -303,14 +349,7 @@ function render_items(
   on_click: (cmd: SlashCommand) => void,
 ): void {
   menu.innerHTML = "";
-
-  if (state.filtered.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "SlashMenu__empty";
-    empty.textContent = "No matching commands";
-    menu.appendChild(empty);
-    return;
-  }
+  if (state.filtered.length === 0) return;
 
   for (let i = 0; i < state.filtered.length; i++) {
     const cmd = state.filtered[i];
@@ -451,16 +490,17 @@ export const slash_command_plugin = $prose(() => {
             return;
           }
 
-          const filtered = filter_commands(all_commands, result.query);
+          const query = result.query.trim();
+          const filtered = filter_commands(all_commands, query);
           const prev_index = slash_state.selected_index;
           const prev_query = slash_state.query;
 
           slash_state = {
             active: true,
-            query: result.query,
+            query,
             from: result.from,
             selected_index:
-              result.query !== prev_query
+              query !== prev_query
                 ? 0
                 : Math.min(prev_index, Math.max(0, filtered.length - 1)),
             filtered,

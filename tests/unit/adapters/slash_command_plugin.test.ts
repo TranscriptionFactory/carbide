@@ -116,6 +116,20 @@ function make_code_block_state(text: string): EditorState {
   return state.apply(state.tr.setSelection(TextSelection.create(doc, pos)));
 }
 
+function make_list_item_state(text: string): EditorState {
+  const schema = create_schema();
+  const para = schema.nodes["paragraph"].create(
+    null,
+    text.length > 0 ? schema.text(text) : [],
+  );
+  const item = schema.nodes["list_item"].create(null, [para]);
+  const list = schema.nodes["bullet_list"].create(null, [item]);
+  const doc = schema.nodes["doc"].create(null, [list]);
+  const state = EditorState.create({ doc });
+  const pos = 3 + text.length;
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, pos)));
+}
+
 describe("extract_slash_query_from_state", () => {
   it("returns null for empty paragraph with no slash", () => {
     expect(extract_slash_query_from_state(make_state(""))).toBeNull();
@@ -140,6 +154,13 @@ describe("extract_slash_query_from_state", () => {
     expect(result?.query).toBe("heading");
   });
 
+  it("extracts query when slash is first non-whitespace", () => {
+    const result = extract_slash_query_from_state(make_state("    /h1"));
+    expect(result).not.toBeNull();
+    expect(result?.query).toBe("h1");
+    expect(result?.from).toBe(1);
+  });
+
   it("returns the correct from position (start of paragraph text)", () => {
     const state = make_state("/h1");
     const result = extract_slash_query_from_state(state);
@@ -150,6 +171,12 @@ describe("extract_slash_query_from_state", () => {
   it("returns null when inside a code block", () => {
     expect(
       extract_slash_query_from_state(make_code_block_state("/code")),
+    ).toBeNull();
+  });
+
+  it("returns null when inside a list item", () => {
+    expect(
+      extract_slash_query_from_state(make_list_item_state("/h1")),
     ).toBeNull();
   });
 
@@ -214,6 +241,18 @@ describe("filter_commands", () => {
     expect(results.some((c) => c.id === "blockquote")).toBe(true);
   });
 
+  it("finds task list command by todo/task/checkbox", () => {
+    expect(filter_commands(all, "todo").some((c) => c.id === "todo")).toBe(
+      true,
+    );
+    expect(filter_commands(all, "task").some((c) => c.id === "todo")).toBe(
+      true,
+    );
+    expect(filter_commands(all, "checkbox").some((c) => c.id === "todo")).toBe(
+      true,
+    );
+  });
+
   it("returns empty for unmatched query", () => {
     expect(filter_commands(all, "zzznomatch")).toHaveLength(0);
   });
@@ -243,6 +282,7 @@ describe("create_commands", () => {
     expect(ids).toContain("table");
     expect(ids).toContain("bullet");
     expect(ids).toContain("ordered");
+    expect(ids).toContain("todo");
     expect(ids).toContain("blockquote");
     expect(ids).toContain("divider");
   });
