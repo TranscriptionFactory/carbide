@@ -413,6 +413,10 @@ export class NoteService {
         saved_path,
       };
     } catch (error) {
+      if (this.is_mtime_conflict_error(error)) {
+        this.finish_save_operation(null);
+        return { status: "conflict" };
+      }
       if (
         plan_decision.plan.kind === "save_untitled" &&
         this.is_note_exists_error(error)
@@ -598,6 +602,7 @@ export class NoteService {
       vault_id,
       open_note.meta.id,
       open_note.markdown,
+      open_note.meta.mtime_ms || undefined,
     );
     await this.index_port.upsert_note(vault_id, open_note.meta.id);
     this.editor_store.mark_clean(open_note.meta.id, this.now_ms());
@@ -737,6 +742,10 @@ export class NoteService {
       message.includes("no such file") ||
       message.includes("could not be found")
     );
+  }
+
+  private is_mtime_conflict_error(error: unknown): boolean {
+    return error_message(error).includes("conflict:mtime_mismatch");
   }
 
   private is_note_exists_error(error: unknown): boolean {

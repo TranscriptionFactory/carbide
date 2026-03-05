@@ -17,6 +17,7 @@ import { GitService } from "$lib/features/git";
 import { HotkeyService } from "$lib/features/hotkey";
 import { ThemeService } from "$lib/features/theme";
 import { LinkRepairService, LinksService } from "$lib/features/links";
+import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
 
 export type AppContext = ReturnType<typeof create_app_context>;
@@ -148,6 +149,8 @@ export function create_app_context(input: {
     now_ms,
   );
 
+  const watcher_service = new WatcherService(input.ports.watcher);
+
   const vault_service = new VaultService(
     input.ports.vault,
     input.ports.notes,
@@ -208,6 +211,8 @@ export function create_app_context(input: {
     tab_service,
     git_service,
     links_service,
+    watcher_service,
+    action_registry,
   });
 
   return {
@@ -216,6 +221,7 @@ export function create_app_context(input: {
     destroy: () => {
       cleanup_reactors();
       editor_service.unmount();
+      void watcher_service.stop();
     },
   };
 }

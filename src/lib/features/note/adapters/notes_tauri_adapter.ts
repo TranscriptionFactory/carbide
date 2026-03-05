@@ -45,11 +45,13 @@ export function create_notes_tauri_adapter(): NotesPort {
       vault_id: VaultId,
       note_id: NoteId,
       markdown: MarkdownText,
+      expected_mtime_ms?: number,
     ) {
       await invoke_notes_args<undefined>("write_note", {
         vault_id,
         note_id,
         markdown,
+        expected_mtime_ms: expected_mtime_ms ?? null,
       });
     },
     async create_note(

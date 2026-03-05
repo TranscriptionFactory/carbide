@@ -43,6 +43,18 @@
   color: var(--destructive);
 }
 
+[data-sonner-toast].toast--stacked-actions {
+  flex-wrap: wrap;
+}
+
+[data-sonner-toast].toast--stacked-actions [data-content] {
+  flex-basis: 100%;
+}
+
+[data-sonner-toast].toast--stacked-actions [data-button] {
+  margin-left: auto;
+}
+
 /* Dialog section header pattern */
 .DialogSection__header {
   display: flex;

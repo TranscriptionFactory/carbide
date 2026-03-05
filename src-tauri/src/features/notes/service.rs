@@ -32,6 +32,7 @@ pub struct NoteWriteArgs {
     pub vault_id: String,
     pub note_id: String,
     pub markdown: String,
+    pub expected_mtime_ms: Option<i64>,
 }
 
 fn parse_safe_relative_path(path: &str) -> Result<PathBuf, String> {
@@ -312,6 +313,16 @@ pub fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<(), String> {
     );
     let root = storage::vault_path(&app, &args.vault_id)?;
     let abs = safe_vault_abs_for_write(&root, &args.note_id)?;
+
+    if let Some(expected) = args.expected_mtime_ms {
+        if abs.exists() {
+            let (disk_mtime, _) = file_meta(&abs)?;
+            if disk_mtime != expected {
+                return Err("conflict:mtime_mismatch".to_string());
+            }
+        }
+    }
+
     atomic_write(&abs, &args.markdown)?;
     Ok(())
 }
