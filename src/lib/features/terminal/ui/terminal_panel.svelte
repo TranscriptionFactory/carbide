@@ -18,9 +18,33 @@
   let fit_addon: FitAddon | undefined;
   let pty_process: IPty | undefined;
   let resize_observer: ResizeObserver | undefined;
+  let destroyed = false;
 
   function get_shell(): string {
     return "/bin/zsh";
+  }
+
+  function resolve_css_color(property: string, fallback: string): string {
+    if (typeof document === "undefined") return fallback;
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(property)
+      .trim();
+    if (!value) return fallback;
+    const probe = document.createElement("div");
+    probe.style.color = value;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved || fallback;
+  }
+
+  function build_xterm_theme() {
+    return {
+      background: resolve_css_color("--sidebar", "#1e1e2e"),
+      foreground: resolve_css_color("--foreground", "#cdd6f4"),
+      cursor: resolve_css_color("--primary", "#f5e0dc"),
+      selectionBackground: resolve_css_color("--accent", "#45475a"),
+    };
   }
 
   function spawn_pty(cols: number, rows: number) {
@@ -34,10 +58,11 @@
       pty_process = spawn(shell, [], opts as Parameters<typeof spawn>[2]);
 
       pty_process.onData((data: Uint8Array) => {
-        terminal?.write(data);
+        if (!destroyed) terminal?.write(data);
       });
 
       pty_process.onExit(({ exitCode }) => {
+        if (destroyed) return;
         log.info("PTY exited", { exitCode });
         terminal?.write(`\r\n[Process exited with code ${exitCode}]\r\n`);
         pty_process = undefined;
@@ -57,17 +82,14 @@
       lineHeight: 1.3,
       cursorBlink: true,
       allowProposedApi: true,
-      theme: {
-        background: "var(--terminal-bg, #1e1e2e)",
-        foreground: "var(--terminal-fg, #cdd6f4)",
-        cursor: "var(--terminal-cursor, #f5e0dc)",
-      },
+      theme: build_xterm_theme(),
     });
 
     fit_addon = new FitAddon();
     terminal.loadAddon(fit_addon);
     terminal.open(container_el);
     fit_addon.fit();
+    terminal.focus();
 
     terminal.onData((data: string) => {
       pty_process?.write(data);
@@ -77,7 +99,7 @@
 
     resize_observer = new ResizeObserver(() => {
       requestAnimationFrame(() => {
-        if (!fit_addon || !terminal) return;
+        if (!fit_addon || !terminal || destroyed) return;
         try {
           fit_addon.fit();
           pty_process?.resize(terminal.cols, terminal.rows);
@@ -90,6 +112,7 @@
   }
 
   function cleanup() {
+    destroyed = true;
     resize_observer?.disconnect();
     resize_observer = undefined;
     pty_process?.kill();
@@ -128,7 +151,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--terminal-bg, #1e1e2e);
+    background: var(--sidebar);
     border-block-start: 1px solid var(--border);
   }
 
@@ -170,6 +193,6 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1, 4px) var(--space-2, 8px);
   }
 </style>
