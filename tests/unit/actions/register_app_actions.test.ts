@@ -13,8 +13,13 @@ import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
-import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import {
+  as_markdown_text,
+  as_note_path,
+  as_vault_id,
+} from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
+import type { Vault } from "$lib/shared/types/vault";
 import { toast } from "svelte-sonner";
 
 vi.mock("svelte-sonner", () => ({
@@ -92,6 +97,8 @@ function create_harness(options: HarnessOptions = {}) {
   const execute_folder_refresh_tree = vi.fn().mockResolvedValue(undefined);
   const execute_git_check_repo = vi.fn().mockResolvedValue(undefined);
   const execute_open_vault_dashboard = vi.fn().mockResolvedValue(undefined);
+  const execute_note_open = vi.fn().mockResolvedValue(undefined);
+  const execute_vault_select = vi.fn().mockResolvedValue(undefined);
 
   register_app_actions({
     registry,
@@ -121,6 +128,18 @@ function create_harness(options: HarnessOptions = {}) {
     execute: execute_open_vault_dashboard,
   });
 
+  registry.register({
+    id: ACTION_IDS.note_open,
+    label: "Open Note",
+    execute: execute_note_open,
+  });
+
+  registry.register({
+    id: ACTION_IDS.vault_select,
+    label: "Select Vault",
+    execute: execute_vault_select,
+  });
+
   return {
     registry,
     stores,
@@ -128,6 +147,8 @@ function create_harness(options: HarnessOptions = {}) {
     execute_folder_refresh_tree,
     execute_git_check_repo,
     execute_open_vault_dashboard,
+    execute_note_open,
+    execute_vault_select,
   };
 }
 
@@ -226,5 +247,72 @@ describe("register_app_actions", () => {
     expect(toast.info).toHaveBeenCalledWith(
       "Updates are only available in the desktop app",
     );
+  });
+
+  describe("app_handle_file_open", () => {
+    function create_vault(id: string, path: string): Vault {
+      return {
+        id: as_vault_id(id),
+        name: id,
+        path: path,
+        note_count: 0,
+      } as Vault;
+    }
+
+    it("opens note in current vault when file resolves to active vault", async () => {
+      const { registry, stores, services, execute_note_open } =
+        create_harness();
+      stores.vault.set_vault(create_vault("v1", "/vaults/v1"));
+
+      services.vault.resolve_file_to_vault = vi.fn().mockResolvedValue({
+        vault_id: "v1",
+        vault_path: "/vaults/v1",
+        relative_path: "notes/hello.md",
+      });
+
+      await registry.execute(
+        ACTION_IDS.app_handle_file_open,
+        "/vaults/v1/notes/hello.md",
+      );
+
+      expect(execute_note_open).toHaveBeenCalledWith({
+        note_path: as_note_path("notes/hello.md"),
+        cleanup_if_missing: false,
+      });
+    });
+
+    it("opens parent dir as vault when no vault is active and file not in known vault", async () => {
+      const { registry, services, execute_note_open } = create_harness();
+
+      services.vault.resolve_file_to_vault = vi.fn().mockResolvedValue(null);
+      services.vault.change_vault_by_path = vi.fn().mockResolvedValue({
+        status: "ok",
+      });
+
+      await registry.execute(
+        ACTION_IDS.app_handle_file_open,
+        "/Users/foo/docs/readme.md",
+      );
+
+      expect(services.vault.change_vault_by_path).toHaveBeenCalledWith(
+        "/Users/foo/docs",
+      );
+      expect(execute_note_open).toHaveBeenCalledWith({
+        note_path: as_note_path("readme.md"),
+        cleanup_if_missing: false,
+      });
+    });
+
+    it("toasts error when file open fails", async () => {
+      const { registry, services } = create_harness();
+
+      services.vault.resolve_file_to_vault = vi
+        .fn()
+        .mockRejectedValue(new Error("boom"));
+
+      await registry.execute(ACTION_IDS.app_handle_file_open, "/some/file.md");
+
+      expect(toast.error).toHaveBeenCalledWith("Failed to open file");
+    });
   });
 });

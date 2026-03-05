@@ -38,6 +38,7 @@ const log = create_logger("vault_service");
 export type AppMountConfig = {
   reset_app_state: boolean;
   bootstrap_default_vault_path: VaultPath | null;
+  open_file_after_mount?: string | null;
 };
 
 const RECENT_NOTES_KEY = "recent_notes";

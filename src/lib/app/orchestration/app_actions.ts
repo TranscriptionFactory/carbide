@@ -2,9 +2,10 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
-import { as_note_path } from "$lib/shared/types/ids";
+import { as_note_path, as_vault_path } from "$lib/shared/types/ids";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
+import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "svelte-sonner";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -76,9 +77,22 @@ async function load_bootstrap_data(
   };
 }
 
+async function load_non_vault_bootstrap_data(
+  input: ActionRegistrationInput,
+): Promise<Omit<AppBootstrapData, "vault_initialize_result">> {
+  const { services } = input;
+  const [recent_command_ids, hotkey_overrides, theme_result] =
+    await Promise.all([
+      services.settings.load_recent_command_ids(),
+      services.hotkey.load_hotkey_overrides(),
+      services.theme.load_themes(),
+    ]);
+  return { recent_command_ids, hotkey_overrides, theme_result };
+}
+
 function apply_loaded_preferences(
   input: ActionRegistrationInput,
-  data: AppBootstrapData,
+  data: Omit<AppBootstrapData, "vault_initialize_result">,
 ) {
   const { stores, services } = input;
   stores.ui.set_user_themes(data.theme_result.user_themes);
@@ -119,8 +133,66 @@ async function mount_ready_vault_state(
   }
 }
 
+async function resolve_pending_file_open(
+  input: ActionRegistrationInput,
+): Promise<void> {
+  if (!is_tauri) return;
+
+  const has_vault = input.stores.vault.vault !== null;
+  if (has_vault) return;
+
+  try {
+    const pending_path = await tauri_invoke<string | null>(
+      "get_pending_file_open",
+    );
+    if (!pending_path) return;
+
+    log.info("Cold start with pending file open", {
+      file_path: pending_path,
+    });
+
+    const resolution =
+      await input.services.vault.resolve_file_to_vault(pending_path);
+
+    const vault_path = resolution
+      ? resolution.vault_path
+      : pending_path.substring(0, pending_path.lastIndexOf("/"));
+
+    const relative_path = resolution
+      ? resolution.relative_path
+      : pending_path.substring(pending_path.lastIndexOf("/") + 1);
+
+    const open_config = {
+      ...input.default_mount_config,
+      bootstrap_default_vault_path: as_vault_path(vault_path),
+      open_file_after_mount: relative_path,
+    };
+
+    const vault_result = await input.services.vault.initialize(open_config);
+    if (vault_result.status === "ready" && vault_result.has_vault) {
+      await mount_ready_vault_state(input, vault_result);
+      await input.registry.execute(ACTION_IDS.note_open, {
+        note_path: as_note_path(relative_path),
+        cleanup_if_missing: false,
+      });
+    }
+  } catch (error) {
+    log.error("Failed to handle pending file open", {
+      error: String(error),
+    });
+  }
+}
+
 async function execute_app_mounted(input: ActionRegistrationInput) {
   set_startup_loading(input);
+
+  await resolve_pending_file_open(input);
+
+  if (input.stores.vault.vault !== null) {
+    apply_loaded_preferences(input, await load_non_vault_bootstrap_data(input));
+    set_startup_idle(input);
+    return;
+  }
 
   const bootstrap_data = await load_bootstrap_data(input);
   apply_loaded_preferences(input, bootstrap_data);
@@ -135,6 +207,17 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
   }
 
   await mount_ready_vault_state(input, bootstrap_data.vault_initialize_result);
+
+  if (
+    bootstrap_data.vault_initialize_result.has_vault &&
+    input.default_mount_config.open_file_after_mount
+  ) {
+    await input.registry.execute(ACTION_IDS.note_open, {
+      note_path: as_note_path(input.default_mount_config.open_file_after_mount),
+      cleanup_if_missing: false,
+    });
+  }
+
   set_startup_idle(input);
 }
 
@@ -166,6 +249,30 @@ async function execute_app_check_for_updates() {
     toast.error("Failed to check for updates");
     log.error("Update check failed", { error: String(error) });
   }
+}
+
+let file_open_window_counter = 0;
+
+async function open_file_in_new_window(
+  vault_path: string,
+  relative_path: string,
+) {
+  const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+
+  const label = `file-open-${String(++file_open_window_counter)}`;
+  const params = new URLSearchParams({
+    vault_path,
+    file_path: relative_path,
+  });
+
+  const filename = relative_path.substring(relative_path.lastIndexOf("/") + 1);
+
+  new WebviewWindow(label, {
+    url: `/?${params.toString()}`,
+    title: `${filename} — otterly`,
+    width: 1200,
+    height: 820,
+  });
 }
 
 export function register_app_actions(input: ActionRegistrationInput) {
@@ -210,22 +317,35 @@ export function register_app_actions(input: ActionRegistrationInput) {
       try {
         const resolution =
           await services.vault.resolve_file_to_vault(file_path);
-        if (!resolution) {
-          toast.info(
-            "File is not in a known vault. Open its folder as a vault first.",
-          );
+
+        const current_vault_id = input.stores.vault.vault?.id;
+
+        if (resolution && current_vault_id === resolution.vault_id) {
+          await registry.execute(ACTION_IDS.note_open, {
+            note_path: as_note_path(resolution.relative_path),
+            cleanup_if_missing: false,
+          });
           return;
         }
 
-        const current_vault_id = input.stores.vault.vault?.id;
-        if (current_vault_id !== resolution.vault_id) {
-          await registry.execute(ACTION_IDS.vault_select, resolution.vault_id);
+        const vault_path = resolution
+          ? resolution.vault_path
+          : file_path.substring(0, file_path.lastIndexOf("/"));
+
+        const relative_path = resolution
+          ? resolution.relative_path
+          : file_path.substring(file_path.lastIndexOf("/") + 1);
+
+        if (!current_vault_id) {
+          await services.vault.change_vault_by_path(as_vault_path(vault_path));
+          await registry.execute(ACTION_IDS.note_open, {
+            note_path: as_note_path(relative_path),
+            cleanup_if_missing: false,
+          });
+          return;
         }
 
-        await registry.execute(ACTION_IDS.note_open, {
-          note_path: as_note_path(resolution.relative_path),
-          cleanup_if_missing: false,
-        });
+        await open_file_in_new_window(vault_path, relative_path);
       } catch (error) {
         log.error("Failed to handle file open", { error: String(error) });
         toast.error("Failed to open file");

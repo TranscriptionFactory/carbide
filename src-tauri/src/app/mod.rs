@@ -1,8 +1,17 @@
 use crate::features;
 use crate::shared;
+use std::sync::Mutex;
 use tauri_plugin_window_state::StateFlags;
 
 include!(concat!(env!("OUT_DIR"), "/icon_stamp.rs"));
+
+#[derive(Default)]
+pub struct PendingFileOpen(pub Mutex<Option<String>>);
+
+#[tauri::command]
+pub fn get_pending_file_open(state: tauri::State<PendingFileOpen>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
 
 pub fn run() {
     let _ = ICON_STAMP;
@@ -32,6 +41,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .manage(PendingFileOpen::default())
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
         .plugin(tauri_plugin_opener::init())
@@ -101,7 +111,8 @@ pub fn run() {
             features::git::service::git_show_file_at_commit,
             features::git::service::git_restore_file,
             features::git::service::git_create_tag,
-            features::vault::service::resolve_file_to_vault
+            features::vault::service::resolve_file_to_vault,
+            get_pending_file_open
         ])
         .register_uri_scheme_protocol("otterly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
@@ -118,6 +129,11 @@ pub fn run() {
                             if let Ok(path) = url.to_file_path() {
                                 let path_str = path.to_string_lossy().into_owned();
                                 log::info!("File open event: {}", path_str);
+                                {
+                                    use tauri::Manager;
+                                    let state = app.state::<PendingFileOpen>();
+                                    *state.0.lock().unwrap() = Some(path_str.clone());
+                                }
                                 let _ = app.emit("file-open", &path_str);
                             }
                         }
