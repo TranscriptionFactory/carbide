@@ -608,10 +608,7 @@ export class VaultService {
       return apply_global_only_overrides(migrated, get_global);
     }
 
-    return apply_global_only_overrides(
-      { ...DEFAULT_EDITOR_SETTINGS },
-      get_global,
-    );
+    return this.load_browse_editor_settings();
   }
 
   private async load_browse_editor_settings(): Promise<EditorSettings> {

@@ -59,7 +59,7 @@ export function create_tab_persist_reactor(
         last_saved_serialized = null;
       }
 
-      if (!vault_id || vault_store.vault?.mode !== "vault") return;
+      if (!vault_id || !vault_store.is_vault_mode) return;
       schedule_persist();
     });
 

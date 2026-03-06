@@ -8,8 +8,17 @@ fn default_is_available() -> bool {
     true
 }
 
-fn default_mode() -> String {
-    "vault".to_string()
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VaultMode {
+    Vault,
+    Browse,
+}
+
+impl Default for VaultMode {
+    fn default() -> Self {
+        VaultMode::Vault
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,8 +33,8 @@ pub struct Vault {
     pub note_count: Option<u64>,
     #[serde(default = "default_is_available")]
     pub is_available: bool,
-    #[serde(default = "default_mode")]
-    pub mode: String,
+    #[serde(default)]
+    pub mode: VaultMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

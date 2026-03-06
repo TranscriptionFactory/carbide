@@ -1,5 +1,5 @@
 use crate::shared::storage;
-use crate::shared::storage::{Vault, VaultEntry, VaultStore};
+use crate::shared::storage::{Vault, VaultEntry, VaultMode, VaultStore};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -70,6 +70,67 @@ pub struct OpenVaultArgs {
     pub vault_path: String,
 }
 
+struct ResolvedPath {
+    vault_path: String,
+    raw_path: String,
+    store: VaultStore,
+    id: String,
+    created_at: i64,
+    existing_note_count: Option<u64>,
+}
+
+fn resolve_open_path(app: &AppHandle, args: &OpenVaultArgs) -> Result<ResolvedPath, String> {
+    let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
+        log::error!(
+            "Failed to canonicalize path {}: {}",
+            args.vault_path,
+            e
+        );
+        e
+    })?;
+    let meta = std::fs::metadata(&vault_path).map_err(|e| {
+        log::error!("Failed to read metadata for {}: {}", vault_path, e);
+        e.to_string()
+    })?;
+    if !meta.is_dir() {
+        return Err("path is not a directory".to_string());
+    }
+
+    let store = storage::load_store(app)?;
+    let id = storage::vault_id_for_path(&vault_path);
+    let existing = store.vaults.iter().find(|v| v.vault.id == id);
+    let created_at = existing
+        .map(|v| v.vault.created_at)
+        .unwrap_or_else(storage::now_ms);
+    let existing_note_count = existing.and_then(|v| v.vault.note_count);
+
+    Ok(ResolvedPath {
+        vault_path,
+        raw_path: args.vault_path.clone(),
+        store,
+        id,
+        created_at,
+        existing_note_count,
+    })
+}
+
+fn finish_open(app: &AppHandle, mut resolved: ResolvedPath, mode: VaultMode, note_count: Option<u64>) -> Result<Vault, String> {
+    let vault = Vault {
+        id: resolved.id.clone(),
+        path: resolved.vault_path,
+        name: vault_name(&resolved.raw_path),
+        created_at: resolved.created_at,
+        last_opened_at: Some(storage::now_ms()),
+        note_count,
+        is_available: true,
+        mode,
+    };
+
+    upsert_vault(&mut resolved.store, vault.clone());
+    storage::save_store(app, &resolved.store)?;
+    Ok(vault)
+}
+
 fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
     let now = storage::now_ms();
     store.last_vault_id = Some(vault.id.clone());
@@ -93,45 +154,9 @@ fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
 #[tauri::command]
 pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening vault path={}", args.vault_path);
-    let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
-        log::error!(
-            "Failed to canonicalize vault path {}: {}",
-            args.vault_path,
-            e
-        );
-        e
-    })?;
-    let meta = std::fs::metadata(&vault_path).map_err(|e| {
-        log::error!("Failed to read metadata for vault {}: {}", vault_path, e);
-        e.to_string()
-    })?;
-    if !meta.is_dir() {
-        return Err("vault path is not a directory".to_string());
-    }
-
-    let mut store = storage::load_store(&app)?;
-    let id = storage::vault_id_for_path(&vault_path);
-    let existing = store.vaults.iter().find(|v| v.vault.id == id);
-    let created_at = existing
-        .map(|v| v.vault.created_at)
-        .unwrap_or_else(storage::now_ms);
-    let existing_note_count = existing.and_then(|v| v.vault.note_count);
-    let note_count = load_note_count(&app, &id).or(existing_note_count);
-
-    let vault = Vault {
-        id: id.clone(),
-        path: vault_path,
-        name: vault_name(&args.vault_path),
-        created_at,
-        last_opened_at: Some(storage::now_ms()),
-        note_count,
-        is_available: true,
-        mode: "vault".to_string(),
-    };
-
-    upsert_vault(&mut store, vault.clone());
-    storage::save_store(&app, &store)?;
-    Ok(vault)
+    let resolved = resolve_open_path(&app, &args)?;
+    let note_count = load_note_count(&app, &resolved.id).or(resolved.existing_note_count);
+    finish_open(&app, resolved, VaultMode::Vault, note_count)
 }
 
 #[tauri::command]
@@ -230,52 +255,17 @@ pub fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening folder path={}", args.vault_path);
-    let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
-        log::error!(
-            "Failed to canonicalize folder path {}: {}",
-            args.vault_path,
-            e
-        );
-        e
-    })?;
-    let meta = std::fs::metadata(&vault_path).map_err(|e| {
-        log::error!("Failed to read metadata for folder {}: {}", vault_path, e);
-        e.to_string()
-    })?;
-    if !meta.is_dir() {
-        return Err("path is not a directory".to_string());
-    }
+    let resolved = resolve_open_path(&app, &args)?;
 
-    let mut store = storage::load_store(&app)?;
-    let id = storage::vault_id_for_path(&vault_path);
-    let existing = store.vaults.iter().find(|v| v.vault.id == id);
-    let created_at = existing
-        .map(|v| v.vault.created_at)
-        .unwrap_or_else(storage::now_ms);
-
-    let has_otterly_dir = PathBuf::from(&vault_path).join(".otterly").is_dir();
-    let mode = if has_otterly_dir { "vault" } else { "browse" };
-
+    let has_otterly_dir = PathBuf::from(&resolved.vault_path).join(".otterly").is_dir();
+    let mode = if has_otterly_dir { VaultMode::Vault } else { VaultMode::Browse };
     let note_count = if has_otterly_dir {
-        load_note_count(&app, &id).or(existing.and_then(|v| v.vault.note_count))
+        load_note_count(&app, &resolved.id).or(resolved.existing_note_count)
     } else {
         None
     };
 
-    let vault = Vault {
-        id: id.clone(),
-        path: vault_path,
-        name: vault_name(&args.vault_path),
-        created_at,
-        last_opened_at: Some(storage::now_ms()),
-        note_count,
-        is_available: true,
-        mode: mode.to_string(),
-    };
-
-    upsert_vault(&mut store, vault.clone());
-    storage::save_store(&app, &store)?;
-    Ok(vault)
+    finish_open(&app, resolved, mode, note_count)
 }
 
 #[derive(Debug, Deserialize)]
@@ -297,7 +287,7 @@ pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vaul
             "vault not found".to_string()
         })?;
 
-    entry.vault.mode = "vault".to_string();
+    entry.vault.mode = VaultMode::Vault;
     let note_count = load_note_count(&app, &args.vault_id);
     if note_count.is_some() {
         entry.vault.note_count = note_count;

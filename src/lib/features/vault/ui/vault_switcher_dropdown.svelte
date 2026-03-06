@@ -22,6 +22,7 @@
     Trash2,
     FolderOpen,
     GitBranch,
+    ArrowUpCircle,
   } from "@lucide/svelte";
 
   interface Props {
@@ -214,6 +215,19 @@
     <Separator />
 
     <div class="VaultSwitcher__footer">
+      {#if on_promote_to_vault}
+        <button
+          type="button"
+          class="VaultSwitcher__footer-action"
+          onclick={() => {
+            open = false;
+            on_promote_to_vault?.();
+          }}
+        >
+          <ArrowUpCircle class="VaultSwitcher__footer-icon" />
+          Save as Vault
+        </button>
+      {/if}
       <button
         type="button"
         class="VaultSwitcher__footer-action"
