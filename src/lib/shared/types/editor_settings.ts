@@ -51,10 +51,15 @@ export async function apply_global_only_overrides(
   get_setting: (key: string) => Promise<unknown>,
 ): Promise<EditorSettings> {
   const result = { ...base };
-  for (const key of GLOBAL_ONLY_SETTING_KEYS) {
-    const global_value = await get_setting(key);
-    if (typeof global_value === typeof base[key]) {
-      (result as Record<string, unknown>)[key] = global_value;
+  const entries = await Promise.all(
+    GLOBAL_ONLY_SETTING_KEYS.map(async (key) => ({
+      key,
+      value: await get_setting(key),
+    })),
+  );
+  for (const { key, value } of entries) {
+    if (typeof value === typeof base[key]) {
+      (result as Record<string, unknown>)[key] = value;
     }
   }
   return result;

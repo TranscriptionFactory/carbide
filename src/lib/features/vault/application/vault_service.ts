@@ -117,10 +117,11 @@ export class VaultService {
       if (!has_vault && config.bootstrap_default_vault_path) {
         const default_path = config.bootstrap_default_vault_path;
         const open_revision = await this.begin_open_revision();
-        editor_settings = await this.open_vault(
+        const result = await this.open_vault(
           () => this.vault_port.open_vault(default_path),
           open_revision,
         );
+        editor_settings = result.editor_settings;
       } else {
         const [recent_vaults, pinned_vault_ids] = await Promise.all([
           this.vault_port.list_vaults(),
@@ -364,22 +365,25 @@ export class VaultService {
   }
 
   private async change_vault(
-    open_fn: (revision: number) => Promise<EditorSettings>,
+    open_fn: (
+      revision: number,
+    ) => Promise<{ editor_settings: EditorSettings; root_total_count: number }>,
     error_label: string,
   ): Promise<VaultOpenResult> {
     const open_revision = await this.begin_open_revision();
     this.start_operation("vault.change");
 
     try {
-      const editor_settings = await open_fn(open_revision);
+      const result = await open_fn(open_revision);
       if (!this.is_current_open_revision(open_revision)) {
         return { status: "stale" };
       }
       this.succeed_operation("vault.change");
       return {
         status: "opened",
-        editor_settings,
+        editor_settings: result.editor_settings,
         opened_from_vault_switch: true,
+        root_total_count: result.root_total_count,
       };
     } catch (error) {
       if (error instanceof StaleVaultOpenError) {
@@ -393,7 +397,7 @@ export class VaultService {
   private async open_vault(
     open_fn: () => Promise<Vault>,
     open_revision: number,
-  ): Promise<EditorSettings> {
+  ): Promise<{ editor_settings: EditorSettings; root_total_count: number }> {
     const vault = await open_fn();
     this.throw_if_stale(open_revision);
     return this.finish_open_vault(vault, open_revision);
@@ -402,7 +406,7 @@ export class VaultService {
   private async finish_open_vault(
     vault: Vault,
     open_revision: number,
-  ): Promise<EditorSettings> {
+  ): Promise<{ editor_settings: EditorSettings; root_total_count: number }> {
     const snapshot = await this.load_open_vault_snapshot(vault, open_revision);
     this.throw_if_stale(open_revision);
 
@@ -414,7 +418,10 @@ export class VaultService {
       this.trigger_background_index_sync(vault.id, open_revision);
     }
 
-    return snapshot.editor_settings;
+    return {
+      editor_settings: snapshot.editor_settings,
+      root_total_count: snapshot.root_contents.total_count,
+    };
   }
 
   private async load_open_vault_snapshot(
@@ -459,7 +466,6 @@ export class VaultService {
 
   private apply_open_vault_snapshot(vault: Vault, snapshot: VaultOpenSnapshot) {
     this.clear_open_runtime_subscriptions();
-    this.vault_store.clear();
     this.notes_store.reset();
     this.editor_store.reset();
     this.search_store.reset();

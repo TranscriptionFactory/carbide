@@ -20,9 +20,18 @@ fn vault_name(path: &str) -> String {
 }
 
 fn is_vault_path_available(path: &str) -> bool {
-    std::fs::metadata(path)
-        .map(|metadata| metadata.is_dir())
-        .unwrap_or(false)
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let path = path.to_string();
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let result = std::fs::metadata(&path)
+            .map(|metadata| metadata.is_dir())
+            .unwrap_or(false);
+        let _ = tx.send(result);
+    });
+    rx.recv_timeout(Duration::from_millis(500)).unwrap_or(false)
 }
 
 fn refresh_vault_availability(vault: &mut Vault) {

@@ -1,6 +1,8 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
+import { set_load_state, set_pagination } from "$lib/features/folder";
 import { is_unavailable_vault_error } from "$lib/features/vault/domain/vault_errors";
+import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 import type { VaultId } from "$lib/shared/types/ids";
 import { toast } from "svelte-sonner";
@@ -8,6 +10,7 @@ import { toast } from "svelte-sonner";
 async function apply_opened_vault(
   input: ActionRegistrationInput,
   editor_settings: EditorSettings,
+  root_total_count: number,
 ) {
   input.stores.tab.reset();
   input.stores.editor.clear_open_note();
@@ -21,7 +24,15 @@ async function apply_opened_vault(
     is_loading: false,
     error: null,
   };
-  await input.registry.execute(ACTION_IDS.folder_refresh_tree);
+
+  set_load_state(input, "", "loaded", null);
+  set_pagination(input, "", {
+    loaded_count: Math.min(PAGE_SIZE, root_total_count),
+    total_count: root_total_count,
+    load_state: "idle",
+    error_message: null,
+  });
+
   if (input.stores.vault.is_vault_mode) {
     await input.registry.execute(ACTION_IDS.git_check_repo);
   }
@@ -87,7 +98,11 @@ export function register_vault_actions(input: ActionRegistrationInput) {
       return;
     }
     if (result.status === "opened") {
-      await apply_opened_vault(input, result.editor_settings);
+      await apply_opened_vault(
+        input,
+        result.editor_settings,
+        result.root_total_count,
+      );
       if (
         stores.vault.is_vault_mode &&
         result.editor_settings.show_vault_dashboard_on_open
@@ -387,7 +402,11 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     execute: async () => {
       const result = await services.vault.promote_current_to_vault();
       if (result.status === "opened") {
-        await apply_opened_vault(input, result.editor_settings);
+        await apply_opened_vault(
+          input,
+          result.editor_settings,
+          result.root_total_count,
+        );
       } else if (result.status === "failed") {
         toast.error(result.error);
       }

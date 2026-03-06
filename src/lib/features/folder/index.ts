@@ -1,6 +1,10 @@
 export { register_folder_actions } from "$lib/features/folder/application/folder_actions";
 export { FolderService } from "$lib/features/folder/application/folder_service";
-export { clear_folder_filetree_state } from "$lib/features/folder/application/filetree_action_helpers";
+export {
+  clear_folder_filetree_state,
+  set_load_state,
+  set_pagination,
+} from "$lib/features/folder/application/filetree_action_helpers";
 export {
   build_filetree,
   sort_tree,

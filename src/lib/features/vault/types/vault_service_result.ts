@@ -30,6 +30,7 @@ export type VaultOpenResult =
       status: "opened";
       editor_settings: EditorSettings;
       opened_from_vault_switch: boolean;
+      root_total_count: number;
     }
   | {
       status: "stale";
