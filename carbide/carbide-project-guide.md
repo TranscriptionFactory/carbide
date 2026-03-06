@@ -4,28 +4,42 @@
 
 Building from scratch is a multi-month time sink during a PhD. The faster path:
 
+carbide-project-guide.md
+
 1. **Fork Otterly** as the foundation — it already has the vault model, file tree, Tauri v2 + Milkdown stack, local-first `.md` storage, image paste-to-assets, **git integration (git2 crate with full UI)**, **multiple vault support**, and **resizable split panes**. This gives us most of the core for free.
 2. **Study Moraya's codebase** for specific features Otterly lacks — Moraya has working implementations of: outline view, macOS default-app file associations, and PDF export. Extract the architectural patterns and adapt them into the Otterly fork.
 3. **Build the genuinely novel pieces ourselves** — plugin system, terminal panel, PDF _viewing_ (not just export), and document-level split view (Otterly's split is layout panes, not side-by-side docs).
 
 Both repos are forked locally at `/Users/abir/src/otterly` and `/Users/abir/src/moraya`.
 
+carbide-project-guide.md
+
 ### What Otterly Already Has (Day 1)
 
 - Tauri v2 + Milkdown WYSIWYG markdown editor
+
 - Vault-based file tree sidebar with search
+
 - Image paste → local assets folder
+
 - Plain `.md` file storage
+
 - **Multiple vault support** — vault picker, vault switcher, per-vault state, cross-vault open dialog
+
 - **Git integration via git2 crate** — status bar (branch + dirty state), commit dialog, version history with diff view, file restore, git init, tagging
+
 - **Resizable 3-pane layout** — file tree | editor | links panel, with drag handles
+
 - Basic keyboard shortcuts
+
 - iCloud/Dropbox-compatible (it's just a folder)
 
 ### What We Adapt from Moraya's Patterns
 
 - **Outline view** — Moraya has `OutlinePanel.svelte`: extracts headings from editor state, renders hierarchy with indentation, highlights active heading, debounced live updates. We adapt this for Milkdown's ProseMirror state (Moraya also uses ProseMirror, so the heading extraction logic translates directly).
+
 - **macOS default app registration** — Moraya's `tauri.conf.json` declares `fileAssociations` for `.md`, `.markdown`, `.mdx`, `.txt` with MIME types and editor role. Its `lib.rs` handles `file://` scheme open events. We replicate this pattern in the Otterly fork.
+
 - **PDF export** — Moraya uses `jsPDF` to export editor content as multi-page PDF. We take this as a starting point and extend it to PDF _viewing_ (which neither project has).
 
 ### What We Build New
@@ -41,6 +55,7 @@ These features don't exist in either project:
 ### What Otterly Already Has That We Enhance
 
 - **Git integration** — Otterly has commit/status/diff/history/restore. We add: push/pull with SSH auth, auto-commit option (on-save / interval), and a more prominent status bar widget.
+
 - **Multiple vaults** — Otterly supports multiple vaults with a picker dialog. We add a quick-access dropdown switcher in the sidebar header (Moraya-style). Simultaneous multi-vault sidebar deferred to future.
 
 ---
@@ -446,7 +461,7 @@ drop it in .carbide/plugins/, and it loads on restart.
 | 6     | In-app document viewer (PDF, images, CSV, code) | 2–3 weeks   | View any file type without leaving app      |
 | 7     | Plugin system                                   | 3–4 weeks   | Extensibility unlocked                      |
 
-**Total: ~9–14 weeks of part-time work.**
+**Total: \~9–14 weeks of part-time work.**
 
 Phase 1 (vault switcher dropdown) is now a lightweight UI addition — no architectural changes to the single-vault model. This means we get to a daily driver faster (Phases 1–3). Simultaneous multi-vault sidebar is deferred as a future enhancement that would require rearchitecting the single-vault assumption. Phase 6 (document viewer) is modular and can be built incrementally (start with PDF, add other types later).
 
@@ -459,16 +474,25 @@ Otterly already uses **Milkdown** (ProseMirror-based, markdown-native WYSIWYG). 
 ### Otterly Key Paths (`/Users/abir/src/otterly`)
 
 - **Rust backend**: `src-tauri/src/features/git/service.rs` (8+ git commands)
+
 - **Git UI**: `src/lib/features/git/ui/` (status widget, commit dialog, history, diff view)
+
 - **Vault management**: `src/lib/features/vault/` (selection, dashboard, switcher dialogs)
+
 - **Layout**: `src/lib/app/bootstrap/ui/workspace_layout.svelte` (3-pane resizable)
+
 - **Tauri config**: `src-tauri/tauri.conf.json`
 
 ### Moraya Key Paths (`/Users/abir/src/moraya`)
 
 - **Outline panel**: `src/lib/components/OutlinePanel.svelte`
+
 - **File associations**: `src-tauri/tauri.conf.json` (lines 45–68)
+
 - **File open handling**: `src-tauri/src/lib.rs` (file:// scheme)
+
 - **PDF export**: `src/lib/services/export-service.ts` (jsPDF)
+
 - **Split mode**: `src/lib/stores/editor-store.ts` (visual/source/split modes)
+
 - **Knowledge bases**: `src/lib/stores/files-store.ts`, `src/lib/components/KnowledgeBaseManager.svelte`

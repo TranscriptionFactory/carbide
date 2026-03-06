@@ -52,13 +52,22 @@
     const shell = get_shell();
 
     try {
-      const opts: Record<string, unknown> = { cols, rows, env: {} };
+      const opts: Record<string, unknown> = {
+        cols,
+        rows,
+        name: "xterm-256color",
+        env: { TERM: "xterm-256color" },
+      };
       if (vault_path) opts.cwd = vault_path as string;
 
       pty_process = spawn(shell, [], opts as Parameters<typeof spawn>[2]);
 
-      pty_process.onData((data: Uint8Array) => {
-        if (!destroyed) terminal?.write(data);
+      pty_process.onData((data: Uint8Array | number[]) => {
+        if (!destroyed) {
+          const bytes =
+            data instanceof Uint8Array ? data : new Uint8Array(data);
+          terminal?.write(bytes);
+        }
       });
 
       pty_process.onExit(({ exitCode }) => {
@@ -93,6 +102,13 @@
 
     terminal.onData((data: string) => {
       pty_process?.write(data);
+    });
+
+    terminal.textarea?.addEventListener("focus", () => {
+      stores.terminal.set_focused(true);
+    });
+    terminal.textarea?.addEventListener("blur", () => {
+      stores.terminal.set_focused(false);
     });
 
     spawn_pty(terminal.cols, terminal.rows);

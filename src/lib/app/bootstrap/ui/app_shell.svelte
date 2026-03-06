@@ -50,6 +50,7 @@
     is_blocked: () => any_blocking_dialog_open || omnibar_open,
     is_omnibar_open: () => omnibar_open,
     is_vault_switcher_open: () => stores.ui.change_vault.open,
+    is_terminal_focused: () => stores.terminal.focused,
     has_tabs: () => stores.tab.has_tabs,
     action_registry,
     on_close_vault_switcher: () => {

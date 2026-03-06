@@ -13,6 +13,7 @@ export function use_keyboard_shortcuts(input: {
   is_blocked: () => boolean;
   is_omnibar_open: () => boolean;
   is_vault_switcher_open: () => boolean;
+  is_terminal_focused: () => boolean;
   has_tabs: () => boolean;
   action_registry: ActionRegistry;
   on_close_vault_switcher: () => void;
@@ -25,6 +26,7 @@ export function use_keyboard_shortcuts(input: {
     is_blocked,
     is_omnibar_open,
     is_vault_switcher_open,
+    is_terminal_focused,
     has_tabs,
     action_registry,
     on_close_vault_switcher,
@@ -82,6 +84,12 @@ export function use_keyboard_shortcuts(input: {
 
     if (!is_enabled()) return;
 
+    const in_terminal = is_terminal_focused();
+
+    // When terminal is focused, only intercept modifier combos (CmdOrCtrl/Alt)
+    if (in_terminal && !(event.metaKey || event.ctrlKey || event.altKey))
+      return;
+
     const { capture_map } = build_key_maps();
     const key = normalize_event_to_key(event);
     const action_id = capture_map.get(key);
@@ -98,6 +106,7 @@ export function use_keyboard_shortcuts(input: {
 
   const handle_keydown = (event: KeyboardEvent) => {
     if (!is_enabled()) return;
+    if (is_terminal_focused()) return;
 
     const { bubble_map } = build_key_maps();
     const key = normalize_event_to_key(event);

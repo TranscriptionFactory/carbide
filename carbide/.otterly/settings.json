@@ -1,6 +1,46 @@
 {
   "recent_notes": [
     {
+      "id": "Phase_6.md",
+      "mtime_ms": 1772753236365,
+      "name": "Phase_6",
+      "path": "Phase_6.md",
+      "size_bytes": 3514,
+      "title": "Phase 6: Terminal Panel"
+    },
+    {
+      "id": "carbide-project-guide.md",
+      "mtime_ms": 1772756314812,
+      "name": "carbide-project-guide",
+      "path": "carbide-project-guide.md",
+      "size_bytes": 23425,
+      "title": "Carbide: Revised Project Guide (v2)"
+    },
+    {
+      "id": "source_visual_split.md",
+      "mtime_ms": 1772756181080,
+      "name": "source_visual_split",
+      "path": "source_visual_split.md",
+      "size_bytes": 9111,
+      "title": "Source / Visual Editor Mode Toggle"
+    },
+    {
+      "id": "TODO.md",
+      "mtime_ms": 1772753972803,
+      "name": "TODO",
+      "path": "TODO.md",
+      "size_bytes": 10548,
+      "title": "Carbide TODO Tracker"
+    },
+    {
+      "id": "terminal_security.md",
+      "mtime_ms": 1772752975180,
+      "name": "terminal_security",
+      "path": "terminal_security.md",
+      "size_bytes": 2765,
+      "title": "Terminal Panel: Security Analysis"
+    },
+    {
       "id": "scratch_highvalue.md",
       "mtime_ms": 1772752810879,
       "name": "scratch_highvalue",
@@ -17,38 +57,6 @@
       "title": "Scratch: Portable Components for Otterly"
     },
     {
-      "id": "TODO.md",
-      "mtime_ms": 1772753972803,
-      "name": "TODO",
-      "path": "TODO.md",
-      "size_bytes": 10548,
-      "title": "Carbide TODO Tracker"
-    },
-    {
-      "id": "Phase_6.md",
-      "mtime_ms": 1772753236365,
-      "name": "Phase_6",
-      "path": "Phase_6.md",
-      "size_bytes": 3514,
-      "title": "Phase 6: Terminal Panel"
-    },
-    {
-      "id": "carbide-project-guide.md",
-      "mtime_ms": 1772751657442,
-      "name": "carbide-project-guide",
-      "path": "carbide-project-guide.md",
-      "size_bytes": 23352,
-      "title": "Carbide: Revised Project Guide (v2)"
-    },
-    {
-      "id": "terminal_security.md",
-      "mtime_ms": 1772752975180,
-      "name": "terminal_security",
-      "path": "terminal_security.md",
-      "size_bytes": 2765,
-      "title": "Terminal Panel: Security Analysis"
-    },
-    {
       "id": "PROMPT_TEMPLATE.md",
       "mtime_ms": 1772749691862,
       "name": "PROMPT_TEMPLATE",
@@ -57,60 +65,9 @@
       "title": "Carbide Phase Implementation Prompt"
     }
   ],
-  "starred_paths": [],
   "open_tabs": {
-    "active_tab_path": "scratch_highvalue.md",
-    "tabs": [
-      {
-        "cursor": {
-          "column": 1,
-          "line": 1,
-          "total_lines": 427,
-          "total_words": 3145
-        },
-        "is_pinned": false,
-        "note_path": "carbide-project-guide.md"
-      },
-      {
-        "cursor": {
-          "column": 1,
-          "line": 1,
-          "total_lines": 320,
-          "total_words": 1884
-        },
-        "is_pinned": false,
-        "note_path": "scratch_highvalue.md"
-      },
-      {
-        "cursor": {
-          "column": 1,
-          "line": 1,
-          "total_lines": 421,
-          "total_words": 3042
-        },
-        "is_pinned": false,
-        "note_path": "scratch.md"
-      },
-      {
-        "cursor": {
-          "column": 1,
-          "line": 1,
-          "total_lines": 58,
-          "total_words": 358
-        },
-        "is_pinned": false,
-        "note_path": "Phase_6.md"
-      },
-      {
-        "cursor": {
-          "column": 1,
-          "line": 1,
-          "total_lines": 206,
-          "total_words": 1206
-        },
-        "is_pinned": false,
-        "note_path": "TODO.md"
-      }
-    ]
-  }
+    "active_tab_path": null,
+    "tabs": []
+  },
+  "starred_paths": []
 }
