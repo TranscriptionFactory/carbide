@@ -63,7 +63,10 @@ import {
   find_highlight_plugin,
   find_highlight_plugin_key,
 } from "./find_highlight_plugin";
-import { code_block_copy_plugin } from "./code_block_copy_plugin";
+import { code_block_view_plugin } from "./code_block_view_plugin";
+import { table_toolbar_plugin } from "./table_toolbar_plugin";
+import { image_toolbar_plugin } from "./image_toolbar_plugin";
+import { emoji_plugin } from "./emoji_plugin";
 import { mark_escape_plugin } from "./mark_escape_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
 import { outline_plugin, outline_plugin_key } from "./outline_plugin";
@@ -382,7 +385,10 @@ export function create_milkdown_editor_port(args?: {
         .use(non_inclusive_strikethrough)
         .use(mark_escape_plugin)
         .use(prism)
-        .use(code_block_copy_plugin)
+        .use(code_block_view_plugin)
+        .use(table_toolbar_plugin)
+        .use(image_toolbar_plugin)
+        .use(emoji_plugin)
         .use(indent)
         .use(create_link_tooltip_plugin())
         .use(listItemBlockComponent)
