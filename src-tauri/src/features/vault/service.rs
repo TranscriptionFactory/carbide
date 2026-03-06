@@ -3,6 +3,7 @@ use crate::shared::storage::{Vault, VaultEntry, VaultStore};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::AppHandle;
+use walkdir::WalkDir;
 
 fn canonicalize_path(path: &str) -> Result<String, String> {
     let p = PathBuf::from(path);
@@ -33,17 +34,35 @@ fn mark_vault_opened(vault: &mut Vault, opened_at: i64) {
 }
 
 fn load_note_count(app: &AppHandle, vault_id: &str) -> Option<u64> {
-    match crate::features::notes::service::list_notes(app.clone(), vault_id.to_string()) {
-        Ok(notes) => Some(notes.len() as u64),
+    let root = match storage::vault_path(app, vault_id) {
+        Ok(path) => path,
         Err(error) => {
             log::warn!(
-                "Failed to load note count for vault {}: {}",
+                "Failed to resolve vault path for note count {}: {}",
                 vault_id,
                 error
             );
-            None
+            return None;
+        }
+    };
+
+    let mut count = 0u64;
+    for entry in WalkDir::new(&root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            !crate::shared::constants::is_excluded_folder(&name)
+        })
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().and_then(|e| e.to_str()) == Some("md")
+        {
+            count += 1;
         }
     }
+    Some(count)
 }
 
 #[derive(Debug, Deserialize)]

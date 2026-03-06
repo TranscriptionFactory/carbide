@@ -406,6 +406,7 @@
     display: flex;
     align-items: stretch;
     height: var(--size-touch-lg);
+    min-width: 0;
     background-color: var(--background);
     border-block-end: 1px solid var(--border);
     position: relative;
