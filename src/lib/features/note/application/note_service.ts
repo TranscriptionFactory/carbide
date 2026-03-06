@@ -203,6 +203,9 @@ export class NoteService {
       }
 
       this.apply_opened_note(doc, options);
+      if (options?.force_reload) {
+        await this.index_port.upsert_note(vault_id, resolved_path);
+      }
       this.succeed_operation(op_key);
       return this.open_note_result(resolved_path);
     } catch (error) {
@@ -598,14 +601,14 @@ export class NoteService {
     vault_id: VaultId,
     open_note: OpenEditorNote,
   ) {
-    await this.notes_port.write_note(
+    const new_mtime = await this.notes_port.write_note(
       vault_id,
       open_note.meta.id,
       open_note.markdown,
       open_note.meta.mtime_ms || undefined,
     );
     await this.index_port.upsert_note(vault_id, open_note.meta.id);
-    this.editor_store.mark_clean(open_note.meta.id, this.now_ms());
+    this.editor_store.mark_clean(open_note.meta.id, new_mtime);
   }
 
   private resolve_saved_path(fallback_note: OpenEditorNote): NotePath {
@@ -677,7 +680,7 @@ export class NoteService {
       this.notes_store.add_note(created_meta);
       this.editor_service.rename_buffer(old_path, target_path);
       this.editor_store.update_open_note_path(target_path);
-      this.editor_store.mark_clean(target_path, this.now_ms());
+      this.editor_store.mark_clean(target_path, created_meta.mtime_ms);
       this.notes_store.add_recent_note(created_meta);
       return;
     } catch (error) {
@@ -689,13 +692,17 @@ export class NoteService {
       }
     }
 
-    await this.notes_port.write_note(vault_id, target_path, open_note.markdown);
+    const new_mtime = await this.notes_port.write_note(
+      vault_id,
+      target_path,
+      open_note.markdown,
+    );
     await this.index_port.upsert_note(vault_id, target_path);
     const written = await this.notes_port.read_note(vault_id, target_path);
     this.notes_store.add_note(written.meta);
     this.editor_service.rename_buffer(old_path, target_path);
     this.editor_store.update_open_note_path(target_path);
-    this.editor_store.mark_clean(target_path, this.now_ms());
+    this.editor_store.mark_clean(target_path, new_mtime);
     this.notes_store.add_recent_note(written.meta);
   }
 

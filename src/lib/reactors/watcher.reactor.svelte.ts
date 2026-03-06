@@ -7,18 +7,25 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { create_logger } from "$lib/shared/utils/logger";
-import { toast } from "svelte-sonner";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import type { NotePath } from "$lib/shared/types/ids";
+import {
+  active_note_conflict_callbacks,
+  type ConflictToastManager,
+} from "$lib/reactors/conflict_toast";
 
 const log = create_logger("watcher_reactor");
 const TREE_REFRESH_DEBOUNCE_MS = 300;
 
+export type BackgroundTabInfo = { is_dirty: boolean } | null;
+
 export type WatcherEventDecision =
-  | { action: "reload"; note_path: string }
-  | { action: "conflict_toast"; note_path: string }
+  | { action: "reload"; note_path: NotePath }
+  | { action: "conflict_toast"; note_path: NotePath }
+  | { action: "invalidate_tab_cache"; note_path: NotePath }
+  | { action: "background_conflict_toast"; note_path: NotePath }
   | { action: "refresh_tree" }
-  | { action: "clear_and_refresh"; note_path: string }
+  | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "log_only"; path: string }
   | { action: "ignore" };
 
@@ -27,6 +34,7 @@ export function resolve_watcher_event_decision(
   current_vault_id: string | null,
   open_note_path: string | null,
   is_dirty: boolean,
+  find_background_tab: (path: string) => BackgroundTabInfo,
 ): WatcherEventDecision {
   if (event.vault_id !== current_vault_id) {
     return { action: "ignore" };
@@ -34,13 +42,24 @@ export function resolve_watcher_event_decision(
 
   switch (event.type) {
     case "note_changed_externally": {
-      if (!open_note_path) return { action: "ignore" };
-      if (!paths_equal_ignore_case(event.note_path, open_note_path)) {
-        return { action: "ignore" };
+      const np = event.note_path as NotePath;
+      if (
+        open_note_path &&
+        paths_equal_ignore_case(event.note_path, open_note_path)
+      ) {
+        return is_dirty
+          ? { action: "conflict_toast", note_path: np }
+          : { action: "reload", note_path: np };
       }
-      return is_dirty
-        ? { action: "conflict_toast", note_path: event.note_path }
-        : { action: "reload", note_path: event.note_path };
+
+      const bg = find_background_tab(event.note_path);
+      if (bg) {
+        return bg.is_dirty
+          ? { action: "background_conflict_toast", note_path: np }
+          : { action: "invalidate_tab_cache", note_path: np };
+      }
+
+      return { action: "ignore" };
     }
     case "note_added":
       return { action: "refresh_tree" };
@@ -49,7 +68,10 @@ export function resolve_watcher_event_decision(
         open_note_path &&
         paths_equal_ignore_case(event.note_path, open_note_path)
       ) {
-        return { action: "clear_and_refresh", note_path: event.note_path };
+        return {
+          action: "clear_and_refresh",
+          note_path: event.note_path as NotePath,
+        };
       }
       return { action: "refresh_tree" };
     }
@@ -65,10 +87,10 @@ export function create_watcher_reactor(
   note_service: NoteService,
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
+  conflict_toast_manager: ConflictToastManager,
 ): () => void {
   return $effect.root(() => {
     let tree_refresh_timer: ReturnType<typeof setTimeout> | null = null;
-    const active_conflict_toasts = new Map<string, string | number>();
 
     function debounced_tree_refresh() {
       if (tree_refresh_timer !== null) {
@@ -80,12 +102,19 @@ export function create_watcher_reactor(
       }, TREE_REFRESH_DEBOUNCE_MS);
     }
 
+    function find_background_tab(path: string): BackgroundTabInfo {
+      const tab = tab_store.find_tab_by_path(path as NotePath);
+      if (!tab || tab.id === tab_store.active_tab_id) return null;
+      return { is_dirty: tab.is_dirty };
+    }
+
     function handle_event(event: VaultFsEvent) {
       const decision = resolve_watcher_event_decision(
         event,
         vault_store.vault?.id ?? null,
         editor_store.open_note?.meta.path ?? null,
         editor_store.open_note?.is_dirty ?? false,
+        find_background_tab,
       );
 
       switch (decision.action) {
@@ -95,28 +124,32 @@ export function create_watcher_reactor(
           });
           break;
         case "conflict_toast": {
-          if (active_conflict_toasts.has(decision.note_path)) break;
-          const tid = toast.warning("Note modified externally", {
-            description: "Reload from disk or keep your changes?",
-            classes: { toast: "toast--stacked-actions" },
-            duration: Infinity,
-            action: {
-              label: "Reload from disk",
-              onClick: () => {
-                active_conflict_toasts.delete(decision.note_path);
-                void note_service.open_note(decision.note_path, false, {
-                  force_reload: true,
-                });
-              },
+          const note_id = editor_store.open_note?.meta.id;
+          if (!note_id) break;
+          conflict_toast_manager.show(
+            decision.note_path,
+            active_note_conflict_callbacks(
+              decision.note_path,
+              note_id,
+              note_service,
+              editor_store,
+            ),
+          );
+          break;
+        }
+        case "invalidate_tab_cache":
+          tab_store.invalidate_cache_by_path(decision.note_path);
+          break;
+        case "background_conflict_toast": {
+          const bg_tab = tab_store.find_tab_by_path(decision.note_path);
+          if (!bg_tab) break;
+          conflict_toast_manager.show(decision.note_path, {
+            on_reload: () => {
+              tab_store.invalidate_cache_by_path(decision.note_path);
+              tab_store.set_dirty(bg_tab.id, false);
             },
-            cancel: {
-              label: "Keep my changes",
-              onClick: () => {
-                active_conflict_toasts.delete(decision.note_path);
-              },
-            },
+            on_keep: () => {},
           });
-          active_conflict_toasts.set(decision.note_path, tid);
           break;
         }
         case "refresh_tree":
@@ -124,7 +157,7 @@ export function create_watcher_reactor(
           break;
         case "clear_and_refresh":
           editor_store.clear_open_note();
-          tab_store.remove_tab_by_path(decision.note_path as NotePath);
+          tab_store.remove_tab_by_path(decision.note_path);
           debounced_tree_refresh();
           break;
         case "log_only":

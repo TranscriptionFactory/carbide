@@ -47,7 +47,7 @@ export function create_notes_tauri_adapter(): NotesPort {
       markdown: MarkdownText,
       expected_mtime_ms?: number,
     ) {
-      await invoke_notes_args<undefined>("write_note", {
+      return await invoke_notes_args<number>("write_note", {
         vault_id,
         note_id,
         markdown,

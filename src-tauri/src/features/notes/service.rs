@@ -305,7 +305,7 @@ fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<(), String> {
+pub fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<i64, String> {
     log::debug!(
         "Writing note vault_id={} note_id={}",
         args.vault_id,
@@ -315,16 +315,18 @@ pub fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<(), String> {
     let abs = safe_vault_abs_for_write(&root, &args.note_id)?;
 
     if let Some(expected) = args.expected_mtime_ms {
-        if abs.exists() {
-            let (disk_mtime, _) = file_meta(&abs)?;
-            if disk_mtime != expected {
+        match file_meta(&abs) {
+            Ok((disk_mtime, _)) if disk_mtime != expected => {
                 return Err("conflict:mtime_mismatch".to_string());
             }
+            Err(_) => {}
+            _ => {}
         }
     }
 
     atomic_write(&abs, &args.markdown)?;
-    Ok(())
+    let (new_mtime, _) = file_meta(&abs)?;
+    Ok(new_mtime)
 }
 
 #[derive(Debug, Deserialize)]

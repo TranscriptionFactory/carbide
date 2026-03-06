@@ -710,8 +710,9 @@ describe("NoteService", () => {
       is_dirty: true,
     });
 
-    const now = 1_700_000_010_000;
+    const disk_mtime = 1_700_000_010_000;
     const notes_port = create_mock_notes_port();
+    notes_port.write_note = vi.fn().mockResolvedValue(disk_mtime);
     const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
@@ -732,12 +733,12 @@ describe("NoteService", () => {
       editor_store,
       op_store,
       editor_service,
-      () => now,
+      () => disk_mtime,
     );
 
     await service.save_note(null, true);
 
-    expect(editor_store.last_saved_at).toBe(now);
+    expect(editor_store.last_saved_at).toBe(disk_mtime);
   });
 
   it("saves untitled note to a new path", async () => {

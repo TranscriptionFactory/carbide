@@ -13,6 +13,7 @@ import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reac
 import { create_local_links_sync_reactor } from "$lib/reactors/local_links_sync.reactor.svelte";
 import { create_watcher_reactor } from "$lib/reactors/watcher.reactor.svelte";
 import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.svelte";
+import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -55,12 +56,15 @@ export type ReactorContext = {
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
+  const conflict_toast_manager = new ConflictToastManager();
+
   const unmounts = [
     create_editor_sync_reactor(context.editor_store, context.editor_service),
     create_autosave_reactor(
       context.editor_store,
       context.ui_store,
       context.note_service,
+      conflict_toast_manager,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),
@@ -119,6 +123,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.watcher_service,
       context.action_registry,
+      conflict_toast_manager,
     ),
   ];
 
@@ -126,5 +131,6 @@ export function mount_reactors(context: ReactorContext): () => void {
     for (const unmount of unmounts) {
       unmount();
     }
+    conflict_toast_manager.dismiss_all();
   };
 }
