@@ -11,6 +11,8 @@ export interface VaultPort {
   choose_vault(): Promise<VaultPath | null>;
   open_vault(vault_path: VaultPath): Promise<Vault>;
   open_vault_by_id(vault_id: VaultId): Promise<Vault>;
+  open_folder(vault_path: VaultPath): Promise<Vault>;
+  promote_to_vault(vault_id: VaultId): Promise<Vault>;
   list_vaults(): Promise<Vault[]>;
   remove_vault(vault_id: VaultId): Promise<void>;
   remember_last_vault(vault_id: VaultId): Promise<void>;

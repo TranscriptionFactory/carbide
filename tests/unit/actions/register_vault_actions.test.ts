@@ -226,6 +226,7 @@ describe("register_vault_actions", () => {
         path: as_vault_path("/vault/missing"),
         created_at: 1,
         is_available: true,
+        mode: "vault",
       },
     ]);
 
@@ -243,6 +244,14 @@ describe("register_vault_actions", () => {
   it("opens vault dashboard after successful switch when enabled", async () => {
     const { registry, stores, services, execute_open_dashboard } =
       create_vault_actions_harness();
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-next"),
+      name: "Next",
+      path: as_vault_path("/vault/next"),
+      created_at: 0,
+      mode: "vault",
+    });
 
     services.vault.change_vault_by_id = vi.fn().mockResolvedValue({
       status: "opened",
@@ -284,6 +293,7 @@ describe("register_vault_actions", () => {
         name: "Test",
         path: as_vault_path("/test"),
         created_at: 1,
+        mode: "vault",
       });
 
       await registry.execute(ACTION_IDS.vault_sync_index);
@@ -306,6 +316,7 @@ describe("register_vault_actions", () => {
         name: "Test",
         path: as_vault_path("/test"),
         created_at: 1,
+        mode: "vault",
       });
 
       const available = registry.get_available();
@@ -332,6 +343,7 @@ describe("register_vault_actions", () => {
         name: "Test",
         path: as_vault_path("/test"),
         created_at: 1,
+        mode: "vault",
       });
       services.vault.sync_index = vi
         .fn()
@@ -366,12 +378,14 @@ describe("register_vault_actions", () => {
         name: "A",
         path: as_vault_path("/a"),
         created_at: 1,
+        mode: "vault" as const,
       };
       const vault_b = {
         id: as_vault_id("b"),
         name: "B",
         path: as_vault_path("/b"),
         created_at: 2,
+        mode: "vault" as const,
       };
       stores.vault.set_recent_vaults([vault_a, vault_b]);
 
@@ -399,6 +413,7 @@ describe("register_vault_actions", () => {
         name: "A",
         path: as_vault_path("/a"),
         created_at: 1,
+        mode: "vault" as const,
       };
       stores.vault.set_recent_vaults([vault_a]);
       stores.vault.set_vault_git_info(as_vault_id("a"), {

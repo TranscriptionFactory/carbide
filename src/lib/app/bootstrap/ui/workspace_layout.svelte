@@ -36,6 +36,7 @@
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
   const split_view_active = $derived(stores.split_view.active);
   const terminal_open = $derived(stores.terminal.panel_open);
+  const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -334,9 +335,19 @@
 
   const sidebar_header_actions = $derived.by(() => {
     const view = stores.ui.sidebar_view;
-    if (view === "starred") return starred_header_actions;
-    if (view === "dashboard") return dashboard_header_actions;
+    if (is_vault_mode && view === "starred") return starred_header_actions;
+    if (is_vault_mode && view === "dashboard") return dashboard_header_actions;
     return explorer_header_actions;
+  });
+
+  $effect(() => {
+    if (
+      !is_vault_mode &&
+      (stores.ui.sidebar_view === "starred" ||
+        stores.ui.sidebar_view === "dashboard")
+    ) {
+      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "explorer");
+    }
   });
 </script>
 
@@ -355,6 +366,7 @@
       <ActivityBar
         sidebar_open={stores.ui.sidebar_open}
         active_view={stores.ui.sidebar_view}
+        {is_vault_mode}
         on_open_explorer={() => {
           if (stores.ui.sidebar_open && stores.ui.sidebar_view === "explorer") {
             void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
@@ -459,6 +471,13 @@
                             "",
                           );
                         }}
+                        on_promote_to_vault={!is_vault_mode
+                          ? () => {
+                              void action_registry.execute(
+                                ACTION_IDS.vault_promote,
+                              );
+                            }
+                          : undefined}
                       />
                     {/if}
                     <div class="SidebarHeader__actions">
@@ -485,7 +504,7 @@
                 </Sidebar.Header>
 
                 <Sidebar.Content class="overflow-hidden">
-                  {#if stores.ui.sidebar_view === "starred"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === "starred"}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VirtualFileTree
@@ -562,7 +581,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if stores.ui.sidebar_view === "dashboard"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === "dashboard"}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VaultDashboardPanel
@@ -795,15 +814,19 @@
       {line_count}
       has_note={!!stores.editor.open_note}
       last_saved_at={stores.editor.last_saved_at}
-      index_progress={stores.search.index_progress}
+      index_progress={is_vault_mode
+        ? stores.search.index_progress
+        : { status: "idle", indexed: 0, total: 0, error: null }}
       vault_name={stores.vault.vault?.name ?? null}
-      git_enabled={stores.git.enabled}
-      git_branch={stores.git.branch}
-      git_is_dirty={stores.git.is_dirty}
-      git_pending_files={stores.git.pending_files}
-      git_sync_status={stores.git.sync_status}
-      is_repairing_links={stores.op.is_pending("links.repair")}
-      link_repair_message={stores.op.get("links.repair").message}
+      git_enabled={is_vault_mode && stores.git.enabled}
+      git_branch={is_vault_mode ? stores.git.branch : ""}
+      git_is_dirty={is_vault_mode && stores.git.is_dirty}
+      git_pending_files={is_vault_mode ? stores.git.pending_files : 0}
+      git_sync_status={is_vault_mode ? stores.git.sync_status : "idle"}
+      is_repairing_links={is_vault_mode && stores.op.is_pending("links.repair")}
+      link_repair_message={is_vault_mode
+        ? stores.op.get("links.repair").message
+        : null}
       on_vault_click={() =>
         void action_registry.execute(ACTION_IDS.vault_request_change)}
       on_info_click={() => (details_dialog_open = true)}

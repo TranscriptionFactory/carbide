@@ -71,7 +71,7 @@ export function create_starred_persist_reactor(
         last_saved_serialized = null;
       }
 
-      if (!vault_id) {
+      if (!vault_id || vault_store.vault?.mode !== "vault") {
         return;
       }
       schedule_persist(vault_id, starred_paths);

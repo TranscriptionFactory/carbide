@@ -15,6 +15,7 @@ export function create_test_vault(overrides?: Partial<Vault>): Vault {
     name: "Test Vault",
     path: "/test/vault" as VaultPath,
     created_at: 0,
+    mode: "vault",
     ...overrides,
   };
 }

@@ -327,6 +327,7 @@ describe("register_omnibar_actions", () => {
         path: as_vault_path("/vault/b"),
         created_at: 1,
         is_available: false,
+        mode: "vault",
       },
     ]);
 

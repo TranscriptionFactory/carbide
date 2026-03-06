@@ -12,7 +12,7 @@ export { default as ConfirmCrossVaultOpenDialog } from "$lib/features/vault/ui/c
 export { default as VaultDashboardPanel } from "$lib/features/vault/ui/vault_dashboard_panel.svelte";
 export { default as VaultSelectionPanel } from "$lib/features/vault/ui/vault_selection_panel.svelte";
 export { default as VaultSwitcherDropdown } from "$lib/features/vault/ui/vault_switcher_dropdown.svelte";
-export type { Vault } from "$lib/shared/types/vault";
+export type { Vault, VaultMode } from "$lib/shared/types/vault";
 export type {
   VaultChoosePathResult,
   VaultInitializeResult,

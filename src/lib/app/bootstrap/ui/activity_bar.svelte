@@ -12,6 +12,7 @@
   type Props = {
     sidebar_open: boolean;
     active_view: SidebarView;
+    is_vault_mode: boolean;
     on_open_explorer: () => void;
     on_open_dashboard: () => void;
     on_open_starred: () => void;
@@ -22,6 +23,7 @@
   let {
     sidebar_open,
     active_view,
+    is_vault_mode,
     on_open_explorer,
     on_open_dashboard,
     on_open_starred,
@@ -44,29 +46,31 @@
       <Files class="ActivityBar__icon" />
     </button>
 
-    <button
-      type="button"
-      class="ActivityBar__button"
-      class:ActivityBar__button--active={sidebar_open &&
-        active_view === "dashboard"}
-      onclick={on_open_dashboard}
-      aria-pressed={sidebar_open && active_view === "dashboard"}
-      aria-label="Dashboard"
-    >
-      <LayoutDashboard class="ActivityBar__icon" />
-    </button>
+    {#if is_vault_mode}
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === "dashboard"}
+        onclick={on_open_dashboard}
+        aria-pressed={sidebar_open && active_view === "dashboard"}
+        aria-label="Dashboard"
+      >
+        <LayoutDashboard class="ActivityBar__icon" />
+      </button>
 
-    <button
-      type="button"
-      class="ActivityBar__button"
-      class:ActivityBar__button--active={sidebar_open &&
-        active_view === "starred"}
-      onclick={on_open_starred}
-      aria-pressed={sidebar_open && active_view === "starred"}
-      aria-label="Starred"
-    >
-      <Star class="ActivityBar__icon" />
-    </button>
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === "starred"}
+        onclick={on_open_starred}
+        aria-pressed={sidebar_open && active_view === "starred"}
+        aria-label="Starred"
+      >
+        <Star class="ActivityBar__icon" />
+      </button>
+    {/if}
   </div>
 
   <div class="ActivityBar__section">

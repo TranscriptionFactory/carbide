@@ -26,6 +26,7 @@ describe("ensure_open_note", () => {
       name: "Vault",
       path: "/vault" as VaultPath,
       created_at: 0,
+      mode: "vault",
     };
 
     const result = ensure_open_note({
@@ -45,6 +46,7 @@ describe("ensure_open_note", () => {
       name: "Vault",
       path: "/vault" as VaultPath,
       created_at: 0,
+      mode: "vault",
     };
 
     const result = ensure_open_note({
@@ -63,6 +65,7 @@ describe("ensure_open_note", () => {
       name: "Vault",
       path: "/vault" as VaultPath,
       created_at: 0,
+      mode: "vault",
     };
 
     const existing: OpenNoteState = {

@@ -44,8 +44,11 @@
   const { stores, action_registry } = use_app_context();
 
   const has_vault = $derived(stores.vault.vault !== null);
+  const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
-  const vault_dashboard_open = $derived(stores.ui.vault_dashboard.open);
+  const vault_dashboard_open = $derived(
+    is_vault_mode && stores.ui.vault_dashboard.open,
+  );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({
       id: n.id,

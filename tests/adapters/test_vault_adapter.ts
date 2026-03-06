@@ -27,6 +27,7 @@ export function create_test_vault_adapter(): VaultPort {
     last_opened_at: Date.now(),
     note_count: 12,
     is_available: true,
+    mode: "vault",
   };
   const vault_b: Vault = {
     id: TEST_VAULT_2_ID,
@@ -36,6 +37,7 @@ export function create_test_vault_adapter(): VaultPort {
     last_opened_at: Date.now(),
     note_count: 8,
     is_available: true,
+    mode: "vault",
   };
   const vaults: Vault[] = [vault_a, vault_b];
 
@@ -121,6 +123,40 @@ export function create_test_vault_adapter(): VaultPort {
         return Promise.resolve(stored ? as_vault_id(stored) : null);
       }
       return Promise.resolve(last_vault_id);
+    },
+
+    open_folder(vault_path: VaultPath): Promise<Vault> {
+      if (vault_path === TEST_VAULT_PATH) {
+        return Promise.resolve({
+          ...vault_a,
+          created_at: Date.now(),
+          last_opened_at: Date.now(),
+        });
+      }
+
+      if (vault_path === TEST_VAULT_2_PATH) {
+        return Promise.resolve({
+          ...vault_b,
+          created_at: Date.now(),
+          last_opened_at: Date.now(),
+        });
+      }
+
+      return Promise.reject(
+        new Error(
+          `Test adapter only supports paths: ${TEST_VAULT_PATH}, ${TEST_VAULT_2_PATH}`,
+        ),
+      );
+    },
+
+    promote_to_vault(vault_id: VaultId): Promise<Vault> {
+      const vault = vaults.find((v) => v.id === vault_id);
+      if (!vault) {
+        return Promise.reject(
+          new Error(`Test adapter: vault not found for id ${vault_id}`),
+        );
+      }
+      return Promise.resolve({ ...vault, mode: "vault" });
     },
 
     resolve_file_to_vault(): Promise<null> {

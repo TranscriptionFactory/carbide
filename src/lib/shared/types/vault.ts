@@ -1,5 +1,7 @@
 import type { VaultId, VaultPath } from "$lib/shared/types/ids";
 
+export type VaultMode = "browse" | "vault";
+
 export type Vault = {
   id: VaultId;
   path: VaultPath;
@@ -8,4 +10,5 @@ export type Vault = {
   last_opened_at?: number | null;
   note_count?: number | null;
   is_available?: boolean;
+  mode: VaultMode;
 };

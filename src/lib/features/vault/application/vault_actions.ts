@@ -22,7 +22,9 @@ async function apply_opened_vault(
     error: null,
   };
   await input.registry.execute(ACTION_IDS.folder_refresh_tree);
-  await input.registry.execute(ACTION_IDS.git_check_repo);
+  if (input.stores.vault.is_vault_mode) {
+    await input.registry.execute(ACTION_IDS.git_check_repo);
+  }
 
   const persisted = await input.services.tab.load_tabs();
   if (persisted && persisted.tabs.length > 0) {
@@ -86,7 +88,10 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     }
     if (result.status === "opened") {
       await apply_opened_vault(input, result.editor_settings);
-      if (result.editor_settings.show_vault_dashboard_on_open) {
+      if (
+        stores.vault.is_vault_mode &&
+        result.editor_settings.show_vault_dashboard_on_open
+      ) {
         await registry.execute(ACTION_IDS.ui_open_vault_dashboard);
       }
       return;
@@ -179,7 +184,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
           return;
         }
 
-        const result = await services.vault.change_vault_by_path(
+        const result = await services.vault.change_folder_by_path(
           path_result.path,
         );
         await handle_open_result(request_revision, result);
@@ -376,9 +381,23 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.vault_promote,
+    label: "Promote to Vault",
+    when: () => stores.vault.vault !== null && !stores.vault.is_vault_mode,
+    execute: async () => {
+      const result = await services.vault.promote_current_to_vault();
+      if (result.status === "opened") {
+        await apply_opened_vault(input, result.editor_settings);
+      } else if (result.status === "failed") {
+        toast.error(result.error);
+      }
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.vault_sync_index,
     label: "Sync Vault Index",
-    when: () => stores.vault.vault !== null,
+    when: () => stores.vault.is_vault_mode,
     execute: async () => {
       const result = await services.vault.sync_index();
       if (result.status === "failed") {
@@ -390,7 +409,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.vault_reindex,
     label: "Reindex Vault",
-    when: () => stores.vault.vault !== null,
+    when: () => stores.vault.is_vault_mode,
     execute: async () => {
       const result = await services.vault.rebuild_index();
       if (result.status === "failed") {

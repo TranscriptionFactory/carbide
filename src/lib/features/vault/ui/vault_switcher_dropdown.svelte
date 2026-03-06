@@ -39,6 +39,7 @@
     on_reveal_vault: (vault_path: string) => void;
     on_dropdown_opened: () => void;
     on_select_folder: () => void;
+    on_promote_to_vault?: (() => void) | undefined;
   }
 
   let {
@@ -56,6 +57,7 @@
     on_reveal_vault,
     on_dropdown_opened,
     on_select_folder,
+    on_promote_to_vault,
   }: Props = $props();
 
   let vault_query = $state("");
@@ -221,7 +223,7 @@
         }}
       >
         <Plus class="VaultSwitcher__footer-icon" />
-        Add Vault
+        Open Folder
       </button>
       <button
         type="button"

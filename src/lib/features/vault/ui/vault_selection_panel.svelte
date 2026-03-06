@@ -260,6 +260,11 @@
       <div class="VaultPanel__vault-info">
         <div class="VaultPanel__vault-name-row">
           <span class="VaultPanel__vault-name">{vault.name}</span>
+          {#if vault.mode === "browse"}
+            <span class="VaultPanel__badge VaultPanel__badge--browse"
+              >Browse</span
+            >
+          {/if}
           {#if !is_vault_available(vault)}
             <span class="VaultPanel__badge VaultPanel__badge--unavailable"
               >Unavailable</span
@@ -325,7 +330,7 @@
       class="VaultPanel__action-btn"
     >
       <Plus />
-      Choose Vault Directory
+      Open Folder
     </Button>
   {/if}
 
@@ -587,6 +592,12 @@
     color: var(--destructive);
     background-color: color-mix(in oklch, var(--destructive) 10%, transparent);
     border: 1px solid color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  .VaultPanel__badge--browse {
+    color: var(--muted-foreground);
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    border: 1px solid var(--border);
   }
 
   .VaultPanel__vault-path {

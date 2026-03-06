@@ -62,6 +62,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             features::vault::service::open_vault,
             features::vault::service::open_vault_by_id,
+            features::vault::service::open_folder,
+            features::vault::service::promote_to_vault,
             features::vault::service::list_vaults,
             features::vault::service::remove_vault_from_registry,
             features::vault::service::remember_last_vault,

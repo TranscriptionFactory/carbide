@@ -126,10 +126,13 @@ async function mount_ready_vault_state(
   );
 
   await input.registry.execute(ACTION_IDS.folder_refresh_tree);
-  await input.registry.execute(ACTION_IDS.git_check_repo);
 
-  if (input.stores.ui.editor_settings.show_vault_dashboard_on_open) {
-    await input.registry.execute(ACTION_IDS.ui_open_vault_dashboard);
+  if (input.stores.vault.is_vault_mode) {
+    await input.registry.execute(ACTION_IDS.git_check_repo);
+
+    if (input.stores.ui.editor_settings.show_vault_dashboard_on_open) {
+      await input.registry.execute(ACTION_IDS.ui_open_vault_dashboard);
+    }
   }
 }
 

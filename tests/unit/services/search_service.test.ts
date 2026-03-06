@@ -427,6 +427,7 @@ describe("SearchService", () => {
         path: as_vault_path("/vault/work"),
         created_at: 1,
         is_available: true,
+        mode: "vault",
       },
       {
         id: as_vault_id("vault-research"),
@@ -434,6 +435,7 @@ describe("SearchService", () => {
         path: as_vault_path("/vault/research"),
         created_at: 1,
         is_available: true,
+        mode: "vault",
       },
       {
         id: as_vault_id("vault-offline"),
@@ -441,6 +443,7 @@ describe("SearchService", () => {
         path: as_vault_path("/vault/offline"),
         created_at: 1,
         is_available: false,
+        mode: "vault",
       },
     ]);
 
@@ -495,6 +498,7 @@ describe("SearchService", () => {
         path: as_vault_path("/vault/a"),
         created_at: 1,
         is_available: true,
+        mode: "vault",
       },
     ]);
 
@@ -540,6 +544,7 @@ describe("SearchService", () => {
       path: as_vault_path("/vault/active"),
       created_at: 1,
       is_available: true,
+      mode: "vault",
     });
     vault_store.set_recent_vaults([]);
 

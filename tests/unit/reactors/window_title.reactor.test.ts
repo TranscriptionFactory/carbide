@@ -17,6 +17,7 @@ function mock_vault(name: string): Vault {
     path: as_vault_path(`/vaults/${name}`),
     name,
     created_at: 0,
+    mode: "vault",
   };
 }
 

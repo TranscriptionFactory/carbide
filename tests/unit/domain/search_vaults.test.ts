@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { search_vaults } from "$lib/features/vault/domain/search_vaults";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
+import type { Vault } from "$lib/shared/types/vault";
 
 describe("search_vaults", () => {
-  const vaults = [
+  const vaults: Vault[] = [
     {
       id: as_vault_id("vault-dev"),
       name: "Dev Journal",
       path: as_vault_path("/Users/a/vaults/dev-journal"),
       created_at: 1,
+      mode: "vault",
     },
     {
       id: as_vault_id("vault-research"),
       name: "Research Notes",
       path: as_vault_path("/Users/a/vaults/research"),
       created_at: 1,
+      mode: "vault",
     },
   ];
 
@@ -42,14 +45,16 @@ describe("search_vaults", () => {
           name: "Knowledge Base",
           path: as_vault_path("/Users/a/vaults/machine-learning"),
           created_at: 1,
+          mode: "vault",
         },
         {
           id: as_vault_id("vault-beta"),
           name: "Machine Learning",
           path: as_vault_path("/Users/a/vaults/notes"),
           created_at: 1,
+          mode: "vault",
         },
-      ],
+      ] satisfies Vault[],
       "machine learning",
     );
 

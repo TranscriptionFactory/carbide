@@ -131,7 +131,9 @@ export class VaultService {
 
         const current_vault_id = this.get_active_vault_id();
         if (current_vault_id) {
-          editor_settings = await this.load_editor_settings(current_vault_id);
+          editor_settings = this.vault_store.is_vault_mode
+            ? await this.load_editor_settings(current_vault_id)
+            : await this.load_browse_editor_settings();
         }
       }
 
@@ -190,6 +192,33 @@ export class VaultService {
           revision,
         ),
       "Select vault failed",
+    );
+  }
+
+  async change_folder_by_path(vault_path: VaultPath): Promise<VaultOpenResult> {
+    return this.change_vault(
+      (revision) =>
+        this.open_vault(
+          () => this.vault_port.open_folder(vault_path),
+          revision,
+        ),
+      "Open folder failed",
+    );
+  }
+
+  async promote_current_to_vault(): Promise<VaultOpenResult> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      return { status: "failed", error: "No active vault to promote" };
+    }
+
+    return this.change_vault(
+      (revision) =>
+        this.open_vault(
+          () => this.vault_port.promote_to_vault(vault_id),
+          revision,
+        ),
+      "Promote to vault failed",
     );
   }
 
@@ -276,7 +305,7 @@ export class VaultService {
     | { status: "failed"; error: string }
   > {
     const vault_id = this.get_active_vault_id();
-    if (!vault_id) {
+    if (!vault_id || !this.vault_store.is_vault_mode) {
       return { status: "skipped" };
     }
     if (this.search_store.index_progress.status === "indexing") {
@@ -308,7 +337,7 @@ export class VaultService {
     | { status: "failed"; error: string }
   > {
     const vault_id = this.get_active_vault_id();
-    if (!vault_id) {
+    if (!vault_id || !this.vault_store.is_vault_mode) {
       return { status: "skipped" };
     }
     if (this.search_store.index_progress.status === "indexing") {
@@ -378,9 +407,12 @@ export class VaultService {
     this.throw_if_stale(open_revision);
 
     this.apply_open_vault_snapshot(vault, snapshot);
-    this.trigger_dashboard_stats_refresh(vault.id, open_revision);
-    this.subscribe_open_vault_index_progress(vault.id, open_revision);
-    this.trigger_background_index_sync(vault.id, open_revision);
+
+    if (vault.mode === "vault") {
+      this.trigger_dashboard_stats_refresh(vault.id, open_revision);
+      this.subscribe_open_vault_index_progress(vault.id, open_revision);
+      this.trigger_background_index_sync(vault.id, open_revision);
+    }
 
     return snapshot.editor_settings;
   }
@@ -398,6 +430,18 @@ export class VaultService {
       this.load_pinned_vault_ids(),
     ]);
     this.throw_if_stale(open_revision);
+
+    if (vault.mode !== "vault") {
+      const editor_settings = await this.load_browse_editor_settings();
+      return {
+        root_contents,
+        recent_vaults,
+        pinned_vault_ids,
+        recent_notes: [],
+        starred_paths: [],
+        editor_settings,
+      };
+    }
 
     const recent_notes = await this.load_recent_notes(vault.id);
     const starred_paths = await this.load_starred_paths(vault.id);
@@ -424,9 +468,12 @@ export class VaultService {
     this.notes_store.merge_folder_contents("", snapshot.root_contents);
     this.vault_store.set_recent_vaults(snapshot.recent_vaults);
     this.vault_store.set_pinned_vault_ids(snapshot.pinned_vault_ids);
-    this.notes_store.set_recent_notes(snapshot.recent_notes);
-    this.notes_store.set_starred_paths(snapshot.starred_paths);
-    this.notes_store.set_dashboard_stats_loading();
+
+    if (vault.mode === "vault") {
+      this.notes_store.set_recent_notes(snapshot.recent_notes);
+      this.notes_store.set_starred_paths(snapshot.starred_paths);
+      this.notes_store.set_dashboard_stats_loading();
+    }
 
     this.editor_store.set_open_note(
       create_untitled_open_note({ open_names: [], now_ms: this.now_ms() }),
@@ -439,7 +486,7 @@ export class VaultService {
     | { status: "failed"; error: string }
   > {
     const vault_id = this.get_active_vault_id();
-    if (!vault_id) {
+    if (!vault_id || !this.vault_store.is_vault_mode) {
       return { status: "skipped" };
     }
 
@@ -561,6 +608,15 @@ export class VaultService {
       return apply_global_only_overrides(migrated, get_global);
     }
 
+    return apply_global_only_overrides(
+      { ...DEFAULT_EDITOR_SETTINGS },
+      get_global,
+    );
+  }
+
+  private async load_browse_editor_settings(): Promise<EditorSettings> {
+    const get_global = (k: string) =>
+      this.settings_port.get_setting<unknown>(k);
     return apply_global_only_overrides(
       { ...DEFAULT_EDITOR_SETTINGS },
       get_global,

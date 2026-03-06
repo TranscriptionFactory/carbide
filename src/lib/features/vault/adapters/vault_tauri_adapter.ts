@@ -19,6 +19,12 @@ export function create_vault_tauri_adapter(): VaultPort {
     async open_vault(vault_path: VaultPath) {
       return await invoke_vault_args<Vault>("open_vault", { vault_path });
     },
+    async open_folder(vault_path: VaultPath) {
+      return await invoke_vault_args<Vault>("open_folder", { vault_path });
+    },
+    async promote_to_vault(vault_id: VaultId) {
+      return await invoke_vault_args<Vault>("promote_to_vault", { vault_id });
+    },
     async open_vault_by_id(vault_id: VaultId) {
       return await invoke_vault<Vault>("open_vault_by_id", {
         vaultId: vault_id,

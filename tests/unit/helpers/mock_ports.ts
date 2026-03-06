@@ -65,6 +65,18 @@ export function create_mock_vault_port(): VaultPort & {
     resolve_file_to_vault() {
       return Promise.resolve(null);
     },
+    open_folder(vault_path: VaultPath) {
+      mock._calls.open_vault.push(vault_path);
+      const vault = mock._mock_vaults.find((v) => v.path === vault_path);
+      const resolved = vault ?? mock._mock_vaults[0];
+      if (!resolved) return Promise.reject(new Error("no mock vault"));
+      return Promise.resolve(resolved);
+    },
+    promote_to_vault(vault_id: VaultId) {
+      const vault = mock._mock_vaults.find((v) => v.id === vault_id);
+      if (!vault) return Promise.reject(new Error("vault not found"));
+      return Promise.resolve({ ...vault, mode: "vault" as const });
+    },
   };
   return mock;
 }

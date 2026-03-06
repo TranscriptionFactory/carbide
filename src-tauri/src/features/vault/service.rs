@@ -126,6 +126,7 @@ pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> 
         last_opened_at: Some(storage::now_ms()),
         note_count,
         is_available: true,
+        mode: "vault".to_string(),
     };
 
     upsert_vault(&mut store, vault.clone());
@@ -224,6 +225,87 @@ pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Resu
 pub fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
     let store = storage::load_store(&app)?;
     Ok(store.last_vault_id)
+}
+
+#[tauri::command]
+pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
+    log::info!("Opening folder path={}", args.vault_path);
+    let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
+        log::error!(
+            "Failed to canonicalize folder path {}: {}",
+            args.vault_path,
+            e
+        );
+        e
+    })?;
+    let meta = std::fs::metadata(&vault_path).map_err(|e| {
+        log::error!("Failed to read metadata for folder {}: {}", vault_path, e);
+        e.to_string()
+    })?;
+    if !meta.is_dir() {
+        return Err("path is not a directory".to_string());
+    }
+
+    let mut store = storage::load_store(&app)?;
+    let id = storage::vault_id_for_path(&vault_path);
+    let existing = store.vaults.iter().find(|v| v.vault.id == id);
+    let created_at = existing
+        .map(|v| v.vault.created_at)
+        .unwrap_or_else(storage::now_ms);
+
+    let has_otterly_dir = PathBuf::from(&vault_path).join(".otterly").is_dir();
+    let mode = if has_otterly_dir { "vault" } else { "browse" };
+
+    let note_count = if has_otterly_dir {
+        load_note_count(&app, &id).or(existing.and_then(|v| v.vault.note_count))
+    } else {
+        None
+    };
+
+    let vault = Vault {
+        id: id.clone(),
+        path: vault_path,
+        name: vault_name(&args.vault_path),
+        created_at,
+        last_opened_at: Some(storage::now_ms()),
+        note_count,
+        is_available: true,
+        mode: mode.to_string(),
+    };
+
+    upsert_vault(&mut store, vault.clone());
+    storage::save_store(&app, &store)?;
+    Ok(vault)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PromoteToVaultArgs {
+    pub vault_id: String,
+}
+
+#[tauri::command]
+pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
+    log::info!("Promoting to vault vault_id={}", args.vault_id);
+    let mut store = storage::load_store(&app)?;
+
+    let entry = store
+        .vaults
+        .iter_mut()
+        .find(|v| v.vault.id == args.vault_id)
+        .ok_or_else(|| {
+            log::error!("Vault not found for promote: {}", args.vault_id);
+            "vault not found".to_string()
+        })?;
+
+    entry.vault.mode = "vault".to_string();
+    let note_count = load_note_count(&app, &args.vault_id);
+    if note_count.is_some() {
+        entry.vault.note_count = note_count;
+    }
+
+    let vault = entry.vault.clone();
+    storage::save_store(&app, &store)?;
+    Ok(vault)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

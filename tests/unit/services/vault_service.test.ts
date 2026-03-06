@@ -29,12 +29,14 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
     const vault_b: Vault = {
       id: as_vault_id("vault-b"),
       name: "Vault B",
       path: as_vault_path("/vault/b"),
       created_at: 1,
+      mode: "vault",
     };
 
     const open_a = create_deferred<Vault>();
@@ -145,6 +147,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_port = {
@@ -218,6 +221,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_port = {
@@ -337,12 +341,14 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
     const vault_b: Vault = {
       id: as_vault_id("vault-b"),
       name: "Vault B",
       path: as_vault_path("/vault/b"),
       created_at: 1,
+      mode: "vault",
     };
 
     const settings_port = {
@@ -422,12 +428,14 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
     const vault_b: Vault = {
       id: as_vault_id("vault-b"),
       name: "Vault B",
       path: as_vault_path("/vault/b"),
       created_at: 1,
+      mode: "vault",
     };
 
     const service = new VaultService(
@@ -497,12 +505,14 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
     const vault_b: Vault = {
       id: as_vault_id("vault-b"),
       name: "Vault B",
       path: as_vault_path("/vault/b"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_port = {
@@ -578,6 +588,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_store = new VaultStore();
@@ -640,6 +651,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_store = new VaultStore();
@@ -702,6 +714,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const notes_store = new NotesStore();
@@ -772,6 +785,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const notes_store = new NotesStore();
@@ -835,12 +849,14 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
     const vault_b: Vault = {
       id: as_vault_id("vault-b"),
       name: "Vault B",
       path: as_vault_path("/vault/b"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_port = {
@@ -913,6 +929,7 @@ describe("VaultService", () => {
       name: "Vault A",
       path: as_vault_path("/vault/a"),
       created_at: 1,
+      mode: "vault",
     };
 
     const vault_port = {

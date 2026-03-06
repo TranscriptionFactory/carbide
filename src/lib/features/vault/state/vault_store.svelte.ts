@@ -22,6 +22,10 @@ export class VaultStore {
   vault_git_cache = new SvelteMap<VaultId, VaultGitInfo>();
   generation = $state(0);
 
+  get is_vault_mode(): boolean {
+    return this.vault?.mode === "vault";
+  }
+
   clear() {
     this.vault = null;
     this.generation += 1;

@@ -17,6 +17,7 @@ import {
   as_markdown_text,
   as_note_path,
   as_vault_id,
+  as_vault_path,
 } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import type { Vault } from "$lib/shared/types/vault";
@@ -74,6 +75,10 @@ function create_harness(options: HarnessOptions = {}) {
         has_vault: false,
         editor_settings: null,
       }),
+      resolve_file_to_vault: vi.fn().mockResolvedValue(null),
+      change_vault_by_path: vi.fn().mockResolvedValue({ status: "ok" }),
+      change_folder_by_path: vi.fn().mockResolvedValue({ status: "ok" }),
+      promote_current_to_vault: vi.fn().mockResolvedValue({ status: "ok" }),
     },
     settings: {
       load_recent_command_ids: vi.fn().mockResolvedValue(["settings.open"]),
@@ -167,13 +172,22 @@ describe("register_app_actions", () => {
       execute_open_vault_dashboard,
     } = create_harness();
 
-    services.vault.initialize.mockResolvedValue({
-      status: "ready",
-      has_vault: true,
-      editor_settings: {
-        ...stores.ui.editor_settings,
-        show_vault_dashboard_on_open: true,
-      },
+    services.vault.initialize.mockImplementation(() => {
+      stores.vault.set_vault({
+        id: as_vault_id("active"),
+        name: "Active",
+        path: as_vault_path("/vault/active"),
+        created_at: 0,
+        mode: "vault",
+      });
+      return {
+        status: "ready" as const,
+        has_vault: true,
+        editor_settings: {
+          ...stores.ui.editor_settings,
+          show_vault_dashboard_on_open: true,
+        },
+      };
     });
 
     await registry.execute(ACTION_IDS.app_mounted);
@@ -256,6 +270,8 @@ describe("register_app_actions", () => {
         name: id,
         path: path,
         note_count: 0,
+        created_at: 0,
+        mode: "vault",
       } as Vault;
     }
 
