@@ -13,6 +13,7 @@ import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reac
 import { create_local_links_sync_reactor } from "$lib/reactors/local_links_sync.reactor.svelte";
 import { create_watcher_reactor } from "$lib/reactors/watcher.reactor.svelte";
 import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.svelte";
+import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -64,7 +65,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_store,
       context.ui_store,
       context.note_service,
-      conflict_toast_manager,
+      context.tab_service,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),
@@ -82,6 +83,13 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_store,
       context.tab_store,
       context.tab_service,
+    ),
+    create_conflict_toast_reactor(
+      context.editor_store,
+      context.tab_store,
+      context.tab_service,
+      context.note_service,
+      conflict_toast_manager,
     ),
     create_tab_persist_reactor(
       context.tab_store,
@@ -124,7 +132,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.watcher_service,
       context.action_registry,
-      conflict_toast_manager,
     ),
   ];
 

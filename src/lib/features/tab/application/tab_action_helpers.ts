@@ -4,6 +4,8 @@ import type { NotePath } from "$lib/shared/types/ids";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "svelte-sonner";
 
+type BatchCloseMode = "all" | "other" | "right";
+
 export function ensure_tab_capacity(input: ActionRegistrationInput): boolean {
   const { stores, services } = input;
   const max = stores.ui.editor_settings.max_open_tabs;
@@ -141,19 +143,27 @@ export function start_batch_close_confirm(
 export async function save_dirty_tab(
   input: ActionRegistrationInput,
   tab_id: string,
-): Promise<void> {
+): Promise<boolean> {
   const { stores, services } = input;
+  const tab = stores.tab.tabs.find((entry) => entry.id === tab_id);
+  if (!tab) return false;
 
   if (stores.tab.active_tab_id === tab_id) {
-    await services.note.save_note(null, true);
-    return;
+    if (stores.tab.has_conflict(tab.note_path)) {
+      services.note.skip_mtime_guard(tab.note_path);
+    }
+    const result = await services.note.save_note(null, true);
+    return result.status === "saved";
   }
 
   const cached = stores.tab.get_cached_note(tab_id);
   if (cached) {
     await services.note.write_note_content(cached.meta.path, cached.markdown);
     stores.tab.set_dirty(tab_id, false);
+    return true;
   }
+
+  return false;
 }
 
 export async function execute_batch_close(
@@ -161,6 +171,11 @@ export async function execute_batch_close(
 ): Promise<void> {
   const { stores } = input;
   const { close_mode, keep_tab_id } = stores.ui.tab_close_confirm;
+  const note_paths_to_close = list_note_paths_for_batch_close(
+    stores.tab.tabs,
+    close_mode,
+    keep_tab_id,
+  );
 
   reset_close_confirm(stores);
 
@@ -185,6 +200,8 @@ export async function execute_batch_close(
       break;
     }
   }
+
+  close_editor_buffers(input, note_paths_to_close);
 }
 
 export async function advance_or_finish_batch(
@@ -231,5 +248,38 @@ export async function close_tab_immediate(
 
   if (was_active) {
     await open_active_tab_note(input);
+  }
+}
+
+export function list_note_paths_for_batch_close(
+  tabs: Tab[],
+  close_mode: BatchCloseMode,
+  keep_tab_id: string | null,
+): NotePath[] {
+  switch (close_mode) {
+    case "all":
+      return tabs.map((tab) => tab.note_path);
+    case "other":
+      if (!keep_tab_id) return [];
+      return tabs
+        .filter((tab) => tab.id !== keep_tab_id && !tab.is_pinned)
+        .map((tab) => tab.note_path);
+    case "right": {
+      if (!keep_tab_id) return [];
+      const index = tabs.findIndex((tab) => tab.id === keep_tab_id);
+      if (index === -1) return [];
+      return tabs
+        .filter((tab, tab_index) => tab_index > index && !tab.is_pinned)
+        .map((tab) => tab.note_path);
+    }
+  }
+}
+
+export function close_editor_buffers(
+  input: ActionRegistrationInput,
+  note_paths: NotePath[],
+): void {
+  for (const note_path of note_paths) {
+    input.services.editor.close_buffer?.(note_path);
   }
 }

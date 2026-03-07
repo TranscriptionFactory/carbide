@@ -3,9 +3,11 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import {
   advance_or_finish_batch,
   capture_active_tab_snapshot,
+  close_editor_buffers,
   close_tab_immediate,
   ensure_tab_capacity,
   execute_batch_close,
+  list_note_paths_for_batch_close,
   open_active_tab_note,
   reset_close_confirm,
   save_dirty_tab,
@@ -108,6 +110,10 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         return;
       }
 
+      close_editor_buffers(
+        input,
+        list_note_paths_for_batch_close(stores.tab.tabs, "other", id),
+      );
       stores.tab.close_other_tabs(id);
       await open_active_tab_note(input);
     },
@@ -131,6 +137,10 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         return;
       }
 
+      close_editor_buffers(
+        input,
+        list_note_paths_for_batch_close(stores.tab.tabs, "right", id),
+      );
       stores.tab.close_tabs_to_right(id);
       await open_active_tab_note(input);
     },
@@ -147,6 +157,10 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         return;
       }
 
+      close_editor_buffers(
+        input,
+        list_note_paths_for_batch_close(stores.tab.tabs, "all", null),
+      );
       stores.tab.close_all_tabs();
       stores.editor.clear_open_note();
     },
@@ -298,7 +312,10 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         stores.ui.tab_close_confirm;
       if (!tab_id) return;
 
-      await save_dirty_tab(input, tab_id);
+      const active_saved = await save_dirty_tab(input, tab_id);
+      if (!active_saved) {
+        return;
+      }
 
       if (close_mode === "single") {
         reset_close_confirm(stores);
@@ -308,7 +325,19 @@ export function register_tab_actions(input: ActionRegistrationInput) {
 
       if (apply_to_all) {
         for (const pending_id of pending_dirty_tab_ids) {
-          await save_dirty_tab(input, pending_id);
+          const saved = await save_dirty_tab(input, pending_id);
+          if (!saved) {
+            stores.ui.tab_close_confirm = {
+              ...stores.ui.tab_close_confirm,
+              tab_id: pending_id,
+              tab_title: find_tab(pending_id)?.title ?? "",
+              pending_dirty_tab_ids: pending_dirty_tab_ids.filter(
+                (id) => id !== pending_id,
+              ),
+              apply_to_all: false,
+            };
+            return;
+          }
         }
         await execute_batch_close(input);
         return;

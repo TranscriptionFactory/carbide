@@ -340,6 +340,33 @@ describe("TabService", () => {
 
       expect(tab_store.find_tab_by_path(alpha)?.is_dirty).toBe(true);
     });
+
+    it("clears conflict when a tab becomes clean", () => {
+      const { service, tab_store } = create_setup();
+      const alpha = as_note_path("docs/alpha.md");
+      tab_store.open_tab(alpha, "alpha");
+      tab_store.set_dirty(alpha, true);
+      tab_store.mark_conflict(alpha);
+
+      service.sync_dirty_state(alpha, false);
+
+      expect(tab_store.has_conflict(alpha)).toBe(false);
+    });
+  });
+
+  describe("conflict state", () => {
+    it("marks and clears conflict through the service", () => {
+      const { service, tab_store } = create_setup();
+      const alpha = as_note_path("docs/alpha.md");
+
+      service.mark_conflict(alpha);
+      expect(tab_store.has_conflict(alpha)).toBe(true);
+      expect(service.has_conflict(alpha)).toBe(true);
+
+      service.clear_conflict(alpha);
+      expect(tab_store.has_conflict(alpha)).toBe(false);
+      expect(service.has_conflict(alpha)).toBe(false);
+    });
   });
 
   describe("load_tabs", () => {

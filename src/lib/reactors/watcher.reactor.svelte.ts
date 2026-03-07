@@ -10,10 +10,6 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { create_logger } from "$lib/shared/utils/logger";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
-import {
-  active_note_conflict_callbacks,
-  type ConflictToastManager,
-} from "$lib/reactors/conflict_toast";
 
 const log = create_logger("watcher_reactor");
 const TREE_REFRESH_DEBOUNCE_MS = 300;
@@ -22,9 +18,8 @@ export type BackgroundTabInfo = { is_dirty: boolean } | null;
 
 export type WatcherEventDecision =
   | { action: "reload"; note_path: NotePath }
-  | { action: "conflict_toast"; note_path: NotePath }
+  | { action: "mark_conflict"; note_path: NotePath }
   | { action: "invalidate_tab_cache"; note_path: NotePath }
-  | { action: "background_conflict_toast"; note_path: NotePath }
   | { action: "refresh_tree" }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
@@ -50,14 +45,14 @@ export function resolve_watcher_event_decision(
         paths_equal_ignore_case(event.note_path, open_note_path)
       ) {
         return is_dirty
-          ? { action: "conflict_toast", note_path: np }
+          ? { action: "mark_conflict", note_path: np }
           : { action: "reload", note_path: np };
       }
 
       const bg = find_background_tab(event.note_path);
       if (bg) {
         return bg.is_dirty
-          ? { action: "background_conflict_toast", note_path: np }
+          ? { action: "mark_conflict", note_path: np }
           : { action: "invalidate_tab_cache", note_path: np };
       }
 
@@ -91,7 +86,6 @@ export function create_watcher_reactor(
   note_service: NoteService,
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
-  conflict_toast_manager: ConflictToastManager,
 ): () => void {
   return $effect.root(() => {
     let tree_refresh_timer: ReturnType<typeof setTimeout> | null = null;
@@ -137,34 +131,12 @@ export function create_watcher_reactor(
             force_reload: true,
           });
           break;
-        case "conflict_toast": {
-          const note_id = editor_store.open_note?.meta.id;
-          if (!note_id) break;
-          conflict_toast_manager.show(
-            decision.note_path,
-            active_note_conflict_callbacks(
-              decision.note_path,
-              note_id,
-              note_service,
-            ),
-          );
+        case "mark_conflict":
+          tab_service.mark_conflict(decision.note_path);
           break;
-        }
         case "invalidate_tab_cache":
           tab_service.invalidate_cache(decision.note_path);
           break;
-        case "background_conflict_toast": {
-          const bg_tab = tab_store.find_tab_by_path(decision.note_path);
-          if (!bg_tab) break;
-          conflict_toast_manager.show(decision.note_path, {
-            on_reload: () => {
-              tab_service.invalidate_cache(decision.note_path);
-              tab_service.sync_dirty_state(bg_tab.id, false);
-            },
-            on_keep: () => {},
-          });
-          break;
-        }
         case "refresh_tree":
           debounced_tree_refresh();
           break;
@@ -200,7 +172,6 @@ export function create_watcher_reactor(
           clearTimeout(tree_refresh_timer);
           tree_refresh_timer = null;
         }
-        conflict_toast_manager.dismiss_all();
       };
     });
   });
