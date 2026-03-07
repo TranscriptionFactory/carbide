@@ -5,6 +5,35 @@ import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "svelte-sonner";
 
 type BatchCloseMode = "all" | "other" | "right";
+type SaveDirtyTabResult = "saved" | "needs_path" | "failed";
+
+function resolve_closed_tab_draft(
+  stores: ActionRegistrationInput["stores"],
+  tab_id: TabId,
+): ActionRegistrationInput["stores"]["editor"]["open_note"] {
+  const cached_note = stores.tab.get_cached_note(tab_id);
+  const active_open_note =
+    stores.tab.active_tab_id === tab_id ? stores.editor.open_note : null;
+  const note = cached_note ?? active_open_note;
+  if (!note || note.meta.path.endsWith(".md")) {
+    return null;
+  }
+  return note;
+}
+
+function push_closed_tab_history(
+  stores: ActionRegistrationInput["stores"],
+  tab: Tab,
+): void {
+  const snapshot = stores.tab.get_snapshot(tab.id);
+  stores.tab.push_closed_history({
+    note_path: tab.note_path,
+    title: tab.title,
+    scroll_top: snapshot?.scroll_top ?? 0,
+    cursor: snapshot?.cursor ?? null,
+    draft_note: resolve_closed_tab_draft(stores, tab.id),
+  });
+}
 
 export function ensure_tab_capacity(input: ActionRegistrationInput): boolean {
   const { stores, services } = input;
@@ -17,13 +46,7 @@ export function ensure_tab_capacity(input: ActionRegistrationInput): boolean {
     return false;
   }
 
-  const snapshot = stores.tab.get_snapshot(victim.id);
-  stores.tab.push_closed_history({
-    note_path: victim.note_path,
-    title: victim.title,
-    scroll_top: snapshot?.scroll_top ?? 0,
-    cursor: snapshot?.cursor ?? null,
-  });
+  push_closed_tab_history(stores, victim);
   stores.tab.close_tab(victim.id);
   services.editor.close_buffer?.(victim.note_path);
   return true;
@@ -143,27 +166,49 @@ export function start_batch_close_confirm(
 export async function save_dirty_tab(
   input: ActionRegistrationInput,
   tab_id: string,
-): Promise<boolean> {
+): Promise<SaveDirtyTabResult> {
   const { stores, services } = input;
   const tab = stores.tab.tabs.find((entry) => entry.id === tab_id);
-  if (!tab) return false;
+  if (!tab) return "failed";
+  if (!tab.is_dirty) {
+    return "saved";
+  }
+
+  const open_note = stores.editor.open_note;
+  const is_active_untitled =
+    stores.tab.active_tab_id === tab_id &&
+    open_note &&
+    !open_note.meta.path.endsWith(".md");
+  if (is_active_untitled) {
+    return "needs_path";
+  }
 
   if (stores.tab.active_tab_id === tab_id) {
     if (stores.tab.has_conflict(tab.note_path)) {
       services.note.skip_mtime_guard(tab.note_path);
     }
     const result = await services.note.save_note(null, true);
-    return result.status === "saved";
+    return result.status === "saved" ? "saved" : "failed";
   }
 
   const cached = stores.tab.get_cached_note(tab_id);
   if (cached) {
+    if (!cached.meta.path.endsWith(".md")) {
+      stores.tab.activate_tab(tab_id);
+      stores.editor.set_open_note(cached);
+      return "needs_path";
+    }
+
     await services.note.write_note_content(cached.meta.path, cached.markdown);
     stores.tab.set_dirty(tab_id, false);
-    return true;
+    stores.tab.set_cached_note(tab_id, {
+      ...cached,
+      is_dirty: false,
+    });
+    return "saved";
   }
 
-  return false;
+  return "failed";
 }
 
 export async function execute_batch_close(
@@ -241,13 +286,7 @@ export async function close_tab_immediate(
   const tab = stores.tab.tabs.find((t) => t.id === tab_id);
   if (!tab) return;
 
-  const snapshot = stores.tab.get_snapshot(tab_id);
-  stores.tab.push_closed_history({
-    note_path: tab.note_path,
-    title: tab.title,
-    scroll_top: snapshot?.scroll_top ?? 0,
-    cursor: snapshot?.cursor ?? null,
-  });
+  push_closed_tab_history(stores, tab);
 
   const was_active = stores.tab.active_tab_id === tab_id;
   stores.tab.close_tab(tab_id);
@@ -285,13 +324,7 @@ export function record_closed_tabs(
   tabs: Tab[],
 ): void {
   for (const tab of tabs) {
-    const snapshot = stores.tab.get_snapshot(tab.id);
-    stores.tab.push_closed_history({
-      note_path: tab.note_path,
-      title: tab.title,
-      scroll_top: snapshot?.scroll_top ?? 0,
-      cursor: snapshot?.cursor ?? null,
-    });
+    push_closed_tab_history(stores, tab);
   }
 }
 

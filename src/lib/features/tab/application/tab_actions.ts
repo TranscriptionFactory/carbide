@@ -241,15 +241,23 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       const tab = try_open_tab(input, entry.note_path, entry.title);
       if (!tab) return;
 
+      if (entry.cursor || entry.scroll_top > 0) {
+        stores.tab.set_snapshot(tab.id, {
+          scroll_top: entry.scroll_top,
+          cursor: entry.cursor,
+        });
+      }
+
+      if (entry.draft_note) {
+        stores.editor.set_open_note(entry.draft_note);
+        stores.tab.set_cached_note(tab.id, entry.draft_note);
+        stores.tab.set_dirty(tab.id, entry.draft_note.is_dirty);
+        return;
+      }
+
       const result = await services.note.open_note(entry.note_path, false);
       if (result.status === "opened") {
         stores.ui.set_selected_folder_path(result.selected_folder_path);
-        if (entry.cursor || entry.scroll_top > 0) {
-          stores.tab.set_snapshot(entry.note_path, {
-            scroll_top: entry.scroll_top,
-            cursor: entry.cursor,
-          });
-        }
       }
     },
   });
@@ -332,7 +340,17 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       if (!tab_id) return;
 
       const active_saved = await save_dirty_tab(input, tab_id);
-      if (!active_saved) {
+      if (active_saved === "failed") {
+        return;
+      }
+      if (active_saved === "needs_path") {
+        stores.ui.tab_close_confirm = {
+          ...stores.ui.tab_close_confirm,
+          open: false,
+        };
+        await registry.execute(ACTION_IDS.note_request_save, {
+          source: "tab_close",
+        });
         return;
       }
 
@@ -345,7 +363,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       if (apply_to_all) {
         for (const pending_id of pending_dirty_tab_ids) {
           const saved = await save_dirty_tab(input, pending_id);
-          if (!saved) {
+          if (saved === "failed") {
             stores.ui.tab_close_confirm = {
               ...stores.ui.tab_close_confirm,
               tab_id: pending_id,
@@ -355,6 +373,21 @@ export function register_tab_actions(input: ActionRegistrationInput) {
               ),
               apply_to_all: false,
             };
+            return;
+          }
+          if (saved === "needs_path") {
+            stores.ui.tab_close_confirm = {
+              ...stores.ui.tab_close_confirm,
+              open: false,
+              tab_id: pending_id,
+              tab_title: find_tab(pending_id)?.title ?? "",
+              pending_dirty_tab_ids: pending_dirty_tab_ids.filter(
+                (id) => id !== pending_id,
+              ),
+            };
+            await registry.execute(ACTION_IDS.note_request_save, {
+              source: "tab_close",
+            });
             return;
           }
         }

@@ -607,12 +607,14 @@ describe("TabStore", () => {
         title: "a",
         scroll_top: 10,
         cursor: null,
+        draft_note: null,
       });
       store.push_closed_history({
         note_path: np("b.md"),
         title: "b",
         scroll_top: 20,
         cursor: null,
+        draft_note: null,
       });
 
       const entry = store.pop_closed_history();
@@ -635,6 +637,7 @@ describe("TabStore", () => {
           title: String(i),
           scroll_top: 0,
           cursor: null,
+          draft_note: null,
         });
       }
 
@@ -822,6 +825,7 @@ describe("TabStore", () => {
         title: "b",
         scroll_top: 0,
         cursor: null,
+        draft_note: null,
       });
 
       store.reset();

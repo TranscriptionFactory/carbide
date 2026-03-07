@@ -6,6 +6,7 @@ import {
   register_tab_actions,
   ensure_tab_capacity,
 } from "$lib/features/tab/application/tab_actions";
+import { register_note_actions } from "$lib/features/note/application/note_actions";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -17,6 +18,7 @@ import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
+import { create_test_vault } from "../helpers/test_fixtures";
 
 function np(path: string): NotePath {
   return as_note_path(path);
@@ -50,6 +52,7 @@ function create_tab_actions_harness() {
     tab: new TabStore(),
     git: new GitStore(),
   };
+  stores.vault.set_vault(create_test_vault());
 
   const services = {
     vault: {},
@@ -61,6 +64,10 @@ function create_tab_actions_harness() {
       save_note: vi.fn().mockResolvedValue({ status: "saved" }),
       skip_mtime_guard: vi.fn(),
       write_note_content: vi.fn().mockResolvedValue(undefined),
+      reset_save_operation: vi.fn(),
+      reset_asset_write_operation: vi.fn(),
+      reset_delete_operation: vi.fn(),
+      reset_rename_operation: vi.fn(),
     },
     folder: {},
     settings: {},
@@ -89,6 +96,16 @@ function create_tab_actions_harness() {
   });
 
   register_folder_actions({
+    registry,
+    stores,
+    services: services as never,
+    default_mount_config: {
+      reset_app_state: true,
+      bootstrap_default_vault_path: null,
+    },
+  });
+
+  register_note_actions({
     registry,
     stores,
     services: services as never,
@@ -347,6 +364,7 @@ describe("register_tab_actions", () => {
         title: "closed",
         scroll_top: 50,
         cursor: null,
+        draft_note: null,
       });
 
       await registry.execute(ACTION_IDS.tab_reopen_closed);
@@ -367,6 +385,37 @@ describe("register_tab_actions", () => {
 
       expect(stores.tab.tabs.map((tab) => tab.id)).toContain("a.md");
       expect(services.note.open_note).toHaveBeenCalledWith("a.md", false);
+    });
+
+    it("restores an untitled draft from closed history", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      const untitled_note = {
+        ...mock_open_note("Untitled-1"),
+        buffer_id: "untitled-buffer",
+        markdown: as_markdown_text("draft"),
+        is_dirty: true,
+      };
+
+      stores.tab.open_tab(np("other.md"), "other");
+      stores.editor.set_open_note(mock_open_note("other.md"));
+      stores.tab.push_closed_history({
+        note_path: np("Untitled-1"),
+        title: "Untitled-1",
+        scroll_top: 0,
+        cursor: null,
+        draft_note: untitled_note,
+      });
+
+      await registry.execute(ACTION_IDS.tab_reopen_closed);
+
+      expect(stores.tab.active_tab_id).toBe("Untitled-1");
+      expect(stores.editor.open_note?.meta.path).toBe("Untitled-1");
+      expect(stores.editor.open_note?.markdown).toBe(as_markdown_text("draft"));
+      expect(stores.tab.active_tab?.is_dirty).toBe(true);
+      expect(services.note.open_note).not.toHaveBeenCalledWith(
+        "Untitled-1",
+        false,
+      );
     });
   });
 
@@ -479,6 +528,77 @@ describe("register_tab_actions", () => {
 
       expect(stores.ui.tab_close_confirm.open).toBe(true);
       expect(stores.tab.tabs).toHaveLength(1);
+    });
+
+    it("routes untitled save-and-close through the save dialog", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("Untitled-1"), "Untitled-1");
+      stores.tab.set_dirty("Untitled-1", true);
+      stores.editor.set_open_note({
+        ...mock_open_note("Untitled-1"),
+        buffer_id: "untitled-buffer",
+        is_dirty: true,
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "Untitled-1",
+        tab_title: "Untitled-1",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(stores.ui.tab_close_confirm.open).toBe(false);
+      expect(stores.ui.save_note_dialog.open).toBe(true);
+      expect(stores.ui.save_note_dialog.source).toBe("tab_close");
+      expect(services.note.save_note).not.toHaveBeenCalledWith(null, true);
+    });
+
+    it("closes an untitled tab after save dialog confirmation", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("Untitled-1"), "Untitled-1");
+      stores.tab.set_dirty("Untitled-1", true);
+      stores.editor.set_open_note({
+        ...mock_open_note("Untitled-1"),
+        buffer_id: "untitled-buffer",
+        is_dirty: true,
+      });
+      services.note.save_note
+        .mockImplementationOnce(() => {
+          stores.editor.set_open_note({
+            ...mock_open_note("saved.md"),
+            is_dirty: false,
+          });
+          return Promise.resolve({
+            status: "saved",
+            saved_path: np("saved.md"),
+          });
+        })
+        .mockResolvedValueOnce({
+          status: "saved",
+          saved_path: np("saved.md"),
+        });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "Untitled-1",
+        tab_title: "Untitled-1",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+      stores.ui.save_note_dialog.new_path = np("saved.md");
+      await registry.execute(ACTION_IDS.note_confirm_save);
+
+      expect(stores.tab.find_tab_by_path(np("saved.md"))).toBeNull();
+      expect(stores.ui.save_note_dialog.open).toBe(false);
     });
 
     it("discards and closes tab via confirm_close_discard", async () => {

@@ -1,5 +1,5 @@
 import type { NotePath } from "$lib/shared/types/ids";
-import type { CursorInfo } from "$lib/shared/types/editor";
+import type { CursorInfo, OpenNoteState } from "$lib/shared/types/editor";
 
 export type TabId = string;
 
@@ -21,6 +21,7 @@ export type ClosedTabEntry = {
   title: string;
   scroll_top: number;
   cursor: CursorInfo | null;
+  draft_note: OpenNoteState | null;
 };
 
 export type PersistedTab = {
