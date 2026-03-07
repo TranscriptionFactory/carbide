@@ -14,7 +14,8 @@ export type SearchCommandDefinition = {
     | "git_init_repo"
     | "toggle_links_panel"
     | "toggle_outline_panel"
-    | "check_for_updates";
+    | "check_for_updates"
+    | "export_as_pdf";
   label: string;
   description: string;
   keywords: string[];
@@ -28,7 +29,8 @@ export type SearchCommandDefinition = {
     | "bookmark"
     | "link"
     | "list-tree"
-    | "refresh-cw";
+    | "refresh-cw"
+    | "file-down";
 };
 
 export type SearchSettingDefinition = {

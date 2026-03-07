@@ -17,6 +17,7 @@ import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.
 import { create_file_open_reactor } from "$lib/reactors/file_open.reactor.svelte";
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
+import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -37,6 +38,8 @@ import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import type { SplitViewStore } from "$lib/features/split_view";
+import type { SplitViewService } from "$lib/features/split_view";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -57,6 +60,8 @@ export type ReactorContext = {
   links_service: LinksService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
+  split_view_store: SplitViewStore;
+  split_view_service: SplitViewService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -143,6 +148,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.watcher_service,
       context.action_registry,
+    ),
+    create_split_view_persist_reactor(
+      context.split_view_store,
+      context.vault_store,
+      context.split_view_service,
     ),
   ];
 

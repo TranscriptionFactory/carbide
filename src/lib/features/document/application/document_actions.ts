@@ -3,6 +3,7 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentPort } from "$lib/features/document/ports";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
+import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
 
 export function register_document_actions(
   input: ActionRegistrationInput & {
@@ -62,6 +63,17 @@ export function register_document_actions(
     execute: (...args: unknown[]) => {
       const tab_id = args[0] as string;
       document_store.remove_viewer_state(tab_id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_export_pdf,
+    label: "Export as PDF",
+    execute: async () => {
+      const open_note = stores.editor.open_note;
+      if (!open_note) return;
+      const title = open_note.meta.title || open_note.meta.name;
+      await export_note_as_pdf(title, open_note.markdown);
     },
   });
 }

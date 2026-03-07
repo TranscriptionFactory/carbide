@@ -78,6 +78,15 @@ export function register_tab_actions(input: ActionRegistrationInput) {
     shortcut: "CmdOrCtrl+W",
     when: () => stores.tab.has_tabs,
     execute: async (tab_id_arg?: unknown) => {
+      if (
+        !tab_id_arg &&
+        stores.split_view.active &&
+        stores.split_view.active_pane === "secondary"
+      ) {
+        void registry.execute(ACTION_IDS.split_view_close);
+        return;
+      }
+
       const tab_id =
         typeof tab_id_arg === "string" ? tab_id_arg : stores.tab.active_tab_id;
       if (!tab_id) return;

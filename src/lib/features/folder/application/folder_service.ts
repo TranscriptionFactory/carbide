@@ -13,7 +13,6 @@ import type {
 import type { MoveItem } from "$lib/shared/types/filetree";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import { error_message } from "$lib/shared/utils/error_message";
-import { ensure_open_note } from "$lib/features/note";
 import { create_logger } from "$lib/shared/utils/logger";
 import { move_destination_path } from "$lib/features/folder/domain/filetree";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
@@ -334,17 +333,7 @@ export class FolderService {
       this.notes_store.remove_folder(folder_path);
       this.notes_store.remove_recent_notes_by_prefix(folder_prefix);
 
-      const open_titles = this.tab_store.tabs.map((tab) => tab.title);
-      const ensured = ensure_open_note({
-        vault: this.vault_store.vault,
-        open_titles,
-        open_note: contains_open_note ? null : this.editor_store.open_note,
-        now_ms: this.now_ms(),
-      });
-
-      if (ensured) {
-        this.editor_store.set_open_note(ensured);
-      } else {
+      if (contains_open_note) {
         this.editor_store.clear_open_note();
       }
 

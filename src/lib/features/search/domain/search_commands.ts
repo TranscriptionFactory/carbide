@@ -107,4 +107,11 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["update", "upgrade", "version", "release", "new version"],
     icon: "refresh-cw",
   },
+  {
+    id: "export_as_pdf",
+    label: "Export as PDF",
+    description: "Export the current note as a PDF file",
+    keywords: ["export", "pdf", "save", "print", "download"],
+    icon: "file-down",
+  },
 ];

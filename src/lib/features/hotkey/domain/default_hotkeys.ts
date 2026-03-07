@@ -210,4 +210,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Split the editor to view two documents side by side",
     category: "navigation",
   },
+  {
+    action_id: ACTION_IDS.document_export_pdf,
+    key: "CmdOrCtrl+Shift+E",
+    phase: "capture",
+    label: "Export as PDF",
+    description: "Export the current note as a PDF file",
+    category: "editing",
+  },
 ];

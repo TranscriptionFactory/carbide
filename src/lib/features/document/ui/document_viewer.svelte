@@ -23,6 +23,7 @@
     <CodeViewer
       content={viewer_state.content}
       file_type={viewer_state.file_type}
+      filename={viewer_state.file_path.split("/").pop() ?? ""}
     />
   {:else}
     <div class="DocumentViewer__loading">

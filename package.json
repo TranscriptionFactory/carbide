@@ -48,6 +48,7 @@
     "isomorphic-git": "^1.37.1",
     "lucide-static": "^0.563.0",
     "mermaid": "^11.12.3",
+    "jspdf": "^2.5.2",
     "node-emoji": "^2.2.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^4.10.38",

@@ -59,6 +59,29 @@ describe("parse_window_init", () => {
     });
     expect(parse_window_init(params)).toEqual({ kind: "main" });
   });
+
+  it("returns browse with file_path when all params are present", () => {
+    const params = new URLSearchParams({
+      window_kind: "browse",
+      vault_path: "/home/user/notes",
+      file_path: "docs/note.md",
+    });
+    expect(parse_window_init(params)).toEqual({
+      kind: "browse",
+      vault_path: "/home/user/notes",
+      file_path: "docs/note.md",
+    });
+  });
+
+  it("returns browse without file_path when file_path param is absent", () => {
+    const params = new URLSearchParams({
+      window_kind: "browse",
+      vault_path: "/home/user/notes",
+    });
+    const result = parse_window_init(params);
+    expect(result).toEqual({ kind: "browse", vault_path: "/home/user/notes" });
+    expect("file_path" in result).toBe(false);
+  });
 });
 
 describe("compute_title", () => {

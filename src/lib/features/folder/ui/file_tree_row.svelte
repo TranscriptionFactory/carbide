@@ -404,17 +404,25 @@
     </ContextMenu.Portal>
   </ContextMenu.Root>
 {:else if node.file_meta}
-  {#if on_open_in_new_window}
+  {#if on_open_in_new_window || on_open_to_side}
     <ContextMenu.Root>
       <ContextMenu.Trigger class="w-full">
         {@render row_content()}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content>
-          <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
-            <AppWindow class="mr-2 h-4 w-4" />
-            <span>Open in New Window</span>
-          </ContextMenu.Item>
+          {#if on_open_to_side}
+            <ContextMenu.Item onSelect={() => on_open_to_side(node.path)}>
+              <Columns2 class="mr-2 h-4 w-4" />
+              <span>Open to Side</span>
+            </ContextMenu.Item>
+          {/if}
+          {#if on_open_in_new_window}
+            <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
+              <AppWindow class="mr-2 h-4 w-4" />
+              <span>Open in New Window</span>
+            </ContextMenu.Item>
+          {/if}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

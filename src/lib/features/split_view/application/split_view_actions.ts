@@ -5,7 +5,7 @@ import type { SplitViewStore } from "$lib/features/split_view/state/split_view_s
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { to_open_note_state } from "$lib/shared/types/editor";
 import type { NotesPort } from "$lib/features/note";
-import type { NotePath } from "$lib/shared/types/ids";
+import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
 import { toast } from "svelte-sonner";
 
@@ -64,24 +64,39 @@ export function register_split_view_actions(
     },
   });
 
+  async function open_in_split(note_path: NotePath): Promise<boolean> {
+    const vault = stores.vault.vault;
+    if (!vault) return false;
+
+    try {
+      const doc = await notes_port.read_note(vault.id, note_path);
+      split_view_service.activate(to_open_note_state(doc));
+      return true;
+    } catch (error) {
+      log.error("Failed to open note in split view", {
+        note_path,
+        error: String(error),
+      });
+      return false;
+    }
+  }
+
   registry.register({
     id: ACTION_IDS.split_view_open_to_side,
     label: "Open to Side",
     execute: async (note_path_raw: unknown) => {
-      const note_path = note_path_raw as NotePath;
-      const vault = stores.vault.vault;
-      if (!vault) return;
+      const ok = await open_in_split(note_path_raw as NotePath);
+      if (!ok) toast.error("Failed to open note in split view");
+    },
+  });
 
-      try {
-        const doc = await notes_port.read_note(vault.id, note_path);
-        const open_note = to_open_note_state(doc);
-        split_view_service.activate(open_note);
-      } catch (error) {
-        log.error("Failed to open note in split view", {
-          error: String(error),
-        });
-        toast.error("Failed to open note in split view");
-      }
+  registry.register({
+    id: ACTION_IDS.split_view_restore,
+    label: "Restore Split View",
+    execute: async () => {
+      const persisted = await split_view_service.load_split_state();
+      if (!persisted?.note_path) return;
+      await open_in_split(as_note_path(persisted.note_path));
     },
   });
 }

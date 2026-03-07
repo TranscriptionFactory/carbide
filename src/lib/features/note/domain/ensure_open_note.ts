@@ -1,5 +1,4 @@
 import type { OpenNoteState } from "$lib/shared/types/editor";
-import type { Vault } from "$lib/shared/types/vault";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 
 const DRAFT_PREFIX = "draft:";
@@ -50,18 +49,4 @@ export function create_untitled_open_note(args: {
     buffer_id: `untitled:${String(args.now_ms)}:${title}`,
     is_dirty: true,
   };
-}
-
-export function ensure_open_note(args: {
-  vault: Vault | null;
-  open_titles: string[];
-  open_note: OpenNoteState | null;
-  now_ms: number;
-}): OpenNoteState | null {
-  if (!args.vault) return args.open_note;
-  if (args.open_note) return args.open_note;
-  return create_untitled_open_note({
-    open_titles: args.open_titles,
-    now_ms: args.now_ms,
-  });
 }

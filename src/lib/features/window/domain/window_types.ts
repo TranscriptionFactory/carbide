@@ -2,7 +2,7 @@ export type WindowKind = "main" | "browse" | "viewer";
 
 export type WindowInit =
   | { kind: "main" }
-  | { kind: "browse"; vault_path: string }
+  | { kind: "browse"; vault_path: string; file_path?: string }
   | { kind: "viewer"; vault_path: string; file_path: string };
 
 export function parse_window_init(search_params: URLSearchParams): WindowInit {
@@ -14,7 +14,9 @@ export function parse_window_init(search_params: URLSearchParams): WindowInit {
     return { kind: "viewer", vault_path, file_path };
   }
   if (kind === "browse" && vault_path) {
-    return { kind: "browse", vault_path };
+    return file_path
+      ? { kind: "browse", vault_path, file_path }
+      : { kind: "browse", vault_path };
   }
   return { kind: "main" };
 }

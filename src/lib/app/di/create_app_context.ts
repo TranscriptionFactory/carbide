@@ -187,6 +187,7 @@ export function create_app_context(input: {
     stores.op,
     stores.split_view,
     editor_callbacks,
+    input.ports.vault_settings,
   );
 
   const base_action_input = {
@@ -201,6 +202,7 @@ export function create_app_context(input: {
       tab: stores.tab,
       git: stores.git,
       outline: stores.outline,
+      split_view: stores.split_view,
     },
     services: {
       vault: vault_service,
@@ -263,6 +265,8 @@ export function create_app_context(input: {
     links_service,
     watcher_service,
     action_registry,
+    split_view_store: stores.split_view,
+    split_view_service,
   });
 
   return {

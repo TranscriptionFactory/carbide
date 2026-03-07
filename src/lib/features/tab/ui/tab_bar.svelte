@@ -14,6 +14,7 @@
   import { ACTION_IDS } from "$lib/app";
   import type { Tab, TabId } from "$lib/features/tab/types/tab";
   import type { NoteMeta } from "$lib/shared/types/note";
+  import { DRAG_MIME } from "$lib/shared/constants/drag_types";
 
   const { stores, action_registry } = use_app_context();
 
@@ -100,8 +101,13 @@
     if (!event.dataTransfer) return;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", tab.id);
+    event.dataTransfer.setData(DRAG_MIME.TAB, tab.id);
+    if (tab.kind === "note") {
+      event.dataTransfer.setData(DRAG_MIME.NOTE_PATH, tab.note_path);
+    }
     drag_source_id = tab.id;
     drag_source_pinned = tab.is_pinned;
+    stores.ui.tab_drag_active = true;
   }
 
   function handle_dragover(event: DragEvent, tab: Tab) {
@@ -141,6 +147,7 @@
     drag_source_id = null;
     drag_source_pinned = false;
     drag_over_id = null;
+    stores.ui.tab_drag_active = false;
   }
 
   function handle_auxclick(event: MouseEvent, tab_id: TabId) {
@@ -149,10 +156,38 @@
       void action_registry.execute(ACTION_IDS.tab_close, tab_id);
     }
   }
+
+  function handle_bar_dragover(event: DragEvent) {
+    if (!event.dataTransfer) return;
+    if (event.dataTransfer.types.includes(DRAG_MIME.SPLIT_PANE)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  function handle_bar_drop(event: DragEvent) {
+    if (!event.dataTransfer) return;
+    const split_pane_path = event.dataTransfer.getData(DRAG_MIME.SPLIT_PANE);
+    if (split_pane_path) {
+      event.preventDefault();
+      void action_registry.execute(ACTION_IDS.split_view_close);
+      void action_registry.execute(ACTION_IDS.note_open, {
+        note_path: split_pane_path,
+        cleanup_if_missing: false,
+      });
+    }
+  }
 </script>
 
 {#if tabs.length > 0}
-  <div class="TabBar" role="tablist" aria-label="Open tabs">
+  <div
+    class="TabBar"
+    role="tablist"
+    tabindex="0"
+    aria-label="Open tabs"
+    ondragover={handle_bar_dragover}
+    ondrop={handle_bar_drop}
+  >
     {#if can_scroll_left}
       <button
         type="button"

@@ -10,7 +10,7 @@
     VaultSwitcherDropdown,
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
-  import { SplitNoteEditor } from "$lib/features/split_view";
+  import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
   import { TerminalPanel } from "$lib/features/terminal";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
@@ -428,70 +428,74 @@
               <Sidebar.Root collapsible="none" class="w-full">
                 <Sidebar.Header class="p-0">
                   <div class="SidebarHeader">
-                    {#if stores.ui.sidebar_view === "starred"}
-                      <span class="SidebarHeader__title">Starred</span>
-                    {:else if stores.ui.sidebar_view === "dashboard"}
-                      <span class="SidebarHeader__title">Dashboard</span>
-                    {:else}
-                      <VaultSwitcherDropdown
-                        recent_vaults={stores.vault.recent_vaults}
-                        pinned_vault_ids={stores.vault.pinned_vault_ids}
-                        current_vault_id={stores.vault.vault?.id ?? null}
-                        current_vault_name={stores.vault.vault?.name ?? ""}
-                        bind:open={stores.ui.vault_switcher_open}
-                        git_cache={stores.vault.vault_git_cache}
-                        on_select_vault={(id) => {
-                          void action_registry.execute(
-                            ACTION_IDS.vault_select,
-                            id,
-                          );
-                        }}
-                        on_choose_vault={() => {
-                          void action_registry.execute(ACTION_IDS.vault_choose);
-                        }}
-                        on_manage_vaults={() => {
-                          void action_registry.execute(
-                            ACTION_IDS.vault_request_change,
-                          );
-                        }}
-                        on_toggle_pin={(id) => {
-                          void action_registry.execute(
-                            ACTION_IDS.vault_toggle_pin,
-                            id,
-                          );
-                        }}
-                        on_remove_vault={(id) => {
-                          void action_registry.execute(
-                            ACTION_IDS.vault_remove_from_registry,
-                            id,
-                          );
-                        }}
-                        on_reveal_vault={(path) => {
-                          void action_registry.execute(
-                            ACTION_IDS.shell_open_url,
-                            path,
-                          );
-                        }}
-                        on_dropdown_opened={() => {
-                          void action_registry.execute(
-                            ACTION_IDS.vault_fetch_git_info_for_list,
-                          );
-                        }}
-                        on_select_folder={() => {
-                          void action_registry.execute(
-                            ACTION_IDS.ui_select_folder,
-                            "",
-                          );
-                        }}
-                        on_promote_to_vault={!is_vault_mode
-                          ? () => {
-                              void action_registry.execute(
-                                ACTION_IDS.vault_promote,
-                              );
-                            }
-                          : undefined}
-                      />
-                    {/if}
+                    <div class="SidebarHeader__top">
+                      {#if stores.ui.sidebar_view === "starred"}
+                        <span class="SidebarHeader__title">Starred</span>
+                      {:else if stores.ui.sidebar_view === "dashboard"}
+                        <span class="SidebarHeader__title">Dashboard</span>
+                      {:else}
+                        <VaultSwitcherDropdown
+                          recent_vaults={stores.vault.recent_vaults}
+                          pinned_vault_ids={stores.vault.pinned_vault_ids}
+                          current_vault_id={stores.vault.vault?.id ?? null}
+                          current_vault_name={stores.vault.vault?.name ?? ""}
+                          bind:open={stores.ui.vault_switcher_open}
+                          git_cache={stores.vault.vault_git_cache}
+                          on_select_vault={(id) => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_select,
+                              id,
+                            );
+                          }}
+                          on_choose_vault={() => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_choose,
+                            );
+                          }}
+                          on_manage_vaults={() => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_request_change,
+                            );
+                          }}
+                          on_toggle_pin={(id) => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_toggle_pin,
+                              id,
+                            );
+                          }}
+                          on_remove_vault={(id) => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_remove_from_registry,
+                              id,
+                            );
+                          }}
+                          on_reveal_vault={(path) => {
+                            void action_registry.execute(
+                              ACTION_IDS.shell_open_url,
+                              path,
+                            );
+                          }}
+                          on_dropdown_opened={() => {
+                            void action_registry.execute(
+                              ACTION_IDS.vault_fetch_git_info_for_list,
+                            );
+                          }}
+                          on_select_folder={() => {
+                            void action_registry.execute(
+                              ACTION_IDS.ui_select_folder,
+                              "",
+                            );
+                          }}
+                          on_promote_to_vault={!is_vault_mode
+                            ? () => {
+                                void action_registry.execute(
+                                  ACTION_IDS.vault_promote,
+                                );
+                              }
+                            : undefined}
+                        />
+                      {/if}
+                    </div>
                     <div class="SidebarHeader__actions">
                       {#each sidebar_header_actions as action (action.label)}
                         <Tooltip.Root>
@@ -808,6 +812,7 @@
                             <SplitNoteEditor />
                           </div>
                         {/if}
+                        <SplitDropZone />
                       </div>
                     </div>
                   </div>
@@ -889,6 +894,7 @@
     flex-direction: row;
     height: 100%;
     overflow: hidden;
+    position: relative;
   }
 
   .SplitViewContainer__primary {
@@ -918,12 +924,15 @@
 
   .SidebarHeader {
     display: flex;
+    flex-direction: column;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .SidebarHeader__top {
+    display: flex;
     align-items: center;
-    justify-content: space-between;
     height: var(--size-touch-lg);
     padding-inline: var(--space-3);
-    gap: var(--space-2);
-    border-block-end: 1px solid var(--border);
   }
 
   .SidebarHeader__title {
@@ -938,8 +947,9 @@
 
   .SidebarHeader__actions {
     display: flex;
-    flex-shrink: 0;
     align-items: center;
+    padding-inline: var(--space-2);
+    padding-block-end: var(--space-1);
   }
 
   :global(.SidebarHeaderButton) {

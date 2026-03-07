@@ -16,6 +16,7 @@ import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
+import { SplitViewStore } from "$lib/features/split_view";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
@@ -72,6 +73,7 @@ function create_tab_actions_harness() {
     tab: new TabStore(),
     git: new GitStore(),
     outline: new OutlineStore(),
+    split_view: new SplitViewStore(),
   };
   stores.vault.set_vault(create_test_vault());
 
@@ -136,7 +138,14 @@ function create_tab_actions_harness() {
     },
   });
 
-  return { registry, stores, services };
+  const split_view_close = vi.fn();
+  registry.register({
+    id: ACTION_IDS.split_view_close,
+    label: "Close Split View",
+    execute: split_view_close,
+  });
+
+  return { registry, stores, services, split_view_close };
 }
 
 describe("register_tab_actions", () => {
@@ -865,6 +874,44 @@ describe("register_tab_actions", () => {
       expect(stores.ui.selected_folder_path).toBe("");
       expect(stores.ui.filetree_revealed_note_path).toBe("root.md");
       expect(stores.ui.filetree.expanded_paths.size).toBe(0);
+    });
+  });
+
+  describe("tab_close with split view", () => {
+    it("closes split pane instead of tab when secondary pane is focused", async () => {
+      const { registry, stores, split_view_close } =
+        create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.split_view.open_secondary(mock_open_note("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(split_view_close).toHaveBeenCalledOnce();
+      expect(stores.tab.tabs).toHaveLength(1);
+    });
+
+    it("closes tab normally when primary pane is focused", async () => {
+      const { registry, stores, split_view_close } =
+        create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.split_view.open_secondary(mock_open_note("b.md"));
+      stores.split_view.set_active_pane("primary");
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(split_view_close).not.toHaveBeenCalled();
+      expect(stores.tab.tabs).toHaveLength(0);
+    });
+
+    it("closes tab when split view is inactive", async () => {
+      const { registry, stores, split_view_close } =
+        create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(split_view_close).not.toHaveBeenCalled();
+      expect(stores.tab.tabs).toHaveLength(0);
     });
   });
 });

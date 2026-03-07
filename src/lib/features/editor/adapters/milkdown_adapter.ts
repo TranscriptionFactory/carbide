@@ -70,6 +70,7 @@ import { emoji_plugin } from "./emoji_plugin";
 import { mark_escape_plugin } from "./mark_escape_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
 import { outline_plugin, outline_plugin_key } from "./outline_plugin";
+import { create_file_drop_plugin } from "$lib/features/editor/domain/file_drop_plugin";
 import { error_message } from "$lib/shared/utils/error_message";
 import { count_words } from "$lib/shared/utils/count_words";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -434,7 +435,10 @@ export function create_milkdown_editor_port(args?: {
           });
         });
 
-      builder = builder.use(markdown_paste_plugin).use(clipboard);
+      builder = builder
+        .use(markdown_paste_plugin)
+        .use(clipboard)
+        .use(create_file_drop_plugin());
 
       if (on_internal_link_click) {
         builder = builder.use(

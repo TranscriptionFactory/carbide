@@ -11,7 +11,8 @@ export type CommandId =
   | "git_init_repo"
   | "toggle_links_panel"
   | "toggle_outline_panel"
-  | "check_for_updates";
+  | "check_for_updates"
+  | "export_as_pdf";
 
 export type CommandIcon =
   | "file-plus"
@@ -23,7 +24,8 @@ export type CommandIcon =
   | "bookmark"
   | "link"
   | "list-tree"
-  | "refresh-cw";
+  | "refresh-cw"
+  | "file-down";
 
 export type CommandDefinition = {
   id: CommandId;

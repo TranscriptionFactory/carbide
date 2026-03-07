@@ -55,9 +55,10 @@
     {:else}
       <img
         class="ImageViewer__img"
+        class:ImageViewer__img--scaled={zoom !== 1.0}
         {src}
         alt=""
-        style:transform="scale({zoom})"
+        style:transform={zoom !== 1.0 ? `scale(${zoom})` : undefined}
         style:transform-origin="top center"
         onerror={on_error}
       />
@@ -116,6 +117,11 @@
     display: flex;
     justify-content: center;
     padding: var(--space-4);
+    background-image: repeating-conic-gradient(
+        color-mix(in srgb, var(--foreground) 6%, transparent) 0% 25%,
+        color-mix(in srgb, var(--foreground) 12%, transparent) 0% 50%
+      )
+      0 0 / 20px 20px;
   }
 
   .ImageViewer__img {
@@ -123,6 +129,10 @@
     max-width: 100%;
     height: auto;
     object-fit: contain;
+  }
+
+  .ImageViewer__img--scaled {
+    max-width: none;
   }
 
   .ImageViewer__error {

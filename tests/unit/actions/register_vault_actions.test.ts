@@ -11,6 +11,7 @@ import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
+import { SplitViewStore } from "$lib/features/split_view";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   create_open_note_state,
@@ -30,6 +31,7 @@ function create_vault_actions_harness() {
     tab: new TabStore(),
     git: new GitStore(),
     outline: new OutlineStore(),
+    split_view: new SplitViewStore(),
   };
 
   const services = {
@@ -104,6 +106,12 @@ function create_vault_actions_harness() {
     id: ACTION_IDS.split_view_close,
     label: "Close Split View",
     execute: () => {},
+  });
+
+  registry.register({
+    id: ACTION_IDS.split_view_restore,
+    label: "Restore Split View",
+    execute: async () => {},
   });
 
   return { registry, stores, services, execute_open_dashboard };

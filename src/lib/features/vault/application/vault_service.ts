@@ -28,7 +28,6 @@ import type {
   VaultInitializeResult,
   VaultOpenResult,
 } from "$lib/features/vault/types/vault_service_result";
-import { create_untitled_open_note } from "$lib/features/note";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
@@ -482,9 +481,7 @@ export class VaultService {
       this.notes_store.set_dashboard_stats_loading();
     }
 
-    this.editor_store.set_open_note(
-      create_untitled_open_note({ open_titles: [], now_ms: this.now_ms() }),
-    );
+    this.editor_store.clear_open_note();
   }
 
   async refresh_dashboard_stats(): Promise<

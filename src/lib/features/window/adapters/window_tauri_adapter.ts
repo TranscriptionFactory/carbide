@@ -12,6 +12,9 @@ function build_url(init: WindowInit): string {
   if (init.kind === "viewer") {
     params.set("file_path", init.file_path);
   }
+  if (init.kind === "browse" && init.file_path) {
+    params.set("file_path", init.file_path);
+  }
   return `/?${params.toString()}`;
 }
 
