@@ -42,7 +42,8 @@ export interface NotesPort {
     vault_id: VaultId,
     note_id: NoteId,
     markdown: MarkdownText,
-  ): Promise<void>;
+    expected_mtime_ms?: number,
+  ): Promise<number>;
   create_note(
     vault_id: VaultId,
     note_path: NotePath,

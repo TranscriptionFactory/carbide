@@ -8,6 +8,8 @@ import type {
   NoteId,
   MarkdownText,
 } from "$lib/shared/types/ids";
+import type { WatcherPort } from "$lib/features/watcher";
+import type { VaultFsEvent } from "$lib/features/watcher";
 import type { Vault } from "$lib/shared/types/vault";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type {
@@ -76,6 +78,7 @@ export function create_mock_notes_port(): NotesPort & {
       vault_id: VaultId;
       note_id: NoteId;
       markdown: MarkdownText;
+      expected_mtime_ms?: number;
     }[];
     create_note: {
       vault_id: VaultId;
@@ -108,6 +111,7 @@ export function create_mock_notes_port(): NotesPort & {
         vault_id: VaultId;
         note_id: NoteId;
         markdown: MarkdownText;
+        expected_mtime_ms?: number;
       }[],
       create_note: [] as {
         vault_id: VaultId;
@@ -152,9 +156,23 @@ export function create_mock_notes_port(): NotesPort & {
         markdown: "" as MarkdownText,
       });
     },
-    write_note(vault_id: VaultId, note_id: NoteId, markdown: MarkdownText) {
-      mock._calls.write_note.push({ vault_id, note_id, markdown });
-      return Promise.resolve();
+    write_note(
+      vault_id: VaultId,
+      note_id: NoteId,
+      markdown: MarkdownText,
+      expected_mtime_ms?: number,
+    ) {
+      const entry: {
+        vault_id: VaultId;
+        note_id: NoteId;
+        markdown: MarkdownText;
+        expected_mtime_ms?: number;
+      } = { vault_id, note_id, markdown };
+      if (expected_mtime_ms !== undefined) {
+        entry.expected_mtime_ms = expected_mtime_ms;
+      }
+      mock._calls.write_note.push(entry);
+      return Promise.resolve(Date.now());
     },
     create_note(
       vault_id: VaultId,
@@ -491,6 +509,40 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     },
     subscribe_index_progress() {
       return () => {};
+    },
+  };
+  return mock;
+}
+
+export function create_mock_watcher_port(): WatcherPort & {
+  _calls: {
+    watch_vault: VaultId[];
+    unwatch_vault: number;
+  };
+  _emit: (event: VaultFsEvent) => void;
+} {
+  let handler: ((event: VaultFsEvent) => void) | null = null;
+  const mock = {
+    _calls: {
+      watch_vault: [] as VaultId[],
+      unwatch_vault: 0,
+    },
+    _emit(event: VaultFsEvent) {
+      handler?.(event);
+    },
+    watch_vault(vault_id: VaultId) {
+      mock._calls.watch_vault.push(vault_id);
+      return Promise.resolve();
+    },
+    unwatch_vault() {
+      mock._calls.unwatch_vault += 1;
+      return Promise.resolve();
+    },
+    subscribe_fs_events(callback: (event: VaultFsEvent) => void) {
+      handler = callback;
+      return () => {
+        handler = null;
+      };
     },
   };
   return mock;
