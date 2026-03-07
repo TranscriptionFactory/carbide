@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { resolve_watcher_event_decision } from "$lib/reactors/watcher.reactor.svelte";
+import { describe, expect, it, vi } from "vitest";
+import {
+  create_watcher_reactor,
+  resolve_watcher_event_decision,
+} from "$lib/reactors/watcher.reactor.svelte";
 import type { VaultFsEvent } from "$lib/features/watcher";
+import { WatcherService } from "$lib/features/watcher/application/watcher_service";
 import type { BackgroundTabInfo } from "$lib/reactors/watcher.reactor.svelte";
+import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
+import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
+import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
+import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import { create_mock_watcher_port } from "../helpers/mock_ports";
+import { create_test_vault } from "../helpers/test_fixtures";
 
 const VAULT_ID = "vault-1";
 const NO_BG_TAB = () => null;
@@ -240,5 +250,64 @@ describe("watcher_reactor", () => {
       );
       expect(decision).toEqual({ action: "ignore" });
     });
+  });
+
+  it("ignores repeated self-write events while suppression is active", () => {
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const watcher_port = create_mock_watcher_port();
+    const watcher_service = new WatcherService(watcher_port);
+    const note_service = {
+      open_note: vi.fn(),
+      clear_open_note: vi.fn(),
+    };
+    const tab_service = {
+      invalidate_cache: vi.fn(),
+      remove_tab: vi.fn(),
+      sync_dirty_state: vi.fn(),
+    };
+    const conflict_toast_manager = {
+      show: vi.fn(),
+      dismiss_all: vi.fn(),
+    };
+    const action_registry = {
+      execute: vi.fn(),
+    };
+
+    vault_store.set_vault(create_test_vault());
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("notes/a.md"),
+        path: as_note_path("notes/a.md"),
+        name: "a",
+        title: "A",
+        mtime_ms: 0,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text("# A"),
+      buffer_id: "notes/a.md",
+      is_dirty: false,
+    });
+
+    const unmount = create_watcher_reactor(
+      vault_store,
+      editor_store,
+      tab_store,
+      tab_service as never,
+      note_service as never,
+      watcher_service,
+      action_registry as never,
+      conflict_toast_manager as never,
+    );
+
+    watcher_service.suppress_next("notes/a.md");
+    watcher_port._emit(changed_event("notes/a.md"));
+    watcher_port._emit(changed_event("notes/a.md"));
+
+    expect(note_service.open_note).not.toHaveBeenCalled();
+    expect(conflict_toast_manager.show).not.toHaveBeenCalled();
+
+    unmount();
   });
 });

@@ -73,14 +73,22 @@ describe("WatcherService", () => {
 
     service.suppress_next("notes/test.md");
 
-    expect(service.consume_suppressed("notes/test.md")).toBe(true);
-    expect(service.consume_suppressed("notes/test.md")).toBe(false);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
   });
 
-  it("consume_suppressed returns false for unknown path", () => {
+  it("is_suppressed returns false for unknown path", () => {
     const { service } = setup();
 
-    expect(service.consume_suppressed("notes/unknown.md")).toBe(false);
+    expect(service.is_suppressed("notes/unknown.md")).toBe(false);
+  });
+
+  it("matches suppressed paths case-insensitively", () => {
+    const { service } = setup();
+
+    service.suppress_next("Notes/Test.md");
+
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
   });
 
   it("suppress_next resets timer on repeated calls", () => {
@@ -92,7 +100,9 @@ describe("WatcherService", () => {
     service.suppress_next("notes/test.md");
     vi.advanceTimersByTime(1500);
 
-    expect(service.consume_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    vi.advanceTimersByTime(501);
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
     vi.useRealTimers();
   });
 

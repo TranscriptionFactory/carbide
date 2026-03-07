@@ -7,6 +7,10 @@ const log = create_logger("watcher_service");
 
 const SUPPRESS_WINDOW_MS = 2000;
 
+function suppressed_path_key(path: string): string {
+  return path.toLowerCase();
+}
+
 export class WatcherService {
   private unsubscribe: (() => void) | null = null;
   private suppressed = new Map<string, ReturnType<typeof setTimeout>>();
@@ -14,20 +18,17 @@ export class WatcherService {
   constructor(private readonly port: WatcherPort) {}
 
   suppress_next(path: string): void {
-    const existing = this.suppressed.get(path);
+    const key = suppressed_path_key(path);
+    const existing = this.suppressed.get(key);
     if (existing !== undefined) clearTimeout(existing);
     this.suppressed.set(
-      path,
-      setTimeout(() => this.suppressed.delete(path), SUPPRESS_WINDOW_MS),
+      key,
+      setTimeout(() => this.suppressed.delete(key), SUPPRESS_WINDOW_MS),
     );
   }
 
-  consume_suppressed(path: string): boolean {
-    const timer = this.suppressed.get(path);
-    if (timer === undefined) return false;
-    clearTimeout(timer);
-    this.suppressed.delete(path);
-    return true;
+  is_suppressed(path: string): boolean {
+    return this.suppressed.has(suppressed_path_key(path));
   }
 
   async start(vault_id: VaultId): Promise<void> {
