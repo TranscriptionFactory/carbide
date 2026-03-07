@@ -36,6 +36,11 @@ function bg_tab(is_dirty: boolean): () => BackgroundTabInfo {
   return () => ({ is_dirty });
 }
 
+async function flush_effects() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("watcher_reactor", () => {
   describe("note_changed_externally", () => {
     it("reloads clean open note", () => {
@@ -52,7 +57,7 @@ describe("watcher_reactor", () => {
       });
     });
 
-    it("shows conflict toast for dirty open note", () => {
+    it("marks conflict for dirty open note", () => {
       const decision = resolve_watcher_event_decision(
         changed_event("notes/a.md"),
         VAULT_ID,
@@ -61,7 +66,7 @@ describe("watcher_reactor", () => {
         NO_BG_TAB,
       );
       expect(decision).toEqual({
-        action: "conflict_toast",
+        action: "mark_conflict",
         note_path: "notes/a.md",
       });
     });
@@ -118,7 +123,7 @@ describe("watcher_reactor", () => {
       });
     });
 
-    it("shows background conflict toast for dirty background tab", () => {
+    it("marks conflict for dirty background tab", () => {
       const decision = resolve_watcher_event_decision(
         changed_event("notes/bg.md"),
         VAULT_ID,
@@ -127,7 +132,7 @@ describe("watcher_reactor", () => {
         bg_tab(true),
       );
       expect(decision).toEqual({
-        action: "background_conflict_toast",
+        action: "mark_conflict",
         note_path: "notes/bg.md",
       });
     });
@@ -252,7 +257,7 @@ describe("watcher_reactor", () => {
     });
   });
 
-  it("ignores repeated self-write events while suppression is active", () => {
+  it("ignores repeated self-write events while suppression is active", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
@@ -264,12 +269,9 @@ describe("watcher_reactor", () => {
     };
     const tab_service = {
       invalidate_cache: vi.fn(),
+      mark_conflict: vi.fn(),
       remove_tab: vi.fn(),
       sync_dirty_state: vi.fn(),
-    };
-    const conflict_toast_manager = {
-      show: vi.fn(),
-      dismiss_all: vi.fn(),
     };
     const action_registry = {
       execute: vi.fn(),
@@ -298,15 +300,18 @@ describe("watcher_reactor", () => {
       note_service as never,
       watcher_service,
       action_registry as never,
-      conflict_toast_manager as never,
     );
+
+    await flush_effects();
 
     watcher_service.suppress_next("notes/a.md");
     watcher_port._emit(changed_event("notes/a.md"));
     watcher_port._emit(changed_event("notes/a.md"));
 
+    await flush_effects();
+
     expect(note_service.open_note).not.toHaveBeenCalled();
-    expect(conflict_toast_manager.show).not.toHaveBeenCalled();
+    expect(tab_service.mark_conflict).not.toHaveBeenCalled();
 
     unmount();
   });

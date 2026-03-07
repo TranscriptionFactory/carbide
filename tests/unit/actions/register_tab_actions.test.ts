@@ -59,6 +59,8 @@ function create_tab_actions_harness() {
         selected_folder_path: "",
       }),
       save_note: vi.fn().mockResolvedValue({ status: "saved" }),
+      skip_mtime_guard: vi.fn(),
+      write_note_content: vi.fn().mockResolvedValue(undefined),
     },
     folder: {},
     settings: {},
@@ -413,10 +415,62 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs).toHaveLength(0);
     });
 
+    it("skips the mtime guard before saving a conflicted active tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
+      stores.editor.set_open_note({
+        ...mock_open_note("a.md"),
+        is_dirty: true,
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
+      expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+      expect(stores.tab.tabs).toHaveLength(0);
+    });
+
+    it("does not close the tab when save fails", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.set_dirty("a.md", true);
+      services.note.save_note.mockResolvedValueOnce({
+        status: "conflict",
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(stores.ui.tab_close_confirm.open).toBe(true);
+      expect(stores.tab.tabs).toHaveLength(1);
+    });
+
     it("discards and closes tab via confirm_close_discard", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
 
       stores.ui.tab_close_confirm = {
         open: true,
@@ -432,12 +486,14 @@ describe("register_tab_actions", () => {
 
       expect(stores.ui.tab_close_confirm.open).toBe(false);
       expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.tab.has_conflict(np("a.md"))).toBe(false);
     });
 
     it("cancels close via tab_cancel_close", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
 
       stores.ui.tab_close_confirm = {
         open: true,
@@ -453,6 +509,7 @@ describe("register_tab_actions", () => {
 
       expect(stores.ui.tab_close_confirm.open).toBe(false);
       expect(stores.tab.tabs).toHaveLength(1);
+      expect(stores.tab.has_conflict(np("a.md"))).toBe(true);
     });
   });
 

@@ -1,6 +1,4 @@
 import { toast } from "svelte-sonner";
-import type { NoteId, NotePath } from "$lib/shared/types/ids";
-import type { NoteService } from "$lib/features/note";
 
 type ConflictCallbacks = {
   on_reload: () => void;
@@ -8,51 +6,49 @@ type ConflictCallbacks = {
 };
 
 export class ConflictToastManager {
-  private active = new Map<string, string | number>();
+  private active: {
+    note_path: string;
+    toast_id: string | number;
+  } | null = null;
 
   show(note_path: string, callbacks: ConflictCallbacks): void {
-    if (this.active.has(note_path)) return;
+    if (this.active?.note_path === note_path) return;
 
-    const tid = toast.warning("Note has been modified externally", {
+    this.dismiss();
+
+    const toast_id = toast.warning("Note has been modified externally", {
       classes: { toast: "toast--stacked-actions" },
       duration: Infinity,
       action: {
         label: "Reload from disk",
         onClick: () => {
-          this.active.delete(note_path);
+          this.active = null;
           callbacks.on_reload();
         },
       },
       cancel: {
         label: "Keep my changes",
         onClick: () => {
-          this.active.delete(note_path);
+          this.active = null;
           callbacks.on_keep();
         },
       },
     });
-    this.active.set(note_path, tid);
+    this.active = { note_path, toast_id };
+  }
+
+  dismiss(note_path?: string): void {
+    if (!this.active) return;
+    if (note_path && this.active.note_path !== note_path) return;
+
+    toast.dismiss(this.active.toast_id);
+    this.active = null;
   }
 
   dismiss_all(): void {
-    for (const tid of this.active.values()) {
-      toast.dismiss(tid);
+    if (this.active) {
+      toast.dismiss(this.active.toast_id);
     }
-    this.active.clear();
+    this.active = null;
   }
-}
-
-export function active_note_conflict_callbacks(
-  note_path: NotePath,
-  note_id: NoteId,
-  note_service: NoteService,
-): ConflictCallbacks {
-  return {
-    on_reload: () => {
-      void note_service.open_note(note_path, false, { force_reload: true });
-    },
-    on_keep: () => {
-      note_service.skip_mtime_guard(note_id);
-    },
-  };
 }

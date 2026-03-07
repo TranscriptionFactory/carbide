@@ -271,6 +271,66 @@ describe("TabStore", () => {
     });
   });
 
+  describe("conflict state", () => {
+    it("marks and reads conflict per note path", () => {
+      const store = new TabStore();
+
+      store.mark_conflict(np("docs/a.md"));
+
+      expect(store.has_conflict(np("docs/a.md"))).toBe(true);
+      expect(store.has_conflict(np("DOCS/A.md"))).toBe(true);
+    });
+
+    it("clears conflict when a tab becomes clean", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.set_dirty("a.md", true);
+      store.mark_conflict(np("a.md"));
+
+      store.set_dirty("a.md", false);
+
+      expect(store.has_conflict(np("a.md"))).toBe(false);
+    });
+
+    it("clears conflict when a tab closes", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.mark_conflict(np("a.md"));
+
+      store.close_tab("a.md");
+
+      expect(store.has_conflict(np("a.md"))).toBe(false);
+    });
+
+    it("keeps conflicts scoped to remaining open tabs", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.open_tab(np("b.md"), "b");
+      store.open_tab(np("c.md"), "c");
+      store.mark_conflict(np("a.md"));
+      store.mark_conflict(np("b.md"));
+      store.mark_conflict(np("c.md"));
+
+      store.close_other_tabs("b.md");
+
+      expect(store.has_conflict(np("a.md"))).toBe(false);
+      expect(store.has_conflict(np("b.md"))).toBe(true);
+      expect(store.has_conflict(np("c.md"))).toBe(false);
+    });
+
+    it("clears all conflicts on reset", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.open_tab(np("b.md"), "b");
+      store.mark_conflict(np("a.md"));
+      store.mark_conflict(np("b.md"));
+
+      store.reset();
+
+      expect(store.conflicted_note_paths.size).toBe(0);
+    });
+  });
+
   describe("pin_tab / unpin_tab", () => {
     it("pins a tab and moves it to the leftmost position", () => {
       const store = new TabStore();
@@ -392,6 +452,17 @@ describe("TabStore", () => {
       expect(store.get_cached_note("old.md")).toBeNull();
       expect(store.get_cached_note("new.md")?.meta.path).toBe("old.md");
     });
+
+    it("migrates conflict state to new path", () => {
+      const store = new TabStore();
+      store.open_tab(np("old.md"), "old");
+      store.mark_conflict(np("old.md"));
+
+      store.update_tab_path(np("old.md"), np("new.md"));
+
+      expect(store.has_conflict(np("old.md"))).toBe(false);
+      expect(store.has_conflict(np("new.md"))).toBe(true);
+    });
   });
 
   describe("update_tab_path_prefix", () => {
@@ -443,6 +514,21 @@ describe("TabStore", () => {
       expect(store.get_cached_note("notes/a.md")?.meta.path).toBe("docs/a.md");
       expect(store.get_cached_note("notes/b.md")?.meta.path).toBe("docs/b.md");
       expect(store.get_cached_note("other/c.md")?.meta.path).toBe("other/c.md");
+    });
+
+    it("migrates conflict state on prefix change", () => {
+      const store = new TabStore();
+      store.open_tab(np("docs/a.md"), "a");
+      store.open_tab(np("docs/b.md"), "b");
+      store.mark_conflict(np("docs/a.md"));
+      store.mark_conflict(np("docs/b.md"));
+
+      store.update_tab_path_prefix("docs/", "notes/");
+
+      expect(store.has_conflict(np("docs/a.md"))).toBe(false);
+      expect(store.has_conflict(np("docs/b.md"))).toBe(false);
+      expect(store.has_conflict(np("notes/a.md"))).toBe(true);
+      expect(store.has_conflict(np("notes/b.md"))).toBe(true);
     });
   });
 
@@ -598,6 +684,26 @@ describe("TabStore", () => {
 
       expect(store.active_tab_id).toBe("a.md");
     });
+
+    it("clears any previous conflict state", () => {
+      const store = new TabStore();
+      store.mark_conflict(np("a.md"));
+
+      store.restore_tabs(
+        [
+          {
+            id: "b.md",
+            note_path: np("b.md"),
+            title: "b",
+            is_pinned: false,
+            is_dirty: false,
+          },
+        ],
+        "b.md",
+      );
+
+      expect(store.conflicted_note_paths.size).toBe(0);
+    });
   });
 
   describe("computed properties", () => {
@@ -736,6 +842,16 @@ describe("TabStore", () => {
       store.reset();
 
       expect(store.note_cache.size).toBe(0);
+    });
+
+    it("clears conflict state", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.mark_conflict(np("a.md"));
+
+      store.reset();
+
+      expect(store.conflicted_note_paths.size).toBe(0);
     });
   });
 });
