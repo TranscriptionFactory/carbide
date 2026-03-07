@@ -183,6 +183,7 @@
   <div
     class="TabBar"
     role="tablist"
+    tabindex="0"
     aria-label="Open tabs"
     ondragover={handle_bar_dragover}
     ondrop={handle_bar_drop}
