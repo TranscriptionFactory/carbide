@@ -2,6 +2,7 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import * as Select from "$lib/components/ui/select/index.js";
   import * as Switch from "$lib/components/ui/switch/index.js";
+  import { Slider } from "$lib/components/ui/slider";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import PaletteIcon from "@lucide/svelte/icons/palette";
@@ -145,6 +146,32 @@
           <h2 class="SettingsDialog__content-header">Layout</h2>
 
           <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Editor Max Width</span>
+                <span class="SettingsDialog__description"
+                  >Maximum line width for the editor content (in characters)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.editor_max_width_ch}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update("editor_max_width_ch", v);
+                    }
+                  }}
+                  min={60}
+                  max={140}
+                  step={5}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.editor_max_width_ch}ch</span
+                >
+              </div>
+            </div>
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Max Open Tabs</span>

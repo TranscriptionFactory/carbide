@@ -81,4 +81,11 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "Layout",
     keywords: ["tabs", "limit", "max", "open", "performance", "editor"],
   },
+  {
+    key: "editor_max_width_ch",
+    label: "Editor Max Width",
+    description: "Maximum line width for the editor content in characters",
+    category: "Layout",
+    keywords: ["editor", "width", "line length", "layout", "readability"],
+  },
 ];
