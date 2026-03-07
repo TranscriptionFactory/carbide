@@ -324,6 +324,8 @@ export class UIStore {
 
   vault_switcher_open = $state(false);
 
+  tab_drag_active = $state(false);
+
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
 

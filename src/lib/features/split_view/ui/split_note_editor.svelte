@@ -36,12 +36,26 @@
       "secondary",
     );
   }
+
+  function handle_header_dragstart(event: DragEvent) {
+    if (!event.dataTransfer || !secondary_note) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "application/x-otterly-split-pane",
+      secondary_note.meta.path,
+    );
+    event.dataTransfer.setData("text/plain", secondary_note.meta.title);
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="SplitNoteEditor" onclick={handle_focus}>
-  <div class="SplitNoteEditor__header">
+  <div
+    class="SplitNoteEditor__header"
+    draggable="true"
+    ondragstart={handle_header_dragstart}
+  >
     <span class="SplitNoteEditor__title">
       {secondary_note?.meta.title ?? "Split View"}
     </span>

@@ -3,3 +3,4 @@ export { SplitViewService } from "$lib/features/split_view/application/split_vie
 export { register_split_view_actions } from "$lib/features/split_view/application/split_view_actions";
 export type { ActivePane } from "$lib/features/split_view/state/split_view_store.svelte";
 export { default as SplitNoteEditor } from "$lib/features/split_view/ui/split_note_editor.svelte";
+export { default as SplitDropZone } from "$lib/features/split_view/ui/split_drop_zone.svelte";

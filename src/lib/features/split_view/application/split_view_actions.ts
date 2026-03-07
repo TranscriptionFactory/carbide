@@ -5,7 +5,7 @@ import type { SplitViewStore } from "$lib/features/split_view/state/split_view_s
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { to_open_note_state } from "$lib/shared/types/editor";
 import type { NotesPort } from "$lib/features/note";
-import type { NotePath } from "$lib/shared/types/ids";
+import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
 import { toast } from "svelte-sonner";
 
@@ -81,6 +81,32 @@ export function register_split_view_actions(
           error: String(error),
         });
         toast.error("Failed to open note in split view");
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.split_view_restore,
+    label: "Restore Split View",
+    execute: async () => {
+      const persisted = await split_view_service.load_split_state();
+      if (!persisted?.note_path) return;
+
+      const vault = stores.vault.vault;
+      if (!vault) return;
+
+      try {
+        const doc = await notes_port.read_note(
+          vault.id,
+          as_note_path(persisted.note_path),
+        );
+        const open_note = to_open_note_state(doc);
+        split_view_service.activate(open_note);
+      } catch (error) {
+        log.info("Could not restore split view note", {
+          note_path: persisted.note_path,
+          error: String(error),
+        });
       }
     },
   });

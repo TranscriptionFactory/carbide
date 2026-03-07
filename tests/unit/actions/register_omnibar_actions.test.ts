@@ -11,6 +11,7 @@ import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
+import { SplitViewStore } from "$lib/features/split_view";
 import {
   as_note_path,
   as_vault_id,
@@ -30,6 +31,7 @@ function create_omnibar_actions_harness() {
     tab: new TabStore(),
     git: new GitStore(),
     outline: new OutlineStore(),
+    split_view: new SplitViewStore(),
   };
   const execute_vault_select = vi.fn((vault_id: unknown) => {
     stores.vault.set_vault(

@@ -176,6 +176,7 @@ export const ACTION_IDS = {
   split_view_unmount: "split_view.unmount",
   split_view_set_active_pane: "split_view.set_active_pane",
   split_view_open_to_side: "split_view.open_to_side",
+  split_view_restore: "split_view.restore",
 
   document_open: "document.open",
   document_close: "document.close",

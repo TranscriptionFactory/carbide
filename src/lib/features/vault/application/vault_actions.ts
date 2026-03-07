@@ -42,6 +42,8 @@ async function apply_opened_vault(
     await input.services.tab.restore_tabs(persisted);
   }
 
+  await input.registry.execute(ACTION_IDS.split_view_restore);
+
   if (input.stores.tab.tabs.length === 0) {
     input.services.note.create_new_note([]);
     const open_note = input.stores.editor.open_note;

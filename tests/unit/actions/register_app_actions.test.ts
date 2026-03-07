@@ -11,6 +11,7 @@ import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
+import { SplitViewStore } from "$lib/features/split_view";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import {
@@ -66,6 +67,7 @@ function create_harness(options: HarnessOptions = {}) {
     tab: new TabStore(),
     git: new GitStore(),
     outline: new OutlineStore(),
+    split_view: new SplitViewStore(),
   };
 
   const services = {

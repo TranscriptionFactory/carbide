@@ -18,9 +18,17 @@ export function register_window_actions(
       if (!vault_path) return;
       const is_note = /\.(?:md|markdown|mdx)$/i.test(file_path);
       if (is_note) {
-        await window_port.open_window({ kind: "browse", vault_path, file_path });
+        await window_port.open_window({
+          kind: "browse",
+          vault_path,
+          file_path,
+        });
       } else {
-        await window_port.open_window({ kind: "viewer", vault_path, file_path });
+        await window_port.open_window({
+          kind: "viewer",
+          vault_path,
+          file_path,
+        });
       }
     },
   });

@@ -10,7 +10,7 @@
     VaultSwitcherDropdown,
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
-  import { SplitNoteEditor } from "$lib/features/split_view";
+  import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
   import { TerminalPanel } from "$lib/features/terminal";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
@@ -808,6 +808,7 @@
                             <SplitNoteEditor />
                           </div>
                         {/if}
+                        <SplitDropZone />
                       </div>
                     </div>
                   </div>
@@ -889,6 +890,7 @@
     flex-direction: row;
     height: 100%;
     overflow: hidden;
+    position: relative;
   }
 
   .SplitViewContainer__primary {
