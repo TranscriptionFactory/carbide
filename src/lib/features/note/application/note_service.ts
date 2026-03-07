@@ -77,7 +77,12 @@ export class NoteService {
     private readonly editor_service: EditorService,
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
+    private readonly on_file_written?: (path: string) => void,
   ) {}
+
+  clear_open_note() {
+    this.editor_store.clear_open_note();
+  }
 
   private get_active_vault_id(): VaultId | null {
     return this.vault_store.vault?.id ?? null;
@@ -601,6 +606,7 @@ export class NoteService {
     vault_id: VaultId,
     open_note: OpenEditorNote,
   ) {
+    this.on_file_written?.(open_note.meta.id);
     const new_mtime = await this.notes_port.write_note(
       vault_id,
       open_note.meta.id,
@@ -671,6 +677,7 @@ export class NoteService {
     const old_path = open_note.meta.path;
 
     try {
+      this.on_file_written?.(target_path);
       const created_meta = await this.notes_port.create_note(
         vault_id,
         target_path,
@@ -692,6 +699,7 @@ export class NoteService {
       }
     }
 
+    this.on_file_written?.(target_path);
     const new_mtime = await this.notes_port.write_note(
       vault_id,
       target_path,

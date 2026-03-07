@@ -1,6 +1,7 @@
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
 import type { TabStore } from "$lib/features/tab";
+import type { TabService } from "$lib/features/tab";
 import type { NoteService } from "$lib/features/note";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
@@ -84,6 +85,7 @@ export function create_watcher_reactor(
   vault_store: VaultStore,
   editor_store: EditorStore,
   tab_store: TabStore,
+  tab_service: TabService,
   note_service: NoteService,
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
@@ -109,6 +111,16 @@ export function create_watcher_reactor(
     }
 
     function handle_event(event: VaultFsEvent) {
+      if (
+        event.type === "note_changed_externally" &&
+        watcher_service.consume_suppressed(event.note_path)
+      ) {
+        log.info("Suppressed self-triggered event", {
+          path: event.note_path,
+        });
+        return;
+      }
+
       const decision = resolve_watcher_event_decision(
         event,
         vault_store.vault?.id ?? null,
@@ -138,15 +150,15 @@ export function create_watcher_reactor(
           break;
         }
         case "invalidate_tab_cache":
-          tab_store.invalidate_cache_by_path(decision.note_path);
+          tab_service.invalidate_cache(decision.note_path);
           break;
         case "background_conflict_toast": {
           const bg_tab = tab_store.find_tab_by_path(decision.note_path);
           if (!bg_tab) break;
           conflict_toast_manager.show(decision.note_path, {
             on_reload: () => {
-              tab_store.invalidate_cache_by_path(decision.note_path);
-              tab_store.set_dirty(bg_tab.id, false);
+              tab_service.invalidate_cache(decision.note_path);
+              tab_service.sync_dirty_state(bg_tab.id, false);
             },
             on_keep: () => {},
           });
@@ -156,8 +168,8 @@ export function create_watcher_reactor(
           debounced_tree_refresh();
           break;
         case "clear_and_refresh":
-          editor_store.clear_open_note();
-          tab_store.remove_tab_by_path(decision.note_path);
+          note_service.clear_open_note();
+          tab_service.remove_tab(decision.note_path);
           debounced_tree_refresh();
           break;
         case "log_only":
@@ -183,6 +195,7 @@ export function create_watcher_reactor(
           clearTimeout(tree_refresh_timer);
           tree_refresh_timer = null;
         }
+        conflict_toast_manager.dismiss_all();
       };
     });
   });

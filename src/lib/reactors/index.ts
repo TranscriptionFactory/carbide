@@ -120,6 +120,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.editor_store,
       context.tab_store,
+      context.tab_service,
       context.note_service,
       context.watcher_service,
       context.action_registry,

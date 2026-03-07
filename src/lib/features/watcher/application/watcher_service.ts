@@ -5,10 +5,30 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("watcher_service");
 
+const SUPPRESS_WINDOW_MS = 2000;
+
 export class WatcherService {
   private unsubscribe: (() => void) | null = null;
+  private suppressed = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(private readonly port: WatcherPort) {}
+
+  suppress_next(path: string): void {
+    const existing = this.suppressed.get(path);
+    if (existing !== undefined) clearTimeout(existing);
+    this.suppressed.set(
+      path,
+      setTimeout(() => this.suppressed.delete(path), SUPPRESS_WINDOW_MS),
+    );
+  }
+
+  consume_suppressed(path: string): boolean {
+    const timer = this.suppressed.get(path);
+    if (timer === undefined) return false;
+    clearTimeout(timer);
+    this.suppressed.delete(path);
+    return true;
+  }
 
   async start(vault_id: VaultId): Promise<void> {
     await this.stop();

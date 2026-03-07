@@ -68,6 +68,34 @@ describe("WatcherService", () => {
     await expect(service.stop()).resolves.toBeUndefined();
   });
 
+  it("suppress_next marks path as suppressed", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.consume_suppressed("notes/test.md")).toBe(true);
+    expect(service.consume_suppressed("notes/test.md")).toBe(false);
+  });
+
+  it("consume_suppressed returns false for unknown path", () => {
+    const { service } = setup();
+
+    expect(service.consume_suppressed("notes/unknown.md")).toBe(false);
+  });
+
+  it("suppress_next resets timer on repeated calls", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(1500);
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(1500);
+
+    expect(service.consume_suppressed("notes/test.md")).toBe(true);
+    vi.useRealTimers();
+  });
+
   it("subscribe replaces previous subscription", () => {
     const { port, service } = setup();
     const handler_1 = vi.fn();

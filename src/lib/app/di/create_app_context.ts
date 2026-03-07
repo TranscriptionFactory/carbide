@@ -81,6 +81,8 @@ export function create_app_context(input: {
     },
   );
 
+  const watcher_service = new WatcherService(input.ports.watcher);
+
   const note_service = new NoteService(
     input.ports.notes,
     input.ports.index,
@@ -92,6 +94,9 @@ export function create_app_context(input: {
     editor_service,
     now_ms,
     link_repair_service,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const folder_service = new FolderService(
@@ -148,8 +153,6 @@ export function create_app_context(input: {
     stores.op,
     now_ms,
   );
-
-  const watcher_service = new WatcherService(input.ports.watcher);
 
   const vault_service = new VaultService(
     input.ports.vault,

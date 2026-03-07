@@ -319,7 +319,9 @@ pub fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<i64, String> {
             Ok((disk_mtime, _)) if disk_mtime != expected => {
                 return Err("conflict:mtime_mismatch".to_string());
             }
-            Err(_) => {}
+            Err(_) => {
+                return Err("conflict:file_missing".to_string());
+            }
             _ => {}
         }
     }
