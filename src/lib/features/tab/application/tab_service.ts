@@ -4,7 +4,7 @@ import type { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import type { NotesStore } from "$lib/features/note";
 import type { NoteService } from "$lib/features/note";
 import type { Tab, PersistedTabState } from "$lib/features/tab/types/tab";
-import type { VaultId } from "$lib/shared/types/ids";
+import type { NotePath, VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -127,6 +127,26 @@ export class TabService {
 
   sync_dirty_state(tab_id: string, is_dirty: boolean) {
     this.tab_store.set_dirty(tab_id, is_dirty);
+  }
+
+  mark_conflict(note_path: NotePath) {
+    this.tab_store.mark_conflict(note_path);
+  }
+
+  clear_conflict(note_path: NotePath) {
+    this.tab_store.clear_conflict(note_path);
+  }
+
+  has_conflict(note_path: NotePath): boolean {
+    return this.tab_store.has_conflict(note_path);
+  }
+
+  invalidate_cache(note_path: NotePath) {
+    this.tab_store.invalidate_cache_by_path(note_path);
+  }
+
+  remove_tab(note_path: NotePath) {
+    this.tab_store.remove_tab_by_path(note_path);
   }
 
   async load_tabs(): Promise<PersistedTabState | null> {

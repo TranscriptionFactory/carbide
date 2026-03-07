@@ -27,6 +27,7 @@ import {
 import { register_terminal_actions } from "$lib/features/terminal";
 import { register_document_actions } from "$lib/features/document";
 import { register_window_actions } from "$lib/features/window";
+import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
 
 export type AppContext = ReturnType<typeof create_app_context>;
@@ -93,6 +94,8 @@ export function create_app_context(input: {
     },
   );
 
+  const watcher_service = new WatcherService(input.ports.watcher);
+
   const note_service = new NoteService(
     input.ports.notes,
     input.ports.index,
@@ -104,6 +107,9 @@ export function create_app_context(input: {
     editor_service,
     now_ms,
     link_repair_service,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const folder_service = new FolderService(
@@ -255,6 +261,7 @@ export function create_app_context(input: {
     tab_service,
     git_service,
     links_service,
+    watcher_service,
     action_registry,
   });
 
@@ -265,6 +272,7 @@ export function create_app_context(input: {
       cleanup_reactors();
       split_view_service.destroy();
       editor_service.unmount();
+      void watcher_service.stop();
     },
   };
 }

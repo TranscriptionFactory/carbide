@@ -710,8 +710,9 @@ describe("NoteService", () => {
       is_dirty: true,
     });
 
-    const now = 1_700_000_010_000;
+    const disk_mtime = 1_700_000_010_000;
     const notes_port = create_mock_notes_port();
+    notes_port.write_note = vi.fn().mockResolvedValue(disk_mtime);
     const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
@@ -732,12 +733,66 @@ describe("NoteService", () => {
       editor_store,
       op_store,
       editor_service,
-      () => now,
+      () => disk_mtime,
     );
 
     await service.save_note(null, true);
 
-    expect(editor_store.last_saved_at).toBe(now);
+    expect(editor_store.last_saved_at).toBe(disk_mtime);
+  });
+
+  it("returns conflict when write_note rejects with mtime_mismatch", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("docs/alpha.md"),
+        path: as_note_path("docs/alpha.md"),
+        name: "alpha",
+        title: "alpha",
+        mtime_ms: 1_700_000_000_000,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text("# Alpha"),
+      buffer_id: "alpha-buffer",
+      is_dirty: true,
+    });
+
+    const notes_port = create_mock_notes_port();
+    notes_port.write_note = vi
+      .fn()
+      .mockRejectedValue(new Error("conflict:mtime_mismatch"));
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => 1,
+    );
+
+    const result = await service.save_note(null, true);
+
+    expect(result).toEqual({ status: "conflict" });
+    expect(op_store.get("note.save").status).not.toBe("failed");
   });
 
   it("saves untitled note to a new path", async () => {
@@ -750,8 +805,8 @@ describe("NoteService", () => {
 
     editor_store.set_open_note({
       meta: {
-        id: as_note_path("Untitled-1"),
-        path: as_note_path("Untitled-1"),
+        id: as_note_path("draft:1:Untitled-1"),
+        path: as_note_path("draft:1:Untitled-1"),
         name: "Untitled-1",
         title: "Untitled-1",
         mtime_ms: 0,
@@ -772,7 +827,7 @@ describe("NoteService", () => {
 
     const editor_service = {
       flush: vi.fn().mockReturnValue({
-        note_id: as_note_path("Untitled-1"),
+        note_id: as_note_path("draft:1:Untitled-1"),
         markdown: as_markdown_text("draft"),
       }),
       mark_clean: vi.fn(),
@@ -805,7 +860,7 @@ describe("NoteService", () => {
       markdown: as_markdown_text("draft"),
     });
     expect(rename_buffer).toHaveBeenCalledWith(
-      as_note_path("Untitled-1"),
+      as_note_path("draft:1:Untitled-1"),
       as_note_path("docs/my-note.md"),
     );
     expect(editor_store.open_note?.meta.path).toBe(
@@ -1004,8 +1059,8 @@ describe("NoteService", () => {
 
     editor_store.set_open_note({
       meta: {
-        id: as_note_path("Untitled-1"),
-        path: as_note_path("Untitled-1"),
+        id: as_note_path("draft:1:Untitled-1"),
+        path: as_note_path("draft:1:Untitled-1"),
         name: "Untitled-1",
         title: "Untitled-1",
         mtime_ms: 0,

@@ -13,6 +13,7 @@ export type EditorSettings = {
   git_autocommit_enabled: boolean;
   show_vault_dashboard_on_open: boolean;
   max_open_tabs: number;
+  editor_max_width_ch: number;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -22,6 +23,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   git_autocommit_enabled: false,
   show_vault_dashboard_on_open: true,
   max_open_tabs: 5,
+  editor_max_width_ch: 85,
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -30,6 +32,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "show_vault_dashboard_on_open",
   "git_autocommit_enabled",
   "autosave_enabled",
+  "editor_max_width_ch",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

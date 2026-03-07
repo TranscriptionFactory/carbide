@@ -35,10 +35,7 @@
     const on_rejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
       if (!event.reason) return;
-      throttled_error_toast(
-        "Unhandled rejection",
-        error_message(event.reason),
-      );
+      throttled_error_toast("Unhandled rejection", error_message(event.reason));
     };
 
     window.addEventListener("error", on_error);
@@ -65,6 +62,9 @@
       --error-bg: var(--color-popover);
       --error-text: var(--color-popover-foreground);
       --error-border: var(--color-destructive);
+      --warning-bg: var(--warning-bg);
+      --warning-text: var(--warning-text-on-bg);
+      --warning-border: var(--warning-border);
     "
   />
   {@render children()}

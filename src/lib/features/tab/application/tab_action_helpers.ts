@@ -1,32 +1,55 @@
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import type {
-  ClosedTabEntry,
-  Tab,
-  TabEditorSnapshot,
-  TabId,
-} from "$lib/features/tab/types/tab";
+import type { Tab, TabId } from "$lib/features/tab/types/tab";
+import { is_draft_note_path } from "$lib/features/note";
 import type { NotePath } from "$lib/shared/types/ids";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "svelte-sonner";
 
-function make_closed_tab_entry(
+type BatchCloseMode = "all" | "other" | "right";
+type SaveDirtyTabResult = "saved" | "needs_path" | "failed";
+
+function resolve_closed_tab_draft(
+  stores: ActionRegistrationInput["stores"],
+  tab_id: TabId,
+): ActionRegistrationInput["stores"]["editor"]["open_note"] {
+  const cached_note = stores.tab.get_cached_note(tab_id);
+  const active_open_note =
+    stores.tab.active_tab_id === tab_id ? stores.editor.open_note : null;
+  const note = cached_note ?? active_open_note;
+  if (!note || !is_draft_note_path(note.meta.path)) {
+    return null;
+  }
+  return {
+    ...note,
+    is_dirty: true,
+  };
+}
+
+function push_closed_tab_history(
+  stores: ActionRegistrationInput["stores"],
   tab: Tab,
-  snapshot: TabEditorSnapshot | null,
-): ClosedTabEntry {
+): void {
+  const snapshot = stores.tab.get_snapshot(tab.id);
   const base = {
     title: tab.title,
     scroll_top: snapshot?.scroll_top ?? 0,
     cursor: snapshot?.cursor ?? null,
+    draft_note: resolve_closed_tab_draft(stores, tab.id),
   };
   if (tab.kind === "note") {
-    return { ...base, kind: "note", note_path: tab.note_path };
+    stores.tab.push_closed_history({
+      ...base,
+      kind: "note",
+      note_path: tab.note_path,
+    });
+  } else {
+    stores.tab.push_closed_history({
+      ...base,
+      kind: "document",
+      file_path: tab.file_path,
+      file_type: tab.file_type,
+    });
   }
-  return {
-    ...base,
-    kind: "document",
-    file_path: tab.file_path,
-    file_type: tab.file_type,
-  };
 }
 
 export function ensure_tab_capacity(input: ActionRegistrationInput): boolean {
@@ -40,8 +63,7 @@ export function ensure_tab_capacity(input: ActionRegistrationInput): boolean {
     return false;
   }
 
-  const snapshot = stores.tab.get_snapshot(victim.id);
-  stores.tab.push_closed_history(make_closed_tab_entry(victim, snapshot));
+  push_closed_tab_history(stores, victim);
   stores.tab.close_tab(victim.id);
   if (victim.kind === "note") {
     services.editor.close_buffer?.(victim.note_path);
@@ -164,19 +186,49 @@ export function start_batch_close_confirm(
 export async function save_dirty_tab(
   input: ActionRegistrationInput,
   tab_id: string,
-): Promise<void> {
+): Promise<SaveDirtyTabResult> {
   const { stores, services } = input;
+  const tab = stores.tab.tabs.find((entry) => entry.id === tab_id);
+  if (!tab) return "failed";
+  if (!tab.is_dirty) {
+    return "saved";
+  }
+
+  const open_note = stores.editor.open_note;
+  const is_active_untitled =
+    stores.tab.active_tab_id === tab_id &&
+    open_note &&
+    is_draft_note_path(open_note.meta.path);
+  if (is_active_untitled) {
+    return "needs_path";
+  }
 
   if (stores.tab.active_tab_id === tab_id) {
-    await services.note.save_note(null, true);
-    return;
+    if (tab.kind === "note" && stores.tab.has_conflict(tab.note_path)) {
+      services.note.skip_mtime_guard(tab.note_path);
+    }
+    const result = await services.note.save_note(null, true);
+    return result.status === "saved" ? "saved" : "failed";
   }
 
   const cached = stores.tab.get_cached_note(tab_id);
   if (cached) {
+    if (is_draft_note_path(cached.meta.path)) {
+      stores.tab.activate_tab(tab_id);
+      stores.editor.set_open_note(cached);
+      return "needs_path";
+    }
+
     await services.note.write_note_content(cached.meta.path, cached.markdown);
     stores.tab.set_dirty(tab_id, false);
+    stores.tab.set_cached_note(tab_id, {
+      ...cached,
+      is_dirty: false,
+    });
+    return "saved";
   }
+
+  return "failed";
 }
 
 export async function execute_batch_close(
@@ -184,6 +236,15 @@ export async function execute_batch_close(
 ): Promise<void> {
   const { stores } = input;
   const { close_mode, keep_tab_id } = stores.ui.tab_close_confirm;
+  if (close_mode === "single") {
+    return;
+  }
+  const tabs_to_close = list_tabs_for_batch_close(
+    stores.tab.tabs,
+    close_mode,
+    keep_tab_id,
+  );
+  record_closed_tabs(stores, tabs_to_close);
 
   reset_close_confirm(stores);
 
@@ -208,6 +269,13 @@ export async function execute_batch_close(
       break;
     }
   }
+
+  close_editor_buffers(
+    input,
+    tabs_to_close
+      .filter((tab): tab is Tab & { kind: "note" } => tab.kind === "note")
+      .map((tab) => tab.note_path),
+  );
 }
 
 export async function advance_or_finish_batch(
@@ -240,8 +308,7 @@ export async function close_tab_immediate(
   const tab = stores.tab.tabs.find((t) => t.id === tab_id);
   if (!tab) return;
 
-  const snapshot = stores.tab.get_snapshot(tab_id);
-  stores.tab.push_closed_history(make_closed_tab_entry(tab, snapshot));
+  push_closed_tab_history(stores, tab);
 
   const was_active = stores.tab.active_tab_id === tab_id;
   stores.tab.close_tab(tab_id);
@@ -251,5 +318,45 @@ export async function close_tab_immediate(
 
   if (was_active) {
     await open_active_tab_note(input);
+  }
+}
+
+export function list_tabs_for_batch_close(
+  tabs: Tab[],
+  close_mode: BatchCloseMode,
+  keep_tab_id: string | null,
+): Tab[] {
+  switch (close_mode) {
+    case "all":
+      return tabs;
+    case "other":
+      if (!keep_tab_id) return [];
+      return tabs.filter((tab) => tab.id !== keep_tab_id && !tab.is_pinned);
+    case "right": {
+      if (!keep_tab_id) return [];
+      const index = tabs.findIndex((tab) => tab.id === keep_tab_id);
+      if (index === -1) return [];
+      return tabs.filter(
+        (tab, tab_index) => tab_index > index && !tab.is_pinned,
+      );
+    }
+  }
+}
+
+export function record_closed_tabs(
+  stores: ActionRegistrationInput["stores"],
+  tabs: Tab[],
+): void {
+  for (const tab of tabs) {
+    push_closed_tab_history(stores, tab);
+  }
+}
+
+export function close_editor_buffers(
+  input: ActionRegistrationInput,
+  note_paths: NotePath[],
+): void {
+  for (const note_path of note_paths) {
+    input.services.editor.close_buffer?.(note_path);
   }
 }

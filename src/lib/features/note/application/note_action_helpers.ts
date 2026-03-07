@@ -32,6 +32,7 @@ export function close_save_dialog(input: ActionRegistrationInput) {
     new_path: null,
     show_overwrite_confirm: false,
     is_checking_existence: false,
+    source: "manual",
   };
 }
 

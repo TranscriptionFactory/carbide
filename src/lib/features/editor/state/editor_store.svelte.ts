@@ -52,6 +52,15 @@ export class EditorStore {
     }
   }
 
+  update_mtime(note_id: NoteId, mtime_ms: number) {
+    if (!this.open_note) return;
+    if (this.open_note.meta.id !== note_id) return;
+    this.open_note = {
+      ...this.open_note,
+      meta: { ...this.open_note.meta, mtime_ms },
+    };
+  }
+
   update_open_note_path(new_path: NotePath) {
     if (!this.open_note) return;
     const name = note_name_from_path(new_path);

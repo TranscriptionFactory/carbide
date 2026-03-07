@@ -45,6 +45,7 @@ const INITIAL_SAVE_NOTE_DIALOG = {
   folder_path: "",
   show_overwrite_confirm: false,
   is_checking_existence: false,
+  source: "manual" as "manual" | "tab_close",
 } as const;
 
 const INITIAL_CREATE_FOLDER_DIALOG = {
@@ -215,6 +216,7 @@ export class UIStore {
     folder_path: string;
     show_overwrite_confirm: boolean;
     is_checking_existence: boolean;
+    source: "manual" | "tab_close";
   }>({ ...INITIAL_SAVE_NOTE_DIALOG });
 
   create_folder_dialog = $state<{

@@ -1,6 +1,7 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { TabStore } from "$lib/features/tab";
 import type { TabService } from "$lib/features/tab";
+import { is_draft_note_path } from "$lib/features/note";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import type { Tab } from "$lib/features/tab";
 
@@ -11,7 +12,10 @@ export function resolve_tab_dirty_sync(
   if (!open_note || !active_tab) return null;
   if (active_tab.kind !== "note") return null;
   if (open_note.meta.path !== active_tab.note_path) return null;
-  return { tab_id: active_tab.id, is_dirty: open_note.is_dirty };
+  return {
+    tab_id: active_tab.id,
+    is_dirty: is_draft_note_path(open_note.meta.path) || open_note.is_dirty,
+  };
 }
 
 export function create_tab_dirty_sync_reactor(

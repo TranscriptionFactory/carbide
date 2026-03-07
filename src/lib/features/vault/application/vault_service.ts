@@ -483,7 +483,7 @@ export class VaultService {
     }
 
     this.editor_store.set_open_note(
-      create_untitled_open_note({ open_names: [], now_ms: this.now_ms() }),
+      create_untitled_open_note({ open_titles: [], now_ms: this.now_ms() }),
     );
   }
 

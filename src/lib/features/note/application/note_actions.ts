@@ -17,6 +17,7 @@ import {
   parse_note_open_input,
   save_and_insert_image,
 } from "$lib/features/note/application/note_action_helpers";
+import { is_draft_note_path } from "$lib/features/note/domain/ensure_open_note";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 import type { ImagePasteRequest } from "$lib/shared/types/editor";
@@ -29,6 +30,10 @@ import { toast } from "svelte-sonner";
 type WikiLinkPayload = {
   raw_path: string;
   base_note_path: string;
+};
+
+type SaveRequestPayload = {
+  source?: "manual" | "tab_close";
 };
 
 function parse_wiki_link_payload(payload: unknown): WikiLinkPayload | null {
@@ -63,6 +68,23 @@ function parse_image_paste_request(payload: unknown): ImagePasteRequest | null {
     return null;
   }
   return record as unknown as ImagePasteRequest;
+}
+
+function parse_save_request_payload(
+  payload: unknown,
+): SaveRequestPayload | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const record = payload as Record<string, unknown>;
+  if (
+    record.source === undefined ||
+    record.source === "manual" ||
+    record.source === "tab_close"
+  ) {
+    return record as SaveRequestPayload;
+  }
+  return null;
 }
 
 function parse_note_star_path(note: unknown): string | null {
@@ -130,19 +152,22 @@ export function register_note_actions(input: ActionRegistrationInput) {
     }
   }
 
-  function open_save_note_dialog() {
+  function open_save_note_dialog(source: "manual" | "tab_close") {
     const open_note = stores.editor.open_note;
     if (!open_note) {
       return;
     }
     const folder_path = stores.ui.selected_folder_path;
-    const filename = filename_from_path(open_note.meta.path) || "Untitled";
+    const filename = is_draft_note_path(open_note.meta.path)
+      ? `${open_note.meta.title || "Untitled"}.md`
+      : filename_from_path(open_note.meta.path) || "Untitled";
     stores.ui.save_note_dialog = {
       open: true,
       folder_path,
       new_path: build_full_path(folder_path, filename),
       show_overwrite_confirm: false,
       is_checking_existence: false,
+      source,
     };
     services.note.reset_save_operation();
   }
@@ -153,6 +178,49 @@ export function register_note_actions(input: ActionRegistrationInput) {
     if (close_dialog) {
       close_save_dialog(input);
     }
+  }
+
+  function sync_pending_close_saved_path(
+    previous_path: NotePath,
+    saved_path: NotePath,
+  ) {
+    const close_confirm = stores.ui.tab_close_confirm;
+    stores.ui.tab_close_confirm = {
+      ...close_confirm,
+      tab_id:
+        close_confirm.tab_id === previous_path
+          ? saved_path
+          : close_confirm.tab_id,
+      pending_dirty_tab_ids: close_confirm.pending_dirty_tab_ids.map(
+        (tab_id) => (tab_id === previous_path ? saved_path : tab_id),
+      ),
+    };
+  }
+
+  async function finalize_saved_note(args: {
+    previous_path: NotePath | null;
+    saved_path: NotePath;
+    source: "manual" | "tab_close";
+  }) {
+    apply_saved_note(args.saved_path, true);
+    if (!args.previous_path || args.source !== "tab_close") {
+      return;
+    }
+    sync_pending_close_saved_path(args.previous_path, args.saved_path);
+    await registry.execute(ACTION_IDS.tab_confirm_close_save);
+  }
+
+  function clear_pending_tab_close() {
+    stores.ui.tab_close_confirm = {
+      ...stores.ui.tab_close_confirm,
+      open: false,
+      tab_id: null,
+      tab_title: "",
+      pending_dirty_tab_ids: [],
+      close_mode: "single",
+      keep_tab_id: null,
+      apply_to_all: false,
+    };
   }
 
   function get_rename_target() {
@@ -213,10 +281,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
 
         await capture_active_tab_snapshot(input);
 
-        const open_names = stores.tab.tabs
-          .filter((t) => t.kind === "note")
-          .map((t) => note_name_from_path(t.note_path));
-        services.note.create_new_note(open_names);
+        const open_titles = stores.tab.tabs.map((tab) => tab.title);
+        services.note.create_new_note(open_titles);
 
         const open_note = stores.editor.open_note;
         if (!open_note) {
@@ -553,19 +619,19 @@ export function register_note_actions(input: ActionRegistrationInput) {
       label: "Save Note",
       shortcut: "CmdOrCtrl+S",
       when: when_vault_open,
-      execute: async () => {
+      execute: async (payload?: unknown) => {
         const open_note = stores.editor.open_note;
         if (!open_note) {
           return;
         }
 
-        const is_untitled = !open_note.meta.path.endsWith(".md");
-        if (!is_untitled) {
+        const source = parse_save_request_payload(payload)?.source ?? "manual";
+        if (!is_draft_note_path(open_note.meta.path)) {
           await services.note.save_note(null, true);
           return;
         }
 
-        open_save_note_dialog();
+        open_save_note_dialog(source);
       },
     });
 
@@ -587,6 +653,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
           return;
         }
 
+        const previous_path = stores.editor.open_note?.meta.path ?? null;
+        const source = stores.ui.save_note_dialog.source;
         const path = stores.ui.save_note_dialog.new_path;
         if (!path) {
           return;
@@ -602,7 +670,11 @@ export function register_note_actions(input: ActionRegistrationInput) {
         }
 
         if (result.status === "saved") {
-          apply_saved_note(result.saved_path, true);
+          await finalize_saved_note({
+            previous_path,
+            saved_path: result.saved_path,
+            source,
+          });
         }
       },
     });
@@ -611,6 +683,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_confirm_save_overwrite,
       label: "Confirm Save Note Overwrite",
       execute: async () => {
+        const previous_path = stores.editor.open_note?.meta.path ?? null;
+        const source = stores.ui.save_note_dialog.source;
         const path = stores.ui.save_note_dialog.new_path;
         if (!path) {
           return;
@@ -618,7 +692,11 @@ export function register_note_actions(input: ActionRegistrationInput) {
 
         const result = await services.note.save_note(path, true);
         if (result.status === "saved") {
-          apply_saved_note(result.saved_path, true);
+          await finalize_saved_note({
+            previous_path,
+            saved_path: result.saved_path,
+            source,
+          });
         }
       },
     });
@@ -627,12 +705,18 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_retry_save,
       label: "Retry Save Note",
       execute: async () => {
+        const previous_path = stores.editor.open_note?.meta.path ?? null;
+        const source = stores.ui.save_note_dialog.source;
         const path = stores.ui.save_note_dialog.open
           ? stores.ui.save_note_dialog.new_path
           : null;
         const result = await services.note.save_note(path, true);
         if (result.status === "saved" && stores.ui.save_note_dialog.open) {
-          apply_saved_note(result.saved_path, true);
+          await finalize_saved_note({
+            previous_path,
+            saved_path: result.saved_path,
+            source,
+          });
         }
       },
     });
@@ -641,6 +725,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_cancel_save,
       label: "Cancel Save Note",
       execute: () => {
+        if (stores.ui.save_note_dialog.source === "tab_close") {
+          clear_pending_tab_close();
+        }
         close_save_dialog(input);
         services.note.reset_save_operation();
       },

@@ -6,6 +6,7 @@ import {
   register_tab_actions,
   ensure_tab_capacity,
 } from "$lib/features/tab/application/tab_actions";
+import { register_note_actions } from "$lib/features/note/application/note_actions";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -18,6 +19,7 @@ import { OutlineStore } from "$lib/features/outline";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
+import { create_test_vault } from "../helpers/test_fixtures";
 
 function np(path: string): NotePath {
   return as_note_path(path);
@@ -39,6 +41,25 @@ function mock_open_note(path: string): OpenNoteState {
   };
 }
 
+function mock_draft_open_note(
+  path: string,
+  title: string = "Untitled-1",
+): OpenNoteState {
+  return {
+    meta: {
+      id: as_note_path(path),
+      path: as_note_path(path),
+      name: title,
+      title,
+      mtime_ms: 0,
+      size_bytes: 0,
+    },
+    markdown: as_markdown_text(""),
+    buffer_id: `buffer:${path}`,
+    is_dirty: false,
+  };
+}
+
 function create_tab_actions_harness() {
   const registry = new ActionRegistry();
   const stores = {
@@ -52,6 +73,7 @@ function create_tab_actions_harness() {
     git: new GitStore(),
     outline: new OutlineStore(),
   };
+  stores.vault.set_vault(create_test_vault());
 
   const services = {
     vault: {},
@@ -61,6 +83,12 @@ function create_tab_actions_harness() {
         selected_folder_path: "",
       }),
       save_note: vi.fn().mockResolvedValue({ status: "saved" }),
+      skip_mtime_guard: vi.fn(),
+      write_note_content: vi.fn().mockResolvedValue(undefined),
+      reset_save_operation: vi.fn(),
+      reset_asset_write_operation: vi.fn(),
+      reset_delete_operation: vi.fn(),
+      reset_rename_operation: vi.fn(),
     },
     folder: {},
     settings: {},
@@ -69,6 +97,7 @@ function create_tab_actions_harness() {
       flush: vi.fn().mockReturnValue(null),
       get_scroll_top: vi.fn().mockReturnValue(0),
       set_scroll_top: vi.fn(),
+      close_buffer: vi.fn(),
     },
     clipboard: {
       copy_text: vi.fn().mockResolvedValue(undefined),
@@ -88,6 +117,16 @@ function create_tab_actions_harness() {
   });
 
   register_folder_actions({
+    registry,
+    stores,
+    services: services as never,
+    default_mount_config: {
+      reset_app_state: true,
+      bootstrap_default_vault_path: null,
+    },
+  });
+
+  register_note_actions({
     registry,
     stores,
     services: services as never,
@@ -360,12 +399,60 @@ describe("register_tab_actions", () => {
         title: "closed",
         scroll_top: 50,
         cursor: null,
+        draft_note: null,
       });
 
       await registry.execute(ACTION_IDS.tab_reopen_closed);
 
       expect(stores.tab.tabs.map((t) => t.id)).toContain("closed.md");
       expect(services.note.open_note).toHaveBeenCalledWith("closed.md", false);
+    });
+
+    it("reopens a tab closed by close_other_tabs", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.activate_tab("b.md");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_close_other, "b.md");
+      await registry.execute(ACTION_IDS.tab_reopen_closed);
+
+      expect(stores.tab.tabs.map((tab) => tab.id)).toContain("a.md");
+      expect(services.note.open_note).toHaveBeenCalledWith("a.md", false);
+    });
+
+    it("restores an untitled draft from closed history", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      const draft_path = np("draft:1:Untitled-1");
+      const untitled_note = {
+        ...mock_draft_open_note("draft:1:Untitled-1"),
+        buffer_id: "untitled-buffer",
+        markdown: as_markdown_text("draft"),
+        is_dirty: true,
+      };
+
+      stores.tab.open_tab(np("other.md"), "other");
+      stores.editor.set_open_note(mock_open_note("other.md"));
+      stores.tab.push_closed_history({
+        kind: "note",
+        note_path: draft_path,
+        title: "Untitled-1",
+        scroll_top: 0,
+        cursor: null,
+        draft_note: untitled_note,
+      });
+
+      await registry.execute(ACTION_IDS.tab_reopen_closed);
+
+      expect(stores.tab.active_tab_id).toBe(draft_path);
+      expect(stores.editor.open_note?.meta.path).toBe(draft_path);
+      expect(stores.editor.open_note?.markdown).toBe(as_markdown_text("draft"));
+      expect(stores.tab.active_tab?.is_dirty).toBe(true);
+      expect(services.note.open_note).not.toHaveBeenCalledWith(
+        draft_path,
+        false,
+      );
     });
   });
 
@@ -429,10 +516,135 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs).toHaveLength(0);
     });
 
+    it("skips the mtime guard before saving a conflicted active tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
+      stores.editor.set_open_note({
+        ...mock_open_note("a.md"),
+        is_dirty: true,
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
+      expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+      expect(stores.tab.tabs).toHaveLength(0);
+    });
+
+    it("does not close the tab when save fails", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.set_dirty("a.md", true);
+      services.note.save_note.mockResolvedValueOnce({
+        status: "conflict",
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(stores.ui.tab_close_confirm.open).toBe(true);
+      expect(stores.tab.tabs).toHaveLength(1);
+    });
+
+    it("routes untitled save-and-close through the save dialog", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      const draft_path = np("draft:1:Untitled-1");
+      stores.tab.open_tab(draft_path, "Untitled-1");
+      stores.tab.set_dirty(draft_path, true);
+      stores.editor.set_open_note({
+        ...mock_draft_open_note("draft:1:Untitled-1"),
+        buffer_id: "untitled-buffer",
+        is_dirty: true,
+      });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: draft_path,
+        tab_title: "Untitled-1",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(stores.ui.tab_close_confirm.open).toBe(false);
+      expect(stores.ui.save_note_dialog.open).toBe(true);
+      expect(stores.ui.save_note_dialog.source).toBe("tab_close");
+      expect(services.note.save_note).not.toHaveBeenCalledWith(null, true);
+    });
+
+    it("closes an untitled tab after save dialog confirmation", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      const draft_path = np("draft:1:Untitled-1");
+      stores.tab.open_tab(draft_path, "Untitled-1");
+      stores.tab.set_dirty(draft_path, true);
+      stores.editor.set_open_note({
+        ...mock_draft_open_note("draft:1:Untitled-1"),
+        buffer_id: "untitled-buffer",
+        is_dirty: true,
+      });
+      services.note.save_note
+        .mockImplementationOnce(() => {
+          stores.editor.set_open_note({
+            ...mock_open_note("saved.md"),
+            is_dirty: false,
+          });
+          return Promise.resolve({
+            status: "saved",
+            saved_path: np("saved.md"),
+          });
+        })
+        .mockResolvedValueOnce({
+          status: "saved",
+          saved_path: np("saved.md"),
+        });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: draft_path,
+        tab_title: "Untitled-1",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+      stores.ui.save_note_dialog.new_path = np("saved.md");
+      await registry.execute(ACTION_IDS.note_confirm_save);
+
+      expect(stores.tab.find_tab_by_path(np("saved.md"))).toBeNull();
+      expect(stores.ui.save_note_dialog.open).toBe(false);
+    });
+
     it("discards and closes tab via confirm_close_discard", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
 
       stores.ui.tab_close_confirm = {
         open: true,
@@ -448,12 +660,14 @@ describe("register_tab_actions", () => {
 
       expect(stores.ui.tab_close_confirm.open).toBe(false);
       expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.tab.has_conflict(np("a.md"))).toBe(false);
     });
 
     it("cancels close via tab_cancel_close", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
 
       stores.ui.tab_close_confirm = {
         open: true,
@@ -469,6 +683,63 @@ describe("register_tab_actions", () => {
 
       expect(stores.ui.tab_close_confirm.open).toBe(false);
       expect(stores.tab.tabs).toHaveLength(1);
+      expect(stores.tab.has_conflict(np("a.md"))).toBe(true);
+    });
+
+    it("discarding close-other closes the removed tab buffer", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.set_cached_note("a.md", {
+        ...mock_open_note("a.md"),
+        markdown: as_markdown_text("draft"),
+        is_dirty: true,
+      });
+      stores.tab.activate_tab("b.md");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_close_other, "b.md");
+      await registry.execute(ACTION_IDS.tab_confirm_close_discard);
+
+      expect(services.editor.close_buffer).toHaveBeenCalledWith("a.md");
+      expect(stores.tab.find_tab_by_path(np("a.md"))).toBeNull();
+      expect(stores.tab.get_cached_note("a.md")).toBeNull();
+    });
+
+    it("discarding close-other records the removed tab for reopen", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.set_cached_note("a.md", {
+        ...mock_open_note("a.md"),
+        markdown: as_markdown_text("draft"),
+        is_dirty: true,
+      });
+      stores.tab.activate_tab("b.md");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_close_other, "b.md");
+      await registry.execute(ACTION_IDS.tab_confirm_close_discard);
+      await registry.execute(ACTION_IDS.tab_reopen_closed);
+
+      expect(stores.tab.tabs.map((tab) => tab.id)).toContain("a.md");
+      expect(services.note.open_note).toHaveBeenCalledWith("a.md", false);
+    });
+  });
+
+  describe("multi-close buffer cleanup", () => {
+    it("close_other_tabs closes removed tab buffers on the clean path", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.activate_tab("b.md");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_close_other, "b.md");
+
+      expect(services.editor.close_buffer).toHaveBeenCalledWith("a.md");
     });
   });
 

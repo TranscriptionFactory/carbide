@@ -144,6 +144,45 @@ describe("SearchService", () => {
     expect(op_store.get("search.notes").status).toBe("idle");
   });
 
+  it("finds the editor width setting in settings search", () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+    };
+
+    const service = new SearchService(
+      search_port,
+      new VaultStore(),
+      new OpStore(),
+      () => 1,
+    );
+
+    const results = service.search_settings("width");
+
+    expect(
+      results.some(
+        (result) =>
+          result.kind === "setting" &&
+          result.setting.key === "editor_max_width_ch",
+      ),
+    ).toBe(true);
+  });
+
   it("returns stale for out-of-order wiki suggest responses", async () => {
     const first = create_deferred<WikiSuggestion[]>();
     const second = create_deferred<WikiSuggestion[]>();
