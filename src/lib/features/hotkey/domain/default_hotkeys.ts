@@ -171,6 +171,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
+    action_id: ACTION_IDS.window_open_browse,
+    key: "CmdOrCtrl+Shift+N",
+    phase: "capture",
+    label: "New Window",
+    description: "Open the current vault in a new browse window",
+    category: "general",
+  },
+  {
     action_id: ACTION_IDS.find_in_file_next,
     key: "CmdOrCtrl+G",
     phase: "bubble",

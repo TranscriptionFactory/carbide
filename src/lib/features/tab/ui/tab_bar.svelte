@@ -324,12 +324,14 @@
                 <Columns2 class="mr-2 h-4 w-4" />
                 Open to Side
               </ContextMenu.Item>
-              {#if tab.kind === "document"}
+              {#if tab.kind === "document" || tab.kind === "note"}
                 <ContextMenu.Item
                   onSelect={() => {
+                    const path =
+                      tab.kind === "document" ? tab.file_path : tab.note_path;
                     void action_registry.execute(
                       ACTION_IDS.window_open_viewer,
-                      tab.file_path,
+                      path,
                     );
                   }}
                 >

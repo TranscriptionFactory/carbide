@@ -471,6 +471,12 @@
               <span>Open to Side</span>
             </ContextMenu.Item>
           {/if}
+          {#if on_open_in_new_window}
+            <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
+              <AppWindow class="mr-2 h-4 w-4" />
+              <span>Open in New Window</span>
+            </ContextMenu.Item>
+          {/if}
           {#if on_request_rename || on_request_delete}
             <ContextMenu.Separator />
             {#if on_request_rename}

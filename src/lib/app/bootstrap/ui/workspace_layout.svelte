@@ -29,6 +29,7 @@
     RefreshCw,
     FoldVertical,
     Star,
+    AppWindow,
   } from "@lucide/svelte";
 
   const { stores, action_registry } = use_app_context();
@@ -311,6 +312,12 @@
       label: "Collapse All",
       onclick: () =>
         void action_registry.execute(ACTION_IDS.folder_collapse_all),
+    },
+    {
+      icon: AppWindow,
+      label: "Open in New Window",
+      onclick: () =>
+        void action_registry.execute(ACTION_IDS.window_open_browse),
     },
   ];
 
