@@ -116,10 +116,11 @@ export function create_test_notes_adapter(): NotesPort {
       _vault_id: VaultId,
       note_id: NoteId,
       markdown: MarkdownText,
-    ): Promise<void> {
+    ): Promise<number> {
       const note_path = as_note_path(note_id);
-      user_notes.set(note_path, { markdown, mtime_ms: Date.now() });
-      return Promise.resolve();
+      const mtime = Date.now();
+      user_notes.set(note_path, { markdown, mtime_ms: mtime });
+      return Promise.resolve(mtime);
     },
 
     create_note(

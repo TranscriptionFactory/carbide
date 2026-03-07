@@ -6,6 +6,7 @@ import {
   type MarkdownText,
   type NotePath,
   type AssetPath,
+  type NoteId,
   type VaultId,
 } from "$lib/shared/types/ids";
 import type { NoteDoc, NoteMeta } from "$lib/shared/types/note";
@@ -77,7 +78,18 @@ export class NoteService {
     private readonly editor_service: EditorService,
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
+    private readonly on_file_written?: (path: string) => void,
   ) {}
+
+  /** Clears the currently-open note from the editor. Used by the watcher reactor on external delete. */
+  clear_open_note() {
+    this.editor_store.clear_open_note();
+  }
+
+  /** Zeroes the mtime so the next save skips the mtime conflict check. Used after "Keep my changes". */
+  skip_mtime_guard(note_id: NoteId) {
+    this.editor_store.update_mtime(note_id, 0);
+  }
 
   private get_active_vault_id(): VaultId | null {
     return this.vault_store.vault?.id ?? null;
@@ -203,6 +215,9 @@ export class NoteService {
       }
 
       this.apply_opened_note(doc, options);
+      if (options?.force_reload) {
+        await this.index_port.upsert_note(vault_id, resolved_path);
+      }
       this.succeed_operation(op_key);
       return this.open_note_result(resolved_path);
     } catch (error) {
@@ -413,6 +428,10 @@ export class NoteService {
         saved_path,
       };
     } catch (error) {
+      if (this.is_mtime_conflict_error(error)) {
+        this.finish_save_operation(null);
+        return { status: "conflict" };
+      }
       if (
         plan_decision.plan.kind === "save_untitled" &&
         this.is_note_exists_error(error)
@@ -594,13 +613,15 @@ export class NoteService {
     vault_id: VaultId,
     open_note: OpenEditorNote,
   ) {
-    await this.notes_port.write_note(
+    this.on_file_written?.(open_note.meta.id);
+    const new_mtime = await this.notes_port.write_note(
       vault_id,
       open_note.meta.id,
       open_note.markdown,
+      open_note.meta.mtime_ms || undefined,
     );
     await this.index_port.upsert_note(vault_id, open_note.meta.id);
-    this.editor_store.mark_clean(open_note.meta.id, this.now_ms());
+    this.editor_store.mark_clean(open_note.meta.id, new_mtime);
   }
 
   private resolve_saved_path(fallback_note: OpenEditorNote): NotePath {
@@ -663,6 +684,7 @@ export class NoteService {
     const old_path = open_note.meta.path;
 
     try {
+      this.on_file_written?.(target_path);
       const created_meta = await this.notes_port.create_note(
         vault_id,
         target_path,
@@ -672,7 +694,7 @@ export class NoteService {
       this.notes_store.add_note(created_meta);
       this.editor_service.rename_buffer(old_path, target_path);
       this.editor_store.update_open_note_path(target_path);
-      this.editor_store.mark_clean(target_path, this.now_ms());
+      this.editor_store.mark_clean(target_path, created_meta.mtime_ms);
       this.notes_store.add_recent_note(created_meta);
       return;
     } catch (error) {
@@ -684,19 +706,25 @@ export class NoteService {
       }
     }
 
-    await this.notes_port.write_note(vault_id, target_path, open_note.markdown);
+    this.on_file_written?.(target_path);
+    const new_mtime = await this.notes_port.write_note(
+      vault_id,
+      target_path,
+      open_note.markdown,
+    );
     await this.index_port.upsert_note(vault_id, target_path);
     const written = await this.notes_port.read_note(vault_id, target_path);
     this.notes_store.add_note(written.meta);
     this.editor_service.rename_buffer(old_path, target_path);
     this.editor_store.update_open_note_path(target_path);
-    this.editor_store.mark_clean(target_path, this.now_ms());
+    this.editor_store.mark_clean(target_path, new_mtime);
     this.notes_store.add_recent_note(written.meta);
   }
 
   async write_note_content(note_path: NotePath, markdown: MarkdownText) {
     const vault = this.vault_store.vault;
     if (!vault) return;
+    this.on_file_written?.(note_path);
     await this.notes_port.write_note(vault.id, note_path, markdown);
   }
 
@@ -737,6 +765,10 @@ export class NoteService {
       message.includes("no such file") ||
       message.includes("could not be found")
     );
+  }
+
+  private is_mtime_conflict_error(error: unknown): boolean {
+    return error_message(error).startsWith("conflict:");
   }
 
   private is_note_exists_error(error: unknown): boolean {
