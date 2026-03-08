@@ -21,6 +21,7 @@
   import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
   import type { Theme } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
+  import { slide } from "svelte/transition";
 
   type Props = {
     open: boolean;
@@ -278,6 +279,48 @@
                 }}
               />
             </div>
+            {#if editor_settings.autosave_enabled}
+              <div class="SettingsDialog__row" transition:slide>
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Autosave Delay (ms)</span>
+                  <span class="SettingsDialog__description"
+                    >Delay before automatically saving after edits</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Slider
+                    type="single"
+                    value={editor_settings.autosave_delay_ms}
+                    onValueChange={(v: number | undefined) => {
+                      if (v !== undefined) {
+                        update("autosave_delay_ms", v);
+                      }
+                    }}
+                    min={500}
+                    max={10000}
+                    step={100}
+                    class="w-32"
+                  />
+                  <span class="text-sm tabular-nums w-14"
+                    >{editor_settings.autosave_delay_ms}ms</span
+                  >
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "autosave_delay_ms",
+                        DEFAULT_EDITOR_SETTINGS.autosave_delay_ms,
+                      )}
+                    disabled={editor_settings.autosave_delay_ms ===
+                      DEFAULT_EDITOR_SETTINGS.autosave_delay_ms}
+                    title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.autosave_delay_ms)}ms)`}
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+            {/if}
           </div>
         {:else if active_category === "git"}
           <h2 class="SettingsDialog__content-header">Git</h2>
