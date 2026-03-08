@@ -73,6 +73,7 @@ export class EditorService {
     this.op_store.start("editor.mount", Date.now());
     try {
       await this.recreate_session();
+      this.editor_store.session_revision++;
       this.focus();
       this.op_store.succeed("editor.mount");
     } catch (error) {
@@ -86,6 +87,7 @@ export class EditorService {
     this.teardown_session();
     this.host_root = null;
     this.active_note = null;
+    this.editor_store.session_revision++;
   }
 
   open_buffer(

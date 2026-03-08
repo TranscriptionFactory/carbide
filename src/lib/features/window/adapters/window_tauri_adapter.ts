@@ -6,6 +6,9 @@ import { compute_title } from "$lib/features/window/domain/window_types";
 function build_url(init: WindowInit): string {
   const params = new URLSearchParams();
   params.set("window_kind", init.kind);
+  if (init.kind === "main" && init.vault_path) {
+    params.set("vault_path", init.vault_path);
+  }
   if (init.kind === "browse" || init.kind === "viewer") {
     params.set("vault_path", init.vault_path);
   }

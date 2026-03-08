@@ -8,8 +8,10 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { make_close_window_handler } from "$lib/hooks/use_close_window.svelte";
+  import { create_logger } from "$lib/shared/utils/logger";
   import type { NoteMeta } from "$lib/shared/types/note";
 
+  const log = create_logger("browse_shell");
   const { stores, action_registry } = use_app_context();
 
   const flat_nodes = $derived(
@@ -35,7 +37,9 @@
   const handle_keydown = make_close_window_handler();
 
   onMount(() => {
-    void action_registry.execute(ACTION_IDS.app_mounted);
+    action_registry.execute(ACTION_IDS.app_mounted).catch((error) => {
+      log.error("app_mounted failed in browse window", { error });
+    });
   });
 </script>
 
@@ -66,9 +70,17 @@
             on_toggle_folder={(path: string) =>
               void action_registry.execute(ACTION_IDS.folder_toggle, path)}
             on_select_note={(note_path: string) =>
-              void action_registry.execute(ACTION_IDS.note_open, note_path)}
+              action_registry
+                .execute(ACTION_IDS.note_open, note_path)
+                .catch((error) =>
+                  log.error("note_open failed", { error, note_path }),
+                )}
             on_select_file={(file_path: string) =>
-              void action_registry.execute(ACTION_IDS.document_open, file_path)}
+              action_registry
+                .execute(ACTION_IDS.document_open, file_path)
+                .catch((error) =>
+                  log.error("document_open failed", { error, file_path }),
+                )}
             on_select_folder={(path: string) =>
               void action_registry.execute(ACTION_IDS.ui_select_folder, path)}
             on_request_create_note={() =>

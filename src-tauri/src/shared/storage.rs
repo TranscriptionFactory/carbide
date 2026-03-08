@@ -178,6 +178,8 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
     let mime = mime_guess::from_path(&abs).first_or_octet_stream();
     Response::builder()
         .header("Content-Type", mime.as_ref())
+        .header("Content-Length", bytes.len().to_string())
+        .header("Access-Control-Allow-Origin", "*")
         .body(bytes)
         .unwrap()
 }

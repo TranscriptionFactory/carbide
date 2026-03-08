@@ -17,7 +17,7 @@ function note(path: string): NoteMeta {
 
 function file_meta(path: string): FileMeta {
   const name = path.split("/").pop() ?? path;
-  const ext = name.includes(".") ? name.split(".").pop() ?? "" : "";
+  const ext = name.includes(".") ? (name.split(".").pop() ?? "") : "";
   return { path, name, extension: ext, size_bytes: 0, mtime_ms: 0 };
 }
 
