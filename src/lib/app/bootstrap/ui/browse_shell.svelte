@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
+  import * as Tooltip from "$lib/components/ui/tooltip";
   import { VirtualFileTree, flatten_filetree } from "$lib/features/folder";
   import { NoteEditor } from "$lib/features/note";
   import { TabBar } from "$lib/features/tab";
@@ -45,6 +46,7 @@
 
 <svelte:window onkeydown={handle_keydown} />
 
+<Tooltip.Provider delayDuration={0}>
 <div class="BrowseShell">
   <Resizable.PaneGroup direction="horizontal" class="h-full">
     <Resizable.Pane defaultSize={20} minSize={10} maxSize={40} order={1}>
@@ -156,6 +158,7 @@
     </Resizable.Pane>
   </Resizable.PaneGroup>
 </div>
+</Tooltip.Provider>
 
 <style>
   .BrowseShell {

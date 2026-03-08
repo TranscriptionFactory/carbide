@@ -39,7 +39,7 @@ export function register_window_actions(
     execute: async () => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
-      await window_port.open_window({ kind: "main", vault_path });
+      await window_port.open_window({ kind: "browse", vault_path });
     },
   });
 }
