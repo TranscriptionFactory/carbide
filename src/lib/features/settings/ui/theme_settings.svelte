@@ -7,8 +7,9 @@
   import Copy from "@lucide/svelte/icons/copy";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import SearchIcon from "@lucide/svelte/icons/search";
   import type { Theme } from "$lib/shared/types/theme";
-  import { get_all_themes } from "$lib/shared/types/theme";
+  import { get_all_themes, BUILTIN_NORDIC_DARK } from "$lib/shared/types/theme";
   import {
     parse_hsl,
     format_hsl,
@@ -16,6 +17,15 @@
     MONO_FONT_OPTIONS,
     COLOR_PRESETS,
   } from "$lib/shared/utils/theme_helpers";
+  import {
+    STYLE_DESCRIPTORS,
+    STYLE_CATEGORY_LABELS,
+    filter_descriptors,
+    group_filtered,
+    ordered_categories,
+    type ThemeStyleDescriptor,
+    type ThemeStyleCategory,
+  } from "$lib/features/theme";
 
   type Props = {
     user_themes: Theme[];
@@ -41,12 +51,15 @@
 
   const all_themes = $derived(get_all_themes(user_themes));
   const locked = $derived(active_theme.is_builtin);
+  const defaults = BUILTIN_NORDIC_DARK;
 
-  let accent_hue = $derived(active_theme.accent_hue);
-  let accent_chroma = $derived(active_theme.accent_chroma);
-  let font_size = $derived(active_theme.font_size);
-  let line_height = $derived(active_theme.line_height);
-  let heading_font_weight = $derived(active_theme.heading_font_weight);
+  let search_query = $state("");
+
+  const filtered = $derived(
+    filter_descriptors(STYLE_DESCRIPTORS, search_query),
+  );
+  const grouped = $derived(group_filtered(filtered));
+  const visible_categories = $derived(ordered_categories(grouped));
 
   function update<K extends keyof Theme>(key: K, value: Theme[K]) {
     if (locked) return;
@@ -66,44 +79,14 @@
     return Math.max(lo, Math.min(hi, Math.round(v)));
   }
 
-  const accent_preview_style = $derived(
-    `background: oklch(0.55 ${active_theme.accent_chroma} ${active_theme.accent_hue})`,
-  );
+  function reset_to_default<K extends keyof Theme>(key: K) {
+    if (locked) return;
+    on_update({ ...active_theme, [key]: defaults[key] });
+  }
 
-  const color_scheme_options = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-  ];
-
-  const spacing_options = [
-    { value: "compact", label: "Compact" },
-    { value: "normal", label: "Normal" },
-    { value: "spacious", label: "Spacious" },
-  ];
-
-  const heading_color_options = [
-    { value: "inherit", label: "Inherit" },
-    { value: "primary", label: "Primary" },
-    { value: "accent", label: "Accent" },
-  ];
-
-  const bold_style_options = [
-    { value: "default", label: "Default (600)" },
-    { value: "heavier", label: "Heavy (700)" },
-    { value: "color-accent", label: "Accent Color" },
-  ];
-
-  const blockquote_style_options = [
-    { value: "default", label: "Default" },
-    { value: "minimal", label: "Minimal (no bg)" },
-    { value: "accent-bar", label: "Accent Bar" },
-  ];
-
-  const code_block_style_options = [
-    { value: "default", label: "Default" },
-    { value: "borderless", label: "Borderless" },
-    { value: "filled", label: "Filled" },
-  ];
+  function is_modified<K extends keyof Theme>(key: K): boolean {
+    return active_theme[key] !== defaults[key];
+  }
 
   let new_theme_name = $state("");
   let show_create = $state(false);
@@ -115,23 +98,38 @@
     new_theme_name = "";
     show_create = false;
   }
+
+  function format_display_value(desc: ThemeStyleDescriptor): string {
+    const val = active_theme[desc.theme_key];
+    if (desc.format_value && typeof val === "number") {
+      return desc.format_value(val);
+    }
+    if (typeof val === "number") {
+      const formatted = Number.isInteger(val)
+        ? String(val)
+        : val.toFixed(desc.step && desc.step < 0.1 ? 2 : 2);
+      return desc.unit ? `${formatted}${desc.unit}` : formatted;
+    }
+    if (desc.options) {
+      const match = desc.options.find((o) => o.value === val);
+      return match?.label ?? String(val ?? "");
+    }
+    return String(val ?? "");
+  }
 </script>
 
-{#snippet color_field(
-  label: string,
-  key: keyof Theme,
-  current_value: string | null,
-)}
+{#snippet color_field(desc: ThemeStyleDescriptor)}
+  {@const current_value = active_theme[desc.theme_key] as string | null}
   {@const parsed = parse_hsl(current_value)}
   <div class="ColorField">
     <div class="ColorField__header">
       <div class="ColorField__header-left">
-        <span class="ColorField__label">{label}</span>
+        <span class="ColorField__label">{desc.label}</span>
         {#if current_value}
           <button
             type="button"
             class="ColorField__reset"
-            onclick={() => update(key, null as never)}
+            onclick={() => update(desc.theme_key, null as never)}
             disabled={locked}
             title="Reset to default"
           >
@@ -156,7 +154,7 @@
             class:ColorField__swatch--active={current_value === preset.value}
             style="background: {preset.value}"
             title={preset.label}
-            onclick={() => update(key, preset.value as never)}
+            onclick={() => update(desc.theme_key, preset.value as never)}
             disabled={locked}
           ></button>
         {/each}
@@ -175,7 +173,7 @@
           onchange={(e: Event & { currentTarget: HTMLInputElement }) => {
             const h = clamp(Number(e.currentTarget.value) || 0, 0, 360);
             const base = parsed ?? { h: 0, s: 0, l: 50 };
-            update(key, format_hsl({ ...base, h }) as never);
+            update(desc.theme_key, format_hsl({ ...base, h }) as never);
           }}
           class="ColorField__channel-input"
           disabled={locked}
@@ -189,7 +187,7 @@
           onchange={(e: Event & { currentTarget: HTMLInputElement }) => {
             const s = clamp(Number(e.currentTarget.value) || 0, 0, 100);
             const base = parsed ?? { h: 0, s: 0, l: 50 };
-            update(key, format_hsl({ ...base, s }) as never);
+            update(desc.theme_key, format_hsl({ ...base, s }) as never);
           }}
           class="ColorField__channel-input"
           disabled={locked}
@@ -203,7 +201,7 @@
           onchange={(e: Event & { currentTarget: HTMLInputElement }) => {
             const l = clamp(Number(e.currentTarget.value) || 0, 0, 100);
             const base = parsed ?? { h: 0, s: 0, l: 50 };
-            update(key, format_hsl({ ...base, l }) as never);
+            update(desc.theme_key, format_hsl({ ...base, l }) as never);
           }}
           class="ColorField__channel-input"
           disabled={locked}
@@ -211,6 +209,146 @@
       </div>
     </div>
   </div>
+{/snippet}
+
+{#snippet slider_field(desc: ThemeStyleDescriptor)}
+  {@const val = active_theme[desc.theme_key] as number}
+  {@const modified = is_modified(desc.theme_key)}
+  <div class="ThemeSettings__row--stacked">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="ThemeSettings__label">{desc.label}</span>
+        {#if modified}
+          <button
+            type="button"
+            class="ThemeSettings__inline-reset"
+            onclick={() => reset_to_default(desc.theme_key)}
+            disabled={locked}
+            title="Reset to default"
+          >
+            <RotateCcw />
+          </button>
+        {/if}
+      </div>
+      <span class="ThemeSettings__badge">{format_display_value(desc)}</span>
+    </div>
+    <Slider.Root
+      type="single"
+      value={val}
+      onValueChange={(v: number) => {
+        const step = desc.step ?? 1;
+        const rounded = Math.round(v / step) * step;
+        update(desc.theme_key, rounded as never);
+      }}
+      min={desc.min ?? 0}
+      max={desc.max ?? 100}
+      step={desc.step ?? 1}
+      class="w-full"
+      disabled={locked}
+    />
+  </div>
+{/snippet}
+
+{#snippet select_field(desc: ThemeStyleDescriptor)}
+  {@const val = active_theme[desc.theme_key] as string}
+  {@const modified = is_modified(desc.theme_key)}
+  <div class="ThemeSettings__row">
+    <div class="flex items-center gap-2">
+      <span class="ThemeSettings__label">{desc.label}</span>
+      {#if modified}
+        <button
+          type="button"
+          class="ThemeSettings__inline-reset"
+          onclick={() => reset_to_default(desc.theme_key)}
+          disabled={locked}
+          title="Reset to default"
+        >
+          <RotateCcw />
+        </button>
+      {/if}
+    </div>
+    <Select.Root
+      type="single"
+      value={val}
+      onValueChange={(v: string | undefined) =>
+        update_select(desc.theme_key, v)}
+      disabled={locked}
+    >
+      <Select.Trigger class="w-40">
+        <span data-slot="select-value">
+          {desc.options?.find((o) => o.value === val)?.label ?? val}
+        </span>
+      </Select.Trigger>
+      <Select.Content>
+        {#each desc.options ?? [] as option (option.value)}
+          <Select.Item value={option.value}>{option.label}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+  </div>
+{/snippet}
+
+{#snippet font_select_field(desc: ThemeStyleDescriptor)}
+  {@const val = active_theme[desc.theme_key] as string}
+  {@const is_mono = desc.id === "font_family_mono"}
+  {@const options = is_mono ? MONO_FONT_OPTIONS : SANS_FONT_OPTIONS}
+  <div class="ThemeSettings__row">
+    <span class="ThemeSettings__label">{desc.label}</span>
+    <Select.Root
+      type="single"
+      value={val}
+      onValueChange={(v: string | undefined) =>
+        update_select(desc.theme_key, v)}
+      disabled={locked}
+    >
+      <Select.Trigger class="w-44">
+        <span data-slot="select-value">{val}</span>
+      </Select.Trigger>
+      <Select.Content>
+        {#each options as opt (opt.value)}
+          <Select.Item value={opt.value}>{opt.label}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+  </div>
+{/snippet}
+
+{#snippet render_descriptor(desc: ThemeStyleDescriptor)}
+  {#if desc.control === "color"}
+    {@render color_field(desc)}
+  {:else if desc.control === "slider"}
+    {#if desc.id === "accent_hue"}
+      {@const accent_preview_style = `background: oklch(0.55 ${active_theme.accent_chroma} ${active_theme.accent_hue})`}
+      <div class="ThemeSettings__row--stacked">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="ThemeSettings__label">{desc.label}</span>
+            <span class="ThemeSettings__color-dot" style={accent_preview_style}
+            ></span>
+          </div>
+          <span class="ThemeSettings__badge"
+            >{active_theme.accent_hue}{desc.unit}</span
+          >
+        </div>
+        <Slider.Root
+          type="single"
+          value={active_theme.accent_hue}
+          onValueChange={(v: number) => update("accent_hue", Math.round(v))}
+          min={0}
+          max={360}
+          step={1}
+          class="w-full"
+          disabled={locked}
+        />
+      </div>
+    {:else}
+      {@render slider_field(desc)}
+    {/if}
+  {:else if desc.control === "select"}
+    {@render select_field(desc)}
+  {:else if desc.control === "font_select"}
+    {@render font_select_field(desc)}
+  {/if}
 {/snippet}
 
 <div class="ThemeSettings">
@@ -304,383 +442,37 @@
     <p class="ThemeSettings__hint">Duplicate this theme to customize it.</p>
   {/if}
 
-  <!-- ═══ Interface ═══ -->
-  <div class="ThemeSettings__section-header">Interface</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Base</span>
-      <Select.Root
-        type="single"
-        value={active_theme.color_scheme}
-        onValueChange={(v: string | undefined) =>
-          update_select("color_scheme", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-28">
-          <span data-slot="select-value">
-            {color_scheme_options.find(
-              (o) => o.value === active_theme.color_scheme,
-            )?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each color_scheme_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Sans Font</span>
-      <Select.Root
-        type="single"
-        value={active_theme.font_family_sans}
-        onValueChange={(v: string | undefined) =>
-          update_select("font_family_sans", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-44">
-          <span data-slot="select-value">{active_theme.font_family_sans}</span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each SANS_FONT_OPTIONS as opt (opt.value)}
-            <Select.Item value={opt.value}>{opt.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Mono Font</span>
-      <Select.Root
-        type="single"
-        value={active_theme.font_family_mono}
-        onValueChange={(v: string | undefined) =>
-          update_select("font_family_mono", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-44">
-          <span data-slot="select-value">{active_theme.font_family_mono}</span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each MONO_FONT_OPTIONS as opt (opt.value)}
-            <Select.Item value={opt.value}>{opt.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    <div class="ThemeSettings__row--stacked">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="ThemeSettings__label">Accent Color</span>
-          <span class="ThemeSettings__color-dot" style={accent_preview_style}
-          ></span>
-        </div>
-        <span class="ThemeSettings__badge">{active_theme.accent_hue}°</span>
-      </div>
-      <Slider.Root
-        type="single"
-        value={accent_hue}
-        onValueChange={(v: number) => update("accent_hue", Math.round(v))}
-        min={0}
-        max={360}
-        step={1}
-        class="w-full"
-        disabled={locked}
-      />
-    </div>
-
-    <div class="ThemeSettings__row--stacked">
-      <div class="flex items-center justify-between">
-        <span class="ThemeSettings__label">Color Intensity</span>
-        <span class="ThemeSettings__badge"
-          >{active_theme.accent_chroma.toFixed(2)}</span
-        >
-      </div>
-      <Slider.Root
-        type="single"
-        value={accent_chroma}
-        onValueChange={(v: number) =>
-          update("accent_chroma", Math.round(v * 100) / 100)}
-        min={0.02}
-        max={0.3}
-        step={0.01}
-        class="w-full"
-        disabled={locked}
-      />
-    </div>
+  <!-- ─── Search ─── -->
+  <div class="ThemeSettings__search-wrapper">
+    <SearchIcon class="ThemeSettings__search-icon" />
+    <Input
+      type="text"
+      placeholder="Filter style settings..."
+      value={search_query}
+      oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+        search_query = e.currentTarget.value;
+      }}
+      class="ThemeSettings__search"
+    />
   </div>
 
-  <!-- ═══ Typography ═══ -->
-  <div class="ThemeSettings__section-header">Typography</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row--stacked">
-      <div class="flex items-center justify-between">
-        <span class="ThemeSettings__label">Font Size</span>
-        <span class="ThemeSettings__badge"
-          >{active_theme.font_size.toFixed(2)}rem</span
-        >
-      </div>
-      <Slider.Root
-        type="single"
-        value={font_size}
-        onValueChange={(v: number) => update("font_size", v)}
-        min={0.875}
-        max={1.25}
-        step={0.0625}
-        class="w-full"
-        disabled={locked}
-      />
+  <!-- ─── Descriptor-driven sections ─── -->
+  {#each visible_categories as cat (cat)}
+    <div class="ThemeSettings__section-header">
+      {STYLE_CATEGORY_LABELS[cat]}
     </div>
-
-    <div class="ThemeSettings__row--stacked">
-      <div class="flex items-center justify-between">
-        <span class="ThemeSettings__label">Line Height</span>
-        <span class="ThemeSettings__badge"
-          >{active_theme.line_height.toFixed(2)}</span
-        >
-      </div>
-      <Slider.Root
-        type="single"
-        value={line_height}
-        onValueChange={(v: number) => update("line_height", v)}
-        min={1.5}
-        max={2.0}
-        step={0.05}
-        class="w-full"
-        disabled={locked}
-      />
+    <div class="ThemeSettings__section-content">
+      {#each grouped.get(cat) ?? [] as desc (desc.id)}
+        {@render render_descriptor(desc)}
+      {/each}
     </div>
+  {/each}
 
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Content Spacing</span>
-      <Select.Root
-        type="single"
-        value={active_theme.spacing}
-        onValueChange={(v: string | undefined) => update_select("spacing", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-32">
-          <span data-slot="select-value">
-            {spacing_options.find((o) => o.value === active_theme.spacing)
-              ?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each spacing_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+  {#if filtered.length === 0}
+    <div class="ThemeSettings__empty">
+      No style settings matching "{search_query}"
     </div>
-
-    {@render color_field(
-      "Body Text",
-      "editor_text_color",
-      active_theme.editor_text_color,
-    )}
-    {@render color_field("Links", "link_color", active_theme.link_color)}
-  </div>
-
-  <!-- ═══ Headings ═══ -->
-  <div class="ThemeSettings__section-header">Headings</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Color</span>
-      <Select.Root
-        type="single"
-        value={active_theme.heading_color}
-        onValueChange={(v: string | undefined) =>
-          update_select("heading_color", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-28">
-          <span data-slot="select-value">
-            {heading_color_options.find(
-              (o) => o.value === active_theme.heading_color,
-            )?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each heading_color_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    <div class="ThemeSettings__row--stacked">
-      <div class="flex items-center justify-between">
-        <span class="ThemeSettings__label">Weight</span>
-        <span class="ThemeSettings__badge"
-          >{active_theme.heading_font_weight}</span
-        >
-      </div>
-      <Slider.Root
-        type="single"
-        value={heading_font_weight}
-        onValueChange={(v: number) =>
-          update("heading_font_weight", Math.round(v / 100) * 100)}
-        min={300}
-        max={700}
-        step={100}
-        class="w-full"
-        disabled={locked}
-      />
-    </div>
-  </div>
-
-  <!-- ═══ Bold & Italic ═══ -->
-  <div class="ThemeSettings__section-header">Bold & Italic</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Bold Style</span>
-      <Select.Root
-        type="single"
-        value={active_theme.bold_style}
-        onValueChange={(v: string | undefined) =>
-          update_select("bold_style", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-40">
-          <span data-slot="select-value">
-            {bold_style_options.find((o) => o.value === active_theme.bold_style)
-              ?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each bold_style_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    {@render color_field("Bold Color", "bold_color", active_theme.bold_color)}
-    {@render color_field(
-      "Italic Color",
-      "italic_color",
-      active_theme.italic_color,
-    )}
-  </div>
-
-  <!-- ═══ Blockquotes ═══ -->
-  <div class="ThemeSettings__section-header">Blockquotes</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Style</span>
-      <Select.Root
-        type="single"
-        value={active_theme.blockquote_style}
-        onValueChange={(v: string | undefined) =>
-          update_select("blockquote_style", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-40">
-          <span data-slot="select-value">
-            {blockquote_style_options.find(
-              (o) => o.value === active_theme.blockquote_style,
-            )?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each blockquote_style_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    {@render color_field(
-      "Border",
-      "blockquote_border_color",
-      active_theme.blockquote_border_color,
-    )}
-    {@render color_field(
-      "Text",
-      "blockquote_text_color",
-      active_theme.blockquote_text_color,
-    )}
-  </div>
-
-  <!-- ═══ Inline Code ═══ -->
-  <div class="ThemeSettings__section-header">Inline Code</div>
-
-  <div class="ThemeSettings__section-content">
-    {@render color_field(
-      "Background",
-      "inline_code_bg",
-      active_theme.inline_code_bg,
-    )}
-    {@render color_field(
-      "Text",
-      "inline_code_text_color",
-      active_theme.inline_code_text_color,
-    )}
-  </div>
-
-  <!-- ═══ Code Blocks ═══ -->
-  <div class="ThemeSettings__section-header">Code Blocks</div>
-
-  <div class="ThemeSettings__section-content">
-    <div class="ThemeSettings__row">
-      <span class="ThemeSettings__label">Style</span>
-      <Select.Root
-        type="single"
-        value={active_theme.code_block_style}
-        onValueChange={(v: string | undefined) =>
-          update_select("code_block_style", v)}
-        disabled={locked}
-      >
-        <Select.Trigger class="w-40">
-          <span data-slot="select-value">
-            {code_block_style_options.find(
-              (o) => o.value === active_theme.code_block_style,
-            )?.label}
-          </span>
-        </Select.Trigger>
-        <Select.Content>
-          {#each code_block_style_options as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    {@render color_field(
-      "Background",
-      "code_block_bg",
-      active_theme.code_block_bg,
-    )}
-    {@render color_field(
-      "Text",
-      "code_block_text_color",
-      active_theme.code_block_text_color,
-    )}
-  </div>
-
-  <!-- ═══ Highlights ═══ -->
-  <div class="ThemeSettings__section-header">Highlights</div>
-
-  <div class="ThemeSettings__section-content">
-    {@render color_field(
-      "Background",
-      "highlight_bg",
-      active_theme.highlight_bg,
-    )}
-    {@render color_field(
-      "Text",
-      "highlight_text_color",
-      active_theme.highlight_text_color,
-    )}
-  </div>
+  {/if}
 </div>
 
 <style>
@@ -711,6 +503,28 @@
     align-items: center;
     gap: var(--space-2);
     margin-bottom: var(--space-5);
+  }
+
+  .ThemeSettings__search-wrapper {
+    position: relative;
+    margin-bottom: var(--space-4);
+    margin-top: var(--space-2);
+  }
+
+  :global(.ThemeSettings__search-icon) {
+    position: absolute;
+    left: var(--space-2-5);
+    top: 50%;
+    transform: translateY(-50%);
+    width: var(--size-icon-sm) !important;
+    height: var(--size-icon-sm) !important;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  :global(.ThemeSettings__search) {
+    width: 100%;
+    padding-left: var(--space-8) !important;
   }
 
   .ThemeSettings__section-header {
@@ -782,6 +596,38 @@
     margin-bottom: var(--space-2);
   }
 
+  .ThemeSettings__inline-reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--muted-foreground);
+    opacity: 0.5;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+  }
+
+  .ThemeSettings__inline-reset:hover:not(:disabled) {
+    opacity: 1;
+    color: var(--destructive);
+  }
+
+  :global(.ThemeSettings__inline-reset svg) {
+    width: 11px;
+    height: 11px;
+  }
+
+  .ThemeSettings__empty {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+    color: var(--muted-foreground);
+    font-size: var(--text-sm);
+  }
+
   /* ─── Color Field ─── */
 
   .ColorField {
@@ -825,8 +671,11 @@
     width: 16px;
     height: 16px;
     border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
     color: var(--muted-foreground);
     opacity: 0.5;
+    cursor: pointer;
     transition: all var(--duration-fast) var(--ease-default);
   }
 
