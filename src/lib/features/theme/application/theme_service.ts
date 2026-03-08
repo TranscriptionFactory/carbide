@@ -1,7 +1,11 @@
 import type { SettingsPort } from "$lib/features/settings";
 import type { OpStore } from "$lib/app";
 import type { Theme } from "$lib/shared/types/theme";
-import { DEFAULT_THEME_ID, create_user_theme } from "$lib/shared/types/theme";
+import {
+  DEFAULT_THEME_ID,
+  BUILTIN_NORDIC_DARK,
+  create_user_theme,
+} from "$lib/shared/types/theme";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -70,10 +74,10 @@ export class ThemeService {
 
 function parse_stored_themes(raw: unknown): Theme[] {
   if (!raw || !Array.isArray(raw)) return [];
-  return raw.filter(is_theme_record);
+  return raw.filter(is_theme_record).map(normalize_theme);
 }
 
-function is_theme_record(entry: unknown): entry is Theme {
+function is_theme_record(entry: unknown): entry is Record<string, unknown> {
   if (typeof entry !== "object" || entry === null) return false;
   const candidate = entry as Record<string, unknown>;
   return (
@@ -82,4 +86,124 @@ function is_theme_record(entry: unknown): entry is Theme {
     (candidate.color_scheme === "dark" || candidate.color_scheme === "light") &&
     typeof candidate.accent_hue === "number"
   );
+}
+
+function normalize_theme(raw: Record<string, unknown>): Theme {
+  const defaults = BUILTIN_NORDIC_DARK;
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    color_scheme: raw.color_scheme as Theme["color_scheme"],
+    is_builtin: raw.is_builtin === true,
+
+    accent_hue: num(raw.accent_hue, defaults.accent_hue),
+    accent_chroma: num(raw.accent_chroma, defaults.accent_chroma),
+    font_family_sans: str(raw.font_family_sans, defaults.font_family_sans),
+    font_family_mono: str(raw.font_family_mono, defaults.font_family_mono),
+
+    font_size: num(raw.font_size, defaults.font_size),
+    line_height: num(raw.line_height, defaults.line_height),
+    paragraph_spacing: num(raw.paragraph_spacing, defaults.paragraph_spacing),
+    spacing: enum_val(
+      raw.spacing,
+      ["compact", "normal", "spacious"],
+      defaults.spacing,
+    ),
+    heading_color: enum_val(
+      raw.heading_color,
+      ["inherit", "primary", "accent"],
+      defaults.heading_color,
+    ),
+    heading_font_weight: num(
+      raw.heading_font_weight,
+      defaults.heading_font_weight,
+    ),
+    heading_1_size: num(raw.heading_1_size, defaults.heading_1_size),
+    heading_2_size: num(raw.heading_2_size, defaults.heading_2_size),
+    heading_3_size: num(raw.heading_3_size, defaults.heading_3_size),
+    heading_4_size: num(raw.heading_4_size, defaults.heading_4_size),
+    heading_5_size: num(raw.heading_5_size, defaults.heading_5_size),
+    heading_6_size: num(raw.heading_6_size, defaults.heading_6_size),
+
+    editor_max_width_ch: num(
+      raw.editor_max_width_ch,
+      defaults.editor_max_width_ch,
+    ),
+    editor_padding_x: num(raw.editor_padding_x, defaults.editor_padding_x),
+    editor_padding_y: num(raw.editor_padding_y, defaults.editor_padding_y),
+
+    bold_style: enum_val(
+      raw.bold_style,
+      ["default", "heavier", "color-accent"],
+      defaults.bold_style,
+    ),
+    blockquote_style: enum_val(
+      raw.blockquote_style,
+      ["default", "minimal", "accent-bar"],
+      defaults.blockquote_style,
+    ),
+    code_block_style: enum_val(
+      raw.code_block_style,
+      ["default", "borderless", "filled"],
+      defaults.code_block_style,
+    ),
+
+    editor_text_color: nullable_str(raw.editor_text_color),
+    bold_color: nullable_str(raw.bold_color),
+    italic_color: nullable_str(raw.italic_color),
+    link_color: nullable_str(raw.link_color),
+    blockquote_border_color: nullable_str(raw.blockquote_border_color),
+    blockquote_text_color: nullable_str(raw.blockquote_text_color),
+    blockquote_bg_color: nullable_str(raw.blockquote_bg_color),
+    code_block_bg: nullable_str(raw.code_block_bg),
+    code_block_text_color: nullable_str(raw.code_block_text_color),
+    code_block_radius: num(raw.code_block_radius, defaults.code_block_radius),
+    inline_code_bg: nullable_str(raw.inline_code_bg),
+    inline_code_text_color: nullable_str(raw.inline_code_text_color),
+    highlight_bg: nullable_str(raw.highlight_bg),
+    highlight_text_color: nullable_str(raw.highlight_text_color),
+    selection_bg: nullable_str(raw.selection_bg),
+    caret_color: nullable_str(raw.caret_color),
+    table_border_color: nullable_str(raw.table_border_color),
+    table_header_bg: nullable_str(raw.table_header_bg),
+    table_cell_padding: num(
+      raw.table_cell_padding,
+      defaults.table_cell_padding,
+    ),
+
+    token_overrides: parse_token_overrides(raw.token_overrides),
+  };
+}
+
+function num(val: unknown, fallback: number): number {
+  return typeof val === "number" && Number.isFinite(val) ? val : fallback;
+}
+
+function str(val: unknown, fallback: string): string {
+  return typeof val === "string" && val.length > 0 ? val : fallback;
+}
+
+function nullable_str(val: unknown): string | null {
+  return typeof val === "string" && val.length > 0 ? val : null;
+}
+
+function enum_val<T extends string>(
+  val: unknown,
+  allowed: T[],
+  fallback: T,
+): T {
+  return typeof val === "string" && (allowed as string[]).includes(val)
+    ? (val as T)
+    : fallback;
+}
+
+function parse_token_overrides(val: unknown): Record<string, string> {
+  if (typeof val !== "object" || val === null || Array.isArray(val)) return {};
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (typeof v === "string") {
+      result[k] = v;
+    }
+  }
+  return result;
 }

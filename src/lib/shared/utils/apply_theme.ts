@@ -40,12 +40,35 @@ function build_token_entries(theme: Theme): [string, string][] {
     ["--editor-font-size", `${String(theme.font_size)}rem`],
     ["--editor-line-height", String(theme.line_height)],
     ["--editor-spacing", SPACING_MAP[theme.spacing] ?? "1.5rem"],
+    ["--editor-paragraph-spacing", `${String(theme.paragraph_spacing)}rem`],
     [
       "--editor-heading-color",
       HEADING_COLOR_MAP[theme.heading_color] ?? "var(--foreground)",
     ],
     ["--editor-heading-weight", String(theme.heading_font_weight)],
     ["--editor-bold-weight", BOLD_WEIGHT_MAP[theme.bold_style] ?? "600"],
+
+    // Heading sizes
+    ["--editor-heading-1", `${String(theme.heading_1_size)}em`],
+    ["--editor-heading-2", `${String(theme.heading_2_size)}em`],
+    ["--editor-heading-3", `${String(theme.heading_3_size)}em`],
+    ["--editor-heading-4", `${String(theme.heading_4_size)}em`],
+    ["--editor-heading-5", `${String(theme.heading_5_size)}em`],
+    ["--editor-heading-6", `${String(theme.heading_6_size)}em`],
+
+    // Layout
+    ["--editor-max-width", `min(${String(theme.editor_max_width_ch)}ch, 90%)`],
+    ["--editor-padding-x", `${String(theme.editor_padding_x)}rem`],
+    ["--editor-padding-y", `${String(theme.editor_padding_y)}rem`],
+
+    // Code block radius
+    [
+      "--editor-code-radius",
+      `calc(var(--radius) * ${String(theme.code_block_radius)})`,
+    ],
+
+    // Table cell padding
+    ["--editor-table-cell-padding", String(theme.table_cell_padding)],
   ];
 
   if (theme.bold_style === "color-accent") {
@@ -77,6 +100,7 @@ function build_token_entries(theme: Theme): [string, string][] {
     "--editor-blockquote-border",
     theme.blockquote_border_color,
   );
+  apply_optional(entries, "--editor-blockquote-bg", theme.blockquote_bg_color);
   apply_optional(
     entries,
     "--editor-blockquote-text",
@@ -96,6 +120,10 @@ function build_token_entries(theme: Theme): [string, string][] {
   );
   apply_optional(entries, "--editor-mark-bg", theme.highlight_bg);
   apply_optional(entries, "--editor-mark-text", theme.highlight_text_color);
+  apply_optional(entries, "--editor-selection-bg", theme.selection_bg);
+  apply_optional(entries, "--caret-color", theme.caret_color);
+  apply_optional(entries, "--editor-table-border", theme.table_border_color);
+  apply_optional(entries, "--editor-table-header-bg", theme.table_header_bg);
 
   for (const [key, value] of Object.entries(theme.token_overrides)) {
     entries.push([key.startsWith("--") ? key : `--${key}`, value]);
