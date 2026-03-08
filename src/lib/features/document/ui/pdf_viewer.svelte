@@ -69,7 +69,10 @@
         import.meta.url,
       ).toString();
 
-      const doc = await pdfjs.getDocument(url).promise;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Failed to fetch PDF (${resp.status})`);
+      const data = new Uint8Array(await resp.arrayBuffer());
+      const doc = await pdfjs.getDocument({ data }).promise;
       pdf_doc = doc;
       num_pages = doc.numPages;
       loading = false;

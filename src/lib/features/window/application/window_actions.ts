@@ -35,11 +35,11 @@ export function register_window_actions(
 
   registry.register({
     id: ACTION_IDS.window_open_browse,
-    label: "Open Browse Window",
+    label: "New Window",
     execute: async () => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
-      await window_port.open_window({ kind: "browse", vault_path });
+      await window_port.open_window({ kind: "main", vault_path });
     },
   });
 }

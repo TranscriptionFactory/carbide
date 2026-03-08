@@ -1,7 +1,7 @@
 export type WindowKind = "main" | "browse" | "viewer";
 
 export type WindowInit =
-  | { kind: "main" }
+  | { kind: "main"; vault_path?: string }
   | { kind: "browse"; vault_path: string; file_path?: string }
   | { kind: "viewer"; vault_path: string; file_path: string };
 

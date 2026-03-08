@@ -175,7 +175,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     key: "CmdOrCtrl+Shift+N",
     phase: "capture",
     label: "New Window",
-    description: "Open the current vault in a new browse window",
+    description: "Open the current vault in a new window",
     category: "general",
   },
   {

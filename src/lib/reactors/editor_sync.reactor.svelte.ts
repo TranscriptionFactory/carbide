@@ -34,6 +34,7 @@ export function create_editor_sync_reactor(
   return $effect.root(() => {
     $effect(() => {
       const open_note = editor_store.open_note;
+      const _session_rev = editor_store.session_revision;
 
       if (!open_note) {
         last_note_id = null;

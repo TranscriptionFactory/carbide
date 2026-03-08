@@ -6,6 +6,7 @@ export class EditorStore {
   open_note = $state<OpenNoteState | null>(null);
   cursor = $state<CursorInfo | null>(null);
   last_saved_at = $state<number | null>(null);
+  session_revision = $state(0);
 
   set_open_note(open_note: OpenNoteState) {
     this.open_note = open_note;
