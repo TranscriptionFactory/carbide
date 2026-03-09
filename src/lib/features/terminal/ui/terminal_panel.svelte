@@ -9,6 +9,7 @@
   import { X } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { create_logger } from "$lib/shared/utils/logger";
+  import { build_terminal_spawn_options } from "./build_terminal_spawn_options";
 
   const log = create_logger("terminal_panel");
   const { stores, action_registry } = use_app_context();
@@ -52,15 +53,13 @@
     const shell = get_shell();
 
     try {
-      const opts: Record<string, unknown> = {
+      const options = build_terminal_spawn_options({
         cols,
         rows,
-        name: "xterm-256color",
-        env: { TERM: "xterm-256color" },
-      };
-      if (vault_path) opts.cwd = vault_path as string;
+        vault_path,
+      });
 
-      pty_process = spawn(shell, [], opts as Parameters<typeof spawn>[2]);
+      pty_process = spawn(shell, [], options);
 
       pty_process.onData((data: Uint8Array | number[]) => {
         if (!destroyed) {
