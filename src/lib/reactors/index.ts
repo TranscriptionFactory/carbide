@@ -18,6 +18,7 @@ import { create_file_open_reactor } from "$lib/reactors/file_open.reactor.svelte
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
+import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -40,6 +41,7 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { SplitViewStore } from "$lib/features/split_view";
 import type { SplitViewService } from "$lib/features/split_view";
+import type { DocumentService } from "$lib/features/document";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -62,6 +64,7 @@ export type ReactorContext = {
   action_registry: ActionRegistry;
   split_view_store: SplitViewStore;
   split_view_service: SplitViewService;
+  document_service: DocumentService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -154,6 +157,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.split_view_service,
     ),
+    create_document_cache_reactor(context.tab_store, context.document_service),
   ];
 
   return () => {

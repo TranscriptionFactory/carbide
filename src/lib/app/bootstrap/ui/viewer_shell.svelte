@@ -13,6 +13,11 @@
       ? stores.document.get_viewer_state(active_tab.id)
       : undefined,
   );
+  const content_state = $derived(
+    active_tab?.kind === "document"
+      ? stores.document.get_content_state(active_tab.id)
+      : undefined,
+  );
 
   const handle_keydown = make_close_window_handler();
 
@@ -25,7 +30,7 @@
 
 <div class="ViewerShell">
   {#if viewer_state}
-    <DocumentViewer {viewer_state} />
+    <DocumentViewer {viewer_state} {content_state} />
   {:else}
     <div class="ViewerShell__empty">
       <p>Loading document…</p>

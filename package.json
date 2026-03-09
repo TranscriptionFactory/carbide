@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "measure:build": "node scripts/measure_build.mjs",
     "lint": "pnpm lint:layering && oxlint . --type-aware",
     "lint:fix": "pnpm lint:layering && oxlint . --type-aware --fix",
     "lint:layering": "node scripts/lint_layering_rules.mjs",

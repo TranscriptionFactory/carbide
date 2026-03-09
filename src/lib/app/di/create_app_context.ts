@@ -25,7 +25,10 @@ import {
   register_split_view_actions,
 } from "$lib/features/split_view";
 import { register_terminal_actions } from "$lib/features/terminal";
-import { register_document_actions } from "$lib/features/document";
+import {
+  DocumentService,
+  register_document_actions,
+} from "$lib/features/document";
 import { register_window_actions } from "$lib/features/window";
 import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
@@ -190,6 +193,13 @@ export function create_app_context(input: {
     input.ports.vault_settings,
   );
 
+  const document_service = new DocumentService(
+    input.ports.document,
+    stores.vault,
+    stores.document,
+    now_ms,
+  );
+
   const base_action_input = {
     registry: action_registry,
     stores: {
@@ -237,8 +247,7 @@ export function create_app_context(input: {
 
   register_document_actions({
     ...base_action_input,
-    document_store: stores.document,
-    document_port: input.ports.document,
+    document_service,
   });
 
   register_window_actions({
@@ -267,6 +276,7 @@ export function create_app_context(input: {
     action_registry,
     split_view_store: stores.split_view,
     split_view_service,
+    document_service,
   });
 
   return {

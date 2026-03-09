@@ -26,6 +26,7 @@ describe("SplitViewStore", () => {
     expect(store.active).toBe(true);
     expect(store.secondary_note).toBe(note);
     expect(store.active_pane).toBe("secondary");
+    expect(store.secondary_profile).toBe("light");
   });
 
   it("closes and resets to defaults", () => {
@@ -37,6 +38,7 @@ describe("SplitViewStore", () => {
     expect(store.active).toBe(false);
     expect(store.secondary_note).toBeNull();
     expect(store.active_pane).toBe("primary");
+    expect(store.secondary_profile).toBe("light");
   });
 
   it("close is safe when already inactive", () => {
@@ -49,11 +51,26 @@ describe("SplitViewStore", () => {
 
   it("sets active pane", () => {
     const store = new SplitViewStore();
+    store.open_secondary(make_note());
 
     store.set_active_pane("secondary");
     expect(store.active_pane).toBe("secondary");
+    expect(store.secondary_profile).toBe("full");
 
     store.set_active_pane("primary");
     expect(store.active_pane).toBe("primary");
+  });
+
+  it("uses large-note fallback profile for very large notes", () => {
+    const store = new SplitViewStore();
+
+    store.open_secondary(
+      create_open_note_state(
+        create_test_note("note-1", "Big note"),
+        "x".repeat(200_001),
+      ),
+    );
+
+    expect(store.secondary_profile).toBe("large-note-fallback");
   });
 });
