@@ -178,7 +178,7 @@ jobs:
           releaseId: ${{ needs.create_release.outputs.release_id }}
           tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           releaseDraft: true
-          uploadUpdaterJson: false
+          includeUpdaterJson: false
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
 
