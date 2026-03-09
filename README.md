@@ -1,4 +1,4 @@
-<img src="./assets/icon.png" alt="Otterly" width="150">
+<img src="./assets/icon.png" alt="Otterly Carbide" width="150">
 
 [![Release](https://github.com/TranscriptionFactory/otterly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/otterly/actions/workflows/release.yml)
 
