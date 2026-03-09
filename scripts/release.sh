@@ -4,7 +4,7 @@ set -euo pipefail
 VERSION="${1:-}"
 
 if [[ -z "$VERSION" ]]; then
-  current=$(grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')
+  current=$(node scripts/update_release_version.mjs --print-current)
   echo "Current version: $current"
   echo "Usage: scripts/release.sh <version>"
   echo "Example: scripts/release.sh 0.2.0"
@@ -38,8 +38,7 @@ CONF="src-tauri/tauri.conf.json"
 CARGO="src-tauri/Cargo.toml"
 LOCK="src-tauri/Cargo.lock"
 
-sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$CONF"
-sed -i '' '/^\[package\]/,/^version = /{s/^version = ".*"/version = "'"$VERSION"'"/;}' "$CARGO"
+node scripts/update_release_version.mjs "$VERSION"
 (cd src-tauri && cargo update -p otterly)
 
 echo "Updated $CONF, $CARGO and $LOCK to $VERSION"
