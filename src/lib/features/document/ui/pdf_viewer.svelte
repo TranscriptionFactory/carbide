@@ -24,12 +24,14 @@
   let { src }: Props = $props();
 
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
+  type PDFJSModule = typeof import("pdfjs-dist");
 
   let canvas_el: HTMLCanvasElement | undefined = $state();
   let text_layer_el: HTMLDivElement | undefined = $state();
   let search_input_el: HTMLInputElement | undefined = $state();
 
   let pdf_doc: PDFDocumentProxy | null = $state(null);
+  let pdfjs_module = $state<PDFJSModule | null>(null);
   let current_page = $state(1);
   let num_pages = $state(0);
   let zoom_level = $state(1.0);
@@ -40,13 +42,14 @@
 
   let search_open = $state(false);
   let search_query = $state("");
-  let pages_text = $state<PageText[]>([]);
+  let pages_text_by_page = $state<Map<number, PageText>>(new Map());
   let search_state = $state<SearchState>({
     query: "",
     matches: [],
     current_index: 0,
   });
   let text_loading = $state(false);
+  let search_generation = $state(0);
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4.0;
@@ -59,11 +62,13 @@
     num_pages = 0;
     current_page = 1;
     page_input_value = "1";
-    pages_text = [];
+    pages_text_by_page = new Map();
     search_state = { query: "", matches: [], current_index: 0 };
+    search_generation += 1;
 
     try {
       const pdfjs = await import("pdfjs-dist");
+      pdfjs_module = pdfjs;
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(
         "pdfjs-dist/build/pdf.worker.mjs",
         import.meta.url,
@@ -77,32 +82,60 @@
       num_pages = doc.numPages;
       loading = false;
       await render_page(current_page);
-      void extract_all_text(doc);
     } catch (err) {
       loading = false;
       error_msg = err instanceof Error ? err.message : "Failed to load PDF";
     }
   }
 
-  async function extract_all_text(doc: PDFDocumentProxy) {
+  async function ensure_page_text(page_num: number): Promise<PageText | null> {
+    const cached = pages_text_by_page.get(page_num);
+    if (cached) {
+      return cached;
+    }
+    if (!pdf_doc) {
+      return null;
+    }
+
+    const page = await pdf_doc.getPage(page_num);
+    const content = await page.getTextContent();
+    const text = content.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ");
+    const page_text = { page_num, text };
+    pages_text_by_page = new Map(pages_text_by_page).set(page_num, page_text);
+    return page_text;
+  }
+
+  async function run_search(query: string) {
+    if (!pdf_doc || !query) {
+      text_loading = false;
+      search_state = { query, matches: [], current_index: 0 };
+      apply_highlights(current_page);
+      return;
+    }
+
+    const generation = ++search_generation;
     text_loading = true;
     const results: PageText[] = [];
 
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const text = content.items
-        .map((item) => ("str" in item ? item.str : ""))
-        .join(" ");
-      results.push({ page_num: i, text });
+    for (let i = 1; i <= pdf_doc.numPages; i++) {
+      const page_text = await ensure_page_text(i);
+      if (generation !== search_generation) {
+        return;
+      }
+      if (page_text) {
+        results.push(page_text);
+      }
     }
 
-    pages_text = results;
+    if (generation !== search_generation) {
+      return;
+    }
+
     text_loading = false;
-
-    if (search_query) {
-      search_state = make_search_state(results, search_query);
-    }
+    search_state = make_search_state(results, query);
+    navigate_to_current_match();
   }
 
   async function render_page(page_num: number) {
@@ -110,7 +143,8 @@
 
     rendering = true;
     try {
-      const pdfjs = await import("pdfjs-dist");
+      const pdfjs = pdfjs_module ?? (await import("pdfjs-dist"));
+      pdfjs_module = pdfjs;
       const page = await pdf_doc.getPage(page_num);
       const dpr = window.devicePixelRatio || 1;
       const viewport = page.getViewport({ scale: zoom_level * dpr });
@@ -163,7 +197,7 @@
       global_idx: idx,
     }));
 
-    if (!pages_text.find((p) => p.page_num === page_num)) return;
+    if (!pages_text_by_page.has(page_num)) return;
 
     let char_count = 0;
     spans.forEach((span) => {
@@ -249,18 +283,17 @@
   }
 
   function close_search() {
+    search_generation += 1;
     search_open = false;
     search_query = "";
     search_state = { query: "", matches: [], current_index: 0 };
+    text_loading = false;
     apply_highlights(current_page);
   }
 
   function handle_search_input(e: Event) {
     search_query = (e.target as HTMLInputElement).value;
-    if (pages_text.length > 0) {
-      search_state = make_search_state(pages_text, search_query);
-      navigate_to_current_match();
-    }
+    void run_search(search_query);
   }
 
   function handle_search_keydown(e: KeyboardEvent) {
@@ -478,6 +511,7 @@
     {/if}
   </div>
 </div>
+let search_generation = 0;
 
 <style>
   .PdfViewer {

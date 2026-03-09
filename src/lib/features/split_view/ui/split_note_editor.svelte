@@ -9,6 +9,7 @@
   const { stores, action_registry } = use_app_context();
 
   const secondary_note = $derived(stores.split_view.secondary_note);
+  const secondary_profile = $derived(stores.split_view.secondary_profile);
 
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
     void action_registry.execute(ACTION_IDS.split_view_mount, node, note);
@@ -62,10 +63,22 @@
     </Button>
   </div>
   {#if secondary_note}
-    <div
-      use:mount_editor={secondary_note}
-      class="SplitNoteEditor__content"
-    ></div>
+    {#if secondary_profile === "full"}
+      <div
+        use:mount_editor={secondary_note}
+        class="SplitNoteEditor__content"
+      ></div>
+    {:else}
+      <div class="SplitNoteEditor__preview">
+        {#if secondary_profile === "large-note-fallback"}
+          <div class="SplitNoteEditor__preview-banner">
+            Large note fallback mode
+          </div>
+        {/if}
+        <pre
+          class="SplitNoteEditor__preview-body">{secondary_note.markdown}</pre>
+      </div>
+    {/if}
   {:else}
     <div class="SplitNoteEditor__empty">
       <p>No file open in split view</p>
@@ -103,6 +116,31 @@
     flex: 1;
     overflow-y: auto;
     width: 100%;
+  }
+
+  .SplitNoteEditor__preview {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--space-4);
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  .SplitNoteEditor__preview-banner {
+    margin-bottom: var(--space-3);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .SplitNoteEditor__preview-body {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .SplitNoteEditor__empty {

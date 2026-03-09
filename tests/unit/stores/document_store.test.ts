@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DocumentStore } from "$lib/features/document/state/document_store.svelte";
-import type { DocumentViewerState } from "$lib/features/document/state/document_store.svelte";
+import type {
+  DocumentContentState,
+  DocumentViewerState,
+} from "$lib/features/document/state/document_store.svelte";
 
 function make_state(tab_id: string): DocumentViewerState {
   return {
@@ -10,8 +13,21 @@ function make_state(tab_id: string): DocumentViewerState {
     zoom: 1,
     scroll_top: 0,
     pdf_page: 1,
+    load_status: "idle",
+    error_message: null,
+  };
+}
+
+function make_content_state(tab_id: string): DocumentContentState {
+  return {
+    tab_id,
+    file_path: `vault/docs/${tab_id}.pdf`,
+    file_type: "pdf",
+    status: "ready",
+    error_message: null,
     content: null,
-    asset_url: null,
+    asset_url: `asset://${tab_id}`,
+    last_accessed_at: 1,
   };
 }
 
@@ -54,6 +70,34 @@ describe("DocumentStore", () => {
   it("returns undefined for non-existent tab", () => {
     const store = new DocumentStore();
     expect(store.get_viewer_state("ghost-tab")).toBeUndefined();
+  });
+
+  it("stores content state separately from viewer metadata", () => {
+    const store = new DocumentStore();
+    store.set_content_state("tab-1", make_content_state("tab-1"));
+    expect(store.get_content_state("tab-1")).toEqual(
+      make_content_state("tab-1"),
+    );
+  });
+
+  it("touches cached content without mutating viewer state", () => {
+    const store = new DocumentStore();
+    store.set_viewer_state("tab-1", make_state("tab-1"));
+    store.set_content_state("tab-1", make_content_state("tab-1"));
+
+    store.touch_content_state("tab-1", 9);
+
+    expect(store.get_content_state("tab-1")?.last_accessed_at).toBe(9);
+    expect(store.get_viewer_state("tab-1")?.load_status).toBe("idle");
+  });
+
+  it("clears cached content", () => {
+    const store = new DocumentStore();
+    store.set_content_state("tab-1", make_content_state("tab-1"));
+
+    store.clear_content_state("tab-1");
+
+    expect(store.get_content_state("tab-1")).toBeUndefined();
   });
 
   it("update_zoom is a no-op for non-existent tab", () => {

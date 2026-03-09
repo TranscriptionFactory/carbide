@@ -20,6 +20,11 @@
       ? stores.document.get_viewer_state(active_tab.id)
       : undefined,
   );
+  const document_content_state = $derived(
+    active_tab?.kind === "document"
+      ? stores.document.get_content_state(active_tab.id)
+      : undefined,
+  );
 
   const create_note_hotkey = $derived(
     stores.ui.hotkeys_config.bindings.find(
@@ -40,7 +45,10 @@
 
 <div class="NoteEditor">
   {#if active_tab?.kind === "document" && document_viewer_state}
-    <DocumentViewer viewer_state={document_viewer_state} />
+    <DocumentViewer
+      viewer_state={document_viewer_state}
+      content_state={document_content_state}
+    />
   {:else if open_note}
     {#if editor_mode === "visual"}
       <div use:mount_editor={open_note} class="NoteEditor__content"></div>

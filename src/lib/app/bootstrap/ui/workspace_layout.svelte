@@ -19,7 +19,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
-  import { as_note_path } from "$lib/shared/types/ids";
+  import { derive_starred_tree } from "$lib/features/folder";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -41,10 +41,6 @@
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
-  }
-
-  function is_note_path(path: string): boolean {
-    return path.endsWith(".md");
   }
 
   function toggle_star_for_selection(payload: {
@@ -88,182 +84,29 @@
     }),
   );
 
+  const indexed_tree = $derived(
+    sort_tree(
+      build_filetree(
+        stores.notes.notes,
+        stores.notes.folder_paths,
+        stores.notes.files,
+      ),
+    ),
+  );
+
   const starred_nodes = $derived.by(() => {
-    const starred_paths = stores.notes.starred_paths;
-    if (starred_paths.length === 0) {
+    if (stores.notes.starred_paths.length === 0) {
       return [];
     }
-
-    const root_paths = [...starred_paths].sort((a, b) => {
-      const a_is_folder = !is_note_path(a);
-      const b_is_folder = !is_note_path(b);
-      if (a_is_folder !== b_is_folder) {
-        return a_is_folder ? -1 : 1;
-      }
-      return a.localeCompare(b);
+    return derive_starred_tree({
+      tree: indexed_tree,
+      starred_paths: stores.notes.starred_paths,
+      expanded_node_ids: starred_expanded_node_ids,
+      load_states: stores.ui.filetree.load_states,
+      error_messages: stores.ui.filetree.error_messages,
+      show_hidden_files: stores.ui.editor_settings.show_hidden_files,
+      pagination: stores.ui.filetree.pagination,
     });
-
-    const result = [];
-    for (const root_path of root_paths) {
-      const is_folder = !is_note_path(root_path);
-
-      if (!is_folder) {
-        const note_meta =
-          stores.notes.notes.find((note) => note.path === root_path) ??
-          ({
-            id: root_path,
-            path: root_path,
-            name: (root_path.split("/").at(-1) ?? root_path).replace(
-              /\.md$/i,
-              "",
-            ),
-            title: (root_path.split("/").at(-1) ?? root_path).replace(
-              /\.md$/i,
-              "",
-            ),
-            mtime_ms: 0,
-            size_bytes: 0,
-          } as NoteMeta);
-
-        result.push({
-          id: `starred:${root_path}`,
-          path: root_path,
-          name: note_meta.name,
-          depth: 0,
-          is_folder: false,
-          is_expanded: false,
-          is_loading: false,
-          has_error: false,
-          error_message: null,
-          note: note_meta,
-          file_meta: null,
-          parent_path: null,
-          is_load_more: false,
-        });
-        continue;
-      }
-
-      const root_id = starred_node_id(root_path, "");
-      const root_load_state =
-        stores.ui.filetree.load_states.get(root_path) ?? "unloaded";
-      const root_is_expanded = starred_expanded_node_ids.has(root_id);
-
-      result.push({
-        id: root_id,
-        path: root_path,
-        name: root_path.split("/").at(-1) ?? root_path,
-        depth: 0,
-        is_folder: true,
-        is_expanded: root_is_expanded,
-        is_loading: root_load_state === "loading",
-        has_error: root_load_state === "error",
-        error_message: stores.ui.filetree.error_messages.get(root_path) ?? null,
-        note: null,
-        file_meta: null,
-        parent_path: null,
-        is_load_more: false,
-      });
-
-      if (!root_is_expanded) {
-        continue;
-      }
-
-      const relative_notes = stores.notes.notes
-        .filter((note) => note.path.startsWith(`${root_path}/`))
-        .map((note) => {
-          const relative_path = note.path.slice(root_path.length + 1);
-          return {
-            ...note,
-            id: as_note_path(relative_path),
-            path: as_note_path(relative_path),
-          };
-        });
-      const relative_folders = stores.notes.folder_paths
-        .filter((path) => path.startsWith(`${root_path}/`))
-        .map((path) => path.slice(root_path.length + 1));
-
-      const tree = sort_tree(build_filetree(relative_notes, relative_folders));
-
-      function visit(
-        tree_node: ReturnType<typeof build_filetree>,
-        parent_actual_path: string,
-        depth: number,
-      ) {
-        for (const [, child] of tree_node.children) {
-          if (
-            !stores.ui.editor_settings.show_hidden_files &&
-            child.name.startsWith(".")
-          ) {
-            continue;
-          }
-
-          const actual_path = `${root_path}/${child.path}`;
-          const node_id = starred_node_id(root_path, child.path);
-          const load_state =
-            stores.ui.filetree.load_states.get(actual_path) ?? "unloaded";
-          const is_expanded =
-            child.is_folder && starred_expanded_node_ids.has(node_id);
-
-          result.push({
-            id: node_id,
-            path: actual_path,
-            name: child.name,
-            depth,
-            is_folder: child.is_folder,
-            is_expanded,
-            is_loading: load_state === "loading",
-            has_error: load_state === "error",
-            error_message:
-              stores.ui.filetree.error_messages.get(actual_path) ?? null,
-            note: child.note
-              ? ({
-                  ...child.note,
-                  id: actual_path,
-                  path: actual_path,
-                } as NoteMeta)
-              : null,
-            file_meta: null,
-            parent_path: parent_actual_path,
-            is_load_more: false,
-          });
-
-          if (child.is_folder && is_expanded) {
-            visit(child, actual_path, depth + 1);
-          }
-        }
-
-        const pagination_state =
-          stores.ui.filetree.pagination.get(parent_actual_path);
-        if (
-          pagination_state &&
-          pagination_state.loaded_count < pagination_state.total_count
-        ) {
-          const load_more_id = starred_node_id(
-            root_path,
-            `__load_more__:${parent_actual_path || "root"}`,
-          );
-          result.push({
-            id: load_more_id,
-            path: load_more_id,
-            name: "",
-            depth,
-            is_folder: false,
-            is_expanded: false,
-            is_loading: pagination_state.load_state === "loading",
-            has_error: pagination_state.load_state === "error",
-            error_message: pagination_state.error_message,
-            note: null,
-            file_meta: null,
-            parent_path: parent_actual_path,
-            is_load_more: true,
-          });
-        }
-      }
-
-      visit(tree, root_path, 1);
-    }
-
-    return result;
   });
 
   $effect(() => {
