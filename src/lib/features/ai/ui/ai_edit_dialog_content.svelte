@@ -17,6 +17,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
+    note_path: string | null;
     note_title: string | null;
     selection_text: string | null;
     original_text: string;
@@ -41,6 +42,7 @@
     cli_status,
     cli_error,
     target,
+    note_path,
     note_title,
     selection_text,
     original_text,
@@ -73,6 +75,7 @@
       {cli_status}
       {cli_error}
       {target}
+      {note_path}
       {note_title}
       {selection_text}
       {original_text}

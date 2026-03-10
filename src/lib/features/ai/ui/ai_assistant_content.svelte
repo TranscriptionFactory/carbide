@@ -8,6 +8,7 @@
     create_ai_draft_diff,
     type AiDraftDiff,
   } from "$lib/features/ai/domain/ai_diff";
+  import { describe_ai_context_preview } from "$lib/features/ai/domain/ai_context_preview";
   import {
     AI_PROVIDER_DISPLAY,
     type AiApplyTarget,
@@ -24,6 +25,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
+    note_path: string | null;
     note_title: string | null;
     selection_text: string | null;
     original_text: string;
@@ -50,6 +52,7 @@
     cli_status,
     cli_error,
     target,
+    note_path,
     note_title,
     selection_text,
     original_text,
@@ -105,6 +108,15 @@
   );
   let selected_hunk_ids = $state<string[]>([]);
   let last_diff_signature = $state("");
+  let context_preview_open = $state(false);
+  const context_preview = $derived(
+    describe_ai_context_preview({
+      note_path,
+      note_title,
+      target,
+      original_text,
+    }),
+  );
   const selected_output = $derived(
     draft_diff
       ? apply_ai_draft_hunk_selection({
@@ -274,21 +286,66 @@
     {/if}
 
     <div
-      class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+      class="space-y-3 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
     >
-      <p>
-        Sending the
-        <span class="font-medium text-foreground">
-          {target === "selection" ? "selected text" : "full note"}
-        </span>
-        to {provider_display.name}.
-      </p>
-      {#if target === "selection" && selection_preview}
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <p>
+            Sending the
+            <span class="font-medium text-foreground">
+              {target === "selection" ? "selected text" : "full note"}
+            </span>
+            to {provider_display.name}.
+          </p>
+          <p class="text-xs">
+            {context_preview.note_label}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => (context_preview_open = !context_preview_open)}
+        >
+          {context_preview_open ? "Hide Payload" : "Show Payload"}
+        </Button>
+      </div>
+      <div class="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+        <div class="rounded-md border bg-background/60 px-2 py-1">
+          <span class="font-medium text-foreground"
+            >{context_preview.scope_label}</span
+          >
+        </div>
+        <div class="rounded-md border bg-background/60 px-2 py-1">
+          <span class="font-medium text-foreground"
+            >{context_preview.line_count}</span
+          >
+          lines
+        </div>
+        <div class="rounded-md border bg-background/60 px-2 py-1">
+          <span class="font-medium text-foreground"
+            >{context_preview.char_count}</span
+          >
+          chars
+        </div>
+      </div>
+      {#if !context_preview_open && target === "selection" && selection_preview}
         <p
-          class="mt-2 line-clamp-4 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+          class="line-clamp-4 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
         >
           {selection_preview}
         </p>
+      {/if}
+      {#if context_preview_open}
+        <div class="space-y-2">
+          <p class="text-xs font-medium text-foreground">
+            {context_preview.payload_label}
+          </p>
+          <textarea
+            class="min-h-40 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+            readonly
+            value={original_text}
+          ></textarea>
+        </div>
       {/if}
     </div>
 

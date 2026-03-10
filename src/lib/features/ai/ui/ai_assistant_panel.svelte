@@ -58,6 +58,7 @@
     cli_status={session.cli_status}
     cli_error={session.cli_error}
     target={session.context?.target ?? "full_note"}
+    note_path={session.context?.note_path ?? null}
     note_title={session.context?.note_title ?? null}
     selection_text={session.context?.selection?.text ?? null}
     {original_text}

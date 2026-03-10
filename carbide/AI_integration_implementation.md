@@ -113,10 +113,14 @@ Redesign Otterly's AI integration so it feels like one assistant rather than thr
 - Added focused tests for:
   - diff hunk splitting and partial draft reconstruction
   - applying an AI result override through the assistant action path
+- Added sent-context transparency in the assistant surface:
+  - the assistant now shows the exact note path/title, scope, line count, and character count that will be sent
+  - users can expand a payload preview to inspect the exact source text before running the assistant
+  - selection mode still keeps a compact inline preview when the payload drawer is collapsed
+- Added a pure context-preview helper with unit tests so the trust metadata stays deterministic and easy to evolve
 
 ## Open follow-ups
 
 - Consider a default backend setting or auto-selection strategy after the persistent assistant flow is stable
-- Improve sent-context transparency beyond the current selection/full-note summary
 - Consider a structured edit proposal contract once the panel UX is settled
 - Consider preserving hunk selections across panel hide/show cycles if users need longer review sessions
