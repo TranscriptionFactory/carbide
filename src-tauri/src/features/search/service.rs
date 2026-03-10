@@ -803,5 +803,5 @@ pub fn rewrite_note_links(
 
 #[tauri::command]
 pub fn resolve_note_link(source_path: String, raw_target: String) -> Option<String> {
-    link_parser::resolve_wiki_target(&source_path, &raw_target)
+    link_parser::resolve_markdown_target(&source_path, &raw_target)
 }

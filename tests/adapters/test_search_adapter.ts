@@ -7,6 +7,30 @@ import type {
   WikiSuggestion,
 } from "$lib/shared/types/search";
 
+function source_dir_from_path(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index >= 0 ? path.slice(0, index) : "";
+}
+
+function resolve_relative_path(
+  source_dir: string,
+  target: string,
+): string | null {
+  const segments = source_dir ? source_dir.split("/") : [];
+
+  for (const part of target.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (segments.length === 0) return null;
+      segments.pop();
+      continue;
+    }
+    segments.push(part);
+  }
+
+  return segments.length > 0 ? segments.join("/") : null;
+}
+
 export function create_test_search_adapter(): SearchPort {
   return {
     search_notes(
@@ -61,11 +85,15 @@ export function create_test_search_adapter(): SearchPort {
       return Promise.resolve({ markdown, changed: false });
     },
 
-    resolve_note_link(_source_path: string, raw_target: string) {
-      const cleaned = raw_target.replace(/^\//, "");
+    resolve_note_link(source_path: string, raw_target: string) {
+      const trimmed = raw_target.trim();
+      const base_dir = trimmed.startsWith("/")
+        ? ""
+        : source_dir_from_path(source_path);
+      const cleaned = trimmed.replace(/^\//, "");
       if (!cleaned) return Promise.resolve(null);
       const with_ext = cleaned.endsWith(".md") ? cleaned : `${cleaned}.md`;
-      return Promise.resolve(with_ext);
+      return Promise.resolve(resolve_relative_path(base_dir, with_ext));
     },
   };
 }

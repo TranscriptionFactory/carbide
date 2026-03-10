@@ -1,6 +1,6 @@
 use crate::features::search::link_parser::{
-    compute_relative_path, format_markdown_link_href, format_wiki_target, resolve_wiki_target,
-    rewrite_links,
+    compute_relative_path, format_markdown_link_href, format_wiki_target,
+    resolve_markdown_target, resolve_wiki_target, rewrite_links,
 };
 use std::collections::HashMap;
 
@@ -46,6 +46,53 @@ fn compute_relative_path_deeply_nested() {
         compute_relative_path("a/b/c", "x/y/z/target"),
         "../../../x/y/z/target"
     );
+}
+
+// --- resolve_markdown_target ---
+
+#[test]
+fn resolve_markdown_bare_name_from_nested_source() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "note"),
+        Some("docs/note.md".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_sibling_from_nested_source() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "note.md"),
+        Some("docs/note.md".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_nested_child_from_nested_source() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "sub/note.md"),
+        Some("docs/sub/note.md".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_parent_relative() {
+    assert_eq!(
+        resolve_markdown_target("docs/sub/source.md", "../note.md"),
+        Some("docs/note.md".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_root_relative() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "/folder/note.md"),
+        Some("folder/note.md".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_root_escape_returns_none() {
+    assert_eq!(resolve_markdown_target("source.md", "../escape"), None);
 }
 
 // --- resolve_wiki_target ---
@@ -409,13 +456,13 @@ fn rewrite_markdown_link_vault_relative_from_deep_source() {
     let mut map = HashMap::new();
     map.insert("note.md".into(), "note2.md".into());
     let result = rewrite_links(
-        "[note](note.md)",
+        "[note](/note.md)",
         "a/b/c/deep.md",
         "a/b/c/deep.md",
         &map,
     );
     assert!(result.changed);
-    assert_eq!(result.markdown, "[note](note2.md)");
+    assert_eq!(result.markdown, "[note](/note2.md)");
 }
 
 #[test]
@@ -440,7 +487,7 @@ fn rewrite_markdown_link_preserves_angle_wrapping_for_spaced_target() {
         "Folder0/a cappella surgical gown.md".into(),
     );
     let result = rewrite_links(
-        "[ref](<Folder10/a cappella surgical gown.md>)",
+        "[ref](</Folder10/a cappella surgical gown.md>)",
         "Folder3/a cappella magnetic recorder.md",
         "Folder3/a cappella magnetic recorder.md",
         &map,
@@ -448,15 +495,15 @@ fn rewrite_markdown_link_preserves_angle_wrapping_for_spaced_target() {
     assert!(result.changed);
     assert_eq!(
         result.markdown,
-        "[ref](<Folder0/a cappella surgical gown.md>)"
+        "[ref](</Folder0/a cappella surgical gown.md>)"
     );
 }
 
 #[test]
-fn vault_relative_markdown_link_unchanged_on_source_move() {
+fn root_relative_markdown_link_unchanged_on_source_move() {
     let map = HashMap::new();
     let result = rewrite_links(
-        "[label](sibling.md)",
+        "[label](/sibling.md)",
         "docs/source.md",
         "archive/source.md",
         &map,
@@ -465,10 +512,10 @@ fn vault_relative_markdown_link_unchanged_on_source_move() {
 }
 
 #[test]
-fn note_relative_markdown_link_rewritten_on_source_move() {
+fn relative_markdown_link_rewritten_on_source_move() {
     let map = HashMap::new();
     let result = rewrite_links(
-        "[label](./sibling.md)",
+        "[label](sibling.md)",
         "docs/source.md",
         "archive/source.md",
         &map,

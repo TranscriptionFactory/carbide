@@ -159,6 +159,31 @@ fn is_note_relative_target(raw_target: &str) -> bool {
     raw_target.starts_with("./") || raw_target.starts_with("../")
 }
 
+fn is_root_relative_target(raw_target: &str) -> bool {
+    raw_target.starts_with('/')
+}
+
+pub(crate) fn resolve_markdown_target(source_path: &str, raw_target: &str) -> Option<String> {
+    let trimmed = raw_target.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let base_dir = if is_root_relative_target(trimmed) {
+        ""
+    } else {
+        source_dir_from_path(source_path)
+    };
+
+    let cleaned = trimmed.trim_start_matches('/');
+    if cleaned.is_empty() {
+        return None;
+    }
+
+    let candidate = ensure_md_extension(cleaned);
+    resolve_relative_path(base_dir, &candidate)
+}
+
 pub(crate) fn resolve_wiki_target(source_path: &str, raw_target: &str) -> Option<String> {
     let base_dir = if is_note_relative_target(raw_target) {
         source_dir_from_path(source_path)
@@ -216,7 +241,7 @@ fn is_embedded_wikilink(node: &AstNode<'_>) -> bool {
 
 fn parse_link_node(link: &NodeLink, source_path: &str) -> Option<String> {
     let parsed = parse_internal_markdown_target(&link.url)?;
-    resolve_wiki_target(source_path, &parsed)
+    resolve_markdown_target(source_path, &parsed)
 }
 
 fn parse_wikilink_node(link: &NodeWikiLink, source_path: &str) -> Option<String> {
@@ -467,26 +492,24 @@ pub(crate) fn rewrite_links(
                     Some(p) => p,
                     None => continue,
                 };
-                let is_relative = is_note_relative_target(&parsed);
-                let resolved = match resolve_wiki_target(old_source_path, &parsed) {
+                let is_root_relative = is_root_relative_target(&parsed);
+                let resolved = match resolve_markdown_target(old_source_path, &parsed) {
                     Some(r) => r,
                     None => continue,
                 };
 
                 let new_target = if let Some(mapped) = target_map.get(&resolved) {
                     mapped.clone()
-                } else if source_moved && is_relative {
+                } else if source_moved && !is_root_relative {
                     resolved
-                } else if source_moved && !is_relative {
-                    continue;
                 } else {
                     continue;
                 };
 
-                let new_href = if is_relative {
-                    format_markdown_link_href(new_source_path, &new_target)
+                let new_href = if is_root_relative {
+                    format!("/{new_target}")
                 } else {
-                    new_target.clone()
+                    format_markdown_link_href(new_source_path, &new_target)
                 };
                 let (byte_start, byte_end) =
                     match sourcepos_to_byte_range(&line_starts, sourcepos) {
