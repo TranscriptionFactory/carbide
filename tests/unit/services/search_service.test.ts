@@ -12,6 +12,7 @@ import type {
   WikiSuggestion,
 } from "$lib/shared/types/search";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { create_mock_index_port } from "../helpers/mock_ports";
 
 function create_deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -380,5 +381,115 @@ describe("SearchService", () => {
       "source.md",
       "docs/wiki",
     );
+  });
+
+  it("prefers exact indexed root matches for markdown links before creating relative targets", async () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi
+        .fn()
+        .mockResolvedValue("docs/exposomics/overview.md"),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
+    };
+
+    const vault_store = new VaultStore();
+    const vault = create_test_vault({
+      id: as_vault_id("vault-link-resolution"),
+      path: as_vault_path("/vault/link-resolution"),
+    });
+    vault_store.set_vault(vault);
+
+    const index_port = create_mock_index_port();
+    index_port._mock_note_paths_by_prefix.set(
+      `${String(vault.id)}::exposomics/overview.md`,
+      ["exposomics/overview.md"],
+    );
+
+    const service = new SearchService(
+      search_port,
+      vault_store,
+      new OpStore(),
+      () => 1,
+      () => true,
+      index_port,
+    );
+
+    const resolved = await service.resolve_note_link(
+      "docs/current.md",
+      "exposomics/overview.md",
+    );
+
+    expect(resolved).toBe("exposomics/overview.md");
+  });
+
+  it("resolves bare wiki links to indexed folder notes when present", async () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue("exposomics.md"),
+    };
+
+    const vault_store = new VaultStore();
+    const vault = create_test_vault({
+      id: as_vault_id("vault-folder-note"),
+      path: as_vault_path("/vault/folder-note"),
+    });
+    vault_store.set_vault(vault);
+
+    const index_port = create_mock_index_port();
+    index_port._mock_note_paths_by_prefix.set(
+      `${String(vault.id)}::exposomics.md`,
+      [],
+    );
+    index_port._mock_note_paths_by_prefix.set(
+      `${String(vault.id)}::exposomics/exposomics.md`,
+      ["exposomics/exposomics.md"],
+    );
+
+    const service = new SearchService(
+      search_port,
+      vault_store,
+      new OpStore(),
+      () => 1,
+      () => true,
+      index_port,
+    );
+
+    const resolved = await service.resolve_wiki_link(
+      "notes/current.md",
+      "exposomics",
+    );
+
+    expect(resolved).toBe("exposomics/exposomics.md");
   });
 });

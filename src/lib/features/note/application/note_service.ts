@@ -34,6 +34,7 @@ import {
   type LinkRepairService,
 } from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
+import type { SplitViewService } from "$lib/features/split_view";
 import {
   to_open_note_state,
   type PastedImagePayload,
@@ -49,6 +50,12 @@ type OpenNoteOptions = {
 };
 
 type OpenEditorNote = NonNullable<EditorStore["open_note"]>;
+type SaveTarget = "active" | "primary" | "secondary";
+type SaveSession = {
+  target: Exclude<SaveTarget, "active">;
+  editor_store: EditorStore;
+  editor_service: EditorService;
+};
 
 type SavePlan =
   | { kind: "save_existing"; open_note: OpenEditorNote }
@@ -82,6 +89,7 @@ export class NoteService {
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
     private readonly on_file_written?: (path: string) => void,
+    private readonly split_view_service?: SplitViewService,
   ) {}
 
   clear_open_note() {
@@ -90,6 +98,10 @@ export class NoteService {
 
   skip_mtime_guard(note_id: NoteId) {
     this.editor_store.update_mtime(note_id, 0);
+    this.split_view_service
+      ?.get_secondary_editor_store()
+      ?.update_mtime(note_id, 0);
+    this.split_view_service?.sync_secondary_note_state();
   }
 
   private get_active_vault_id(): VaultId | null {
@@ -422,8 +434,9 @@ export class NoteService {
   async save_note(
     target_path: NotePath | null,
     overwrite: boolean,
+    target: SaveTarget = "active",
   ): Promise<NoteSaveResult> {
-    const save_context = this.resolve_save_context();
+    const save_context = this.resolve_save_context(target);
     if (!save_context) {
       return { status: "skipped" };
     }
@@ -443,12 +456,19 @@ export class NoteService {
     this.begin_save_operation();
 
     try {
-      await this.run_save_plan(save_context.vault_id, plan_decision.plan);
+      await this.run_save_plan(
+        save_context.vault_id,
+        save_context.session,
+        plan_decision.plan,
+      );
 
-      this.editor_service.mark_clean();
+      save_context.session.editor_service.mark_clean();
       this.finish_save_operation(null);
 
-      const saved_path = this.resolve_saved_path(plan_decision.plan.open_note);
+      const saved_path = this.resolve_saved_path(
+        plan_decision.plan.open_note,
+        save_context.session,
+      );
       return {
         status: "saved",
         saved_path,
@@ -557,30 +577,41 @@ export class NoteService {
     this.notes_store.remove_recent_note(note_path);
   }
 
-  private resolve_save_context(): {
+  private resolve_save_context(target: SaveTarget): {
     vault_id: VaultId;
     open_note: OpenEditorNote;
+    session: SaveSession;
   } | null {
     const vault_id = this.get_active_vault_id();
-    const open_note = this.editor_store.open_note;
+    const session = this.resolve_save_session(target);
+    if (!vault_id || !session) {
+      return null;
+    }
+
+    const open_note = session.editor_store.open_note;
     if (!vault_id || !open_note) {
       return null;
     }
 
-    this.sync_flushed_markdown(open_note.meta.id);
-    const latest_open_note = this.editor_store.open_note;
+    this.sync_flushed_markdown(session, open_note.meta.id);
+    const latest_open_note = session.editor_store.open_note;
     if (!latest_open_note) {
       return null;
     }
-    return { vault_id, open_note: latest_open_note };
+    return {
+      vault_id,
+      open_note: latest_open_note,
+      session,
+    };
   }
 
-  private sync_flushed_markdown(note_id: NotePath) {
-    const flushed = this.editor_service.flush();
+  private sync_flushed_markdown(session: SaveSession, note_id: NotePath) {
+    const flushed = session.editor_service.flush();
     if (!flushed || flushed.note_id !== note_id) {
       return;
     }
-    this.editor_store.set_markdown(flushed.note_id, flushed.markdown);
+    session.editor_store.set_markdown(flushed.note_id, flushed.markdown);
+    this.sync_split_view_session(session);
   }
 
   private resolve_save_plan(
@@ -618,26 +649,75 @@ export class NoteService {
     };
   }
 
-  private async run_save_plan(vault_id: VaultId, plan: SavePlan) {
+  private async run_save_plan(
+    vault_id: VaultId,
+    session: SaveSession,
+    plan: SavePlan,
+  ) {
     await this.enqueue_write(
       `note.save:${plan.open_note.meta.id}`,
       async () => {
-        if (plan.kind === "save_untitled") {
+        const refreshed_plan = this.refresh_save_plan(session, plan);
+        if (refreshed_plan.kind === "save_untitled") {
           await this.save_untitled_note(
             vault_id,
-            plan.open_note,
-            plan.target_path,
-            plan.overwrite,
+            session,
+            refreshed_plan.open_note,
+            refreshed_plan.target_path,
+            refreshed_plan.overwrite,
           );
           return;
         }
-        await this.write_existing_note(vault_id, plan.open_note);
+        await this.write_existing_note(
+          vault_id,
+          session,
+          refreshed_plan.open_note,
+        );
       },
     );
   }
 
+  private refresh_save_plan(session: SaveSession, plan: SavePlan): SavePlan {
+    const current_open_note = session.editor_store.open_note;
+    if (!current_open_note) {
+      return plan;
+    }
+
+    if (
+      plan.kind === "save_existing" &&
+      current_open_note.meta.id === plan.open_note.meta.id
+    ) {
+      return {
+        ...plan,
+        open_note: current_open_note,
+      };
+    }
+
+    if (
+      plan.kind === "save_untitled" &&
+      current_open_note.buffer_id === plan.open_note.buffer_id
+    ) {
+      if (is_draft_note_path(current_open_note.meta.path)) {
+        return {
+          ...plan,
+          open_note: current_open_note,
+        };
+      }
+
+      if (current_open_note.meta.path === plan.target_path) {
+        return {
+          kind: "save_existing",
+          open_note: current_open_note,
+        };
+      }
+    }
+
+    return plan;
+  }
+
   private async write_existing_note(
     vault_id: VaultId,
+    session: SaveSession,
     open_note: OpenEditorNote,
   ) {
     this.on_file_written?.(open_note.meta.id);
@@ -650,12 +730,16 @@ export class NoteService {
     await this.run_index_update(() =>
       this.index_port.upsert_note(vault_id, open_note.meta.id),
     );
-    this.editor_store.mark_clean(open_note.meta.id, new_mtime);
+    session.editor_store.mark_clean(open_note.meta.id, new_mtime);
+    this.sync_split_view_session(session);
   }
 
-  private resolve_saved_path(fallback_note: OpenEditorNote): NotePath {
+  private resolve_saved_path(
+    fallback_note: OpenEditorNote,
+    session: SaveSession,
+  ): NotePath {
     return as_note_path(
-      this.editor_store.open_note?.meta.path ?? fallback_note.meta.path,
+      session.editor_store.open_note?.meta.path ?? fallback_note.meta.path,
     );
   }
 
@@ -706,6 +790,7 @@ export class NoteService {
 
   private async save_untitled_note(
     vault_id: VaultId,
+    session: SaveSession,
     open_note: NonNullable<EditorStore["open_note"]>,
     target_path: NotePath,
     overwrite: boolean,
@@ -723,9 +808,10 @@ export class NoteService {
         this.index_port.upsert_note(vault_id, created_meta.id),
       );
       this.notes_store.add_note(created_meta);
-      this.editor_service.rename_buffer(old_path, target_path);
-      this.editor_store.update_open_note_path(target_path);
-      this.editor_store.mark_clean(target_path, created_meta.mtime_ms);
+      session.editor_service.rename_buffer(old_path, target_path);
+      session.editor_store.update_open_note_path(target_path);
+      session.editor_store.mark_clean(target_path, created_meta.mtime_ms);
+      this.sync_split_view_session(session);
       this.notes_store.add_recent_note(created_meta);
       return;
     } catch (error) {
@@ -748,9 +834,10 @@ export class NoteService {
     );
     const written = await this.notes_port.read_note(vault_id, target_path);
     this.notes_store.add_note(written.meta);
-    this.editor_service.rename_buffer(old_path, target_path);
-    this.editor_store.update_open_note_path(target_path);
-    this.editor_store.mark_clean(target_path, new_mtime);
+    session.editor_service.rename_buffer(old_path, target_path);
+    session.editor_store.update_open_note_path(target_path);
+    session.editor_store.mark_clean(target_path, new_mtime);
+    this.sync_split_view_session(session);
     this.notes_store.add_recent_note(written.meta);
   }
 
@@ -813,5 +900,46 @@ export class NoteService {
       message.includes("already exists") ||
       message.includes("destination already exists")
     );
+  }
+
+  private resolve_save_session(target: SaveTarget): SaveSession | null {
+    if (target === "primary") {
+      return {
+        target: "primary",
+        editor_store: this.editor_store,
+        editor_service: this.editor_service,
+      };
+    }
+
+    if (target === "secondary") {
+      const editor_store =
+        this.split_view_service?.get_secondary_editor_store();
+      const editor_service = this.split_view_service?.get_secondary_editor();
+      if (!editor_store || !editor_service) {
+        return null;
+      }
+      return {
+        target: "secondary",
+        editor_store,
+        editor_service,
+      };
+    }
+
+    if (
+      this.split_view_service?.is_active() &&
+      this.split_view_service.get_secondary_open_note() &&
+      this.split_view_service.get_active_pane() === "secondary"
+    ) {
+      return this.resolve_save_session("secondary");
+    }
+
+    return this.resolve_save_session("primary");
+  }
+
+  private sync_split_view_session(session: SaveSession): void {
+    if (session.target !== "secondary") {
+      return;
+    }
+    this.split_view_service?.sync_secondary_note_state();
   }
 }

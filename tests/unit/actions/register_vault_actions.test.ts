@@ -168,7 +168,7 @@ describe("register_vault_actions", () => {
     await registry.execute(ACTION_IDS.vault_select, target_vault_id);
     await registry.execute(ACTION_IDS.vault_confirm_save_change);
 
-    expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+    expect(services.note.save_note).toHaveBeenCalledWith(null, true, "primary");
     expect(services.vault.change_vault_by_id).toHaveBeenCalledWith(
       target_vault_id,
     );

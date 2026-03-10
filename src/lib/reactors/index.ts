@@ -1,7 +1,10 @@
 import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.svelte";
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_theme_reactor } from "$lib/reactors/theme.reactor.svelte";
-import { create_autosave_reactor } from "$lib/reactors/autosave.reactor.svelte";
+import {
+  create_autosave_reactor,
+  create_split_view_autosave_reactor,
+} from "$lib/reactors/autosave.reactor.svelte";
 import { create_op_toast_reactor } from "$lib/reactors/op_toast.reactor.svelte";
 import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_persist.reactor.svelte";
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
@@ -79,6 +82,12 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.note_service,
       context.tab_service,
+      "primary",
+    ),
+    create_split_view_autosave_reactor(
+      () => context.split_view_service.get_secondary_editor_store(),
+      context.ui_store,
+      context.note_service,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),

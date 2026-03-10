@@ -7,6 +7,7 @@ import type { SplitViewStore } from "$lib/features/split_view/state/split_view_s
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { create_logger } from "$lib/shared/utils/logger";
 import type { NotePath } from "$lib/shared/types/ids";
+import type { ActivePane } from "$lib/features/split_view/state/split_view_store.svelte";
 
 const log = create_logger("split_view_service");
 
@@ -33,6 +34,26 @@ export class SplitViewService {
     this.split_view_store.open_secondary(note);
   }
 
+  get_secondary_editor(): EditorService | null {
+    return this.secondary_editor;
+  }
+
+  get_secondary_editor_store(): EditorStore | null {
+    return this.secondary_store;
+  }
+
+  get_secondary_open_note(): OpenNoteState | null {
+    return (
+      this.secondary_store?.open_note ?? this.split_view_store.secondary_note
+    );
+  }
+
+  sync_secondary_note_state(): void {
+    this.split_view_store.set_secondary_note(
+      this.secondary_store?.open_note ?? null,
+    );
+  }
+
   async mount_secondary(
     note: OpenNoteState,
     root: HTMLDivElement,
@@ -51,6 +72,7 @@ export class SplitViewService {
     }
 
     this.secondary_store?.set_open_note(note);
+    this.sync_secondary_note_state();
     await this.secondary_editor.mount({ root, note });
   }
 
@@ -60,6 +82,7 @@ export class SplitViewService {
       this.secondary_editor = null;
     }
     this.secondary_store = null;
+    this.sync_secondary_note_state();
   }
 
   close(): void {
@@ -70,6 +93,10 @@ export class SplitViewService {
 
   is_active(): boolean {
     return this.split_view_store.active;
+  }
+
+  get_active_pane(): ActivePane {
+    return this.split_view_store.active_pane;
   }
 
   get_secondary_note_path(): NotePath | null {

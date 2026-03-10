@@ -692,14 +692,18 @@ export function register_note_actions(input: ActionRegistrationInput) {
       shortcut: "CmdOrCtrl+S",
       when: when_vault_open,
       execute: async (payload?: unknown) => {
-        const open_note = stores.editor.open_note;
+        const open_note =
+          stores.split_view.active &&
+          stores.split_view.active_pane === "secondary"
+            ? stores.split_view.secondary_note
+            : stores.editor.open_note;
         if (!open_note) {
           return;
         }
 
         const source = parse_save_request_payload(payload)?.source ?? "manual";
         if (!is_draft_note_path(open_note.meta.path)) {
-          await services.note.save_note(null, true);
+          await services.note.save_note(null, true, "active");
           return;
         }
 
@@ -721,7 +725,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       label: "Confirm Save Note",
       execute: async () => {
         if (!stores.ui.save_note_dialog.open) {
-          await services.note.save_note(null, true);
+          await services.note.save_note(null, true, "active");
           return;
         }
 

@@ -28,6 +28,21 @@ export class SplitViewStore {
     this.secondary_profile = "light";
   }
 
+  set_secondary_note(note: OpenNoteState | null) {
+    this.secondary_note = note;
+    if (!note) {
+      this.secondary_profile = "light";
+      return;
+    }
+    if (note.markdown.length >= LARGE_NOTE_THRESHOLD) {
+      this.secondary_profile = "large-note-fallback";
+      return;
+    }
+    if (this.secondary_profile === "large-note-fallback") {
+      this.secondary_profile = "light";
+    }
+  }
+
   set_active_pane(pane: ActivePane) {
     this.active_pane = pane;
     if (

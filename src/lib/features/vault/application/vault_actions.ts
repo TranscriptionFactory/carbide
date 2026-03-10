@@ -258,7 +258,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
         error: null,
       };
 
-      const active_save = await services.note.save_note(null, true);
+      const active_save = await services.note.save_note(null, true, "primary");
       if (active_save.status !== "saved") {
         const error =
           active_save.status === "failed"

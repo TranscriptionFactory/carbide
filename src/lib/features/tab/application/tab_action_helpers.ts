@@ -109,7 +109,7 @@ export async function capture_active_tab_snapshot(
     stores.tab.set_cached_note(active_id, open_note);
     stores.tab.set_dirty(active_id, open_note.is_dirty);
     if (open_note.is_dirty && stores.ui.editor_settings.autosave_enabled) {
-      await services.note.save_note(null, true);
+      await services.note.save_note(null, true, "primary");
     }
   }
 }
@@ -207,7 +207,7 @@ export async function save_dirty_tab(
     if (tab.kind === "note" && stores.tab.has_conflict(tab.note_path)) {
       services.note.skip_mtime_guard(tab.note_path);
     }
-    const result = await services.note.save_note(null, true);
+    const result = await services.note.save_note(null, true, "primary");
     return result.status === "saved" ? "saved" : "failed";
   }
 

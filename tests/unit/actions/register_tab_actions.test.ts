@@ -193,7 +193,11 @@ describe("register_tab_actions", () => {
 
       await registry.execute(ACTION_IDS.tab_activate, "b.md");
 
-      expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+      expect(services.note.save_note).toHaveBeenCalledWith(
+        null,
+        true,
+        "primary",
+      );
     });
 
     it("switching away from a dirty tab does not save when autosave is disabled", async () => {
@@ -521,7 +525,11 @@ describe("register_tab_actions", () => {
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
 
       expect(stores.ui.tab_close_confirm.open).toBe(false);
-      expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+      expect(services.note.save_note).toHaveBeenCalledWith(
+        null,
+        true,
+        "primary",
+      );
       expect(stores.tab.tabs).toHaveLength(0);
     });
 
@@ -548,7 +556,11 @@ describe("register_tab_actions", () => {
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
 
       expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
-      expect(services.note.save_note).toHaveBeenCalledWith(null, true);
+      expect(services.note.save_note).toHaveBeenCalledWith(
+        null,
+        true,
+        "primary",
+      );
       expect(stores.tab.tabs).toHaveLength(0);
     });
 

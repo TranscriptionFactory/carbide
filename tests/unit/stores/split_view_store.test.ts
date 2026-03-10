@@ -73,4 +73,15 @@ describe("SplitViewStore", () => {
 
     expect(store.secondary_profile).toBe("large-note-fallback");
   });
+
+  it("updates the secondary note without closing split view", () => {
+    const store = new SplitViewStore();
+    store.open_secondary(make_note("note-1", "First"));
+
+    const second = make_note("note-2", "Second");
+    store.set_secondary_note(second);
+
+    expect(store.active).toBe(true);
+    expect(store.secondary_note).toBe(second);
+  });
 });

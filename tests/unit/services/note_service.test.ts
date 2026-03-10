@@ -1067,6 +1067,88 @@ describe("NoteService", () => {
     expect(op_store.get("note.save").status).toBe("success");
   });
 
+  it("re-resolves the latest mtime before a queued save writes", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("docs/alpha.md"),
+        path: as_note_path("docs/alpha.md"),
+        name: "alpha",
+        title: "alpha",
+        mtime_ms: 100,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text("# Alpha"),
+      buffer_id: "alpha-buffer",
+      is_dirty: true,
+    });
+
+    const first_write = create_deferred<number>();
+    const notes_port = create_mock_notes_port();
+    const write_note = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        first_write.resolve(200);
+        return await first_write.promise;
+      })
+      .mockImplementationOnce(
+        (_vault_id, _note_id, _markdown, expected_mtime_ms?: number) => {
+          expect(expected_mtime_ms).toBe(200);
+          return Promise.resolve(300);
+        },
+      );
+    notes_port.write_note = write_note;
+
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => 1,
+    );
+
+    await Promise.all([
+      service.save_note(null, true),
+      service.save_note(null, true),
+    ]);
+
+    expect(write_note).toHaveBeenNthCalledWith(
+      1,
+      vault_store.vault?.id,
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      100,
+    );
+    expect(write_note).toHaveBeenNthCalledWith(
+      2,
+      vault_store.vault?.id,
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      200,
+    );
+    expect(editor_store.open_note?.meta.mtime_ms).toBe(300);
+  });
+
   it("maps backend rename already-exists errors to conflict", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();

@@ -52,6 +52,7 @@ export function create_app_context(input: {
     now_ms,
     (command) =>
       command.id !== "ai_assistant" || stores.ui.editor_settings.ai_enabled,
+    input.ports.index,
   );
 
   const editor_callbacks: EditorServiceCallbacks = {
@@ -103,22 +104,6 @@ export function create_app_context(input: {
 
   const watcher_service = new WatcherService(input.ports.watcher);
 
-  const note_service = new NoteService(
-    input.ports.notes,
-    input.ports.index,
-    input.ports.assets,
-    stores.vault,
-    stores.notes,
-    stores.editor,
-    stores.op,
-    editor_service,
-    now_ms,
-    link_repair_service,
-    (path) => {
-      watcher_service.suppress_next(path);
-    },
-  );
-
   const folder_service = new FolderService(
     input.ports.notes,
     input.ports.index,
@@ -138,14 +123,6 @@ export function create_app_context(input: {
     stores.editor,
     stores.op,
     now_ms,
-  );
-
-  const tab_service = new TabService(
-    input.ports.vault_settings,
-    stores.vault,
-    stores.tab,
-    stores.notes,
-    note_service,
   );
 
   const git_service = new GitService(
@@ -195,6 +172,31 @@ export function create_app_context(input: {
     stores.split_view,
     editor_callbacks,
     input.ports.vault_settings,
+  );
+
+  const note_service = new NoteService(
+    input.ports.notes,
+    input.ports.index,
+    input.ports.assets,
+    stores.vault,
+    stores.notes,
+    stores.editor,
+    stores.op,
+    editor_service,
+    now_ms,
+    link_repair_service,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
+    split_view_service,
+  );
+
+  const tab_service = new TabService(
+    input.ports.vault_settings,
+    stores.vault,
+    stores.tab,
+    stores.notes,
+    note_service,
   );
 
   const document_service = new DocumentService(

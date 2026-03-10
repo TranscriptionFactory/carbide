@@ -1,4 +1,7 @@
-import type { SearchPort } from "$lib/features/search/ports";
+import type {
+  SearchPort,
+  WorkspaceIndexPort,
+} from "$lib/features/search/ports";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
@@ -24,6 +27,7 @@ import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 import type { Vault } from "$lib/shared/types/vault";
 import type { VaultId } from "$lib/shared/types/ids";
+import { note_name_from_path } from "$lib/shared/utils/path";
 
 const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
@@ -139,6 +143,7 @@ export class SearchService {
     private readonly is_command_enabled: (
       command: CommandDefinition,
     ) => boolean = () => true,
+    private readonly index_port?: WorkspaceIndexPort,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -507,17 +512,99 @@ export class SearchService {
     this.op_store.reset("search.notes.all_vaults");
   }
 
+  private strip_internal_target(raw_target: string): string | null {
+    const trimmed = raw_target.trim();
+    if (trimmed === "") {
+      return null;
+    }
+
+    let path = trimmed;
+    const hash = path.indexOf("#");
+    if (hash >= 0) {
+      path = path.slice(0, hash);
+    }
+    const query = path.indexOf("?");
+    if (query >= 0) {
+      path = path.slice(0, query);
+    }
+
+    const normalized = path.trim().replace(/^\/+/, "");
+    return normalized === "" ? null : normalized;
+  }
+
+  private build_exact_lookup_candidates(candidate: string): string[] {
+    const normalized = this.strip_internal_target(candidate);
+    if (!normalized) {
+      return [];
+    }
+
+    const md_path = normalized.endsWith(".md")
+      ? normalized
+      : `${normalized}.md`;
+    const folder_note = `${md_path.slice(0, -3)}/${note_name_from_path(md_path)}.md`;
+
+    return [...new Set([md_path, folder_note])];
+  }
+
+  private async resolve_indexed_note_path(
+    candidate: string,
+  ): Promise<string | null> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.index_port) {
+      return null;
+    }
+
+    for (const prefix of this.build_exact_lookup_candidates(candidate)) {
+      const paths = await this.index_port.list_note_paths_by_prefix(
+        vault_id,
+        prefix,
+      );
+      const exact = paths.find((path) => path === prefix);
+      if (exact) {
+        return exact;
+      }
+      const match = paths.find(
+        (path) => path.toLowerCase() === prefix.toLowerCase(),
+      );
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
+  }
+
   async resolve_note_link(
     source_path: string,
     raw_target: string,
   ): Promise<string | null> {
-    return this.search_port.resolve_note_link(source_path, raw_target);
+    const resolved = await this.search_port.resolve_note_link(
+      source_path,
+      raw_target,
+    );
+    if (raw_target.startsWith("./") || raw_target.startsWith("../")) {
+      return (await this.resolve_indexed_note_path(resolved ?? "")) ?? resolved;
+    }
+
+    return (
+      (await this.resolve_indexed_note_path(raw_target)) ??
+      (await this.resolve_indexed_note_path(resolved ?? "")) ??
+      resolved
+    );
   }
 
   async resolve_wiki_link(
     source_path: string,
     raw_target: string,
   ): Promise<string | null> {
-    return this.search_port.resolve_wiki_link(source_path, raw_target);
+    const resolved = await this.search_port.resolve_wiki_link(
+      source_path,
+      raw_target,
+    );
+    return (
+      (await this.resolve_indexed_note_path(raw_target)) ??
+      (await this.resolve_indexed_note_path(resolved ?? "")) ??
+      resolved
+    );
   }
 }
