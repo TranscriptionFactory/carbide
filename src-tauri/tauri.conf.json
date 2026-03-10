@@ -54,7 +54,8 @@
         "width": 1200,
         "height": 820,
         "resizable": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true
       }
     ],
     "security": {

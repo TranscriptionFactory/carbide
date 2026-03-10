@@ -32,6 +32,7 @@ export function create_window_tauri_adapter(): WindowPort {
         title: compute_title(init),
         width,
         height,
+        zoomHotkeysEnabled: true,
       });
       await new Promise<void>((resolve, reject) => {
         let settled = false;
