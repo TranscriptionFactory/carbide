@@ -27,7 +27,25 @@
     on_clear_result: () => void;
   };
 
-  let component_props: AiEditDialogProps = $props();
+  let {
+    open,
+    provider,
+    prompt,
+    ollama_model,
+    cli_status,
+    cli_error,
+    target,
+    note_title,
+    selection_text,
+    is_executing,
+    result,
+    on_open_change,
+    on_prompt_change,
+    on_ollama_model_change,
+    on_execute,
+    on_apply,
+    on_clear_result,
+  }: AiEditDialogProps = $props();
 
   const load_ai_edit_dialog = () =>
     import("$lib/features/ai/ui/ai_edit_dialog_content.svelte");
@@ -35,7 +53,25 @@
 
 <OptionalSurface
   loader={load_ai_edit_dialog}
-  {component_props}
+  component_props={{
+    open,
+    provider,
+    prompt,
+    ollama_model,
+    cli_status,
+    cli_error,
+    target,
+    note_title,
+    selection_text,
+    is_executing,
+    result,
+    on_open_change,
+    on_prompt_change,
+    on_ollama_model_change,
+    on_execute,
+    on_apply,
+    on_clear_result,
+  }}
   loading_label="Loading AI…"
   error_label="Failed to load AI dialog"
 />

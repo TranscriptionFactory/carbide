@@ -21,10 +21,33 @@
     }) => void;
   };
 
-  let component_props: SourceEditorProps = $props();
+  let {
+    initial_markdown,
+    initial_cursor_offset,
+    initial_scroll_fraction,
+    on_markdown_change,
+    on_dirty_change,
+    on_cursor_change,
+    on_selection_change,
+    on_outline_change,
+    on_destroy,
+  }: SourceEditorProps = $props();
 
   const load_source_editor = () =>
     import("$lib/features/editor/ui/source_editor_content.svelte");
+  const component_props = $derived.by<SourceEditorProps>(() => ({
+    initial_markdown,
+    ...(initial_cursor_offset === undefined ? {} : { initial_cursor_offset }),
+    ...(initial_scroll_fraction === undefined
+      ? {}
+      : { initial_scroll_fraction }),
+    on_markdown_change,
+    on_dirty_change,
+    on_cursor_change,
+    ...(on_selection_change === undefined ? {} : { on_selection_change }),
+    ...(on_outline_change === undefined ? {} : { on_outline_change }),
+    ...(on_destroy === undefined ? {} : { on_destroy }),
+  }));
 </script>
 
 <OptionalSurface

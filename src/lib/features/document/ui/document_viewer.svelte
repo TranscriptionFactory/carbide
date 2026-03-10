@@ -10,7 +10,7 @@
     content_state: DocumentContentState | undefined;
   };
 
-  let component_props: DocumentViewerProps = $props();
+  let { viewer_state, content_state }: DocumentViewerProps = $props();
 
   const load_document_viewer = () =>
     import("$lib/features/document/ui/document_viewer_content.svelte");
@@ -18,7 +18,7 @@
 
 <OptionalSurface
   loader={load_document_viewer}
-  {component_props}
+  component_props={{ viewer_state, content_state }}
   loading_label="Loading document…"
   error_label="Failed to load document viewer"
 />
