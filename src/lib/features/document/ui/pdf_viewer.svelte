@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ZoomInIcon from "@lucide/svelte/icons/zoom-in";
@@ -351,7 +351,8 @@
   }
 
   $effect(() => {
-    if (src) void load_pdf(src);
+    const url = src;
+    if (url) untrack(() => void load_pdf(url));
   });
 
   $effect(() => {
@@ -361,13 +362,13 @@
     if (!applied_initial_zoom) {
       applied_initial_zoom = true;
       if (default_zoom === "fit_width") {
-        void fit_width();
+        untrack(() => void fit_width());
         return;
       }
       zoom_level = 1.0;
     }
 
-    void render_page(page);
+    untrack(() => void render_page(page));
   });
 
   onMount(() => {
