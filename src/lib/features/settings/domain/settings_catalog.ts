@@ -163,6 +163,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["terminal", "vault", "cwd", "working directory", "follow"],
   },
   {
+    key: "ai_enabled",
+    label: "Enable AI",
+    description: "Show AI tools and allow local AI assistant execution",
+    category: "AI",
+    keywords: ["ai", "assistant", "enable", "disable", "llm", "toggle"],
+  },
+  {
     key: "ai_ollama_model",
     label: "Ollama Model",
     description: "Default Ollama model used for AI edits",

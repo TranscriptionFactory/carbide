@@ -66,8 +66,16 @@ export class AiStore {
   close_dialog() {
     this.dialog = {
       ...initial_state(),
+      provider: this.dialog.provider,
       ollama_model: this.dialog.ollama_model,
     };
+  }
+
+  set_provider(provider: AiProvider) {
+    this.dialog.provider = provider;
+    this.dialog.result = null;
+    this.dialog.cli_status = "idle";
+    this.dialog.cli_error = null;
   }
 
   set_prompt(prompt: string) {

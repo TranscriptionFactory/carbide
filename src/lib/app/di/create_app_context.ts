@@ -50,6 +50,8 @@ export function create_app_context(input: {
     stores.vault,
     stores.op,
     now_ms,
+    (command) =>
+      command.id !== "ai_assistant" || stores.ui.editor_settings.ai_enabled,
   );
 
   const editor_callbacks: EditorServiceCallbacks = {

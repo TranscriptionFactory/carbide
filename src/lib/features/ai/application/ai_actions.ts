@@ -16,6 +16,18 @@ export function register_ai_actions(
   const { registry, services, ai_service, ai_store } = input;
   let dialog_revision = 0;
 
+  function ai_enabled() {
+    return input.stores.ui.editor_settings.ai_enabled;
+  }
+
+  function ensure_ai_enabled() {
+    if (ai_enabled()) {
+      return true;
+    }
+    toast.info("AI Assistant is disabled in settings");
+    return false;
+  }
+
   function command_for(provider: AiProvider) {
     const settings = input.stores.ui.editor_settings;
     if (provider === "claude") return settings.ai_claude_command;
@@ -23,7 +35,39 @@ export function register_ai_actions(
     return settings.ai_ollama_command;
   }
 
-  async function open_ai_dialog(provider: AiProvider) {
+  async function refresh_cli_status(provider: AiProvider, revision: number) {
+    ai_store.set_cli_status("checking");
+
+    if (provider === "ollama") {
+      ai_store.set_ollama_model(
+        input.stores.ui.editor_settings.ai_ollama_model,
+      );
+    }
+
+    try {
+      const available = await ai_service.check_cli(
+        provider,
+        command_for(provider),
+      );
+      if (revision !== dialog_revision) return;
+      if (!ai_store.dialog.open || ai_store.dialog.provider !== provider) {
+        return;
+      }
+      ai_store.set_cli_status(available ? "available" : "unavailable");
+    } catch (error) {
+      if (revision !== dialog_revision) return;
+      if (!ai_store.dialog.open || ai_store.dialog.provider !== provider) {
+        return;
+      }
+      ai_store.set_cli_status("error", error_message(error));
+    }
+  }
+
+  async function open_ai_dialog(
+    provider: AiProvider = ai_store.dialog.provider,
+  ) {
+    if (!ensure_ai_enabled()) return;
+
     const context = services.editor.get_ai_context();
     if (!context) {
       toast.info("Open a note first to use AI editing");
@@ -41,35 +85,21 @@ export function register_ai_actions(
     });
 
     const revision = ++dialog_revision;
-    ai_store.set_cli_status("checking");
-
-    if (provider === "ollama") {
-      ai_store.set_ollama_model(
-        input.stores.ui.editor_settings.ai_ollama_model,
-      );
-    }
-
-    try {
-      const available = await ai_service.check_cli(
-        provider,
-        command_for(provider),
-      );
-      if (revision !== dialog_revision) return;
-      if (!ai_store.dialog.open || ai_store.dialog.provider !== provider)
-        return;
-      ai_store.set_cli_status(available ? "available" : "unavailable");
-    } catch (error) {
-      if (revision !== dialog_revision) return;
-      if (!ai_store.dialog.open || ai_store.dialog.provider !== provider)
-        return;
-      ai_store.set_cli_status("error", error_message(error));
-    }
+    await refresh_cli_status(provider, revision);
   }
 
   function close_ai_dialog() {
     dialog_revision += 1;
     ai_store.close_dialog();
   }
+
+  registry.register({
+    id: ACTION_IDS.ai_open_assistant,
+    label: "AI Assistant",
+    execute: async () => {
+      await open_ai_dialog();
+    },
+  });
 
   registry.register({
     id: ACTION_IDS.ai_open_claude,
@@ -104,6 +134,28 @@ export function register_ai_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.ai_update_provider,
+    label: "Update AI Provider",
+    execute: async (provider: unknown) => {
+      if (!ensure_ai_enabled()) return;
+      const next_provider = String(provider) as AiProvider;
+      if (
+        next_provider !== "claude" &&
+        next_provider !== "codex" &&
+        next_provider !== "ollama"
+      ) {
+        return;
+      }
+      ai_store.set_provider(next_provider);
+      if (!ai_store.dialog.open) {
+        return;
+      }
+      const revision = ++dialog_revision;
+      await refresh_cli_status(next_provider, revision);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ai_update_prompt,
     label: "Update AI Prompt",
     execute: (prompt: unknown) => {
@@ -131,6 +183,7 @@ export function register_ai_actions(
     id: ACTION_IDS.ai_execute,
     label: "Execute AI Edit",
     execute: async () => {
+      if (!ensure_ai_enabled()) return;
       const dialog = ai_store.dialog;
       if (!dialog.open || !dialog.context) return;
       if (dialog.is_executing) return;

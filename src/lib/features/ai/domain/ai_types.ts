@@ -53,18 +53,18 @@ export const AI_PROVIDER_DISPLAY: Record<AiProvider, AiProviderDisplay> = {
     name: "Claude",
     cli_name: "Claude Code CLI",
     install_url: "https://code.claude.com/docs/en/quickstart",
-    command_label: "AI Edit (Claude)",
+    command_label: "Claude Backend",
   },
   codex: {
     name: "Codex",
     cli_name: "OpenAI Codex CLI",
     install_url: "https://github.com/openai/codex",
-    command_label: "AI Edit (Codex)",
+    command_label: "Codex Backend",
   },
   ollama: {
     name: "Ollama",
     cli_name: "Ollama CLI",
     install_url: "https://ollama.com",
-    command_label: "AI Edit (Ollama)",
+    command_label: "Ollama Backend",
   },
 };

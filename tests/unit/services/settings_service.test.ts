@@ -44,6 +44,7 @@ describe("SettingsService", () => {
         if (key === "show_vault_dashboard_on_open") return false;
         if (key === "autosave_enabled") return false;
         if (key === "git_autocommit_mode") return "on_save";
+        if (key === "ai_enabled") return false;
         if (key === "terminal_font_size_px") return 15;
         if (key === "document_pdf_default_zoom") return "fit_width";
         return null;
@@ -59,6 +60,7 @@ describe("SettingsService", () => {
     expect(result.settings.show_vault_dashboard_on_open).toBe(false);
     expect(result.settings.autosave_enabled).toBe(false);
     expect(result.settings.git_autocommit_mode).toBe("on_save");
+    expect(result.settings.ai_enabled).toBe(false);
     expect(result.settings.terminal_font_size_px).toBe(15);
     expect(result.settings.document_pdf_default_zoom).toBe("fit_width");
     expect(result.settings.max_open_tabs).toBe(8);
@@ -72,6 +74,7 @@ describe("SettingsService", () => {
       show_vault_dashboard_on_open: false,
       autosave_enabled: false,
       git_autocommit_mode: "on_save" as const,
+      ai_enabled: false,
       ai_execution_timeout_seconds: 120,
     };
 
@@ -84,6 +87,7 @@ describe("SettingsService", () => {
     expect(saved_vault).not.toHaveProperty("show_vault_dashboard_on_open");
     expect(saved_vault).not.toHaveProperty("autosave_enabled");
     expect(saved_vault).not.toHaveProperty("git_autocommit_mode");
+    expect(saved_vault).not.toHaveProperty("ai_enabled");
     expect(saved_vault).not.toHaveProperty("ai_execution_timeout_seconds");
     expect(saved_vault).toHaveProperty("max_open_tabs");
 
@@ -99,6 +103,7 @@ describe("SettingsService", () => {
       "git_autocommit_mode",
       "on_save",
     );
+    expect(settings_port.set_setting).toHaveBeenCalledWith("ai_enabled", false);
     expect(settings_port.set_setting).toHaveBeenCalledWith(
       "ai_execution_timeout_seconds",
       120,
@@ -112,6 +117,7 @@ describe("SettingsService", () => {
         autosave_enabled: true,
         show_vault_dashboard_on_open: true,
         git_autocommit_mode: "on_save",
+        ai_enabled: false,
       },
       global_get: () => false,
     });
@@ -127,6 +133,7 @@ describe("SettingsService", () => {
     expect(written_vault).not.toHaveProperty("show_vault_dashboard_on_open");
     expect(written_vault).not.toHaveProperty("autosave_enabled");
     expect(written_vault).not.toHaveProperty("git_autocommit_mode");
+    expect(written_vault).not.toHaveProperty("ai_enabled");
     expect(written_vault).toHaveProperty("max_open_tabs", 7);
   });
 

@@ -176,10 +176,12 @@ export const ACTION_IDS = {
   terminal_toggle: "terminal.toggle",
   terminal_close: "terminal.close",
 
+  ai_open_assistant: "ai.open_assistant",
   ai_open_claude: "ai.open_claude",
   ai_open_codex: "ai.open_codex",
   ai_open_ollama: "ai.open_ollama",
   ai_close_dialog: "ai.close_dialog",
+  ai_update_provider: "ai.update_provider",
   ai_update_prompt: "ai.update_prompt",
   ai_update_ollama_model: "ai.update_ollama_model",
   ai_execute: "ai.execute",

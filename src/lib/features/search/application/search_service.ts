@@ -136,6 +136,9 @@ export class SearchService {
     private readonly vault_store: VaultStore,
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
+    private readonly is_command_enabled: (
+      command: CommandDefinition,
+    ) => boolean = () => true,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -435,20 +438,24 @@ export class SearchService {
   }
 
   search_commands(query: string): OmnibarItem[] {
+    const available_commands = COMMANDS_REGISTRY.filter((command) =>
+      this.is_command_enabled(command),
+    );
     const q = query.toLowerCase().trim();
     if (!q) {
-      return COMMANDS_REGISTRY.map((command) => ({
+      return available_commands.map((command) => ({
         kind: "command" as const,
         command,
         score: 0,
       }));
     }
 
-    return COMMANDS_REGISTRY.map((command) => ({
-      kind: "command" as const,
-      command,
-      score: score_command(q, command),
-    }))
+    return available_commands
+      .map((command) => ({
+        kind: "command" as const,
+        command,
+        score: score_command(q, command),
+      }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score);
   }

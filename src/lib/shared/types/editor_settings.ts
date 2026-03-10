@@ -30,6 +30,7 @@ export type EditorSettings = {
   terminal_scrollback: number;
   terminal_cursor_blink: boolean;
   terminal_follow_active_vault: boolean;
+  ai_enabled: boolean;
   ai_ollama_model: string;
   ai_claude_command: string;
   ai_codex_command: string;
@@ -57,6 +58,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   terminal_scrollback: 5000,
   terminal_cursor_blink: true,
   terminal_follow_active_vault: false,
+  ai_enabled: true,
   ai_ollama_model: "qwen3:8b",
   ai_claude_command: "claude",
   ai_codex_command: "codex",
@@ -83,6 +85,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "terminal_scrollback",
   "terminal_cursor_blink",
   "terminal_follow_active_vault",
+  "ai_enabled",
   "ai_ollama_model",
   "ai_claude_command",
   "ai_codex_command",

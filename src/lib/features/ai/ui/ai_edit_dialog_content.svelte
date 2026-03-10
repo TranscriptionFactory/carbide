@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import {
@@ -23,6 +24,7 @@
     is_executing: boolean;
     result: AiExecutionResult | null;
     on_open_change: (open: boolean) => void;
+    on_provider_change: (provider: AiProvider) => void;
     on_prompt_change: (prompt: string) => void;
     on_ollama_model_change: (model: string) => void;
     on_execute: () => void;
@@ -43,6 +45,7 @@
     is_executing,
     result,
     on_open_change,
+    on_provider_change,
     on_prompt_change,
     on_ollama_model_change,
     on_execute,
@@ -51,6 +54,7 @@
   }: Props = $props();
 
   const provider_display = $derived(AI_PROVIDER_DISPLAY[provider]);
+  const provider_options: AiProvider[] = ["claude", "codex", "ollama"];
   const selection_preview = $derived(
     selection_text ? selection_text.trim().slice(0, 180) : "",
   );
@@ -74,14 +78,14 @@
 <Dialog.Root {open} onOpenChange={on_open_change}>
   <Dialog.Content class="max-w-3xl">
     <Dialog.Header>
-      <Dialog.Title>{provider_display.name} AI Edit</Dialog.Title>
+      <Dialog.Title>AI Assistant</Dialog.Title>
       <Dialog.Description>
         {#if note_title}
           {target === "selection"
             ? `Editing a selection in ${note_title}`
             : `Editing ${note_title}`}
         {:else}
-          AI edit review
+          Review and apply AI-assisted note edits
         {/if}
       </Dialog.Description>
     </Dialog.Header>
@@ -93,6 +97,9 @@
             class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
           >
             Review the generated content before applying it to the note.
+            <span class="ml-1 text-foreground">
+              Backend: {provider_display.name}
+            </span>
           </div>
           <textarea
             class="min-h-80 w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
@@ -129,6 +136,34 @@
       {/if}
     {:else}
       <div class="space-y-4 py-2">
+        <div class="space-y-2">
+          <label class="text-sm font-medium" for="ai-provider"> Backend </label>
+          <Select.Root
+            type="single"
+            value={provider}
+            onValueChange={(value: string | undefined) => {
+              if (
+                value === "claude" ||
+                value === "codex" ||
+                value === "ollama"
+              ) {
+                on_provider_change(value);
+              }
+            }}
+          >
+            <Select.Trigger id="ai-provider" class="w-48">
+              <span data-slot="select-value">{provider_display.name}</span>
+            </Select.Trigger>
+            <Select.Content>
+              {#each provider_options as option (option)}
+                <Select.Item value={option}>
+                  {AI_PROVIDER_DISPLAY[option].name}
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+
         {#if cli_status === "checking"}
           <div
             class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
@@ -218,9 +253,7 @@
           Cancel
         </Button>
         <Button onclick={on_execute} disabled={execute_disabled}>
-          {is_executing
-            ? `Running ${provider_display.name}…`
-            : `Run ${provider_display.name}`}
+          {is_executing ? `Running ${provider_display.name}…` : "Run Assistant"}
         </Button>
       </Dialog.Footer>
     {/if}

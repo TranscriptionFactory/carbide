@@ -171,6 +171,8 @@
     { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
   ];
+
+  const ai_settings_disabled = $derived(!editor_settings.ai_enabled);
 </script>
 
 <Dialog.Root
@@ -223,6 +225,30 @@
           <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Enable AI</span>
+                <span class="SettingsDialog__description"
+                  >Show AI tools and allow local AI assistant execution</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.ai_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("ai_enabled", v);
+                }}
+              />
+            </div>
+
+            {#if ai_settings_disabled}
+              <div
+                class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+              >
+                AI tools are hidden and provider CLIs will not be invoked while
+                AI is disabled.
+              </div>
+            {/if}
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Ollama Model</span>
                 <span class="SettingsDialog__description"
                   >Default local model used for Ollama-powered edits</span
@@ -242,6 +268,7 @@
                   }}
                   class="w-48"
                   placeholder="qwen3:8b"
+                  disabled={ai_settings_disabled}
                 />
                 <button
                   type="button"
@@ -251,8 +278,9 @@
                       "ai_ollama_model",
                       DEFAULT_EDITOR_SETTINGS.ai_ollama_model,
                     )}
-                  disabled={editor_settings.ai_ollama_model ===
-                    DEFAULT_EDITOR_SETTINGS.ai_ollama_model}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_ollama_model ===
+                      DEFAULT_EDITOR_SETTINGS.ai_ollama_model}
                   title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_ollama_model})`}
                 >
                   <RotateCcw />
@@ -281,6 +309,7 @@
                   }}
                   class="w-48"
                   placeholder="claude"
+                  disabled={ai_settings_disabled}
                 />
                 <button
                   type="button"
@@ -290,8 +319,9 @@
                       "ai_claude_command",
                       DEFAULT_EDITOR_SETTINGS.ai_claude_command,
                     )}
-                  disabled={editor_settings.ai_claude_command ===
-                    DEFAULT_EDITOR_SETTINGS.ai_claude_command}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_claude_command ===
+                      DEFAULT_EDITOR_SETTINGS.ai_claude_command}
                   title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_claude_command})`}
                 >
                   <RotateCcw />
@@ -320,6 +350,7 @@
                   }}
                   class="w-48"
                   placeholder="codex"
+                  disabled={ai_settings_disabled}
                 />
                 <button
                   type="button"
@@ -329,8 +360,9 @@
                       "ai_codex_command",
                       DEFAULT_EDITOR_SETTINGS.ai_codex_command,
                     )}
-                  disabled={editor_settings.ai_codex_command ===
-                    DEFAULT_EDITOR_SETTINGS.ai_codex_command}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_codex_command ===
+                      DEFAULT_EDITOR_SETTINGS.ai_codex_command}
                   title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_codex_command})`}
                 >
                   <RotateCcw />
@@ -359,6 +391,7 @@
                   }}
                   class="w-48"
                   placeholder="ollama"
+                  disabled={ai_settings_disabled}
                 />
                 <button
                   type="button"
@@ -368,8 +401,9 @@
                       "ai_ollama_command",
                       DEFAULT_EDITOR_SETTINGS.ai_ollama_command,
                     )}
-                  disabled={editor_settings.ai_ollama_command ===
-                    DEFAULT_EDITOR_SETTINGS.ai_ollama_command}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_ollama_command ===
+                      DEFAULT_EDITOR_SETTINGS.ai_ollama_command}
                   title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_ollama_command})`}
                 >
                   <RotateCcw />
@@ -391,6 +425,7 @@
                   onValueChange={(v: string | undefined) => {
                     if (v) update("ai_execution_timeout_seconds", Number(v));
                   }}
+                  disabled={ai_settings_disabled}
                 >
                   <Select.Trigger class="w-28">
                     <span data-slot="select-value">
@@ -416,8 +451,9 @@
                       "ai_execution_timeout_seconds",
                       DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds,
                     )}
-                  disabled={editor_settings.ai_execution_timeout_seconds ===
-                    DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_execution_timeout_seconds ===
+                      DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds}
                   title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds)} sec)`}
                 >
                   <RotateCcw />
