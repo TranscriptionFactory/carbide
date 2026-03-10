@@ -18,6 +18,7 @@
   import { HotkeysPanel } from "$lib/features/hotkey";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import type {
+    AiDefaultBackend,
     DocumentImageBackground,
     DocumentPdfZoomMode,
     EditorSettings,
@@ -129,6 +130,13 @@
     value: String(n),
     label: n >= 60 ? `${String(n / 60)} min` : `${String(n)} sec`,
   }));
+
+  const ai_backend_options: { value: AiDefaultBackend; label: string }[] = [
+    { value: "auto", label: "Auto" },
+    { value: "claude", label: "Claude" },
+    { value: "codex", label: "Codex" },
+    { value: "ollama", label: "Ollama" },
+  ];
 
   const pdf_zoom_options: { value: DocumentPdfZoomMode; label: string }[] = [
     { value: "actual_size", label: "Actual Size" },
@@ -246,6 +254,62 @@
                 AI is disabled.
               </div>
             {/if}
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Default Backend</span>
+                <span class="SettingsDialog__description"
+                  >Auto selects the first available CLI in Claude, Codex, then
+                  Ollama order</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.ai_default_backend}
+                  onValueChange={(v: string | undefined) => {
+                    if (
+                      v === "auto" ||
+                      v === "claude" ||
+                      v === "codex" ||
+                      v === "ollama"
+                    ) {
+                      update("ai_default_backend", v);
+                    }
+                  }}
+                  disabled={ai_settings_disabled}
+                >
+                  <Select.Trigger class="w-36">
+                    <span data-slot="select-value">
+                      {ai_backend_options.find(
+                        (opt) =>
+                          opt.value === editor_settings.ai_default_backend,
+                      )?.label ?? editor_settings.ai_default_backend}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each ai_backend_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "ai_default_backend",
+                      DEFAULT_EDITOR_SETTINGS.ai_default_backend,
+                    )}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_default_backend ===
+                      DEFAULT_EDITOR_SETTINGS.ai_default_backend}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_default_backend})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">

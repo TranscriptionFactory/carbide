@@ -170,6 +170,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["ai", "assistant", "enable", "disable", "llm", "toggle"],
   },
   {
+    key: "ai_default_backend",
+    label: "Default Backend",
+    description:
+      "Backend used when opening the AI assistant. Auto picks the first available CLI.",
+    category: "AI",
+    keywords: ["ai", "assistant", "backend", "provider", "default", "auto"],
+  },
+  {
     key: "ai_ollama_model",
     label: "Ollama Model",
     description: "Default Ollama model used for AI edits",

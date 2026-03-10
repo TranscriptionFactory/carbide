@@ -6,6 +6,7 @@ import type {
   AiProvider,
 } from "$lib/features/ai/domain/ai_types";
 import { AI_PROVIDER_DISPLAY } from "$lib/features/ai/domain/ai_types";
+import { resolve_auto_ai_backend } from "$lib/features/ai/domain/ai_backend_selection";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -38,14 +39,17 @@ export function register_ai_actions(
     return settings.ai_ollama_command;
   }
 
-  async function refresh_cli_status(provider: AiProvider, revision: number) {
-    ai_store.set_cli_status("checking");
-
+  function sync_provider_settings(provider: AiProvider) {
     if (provider === "ollama") {
       ai_store.set_ollama_model(
         input.stores.ui.editor_settings.ai_ollama_model,
       );
     }
+  }
+
+  async function refresh_cli_status(provider: AiProvider, revision: number) {
+    ai_store.set_cli_status("checking");
+    sync_provider_settings(provider);
 
     try {
       const available = await ai_service.check_cli(
@@ -66,9 +70,7 @@ export function register_ai_actions(
     }
   }
 
-  async function open_ai_dialog(
-    provider: AiProvider = ai_store.dialog.provider,
-  ) {
+  async function open_ai_dialog(provider?: AiProvider) {
     if (!ensure_ai_enabled()) return;
 
     const context = services.editor.get_ai_context();
@@ -85,18 +87,47 @@ export function register_ai_actions(
 
     if (
       ai_store.dialog.open &&
-      ai_store.dialog.provider === provider &&
-      ai_store.dialog.context?.note_path === context.note_path
+      ai_store.dialog.context?.note_path === context.note_path &&
+      (provider === undefined || ai_store.dialog.provider === provider)
     ) {
-      if (ai_store.dialog.cli_status === "idle") {
+      if (ai_store.dialog.cli_status === "idle" && provider !== undefined) {
         const revision = ++dialog_revision;
         await refresh_cli_status(provider, revision);
+      } else if (ai_store.dialog.cli_status === "idle") {
+        const revision = ++dialog_revision;
+        await refresh_cli_status(ai_store.dialog.provider, revision);
       }
       return;
     }
 
+    let next_provider = provider;
+    let preset_cli_status: "available" | "error" | null = null;
+    let preset_cli_error: string | null = null;
+
+    if (!next_provider) {
+      const { ai_default_backend } = input.stores.ui.editor_settings;
+      if (ai_default_backend === "auto") {
+        const auto_provider = await resolve_auto_ai_backend({
+          check_availability: async (candidate) =>
+            await ai_service.check_cli(candidate, command_for(candidate)),
+        });
+
+        if (auto_provider) {
+          next_provider = auto_provider;
+          preset_cli_status = "available";
+        } else {
+          next_provider = "claude";
+          preset_cli_status = "error";
+          preset_cli_error =
+            "No configured AI backend is currently available. Install Claude Code, Codex, or Ollama, or choose a specific backend in Settings.";
+        }
+      } else {
+        next_provider = ai_default_backend;
+      }
+    }
+
     const selection = context.selection;
-    ai_store.open_dialog(provider, {
+    ai_store.open_dialog(next_provider, {
       note_path: context.note_path,
       note_title: context.note_title,
       note_markdown: context.markdown,
@@ -105,8 +136,20 @@ export function register_ai_actions(
         selection && selection.text.trim() !== "" ? "selection" : "full_note",
     });
 
+    sync_provider_settings(next_provider);
+
+    if (preset_cli_status === "available") {
+      ai_store.set_cli_status("available");
+      return;
+    }
+
+    if (preset_cli_status === "error") {
+      ai_store.set_cli_status("error", preset_cli_error);
+      return;
+    }
+
     const revision = ++dialog_revision;
-    await refresh_cli_status(provider, revision);
+    await refresh_cli_status(next_provider, revision);
   }
 
   function close_ai_dialog() {

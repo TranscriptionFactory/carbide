@@ -13,6 +13,7 @@ export type GitAutocommitMode = "off" | "on_save" | "interval";
 export type GitPullStrategy = "merge" | "rebase" | "ff_only";
 export type DocumentPdfZoomMode = "actual_size" | "fit_width";
 export type DocumentImageBackground = "checkerboard" | "light" | "dark";
+export type AiDefaultBackend = "auto" | "claude" | "codex" | "ollama";
 
 export type EditorSettings = {
   attachment_folder: string;
@@ -31,6 +32,7 @@ export type EditorSettings = {
   terminal_cursor_blink: boolean;
   terminal_follow_active_vault: boolean;
   ai_enabled: boolean;
+  ai_default_backend: AiDefaultBackend;
   ai_ollama_model: string;
   ai_claude_command: string;
   ai_codex_command: string;
@@ -59,6 +61,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   terminal_cursor_blink: true,
   terminal_follow_active_vault: false,
   ai_enabled: true,
+  ai_default_backend: "auto",
   ai_ollama_model: "qwen3:8b",
   ai_claude_command: "claude",
   ai_codex_command: "codex",
@@ -86,6 +89,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "terminal_cursor_blink",
   "terminal_follow_active_vault",
   "ai_enabled",
+  "ai_default_backend",
   "ai_ollama_model",
   "ai_claude_command",
   "ai_codex_command",

@@ -111,6 +111,42 @@ describe("register_ai_actions", () => {
     expect(ai_service.check_cli).toHaveBeenCalledWith("claude", "claude");
   });
 
+  it("uses the configured default backend for new sessions", async () => {
+    const { registry, stores, ai_store, ai_service } = create_harness();
+    stores.ui.editor_settings.ai_default_backend = "codex";
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+
+    expect(ai_store.dialog.provider).toBe("codex");
+    expect(ai_service.check_cli).toHaveBeenCalledWith("codex", "codex");
+  });
+
+  it("auto-selects the first available backend", async () => {
+    const { registry, ai_store, ai_service } = create_harness();
+    ai_service.check_cli = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+
+    expect(ai_store.dialog.provider).toBe("codex");
+    expect(ai_store.dialog.cli_status).toBe("available");
+    expect(ai_service.check_cli).toHaveBeenNthCalledWith(1, "claude", "claude");
+    expect(ai_service.check_cli).toHaveBeenNthCalledWith(2, "codex", "codex");
+  });
+
+  it("shows a generic setup error when auto-select cannot find any backend", async () => {
+    const { registry, ai_store, ai_service } = create_harness();
+    ai_service.check_cli = vi.fn().mockResolvedValue(false);
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+
+    expect(ai_store.dialog.provider).toBe("claude");
+    expect(ai_store.dialog.cli_status).toBe("error");
+    expect(ai_store.dialog.cli_error).toContain("No configured AI backend");
+  });
+
   it("updates the active provider from the assistant surface", async () => {
     const { registry, ai_store, ai_service } = create_harness();
 
