@@ -17,6 +17,7 @@ export type AiDefaultBackend = "auto" | "claude" | "codex" | "ollama";
 
 export type EditorSettings = {
   attachment_folder: string;
+  ignored_folders: string[];
   show_hidden_files: boolean;
   autosave_enabled: boolean;
   git_autocommit_mode: GitAutocommitMode;
@@ -46,6 +47,7 @@ export type EditorSettings = {
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   attachment_folder: ".assets",
+  ignored_folders: [],
   show_hidden_files: false,
   autosave_enabled: true,
   git_autocommit_mode: "off",

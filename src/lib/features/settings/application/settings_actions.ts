@@ -11,6 +11,13 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
   let settings_open_revision = 0;
 
+  function arrays_equal(a: string[], b: string[]) {
+    if (a.length !== b.length) {
+      return false;
+    }
+    return a.every((value, index) => value === b[index]);
+  }
+
   function parse_settings_category(value: unknown): SettingsCategory {
     return (typeof value === "string" ? value : "theme") as SettingsCategory;
   }
@@ -147,9 +154,14 @@ export function register_settings_actions(input: ActionRegistrationInput) {
     label: "Save Settings",
     execute: async () => {
       const settings = stores.ui.settings_dialog.current_settings;
+      const persisted_settings = stores.ui.settings_dialog.persisted_settings;
       const next_remote_url = stores.ui.settings_dialog.git_remote_url.trim();
       const persisted_remote_url =
         stores.ui.settings_dialog.persisted_git_remote_url.trim();
+      const ignored_folders_changed = !arrays_equal(
+        settings.ignored_folders,
+        persisted_settings.ignored_folders,
+      );
       const result = await services.settings.save_settings(settings);
 
       if (result.status === "success") {
@@ -159,6 +171,12 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           persisted_settings: settings,
           has_unsaved_changes: false,
         };
+        if (ignored_folders_changed) {
+          await registry.execute(ACTION_IDS.folder_refresh_tree);
+          if (stores.vault.is_vault_mode) {
+            await registry.execute(ACTION_IDS.vault_sync_index);
+          }
+        }
       }
 
       if (next_remote_url !== persisted_remote_url) {

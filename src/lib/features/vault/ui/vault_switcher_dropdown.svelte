@@ -225,7 +225,7 @@
           }}
         >
           <ArrowUpCircle class="VaultSwitcher__footer-icon" />
-          Save as Vault
+          Add Current Folder as Vault
         </button>
       {/if}
       <button
@@ -237,7 +237,7 @@
         }}
       >
         <Plus class="VaultSwitcher__footer-icon" />
-        Open Folder
+        Browse Folder
       </button>
       <button
         type="button"

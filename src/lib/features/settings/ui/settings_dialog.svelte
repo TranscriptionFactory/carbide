@@ -157,6 +157,29 @@
     label: `${String(n)} documents`,
   }));
 
+  function normalize_ignored_folder(value: string): string {
+    return value
+      .trim()
+      .replaceAll("\\", "/")
+      .replace(/^\/+|\/+$/g, "");
+  }
+
+  function parse_ignored_folders(value: string): string[] {
+    const unique = new Set<string>();
+    for (const line of value.split(/\r?\n/)) {
+      const normalized = normalize_ignored_folder(line);
+      if (!normalized) {
+        continue;
+      }
+      unique.add(normalized);
+    }
+    return [...unique];
+  }
+
+  function format_ignored_folders(value: string[]): string {
+    return value.join("\n");
+  }
+
   function update<K extends keyof EditorSettings>(
     key: K,
     value: EditorSettings[K],
@@ -630,6 +653,37 @@
                 class="w-48"
                 placeholder=".assets"
               />
+            </div>
+            <div class="SettingsDialog__row SettingsDialog__row--top-aligned">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Ignored Folders</span>
+                <span class="SettingsDialog__description">
+                  One vault-relative folder per line. These are combined with
+                  <code>.vaultignore</code> and <code>.gitignore</code>.
+                </span>
+              </div>
+              <textarea
+                class="SettingsDialog__textarea"
+                value={format_ignored_folders(editor_settings.ignored_folders)}
+                oninput={(
+                  e: Event & { currentTarget: HTMLTextAreaElement },
+                ) => {
+                  update(
+                    "ignored_folders",
+                    parse_ignored_folders(e.currentTarget.value),
+                  );
+                }}
+                onchange={(
+                  e: Event & { currentTarget: HTMLTextAreaElement },
+                ) => {
+                  update(
+                    "ignored_folders",
+                    parse_ignored_folders(e.currentTarget.value),
+                  );
+                }}
+                rows="4"
+                placeholder={`node_modules\nbuild\npapers/raw`}
+              ></textarea>
             </div>
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
@@ -1368,6 +1422,10 @@
     gap: var(--space-4);
   }
 
+  .SettingsDialog__row--top-aligned {
+    align-items: flex-start;
+  }
+
   .SettingsDialog__label {
     font-size: var(--text-sm);
     font-weight: 500;
@@ -1384,6 +1442,23 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     line-height: 1.4;
+  }
+
+  .SettingsDialog__textarea {
+    width: 18rem;
+    min-height: 6rem;
+    resize: vertical;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--background);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--foreground);
+  }
+
+  .SettingsDialog__textarea:focus {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
   }
 
   .SettingsDialog__reset {

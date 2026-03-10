@@ -3150,6 +3150,7 @@ dependencies = [
  "comrak",
  "filetime",
  "git2",
+ "glob",
  "log",
  "mime_guess",
  "notify",

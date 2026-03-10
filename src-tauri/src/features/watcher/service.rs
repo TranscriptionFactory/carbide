@@ -1,5 +1,6 @@
 use crate::shared::constants;
 use crate::shared::storage;
+use crate::shared::vault_ignore;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::Path;
@@ -53,6 +54,10 @@ fn rel_path(root: &Path, abs: &Path) -> Option<String> {
 
 fn emit(app: &AppHandle, event: VaultFsEvent) {
     let _ = app.emit("vault_fs_event", event);
+}
+
+fn is_ignore_config_path(rel_path: &str) -> bool {
+    rel_path == ".gitignore" || rel_path == ".vaultignore"
 }
 
 fn with_runtime_lock<T>(
@@ -128,6 +133,15 @@ pub fn watch_vault(
     let vault_id_clone = vault_id.clone();
 
     std::thread::spawn(move || {
+        let mut ignore_matcher =
+            match vault_ignore::load_vault_ignore_matcher(&app_handle, &vault_id_clone, &root_canon)
+            {
+                Ok(matcher) => matcher,
+                Err(error) => {
+                    log::error!("Failed to load ignore matcher: {}", error);
+                    return;
+                }
+            };
         let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
 
         let mut watcher = match RecommendedWatcher::new(
@@ -178,6 +192,19 @@ pub fn watch_vault(
                 let Some(rel) = rel_path(&root_canon, &abs) else {
                     continue;
                 };
+                let is_dir = abs.is_dir();
+
+                if is_ignore_config_path(&rel) {
+                    if let Ok(next_matcher) =
+                        vault_ignore::load_vault_ignore_matcher(&app_handle, &vault_id_clone, &root_canon)
+                    {
+                        ignore_matcher = next_matcher;
+                    }
+                }
+
+                if ignore_matcher.is_ignored(&root_canon, &abs, is_dir) {
+                    continue;
+                }
 
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";

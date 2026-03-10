@@ -9,6 +9,7 @@ export {
   to_markdown_asset_target,
   resolve_relative_asset_path,
 } from "$lib/features/note/domain/asset_markdown_path";
+export { otterly_asset_url } from "$lib/features/note/domain/asset_url";
 export { note_path_exists } from "$lib/features/note/domain/note_path_exists";
 export { resolve_existing_note_path } from "$lib/features/note/domain/note_lookup";
 export { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";

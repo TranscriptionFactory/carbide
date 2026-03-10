@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DocumentPort } from "$lib/features/document/ports";
+import { otterly_asset_url } from "$lib/features/note";
 
 export function create_document_tauri_adapter(): DocumentPort {
   return {
@@ -7,7 +8,7 @@ export function create_document_tauri_adapter(): DocumentPort {
       return invoke<string>("read_vault_file", { vault_id, relative_path });
     },
     resolve_asset_url(vault_id: string, relative_path: string): string {
-      return `otterly-asset://vault/${vault_id}/${relative_path}`;
+      return otterly_asset_url(vault_id, relative_path);
     },
   };
 }

@@ -3,6 +3,7 @@ use crate::features::search::link_parser;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
 use crate::shared::constants;
 use crate::shared::storage;
+use crate::shared::vault_ignore;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -48,13 +49,19 @@ pub fn extract_local_links_snapshot(markdown: &str, source_path: &str) -> LocalL
     link_parser::extract_local_links_snapshot(markdown, source_path)
 }
 
-pub(crate) fn list_markdown_files(root: &Path) -> Vec<PathBuf> {
+pub(crate) fn list_markdown_files(
+    app: &tauri::AppHandle,
+    vault_id: &str,
+    root: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(app, vault_id, root)?;
     let mut files: Vec<PathBuf> = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
             !constants::is_excluded_folder(&name)
+                && !ignore_matcher.is_ignored(root, e.path(), e.file_type().is_dir())
         })
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
@@ -62,7 +69,7 @@ pub(crate) fn list_markdown_files(root: &Path) -> Vec<PathBuf> {
         .map(|e| e.path().to_path_buf())
         .collect();
     files.sort();
-    files
+    Ok(files)
 }
 
 fn file_stem_string(abs: &Path) -> String {
@@ -348,6 +355,8 @@ fn resolve_batch_outlinks(
 }
 
 pub fn rebuild_index(
+    app: &tauri::AppHandle,
+    vault_id: &str,
     conn: &Connection,
     vault_root: &Path,
     cancel: &AtomicBool,
@@ -361,7 +370,7 @@ pub fn rebuild_index(
     conn.execute("DELETE FROM outlinks", [])
         .map_err(|e| e.to_string())?;
 
-    let paths = list_markdown_files(vault_root);
+    let paths = list_markdown_files(app, vault_id, vault_root)?;
     let total = paths.len();
     on_progress(0, total);
 
@@ -408,6 +417,8 @@ pub fn rebuild_index(
 }
 
 pub fn sync_index(
+    app: &tauri::AppHandle,
+    vault_id: &str,
     conn: &Connection,
     vault_root: &Path,
     cancel: &AtomicBool,
@@ -415,7 +426,7 @@ pub fn sync_index(
     yield_fn: &mut dyn FnMut(),
 ) -> Result<IndexResult, String> {
     let manifest = get_manifest(conn).unwrap_or_default();
-    let disk_files = list_markdown_files(vault_root);
+    let disk_files = list_markdown_files(app, vault_id, vault_root)?;
     let plan = compute_sync_plan(vault_root, &manifest, &disk_files);
 
     let change_count = plan.added.len() + plan.modified.len() + plan.removed.len();

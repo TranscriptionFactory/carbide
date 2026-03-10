@@ -1,5 +1,6 @@
 use crate::shared::constants;
 use crate::shared::storage;
+use crate::shared::vault_ignore;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
@@ -255,6 +256,7 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
         log::error!("Failed to resolve vault path for {}: {}", vault_id, e);
         e
     })?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
     let mut out = Vec::new();
 
     for entry in WalkDir::new(&root)
@@ -263,6 +265,7 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
             !constants::is_excluded_folder(&name)
+                && !ignore_matcher.is_ignored(&root, e.path(), e.file_type().is_dir())
         })
         .filter_map(|e| e.ok())
     {
@@ -613,8 +616,8 @@ fn folder_cache() -> &'static Mutex<HashMap<String, FolderCacheEntry>> {
     FOLDER_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-pub(crate) fn folder_cache_key(vault_id: &str, folder_path: &str) -> String {
-    format!("{}:{}", vault_id, folder_path)
+pub(crate) fn folder_cache_key(vault_id: &str, folder_path: &str, ignore_token: &str) -> String {
+    format!("{}:{}:{}", vault_id, folder_path, ignore_token)
 }
 
 fn purge_expired_folder_cache(cache: &mut HashMap<String, FolderCacheEntry>) {
@@ -636,9 +639,9 @@ fn evict_folder_cache_if_needed(cache: &mut HashMap<String, FolderCacheEntry>) {
 }
 
 pub(crate) fn invalidate_folder_cache(vault_id: &str, folder_path: &str) {
-    let key = folder_cache_key(vault_id, folder_path);
     if let Ok(mut cache) = folder_cache().lock() {
-        cache.remove(&key);
+        let prefix = format!("{}:{}:", vault_id, folder_path);
+        cache.retain(|key, _| !key.starts_with(&prefix));
     }
 }
 
@@ -658,7 +661,11 @@ fn invalidate_folder_parent_cache(vault_id: &str, folder_path: &str) {
     invalidate_folder_cache(vault_id, &parent);
 }
 
-pub(crate) fn scan_folder_entries(target: &Path) -> Result<Vec<FolderEntry>, String> {
+pub(crate) fn scan_folder_entries(
+    root: &Path,
+    target: &Path,
+    ignore_matcher: &vault_ignore::VaultIgnoreMatcher,
+) -> Result<Vec<FolderEntry>, String> {
     let mut items = Vec::new();
 
     for entry in std::fs::read_dir(target).map_err(|e| e.to_string())? {
@@ -673,6 +680,9 @@ pub(crate) fn scan_folder_entries(target: &Path) -> Result<Vec<FolderEntry>, Str
 
         let file_type = entry.file_type().map_err(|e| e.to_string())?;
         let is_dir = file_type.is_dir();
+        if ignore_matcher.is_ignored(root, &entry.path(), is_dir) {
+            continue;
+        }
         if !is_dir {
             let ext = std::path::Path::new(&name)
                 .extension()
@@ -701,7 +711,9 @@ pub(crate) fn scan_folder_entries(target: &Path) -> Result<Vec<FolderEntry>, Str
 
 pub(crate) fn get_or_scan_folder_entries(
     cache_key: &str,
+    root: &Path,
     target: &Path,
+    ignore_matcher: &vault_ignore::VaultIgnoreMatcher,
 ) -> Result<Arc<[FolderEntry]>, String> {
     {
         let mut cache = folder_cache().lock().map_err(|e| e.to_string())?;
@@ -712,7 +724,7 @@ pub(crate) fn get_or_scan_folder_entries(
         }
     }
 
-    let items = scan_folder_entries(target)?;
+    let items = scan_folder_entries(root, target, ignore_matcher)?;
     let items = Arc::<[FolderEntry]>::from(items);
     let now = Instant::now();
 
@@ -764,6 +776,7 @@ pub fn delete_note(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
 pub fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, String> {
     log::debug!("Listing folders vault_id={}", vault_id);
     let root = storage::vault_path(&app, &vault_id)?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
     let mut out = Vec::new();
 
     for entry in WalkDir::new(&root)
@@ -772,6 +785,7 @@ pub fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, Str
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
             !constants::is_excluded_folder(&name)
+                && !ignore_matcher.is_ignored(&root, e.path(), e.file_type().is_dir())
         })
         .filter_map(|e| e.ok())
     {
@@ -1185,9 +1199,10 @@ pub fn list_folder_contents(
     let root = storage::vault_path(&app, &vault_id)?;
     let target = resolve_folder_abs(&root, &folder_path)?;
     ensure_directory(&target, "not a directory")?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
 
-    let key = folder_cache_key(&vault_id, &folder_path);
-    let items = get_or_scan_folder_entries(&key, &target)?;
+    let key = folder_cache_key(&vault_id, &folder_path, ignore_matcher.cache_token());
+    let items = get_or_scan_folder_entries(&key, &root, &target, &ignore_matcher)?;
     let total_count = items.len();
     let start = offset.min(total_count);
     let end = start.saturating_add(limit).min(total_count);
@@ -1248,6 +1263,7 @@ pub fn get_folder_stats(
     let root = storage::vault_path(&app, &vault_id)?;
     let target = resolve_folder_abs(&root, &folder_path)?;
     ensure_directory(&target, "not a directory")?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
 
     let mut note_count = 0usize;
     let mut folder_count = 0usize;
@@ -1257,7 +1273,9 @@ pub fn get_folder_stats(
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
-            !constants::is_excluded_folder(&name) && !name.starts_with('.')
+            !constants::is_excluded_folder(&name)
+                && !name.starts_with('.')
+                && !ignore_matcher.is_ignored(&root, e.path(), e.file_type().is_dir())
         })
         .filter_map(|e| e.ok())
     {

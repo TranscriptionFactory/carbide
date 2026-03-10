@@ -39,7 +39,7 @@ function make_service(overrides: {
 describe("SettingsService", () => {
   it("loads global-only settings from global port, not vault", async () => {
     const { service } = make_service({
-      vault_get: { max_open_tabs: 8 },
+      vault_get: { max_open_tabs: 8, ignored_folders: ["node_modules"] },
       global_get: (key) => {
         if (key === "show_vault_dashboard_on_open") return false;
         if (key === "autosave_enabled") return false;
@@ -66,6 +66,7 @@ describe("SettingsService", () => {
     expect(result.settings.terminal_font_size_px).toBe(15);
     expect(result.settings.document_pdf_default_zoom).toBe("fit_width");
     expect(result.settings.max_open_tabs).toBe(8);
+    expect(result.settings.ignored_folders).toEqual(["node_modules"]);
   });
 
   it("saves global-only settings to global port only", async () => {
@@ -94,6 +95,7 @@ describe("SettingsService", () => {
     expect(saved_vault).not.toHaveProperty("ai_default_backend");
     expect(saved_vault).not.toHaveProperty("ai_execution_timeout_seconds");
     expect(saved_vault).toHaveProperty("max_open_tabs");
+    expect(saved_vault).toHaveProperty("ignored_folders", []);
 
     expect(settings_port.set_setting).toHaveBeenCalledWith(
       "show_vault_dashboard_on_open",
@@ -164,6 +166,29 @@ describe("SettingsService", () => {
     );
     expect(result.settings.autosave_enabled).toBe(
       DEFAULT_EDITOR_SETTINGS.autosave_enabled,
+    );
+    expect(result.settings.ignored_folders).toEqual([]);
+  });
+
+  it("persists ignored folders as vault-scoped settings", async () => {
+    const { service, vault_settings_port, settings_port } = make_service({});
+
+    const result = await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      ignored_folders: ["node_modules", "papers/raw"],
+    });
+
+    expect(result.status).toBe("success");
+    expect(vault_settings_port.set_vault_setting).toHaveBeenCalledWith(
+      VAULT_ID,
+      "editor",
+      expect.objectContaining({
+        ignored_folders: ["node_modules", "papers/raw"],
+      }),
+    );
+    expect(settings_port.set_setting).not.toHaveBeenCalledWith(
+      "ignored_folders",
+      expect.anything(),
     );
   });
 });

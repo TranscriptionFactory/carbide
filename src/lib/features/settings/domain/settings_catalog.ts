@@ -25,6 +25,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "ignored_folders",
+    label: "Ignored Folders",
+    description:
+      "Vault-relative folders to exclude from the tree and indexing, in addition to .vaultignore and .gitignore",
+    category: "Files",
+    keywords: [
+      "ignore",
+      "ignored",
+      "vaultignore",
+      "gitignore",
+      "folder",
+      "exclude",
+      "skip",
+    ],
+  },
+  {
     key: "show_hidden_files",
     label: "Show Hidden Files",
     description: "Show dot-prefixed files and folders in the file tree",

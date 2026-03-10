@@ -231,6 +231,17 @@ describe("watcher_reactor", () => {
         path: ".assets/img.png",
       });
     });
+
+    it("refreshes the tree for ignore file changes", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event(".vaultignore"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
   });
 
   describe("stale vault_id", () => {

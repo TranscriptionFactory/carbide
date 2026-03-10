@@ -207,7 +207,7 @@
           Select Vault
         </h2>
         <p class="text-sm text-muted-foreground">
-          Choose a vault directory or select from recent vaults
+          Open a vault, browse a folder, or select from recent locations
         </p>
       </div>
     </div>
@@ -221,7 +221,7 @@
       <Card.Header>
         <Card.Title>Select Vault</Card.Title>
         <Card.Description
-          >Choose a vault directory or select from recent vaults</Card.Description
+          >Open a vault, browse a folder, or select from recent locations</Card.Description
         >
       </Card.Header>
       <Card.Content>
@@ -330,7 +330,7 @@
       class="VaultPanel__action-btn"
     >
       <Plus />
-      Open Folder
+      Browse Folder
     </Button>
   {/if}
 

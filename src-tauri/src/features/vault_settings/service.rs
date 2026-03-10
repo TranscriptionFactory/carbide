@@ -69,6 +69,15 @@ fn save_vault_settings(
     write_vault_settings_file(&path, &bytes)
 }
 
+pub(crate) fn get_vault_setting_value(
+    app: &AppHandle,
+    vault_id: &str,
+    key: &str,
+) -> Result<Option<Value>, String> {
+    let settings = load_vault_settings(app, vault_id)?;
+    Ok(settings.get(key).cloned())
+}
+
 #[tauri::command]
 pub async fn get_vault_setting(
     vault_id: String,
@@ -76,8 +85,7 @@ pub async fn get_vault_setting(
     app: AppHandle,
 ) -> Result<Option<Value>, String> {
     log::debug!("Getting vault setting vault_id={} key={}", vault_id, key);
-    let settings = load_vault_settings(&app, &vault_id)?;
-    Ok(settings.get(&key).cloned())
+    get_vault_setting_value(&app, &vault_id, &key)
 }
 
 #[tauri::command]

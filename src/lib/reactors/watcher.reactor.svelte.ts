@@ -14,6 +14,10 @@ import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 const log = create_logger("watcher_reactor");
 const TREE_REFRESH_DEBOUNCE_MS = 300;
 
+function is_ignore_config_path(path: string): boolean {
+  return path === ".gitignore" || path === ".vaultignore";
+}
+
 export type BackgroundTabInfo = { is_dirty: boolean } | null;
 
 export type WatcherEventDecision =
@@ -74,6 +78,9 @@ export function resolve_watcher_event_decision(
       return { action: "refresh_tree" };
     }
     case "asset_changed":
+      if (is_ignore_config_path(event.asset_path)) {
+        return { action: "refresh_tree" };
+      }
       return { action: "log_only", path: event.asset_path };
   }
 }
@@ -97,6 +104,9 @@ export function create_watcher_reactor(
       tree_refresh_timer = setTimeout(() => {
         tree_refresh_timer = null;
         void action_registry.execute(ACTION_IDS.folder_refresh_tree);
+        if (vault_store.is_vault_mode) {
+          void action_registry.execute(ACTION_IDS.vault_sync_index);
+        }
       }, TREE_REFRESH_DEBOUNCE_MS);
     }
 

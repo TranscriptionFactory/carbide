@@ -1,8 +1,6 @@
-import type { AssetPath, VaultId } from "$lib/shared/types/ids";
-
 export function otterly_asset_url(
-  vault_id: VaultId,
-  asset_path: AssetPath,
+  vault_id: string,
+  asset_path: string,
 ): string {
   const encoded = String(asset_path)
     .split("/")
