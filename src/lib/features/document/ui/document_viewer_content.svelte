@@ -22,10 +22,13 @@
 
 <div class="DocumentViewer">
   {#if viewer_state.file_type === "pdf" && asset_url}
-    <PdfViewer
-      src={asset_url}
-      default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
-    />
+    {#key `${viewer_state.file_path}:${viewer_state.pdf_page}`}
+      <PdfViewer
+        src={asset_url}
+        initial_page={viewer_state.pdf_page}
+        default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
+      />
+    {/key}
   {:else if viewer_state.file_type === "image" && asset_url}
     <ImageViewer
       src={asset_url}

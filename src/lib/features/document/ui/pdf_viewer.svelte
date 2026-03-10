@@ -20,10 +20,11 @@
 
   interface Props {
     src: string;
+    initial_page: number;
     default_zoom: DocumentPdfZoomMode;
   }
 
-  let { src, default_zoom }: Props = $props();
+  let { src, initial_page, default_zoom }: Props = $props();
 
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
   type PDFJSModule = typeof import("pdfjs-dist");
@@ -63,8 +64,8 @@
     error_msg = null;
     pdf_doc = null;
     num_pages = 0;
-    current_page = 1;
-    page_input_value = "1";
+    current_page = Math.max(1, initial_page);
+    page_input_value = String(current_page);
     pages_text_by_page = new Map();
     search_state = { query: "", matches: [], current_index: 0 };
     search_generation += 1;

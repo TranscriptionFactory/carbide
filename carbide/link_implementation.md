@@ -78,6 +78,7 @@ Status: in progress
 - route local files to:
   - document viewer when supported
   - system/default app otherwise
+- preserve raw Markdown-link fragments/queries through click handling so supported viewers can opt into them
 - add tests for PDFs and other local assets
 
 ### Phase 4: authoring UX
@@ -113,4 +114,5 @@ Status: in progress
   - rendered Markdown links now allow local file targets
   - supported local files open in the document viewer
   - unsupported local files open via the system default app
+  - PDF page fragments and queries are preserved through the click path and initialize the viewer page
 - no migration assistant yet

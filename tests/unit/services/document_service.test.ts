@@ -91,4 +91,42 @@ describe("DocumentService", () => {
 
     expect(read_count).toBe(1);
   });
+
+  it("stores the initial pdf page when opening a pdf document", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = {
+      read_file: () => Promise.resolve("content"),
+      resolve_asset_url: () => "asset://demo",
+    };
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.pdf", "pdf", 7);
+
+    expect(document_store.get_viewer_state("tab-1")?.pdf_page).toBe(7);
+  });
+
+  it("ignores invalid initial pdf pages", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = {
+      read_file: () => Promise.resolve("content"),
+      resolve_asset_url: () => "asset://demo",
+    };
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.pdf", "pdf", 0);
+
+    expect(document_store.get_viewer_state("tab-1")?.pdf_page).toBe(1);
+  });
 });

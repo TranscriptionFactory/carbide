@@ -25,7 +25,14 @@ export class DocumentService {
     tab_id: string,
     file_path: string,
     file_type: DocumentFileType,
+    initial_pdf_page?: number,
   ): Promise<void> {
+    const normalized_initial_pdf_page =
+      typeof initial_pdf_page === "number" &&
+      Number.isInteger(initial_pdf_page) &&
+      initial_pdf_page > 0
+        ? initial_pdf_page
+        : undefined;
     if (!this.document_store.get_viewer_state(tab_id)) {
       this.document_store.set_viewer_state(tab_id, {
         tab_id,
@@ -33,10 +40,12 @@ export class DocumentService {
         file_type,
         zoom: 1,
         scroll_top: 0,
-        pdf_page: 1,
+        pdf_page: normalized_initial_pdf_page ?? 1,
         load_status: "idle",
         error_message: null,
       });
+    } else if (file_type === "pdf" && normalized_initial_pdf_page) {
+      this.document_store.update_pdf_page(tab_id, normalized_initial_pdf_page);
     }
 
     await this.ensure_content(tab_id);

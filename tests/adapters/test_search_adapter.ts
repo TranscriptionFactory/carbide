@@ -31,6 +31,10 @@ function resolve_relative_path(
   return segments.length > 0 ? segments.join("/") : null;
 }
 
+function strip_link_suffix(raw_target: string): string {
+  return raw_target.trim().replace(/[?#].*$/, "");
+}
+
 export function create_test_search_adapter(): SearchPort {
   return {
     search_notes(
@@ -86,7 +90,7 @@ export function create_test_search_adapter(): SearchPort {
     },
 
     resolve_note_link(source_path: string, raw_target: string) {
-      const trimmed = raw_target.trim();
+      const trimmed = strip_link_suffix(raw_target);
       const base_dir = trimmed.startsWith("/")
         ? ""
         : source_dir_from_path(source_path);
@@ -98,7 +102,7 @@ export function create_test_search_adapter(): SearchPort {
     },
 
     resolve_wiki_link(source_path: string, raw_target: string) {
-      const cleaned = raw_target.trim().replace(/^\//, "");
+      const cleaned = strip_link_suffix(raw_target).replace(/^\//, "");
       if (!cleaned) return Promise.resolve(null);
       const with_ext = cleaned.endsWith(".md") ? cleaned : `${cleaned}.md`;
       const base_dir =

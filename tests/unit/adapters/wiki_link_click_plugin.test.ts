@@ -145,27 +145,27 @@ describe("create_wiki_link_click_prose_plugin", () => {
       );
     });
 
-    it("strips fragment from href before passing", () => {
+    it("preserves fragment in href before passing", () => {
       const { plugin, on_internal_link_click } = setup();
       const { event } = create_mouse_event("note.md#section");
 
       invoke_dom_click(plugin, event);
 
       expect(on_internal_link_click).toHaveBeenCalledWith(
-        "note.md",
+        "note.md#section",
         "folder/current.md",
         "markdown",
       );
     });
 
-    it("strips query string from href before passing", () => {
+    it("preserves query string in href before passing", () => {
       const { plugin, on_internal_link_click } = setup();
       const { event } = create_mouse_event("note.md?param=1");
 
       invoke_dom_click(plugin, event);
 
       expect(on_internal_link_click).toHaveBeenCalledWith(
-        "note.md",
+        "note.md?param=1",
         "folder/current.md",
         "markdown",
       );

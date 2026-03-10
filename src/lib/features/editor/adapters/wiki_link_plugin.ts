@@ -277,24 +277,26 @@ function is_external_url(href: string): boolean {
 function parse_internal_href(href: string): string | null {
   if (href.trim() === "" || is_external_url(href)) return null;
 
-  let path = href;
+  let target = href;
+  try {
+    target = decodeURIComponent(target.trim());
+  } catch {
+    target = target.trim();
+  }
+  if (target === "") return null;
+
+  let path = target;
   const hash = path.indexOf("#");
   if (hash >= 0) path = path.slice(0, hash);
   const query = path.indexOf("?");
   if (query >= 0) path = path.slice(0, query);
-
-  try {
-    path = decodeURIComponent(path.trim());
-  } catch {
-    path = path.trim();
-  }
   if (path === "") return null;
 
   const slash = path.lastIndexOf("/");
   const leaf = slash >= 0 ? path.slice(slash + 1) : path;
   if (leaf === "") return null;
 
-  return path;
+  return target;
 }
 
 export function create_wiki_link_click_prose_plugin(input: {

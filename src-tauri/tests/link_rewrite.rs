@@ -99,6 +99,22 @@ fn resolve_markdown_local_pdf_relative_to_current_note() {
 }
 
 #[test]
+fn resolve_markdown_local_pdf_with_fragment() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "assets/paper.pdf#page=2"),
+        Some("docs/assets/paper.pdf".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_local_pdf_with_query() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "assets/paper.pdf?page=2"),
+        Some("docs/assets/paper.pdf".to_string())
+    );
+}
+
+#[test]
 fn resolve_markdown_root_relative_local_file() {
     assert_eq!(
         resolve_markdown_target("docs/source.md", "/assets/paper.pdf"),
@@ -109,6 +125,14 @@ fn resolve_markdown_root_relative_local_file() {
 #[test]
 fn resolve_markdown_root_escape_returns_none() {
     assert_eq!(resolve_markdown_target("source.md", "../escape"), None);
+}
+
+#[test]
+fn resolve_markdown_external_mailto_returns_none() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "mailto:test@example.com"),
+        None
+    );
 }
 
 // --- resolve_wiki_target ---

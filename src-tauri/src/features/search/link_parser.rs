@@ -62,8 +62,21 @@ fn decode_percent_sequences(value: &str) -> String {
 }
 
 fn is_external_url(value: &str) -> bool {
-    let lower = value.to_ascii_lowercase();
-    lower.starts_with("http://") || lower.starts_with("https://")
+    let trimmed = value.trim();
+    let Some((scheme, _)) = trimmed.split_once(':') else {
+        return false;
+    };
+    let mut chars = scheme.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !first.is_ascii_alphabetic() {
+        return false;
+    }
+    if !chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.')) {
+        return false;
+    }
+    !scheme.eq_ignore_ascii_case("file")
 }
 
 pub(crate) fn resolve_relative_path(source_dir: &str, target: &str) -> Option<String> {
@@ -101,25 +114,33 @@ fn source_dir_from_path(source_path: &str) -> &str {
     }
 }
 
-fn parse_internal_markdown_target(raw_href: &str) -> Option<String> {
-    let trimmed = raw_href.trim();
+fn strip_link_suffix(raw_target: &str) -> Option<String> {
+    let trimmed = raw_target.trim();
     if trimmed.is_empty() || is_external_url(trimmed) {
         return None;
     }
 
-    let mut href = decode_percent_sequences(trimmed);
-    if let Some(hash) = href.find('#') {
-        href.truncate(hash);
+    let mut target = decode_percent_sequences(trimmed);
+    if let Some(hash) = target.find('#') {
+        target.truncate(hash);
     }
-    if let Some(query) = href.find('?') {
-        href.truncate(query);
+    if let Some(query) = target.find('?') {
+        target.truncate(query);
     }
 
-    let href = href.trim();
+    let target = target.trim();
+    if target.is_empty() {
+        return None;
+    }
+    Some(target.to_string())
+}
+
+fn parse_internal_markdown_target(raw_href: &str) -> Option<String> {
+    let href = strip_link_suffix(raw_href)?;
     if href.is_empty() || !href.to_ascii_lowercase().ends_with(".md") {
         return None;
     }
-    Some(href.to_string())
+    Some(href)
 }
 
 fn markdown_destination_needs_angle_brackets(value: &str) -> bool {
@@ -164,12 +185,9 @@ fn is_root_relative_target(raw_target: &str) -> bool {
 }
 
 pub(crate) fn resolve_markdown_target(source_path: &str, raw_target: &str) -> Option<String> {
-    let trimmed = raw_target.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
+    let trimmed = strip_link_suffix(raw_target)?;
 
-    let base_dir = if is_root_relative_target(trimmed) {
+    let base_dir = if is_root_relative_target(&trimmed) {
         ""
     } else {
         source_dir_from_path(source_path)
@@ -188,13 +206,14 @@ pub(crate) fn resolve_markdown_target(source_path: &str, raw_target: &str) -> Op
 }
 
 pub(crate) fn resolve_wiki_target(source_path: &str, raw_target: &str) -> Option<String> {
-    let base_dir = if is_note_relative_target(raw_target) {
+    let trimmed = strip_link_suffix(raw_target)?;
+    let base_dir = if is_note_relative_target(&trimmed) {
         source_dir_from_path(source_path)
     } else {
         ""
     };
 
-    let cleaned = raw_target.trim_start_matches('/');
+    let cleaned = trimmed.trim_start_matches('/');
     if cleaned.is_empty() {
         return None;
     }

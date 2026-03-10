@@ -273,6 +273,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "docs/report.pdf",
       "pdf",
+      undefined,
     );
     expect(stores.tab.tabs).toHaveLength(1);
     const tab0 = stores.tab.tabs[0];
@@ -298,5 +299,47 @@ describe("note_open in browse window context", () => {
       "/vaults/v1/docs/archive.docx",
     );
     expect(stores.tab.tabs).toHaveLength(0);
+  });
+
+  it("passes pdf page fragments through to the document viewer", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+    services.search.resolve_note_link.mockResolvedValue("docs/report.pdf");
+
+    await registry.execute(ACTION_IDS.note_open_wiki_link, {
+      raw_path: "docs/report.pdf#page=3",
+      base_note_path: "notes/source.md",
+      source: "markdown",
+    });
+
+    expect(services.search.resolve_note_link).toHaveBeenCalledWith(
+      "notes/source.md",
+      "docs/report.pdf#page=3",
+    );
+    expect(services.document.open_document).toHaveBeenCalledWith(
+      "docs/report.pdf",
+      "docs/report.pdf",
+      "pdf",
+      3,
+    );
+  });
+
+  it("passes pdf page queries through to the document viewer", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+    services.search.resolve_note_link.mockResolvedValue("docs/report.pdf");
+
+    await registry.execute(ACTION_IDS.note_open_wiki_link, {
+      raw_path: "docs/report.pdf?page=4",
+      base_note_path: "notes/source.md",
+      source: "markdown",
+    });
+
+    expect(services.document.open_document).toHaveBeenCalledWith(
+      "docs/report.pdf",
+      "docs/report.pdf",
+      "pdf",
+      4,
+    );
   });
 });

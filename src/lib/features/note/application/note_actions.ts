@@ -35,6 +35,11 @@ type WikiLinkPayload = {
   source: InternalLinkSource;
 };
 
+type InternalLinkSuffix = {
+  fragment: string | null;
+  query: string | null;
+};
+
 type SaveRequestPayload = {
   source?: "manual" | "tab_close";
 };
@@ -102,6 +107,31 @@ function parse_note_star_path(note: unknown): string | null {
   return null;
 }
 
+function parse_internal_link_suffix(raw_target: string): InternalLinkSuffix {
+  const [before_fragment = "", fragment_part] = raw_target.split("#", 2);
+  const [, query_part] = before_fragment.split("?", 2);
+  return {
+    fragment: fragment_part || null,
+    query: query_part || null,
+  };
+}
+
+function parse_pdf_page_suffix(suffix: InternalLinkSuffix): number | undefined {
+  const fragment_match = suffix.fragment?.match(/^page=(\d+)$/i);
+  if (fragment_match?.[1]) {
+    const page = Number.parseInt(fragment_match[1], 10);
+    return page > 0 ? page : undefined;
+  }
+
+  const query_params = new URLSearchParams(suffix.query ?? "");
+  const page_value = query_params.get("page");
+  if (!page_value) {
+    return undefined;
+  }
+  const page = Number.parseInt(page_value, 10);
+  return page > 0 ? page : undefined;
+}
+
 export function register_note_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
@@ -134,11 +164,16 @@ export function register_note_actions(input: ActionRegistrationInput) {
 
   async function handle_resolved_internal_target(
     resolved: string,
+    suffix: InternalLinkSuffix,
   ): Promise<"note" | "handled"> {
     const filename = filename_from_path(resolved);
     const file_type = detect_file_type(filename);
     if (file_type) {
-      await registry.execute(ACTION_IDS.document_open, resolved);
+      await registry.execute(ACTION_IDS.document_open, {
+        file_path: resolved,
+        initial_pdf_page:
+          file_type === "pdf" ? parse_pdf_page_suffix(suffix) : undefined,
+      });
       return "handled";
     }
     if (resolved.toLowerCase().endsWith(".md")) {
@@ -384,7 +419,11 @@ export function register_note_actions(input: ActionRegistrationInput) {
           toast.error("Cannot link outside the vault");
           return;
         }
-        if ((await handle_resolved_internal_target(resolved)) === "handled") {
+        const suffix = parse_internal_link_suffix(parsed.raw_path);
+        if (
+          (await handle_resolved_internal_target(resolved, suffix)) ===
+          "handled"
+        ) {
           return;
         }
 
