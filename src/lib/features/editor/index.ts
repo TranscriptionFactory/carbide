@@ -6,6 +6,7 @@ export { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 export type {
   BufferRestorePolicy,
   EditorPort,
+  InternalLinkSource,
 } from "$lib/features/editor/ports";
 export { create_lazy_milkdown_editor_port as create_milkdown_editor_port } from "$lib/features/editor/adapters/lazy_milkdown_adapter";
 export { default as EditorStatusBar } from "$lib/features/editor/ui/editor_status_bar.svelte";

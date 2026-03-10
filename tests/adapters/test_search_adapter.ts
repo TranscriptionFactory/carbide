@@ -95,5 +95,16 @@ export function create_test_search_adapter(): SearchPort {
       const with_ext = cleaned.endsWith(".md") ? cleaned : `${cleaned}.md`;
       return Promise.resolve(resolve_relative_path(base_dir, with_ext));
     },
+
+    resolve_wiki_link(source_path: string, raw_target: string) {
+      const cleaned = raw_target.trim().replace(/^\//, "");
+      if (!cleaned) return Promise.resolve(null);
+      const with_ext = cleaned.endsWith(".md") ? cleaned : `${cleaned}.md`;
+      const base_dir =
+        cleaned.startsWith("./") || cleaned.startsWith("../")
+          ? source_dir_from_path(source_path)
+          : "";
+      return Promise.resolve(resolve_relative_path(base_dir, with_ext));
+    },
   };
 }

@@ -123,7 +123,10 @@ export function create_markdown_link_input_rule_prose_plugin(input: {
       const tr = newState.tr;
       tr.replaceWith(start, start + full_match.length, [
         newState.schema.text(link_text, [
-          input.link_type.create({ href: normalized_href }),
+          input.link_type.create({
+            href: normalized_href,
+            link_source: "markdown",
+          }),
         ]),
         newState.schema.text(ZERO_WIDTH_SPACE),
       ]);

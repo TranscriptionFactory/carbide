@@ -25,11 +25,13 @@ import {
   note_name_from_path,
   parent_folder_path,
 } from "$lib/shared/utils/path";
+import type { InternalLinkSource } from "$lib/features/editor";
 import { toast } from "svelte-sonner";
 
 type WikiLinkPayload = {
   raw_path: string;
   base_note_path: string;
+  source: InternalLinkSource;
 };
 
 type SaveRequestPayload = {
@@ -50,6 +52,7 @@ function parse_wiki_link_payload(payload: unknown): WikiLinkPayload | null {
   return {
     raw_path: record.raw_path,
     base_note_path: record.base_note_path,
+    source: record.source === "wiki" ? "wiki" : "markdown",
   };
 }
 
@@ -346,10 +349,16 @@ export function register_note_actions(input: ActionRegistrationInput) {
           return;
         }
 
-        const resolved = await services.search.resolve_note_link(
-          parsed.base_note_path,
-          parsed.raw_path,
-        );
+        const resolved =
+          parsed.source === "wiki"
+            ? await services.search.resolve_wiki_link(
+                parsed.base_note_path,
+                parsed.raw_path,
+              )
+            : await services.search.resolve_note_link(
+                parsed.base_note_path,
+                parsed.raw_path,
+              );
         if (!resolved) {
           toast.error("Cannot link outside the vault");
           return;

@@ -80,10 +80,60 @@ const log = create_logger("milkdown_adapter");
 const non_inclusive_inline_code = inlineCodeSchema.extendSchema(
   (prev) => (ctx) => ({ ...prev(ctx), inclusive: false }),
 );
-const non_inclusive_link = linkSchema.extendSchema((prev) => (ctx) => ({
-  ...prev(ctx),
-  inclusive: false,
-}));
+const non_inclusive_link = linkSchema.extendSchema((prev) => (ctx) => {
+  const spec = prev(ctx);
+
+  return {
+    ...spec,
+    inclusive: false,
+    attrs: {
+      ...spec.attrs,
+      link_source: { default: null, validate: "string|null" },
+    },
+    parseDOM: [
+      {
+        tag: "a[href]",
+        getAttrs: (dom) => {
+          if (!(dom instanceof HTMLElement)) {
+            return false;
+          }
+
+          return {
+            href: dom.getAttribute("href"),
+            title: dom.getAttribute("title"),
+            link_source: dom.getAttribute("data-link-source"),
+          };
+        },
+      },
+    ],
+    toDOM: (mark) => {
+      const attrs: Record<string, string> = {
+        href: String(mark.attrs["href"] ?? ""),
+      };
+      if (typeof mark.attrs["title"] === "string") {
+        attrs["title"] = mark.attrs["title"];
+      }
+      if (typeof mark.attrs["link_source"] === "string") {
+        attrs["data-link-source"] = mark.attrs["link_source"];
+      }
+      return ["a", attrs, 0] as const;
+    },
+    parseMarkdown: {
+      ...spec.parseMarkdown,
+      runner: (state, node, mark_type) => {
+        const url = node.url as string;
+        const title = node.title as string;
+        state.openMark(mark_type, {
+          href: url,
+          title,
+          link_source: "markdown",
+        });
+        state.next(node.children);
+        state.closeMark(mark_type);
+      },
+    },
+  };
+});
 const non_inclusive_strikethrough = strikethroughSchema.extendSchema(
   (prev) => (ctx) => ({ ...prev(ctx), inclusive: false }),
 );

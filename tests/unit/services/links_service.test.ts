@@ -58,6 +58,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -91,6 +92,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -140,6 +142,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -193,6 +196,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -233,6 +237,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
@@ -279,6 +284,7 @@ describe("LinksService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();

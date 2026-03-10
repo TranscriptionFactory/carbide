@@ -55,10 +55,11 @@ export function create_app_context(input: {
   );
 
   const editor_callbacks: EditorServiceCallbacks = {
-    on_internal_link_click: (raw_path, base_note_path) =>
+    on_internal_link_click: (raw_path, base_note_path, source) =>
       void action_registry.execute(ACTION_IDS.note_open_wiki_link, {
         raw_path,
         base_note_path,
+        source,
       }),
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),

@@ -219,5 +219,15 @@ export function create_search_tauri_adapter(): SearchPort {
         rawTarget: raw_target,
       });
     },
+
+    async resolve_wiki_link(
+      source_path: string,
+      raw_target: string,
+    ): Promise<string | null> {
+      return invoke_search<string | null>("resolve_wiki_link", {
+        sourcePath: source_path,
+        rawTarget: raw_target,
+      });
+    },
   };
 }

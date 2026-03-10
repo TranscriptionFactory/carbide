@@ -10,6 +10,7 @@ export type BufferConfig = {
 };
 
 export type BufferRestorePolicy = "reuse_cache" | "fresh";
+export type InternalLinkSource = "markdown" | "wiki";
 
 export type EditorSession = {
   destroy: () => void;
@@ -40,7 +41,11 @@ export type EditorEventHandlers = {
   on_markdown_change: (markdown: string) => void;
   on_dirty_state_change: (is_dirty: boolean) => void;
   on_cursor_change?: (info: CursorInfo) => void;
-  on_internal_link_click?: (raw_path: string, base_note_path: string) => void;
+  on_internal_link_click?: (
+    raw_path: string,
+    base_note_path: string,
+    source: InternalLinkSource,
+  ) => void;
   on_external_link_click?: (url: string) => void;
   on_image_paste_requested?: (payload: PastedImagePayload) => void;
   on_wiki_suggest_query?: (query: string) => void;

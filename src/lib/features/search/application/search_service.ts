@@ -513,4 +513,11 @@ export class SearchService {
   ): Promise<string | null> {
     return this.search_port.resolve_note_link(source_path, raw_target);
   }
+
+  async resolve_wiki_link(
+    source_path: string,
+    raw_target: string,
+  ): Promise<string | null> {
+    return this.search_port.resolve_wiki_link(source_path, raw_target);
+  }
 }

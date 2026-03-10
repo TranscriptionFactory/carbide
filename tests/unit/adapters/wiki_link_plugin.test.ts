@@ -19,16 +19,26 @@ import type {
 
 function create_schema() {
   const link = {
-    attrs: { href: {} },
+    attrs: { href: {}, link_source: { default: null } },
     inclusive: false,
     parseDOM: [
       {
         tag: "a[href]",
-        getAttrs: (dom: HTMLElement) => ({ href: dom.getAttribute("href") }),
+        getAttrs: (dom: HTMLElement) => ({
+          href: dom.getAttribute("href"),
+          link_source: dom.getAttribute("data-link-source"),
+        }),
       },
     ],
     toDOM: (mark: Mark, _inline: boolean) =>
-      ["a", { href: String(mark.attrs["href"] ?? "") }, 0] as const,
+      [
+        "a",
+        {
+          href: String(mark.attrs["href"] ?? ""),
+          "data-link-source": String(mark.attrs["link_source"] ?? ""),
+        },
+        0,
+      ] as const,
   } as const;
 
   const code_inline = {
@@ -52,16 +62,25 @@ function create_schema() {
   });
 }
 
-function get_link_href(doc: ProseNode, link_mark: MarkType): string | null {
-  let href: string | null = null;
+function get_link_info(
+  doc: ProseNode,
+  link_mark: MarkType,
+): { href: string; link_source: string | null } | null {
+  let result: { href: string; link_source: string | null } | null = null;
   doc.descendants((node: ProseNode) => {
     if (!node.isText) return true;
     const mark = node.marks.find((m: Mark) => m.type === link_mark);
     if (!mark) return true;
-    href = String(mark.attrs["href"] ?? "");
+    result = {
+      href: String(mark.attrs["href"] ?? ""),
+      link_source:
+        typeof mark.attrs["link_source"] === "string"
+          ? String(mark.attrs["link_source"])
+          : null,
+    };
     return false;
   });
-  return href;
+  return result;
 }
 
 describe("create_wiki_link_converter_prose_plugin", () => {
@@ -93,8 +112,9 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     expect(para.textContent.includes("[[")).toBe(false);
     expect(para.textContent.includes("note")).toBe(true);
 
-    const href = get_link_href(next.doc, schema.marks.link);
-    expect(href).toBe("note.md");
+    const info = get_link_info(next.doc, schema.marks.link);
+    expect(info?.href).toBe("note.md");
+    expect(info?.link_source).toBe("wiki");
   });
 
   it("converts labeled wikilinks", () => {
@@ -124,8 +144,9 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     const para = next.doc.child(0);
     expect(para.textContent.includes("Label")).toBe(true);
 
-    const href = get_link_href(next.doc, schema.marks.link);
-    expect(href).toBe("note.md");
+    const info = get_link_info(next.doc, schema.marks.link);
+    expect(info?.href).toBe("note.md");
+    expect(info?.link_source).toBe("wiki");
   });
 
   it("converts wikilinks across multiple paragraphs via full scan", () => {
@@ -157,7 +178,10 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     next.doc.descendants((node: ProseNode) => {
       if (!node.isText) return true;
       const mark = node.marks.find((m: Mark) => m.type === schema.marks.link);
-      if (mark) hrefs.push(String(mark.attrs["href"] ?? ""));
+      if (mark) {
+        hrefs.push(String(mark.attrs["href"] ?? ""));
+        expect(mark.attrs["link_source"]).toBe("wiki");
+      }
       return true;
     });
     expect(hrefs).toHaveLength(2);
@@ -235,6 +259,6 @@ describe("create_wiki_link_converter_prose_plugin", () => {
 
     const para = next.doc.child(0);
     expect(para.textContent.includes("[[note]]")).toBe(true);
-    expect(get_link_href(next.doc, schema.marks.link)).toBeNull();
+    expect(get_link_info(next.doc, schema.marks.link)).toBeNull();
   });
 });

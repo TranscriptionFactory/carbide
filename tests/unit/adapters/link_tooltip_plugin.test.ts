@@ -10,16 +10,26 @@ import { build_link_edit_transaction } from "$lib/features/editor/adapters/link_
 
 function create_schema() {
   const link = {
-    attrs: { href: {} },
+    attrs: { href: {}, link_source: { default: null } },
     inclusive: false,
     parseDOM: [
       {
         tag: "a[href]",
-        getAttrs: (dom: HTMLElement) => ({ href: dom.getAttribute("href") }),
+        getAttrs: (dom: HTMLElement) => ({
+          href: dom.getAttribute("href"),
+          link_source: dom.getAttribute("data-link-source"),
+        }),
       },
     ],
     toDOM: (mark: Mark, _inline: boolean) =>
-      ["a", { href: String(mark.attrs["href"] ?? "") }, 0] as const,
+      [
+        "a",
+        {
+          href: String(mark.attrs["href"] ?? ""),
+          "data-link-source": String(mark.attrs["link_source"] ?? ""),
+        },
+        0,
+      ] as const,
   } as const;
 
   const doc = { content: "block+" } as const;
@@ -49,9 +59,10 @@ function create_linked_state(
   display_text: string,
   href: string,
   after: string,
+  attrs?: Record<string, unknown>,
 ) {
   const link_type = get_link_type(schema);
-  const link_mark = link_type.create({ href });
+  const link_mark = link_type.create({ href, ...(attrs ?? {}) });
   const children = [];
   if (before) children.push(schema.text(before));
   children.push(schema.text(display_text, [link_mark]));
@@ -66,14 +77,25 @@ function create_linked_state(
 function get_link_info(
   doc: ProseNode,
   link_type: MarkType,
-): { text: string; href: string } | null {
-  let result: { text: string; href: string } | null = null;
+): { text: string; href: string; link_source: string | null } | null {
+  let result: {
+    text: string;
+    href: string;
+    link_source: string | null;
+  } | null = null;
   doc.descendants((node: ProseNode) => {
     if (result) return false;
     if (!node.isText) return true;
     const mark = node.marks.find((m: Mark) => m.type === link_type);
     if (!mark) return true;
-    result = { text: node.text ?? "", href: String(mark.attrs["href"] ?? "") };
+    result = {
+      text: node.text ?? "",
+      href: String(mark.attrs["href"] ?? ""),
+      link_source:
+        typeof mark.attrs["link_source"] === "string"
+          ? String(mark.attrs["link_source"])
+          : null,
+    };
     return false;
   });
   return result;
@@ -303,6 +325,29 @@ describe("build_link_edit_transaction", () => {
     expect(para.textContent).toBe("before updated link after");
     const info = get_link_info(next.doc, link_type);
     expect(info?.href).toBe("new-target.md");
+  });
+
+  it("preserves custom link attrs when editing href", () => {
+    const schema = create_schema();
+    const state = create_linked_state(schema, "", "wiki link", "old.md", "", {
+      link_source: "wiki",
+    });
+
+    const from = 1;
+    const to = from + "wiki link".length;
+
+    const { next, link_type } = apply_edit(schema, state, {
+      from,
+      to,
+      old_display_text: "wiki link",
+      old_href: "old.md",
+      new_display_text: "wiki link",
+      new_href: "new.md",
+    });
+
+    const info = get_link_info(next.doc, link_type);
+    expect(info?.href).toBe("new.md");
+    expect(info?.link_source).toBe("wiki");
   });
 
   it("handles link at start of paragraph", () => {

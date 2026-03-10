@@ -10,16 +10,26 @@ import { create_markdown_link_input_rule_prose_plugin } from "$lib/features/edit
 
 function create_schema() {
   const link = {
-    attrs: { href: {} },
+    attrs: { href: {}, link_source: { default: null } },
     inclusive: false,
     parseDOM: [
       {
         tag: "a[href]",
-        getAttrs: (dom: HTMLElement) => ({ href: dom.getAttribute("href") }),
+        getAttrs: (dom: HTMLElement) => ({
+          href: dom.getAttribute("href"),
+          link_source: dom.getAttribute("data-link-source"),
+        }),
       },
     ],
     toDOM: (mark: Mark, _inline: boolean) =>
-      ["a", { href: String(mark.attrs["href"] ?? "") }, 0] as const,
+      [
+        "a",
+        {
+          href: String(mark.attrs["href"] ?? ""),
+          "data-link-source": String(mark.attrs["link_source"] ?? ""),
+        },
+        0,
+      ] as const,
   } as const;
 
   const doc = { content: "block+" } as const;
@@ -37,16 +47,25 @@ function create_schema() {
   });
 }
 
-function get_link_href(doc: ProseNode, link_mark: MarkType): string | null {
-  let href: string | null = null;
+function get_link_info(
+  doc: ProseNode,
+  link_mark: MarkType,
+): { href: string; link_source: string | null } | null {
+  let result: { href: string; link_source: string | null } | null = null;
   doc.descendants((node: ProseNode) => {
     if (!node.isText) return true;
     const mark = node.marks.find((m: Mark) => m.type === link_mark);
     if (!mark) return true;
-    href = String(mark.attrs["href"] ?? "");
+    result = {
+      href: String(mark.attrs["href"] ?? ""),
+      link_source:
+        typeof mark.attrs["link_source"] === "string"
+          ? String(mark.attrs["link_source"])
+          : null,
+    };
     return false;
   });
-  return href;
+  return result;
 }
 
 describe("create_markdown_link_input_rule_prose_plugin", () => {
@@ -69,7 +88,9 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
 
     expect(next.doc.child(0).textContent.includes("[note title]")).toBe(false);
     expect(next.doc.child(0).textContent.includes("note title")).toBe(true);
-    expect(get_link_href(next.doc, schema.marks.link)).toBe("some note.md");
+    const info = get_link_info(next.doc, schema.marks.link);
+    expect(info?.href).toBe("some note.md");
+    expect(info?.link_source).toBe("markdown");
   });
 
   it("converts markdown links with spaces in folder and file name", () => {
@@ -89,9 +110,9 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
     tr.setSelection(TextSelection.create(tr.doc, inserted.length));
     const next = state.apply(tr);
 
-    expect(get_link_href(next.doc, schema.marks.link)).toBe(
-      "some folder/some note.md",
-    );
+    const info = get_link_info(next.doc, schema.marks.link);
+    expect(info?.href).toBe("some folder/some note.md");
+    expect(info?.link_source).toBe("markdown");
   });
 
   it("does not convert image markdown links", () => {
@@ -112,6 +133,6 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
     const next = state.apply(tr);
 
     expect(next.doc.child(0).textContent).toContain("![image](some note.md)");
-    expect(get_link_href(next.doc, schema.marks.link)).toBeNull();
+    expect(get_link_info(next.doc, schema.marks.link)).toBeNull();
   });
 });

@@ -78,6 +78,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -121,6 +122,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -163,6 +165,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const service = new SearchService(
@@ -202,6 +205,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const service = new SearchService(
@@ -248,6 +252,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -302,6 +307,7 @@ describe("SearchService", () => {
           Promise.resolve({ markdown, changed: false }),
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
     };
 
     const vault_store = new VaultStore();
@@ -336,5 +342,43 @@ describe("SearchService", () => {
         score: 9,
       },
     ]);
+  });
+
+  it("delegates wiki-link resolution to the search port", async () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue("docs/wiki.md"),
+    };
+
+    const service = new SearchService(
+      search_port,
+      new VaultStore(),
+      new OpStore(),
+      () => 1,
+    );
+
+    const resolved = await service.resolve_wiki_link("source.md", "docs/wiki");
+
+    expect(resolved).toBe("docs/wiki.md");
+    expect(search_port.resolve_wiki_link).toHaveBeenCalledWith(
+      "source.md",
+      "docs/wiki",
+    );
   });
 });

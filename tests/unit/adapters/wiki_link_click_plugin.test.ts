@@ -8,17 +8,17 @@ class MockElement {
 }
 
 class MockAnchorElement extends MockElement {
-  private readonly _href: string;
-  constructor(href: string) {
+  private readonly _attrs: Record<string, string>;
+  constructor(href: string, attrs?: Record<string, string>) {
     super();
-    this._href = href;
+    this._attrs = { href, ...(attrs ?? {}) };
   }
   override closest(selector: string): unknown {
     if (selector === "a[href]") return this;
     return null;
   }
   getAttribute(name: string): string | null {
-    return name === "href" ? this._href : null;
+    return this._attrs[name] ?? null;
   }
 }
 
@@ -35,10 +35,11 @@ beforeAll(() => {
 function create_mouse_event(
   href: string | null,
   overrides?: Partial<MouseEvent>,
+  attrs?: Record<string, string>,
 ) {
   const prevent_default = vi.fn();
   const stop_propagation = vi.fn();
-  const target = href ? new MockAnchorElement(href) : null;
+  const target = href ? new MockAnchorElement(href, attrs) : null;
 
   const event = {
     button: 0,
@@ -88,6 +89,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "note.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -100,6 +102,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "docs/sub/note.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -112,6 +115,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "./sibling.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -124,6 +128,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "../other.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -136,6 +141,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "folder/note",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -148,6 +154,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "note.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -160,6 +167,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "note.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -172,6 +180,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "my notes/todo list.md",
         "folder/current.md",
+        "markdown",
       );
     });
 
@@ -184,6 +193,22 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).toHaveBeenCalledWith(
         "target.md",
         "deep/nested/source.md",
+        "markdown",
+      );
+    });
+
+    it("passes wiki source for anchors tagged as wikilinks", () => {
+      const { plugin, on_internal_link_click } = setup();
+      const { event } = create_mouse_event("note.md", undefined, {
+        "data-link-source": "wiki",
+      });
+
+      invoke_dom_click(plugin, event);
+
+      expect(on_internal_link_click).toHaveBeenCalledWith(
+        "note.md",
+        "folder/current.md",
+        "wiki",
       );
     });
   });

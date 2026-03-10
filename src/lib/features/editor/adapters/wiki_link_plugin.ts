@@ -7,6 +7,7 @@ import type {
 } from "@milkdown/kit/prose/model";
 import { linkSchema } from "@milkdown/kit/preset/commonmark";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
+import type { InternalLinkSource } from "$lib/features/editor/ports";
 import { dirty_state_plugin_key } from "./dirty_state_plugin";
 import { editor_context_plugin_key } from "./editor_context_plugin";
 
@@ -179,7 +180,10 @@ export function create_wiki_link_converter_prose_plugin(input: {
 
             tr.replaceWith(start_pos, start_pos + m.full_match.length, [
               new_state.schema.text(replacement.display, [
-                input.link_type.create({ href: replacement.href }),
+                input.link_type.create({
+                  href: replacement.href,
+                  link_source: "wiki",
+                }),
               ]),
               new_state.schema.text(ZERO_WIDTH_SPACE),
             ]);
@@ -219,7 +223,10 @@ export function create_wiki_link_converter_prose_plugin(input: {
 
         tr.replaceWith(start, start + full_match.length, [
           new_state.schema.text(replacement.display, [
-            input.link_type.create({ href: replacement.href }),
+            input.link_type.create({
+              href: replacement.href,
+              link_source: "wiki",
+            }),
           ]),
           new_state.schema.text(ZERO_WIDTH_SPACE),
         ]);
@@ -294,16 +301,26 @@ function parse_internal_href(href: string): string | null {
 }
 
 export function create_wiki_link_click_prose_plugin(input: {
-  on_internal_link_click: (raw_path: string, base_note_path: string) => void;
+  on_internal_link_click: (
+    raw_path: string,
+    base_note_path: string,
+    source: InternalLinkSource,
+  ) => void;
   on_external_link_click: (url: string) => void;
   base_note_path?: string;
 }) {
-  function anchor_href_from_event(event: MouseEvent): string | null {
+  function anchor_from_event(event: MouseEvent): HTMLAnchorElement | null {
     const target = event.target;
     if (!(target instanceof Element)) return null;
     const anchor = target.closest("a[href]");
     if (!(anchor instanceof HTMLAnchorElement)) return null;
-    return anchor.getAttribute("href");
+    return anchor;
+  }
+
+  function source_from_anchor(anchor: HTMLAnchorElement): InternalLinkSource {
+    return anchor.getAttribute("data-link-source") === "wiki"
+      ? "wiki"
+      : "markdown";
   }
 
   return new Plugin({
@@ -315,8 +332,9 @@ export function create_wiki_link_click_prose_plugin(input: {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
             return false;
 
-          const href = anchor_href_from_event(event);
-          if (typeof href !== "string") return false;
+          const anchor = anchor_from_event(event);
+          const href = anchor?.getAttribute("href");
+          if (!anchor || typeof href !== "string") return false;
 
           event.preventDefault();
 
@@ -333,7 +351,11 @@ export function create_wiki_link_click_prose_plugin(input: {
             ? editor_context_plugin_key.getState(editor_state)
             : null;
           const base = ctx_state?.note_path ?? input.base_note_path ?? "";
-          input.on_internal_link_click(raw_path, base);
+          input.on_internal_link_click(
+            raw_path,
+            base,
+            source_from_anchor(anchor),
+          );
 
           return true;
         },
@@ -351,6 +373,10 @@ export const create_wiki_link_converter_plugin = () =>
   });
 
 export const create_wiki_link_click_plugin = (input: {
-  on_internal_link_click: (raw_path: string, base_note_path: string) => void;
+  on_internal_link_click: (
+    raw_path: string,
+    base_note_path: string,
+    source: InternalLinkSource,
+  ) => void;
   on_external_link_click: (url: string) => void;
 }) => $prose(() => create_wiki_link_click_prose_plugin(input));
