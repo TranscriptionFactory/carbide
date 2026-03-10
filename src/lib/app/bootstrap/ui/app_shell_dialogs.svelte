@@ -82,14 +82,25 @@
   const image_paste_error = $derived(stores.op.get("asset.write").error);
 
   const settings_has_unsaved_changes = $derived.by(() => {
-    const { current_settings, persisted_settings, hotkey_draft_overrides } =
-      stores.ui.settings_dialog;
+    const {
+      current_settings,
+      persisted_settings,
+      git_remote_url,
+      persisted_git_remote_url,
+      hotkey_draft_overrides,
+    } = stores.ui.settings_dialog;
     const editor_changed =
       JSON.stringify(current_settings) !== JSON.stringify(persisted_settings);
+    const git_remote_changed = git_remote_url !== persisted_git_remote_url;
     const hotkey_changed =
       JSON.stringify(hotkey_draft_overrides) !==
       JSON.stringify(stores.ui.hotkey_overrides);
-    return editor_changed || hotkey_changed || stores.ui.theme_has_draft;
+    return (
+      editor_changed ||
+      git_remote_changed ||
+      hotkey_changed ||
+      stores.ui.theme_has_draft
+    );
   });
 
   const delete_folder_status = $derived.by(() => {
@@ -279,6 +290,8 @@
 <SettingsDialog
   open={stores.ui.settings_dialog.open}
   editor_settings={stores.ui.settings_dialog.current_settings}
+  git_enabled={stores.git.enabled}
+  git_remote_url={stores.ui.settings_dialog.git_remote_url}
   active_category={stores.ui.settings_dialog.active_category}
   is_saving={stores.op.is_pending("settings.save")}
   has_unsaved_changes={settings_has_unsaved_changes}
@@ -288,6 +301,12 @@
   active_theme={stores.ui.active_theme}
   on_update_settings={(settings: EditorSettings) =>
     void action_registry.execute(ACTION_IDS.settings_update, settings)}
+  on_git_remote_url_change={(url: string) => {
+    stores.ui.settings_dialog = {
+      ...stores.ui.settings_dialog,
+      git_remote_url: url,
+    };
+  }}
   on_category_change={(category: SettingsCategory) => {
     stores.ui.settings_dialog.active_category = category;
   }}

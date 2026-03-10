@@ -16,12 +16,14 @@
     PageText,
     SearchState,
   } from "$lib/features/document/domain/pdf_search";
+  import type { DocumentPdfZoomMode } from "$lib/shared/types/editor_settings";
 
   interface Props {
     src: string;
+    default_zoom: DocumentPdfZoomMode;
   }
 
-  let { src }: Props = $props();
+  let { src, default_zoom }: Props = $props();
 
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
   type PDFJSModule = typeof import("pdfjs-dist");
@@ -50,6 +52,7 @@
   });
   let text_loading = $state(false);
   let search_generation = $state(0);
+  let applied_initial_zoom = $state(false);
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4.0;
@@ -65,6 +68,7 @@
     pages_text_by_page = new Map();
     search_state = { query: "", matches: [], current_index: 0 };
     search_generation += 1;
+    applied_initial_zoom = false;
 
     try {
       const pdfjs = await import("pdfjs-dist");
@@ -353,6 +357,16 @@
     if (!loading && pdf_doc && canvas_el) {
       void render_page(current_page);
     }
+  });
+
+  $effect(() => {
+    if (loading || !pdf_doc || !canvas_el || applied_initial_zoom) return;
+    applied_initial_zoom = true;
+    if (default_zoom === "fit_width") {
+      void fit_width();
+      return;
+    }
+    zoom_level = 1.0;
   });
 
   onMount(() => {

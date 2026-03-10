@@ -113,6 +113,10 @@ export class DocumentService {
     this.document_store.remove_viewer_state(tab_id);
   }
 
+  set_inactive_content_limit(limit: number): void {
+    this.document_store.set_inactive_content_limit(limit);
+  }
+
   sync_open_tabs(active_tab_id: string | null, open_tab_ids: string[]): void {
     const open_ids = new Set(open_tab_ids);
 

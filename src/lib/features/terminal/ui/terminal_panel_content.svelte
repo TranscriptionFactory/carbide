@@ -20,6 +20,8 @@
   let pty_process: IPty | undefined;
   let resize_observer: ResizeObserver | undefined;
   let destroyed = false;
+  let spawned_shell = "";
+  let spawned_vault_path: string | undefined;
 
   function get_shell(): string {
     return stores.ui.editor_settings.terminal_shell_path || "/bin/zsh";
@@ -60,6 +62,8 @@
       });
 
       pty_process = spawn(shell, [], options);
+      spawned_shell = shell;
+      spawned_vault_path = vault_path;
 
       pty_process.onData((data: Uint8Array | number[]) => {
         if (!destroyed) {
@@ -81,15 +85,22 @@
     }
   }
 
+  function respawn_pty() {
+    if (!terminal) return;
+    pty_process?.kill();
+    pty_process = undefined;
+    spawn_pty(terminal.cols, terminal.rows);
+  }
+
   function init_terminal() {
     if (!container_el) return;
 
     terminal = new Terminal({
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-      fontSize: 13,
+      fontSize: stores.ui.editor_settings.terminal_font_size_px,
       lineHeight: 1.3,
-      cursorBlink: true,
-      scrollback: 5000,
+      cursorBlink: stores.ui.editor_settings.terminal_cursor_blink,
+      scrollback: stores.ui.editor_settings.terminal_scrollback,
       theme: build_xterm_theme(),
     });
 
@@ -132,10 +143,39 @@
     resize_observer = undefined;
     pty_process?.kill();
     pty_process = undefined;
+    spawned_shell = "";
+    spawned_vault_path = undefined;
     terminal?.dispose();
     terminal = undefined;
     fit_addon = undefined;
   }
+
+  $effect(() => {
+    if (!terminal) return;
+    terminal.options.fontSize = stores.ui.editor_settings.terminal_font_size_px;
+    terminal.options.scrollback = stores.ui.editor_settings.terminal_scrollback;
+    terminal.options.cursorBlink =
+      stores.ui.editor_settings.terminal_cursor_blink;
+    requestAnimationFrame(() => {
+      fit_addon?.fit();
+    });
+  });
+
+  $effect(() => {
+    const follow_active_vault =
+      stores.ui.editor_settings.terminal_follow_active_vault;
+    const vault_path = stores.vault.vault?.path ?? undefined;
+    if (!follow_active_vault || !terminal || !pty_process) return;
+    if (spawned_vault_path === vault_path) return;
+    respawn_pty();
+  });
+
+  $effect(() => {
+    const shell = get_shell();
+    if (!terminal || !pty_process) return;
+    if (spawned_shell === shell) return;
+    respawn_pty();
+  });
 
   onMount(() => {
     init_terminal();

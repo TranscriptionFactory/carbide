@@ -16,6 +16,13 @@ export function register_ai_actions(
   const { registry, services, ai_service, ai_store } = input;
   let dialog_revision = 0;
 
+  function command_for(provider: AiProvider) {
+    const settings = input.stores.ui.editor_settings;
+    if (provider === "claude") return settings.ai_claude_command;
+    if (provider === "codex") return settings.ai_codex_command;
+    return settings.ai_ollama_command;
+  }
+
   async function open_ai_dialog(provider: AiProvider) {
     const context = services.editor.get_ai_context();
     if (!context) {
@@ -37,16 +44,16 @@ export function register_ai_actions(
     ai_store.set_cli_status("checking");
 
     if (provider === "ollama") {
-      void ai_service.load_ollama_model().then((model) => {
-        if (revision !== dialog_revision) return;
-        if (!ai_store.dialog.open || ai_store.dialog.provider !== provider)
-          return;
-        ai_store.set_ollama_model(model);
-      });
+      ai_store.set_ollama_model(
+        input.stores.ui.editor_settings.ai_ollama_model,
+      );
     }
 
     try {
-      const available = await ai_service.check_cli(provider);
+      const available = await ai_service.check_cli(
+        provider,
+        command_for(provider),
+      );
       if (revision !== dialog_revision) return;
       if (!ai_store.dialog.open || ai_store.dialog.provider !== provider)
         return;
@@ -137,14 +144,14 @@ export function register_ai_actions(
       ai_store.start_execution();
 
       try {
-        if (dialog.provider === "ollama") {
-          await ai_service.save_ollama_model(dialog.ollama_model);
-        }
         const result = await ai_service.execute({
           provider: dialog.provider,
           prompt: dialog.prompt,
           context: dialog.context,
+          command: command_for(dialog.provider),
           ollama_model: dialog.ollama_model,
+          timeout_seconds:
+            input.stores.ui.editor_settings.ai_execution_timeout_seconds,
         });
         if (revision !== dialog_revision) return;
         if (

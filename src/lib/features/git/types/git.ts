@@ -1,6 +1,7 @@
 export type GitSyncStatus =
   | "idle"
   | "committing"
+  | "fetching"
   | "pushing"
   | "pulling"
   | "error";

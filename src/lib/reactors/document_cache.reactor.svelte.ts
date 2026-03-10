@@ -1,13 +1,21 @@
+import type { UIStore } from "$lib/app";
 import type { DocumentService } from "$lib/features/document";
 import type { TabStore } from "$lib/features/tab";
 
 export function create_document_cache_reactor(
   tab_store: TabStore,
+  ui_store: UIStore,
   document_service: DocumentService,
 ): () => void {
   let last_active_document_id: string | null = null;
 
   return $effect.root(() => {
+    $effect(() => {
+      document_service.set_inactive_content_limit(
+        ui_store.editor_settings.document_inactive_cache_limit,
+      );
+    });
+
     $effect(() => {
       const tabs = tab_store.tabs;
       const active_tab = tab_store.active_tab;

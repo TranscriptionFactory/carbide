@@ -8,6 +8,7 @@ import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.re
 import { create_tab_dirty_sync_reactor } from "$lib/reactors/tab_dirty_sync.reactor.svelte";
 import { create_tab_persist_reactor } from "$lib/reactors/tab_persist.reactor.svelte";
 import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
+import { create_git_auto_fetch_reactor } from "$lib/reactors/git_auto_fetch.reactor.svelte";
 import { create_recent_commands_persist_reactor } from "$lib/reactors/recent_commands_persist.reactor.svelte";
 import { create_find_in_file_reactor } from "$lib/reactors/find_in_file.reactor.svelte";
 import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reactor.svelte";
@@ -114,6 +115,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.git_service,
     ),
+    create_git_auto_fetch_reactor(
+      context.git_store,
+      context.ui_store,
+      context.git_service,
+    ),
     create_recent_commands_persist_reactor(
       context.ui_store,
       context.settings_service,
@@ -157,7 +163,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.split_view_service,
     ),
-    create_document_cache_reactor(context.tab_store, context.document_service),
+    create_document_cache_reactor(
+      context.tab_store,
+      context.ui_store,
+      context.document_service,
+    ),
   ];
 
   return () => {

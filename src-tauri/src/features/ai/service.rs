@@ -69,6 +69,10 @@ fn no_window_cmd(program: &str) -> std::process::Command {
 }
 
 fn check_cli_exists(command_name: &str, path: &str) -> Result<bool, String> {
+    if command_name.contains(std::path::MAIN_SEPARATOR) || command_name.contains('/') {
+        return Ok(PathBuf::from(command_name).exists());
+    }
+
     let which_cmd = if cfg!(target_os = "windows") { "where" } else { "which" };
 
     let output = no_window_cmd(which_cmd)
@@ -78,6 +82,22 @@ fn check_cli_exists(command_name: &str, path: &str) -> Result<bool, String> {
         .map_err(|e| format!("Failed to check for {} CLI: {}", command_name, e))?;
 
     Ok(output.status.success())
+}
+
+fn resolved_command(command: Option<String>, fallback: &str) -> String {
+    let trimmed = command.unwrap_or_default().trim().to_string();
+    if trimmed.is_empty() {
+        fallback.to_string()
+    } else {
+        trimmed
+    }
+}
+
+fn resolved_timeout_seconds(timeout_seconds: Option<u64>) -> u64 {
+    match timeout_seconds {
+        Some(value) if value > 0 => value,
+        _ => 300,
+    }
 }
 
 fn strip_ansi(input: &str) -> String {
@@ -153,9 +173,11 @@ async fn execute_ai_cli(
     stdin_input: Option<String>,
     current_dir: String,
     not_found_msg: String,
+    timeout_seconds: Option<u64>,
 ) -> Result<AiExecutionResult, String> {
     let cli_name = cli_name.to_string();
-    let timeout_duration = std::time::Duration::from_secs(300);
+    let timeout_duration =
+        std::time::Duration::from_secs(resolved_timeout_seconds(timeout_seconds));
     let shared_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let child_for_task = Arc::clone(&shared_child);
     let cli_name_task = cli_name.clone();
@@ -347,16 +369,17 @@ fn ollama_model_name(model: &str) -> String {
 }
 
 #[tauri::command]
-pub async fn ai_check_cli(provider: String) -> Result<bool, String> {
+pub async fn ai_check_cli(provider: String, command: Option<String>) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let path = get_expanded_path();
-        let command = match provider.as_str() {
+        let default_command = match provider.as_str() {
             "claude" => "claude",
             "codex" => "codex",
             "ollama" => "ollama",
             _ => return Err(format!("Unsupported AI provider: {}", provider)),
         };
-        check_cli_exists(command, &path)
+        let command = resolved_command(command, default_command);
+        check_cli_exists(&command, &path)
     })
     .await
     .map_err(|e| format!("Failed to check AI CLI: {}", e))?
@@ -367,12 +390,15 @@ pub async fn ai_execute_claude(
     vault_path: String,
     note_path: String,
     prompt: String,
+    command: Option<String>,
+    timeout_seconds: Option<u64>,
 ) -> Result<AiExecutionResult, String> {
     validate_note_path(&vault_path, &note_path)?;
+    let command = resolved_command(command, "claude");
 
     execute_ai_cli(
         "Claude",
-        "claude".to_string(),
+        command,
         vec![
             "-p".to_string(),
             prompt,
@@ -383,6 +409,7 @@ pub async fn ai_execute_claude(
         vault_path,
         "Claude CLI not found. Please install it from https://code.claude.com/docs/en/quickstart"
             .to_string(),
+        timeout_seconds,
     )
     .await
 }
@@ -392,17 +419,21 @@ pub async fn ai_execute_codex(
     vault_path: String,
     note_path: String,
     prompt: String,
+    command: Option<String>,
+    timeout_seconds: Option<u64>,
 ) -> Result<AiExecutionResult, String> {
     validate_note_path(&vault_path, &note_path)?;
+    let command = resolved_command(command, "codex");
 
     execute_ai_cli(
         "Codex",
-        "codex".to_string(),
+        command,
         codex_args(),
         Some(prompt),
         vault_path,
         "Codex CLI not found. Please install it from https://github.com/openai/codex"
             .to_string(),
+        timeout_seconds,
     )
     .await
 }
@@ -412,17 +443,21 @@ pub async fn ai_execute_ollama(
     vault_path: String,
     note_path: String,
     prompt: String,
+    command: Option<String>,
     model: Option<String>,
+    timeout_seconds: Option<u64>,
 ) -> Result<AiExecutionResult, String> {
     validate_note_path(&vault_path, &note_path)?;
 
     let model_name = ollama_model_name(model.as_deref().unwrap_or(""));
+    let command = resolved_command(command, "ollama");
 
     if !model_name.contains("cloud") {
         let model_to_check = model_name.clone();
+        let command_to_check = command.clone();
         let available = tauri::async_runtime::spawn_blocking(move || {
             let path = get_expanded_path();
-            let mut cmd = no_window_cmd("ollama");
+            let mut cmd = no_window_cmd(&command_to_check);
             cmd.env("PATH", &path)
                 .args(["show", &model_to_check])
                 .stdout(Stdio::null())
@@ -449,11 +484,12 @@ pub async fn ai_execute_ollama(
 
     let result = execute_ai_cli(
         "Ollama",
-        "ollama".to_string(),
+        command,
         vec!["run".to_string(), model_name.clone()],
         Some(prompt),
         vault_path,
         "Ollama CLI not found. Please install it from https://ollama.com".to_string(),
+        timeout_seconds,
     )
     .await?;
 

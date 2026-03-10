@@ -201,11 +201,7 @@ export function create_app_context(input: {
     now_ms,
   );
 
-  const ai_service = new AiService(
-    input.ports.ai,
-    input.ports.settings,
-    stores.vault,
-  );
+  const ai_service = new AiService(input.ports.ai, stores.vault);
 
   const base_action_input = {
     registry: action_registry,

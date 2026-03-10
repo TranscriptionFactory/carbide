@@ -162,6 +162,8 @@ function initial_settings_dialog(settings: EditorSettings) {
     open: false,
     current_settings: { ...settings },
     persisted_settings: { ...settings },
+    git_remote_url: "",
+    persisted_git_remote_url: "",
     has_unsaved_changes: false,
     active_category: "theme" as SettingsCategory,
     hotkey_draft_overrides: [] as HotkeyOverride[],
@@ -257,6 +259,8 @@ export class UIStore {
     open: boolean;
     current_settings: EditorSettings;
     persisted_settings: EditorSettings;
+    git_remote_url: string;
+    persisted_git_remote_url: string;
     has_unsaved_changes: boolean;
     active_category: SettingsCategory;
     hotkey_draft_overrides: HotkeyOverride[];

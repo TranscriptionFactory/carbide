@@ -123,6 +123,7 @@ pub fn run() {
             features::git::service::git_fetch,
             features::git::service::git_pull,
             features::git::service::git_add_remote,
+            features::git::service::git_set_remote_url,
             features::git::service::git_push_with_upstream,
             features::vault::service::resolve_file_to_vault,
             get_pending_file_open

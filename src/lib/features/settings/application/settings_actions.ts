@@ -1,3 +1,4 @@
+import { toast } from "svelte-sonner";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
@@ -37,6 +38,8 @@ export function register_settings_actions(input: ActionRegistrationInput) {
       open: true,
       current_settings: settings_snapshot,
       persisted_settings: settings_snapshot,
+      git_remote_url: stores.git.remote_url ?? "",
+      persisted_git_remote_url: stores.git.remote_url ?? "",
       has_unsaved_changes: false,
       active_category: category,
       hotkey_draft_overrides: draft_overrides,
@@ -55,6 +58,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
       ...stores.ui.settings_dialog,
       open: false,
       current_settings: persisted_settings,
+      git_remote_url: stores.ui.settings_dialog.persisted_git_remote_url,
       has_unsaved_changes: false,
       hotkey_draft_overrides: draft_overrides,
       hotkey_draft_config: draft_config,
@@ -100,6 +104,8 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           ...stores.ui.settings_dialog,
           current_settings: result.settings,
           persisted_settings: result.settings,
+          git_remote_url: stores.git.remote_url ?? "",
+          persisted_git_remote_url: stores.git.remote_url ?? "",
           has_unsaved_changes: false,
         };
         stores.ui.set_editor_settings(result.settings);
@@ -141,6 +147,9 @@ export function register_settings_actions(input: ActionRegistrationInput) {
     label: "Save Settings",
     execute: async () => {
       const settings = stores.ui.settings_dialog.current_settings;
+      const next_remote_url = stores.ui.settings_dialog.git_remote_url.trim();
+      const persisted_remote_url =
+        stores.ui.settings_dialog.persisted_git_remote_url.trim();
       const result = await services.settings.save_settings(settings);
 
       if (result.status === "success") {
@@ -150,6 +159,30 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           persisted_settings: settings,
           has_unsaved_changes: false,
         };
+      }
+
+      if (next_remote_url !== persisted_remote_url) {
+        if (next_remote_url === "") {
+          toast.error("Clearing the git remote URL is not supported yet");
+        } else if (!stores.git.enabled) {
+          toast.error(
+            "Initialize Git for this vault before configuring a remote",
+          );
+        } else {
+          const remote_result =
+            await services.git.set_remote_url(next_remote_url);
+          if (remote_result.success) {
+            stores.ui.settings_dialog = {
+              ...stores.ui.settings_dialog,
+              git_remote_url: next_remote_url,
+              persisted_git_remote_url: next_remote_url,
+            };
+          } else {
+            toast.error(
+              remote_result.error ?? "Failed to update the git remote URL",
+            );
+          }
+        }
       }
 
       await persist_hotkey_draft();

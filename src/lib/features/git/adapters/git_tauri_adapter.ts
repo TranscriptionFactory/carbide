@@ -1,5 +1,6 @@
 import type { GitPort } from "$lib/features/git/ports";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
+import type { GitPullStrategy } from "$lib/shared/types/editor_settings";
 import type { VaultPath } from "$lib/shared/types/ids";
 import type {
   GitCommit,
@@ -100,13 +101,20 @@ export function create_git_tauri_adapter(): GitPort {
         vaultPath: vault_path,
       });
     },
-    async pull(vault_path: VaultPath) {
+    async pull(vault_path: VaultPath, strategy: GitPullStrategy) {
       return await invoke_git<GitRemoteResult>("git_pull", {
         vaultPath: vault_path,
+        strategy,
       });
     },
     async add_remote(vault_path: VaultPath, url: string) {
       return await invoke_git<GitRemoteResult>("git_add_remote", {
+        vaultPath: vault_path,
+        url,
+      });
+    },
+    async set_remote_url(vault_path: VaultPath, url: string) {
+      return await invoke_git<GitRemoteResult>("git_set_remote_url", {
         vaultPath: vault_path,
         url,
       });

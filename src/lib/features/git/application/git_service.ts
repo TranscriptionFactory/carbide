@@ -2,6 +2,7 @@ import type { GitPort } from "$lib/features/git/ports";
 import type { VaultStore } from "$lib/features/vault";
 import type { GitStore } from "$lib/features/git/state/git_store.svelte";
 import type { OpStore } from "$lib/app";
+import type { GitPullStrategy } from "$lib/shared/types/editor_settings";
 import type { VaultPath } from "$lib/shared/types/ids";
 import { error_message } from "$lib/shared/utils/error_message";
 
@@ -385,13 +386,13 @@ export class GitService {
     }
   }
 
-  async pull() {
+  async pull(strategy: GitPullStrategy = "merge") {
     const vault_path = this.get_vault_path();
     this.op_store.start("git.pull", this.now_ms());
     this.git_store.set_sync_status("pulling");
     this.git_store.set_error(null);
     try {
-      const result = await this.git_port.pull(vault_path);
+      const result = await this.git_port.pull(vault_path, strategy);
       if (!result.success) {
         this.fail_git_mutation("git.pull", result.error ?? "Pull failed");
         return result;
@@ -411,17 +412,24 @@ export class GitService {
   async fetch_remote() {
     const vault_path = this.get_vault_path();
     this.op_store.start("git.fetch", this.now_ms());
+    this.git_store.set_sync_status("fetching");
+    this.git_store.set_error(null);
     try {
       const result = await this.git_port.fetch(vault_path);
       if (!result.success) {
+        this.git_store.set_sync_status("error");
+        this.git_store.set_error(result.error ?? "Fetch failed");
         this.op_store.fail("git.fetch", result.error ?? "Fetch failed");
         return result;
       }
+      this.git_store.set_sync_status("idle");
       this.op_store.succeed("git.fetch");
       await this.refresh_status();
       return result;
     } catch (err) {
       const msg = error_message(err);
+      this.git_store.set_sync_status("error");
+      this.git_store.set_error(msg);
       this.op_store.fail("git.fetch", msg);
       return { success: false, message: null, error: msg };
     }
@@ -452,7 +460,32 @@ export class GitService {
     }
   }
 
-  async sync() {
+  async set_remote_url(url: string) {
+    const vault_path = this.get_vault_path();
+    this.op_store.start("git.set_remote_url", this.now_ms());
+    this.git_store.set_error(null);
+    try {
+      const result = await this.git_port.set_remote_url(vault_path, url);
+      if (!result.success) {
+        this.git_store.set_error(result.error);
+        this.op_store.fail(
+          "git.set_remote_url",
+          result.error ?? "Failed to update remote URL",
+        );
+        return result;
+      }
+      this.op_store.succeed("git.set_remote_url");
+      await this.refresh_status();
+      return result;
+    } catch (err) {
+      const msg = error_message(err);
+      this.git_store.set_error(msg);
+      this.op_store.fail("git.set_remote_url", msg);
+      return { success: false, message: null, error: msg };
+    }
+  }
+
+  async sync(strategy: GitPullStrategy = "merge") {
     const vault_path = this.get_vault_path();
     const status = await this.git_port.status(vault_path);
     if (!status.has_remote) {
@@ -463,7 +496,7 @@ export class GitService {
       await this.commit_all();
     }
 
-    const pull_result = await this.pull();
+    const pull_result = await this.pull(strategy);
     if (!pull_result.success) return pull_result;
 
     return await this.push();

@@ -39,6 +39,9 @@ function create_mock_port() {
   const add_remote = vi
     .fn()
     .mockResolvedValue({ success: true, message: null, error: null });
+  const set_remote_url = vi
+    .fn()
+    .mockResolvedValue({ success: true, message: null, error: null });
   const push_with_upstream = vi
     .fn()
     .mockResolvedValue({ success: true, message: null, error: null });
@@ -57,6 +60,7 @@ function create_mock_port() {
     fetch,
     pull,
     add_remote,
+    set_remote_url,
     push_with_upstream,
   };
 
@@ -75,6 +79,7 @@ function create_mock_port() {
     fetch,
     pull,
     add_remote,
+    set_remote_url,
     push_with_upstream,
   };
 }
@@ -461,9 +466,9 @@ describe("GitService", () => {
     ]);
 
     await service.load_history("notes/test.md", 20);
-    await service.pull();
+    await service.pull("rebase");
 
-    expect(pull).toHaveBeenCalledTimes(1);
+    expect(pull).toHaveBeenCalledWith(expect.anything(), "rebase");
     expect(git_store.history).toEqual([]);
     expect(status).toHaveBeenCalled();
   });
@@ -495,6 +500,18 @@ describe("GitService", () => {
     await service.add_remote("git@github.com:otterly/repo.git");
 
     expect(add_remote).toHaveBeenCalledWith(
+      expect.anything(),
+      "git@github.com:otterly/repo.git",
+    );
+    expect(status).toHaveBeenCalled();
+  });
+
+  it("set_remote_url updates the active origin and refreshes status", async () => {
+    const { service, set_remote_url, status } = create_harness();
+
+    await service.set_remote_url("git@github.com:otterly/repo.git");
+
+    expect(set_remote_url).toHaveBeenCalledWith(
       expect.anything(),
       "git@github.com:otterly/repo.git",
     );

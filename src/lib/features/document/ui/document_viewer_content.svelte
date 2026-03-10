@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type {
     DocumentContentState,
     DocumentViewerState,
@@ -14,15 +15,22 @@
   }
 
   let { viewer_state, content_state }: Props = $props();
+  const { stores } = use_app_context();
   const asset_url = $derived(content_state?.asset_url ?? null);
   const content = $derived(content_state?.content ?? null);
 </script>
 
 <div class="DocumentViewer">
   {#if viewer_state.file_type === "pdf" && asset_url}
-    <PdfViewer src={asset_url} />
+    <PdfViewer
+      src={asset_url}
+      default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
+    />
   {:else if viewer_state.file_type === "image" && asset_url}
-    <ImageViewer src={asset_url} />
+    <ImageViewer
+      src={asset_url}
+      background_style={stores.ui.editor_settings.document_image_background}
+    />
   {:else if viewer_state.file_type === "csv" && content !== null}
     <CsvViewer {content} />
   {:else if (viewer_state.file_type === "code" || viewer_state.file_type === "text") && content !== null}
@@ -30,6 +38,7 @@
       {content}
       file_type={viewer_state.file_type}
       filename={viewer_state.file_path.split("/").pop() ?? ""}
+      wrap_lines={stores.ui.editor_settings.document_code_wrap}
     />
   {:else if viewer_state.load_status === "error"}
     <div class="DocumentViewer__state DocumentViewer__state--error">

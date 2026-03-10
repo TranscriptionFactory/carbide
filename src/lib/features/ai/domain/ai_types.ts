@@ -24,12 +24,19 @@ export type AiDialogContext = {
   target: AiApplyTarget;
 };
 
+export type AiCliCheckRequest = {
+  provider: AiProvider;
+  command?: string | null;
+};
+
 export type AiPortRequest = {
   provider: AiProvider;
   vault_path: string;
   note_path: NotePath;
   prompt: string;
+  command?: string | null;
   ollama_model?: string | null;
+  timeout_seconds?: number | null;
 };
 
 export type AiProviderDisplay = {

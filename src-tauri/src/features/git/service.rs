@@ -702,19 +702,30 @@ pub fn git_fetch(vault_path: String) -> GitRemoteResult {
 }
 
 #[tauri::command]
-pub fn git_pull(vault_path: String) -> GitRemoteResult {
-    let output = git_cmd(&vault_path)
-        .args([
-            "-c",
-            "http.lowSpeedLimit=1000",
-            "-c",
-            "http.lowSpeedTime=10",
-            "-c",
-            "pull.rebase=false",
-            "pull",
-        ])
-        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10")
-        .output();
+pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult {
+    let selected_strategy = strategy.unwrap_or_else(|| "merge".to_string());
+    let mut cmd = git_cmd(&vault_path);
+    cmd.args([
+        "-c",
+        "http.lowSpeedLimit=1000",
+        "-c",
+        "http.lowSpeedTime=10",
+    ])
+    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
+
+    match selected_strategy.as_str() {
+        "rebase" => {
+            cmd.args(["-c", "pull.rebase=true", "pull", "--rebase"]);
+        }
+        "ff_only" => {
+            cmd.args(["-c", "pull.ff=only", "pull", "--ff-only"]);
+        }
+        _ => {
+            cmd.args(["-c", "pull.rebase=false", "pull"]);
+        }
+    }
+
+    let output = cmd.output();
 
     match output {
         Ok(output) => {
@@ -793,6 +804,62 @@ pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
             success: false,
             message: None,
             error: Some(format!("Failed to add remote: {}", e)),
+        },
+    }
+}
+
+#[tauri::command]
+pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
+    if !is_valid_remote_url(&url) {
+        return GitRemoteResult {
+            success: false,
+            message: None,
+            error: Some(
+                "Invalid remote URL. Must start with https://, http://, or git@".to_string(),
+            ),
+        };
+    }
+
+    let has_origin = git_cmd(&vault_path)
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    let output = if has_origin {
+        git_cmd(&vault_path)
+            .args(["remote", "set-url", "origin", &url])
+            .output()
+    } else {
+        git_cmd(&vault_path)
+            .args(["remote", "add", "origin", &url])
+            .output()
+    };
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                GitRemoteResult {
+                    success: true,
+                    message: Some(if has_origin {
+                        "Remote updated successfully".to_string()
+                    } else {
+                        "Remote added successfully".to_string()
+                    }),
+                    error: None,
+                }
+            } else {
+                GitRemoteResult {
+                    success: false,
+                    message: None,
+                    error: Some(String::from_utf8_lossy(&output.stderr).trim().to_string()),
+                }
+            }
+        }
+        Err(e) => GitRemoteResult {
+            success: false,
+            message: None,
+            error: Some(format!("Failed to update remote: {}", e)),
         },
     }
 }

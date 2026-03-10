@@ -1,9 +1,12 @@
 <script lang="ts">
+  import type { DocumentImageBackground } from "$lib/shared/types/editor_settings";
+
   interface Props {
     src: string;
+    background_style: DocumentImageBackground;
   }
 
-  let { src }: Props = $props();
+  let { src, background_style }: Props = $props();
 
   let zoom = $state(1.0);
   let error = $state(false);
@@ -49,7 +52,13 @@
     >
   </div>
 
-  <div class="ImageViewer__canvas">
+  <div
+    class="ImageViewer__canvas"
+    class:ImageViewer__canvas--light={background_style === "light"}
+    class:ImageViewer__canvas--dark={background_style === "dark"}
+    class:ImageViewer__canvas--checkerboard={background_style ===
+      "checkerboard"}
+  >
     {#if error}
       <span class="ImageViewer__error">Failed to load image</span>
     {:else}
@@ -117,11 +126,22 @@
     display: flex;
     justify-content: center;
     padding: var(--space-4);
+  }
+
+  .ImageViewer__canvas--checkerboard {
     background-image: repeating-conic-gradient(
         color-mix(in srgb, var(--foreground) 6%, transparent) 0% 25%,
         color-mix(in srgb, var(--foreground) 12%, transparent) 0% 50%
       )
       0 0 / 20px 20px;
+  }
+
+  .ImageViewer__canvas--light {
+    background: color-mix(in srgb, white 92%, var(--background));
+  }
+
+  .ImageViewer__canvas--dark {
+    background: color-mix(in srgb, black 82%, var(--background));
   }
 
   .ImageViewer__img {

@@ -351,7 +351,9 @@ export function register_git_actions(input: ActionRegistrationInput) {
     label: "Git Pull",
     execute: async () => {
       const toast_id = toast.loading("Pulling...");
-      const result = await services.git.pull();
+      const result = await services.git.pull(
+        stores.ui.editor_settings.git_pull_strategy,
+      );
       if (result.success) {
         toast.success(result.message ?? "Pulled successfully", {
           id: toast_id,
@@ -367,7 +369,9 @@ export function register_git_actions(input: ActionRegistrationInput) {
     label: "Git Sync",
     execute: async () => {
       const toast_id = toast.loading("Syncing...");
-      const result = await services.git.sync();
+      const result = await services.git.sync(
+        stores.ui.editor_settings.git_pull_strategy,
+      );
       if (result.success) {
         toast.success("Synced successfully", { id: toast_id });
       } else {

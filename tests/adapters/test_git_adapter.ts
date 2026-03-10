@@ -56,6 +56,9 @@ export function create_test_git_adapter(): GitPort {
     add_remote() {
       return Promise.resolve({ success: true, message: null, error: null });
     },
+    set_remote_url() {
+      return Promise.resolve({ success: true, message: null, error: null });
+    },
     push_with_upstream() {
       return Promise.resolve({ success: true, message: null, error: null });
     },

@@ -7,9 +7,15 @@
     content: string;
     file_type?: string;
     filename?: string;
+    wrap_lines?: boolean;
   }
 
-  let { content, file_type = "text", filename = "" }: Props = $props();
+  let {
+    content,
+    file_type = "text",
+    filename = "",
+    wrap_lines = true,
+  }: Props = $props();
 
   let container: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined;
@@ -52,7 +58,6 @@
 
         const extensions = [
           basicSetup,
-          EditorView.lineWrapping,
           EditorState.readOnly.of(true),
           EditorView.theme({
             "&": { height: "100%", fontSize: "var(--text-sm, 13px)" },
@@ -62,6 +67,10 @@
             },
           }),
         ];
+
+        if (wrap_lines) {
+          extensions.push(EditorView.lineWrapping);
+        }
 
         if (dark_theme) {
           extensions.push(dark_theme.oneDark);
