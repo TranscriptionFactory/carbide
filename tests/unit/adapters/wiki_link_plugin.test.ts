@@ -11,11 +11,13 @@ import {
   wiki_link_plugin_key,
 } from "$lib/features/editor/adapters/wiki_link_plugin";
 import { dirty_state_plugin_key } from "$lib/features/editor/adapters/dirty_state_plugin";
+import { create_paired_delimiter_prose_plugin } from "$lib/features/editor/adapters/paired_delimiter_plugin";
 import type {
   MarkType,
   Node as ProseNode,
   Mark,
 } from "@milkdown/kit/prose/model";
+import type { EditorView } from "@milkdown/kit/prose/view";
 
 function create_schema() {
   const link = {
@@ -83,6 +85,38 @@ function get_link_info(
   return result;
 }
 
+function create_view(state: EditorState) {
+  return {
+    state,
+    dispatch(tr) {
+      this.state = this.state.apply(tr);
+    },
+  } as EditorView & { state: EditorState };
+}
+
+function call_handle_text_input(
+  plugin: ReturnType<typeof create_paired_delimiter_prose_plugin>,
+  view: EditorView,
+  from: number,
+  to: number,
+  text: string,
+) {
+  const handle_text_input = plugin.props.handleTextInput;
+  if (!handle_text_input) {
+    throw new Error("Expected handleTextInput");
+  }
+
+  return (
+    handle_text_input as (
+      this: typeof plugin,
+      view: EditorView,
+      from: number,
+      to: number,
+      text: string,
+    ) => boolean
+  ).call(plugin, view, from, to, text);
+}
+
 describe("create_wiki_link_converter_prose_plugin", () => {
   it("converts a wikilink into a link mark", () => {
     const schema = create_schema();
@@ -103,9 +137,7 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     const inserted = "[[note]]";
     const insert_pos = 1 + "See ".length;
     const tr = state.tr.insertText(inserted, insert_pos);
-    tr.setSelection(
-      TextSelection.create(tr.doc, insert_pos + inserted.length - 1),
-    );
+    tr.setSelection(TextSelection.create(tr.doc, insert_pos + inserted.length));
     const next = state.apply(tr);
 
     const para = next.doc.child(0);
@@ -136,9 +168,7 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     const inserted = "[[note|Label]]";
     const insert_pos = 1 + "Go to ".length;
     const tr = state.tr.insertText(inserted, insert_pos);
-    tr.setSelection(
-      TextSelection.create(tr.doc, insert_pos + inserted.length - 1),
-    );
+    tr.setSelection(TextSelection.create(tr.doc, insert_pos + inserted.length));
     const next = state.apply(tr);
 
     const para = next.doc.child(0);
@@ -260,5 +290,66 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     const para = next.doc.child(0);
     expect(para.textContent.includes("[[note]]")).toBe(true);
     expect(get_link_info(next.doc, schema.marks.link)).toBeNull();
+  });
+
+  it("waits to convert auto-paired wikilinks until the cursor leaves the brackets", () => {
+    const schema = create_schema();
+    const paired_plugin = create_paired_delimiter_prose_plugin();
+    const wiki_link_plugin = create_wiki_link_converter_prose_plugin({
+      link_type: schema.marks.link,
+    });
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [schema.node("paragraph", null, [])]),
+      plugins: [paired_plugin, wiki_link_plugin],
+    });
+    const view = create_view(state);
+
+    expect(call_handle_text_input(paired_plugin, view, 1, 1, "[")).toBe(true);
+    expect(
+      call_handle_text_input(
+        paired_plugin,
+        view,
+        view.state.selection.from,
+        view.state.selection.to,
+        "[",
+      ),
+    ).toBe(true);
+
+    const insert_char = view.state.tr.insertText(
+      "a",
+      view.state.selection.from,
+      view.state.selection.to,
+    );
+    view.dispatch(insert_char);
+
+    expect(
+      view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
+    ).toBe("[[a]]");
+    expect(get_link_info(view.state.doc, schema.marks.link)).toBeNull();
+
+    expect(
+      call_handle_text_input(
+        paired_plugin,
+        view,
+        view.state.selection.from,
+        view.state.selection.to,
+        "]",
+      ),
+    ).toBe(true);
+    expect(get_link_info(view.state.doc, schema.marks.link)).toBeNull();
+
+    expect(
+      call_handle_text_input(
+        paired_plugin,
+        view,
+        view.state.selection.from,
+        view.state.selection.to,
+        "]",
+      ),
+    ).toBe(true);
+
+    expect(view.state.doc.child(0).textContent.includes("[[")).toBe(false);
+    expect(get_link_info(view.state.doc, schema.marks.link)?.href).toBe("a.md");
   });
 });

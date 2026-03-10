@@ -119,7 +119,8 @@ export function create_wiki_link_converter_prose_plugin(input: {
         is_full_scan_action(tr.getMeta(wiki_link_plugin_key)),
       );
       const should_scan =
-        force_full_scan || transactions.some((tr) => tr.docChanged);
+        force_full_scan ||
+        transactions.some((tr) => tr.docChanged || tr.selectionSet);
       if (!should_scan) return null;
 
       const tr = new_state.tr;
@@ -207,6 +208,7 @@ export function create_wiki_link_converter_prose_plugin(input: {
 
         const match_start_index = window_start + match.index;
         const match_end_index = match_start_index + full_match.length;
+        if (anchor < match_end_index) return;
         if (
           contains_protected_mark(segments, match_start_index, match_end_index)
         )
