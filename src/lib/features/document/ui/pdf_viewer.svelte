@@ -53,7 +53,7 @@
   });
   let text_loading = $state(false);
   let search_generation = $state(0);
-  let applied_initial_zoom = $state(false);
+  let applied_initial_zoom = false;
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4.0;
@@ -86,7 +86,6 @@
       pdf_doc = doc;
       num_pages = doc.numPages;
       loading = false;
-      await render_page(current_page);
     } catch (err) {
       loading = false;
       error_msg = err instanceof Error ? err.message : "Failed to load PDF";
@@ -257,8 +256,9 @@
 
   async function fit_width() {
     if (!pdf_doc || !canvas_el) return;
-    const container = canvas_el.parentElement;
-    if (!container) return;
+    const scroll_container = canvas_el.closest(".PdfViewer__canvas-container");
+    if (!scroll_container) return;
+    const container = scroll_container as HTMLElement;
     const page = await pdf_doc.getPage(current_page);
     const viewport = page.getViewport({ scale: 1.0 });
     zoom_level = container.clientWidth / viewport.width;
@@ -355,19 +355,19 @@
   });
 
   $effect(() => {
-    if (!loading && pdf_doc && canvas_el) {
-      void render_page(current_page);
-    }
-  });
+    if (loading || !pdf_doc || !canvas_el) return;
+    const page = current_page;
 
-  $effect(() => {
-    if (loading || !pdf_doc || !canvas_el || applied_initial_zoom) return;
-    applied_initial_zoom = true;
-    if (default_zoom === "fit_width") {
-      void fit_width();
-      return;
+    if (!applied_initial_zoom) {
+      applied_initial_zoom = true;
+      if (default_zoom === "fit_width") {
+        void fit_width();
+        return;
+      }
+      zoom_level = 1.0;
     }
-    zoom_level = 1.0;
+
+    void render_page(page);
   });
 
   onMount(() => {
@@ -526,7 +526,6 @@
     {/if}
   </div>
 </div>
-let search_generation = 0;
 
 <style>
   .PdfViewer {
