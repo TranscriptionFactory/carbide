@@ -134,6 +134,14 @@ fn strip_ansi(input: &str) -> String {
     out
 }
 
+fn read_stream_to_string<T: Read + Send + 'static>(mut handle: T) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        let mut output = String::new();
+        let _ = handle.read_to_string(&mut output);
+        output
+    })
+}
+
 fn validate_note_path(vault_path: &str, note_path: &str) -> Result<(), String> {
     let vault_root = PathBuf::from(vault_path)
         .canonicalize()
@@ -277,15 +285,8 @@ async fn execute_ai_cli(
             .ok()
             .and_then(|mut guard| guard.as_mut().and_then(|process| process.stderr.take()));
 
-        let mut stdout = String::new();
-        if let Some(mut handle) = stdout_handle {
-            let _ = handle.read_to_string(&mut stdout);
-        }
-
-        let mut stderr = String::new();
-        if let Some(mut handle) = stderr_handle {
-            let _ = handle.read_to_string(&mut stderr);
-        }
+        let stdout_reader = stdout_handle.map(read_stream_to_string);
+        let stderr_reader = stderr_handle.map(read_stream_to_string);
 
         let success = child_for_task
             .lock()
@@ -293,6 +294,13 @@ async fn execute_ai_cli(
             .and_then(|mut guard| guard.as_mut().and_then(|process| process.wait().ok()))
             .map(|status| status.success())
             .unwrap_or(false);
+
+        let stdout = stdout_reader
+            .and_then(|reader| reader.join().ok())
+            .unwrap_or_default();
+        let stderr = stderr_reader
+            .and_then(|reader| reader.join().ok())
+            .unwrap_or_default();
 
         let stdout_clean = strip_ansi(&stdout).trim().to_string();
         let stderr_clean = strip_ansi(&stderr).trim().to_string();
@@ -528,7 +536,8 @@ pub async fn ai_execute_ollama(
 
 #[cfg(test)]
 mod tests {
-    use super::strip_ansi;
+    use super::{no_window_cmd, read_stream_to_string, strip_ansi};
+    use std::process::Stdio;
 
     #[test]
     fn strips_basic_ansi_sequences() {
@@ -540,5 +549,31 @@ mod tests {
     fn strips_osc_sequences() {
         let input = "before\u{1b}]0;title\u{7}after";
         assert_eq!(strip_ansi(input), "beforeafter");
+    }
+
+    #[test]
+    fn reads_stdout_and_stderr_concurrently() {
+        let mut child = no_window_cmd("/bin/sh");
+        child
+            .arg("-c")
+            .arg(
+                r#"python3 -c "import sys; sys.stdout.write('o'*200000); sys.stdout.flush(); sys.stderr.write('e'*200000); sys.stderr.flush()""#,
+            )
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut process = child.spawn().expect("spawn child");
+        let stdout_reader =
+            read_stream_to_string(process.stdout.take().expect("stdout pipe available"));
+        let stderr_reader =
+            read_stream_to_string(process.stderr.take().expect("stderr pipe available"));
+
+        let status = process.wait().expect("wait for child");
+        let stdout = stdout_reader.join().expect("join stdout reader");
+        let stderr = stderr_reader.join().expect("join stderr reader");
+
+        assert!(status.success());
+        assert_eq!(stdout.len(), 200000);
+        assert_eq!(stderr.len(), 200000);
     }
 }
