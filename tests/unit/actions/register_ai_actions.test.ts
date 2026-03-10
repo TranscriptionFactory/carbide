@@ -108,4 +108,23 @@ describe("register_ai_actions", () => {
     expect(ai_store.dialog.provider).toBe("ollama");
     expect(ai_service.check_cli).toHaveBeenCalledWith("ollama", "ollama");
   });
+
+  it("updates the active scope when a selection is available", async () => {
+    const { registry, ai_store, services } = create_harness();
+    services.editor.get_ai_context = vi.fn().mockReturnValue({
+      note_path: as_note_path("docs/demo.md"),
+      note_title: "demo",
+      markdown: as_markdown_text("# Demo"),
+      selection: {
+        text: "Demo",
+        start: 2,
+        end: 6,
+      },
+    });
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_target, "selection");
+
+    expect(ai_store.dialog.context?.target).toBe("selection");
+  });
 });

@@ -41,4 +41,25 @@ describe("AiStore", () => {
     expect(store.dialog.result).toBeNull();
     expect(store.dialog.ollama_model).toBe(DEFAULT_OLLAMA_MODEL);
   });
+
+  it("updates target and clears stale result", () => {
+    const store = new AiStore();
+    store.open_dialog("claude", {
+      note_path: as_note_path("docs/demo.md"),
+      note_title: "demo",
+      note_markdown: as_markdown_text("# Demo"),
+      selection: {
+        text: "Demo",
+        start: 2,
+        end: 6,
+      },
+      target: "full_note",
+    });
+    store.finish_execution({ success: true, output: "# Updated", error: null });
+
+    store.set_target("selection");
+
+    expect(store.dialog.context?.target).toBe("selection");
+    expect(store.dialog.result).toBeNull();
+  });
 });

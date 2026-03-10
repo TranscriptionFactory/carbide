@@ -1,7 +1,10 @@
 import { toast } from "svelte-sonner";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
-import type { AiProvider } from "$lib/features/ai/domain/ai_types";
+import type {
+  AiApplyTarget,
+  AiProvider,
+} from "$lib/features/ai/domain/ai_types";
 import { AI_PROVIDER_DISPLAY } from "$lib/features/ai/domain/ai_types";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
@@ -152,6 +155,22 @@ export function register_ai_actions(
       }
       const revision = ++dialog_revision;
       await refresh_cli_status(next_provider, revision);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_update_target,
+    label: "Update AI Target",
+    execute: (target: unknown) => {
+      const next_target = String(target) as AiApplyTarget;
+      if (next_target !== "selection" && next_target !== "full_note") {
+        return;
+      }
+      const selection_text = ai_store.dialog.context?.selection?.text?.trim();
+      if (next_target === "selection" && !selection_text) {
+        return;
+      }
+      ai_store.set_target(next_target);
     },
   });
 

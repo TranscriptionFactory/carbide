@@ -78,6 +78,17 @@ export class AiStore {
     this.dialog.cli_error = null;
   }
 
+  set_target(target: "selection" | "full_note") {
+    if (!this.dialog.context) {
+      return;
+    }
+    this.dialog.context = {
+      ...this.dialog.context,
+      target,
+    };
+    this.dialog.result = null;
+  }
+
   set_prompt(prompt: string) {
     this.dialog.prompt = prompt;
   }

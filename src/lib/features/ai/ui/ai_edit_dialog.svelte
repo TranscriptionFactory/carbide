@@ -21,6 +21,7 @@
     result: AiExecutionResult | null;
     on_open_change: (open: boolean) => void;
     on_provider_change: (provider: AiProvider) => void;
+    on_target_change: (target: AiApplyTarget) => void;
     on_prompt_change: (prompt: string) => void;
     on_ollama_model_change: (model: string) => void;
     on_execute: () => void;
@@ -42,6 +43,7 @@
     result,
     on_open_change,
     on_provider_change,
+    on_target_change,
     on_prompt_change,
     on_ollama_model_change,
     on_execute,
@@ -69,6 +71,7 @@
     result,
     on_open_change,
     on_provider_change,
+    on_target_change,
     on_prompt_change,
     on_ollama_model_change,
     on_execute,

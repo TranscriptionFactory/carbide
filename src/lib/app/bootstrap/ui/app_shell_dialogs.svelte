@@ -494,6 +494,8 @@
   }}
   on_provider_change={(value) =>
     void action_registry.execute(ACTION_IDS.ai_update_provider, value)}
+  on_target_change={(value) =>
+    void action_registry.execute(ACTION_IDS.ai_update_target, value)}
   on_prompt_change={(value) =>
     void action_registry.execute(ACTION_IDS.ai_update_prompt, value)}
   on_ollama_model_change={(value) =>
