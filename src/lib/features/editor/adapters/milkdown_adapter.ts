@@ -68,6 +68,7 @@ import { table_toolbar_plugin } from "./table_toolbar_plugin";
 import { image_toolbar_plugin } from "./image_toolbar_plugin";
 import { emoji_plugin } from "./emoji_plugin";
 import { mark_escape_plugin } from "./mark_escape_plugin";
+import { paired_delimiter_plugin } from "./paired_delimiter_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
 import { outline_plugin, outline_plugin_key } from "./outline_plugin";
 import { create_file_drop_plugin } from "$lib/features/editor/domain/file_drop_plugin";
@@ -435,6 +436,7 @@ export function create_milkdown_editor_port(args?: {
         .use(non_inclusive_inline_code)
         .use(non_inclusive_link)
         .use(non_inclusive_strikethrough)
+        .use(paired_delimiter_plugin)
         .use(mark_escape_plugin)
         .use(prism)
         .use(code_block_view_plugin)

@@ -3,6 +3,7 @@ import { TooltipProvider } from "@milkdown/kit/plugin/tooltip";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
+import { parent_folder_path } from "$lib/shared/utils/path";
 
 export const wiki_suggest_plugin_key = new PluginKey<WikiSuggestState>(
   "wiki-suggest",
@@ -49,6 +50,10 @@ const EMPTY_STATE: WikiSuggestState = {
   selected_index: 0,
 };
 
+export function describe_suggestion_location(path: string): string {
+  return parent_folder_path(path) || "Vault root";
+}
+
 function extract_wiki_query(
   text_before: string,
 ): { query: string; offset: number } | null {
@@ -85,9 +90,20 @@ function render_items(
     }
 
     const label = document.createElement("span");
+    const meta = document.createElement("span");
+    const location = document.createElement("span");
+    const content = document.createElement("span");
+    content.className = "WikiSuggest__content";
+
     label.className = "WikiSuggest__label";
     label.textContent = item.title;
-    row.appendChild(label);
+    meta.className = "WikiSuggest__meta";
+    location.className = "WikiSuggest__location";
+    location.textContent = describe_suggestion_location(item.path);
+    meta.appendChild(location);
+    content.appendChild(label);
+    content.appendChild(meta);
+    row.appendChild(content);
 
     if (item.kind === "planned") {
       const refs = document.createElement("span");

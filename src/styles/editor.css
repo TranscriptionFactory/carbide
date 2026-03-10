@@ -1331,10 +1331,16 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.WikiSuggest__content {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
 }
 
 .WikiSuggest__label {
@@ -1344,12 +1350,32 @@
   white-space: nowrap;
 }
 
+.WikiSuggest__meta {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+.WikiSuggest__location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
 .WikiSuggest__item:hover {
   background: var(--muted);
 }
 
 .WikiSuggest__item--planned .WikiSuggest__label {
   color: var(--muted-foreground);
+}
+
+.WikiSuggest__item--selected .WikiSuggest__location {
+  color: inherit;
+  opacity: 0.8;
 }
 
 .WikiSuggest__badge {
