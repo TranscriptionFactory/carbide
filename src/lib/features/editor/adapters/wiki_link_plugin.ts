@@ -268,7 +268,7 @@ export function create_wiki_link_converter_prose_plugin(input: {
 function is_external_url(href: string): boolean {
   try {
     const url = new URL(href);
-    return url.protocol === "http:" || url.protocol === "https:";
+    return url.protocol !== "file:";
   } catch {
     return false;
   }
@@ -293,9 +293,6 @@ function parse_internal_href(href: string): string | null {
   const slash = path.lastIndexOf("/");
   const leaf = slash >= 0 ? path.slice(slash + 1) : path;
   if (leaf === "") return null;
-
-  const has_dot = leaf.includes(".");
-  if (has_dot && !leaf.toLowerCase().endsWith(".md")) return null;
 
   return path;
 }

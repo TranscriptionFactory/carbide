@@ -14,4 +14,12 @@ export class ShellService {
       log.error("Open URL failed", { error: error_message(error), url });
     }
   }
+
+  async open_path(path: string): Promise<void> {
+    try {
+      await this.shell_port.open_path(path);
+    } catch (error) {
+      log.error("Open path failed", { error: error_message(error), path });
+    }
+  }
 }

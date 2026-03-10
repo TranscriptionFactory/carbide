@@ -6,6 +6,7 @@ import {
   try_open_tab,
 } from "$lib/features/tab";
 import { clear_folder_filetree_state } from "$lib/features/folder";
+import { detect_file_type } from "$lib/features/document";
 import {
   build_full_path,
   build_note_path_from_name,
@@ -129,6 +130,26 @@ export function register_note_actions(input: ActionRegistrationInput) {
       stores.ui.set_selected_folder_path(result.selected_folder_path);
     }
     return result;
+  }
+
+  async function handle_resolved_internal_target(
+    resolved: string,
+  ): Promise<"note" | "handled"> {
+    const filename = filename_from_path(resolved);
+    const file_type = detect_file_type(filename);
+    if (file_type) {
+      await registry.execute(ACTION_IDS.document_open, resolved);
+      return "handled";
+    }
+    if (resolved.toLowerCase().endsWith(".md")) {
+      return "note";
+    }
+    const vault_path = stores.vault.vault?.path;
+    if (!vault_path) {
+      return "handled";
+    }
+    await services.shell.open_path(`${vault_path}/${resolved}`);
+    return "handled";
   }
 
   function clear_parent_folder_filetree(note_path: string) {
@@ -361,6 +382,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
               );
         if (!resolved) {
           toast.error("Cannot link outside the vault");
+          return;
+        }
+        if ((await handle_resolved_internal_target(resolved)) === "handled") {
           return;
         }
 

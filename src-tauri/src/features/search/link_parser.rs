@@ -180,7 +180,10 @@ pub(crate) fn resolve_markdown_target(source_path: &str, raw_target: &str) -> Op
         return None;
     }
 
-    let candidate = ensure_md_extension(cleaned);
+    let candidate = match cleaned.rsplit('/').next() {
+        Some(leaf) if leaf.contains('.') => cleaned.to_string(),
+        _ => ensure_md_extension(cleaned),
+    };
     resolve_relative_path(base_dir, &candidate)
 }
 

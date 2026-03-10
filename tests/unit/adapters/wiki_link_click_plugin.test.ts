@@ -237,6 +237,19 @@ describe("create_wiki_link_click_prose_plugin", () => {
         "http://example.com/page",
       );
     });
+
+    it("fires external callback for mailto links", () => {
+      const { plugin, on_external_link_click, on_internal_link_click } =
+        setup();
+      const { event } = create_mouse_event("mailto:test@example.com");
+
+      invoke_dom_click(plugin, event);
+
+      expect(on_external_link_click).toHaveBeenCalledWith(
+        "mailto:test@example.com",
+      );
+      expect(on_internal_link_click).not.toHaveBeenCalled();
+    });
   });
 
   describe("filtered clicks", () => {
@@ -280,23 +293,31 @@ describe("create_wiki_link_click_prose_plugin", () => {
   });
 
   describe("rejected hrefs", () => {
-    it("rejects non-md file extensions", () => {
+    it("passes local image files through as internal links", () => {
       const { plugin, on_internal_link_click } = setup();
       const { event, prevent_default } = create_mouse_event("image.png");
 
       invoke_dom_click(plugin, event);
 
       expect(prevent_default).toHaveBeenCalled();
-      expect(on_internal_link_click).not.toHaveBeenCalled();
+      expect(on_internal_link_click).toHaveBeenCalledWith(
+        "image.png",
+        "folder/current.md",
+        "markdown",
+      );
     });
 
-    it("rejects pdf files", () => {
+    it("passes pdf files through as internal links", () => {
       const { plugin, on_internal_link_click } = setup();
       const { event } = create_mouse_event("document.pdf");
 
       invoke_dom_click(plugin, event);
 
-      expect(on_internal_link_click).not.toHaveBeenCalled();
+      expect(on_internal_link_click).toHaveBeenCalledWith(
+        "document.pdf",
+        "folder/current.md",
+        "markdown",
+      );
     });
 
     it("rejects empty href", () => {

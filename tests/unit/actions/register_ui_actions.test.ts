@@ -39,7 +39,7 @@ describe("register_ui_actions", () => {
       stores,
       services: {
         vault: { refresh_dashboard_stats },
-        shell: { open_url: async () => {} },
+        shell: { open_url: async () => {}, open_path: async () => {} },
       } as never,
       default_mount_config: {
         reset_app_state: true,
@@ -83,7 +83,7 @@ describe("register_ui_actions", () => {
             return await Promise.resolve({ status: "skipped" as const });
           },
         },
-        shell: { open_url: async () => {} },
+        shell: { open_url: async () => {}, open_path: async () => {} },
       } as never,
       default_mount_config: {
         reset_app_state: true,

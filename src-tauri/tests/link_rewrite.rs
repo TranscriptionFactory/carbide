@@ -91,6 +91,22 @@ fn resolve_markdown_root_relative() {
 }
 
 #[test]
+fn resolve_markdown_local_pdf_relative_to_current_note() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "assets/paper.pdf"),
+        Some("docs/assets/paper.pdf".to_string())
+    );
+}
+
+#[test]
+fn resolve_markdown_root_relative_local_file() {
+    assert_eq!(
+        resolve_markdown_target("docs/source.md", "/assets/paper.pdf"),
+        Some("assets/paper.pdf".to_string())
+    );
+}
+
+#[test]
 fn resolve_markdown_root_escape_returns_none() {
     assert_eq!(resolve_markdown_target("source.md", "../escape"), None);
 }

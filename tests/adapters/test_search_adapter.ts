@@ -92,8 +92,9 @@ export function create_test_search_adapter(): SearchPort {
         : source_dir_from_path(source_path);
       const cleaned = trimmed.replace(/^\//, "");
       if (!cleaned) return Promise.resolve(null);
-      const with_ext = cleaned.endsWith(".md") ? cleaned : `${cleaned}.md`;
-      return Promise.resolve(resolve_relative_path(base_dir, with_ext));
+      const leaf = cleaned.split("/").at(-1) ?? cleaned;
+      const candidate = leaf.includes(".") ? cleaned : `${cleaned}.md`;
+      return Promise.resolve(resolve_relative_path(base_dir, candidate));
     },
 
     resolve_wiki_link(source_path: string, raw_target: string) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_note_actions } from "$lib/features/note/application/note_actions";
+import { register_document_actions } from "$lib/features/document/application/document_actions";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -108,6 +109,11 @@ function create_harness() {
     settings: {},
     search: {
       resolve_note_link: vi.fn(),
+      resolve_wiki_link: vi.fn(),
+    },
+    document: {
+      open_document: vi.fn().mockResolvedValue(undefined),
+      close_document: vi.fn(),
     },
     editor: {
       flush: vi.fn().mockReturnValue(null),
@@ -119,7 +125,10 @@ function create_harness() {
       get_scroll_top: vi.fn().mockReturnValue(0),
     },
     clipboard: {},
-    shell: {},
+    shell: {
+      open_url: vi.fn().mockResolvedValue(undefined),
+      open_path: vi.fn().mockResolvedValue(undefined),
+    },
     tab: {
       load_tabs: vi.fn().mockResolvedValue(null),
       restore_tabs: vi.fn().mockResolvedValue(undefined),
@@ -133,6 +142,17 @@ function create_harness() {
   register_note_actions({
     registry,
     stores,
+    services: services as never,
+    default_mount_config: {
+      reset_app_state: false,
+      bootstrap_default_vault_path: null,
+    },
+  });
+
+  register_document_actions({
+    registry,
+    stores,
+    document_service: services.document as never,
     services: services as never,
     default_mount_config: {
       reset_app_state: false,
@@ -231,5 +251,52 @@ describe("note_open in browse window context", () => {
     expect(stores.tab.tabs).toHaveLength(3);
     expect(stores.tab.active_tab_id).toBe("notes/c.md");
     expect(stores.editor.open_note?.meta.path).toBe(as_note_path("notes/c.md"));
+  });
+
+  it("opens linked pdfs in the document viewer", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+    services.search.resolve_note_link.mockResolvedValue("docs/report.pdf");
+
+    await registry.execute(ACTION_IDS.note_open_wiki_link, {
+      raw_path: "docs/report.pdf",
+      base_note_path: "notes/source.md",
+      source: "markdown",
+    });
+
+    expect(services.search.resolve_note_link).toHaveBeenCalledWith(
+      "notes/source.md",
+      "docs/report.pdf",
+    );
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(services.document.open_document).toHaveBeenCalledWith(
+      "docs/report.pdf",
+      "docs/report.pdf",
+      "pdf",
+    );
+    expect(stores.tab.tabs).toHaveLength(1);
+    const tab0 = stores.tab.tabs[0];
+    expect(tab0?.kind).toBe("document");
+    expect(tab0?.title).toBe("report.pdf");
+    expect(stores.tab.active_tab_id).toBe("docs/report.pdf");
+  });
+
+  it("opens unsupported linked files with the system default app", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+    services.search.resolve_note_link.mockResolvedValue("docs/archive.docx");
+
+    await registry.execute(ACTION_IDS.note_open_wiki_link, {
+      raw_path: "docs/archive.docx",
+      base_note_path: "notes/source.md",
+      source: "markdown",
+    });
+
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(services.document.open_document).not.toHaveBeenCalled();
+    expect(services.shell.open_path).toHaveBeenCalledWith(
+      "/vaults/v1/docs/archive.docx",
+    );
+    expect(stores.tab.tabs).toHaveLength(0);
   });
 });
