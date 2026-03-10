@@ -16,6 +16,15 @@ export type AiExecutionResult = {
   error: string | null;
 };
 
+export type AiConversationTurn = {
+  id: number;
+  provider: AiProvider;
+  target: AiApplyTarget;
+  prompt: string;
+  status: "pending" | "completed";
+  result: AiExecutionResult | null;
+};
+
 export type AiDialogContext = {
   note_path: NotePath;
   note_title: string;

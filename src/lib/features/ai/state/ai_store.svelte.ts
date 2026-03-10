@@ -20,6 +20,15 @@ type AiDialogContext = {
   target: "selection" | "full_note";
 };
 
+type AiConversationTurn = {
+  id: number;
+  provider: AiProvider;
+  target: "selection" | "full_note";
+  prompt: string;
+  status: "pending" | "completed";
+  result: AiExecutionResult | null;
+};
+
 export type AiDialogState = {
   open: boolean;
   provider: AiProvider;
@@ -30,6 +39,8 @@ export type AiDialogState = {
   is_executing: boolean;
   result: AiExecutionResult | null;
   ollama_model: string;
+  turns: AiConversationTurn[];
+  next_turn_id: number;
 };
 
 function initial_state(): AiDialogState {
@@ -43,6 +54,8 @@ function initial_state(): AiDialogState {
     is_executing: false,
     result: null,
     ollama_model: DEFAULT_OLLAMA_MODEL,
+    turns: [],
+    next_turn_id: 1,
   };
 }
 
@@ -51,9 +64,10 @@ export class AiStore {
 
   open_dialog(provider: AiProvider, context: AiDialogContext) {
     this.dialog = {
-      ...this.dialog,
+      ...initial_state(),
       open: true,
       provider,
+      ollama_model: this.dialog.ollama_model,
       prompt: "",
       context,
       cli_status: "idle",
@@ -103,13 +117,41 @@ export class AiStore {
   }
 
   start_execution() {
+    if (!this.dialog.context) {
+      return;
+    }
     this.dialog.is_executing = true;
     this.dialog.result = null;
+    this.dialog.turns = [
+      ...this.dialog.turns,
+      {
+        id: this.dialog.next_turn_id,
+        provider: this.dialog.provider,
+        target: this.dialog.context.target,
+        prompt: this.dialog.prompt.trim(),
+        status: "pending",
+        result: null,
+      },
+    ];
+    this.dialog.next_turn_id += 1;
   }
 
   finish_execution(result: AiExecutionResult) {
     this.dialog.is_executing = false;
     this.dialog.result = result;
+    const last_index = this.dialog.turns.length - 1;
+    if (last_index < 0) {
+      return;
+    }
+    const turn = this.dialog.turns[last_index];
+    if (!turn) {
+      return;
+    }
+    this.dialog.turns[last_index] = {
+      ...turn,
+      status: "completed",
+      result,
+    };
   }
 
   clear_result() {

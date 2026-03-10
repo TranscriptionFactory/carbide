@@ -127,4 +127,24 @@ describe("register_ai_actions", () => {
 
     expect(ai_store.dialog.context?.target).toBe("selection");
   });
+
+  it("records turns as assistant executions complete", async () => {
+    const { registry, ai_store, ai_service } = create_harness();
+    ai_service.execute = vi.fn().mockResolvedValue({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+    await registry.execute(ACTION_IDS.ai_execute);
+
+    expect(ai_store.dialog.turns).toHaveLength(1);
+    expect(ai_store.dialog.turns[0]).toMatchObject({
+      prompt: "Tighten this note",
+      status: "completed",
+      result: { success: true, output: "# Updated", error: null },
+    });
+  });
 });

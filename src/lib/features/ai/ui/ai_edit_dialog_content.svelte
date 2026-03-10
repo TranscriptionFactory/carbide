@@ -7,6 +7,7 @@
     AI_PROVIDER_DISPLAY,
     type AiApplyTarget,
     type AiCliStatus,
+    type AiConversationTurn,
     type AiExecutionResult,
     type AiProvider,
   } from "$lib/features/ai/domain/ai_types";
@@ -22,6 +23,7 @@
     note_title: string | null;
     selection_text: string | null;
     is_executing: boolean;
+    turns: AiConversationTurn[];
     result: AiExecutionResult | null;
     on_open_change: (open: boolean) => void;
     on_provider_change: (provider: AiProvider) => void;
@@ -44,6 +46,7 @@
     note_title,
     selection_text,
     is_executing,
+    turns,
     result,
     on_open_change,
     on_provider_change,
@@ -57,6 +60,9 @@
 
   const provider_display = $derived(AI_PROVIDER_DISPLAY[provider]);
   const provider_options: AiProvider[] = ["claude", "codex", "ollama"];
+  const history_turns = $derived(
+    result && turns.length > 0 ? turns.slice(0, -1) : turns,
+  );
   const selection_available = $derived(
     Boolean(selection_text && selection_text.trim() !== ""),
   );
@@ -204,6 +210,40 @@
           </p>
         {/if}
       </div>
+
+      {#if history_turns.length > 0}
+        <div class="space-y-3">
+          <div class="text-sm font-medium">Session History</div>
+          <div class="max-h-64 space-y-3 overflow-y-auto pr-1">
+            {#each history_turns as turn (turn.id)}
+              <div class="space-y-2 rounded-md border bg-muted/20 p-3">
+                <div class="text-xs font-medium text-muted-foreground">
+                  You ·
+                  {turn.target === "selection" ? "Selection" : "Full Note"} ·
+                  {AI_PROVIDER_DISPLAY[turn.provider].name}
+                </div>
+                <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
+                <div class="text-xs font-medium text-muted-foreground">
+                  Assistant
+                </div>
+                {#if turn.status === "pending"}
+                  <p class="text-sm text-muted-foreground">Generating draft…</p>
+                {:else if turn.result?.success}
+                  <p
+                    class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+                  >
+                    {turn.result.output}
+                  </p>
+                {:else}
+                  <p class="whitespace-pre-wrap text-sm text-destructive">
+                    {turn.result?.error ?? "Assistant run failed."}
+                  </p>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       <div class="space-y-2">
         <label class="text-sm font-medium" for="ai-prompt">

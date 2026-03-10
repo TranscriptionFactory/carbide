@@ -486,6 +486,7 @@
   note_title={stores.ai.dialog.context?.note_title ?? null}
   selection_text={stores.ai.dialog.context?.selection?.text ?? null}
   is_executing={stores.ai.dialog.is_executing}
+  turns={stores.ai.dialog.turns}
   result={stores.ai.dialog.result}
   on_open_change={(open) => {
     if (!open) {

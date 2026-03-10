@@ -62,4 +62,28 @@ describe("AiStore", () => {
     expect(store.dialog.context?.target).toBe("selection");
     expect(store.dialog.result).toBeNull();
   });
+
+  it("records conversation turns for executions", () => {
+    const store = new AiStore();
+    store.open_dialog("claude", {
+      note_path: as_note_path("docs/demo.md"),
+      note_title: "demo",
+      note_markdown: as_markdown_text("# Demo"),
+      selection: null,
+      target: "full_note",
+    });
+    store.set_prompt("Tighten this note");
+
+    store.start_execution();
+    store.finish_execution({ success: true, output: "# Updated", error: null });
+
+    expect(store.dialog.turns).toHaveLength(1);
+    expect(store.dialog.turns[0]).toMatchObject({
+      provider: "claude",
+      target: "full_note",
+      prompt: "Tighten this note",
+      status: "completed",
+      result: { success: true, output: "# Updated", error: null },
+    });
+  });
 });

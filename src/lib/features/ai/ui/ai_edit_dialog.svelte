@@ -3,6 +3,7 @@
   import type {
     AiApplyTarget,
     AiCliStatus,
+    AiConversationTurn,
     AiExecutionResult,
     AiProvider,
   } from "$lib/features/ai/domain/ai_types";
@@ -18,6 +19,7 @@
     note_title: string | null;
     selection_text: string | null;
     is_executing: boolean;
+    turns: AiConversationTurn[];
     result: AiExecutionResult | null;
     on_open_change: (open: boolean) => void;
     on_provider_change: (provider: AiProvider) => void;
@@ -40,6 +42,7 @@
     note_title,
     selection_text,
     is_executing,
+    turns,
     result,
     on_open_change,
     on_provider_change,
@@ -68,6 +71,7 @@
     note_title,
     selection_text,
     is_executing,
+    turns,
     result,
     on_open_change,
     on_provider_change,
