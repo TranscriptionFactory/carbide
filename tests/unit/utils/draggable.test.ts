@@ -167,6 +167,32 @@ describe("draggable", () => {
     expect(node.style.cursor).toBe("");
   });
 
+  it("ignores pointer moves from non-active pointers", () => {
+    draggable(node, {});
+
+    node.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        clientX: 150,
+        clientY: 150,
+        button: 0,
+        bubbles: true,
+        pointerId: 1,
+      }),
+    );
+
+    document.dispatchEvent(
+      new PointerEvent("pointermove", {
+        clientX: 300,
+        clientY: 300,
+        bubbles: true,
+        pointerId: 2,
+      }),
+    );
+
+    expect(node.style.left).toBe("100px");
+    expect(node.style.top).toBe("100px");
+  });
+
   it("ignores right-click", () => {
     const on_drag_start = vi.fn();
     draggable(node, { on_drag_start });

@@ -115,6 +115,7 @@ export function draggable(
 
   function on_pointer_move(e: PointerEvent) {
     if (!is_dragging) return;
+    if (active_pointer_id !== null && e.pointerId !== active_pointer_id) return;
 
     const delta_x = e.clientX - start_pointer.x;
     const delta_y = e.clientY - start_pointer.y;
