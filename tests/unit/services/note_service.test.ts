@@ -795,6 +795,71 @@ describe("NoteService", () => {
     expect(op_store.get("note.save").status).not.toBe("failed");
   });
 
+  it("bypasses the mtime guard after skip_mtime_guard", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("docs/alpha.md"),
+        path: as_note_path("docs/alpha.md"),
+        name: "alpha",
+        title: "alpha",
+        mtime_ms: 1_700_000_000_000,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text("# Alpha"),
+      buffer_id: "alpha-buffer",
+      is_dirty: true,
+    });
+
+    const notes_port = create_mock_notes_port();
+    const disk_mtime = 1_700_000_000_500;
+    const write_note = vi.fn().mockResolvedValue(disk_mtime);
+    notes_port.write_note = write_note;
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => 1,
+    );
+
+    service.skip_mtime_guard(as_note_path("docs/alpha.md"));
+
+    const result = await service.save_note(null, true);
+
+    expect(result).toEqual({
+      status: "saved",
+      saved_path: as_note_path("docs/alpha.md"),
+    });
+    expect(write_note).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      undefined,
+    );
+    expect(editor_store.open_note?.meta.mtime_ms).toBe(disk_mtime);
+  });
+
   it("saves markdown notes in browse mode without requiring the search index", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();

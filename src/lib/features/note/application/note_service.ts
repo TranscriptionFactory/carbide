@@ -725,13 +725,19 @@ export class NoteService {
       vault_id,
       open_note.meta.id,
       open_note.markdown,
-      open_note.meta.mtime_ms ?? undefined,
+      this.resolve_expected_mtime(open_note),
     );
     await this.run_index_update(() =>
       this.index_port.upsert_note(vault_id, open_note.meta.id),
     );
     session.editor_store.mark_clean(open_note.meta.id, new_mtime);
     this.sync_split_view_session(session);
+  }
+
+  private resolve_expected_mtime(
+    open_note: OpenEditorNote,
+  ): number | undefined {
+    return open_note.meta.mtime_ms > 0 ? open_note.meta.mtime_ms : undefined;
   }
 
   private resolve_saved_path(
