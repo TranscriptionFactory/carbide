@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_app_actions } from "$lib/app/orchestration/app_actions";
+import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -37,6 +38,7 @@ vi.mock("svelte-sonner", () => ({
 
 type HarnessOptions = {
   reset_app_state?: boolean;
+  workspace_reconcile?: WorkspaceReconcile;
 };
 
 function create_app_note(path = "notes/a.md"): OpenNoteState {
@@ -109,6 +111,7 @@ function create_harness(options: HarnessOptions = {}) {
 
   register_app_actions({
     registry,
+    workspace_reconcile: options.workspace_reconcile,
     stores,
     services: services as never,
     default_mount_config: {
@@ -202,6 +205,32 @@ describe("register_app_actions", () => {
       DEFAULT_HOTKEYS,
       [],
     );
+  });
+
+  it("uses workspace_reconcile when mounting a ready vault", async () => {
+    const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const { registry, stores, services, execute_folder_refresh_tree } =
+      create_harness({ workspace_reconcile });
+
+    services.vault.initialize.mockImplementation(() => {
+      stores.vault.set_vault({
+        id: as_vault_id("active"),
+        name: "Active",
+        path: as_vault_path("/vault/active"),
+        created_at: 0,
+        mode: "vault",
+      });
+      return {
+        status: "ready" as const,
+        has_vault: true,
+        editor_settings: { ...stores.ui.editor_settings },
+      };
+    });
+
+    await registry.execute(ACTION_IDS.app_mounted);
+
+    expect(workspace_reconcile).toHaveBeenCalledWith({ refresh_tree: true });
+    expect(execute_folder_refresh_tree).not.toHaveBeenCalled();
   });
 
   it("sets startup error state when vault initialization fails", async () => {

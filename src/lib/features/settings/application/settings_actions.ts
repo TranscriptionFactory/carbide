@@ -1,6 +1,7 @@
 import { toast } from "svelte-sonner";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
+import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type {
   EditorSettings,
@@ -207,10 +208,17 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           has_unsaved_changes: false,
         };
         if (ignored_folders_changed) {
-          await registry.execute(ACTION_IDS.folder_refresh_tree);
-          if (stores.vault.is_vault_mode) {
-            await registry.execute(ACTION_IDS.vault_sync_index);
-          }
+          await reconcile_workspace(
+            registry,
+            {
+              refresh_tree: true,
+              sync_index: stores.vault.is_vault_mode,
+            },
+            {
+              workspace_reconcile: input.workspace_reconcile,
+              is_vault_mode: stores.vault.is_vault_mode,
+            },
+          );
         }
       }
 

@@ -33,6 +33,7 @@ import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
 import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
+import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -44,6 +45,10 @@ export function create_app_context(input: {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
   const action_registry = new ActionRegistry();
+  const workspace_reconcile = create_workspace_reconcile(
+    action_registry,
+    () => stores.vault.is_vault_mode,
+  );
 
   const search_service = new SearchService(
     input.ports.search,
@@ -210,6 +215,7 @@ export function create_app_context(input: {
 
   const base_action_input = {
     registry: action_registry,
+    workspace_reconcile,
     stores: {
       ui: stores.ui,
       vault: stores.vault,
@@ -288,6 +294,7 @@ export function create_app_context(input: {
     links_service,
     watcher_service,
     action_registry,
+    workspace_reconcile,
     split_view_store: stores.split_view,
     split_view_service,
     document_service,

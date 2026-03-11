@@ -1,17 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { register_settings_actions } from "$lib/features/settings";
+import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
 } from "$lib/shared/types/editor_settings";
 
-function create_harness() {
+function create_harness(
+  options: { workspace_reconcile?: WorkspaceReconcile } = {},
+) {
   const registry = new ActionRegistry();
   const stores = {
     ui: new UIStore(),
@@ -41,6 +45,7 @@ function create_harness() {
 
   register_settings_actions({
     registry,
+    workspace_reconcile: options.workspace_reconcile,
     stores,
     services: services as never,
     default_mount_config: {
@@ -126,5 +131,30 @@ describe("register_settings_actions", () => {
       stores.ui.settings_dialog.persisted_settings.terminal_font_size_px,
     ).toBe(16);
     expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(false);
+  });
+
+  it("uses workspace_reconcile for ignored folder saves when available", async () => {
+    const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const { registry, stores } = create_harness({ workspace_reconcile });
+    const draft: EditorSettings = {
+      ...DEFAULT_EDITOR_SETTINGS,
+      ignored_folders: ["build"],
+    };
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 0,
+      mode: "vault",
+    });
+
+    await registry.execute(ACTION_IDS.settings_update, draft);
+    await registry.execute(ACTION_IDS.settings_save);
+
+    expect(workspace_reconcile).toHaveBeenCalledWith({
+      refresh_tree: true,
+      sync_index: true,
+    });
   });
 });

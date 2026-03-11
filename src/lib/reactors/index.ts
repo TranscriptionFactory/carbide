@@ -46,6 +46,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { SplitViewStore } from "$lib/features/split_view";
 import type { SplitViewService } from "$lib/features/split_view";
 import type { DocumentService } from "$lib/features/document";
+import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -66,6 +67,7 @@ export type ReactorContext = {
   links_service: LinksService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
+  workspace_reconcile?: WorkspaceReconcile | undefined;
   split_view_store: SplitViewStore;
   split_view_service: SplitViewService;
   document_service: DocumentService;
@@ -166,6 +168,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.watcher_service,
       context.action_registry,
+      context.workspace_reconcile,
     ),
     create_split_view_persist_reactor(
       context.split_view_store,

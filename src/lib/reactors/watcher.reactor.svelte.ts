@@ -6,7 +6,8 @@ import type { NoteService } from "$lib/features/note";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
-import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
+import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";
 import { create_logger } from "$lib/shared/utils/logger";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
@@ -93,6 +94,7 @@ export function create_watcher_reactor(
   note_service: NoteService,
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
+  workspace_reconcile?: WorkspaceReconcile,
 ): () => void {
   return $effect.root(() => {
     let tree_refresh_timer: ReturnType<typeof setTimeout> | null = null;
@@ -103,10 +105,17 @@ export function create_watcher_reactor(
       }
       tree_refresh_timer = setTimeout(() => {
         tree_refresh_timer = null;
-        void action_registry.execute(ACTION_IDS.folder_refresh_tree);
-        if (vault_store.is_vault_mode) {
-          void action_registry.execute(ACTION_IDS.vault_sync_index);
-        }
+        void reconcile_workspace(
+          action_registry,
+          {
+            refresh_tree: true,
+            sync_index: vault_store.is_vault_mode,
+          },
+          {
+            workspace_reconcile,
+            is_vault_mode: vault_store.is_vault_mode,
+          },
+        );
       }, TREE_REFRESH_DEBOUNCE_MS);
     }
 

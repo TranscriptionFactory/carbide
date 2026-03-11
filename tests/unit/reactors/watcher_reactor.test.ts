@@ -287,6 +287,7 @@ describe("watcher_reactor", () => {
     const action_registry = {
       execute: vi.fn(),
     };
+    const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
 
     vault_store.set_vault(create_test_vault());
     editor_store.set_open_note({
@@ -311,6 +312,7 @@ describe("watcher_reactor", () => {
       note_service as never,
       watcher_service,
       action_registry as never,
+      workspace_reconcile,
     );
 
     await flush_effects();

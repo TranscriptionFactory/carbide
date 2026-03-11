@@ -21,9 +21,11 @@ import type { TabStore } from "$lib/features/tab";
 import type { GitStore } from "$lib/features/git";
 import type { OutlineStore } from "$lib/features/outline";
 import type { SplitViewStore } from "$lib/features/split_view";
+import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type ActionRegistrationInput = {
   registry: ActionRegistry;
+  workspace_reconcile?: WorkspaceReconcile | undefined;
   stores: {
     ui: UIStore;
     vault: VaultStore;
