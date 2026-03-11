@@ -441,7 +441,7 @@ describe("EditorService", () => {
     const { service, editor_store } = create_setup(() =>
       Promise.resolve(create_session("# Alpha")),
     );
-    const note = create_open_note("docs/alpha.md", "one<br />\ntwo");
+    const note = create_open_note("docs/alpha.md", "one\\\ntwo");
 
     editor_store.set_open_note(note);
     service.open_buffer(note);
@@ -451,10 +451,10 @@ describe("EditorService", () => {
 
     expect(flushed).toEqual({
       note_id: as_note_path("docs/alpha.md"),
-      markdown: as_markdown_text("one\\\ntwo"),
+      markdown: as_markdown_text("one<br />\ntwo"),
     });
     expect(editor_store.open_note?.markdown).toBe(
-      as_markdown_text("one\\\ntwo"),
+      as_markdown_text("one<br />\ntwo"),
     );
   });
 
