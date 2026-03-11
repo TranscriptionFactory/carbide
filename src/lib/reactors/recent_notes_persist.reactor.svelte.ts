@@ -3,8 +3,14 @@ import type { VaultStore } from "$lib/features/vault";
 import type { VaultService } from "$lib/features/vault";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { VaultId } from "$lib/shared/types/ids";
+import { create_persisted_snapshot_controller } from "$lib/reactors/persisted_snapshot";
 
 const RECENT_NOTES_PERSIST_DELAY_MS = 1000;
+
+type RecentNotesSnapshot = {
+  vault_id: VaultId;
+  recent_notes: NoteMeta[];
+};
 
 export function create_recent_notes_persist_reactor(
   notes_store: NotesStore,
@@ -12,49 +18,12 @@ export function create_recent_notes_persist_reactor(
   vault_service: VaultService,
 ): () => void {
   let active_vault_id = vault_store.vault?.id ?? null;
-  let last_saved_serialized: string | null = null;
-  let pending_notes: NoteMeta[] | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  function schedule_persist(vault_id: VaultId, recent_notes: NoteMeta[]) {
-    const serialized = JSON.stringify(recent_notes);
-    if (serialized === last_saved_serialized) return;
-    pending_notes = recent_notes;
-
-    if (timer) {
-      clearTimeout(timer);
-    }
-
-    timer = setTimeout(() => {
-      const notes = pending_notes;
-      pending_notes = null;
-      timer = null;
-      if (!notes) return;
-      void vault_service.save_recent_notes(vault_id, notes).then(() => {
-        last_saved_serialized = JSON.stringify(notes);
-      });
-    }, RECENT_NOTES_PERSIST_DELAY_MS);
-  }
-
-  function flush_pending() {
-    if (!active_vault_id || !pending_notes) {
-      pending_notes = null;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      return;
-    }
-    const notes = pending_notes;
-    pending_notes = null;
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    void vault_service.save_recent_notes(active_vault_id, notes).then(() => {
-      last_saved_serialized = JSON.stringify(notes);
-    });
-  }
+  const persist = create_persisted_snapshot_controller<RecentNotesSnapshot>({
+    delay_ms: RECENT_NOTES_PERSIST_DELAY_MS,
+    serialize: ({ recent_notes }) => JSON.stringify(recent_notes),
+    save: ({ vault_id, recent_notes }) =>
+      vault_service.save_recent_notes(vault_id, recent_notes),
+  });
 
   return $effect.root(() => {
     $effect(() => {
@@ -62,17 +31,20 @@ export function create_recent_notes_persist_reactor(
       const recent_notes = notes_store.recent_notes;
 
       if (vault_id !== active_vault_id) {
-        flush_pending();
+        persist.flush_pending();
         active_vault_id = vault_id;
-        last_saved_serialized = null;
+        persist.reset_saved();
       }
 
       if (!vault_id || !vault_store.is_vault_mode) return;
-      schedule_persist(vault_id, recent_notes);
+      persist.schedule({
+        vault_id,
+        recent_notes,
+      });
     });
 
     return () => {
-      flush_pending();
+      persist.flush_pending();
     };
   });
 }
