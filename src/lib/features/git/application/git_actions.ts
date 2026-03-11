@@ -35,11 +35,26 @@ export function register_git_actions(input: ActionRegistrationInput) {
 
   function open_version_history_dialog() {
     const note_path = stores.editor.open_note?.meta.path ?? null;
+    if (
+      stores.ui.version_history_dialog.open &&
+      stores.ui.version_history_dialog.note_path === note_path
+    ) {
+      return note_path;
+    }
     stores.ui.version_history_dialog = {
       open: true,
       note_path,
     };
     return note_path;
+  }
+
+  function should_skip_loading_version_history(note_path: string | null) {
+    return (
+      stores.ui.version_history_dialog.open &&
+      stores.ui.version_history_dialog.note_path === note_path &&
+      (stores.git.is_loading_history ||
+        stores.git.history_note_path === note_path)
+    );
   }
 
   function close_version_history_dialog() {
@@ -174,6 +189,9 @@ export function register_git_actions(input: ActionRegistrationInput) {
     label: "Open Version History",
     execute: async () => {
       const note_path = open_version_history_dialog();
+      if (should_skip_loading_version_history(note_path)) {
+        return;
+      }
       await services.git.load_history(note_path, history_page_size);
     },
   });

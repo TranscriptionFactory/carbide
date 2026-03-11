@@ -142,6 +142,58 @@ describe("register_git_actions", () => {
     expect(services.git.load_history).toHaveBeenCalledWith("notes/a.md", 20);
   });
 
+  it("git_open_history does not reload when the same history dialog is already open", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.editor.set_open_note({
+      meta: {
+        id: as_note_path("notes/a.md"),
+        path: as_note_path("notes/a.md"),
+        name: "a.md",
+        title: "a",
+        mtime_ms: 0,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text(""),
+      buffer_id: "notes/a.md",
+      is_dirty: false,
+    });
+    stores.ui.version_history_dialog = {
+      open: true,
+      note_path: as_note_path("notes/a.md"),
+    };
+    stores.git.history_note_path = as_note_path("notes/a.md");
+
+    await registry.execute(ACTION_IDS.git_open_history);
+
+    expect(services.git.load_history).not.toHaveBeenCalled();
+  });
+
+  it("git_open_history does not reload while history is already loading", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.editor.set_open_note({
+      meta: {
+        id: as_note_path("notes/a.md"),
+        path: as_note_path("notes/a.md"),
+        name: "a.md",
+        title: "a",
+        mtime_ms: 0,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text(""),
+      buffer_id: "notes/a.md",
+      is_dirty: false,
+    });
+    stores.ui.version_history_dialog = {
+      open: true,
+      note_path: as_note_path("notes/a.md"),
+    };
+    stores.git.is_loading_history = true;
+
+    await registry.execute(ACTION_IDS.git_open_history);
+
+    expect(services.git.load_history).not.toHaveBeenCalled();
+  });
+
   it("git_load_more_history delegates to service for the active note", async () => {
     const { registry, stores, services } = create_harness();
     stores.ui.version_history_dialog = {

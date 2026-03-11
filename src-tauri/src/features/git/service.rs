@@ -59,7 +59,8 @@ fn open_repo(vault_path: &str) -> Result<Repository, String> {
 }
 
 fn repo_index(repo: &Repository) -> Result<git2::Index, String> {
-    repo.index().map_err(|e| format!("failed to get index: {}", e))
+    repo.index()
+        .map_err(|e| format!("failed to get index: {}", e))
 }
 
 fn default_signature() -> Result<Signature<'static>, String> {
@@ -263,7 +264,10 @@ fn head_parent_commit(repo: &Repository) -> Option<git2::Commit<'_>> {
     repo.head().ok().and_then(|head| head.peel_to_commit().ok())
 }
 
-fn ensure_tree_has_changes(parent: Option<&git2::Commit<'_>>, tree_oid: git2::Oid) -> Result<(), String> {
+fn ensure_tree_has_changes(
+    parent: Option<&git2::Commit<'_>>,
+    tree_oid: git2::Oid,
+) -> Result<(), String> {
     if let Some(parent_commit) = parent {
         if parent_commit.tree_id() == tree_oid {
             return Err("nothing to commit".to_string());
@@ -316,13 +320,12 @@ pub fn git_create_tag(vault_path: String, name: String, message: String) -> Resu
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_log(
-    vault_path: String,
-    file_path: Option<String>,
+fn collect_git_log(
+    vault_path: &str,
+    file_path: Option<&str>,
     limit: usize,
 ) -> Result<Vec<GitCommit>, String> {
-    let repo = open_repo(&vault_path)?;
+    let repo = open_repo(vault_path)?;
 
     let mut revwalk = repo
         .revwalk()
@@ -346,7 +349,7 @@ pub fn git_log(
             .find_commit(oid)
             .map_err(|e| format!("failed to find commit: {}", e))?;
 
-        if let Some(ref fp) = file_path {
+        if let Some(fp) = file_path {
             if !commit_touches_file(&repo, &commit, fp) {
                 continue;
             }
@@ -355,6 +358,19 @@ pub fn git_log(
     }
 
     Ok(commits)
+}
+
+#[tauri::command]
+pub async fn git_log(
+    vault_path: String,
+    file_path: Option<String>,
+    limit: usize,
+) -> Result<Vec<GitCommit>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        collect_git_log(&vault_path, file_path.as_deref(), limit)
+    })
+    .await
+    .map_err(|error| format!("failed to join git log task: {}", error))?
 }
 
 fn commit_touches_file(repo: &Repository, commit: &git2::Commit, path: &str) -> bool {
