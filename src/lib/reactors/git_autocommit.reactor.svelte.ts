@@ -3,6 +3,7 @@ import type { GitStore } from "$lib/features/git";
 import type { UIStore } from "$lib/app";
 import type { GitService } from "$lib/features/git";
 import { is_draft_note_path } from "$lib/features/note";
+import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
 
 const ON_SAVE_DELAY_MS = 5_000;
 const RETRY_DELAY_WHILE_COMMITTING_MS = 1_000;
@@ -14,15 +15,8 @@ export function create_git_autocommit_reactor(
   git_service: GitService,
 ): () => void {
   return $effect.root(() => {
-    let commit_handle: ReturnType<typeof setTimeout> | null = null;
     const dirty_paths = new Set<string>();
     const pending_paths = new Set<string>();
-
-    const clear_commit_handle = () => {
-      if (!commit_handle) return;
-      clearTimeout(commit_handle);
-      commit_handle = null;
-    };
 
     const flush_commit = () => {
       if (!git_store.enabled) {
@@ -41,14 +35,17 @@ export function create_git_autocommit_reactor(
       void git_service.auto_commit(paths);
     };
 
+    const commit = create_debounced_task_controller<void>({
+      run: flush_commit,
+    });
+
     const schedule_commit = (delay_ms: number) => {
-      clear_commit_handle();
-      commit_handle = setTimeout(flush_commit, delay_ms);
+      commit.schedule(undefined, delay_ms);
     };
 
     $effect(() => {
       if (git_store.enabled) return;
-      clear_commit_handle();
+      commit.cancel();
       dirty_paths.clear();
       pending_paths.clear();
     });
@@ -82,7 +79,7 @@ export function create_git_autocommit_reactor(
     });
 
     return () => {
-      clear_commit_handle();
+      commit.cancel();
       dirty_paths.clear();
       pending_paths.clear();
     };

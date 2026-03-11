@@ -1,6 +1,7 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
 import type { LinksService } from "$lib/features/links";
+import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
 
 const LOCAL_LINKS_DEBOUNCE_MS = 220;
 
@@ -73,13 +74,13 @@ export function create_local_links_sync_reactor(
     last_panel_open: false,
     last_markdown: null,
   };
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  function cancel_pending() {
-    if (!timer) return;
-    clearTimeout(timer);
-    timer = null;
-  }
+  const sync_local_links = create_debounced_task_controller<string>({
+    run: (note_path) => {
+      const current = editor_store.open_note;
+      if (!current || current.meta.path !== note_path) return;
+      void links_service.update_local_note_links(note_path, current.markdown);
+    },
+  });
 
   return $effect.root(() => {
     $effect(() => {
@@ -92,41 +93,35 @@ export function create_local_links_sync_reactor(
       state = decision.next_state;
 
       if (decision.action === "clear") {
-        cancel_pending();
+        sync_local_links.cancel();
         links_service.clear();
         return;
       }
 
       if (decision.action === "cancel" || decision.action === "noop") {
-        cancel_pending();
+        sync_local_links.cancel();
         return;
       }
 
       const note_path = decision.note_path;
       if (!note_path) {
-        cancel_pending();
+        sync_local_links.cancel();
         return;
       }
 
       if (decision.action === "compute_now") {
-        cancel_pending();
+        sync_local_links.cancel();
         const markdown = editor_store.open_note?.markdown;
         if (!markdown) return;
         void links_service.update_local_note_links(note_path, markdown);
         return;
       }
 
-      cancel_pending();
-      timer = setTimeout(() => {
-        timer = null;
-        const current = editor_store.open_note;
-        if (!current || current.meta.path !== note_path) return;
-        void links_service.update_local_note_links(note_path, current.markdown);
-      }, LOCAL_LINKS_DEBOUNCE_MS);
+      sync_local_links.schedule(note_path, LOCAL_LINKS_DEBOUNCE_MS);
     });
 
     return () => {
-      cancel_pending();
+      sync_local_links.cancel();
     };
   });
 }

@@ -8,6 +8,7 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";
+import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
 import { create_logger } from "$lib/shared/utils/logger";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
@@ -97,14 +98,8 @@ export function create_watcher_reactor(
   workspace_reconcile?: WorkspaceReconcile,
 ): () => void {
   return $effect.root(() => {
-    let tree_refresh_timer: ReturnType<typeof setTimeout> | null = null;
-
-    function debounced_tree_refresh() {
-      if (tree_refresh_timer !== null) {
-        clearTimeout(tree_refresh_timer);
-      }
-      tree_refresh_timer = setTimeout(() => {
-        tree_refresh_timer = null;
+    const tree_refresh = create_debounced_task_controller<void>({
+      run: () => {
         void reconcile_workspace(
           action_registry,
           {
@@ -116,7 +111,11 @@ export function create_watcher_reactor(
             is_vault_mode: vault_store.is_vault_mode,
           },
         );
-      }, TREE_REFRESH_DEBOUNCE_MS);
+      },
+    });
+
+    function debounced_tree_refresh() {
+      tree_refresh.schedule(undefined, TREE_REFRESH_DEBOUNCE_MS);
     }
 
     function find_background_tab(path: string): BackgroundTabInfo {
@@ -187,10 +186,7 @@ export function create_watcher_reactor(
       watcher_service.subscribe(handle_event);
 
       return () => {
-        if (tree_refresh_timer !== null) {
-          clearTimeout(tree_refresh_timer);
-          tree_refresh_timer = null;
-        }
+        tree_refresh.cancel();
         void watcher_service.stop();
       };
     });
