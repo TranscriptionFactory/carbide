@@ -12,7 +12,10 @@ import {
 import type { NoteDoc, NoteMeta } from "$lib/shared/types/note";
 import type { VaultStore } from "$lib/features/vault";
 import type { NotesStore } from "$lib/features/note/state/note_store.svelte";
-import type { EditorStore } from "$lib/features/editor";
+import {
+  normalize_markdown_line_breaks,
+  type EditorStore,
+} from "$lib/features/editor";
 import type { OpStore } from "$lib/app";
 import type { AssetsPort } from "$lib/features/note/ports";
 import type {
@@ -535,18 +538,33 @@ export class NoteService {
     return await this.notes_port.read_note(vault_id, resolved_path);
   }
 
+  private normalize_note_doc_markdown(doc: NoteDoc): NoteDoc {
+    const normalized_markdown = as_markdown_text(
+      normalize_markdown_line_breaks(doc.markdown),
+    );
+    if (normalized_markdown === doc.markdown) {
+      return doc;
+    }
+    return {
+      ...doc,
+      markdown: normalized_markdown,
+    };
+  }
+
   private apply_opened_note(doc: NoteDoc, options?: OpenNoteOptions) {
-    this.notes_store.add_note(doc.meta);
-    if (!is_draft_note_path(doc.meta.path)) {
-      this.notes_store.add_recent_note(doc.meta);
+    const normalized_doc = this.normalize_note_doc_markdown(doc);
+
+    this.notes_store.add_note(normalized_doc.meta);
+    if (!is_draft_note_path(normalized_doc.meta.path)) {
+      this.notes_store.add_recent_note(normalized_doc.meta);
     }
 
     const forced_buffer_id = options?.force_reload
-      ? `${doc.meta.id}:reload:${String(this.now_ms())}`
+      ? `${normalized_doc.meta.id}:reload:${String(this.now_ms())}`
       : undefined;
     this.editor_store.set_open_note(
       to_open_note_state(
-        doc,
+        normalized_doc,
         forced_buffer_id ? { buffer_id: forced_buffer_id } : undefined,
       ),
     );

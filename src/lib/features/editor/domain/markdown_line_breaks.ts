@@ -3,7 +3,7 @@ type CodeFenceState = {
   length: number;
 };
 
-export const MARKDOWN_HARD_BREAK = "\\\n";
+export const MARKDOWN_HARD_BREAK = "<br />\n";
 
 export function insert_markdown_hard_break(input: {
   markdown: string;
@@ -72,18 +72,18 @@ export function normalize_markdown_line_breaks(raw: string): string {
 
 function normalize_line_break_line(line: string): string {
   const trimmed = trim_trailing_whitespace(line);
-  if (trimmed.endsWith("\\")) {
-    return trimmed;
+  if (trimmed.endsWith("\\") && !trimmed.endsWith("\\\\")) {
+    return `${trimmed.slice(0, -1)}<br />`;
   }
 
   const break_tag_start = find_break_tag_start(trimmed);
   if (break_tag_start !== null) {
-    return `${trimmed.slice(0, break_tag_start)}\\`;
+    return `${trimmed.slice(0, break_tag_start)}<br />`;
   }
 
   const trailing_whitespace = line.slice(trimmed.length);
   if (trailing_whitespace.length >= 2) {
-    return `${trimmed}\\`;
+    return `${trimmed}<br />`;
   }
 
   return line;

@@ -91,6 +91,61 @@ describe("NoteService", () => {
     expect(op_store.get("note.open:docs/alpha.md").status).toBe("success");
   });
 
+  it("normalizes legacy hard breaks when opening a note", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+
+    vault_store.set_vault(create_test_vault());
+
+    const note_meta = {
+      id: as_note_path("docs/alpha.md"),
+      path: as_note_path("docs/alpha.md"),
+      name: "alpha",
+      title: "alpha",
+      mtime_ms: 0,
+      size_bytes: 0,
+    };
+    notes_store.set_notes([note_meta]);
+
+    const notes_port = create_mock_notes_port();
+    notes_port.read_note = vi.fn().mockResolvedValue({
+      meta: note_meta,
+      markdown: as_markdown_text("one\\\ntwo"),
+    });
+
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => 1,
+    );
+
+    await service.open_note("docs/alpha.md", false);
+
+    expect(editor_store.open_note?.markdown).toBe(
+      as_markdown_text("one<br />\ntwo"),
+    );
+  });
+
   it("adds opened note to notes store when missing", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();

@@ -16,9 +16,9 @@ This spec is about Markdown structure, not OS-specific file line endings.
 ## Canonical Representation
 
 - Otterly stores paragraph breaks as Markdown paragraphs separated by blank lines.
-- Otterly stores hard line breaks as backslash + newline: `\\\n`.
-- Otterly must not generate `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks when serializing Markdown.
-- Otterly may accept those forms as input, but must normalize them to `\\\n` on the next serialization boundary.
+- Otterly stores hard line breaks as `<br />` + newline: `<br />\n`.
+- Otterly serializes hard line breaks as `<br />`, not as backslash or trailing-space forms.
+- Otterly may accept backslash and trailing-space hard breaks as input, but must normalize them to `<br />\n` on the next serialization boundary.
 
 ## Invariants
 
@@ -35,9 +35,9 @@ This spec is about Markdown structure, not OS-specific file line endings.
 - Source mode edits Markdown source directly.
 - Plain `Enter` inserts a newline character only.
 - A blank line represents a paragraph break.
-- `Shift+Enter` inserts the canonical hard line break form `\\\n`.
-- Source mode should show Markdown-native syntax, not auto-insert HTML for line breaks.
-- If a document contains `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks, source mode may display them as loaded content, but once the document is serialized by Otterly they must become `\\\n`.
+- `Shift+Enter` inserts the canonical hard line break form `<br />\n`.
+- Source mode should show the canonical hard-break token explicitly.
+- If a document contains backslash, `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks, Otterly normalizes them to `<br />\n` when the note is loaded into editor state and on later serialization boundaries.
 
 ## Visual Mode
 
@@ -50,7 +50,7 @@ This spec is about Markdown structure, not OS-specific file line endings.
 - In fenced or indented code blocks:
   - `Enter` inserts a literal newline in code content.
   - `Shift+Enter` must not create a Markdown hard-break token outside code semantics.
-- Otterly must not emit raw HTML line breaks from visual mode.
+- Otterly serializes visual-mode hard breaks as `<br />`.
 
 ## Round-Trip Rules
 
@@ -60,7 +60,7 @@ This spec is about Markdown structure, not OS-specific file line endings.
   - `<br/>`
   - `<br />`
   - two trailing spaces followed by newline
-- On any serialization boundary, Otterly writes that semantic back as `\\\n`.
+- On any serialization boundary, Otterly writes that semantic back as `<br />\n`.
 
 Serialization boundaries include:
 
@@ -73,7 +73,7 @@ Serialization boundaries include:
 
 - Changing file-level newline encoding policy
 - Defining full table-cell multiline behavior
-- Preserving raw HTML break syntax for stylistic reasons
+- Preserving legacy hard-break spellings for stylistic reasons
 
 ## Table Constraint
 
@@ -95,25 +95,31 @@ Serialization boundaries include:
 - Given a paragraph with text `one`
 - When the user presses `Shift+Enter` and types `two`
 - Then the document contains one paragraph with a hard line break
-- And serialized Markdown is `one\\\ntwo`
+- And serialized Markdown is `one<br />\ntwo`
 
 ### Hard break creation in source mode
 
 - Given source mode with cursor after `one`
 - When the user presses `Shift+Enter` and types `two`
-- Then the source becomes `one\\\ntwo`
+- Then the source becomes `one<br />\ntwo`
 
 ### HTML break normalization
 
 - Given stored Markdown `one<br />\ntwo`
 - When Otterly parses and later serializes the document
-- Then the serialized Markdown is `one\\\ntwo`
+- Then the serialized Markdown is `one<br />\ntwo`
 
 ### Trailing-space normalization
 
 - Given stored Markdown with two trailing spaces before newline between `one` and `two`
 - When Otterly parses and later serializes the document
-- Then the serialized Markdown is `one\\\ntwo`
+- Then the serialized Markdown is `one<br />\ntwo`
+
+### Backslash normalization
+
+- Given stored Markdown `one\\\ntwo`
+- When Otterly parses and later serializes the document
+- Then the serialized Markdown is `one<br />\ntwo`
 
 ### Soft break preservation
 
@@ -126,11 +132,11 @@ Serialization boundaries include:
 - Given a list item with text `one`
 - When the user presses `Shift+Enter` inside that item and types `two`
 - Then the line break stays within the same list item
-- And serialized Markdown uses `\\\n` at that point
+- And serialized Markdown uses `<br />\n` at that point
 
 ### Code block newline
 
 - Given the cursor inside a fenced code block
 - When the user presses `Enter`
 - Then Otterly inserts a literal code newline
-- And it does not serialize that newline as `\\\n` or `<br />`
+- And it does not serialize that newline as a hard line break token
