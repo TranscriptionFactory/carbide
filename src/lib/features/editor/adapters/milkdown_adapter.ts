@@ -72,7 +72,10 @@ import { paired_delimiter_plugin } from "./paired_delimiter_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
 import { outline_plugin, outline_plugin_key } from "./outline_plugin";
 import { create_file_drop_plugin } from "$lib/features/editor/domain/file_drop_plugin";
-import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import {
+  normalize_markdown_line_breaks,
+  prepare_markdown_line_breaks_for_visual_editor,
+} from "$lib/features/editor/domain/markdown_line_breaks";
 import { error_message } from "$lib/shared/utils/error_message";
 import { count_words } from "$lib/shared/utils/count_words";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -309,10 +312,17 @@ export function create_milkdown_editor_port(args?: {
         return normalize_markdown_line_breaks(raw);
       }
 
+      function prepare_markdown_for_editor(raw: string): string {
+        return prepare_markdown_line_breaks_for_visual_editor(raw);
+      }
+
       let builder = Editor.make()
         .config((ctx) => {
           ctx.set(rootCtx, root);
-          ctx.set(defaultValueCtx, current_markdown);
+          ctx.set(
+            defaultValueCtx,
+            prepare_markdown_for_editor(current_markdown),
+          );
           ctx.set(editorViewOptionsCtx, { editable: () => true });
         })
 
@@ -651,7 +661,9 @@ export function create_milkdown_editor_port(args?: {
           const normalized = normalize_markdown(markdown);
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
-          run_editor_action(replaceAll(normalized));
+          run_editor_action(
+            replaceAll(prepare_markdown_for_editor(normalized)),
+          );
           if (!is_large_note) {
             run_editor_action((ctx) => {
               const view = ctx.get(editorViewCtx);
@@ -766,7 +778,9 @@ export function create_milkdown_editor_port(args?: {
               );
               let parsed_doc: ProseNode;
               try {
-                parsed_doc = parser(normalized_initial_markdown);
+                parsed_doc = parser(
+                  prepare_markdown_for_editor(normalized_initial_markdown),
+                );
               } catch {
                 parsed_doc =
                   view.state.schema.topNodeType.createAndFill() ??
