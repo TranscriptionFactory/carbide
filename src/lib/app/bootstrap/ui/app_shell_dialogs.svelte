@@ -36,7 +36,7 @@
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
   import type { VaultId } from "$lib/shared/types/ids";
-  import type { HotkeyBinding } from "$lib/features/hotkey";
+  import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
   import type { Theme } from "$lib/shared/types/theme";
 
   type Props = {
@@ -80,22 +80,38 @@
   );
   const image_paste_error = $derived(stores.op.get("asset.write").error);
 
+  function hotkey_overrides_equal(
+    a: HotkeyOverride[],
+    b: HotkeyOverride[],
+  ): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    return a.every((override, index) => {
+      const other = b[index];
+      return (
+        other !== undefined &&
+        override.action_id === other.action_id &&
+        override.key === other.key
+      );
+    });
+  }
+
   const settings_has_unsaved_changes = $derived.by(() => {
     const {
-      current_settings,
-      persisted_settings,
+      has_unsaved_changes,
       git_remote_url,
       persisted_git_remote_url,
       hotkey_draft_overrides,
     } = stores.ui.settings_dialog;
-    const editor_changed =
-      JSON.stringify(current_settings) !== JSON.stringify(persisted_settings);
-    const git_remote_changed = git_remote_url !== persisted_git_remote_url;
-    const hotkey_changed =
-      JSON.stringify(hotkey_draft_overrides) !==
-      JSON.stringify(stores.ui.hotkey_overrides);
+    const git_remote_changed =
+      git_remote_url.trim() !== persisted_git_remote_url.trim();
+    const hotkey_changed = !hotkey_overrides_equal(
+      hotkey_draft_overrides,
+      stores.ui.hotkey_overrides,
+    );
     return (
-      editor_changed ||
+      has_unsaved_changes ||
       git_remote_changed ||
       hotkey_changed ||
       stores.ui.theme_has_draft

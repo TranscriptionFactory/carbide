@@ -18,6 +18,39 @@ export function register_settings_actions(input: ActionRegistrationInput) {
     return a.every((value, index) => value === b[index]);
   }
 
+  function editor_settings_equal(a: EditorSettings, b: EditorSettings) {
+    return (
+      a.attachment_folder === b.attachment_folder &&
+      arrays_equal(a.ignored_folders, b.ignored_folders) &&
+      a.show_hidden_files === b.show_hidden_files &&
+      a.autosave_enabled === b.autosave_enabled &&
+      a.autosave_delay_ms === b.autosave_delay_ms &&
+      a.git_autocommit_mode === b.git_autocommit_mode &&
+      a.git_autocommit_interval_minutes === b.git_autocommit_interval_minutes &&
+      a.git_pull_strategy === b.git_pull_strategy &&
+      a.git_auto_fetch_interval_minutes === b.git_auto_fetch_interval_minutes &&
+      a.show_vault_dashboard_on_open === b.show_vault_dashboard_on_open &&
+      a.max_open_tabs === b.max_open_tabs &&
+      a.editor_max_width_ch === b.editor_max_width_ch &&
+      a.terminal_shell_path === b.terminal_shell_path &&
+      a.terminal_font_size_px === b.terminal_font_size_px &&
+      a.terminal_scrollback === b.terminal_scrollback &&
+      a.terminal_cursor_blink === b.terminal_cursor_blink &&
+      a.terminal_follow_active_vault === b.terminal_follow_active_vault &&
+      a.ai_enabled === b.ai_enabled &&
+      a.ai_default_backend === b.ai_default_backend &&
+      a.ai_ollama_model === b.ai_ollama_model &&
+      a.ai_claude_command === b.ai_claude_command &&
+      a.ai_codex_command === b.ai_codex_command &&
+      a.ai_ollama_command === b.ai_ollama_command &&
+      a.ai_execution_timeout_seconds === b.ai_execution_timeout_seconds &&
+      a.document_pdf_default_zoom === b.document_pdf_default_zoom &&
+      a.document_code_wrap === b.document_code_wrap &&
+      a.document_image_background === b.document_image_background &&
+      a.document_inactive_cache_limit === b.document_inactive_cache_limit
+    );
+  }
+
   function parse_settings_category(value: unknown): SettingsCategory {
     return (typeof value === "string" ? value : "theme") as SettingsCategory;
   }
@@ -143,9 +176,11 @@ export function register_settings_actions(input: ActionRegistrationInput) {
       stores.ui.settings_dialog = {
         ...stores.ui.settings_dialog,
         current_settings: editor_settings,
-        has_unsaved_changes: true,
+        has_unsaved_changes: !editor_settings_equal(
+          editor_settings,
+          stores.ui.settings_dialog.persisted_settings,
+        ),
       };
-      stores.ui.set_editor_settings(editor_settings);
     },
   });
 

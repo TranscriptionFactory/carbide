@@ -443,7 +443,6 @@ export class UIStore {
 
   set_editor_settings(settings: EditorSettings) {
     this.editor_settings = settings;
-    this.settings_dialog.current_settings = settings;
   }
 
   set_system_dialog_open(open: boolean) {
