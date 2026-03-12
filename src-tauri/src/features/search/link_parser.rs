@@ -1,5 +1,5 @@
 use comrak::nodes::{AstNode, NodeCode, NodeLink, NodeValue, NodeWikiLink, Sourcepos};
-use comrak::{Arena, Options, parse_document};
+use comrak::{parse_document, Arena, Options};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
@@ -352,7 +352,10 @@ pub(crate) fn internal_link_targets(markdown: &str, source_path: &str) -> Vec<St
     out
 }
 
-pub(crate) fn extract_local_links_snapshot(markdown: &str, source_path: &str) -> LocalLinksSnapshot {
+pub(crate) fn extract_local_links_snapshot(
+    markdown: &str,
+    source_path: &str,
+) -> LocalLinksSnapshot {
     let parsed = parse_all_links(markdown, source_path);
     let mut combined = parsed.markdown_targets;
     combined.extend(parsed.wiki_targets);
@@ -391,7 +394,10 @@ fn sourcepos_to_byte_range(line_starts: &[usize], pos: Sourcepos) -> Option<(usi
     }
     let start_offset = *line_starts.get(pos.start.line - 1)?;
     let end_offset = *line_starts.get(pos.end.line - 1)?;
-    Some((start_offset + pos.start.column - 1, end_offset + pos.end.column))
+    Some((
+        start_offset + pos.start.column - 1,
+        end_offset + pos.end.column,
+    ))
 }
 
 pub(crate) fn compute_relative_path(from_dir: &str, to_path: &str) -> String {
@@ -533,11 +539,11 @@ pub(crate) fn rewrite_links(
                 } else {
                     format_markdown_link_href(new_source_path, &new_target)
                 };
-                let (byte_start, byte_end) =
-                    match sourcepos_to_byte_range(&line_starts, sourcepos) {
-                        Some(range) => range,
-                        None => continue,
-                    };
+                let (byte_start, byte_end) = match sourcepos_to_byte_range(&line_starts, sourcepos)
+                {
+                    Some(range) => range,
+                    None => continue,
+                };
                 if byte_end > markdown.len() {
                     continue;
                 }
@@ -556,13 +562,12 @@ pub(crate) fn rewrite_links(
                     && trimmed_destination.ends_with('>')
                     && trimmed_destination.len() >= 2;
 
-                let replacement_destination = if had_angle_wrapping
-                    || markdown_destination_needs_angle_brackets(&new_href)
-                {
-                    format!("<{new_href}>")
-                } else {
-                    new_href.clone()
-                };
+                let replacement_destination =
+                    if had_angle_wrapping || markdown_destination_needs_angle_brackets(&new_href) {
+                        format!("<{new_href}>")
+                    } else {
+                        new_href.clone()
+                    };
                 let replacement = format!("[{label}]({replacement_destination})");
                 if replacement != span {
                     replacements.push((byte_start, byte_end, replacement));
@@ -588,11 +593,11 @@ pub(crate) fn rewrite_links(
                 };
 
                 let new_wiki = format_wiki_target(new_source_path, &new_target, is_relative);
-                let (byte_start, byte_end) =
-                    match sourcepos_to_byte_range(&line_starts, sourcepos) {
-                        Some(range) => range,
-                        None => continue,
-                    };
+                let (byte_start, byte_end) = match sourcepos_to_byte_range(&line_starts, sourcepos)
+                {
+                    Some(range) => range,
+                    None => continue,
+                };
                 if byte_end > markdown.len() {
                     continue;
                 }

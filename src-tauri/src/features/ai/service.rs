@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use std::path::{Component, PathBuf};
 use std::process::{Child, Stdio};
 use std::sync::{Arc, Mutex};
+use tempfile::tempdir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiExecutionResult {
@@ -73,7 +74,11 @@ fn check_cli_exists(command_name: &str, path: &str) -> Result<bool, String> {
         return Ok(PathBuf::from(command_name).exists());
     }
 
-    let which_cmd = if cfg!(target_os = "windows") { "where" } else { "which" };
+    let which_cmd = if cfg!(target_os = "windows") {
+        "where"
+    } else {
+        "which"
+    };
 
     let output = no_window_cmd(which_cmd)
         .arg(command_name)
@@ -134,12 +139,29 @@ fn strip_ansi(input: &str) -> String {
     out
 }
 
-fn read_stream_to_string<T: Read + Send + 'static>(mut handle: T) -> std::thread::JoinHandle<String> {
+fn read_stream_to_string<T: Read + Send + 'static>(
+    mut handle: T,
+) -> std::thread::JoinHandle<String> {
     std::thread::spawn(move || {
         let mut output = String::new();
         let _ = handle.read_to_string(&mut output);
         output
     })
+}
+
+fn clean_cli_output(input: &str) -> String {
+    strip_ansi(input).trim().to_string()
+}
+
+fn resolve_cli_output(stdout_clean: &str, output_path: Option<&PathBuf>) -> String {
+    let Some(path) = output_path else {
+        return stdout_clean.to_string();
+    };
+
+    match std::fs::read_to_string(path) {
+        Ok(file_output) => clean_cli_output(&file_output),
+        Err(_) => stdout_clean.to_string(),
+    }
 }
 
 fn validate_note_path(vault_path: &str, note_path: &str) -> Result<(), String> {
@@ -153,7 +175,10 @@ fn validate_note_path(vault_path: &str, note_path: &str) -> Result<(), String> {
     }
 
     for component in note_path_buf.components() {
-        if matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_)) {
+        if matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        ) {
             return Err("Note path must stay inside the vault".to_string());
         }
     }
@@ -182,6 +207,7 @@ async fn execute_ai_cli(
     current_dir: String,
     not_found_msg: String,
     timeout_seconds: Option<u64>,
+    output_path: Option<PathBuf>,
 ) -> Result<AiExecutionResult, String> {
     let cli_name = cli_name.to_string();
     let timeout_duration =
@@ -302,13 +328,18 @@ async fn execute_ai_cli(
             .and_then(|reader| reader.join().ok())
             .unwrap_or_default();
 
-        let stdout_clean = strip_ansi(&stdout).trim().to_string();
-        let stderr_clean = strip_ansi(&stderr).trim().to_string();
+        let stdout_clean = clean_cli_output(&stdout);
+        let stderr_clean = clean_cli_output(&stderr);
+        let output = if success {
+            resolve_cli_output(&stdout_clean, output_path.as_ref())
+        } else {
+            stdout_clean.clone()
+        };
 
         if success {
             AiExecutionResult {
                 success: true,
-                output: stdout_clean,
+                output,
                 error: None,
             }
         } else {
@@ -359,10 +390,12 @@ async fn execute_ai_cli(
     Ok(result)
 }
 
-fn codex_args() -> Vec<String> {
+fn codex_args(output_path: &str) -> Vec<String> {
     vec![
         "exec".to_string(),
         "--skip-git-repo-check".to_string(),
+        "--output-last-message".to_string(),
+        output_path.to_string(),
         "-".to_string(),
     ]
 }
@@ -418,6 +451,7 @@ pub async fn ai_execute_claude(
         "Claude CLI not found. Please install it from https://code.claude.com/docs/en/quickstart"
             .to_string(),
         timeout_seconds,
+        None,
     )
     .await
 }
@@ -432,16 +466,19 @@ pub async fn ai_execute_codex(
 ) -> Result<AiExecutionResult, String> {
     validate_note_path(&vault_path, &note_path)?;
     let command = resolved_command(command, "codex");
+    let _output_dir =
+        tempdir().map_err(|e| format!("Failed to create Codex output directory: {}", e))?;
+    let output_path = _output_dir.path().join("codex-output.txt");
 
     execute_ai_cli(
         "Codex",
         command,
-        codex_args(),
+        codex_args(&output_path.to_string_lossy()),
         Some(prompt),
         vault_path,
-        "Codex CLI not found. Please install it from https://github.com/openai/codex"
-            .to_string(),
+        "Codex CLI not found. Please install it from https://github.com/openai/codex".to_string(),
         timeout_seconds,
+        Some(output_path),
     )
     .await
 }
@@ -498,6 +535,7 @@ pub async fn ai_execute_ollama(
         vault_path,
         "Ollama CLI not found. Please install it from https://ollama.com".to_string(),
         timeout_seconds,
+        None,
     )
     .await?;
 
@@ -536,8 +574,9 @@ pub async fn ai_execute_ollama(
 
 #[cfg(test)]
 mod tests {
-    use super::{no_window_cmd, read_stream_to_string, strip_ansi};
+    use super::{codex_args, no_window_cmd, read_stream_to_string, resolve_cli_output, strip_ansi};
     use std::process::Stdio;
+    use tempfile::tempdir;
 
     #[test]
     fn strips_basic_ansi_sequences() {
@@ -575,5 +614,43 @@ mod tests {
         assert!(status.success());
         assert_eq!(stdout.len(), 200000);
         assert_eq!(stderr.len(), 200000);
+    }
+
+    #[test]
+    fn prefers_captured_output_file_when_present() {
+        let dir = tempdir().expect("temp dir should be created");
+        let output_path = dir.path().join("codex-output.txt");
+        std::fs::write(&output_path, "First line\nSecond line\n")
+            .expect("output file should be written");
+
+        assert_eq!(
+            resolve_cli_output("fallback", Some(&output_path)),
+            "First line\nSecond line"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_stdout_when_output_file_is_missing() {
+        let dir = tempdir().expect("temp dir should be created");
+        let output_path = dir.path().join("missing-codex-output.txt");
+
+        assert_eq!(
+            resolve_cli_output("fallback", Some(&output_path)),
+            "fallback"
+        );
+    }
+
+    #[test]
+    fn codex_args_capture_only_the_last_message() {
+        assert_eq!(
+            codex_args("/tmp/codex-output.txt"),
+            vec![
+                "exec".to_string(),
+                "--skip-git-repo-check".to_string(),
+                "--output-last-message".to_string(),
+                "/tmp/codex-output.txt".to_string(),
+                "-".to_string(),
+            ]
+        );
     }
 }

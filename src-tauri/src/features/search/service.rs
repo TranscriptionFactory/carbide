@@ -610,14 +610,16 @@ fn enqueue_index_command(
 #[tauri::command]
 pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Building index vault_id={}", vault_id);
-    enqueue_index_command(&app, &vault_id, |vault_root, cancel, app_handle, vault_id| {
-        DbCommand::Sync {
+    enqueue_index_command(
+        &app,
+        &vault_id,
+        |vault_root, cancel, app_handle, vault_id| DbCommand::Sync {
             vault_root,
             cancel,
             app_handle,
             vault_id,
-        }
-    })
+        },
+    )
 }
 
 #[tauri::command]
@@ -631,14 +633,16 @@ pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Rebuilding index vault_id={}", vault_id);
-    enqueue_index_command(&app, &vault_id, |vault_root, cancel, app_handle, vault_id| {
-        DbCommand::Rebuild {
+    enqueue_index_command(
+        &app,
+        &vault_id,
+        |vault_root, cancel, app_handle, vault_id| DbCommand::Rebuild {
             vault_root,
             cancel,
             app_handle,
             vault_id,
-        }
-    })
+        },
+    )
 }
 
 #[tauri::command]

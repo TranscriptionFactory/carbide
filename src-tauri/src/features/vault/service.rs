@@ -90,11 +90,7 @@ struct ResolvedPath {
 
 fn resolve_open_path(app: &AppHandle, args: &OpenVaultArgs) -> Result<ResolvedPath, String> {
     let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
-        log::error!(
-            "Failed to canonicalize path {}: {}",
-            args.vault_path,
-            e
-        );
+        log::error!("Failed to canonicalize path {}: {}", args.vault_path, e);
         e
     })?;
     let meta = std::fs::metadata(&vault_path).map_err(|e| {
@@ -123,7 +119,12 @@ fn resolve_open_path(app: &AppHandle, args: &OpenVaultArgs) -> Result<ResolvedPa
     })
 }
 
-fn finish_open(app: &AppHandle, mut resolved: ResolvedPath, mode: VaultMode, note_count: Option<u64>) -> Result<Vault, String> {
+fn finish_open(
+    app: &AppHandle,
+    mut resolved: ResolvedPath,
+    mode: VaultMode,
+    note_count: Option<u64>,
+) -> Result<Vault, String> {
     let vault = Vault {
         id: resolved.id.clone(),
         path: resolved.vault_path,
@@ -266,8 +267,14 @@ pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String>
     log::info!("Opening folder path={}", args.vault_path);
     let resolved = resolve_open_path(&app, &args)?;
 
-    let has_otterly_dir = PathBuf::from(&resolved.vault_path).join(".otterly").is_dir();
-    let mode = if has_otterly_dir { VaultMode::Vault } else { VaultMode::Browse };
+    let has_otterly_dir = PathBuf::from(&resolved.vault_path)
+        .join(".otterly")
+        .is_dir();
+    let mode = if has_otterly_dir {
+        VaultMode::Vault
+    } else {
+        VaultMode::Browse
+    };
     let note_count = if has_otterly_dir {
         load_note_count(&app, &resolved.id).or(resolved.existing_note_count)
     } else {

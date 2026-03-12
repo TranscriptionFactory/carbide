@@ -6,12 +6,7 @@ use std::path::Path;
 
 const VAULT_IGNORE_FILE: &str = ".vaultignore";
 const GIT_IGNORE_FILE: &str = ".gitignore";
-const BUILTIN_PATTERNS: &[&str] = &[
-    ".git/",
-    ".otterly/",
-    ".DS_Store",
-    "node_modules/",
-];
+const BUILTIN_PATTERNS: &[&str] = &[".git/", ".otterly/", ".DS_Store", "node_modules/"];
 
 #[derive(Clone, Debug)]
 struct IgnoreRule {
@@ -209,7 +204,10 @@ fn normalize_relative_path(value: &str) -> String {
 }
 
 fn collect_directory_candidates(relative_path: &str, is_dir: bool) -> Vec<String> {
-    let parts: Vec<&str> = relative_path.split('/').filter(|part| !part.is_empty()).collect();
+    let parts: Vec<&str> = relative_path
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
     let upto = if is_dir {
         parts.len()
     } else {

@@ -133,15 +133,17 @@ pub fn watch_vault(
     let vault_id_clone = vault_id.clone();
 
     std::thread::spawn(move || {
-        let mut ignore_matcher =
-            match vault_ignore::load_vault_ignore_matcher(&app_handle, &vault_id_clone, &root_canon)
-            {
-                Ok(matcher) => matcher,
-                Err(error) => {
-                    log::error!("Failed to load ignore matcher: {}", error);
-                    return;
-                }
-            };
+        let mut ignore_matcher = match vault_ignore::load_vault_ignore_matcher(
+            &app_handle,
+            &vault_id_clone,
+            &root_canon,
+        ) {
+            Ok(matcher) => matcher,
+            Err(error) => {
+                log::error!("Failed to load ignore matcher: {}", error);
+                return;
+            }
+        };
         let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
 
         let mut watcher = match RecommendedWatcher::new(
@@ -195,9 +197,11 @@ pub fn watch_vault(
                 let is_dir = abs.is_dir();
 
                 if is_ignore_config_path(&rel) {
-                    if let Ok(next_matcher) =
-                        vault_ignore::load_vault_ignore_matcher(&app_handle, &vault_id_clone, &root_canon)
-                    {
+                    if let Ok(next_matcher) = vault_ignore::load_vault_ignore_matcher(
+                        &app_handle,
+                        &vault_id_clone,
+                        &root_canon,
+                    ) {
                         ignore_matcher = next_matcher;
                     }
                 }
