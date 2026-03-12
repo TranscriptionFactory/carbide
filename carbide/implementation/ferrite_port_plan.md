@@ -49,13 +49,14 @@ Improve Carbide's data integrity, performance with large files, and architectura
     - [ ] Expose this pipeline to the (future) Plugin API.
 - **Verification:** Successfully refactored `AiService` to use the shared pipeline logic.
 
-### 3.2 Single Instance IPC
+### 3.2 Single Instance IPC - DONE
 - **Objective:** Ensure professional OS integration.
 - **Tasks:**
-    - Adapt Ferrite's `single_instance.rs` to Otterly's `main.rs`.
-    - On launch: check for a named pipe/socket.
-    - If exists: send CLI arguments (file paths) to the socket and exit.
-    - If not: start the socket listener and the app.
+    - [x] Adapt Ferrite's `single_instance.rs` to Otterly's `main.rs` (Implemented via `tauri-plugin-single-instance`).
+    - [x] On launch: check for a named pipe/socket.
+    - [x] If exists: send CLI arguments (file paths) to the socket and exit.
+    - [x] If not: start the socket listener and the app.
+- **Verification:** Second instance launch now forwards file paths to the primary instance.
 - **Verification:** Open Otterly, then double-click an `.md` file in Finder; verify it opens as a new tab in the existing window.
 
 ## Success Criteria

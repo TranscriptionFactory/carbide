@@ -1,6 +1,8 @@
 use crate::features;
 use crate::shared;
 use std::sync::Mutex;
+use tauri::Emitter;
+use tauri::Manager;
 use tauri_plugin_window_state::StateFlags;
 
 include!(concat!(env!("OUT_DIR"), "/icon_stamp.rs"));
@@ -11,6 +13,18 @@ pub struct PendingFileOpen(pub Mutex<Option<String>>);
 #[tauri::command]
 pub fn get_pending_file_open(state: tauri::State<PendingFileOpen>) -> Option<String> {
     state.0.lock().unwrap().take()
+}
+
+fn handle_file_open(app: &tauri::AppHandle, path: String) {
+    log::info!("File open event: {}", path);
+    let state = app.state::<PendingFileOpen>();
+    *state.0.lock().unwrap() = Some(path.clone());
+    let _ = app.emit("file-open", &path);
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
 }
 
 pub fn run() {
@@ -45,6 +59,16 @@ pub fn run() {
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
         .manage(shared::buffer::BufferManager::new())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            log::info!("Second instance launched with args: {:?}", args);
+            // The first arg is the executable, subsequent args might be file paths
+            for arg in args.iter().skip(1) {
+                if !arg.starts_with('-') {
+                    handle_file_open(app, arg.clone());
+                    break; // Just handle the first file for now
+                }
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_pty::init())
@@ -143,18 +167,10 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 if let tauri::RunEvent::Opened { urls } = &event {
-                    use tauri::Emitter;
                     for url in urls {
                         if url.scheme() == "file" {
                             if let Ok(path) = url.to_file_path() {
-                                let path_str = path.to_string_lossy().into_owned();
-                                log::info!("File open event: {}", path_str);
-                                {
-                                    use tauri::Manager;
-                                    let state = app.state::<PendingFileOpen>();
-                                    *state.0.lock().unwrap() = Some(path_str.clone());
-                                }
-                                let _ = app.emit("file-open", &path_str);
+                                handle_file_open(app, path.to_string_lossy().into_owned());
                             }
                         }
                     }
