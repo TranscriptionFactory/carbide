@@ -10,12 +10,14 @@ function subscribe_vault_fs_events(
   let unlisten_fn: (() => void) | null = null;
   let is_disposed = false;
 
-  void listen<VaultFsEvent>("vault_fs_event", (event) => {
+  const promise = listen<VaultFsEvent>("vault_fs_event", (event) => {
     if (is_disposed) {
       return;
     }
     callback(event.payload);
-  }).then((fn_ref) => {
+  });
+
+  promise.then((fn_ref) => {
     if (is_disposed) {
       fn_ref();
       return;
@@ -25,8 +27,13 @@ function subscribe_vault_fs_events(
 
   return () => {
     is_disposed = true;
-    unlisten_fn?.();
-    unlisten_fn = null;
+    if (unlisten_fn) {
+      unlisten_fn();
+      unlisten_fn = null;
+    } else {
+      // If we haven't gotten the unlisten function yet, 
+      // the promise resolution will handle it via is_disposed check.
+    }
   };
 }
 
