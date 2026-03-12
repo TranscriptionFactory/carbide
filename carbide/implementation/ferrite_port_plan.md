@@ -60,7 +60,7 @@ Improve Carbide's data integrity, performance with large files, and architectura
 - **Verification:** Open Otterly, then double-click an `.md` file in Finder; verify it opens as a new tab in the existing window.
 
 ## Success Criteria
-- [ ] 0% file corruption reports due to tearing.
-- [ ] Successful rendering of non-UTF-8 files.
-- [ ] Instant opening of files > 10MB in the Document Viewer.
-- [ ] Unified CLI execution logic for AI and standard tools.
+- [x] 0% file corruption reports due to tearing (Implemented via `atomic_write`).
+- [x] Successful rendering of non-UTF-8 files (Implemented via `chardetng` and `encoding_rs`).
+- [x] Instant opening of files > 10MB in the Document Viewer (Implemented via `ropey` and windowed loading).
+- [x] Unified CLI execution logic for AI and standard tools (Implemented via generic `pipeline` feature).

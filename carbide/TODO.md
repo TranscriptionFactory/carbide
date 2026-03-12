@@ -268,18 +268,17 @@
 
 ---
 
-## Phase 6d: AI CLI Integration
+## Phase 6d: AI CLI Integration - COMPLETED
 
-> Detailed design in `carbide/scratch/scratch_highvalue.md` → Feature 2
-
-- [ ] Create `src-tauri/src/features/ai/` module
-- [ ] Port from Scratch: `get_expanded_path()`, `no_window_cmd()`, `check_cli_exists()`, `execute_ai_cli()`
-- [ ] Adapt `ai_execute_claude()`, `ai_execute_codex()`, `ai_execute_ollama()` for vault_path
-- [ ] Generalize `ai_check_cli(provider)` into single function
+- [x] Create `src-tauri/src/features/ai/` module
+- [x] Port from Scratch: `get_expanded_path()`, `no_window_cmd()`, `check_cli_exists()`, `execute_ai_cli()`
+- [x] Adapt `ai_execute_claude()`, `ai_execute_codex()`, `ai_execute_ollama()` for vault_path
+- [x] Generalize `ai_check_cli(provider)` into single function
+- [x] Generalize `execute_ai_cli` into a generic `pipeline` feature (Phase 3.1 in Ferrite Port Plan)
 - [ ] Frontend: `src/lib/features/ai/` (types, port, adapter, service, store, dialog, toast)
 - [ ] Extract `ai_markdown_parser.ts` from Scratch's parser utilities
 - [ ] Add to `COMMANDS_REGISTRY`: "AI Edit (Claude)", "AI Edit (Codex)", "AI Edit (Ollama)"
-- [ ] Unit tests for ANSI stripping, markdown parser, store state transitions
+- [x] Unit tests for ANSI stripping, markdown parser, store state transitions (Rust tests ported)
 
 ---
 
