@@ -2,9 +2,9 @@
 
 ## Scope Landed
 
-Implemented the highest-value parts of `carbide/upstream_comparison_plan.md` with the constraints from:
+Implemented the highest-value parts of `carbide/implementation/upstream_comparison_plan.md` with the constraints from:
 
-- `carbide/upstream_comparison.md`
+- `carbide/implementation/upstream_comparison.md`
 - `carbide/plugin_system.md`
 - `docs/architecture.md`
 

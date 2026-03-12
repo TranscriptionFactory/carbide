@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement the performance fixes identified in `carbide/upstream_comparison.md` without cutting the feature direction described in:
+Implement the performance fixes identified in `carbide/implementation/upstream_comparison.md` without cutting the feature direction described in:
 
 - `carbide/carbide-project-guide.md`
 - `carbide/TODO.md`
@@ -521,7 +521,7 @@ Browser-only interactions that are hard to cover in unit tests can remain in man
 6. Make PDF text extraction lazy and query-driven
 7. Introduce split-view light profile, focus promotion, and plugin contribution profile policy
 8. Refactor starred derivation onto shared indexed tree data
-9. Re-measure and update `carbide/upstream_comparison.md` with actual deltas
+9. Re-measure and update `carbide/implementation/upstream_comparison.md` with actual deltas
 
 ## Non-Goals
 

@@ -24,7 +24,7 @@ Before planning, here's what Otterly already has in each area:
 
 ## Feature 1: Git Remote Operations (Push/Pull/Fetch)
 
-**Source:** scratch.md #4 (Git Remote Operations)
+**Source:** carbide/scratch/scratch.md #4 (Git Remote Operations)
 **Maps to:** Phase 5 in carbide-project-guide.md
 **Effort:** Medium (1 week)
 
@@ -68,7 +68,7 @@ Otterly uses `git2` crate (libgit2 bindings). Scratch uses CLI `git` commands. W
 
 ## Feature 2: AI CLI Integration
 
-**Source:** scratch.md #3 (AI CLI Integration) + #13 (AI Edit Modal)
+**Source:** carbide/scratch/scratch.md #3 (AI CLI Integration) + #13 (AI Edit Modal)
 **Effort:** Medium (1 week) — most Rust code ports directly from Scratch
 **Architecture:** Built-in feature with clean port boundary (extractable to plugin when Phase 8 lands)
 
@@ -151,7 +151,7 @@ Scratch source: `~/src/scratch/src-tauri/src/lib.rs` (lines 2070-2540), `~/src/s
 
 ## Feature 3: Enhanced Command Palette (Contextual Commands)
 
-**Source:** scratch.md #12 (Command Palette with Tantivy-Backed Search)
+**Source:** carbide/scratch/scratch.md #12 (Command Palette with Tantivy-Backed Search)
 **Effort:** Low-Medium (3-5 days)
 
 ### What to build
@@ -203,7 +203,7 @@ interface CommandContext {
 
 ## Feature 4: Focus/Zen Mode
 
-**Source:** scratch.md #14 (Focus/Zen Mode)
+**Source:** carbide/scratch/scratch.md #14 (Focus/Zen Mode)
 **Effort:** Low (1-2 days)
 
 ### What to build
@@ -232,7 +232,7 @@ Distraction-free writing mode that hides the sidebar and right panel. Pure CSS +
 
 ## Feature 5: Editor Typography Settings (Width Presets)
 
-**Source:** scratch.md #16 (Editor Typography Settings)
+**Source:** carbide/scratch/scratch.md #16 (Editor Typography Settings)
 **Effort:** Low (1-2 days)
 **Status:** DONE — implemented via commits `7985835` and `303121f` as "Editor Max Width" setting
 
@@ -252,7 +252,7 @@ Editor Max Width setting with UI controls and reset button in settings dialog. I
 
 ## Feature 6: Math/LaTeX Support
 
-**Source:** scratch.md #7 (Math/LaTeX Support)
+**Source:** carbide/scratch/scratch.md #7 (Math/LaTeX Support)
 **Effort:** Low-Medium (2-3 days)
 
 ### What to build
@@ -306,7 +306,7 @@ Rationale: Start with Focus Mode (trivial), then Math/LaTeX (mostly plugin wirin
 
 # Editor Feature Ports (from Moraya + Scratch)
 
-> Source catalog: `carbide/scratch.md` (full feature comparison)
+> Source catalog: `carbide/scratch/scratch.md` (full feature comparison)
 > Status: `[ ]` pending | `[~]` in progress | `[x]` done | `[-]` dropped
 
 ---

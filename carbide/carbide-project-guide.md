@@ -4,8 +4,6 @@
 
 Building from scratch is a multi-month time sink during a PhD. The faster path:
 
-carbide-project-guide.md
-
 ## otterly-carbide ecosystem guardrails
 
 The otterly-carbide fork should treat the following as non-negotiable compatibility constraints for fitting into the broader Markdown knowledge-work ecosystem:
@@ -23,8 +21,6 @@ The otterly-carbide fork should treat the following as non-negotiable compatibil
 3. **Build the genuinely novel pieces ourselves** — plugin system, terminal panel, PDF _viewing_ (not just export), and document-level split view (Otterly's split is layout panes, not side-by-side docs).
 
 Both repos are forked locally at `/Users/abir/src/otterly` and `/Users/abir/src/moraya`.
-
-carbide-project-guide.md
 
 ### What Otterly Already Has (Day 1)
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Land the next optimization pass after `carbide/upstream_opt.md`, focusing on the remaining startup regressions without reopening the document-cache, PDF-search, split-view profile, or starred-tree work that already landed.
+Land the next optimization pass after `carbide/implementation/upstream_opt.md`, focusing on the remaining startup regressions without reopening the document-cache, PDF-search, split-view profile, or starred-tree work that already landed.
 
 ## Architecture Constraints
 
@@ -67,7 +67,7 @@ Observed before this pass:
 
 ## Progress
 
-- [x] Review `carbide/upstream_opt.md` and associated docs
+- [x] Review `carbide/implementation/upstream_opt.md` and associated docs
 - [x] Confirm current build still has a large startup chunk
 - [x] Implement lazy editor-port bootstrap
 - [x] Remove the eager Milkdown adapter from the editor feature entrypoint

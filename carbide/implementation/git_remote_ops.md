@@ -1,6 +1,6 @@
 # Git Remote Operations — Implementation Log
 
-Ported from `scratch` project's CLI-based git module (scratch.md item 4).
+Ported from `scratch` project's CLI-based git module (carbide/scratch/scratch.md item 4).
 
 ## What was added
 

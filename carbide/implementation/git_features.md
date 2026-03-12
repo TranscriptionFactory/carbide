@@ -47,7 +47,7 @@ Still missing or incomplete:
 - command-palette entries for remote ops
 - remote-op hotkeys
 - version-history pagination/caching
-- docs reconciliation because `carbide/TODO.md` and `carbide/git_remote_ops.md` are partly stale relative to code
+- docs reconciliation because `carbide/TODO.md` and `carbide/implementation/git_remote_ops.md` are partly stale relative to code
 
 ## Phase 1 — Version History Performance
 
@@ -195,7 +195,7 @@ Bring the roadmap docs back in sync with actual implementation status.
 - [x] Update `carbide/TODO.md`
   - mark implemented backend/service/action/widget items complete
   - leave truly pending UI/history items unchecked
-- [x] Update `carbide/git_remote_ops.md`
+- [x] Update `carbide/implementation/git_remote_ops.md`
   - remove stale note claiming push/pull/sync actions are not registered
   - document add-remote dialog / fetch / history pagination state after implementation
 

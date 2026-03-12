@@ -60,7 +60,7 @@ From project guide (Prompt 4):
 5. Registered actions: toggle, close, mount, unmount, set_active_pane, open_to_side
 6. Added `Cmd+\` hotkey in `default_hotkeys.ts`
 7. Added "Open to Side" context menu items in:
-   - File tree row (via `on_open_to_side` callback prop)Phase_3.md
+   - File tree row (via `on_open_to_side` callback prop)
 
    - Tab bar (via `ACTION_IDS.split_view_open_to_side` action)
 

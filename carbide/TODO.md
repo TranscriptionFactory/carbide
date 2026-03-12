@@ -9,7 +9,7 @@
 
 - [x] Audit Otterly codebase (architecture, commands, stores, components)
 - [-] Produce `carbide/AUDIT.md` — superseded by `carbide-project-guide.md` and inline knowledge
-- [-] Produce `carbide/ARCHITECTURE.md` — superseded by `carbide-project-guide.md` and `devlog/architecture.md`
+- [-] Produce `carbide/ARCHITECTURE.md` — superseded by `carbide-project-guide.md` and `docs/architecture.md`
 - [x] Verify `cargo tauri dev` builds and runs cleanly
 - [ ] Rebrand: app name, window title, asset URI scheme, config paths
 
@@ -147,7 +147,7 @@
 
 ## Phase 5: Git Enhancements
 
-> Detailed subtasks in `carbide/scratch_highvalue.md` → Feature 1 (Git Remote Operations)
+> Detailed subtasks in `carbide/scratch/scratch_highvalue.md` → Feature 1 (Git Remote Operations)
 
 ### Backend (Rust)
 
@@ -226,7 +226,7 @@
 
 ## Phase 6a: Focus/Zen Mode
 
-> Detailed design in `carbide/scratch_highvalue.md` → Feature 4
+> Detailed design in `carbide/scratch/scratch_highvalue.md` → Feature 4
 
 - [ ] Add `focus_mode` boolean to `UIStore`
 - [ ] Add `focus_mode_toggle` action in `ui_actions.ts`
@@ -241,7 +241,7 @@
 
 ## Phase 6b: Math/LaTeX Support
 
-> Detailed design in `carbide/scratch_highvalue.md` → Feature 6
+> Detailed design in `carbide/scratch/scratch_highvalue.md` → Feature 6
 
 - [ ] Add `@milkdown/plugin-math` and `katex` dependencies
 - [ ] Register math plugin in `milkdown_adapter.ts`
@@ -257,7 +257,7 @@
 
 ## Phase 6c: Contextual Command Palette
 
-> Detailed design in `carbide/scratch_highvalue.md` → Feature 3
+> Detailed design in `carbide/scratch/scratch_highvalue.md` → Feature 3
 
 - [ ] Add `when?: (ctx: CommandContext) => boolean` to `CommandDefinition`
 - [ ] Add `CommandContext` type (has_open_note, has_git_repo, has_git_remote, is_split_view)
@@ -270,7 +270,7 @@
 
 ## Phase 6d: AI CLI Integration
 
-> Detailed design in `carbide/scratch_highvalue.md` → Feature 2
+> Detailed design in `carbide/scratch/scratch_highvalue.md` → Feature 2
 
 - [ ] Create `src-tauri/src/features/ai/` module
 - [ ] Port from Scratch: `get_expanded_path()`, `no_window_cmd()`, `check_cli_exists()`, `execute_ai_cli()`
@@ -285,7 +285,7 @@
 
 ## Phase 6e: Editor Feature Ports (Remaining)
 
-> Detailed status in `carbide/scratch_highvalue.md` → Editor Feature Ports section
+> Detailed status in `carbide/scratch/scratch_highvalue.md` → Editor Feature Ports section
 > Batches 0–3 are done (commit `e8cb652`). Remaining work:
 
 ### Done
@@ -422,5 +422,5 @@ the dropdown switcher (Phase 1), but would need refactoring for simultaneous mul
 ### Architecture Docs Reference
 
 - `devlog/coding_guidelines.md` — Code hygiene rules
-- `devlog/architecture.md` — Decision tree for feature implementation (if exists)
+- `docs/architecture.md` — Decision tree for feature implementation (if exists)
 - Layering enforced by `scripts/lint_layering_rules.mjs`

@@ -6,7 +6,7 @@ Implement Phase {{PHASE_NUMBER}} of Carbide.
 
 - Project guide: carbide/carbide-project-guide.md
 - TODO tracker: carbide/TODO.md
-- Phase\_{{PHASE_NUMBER}}.md: phase specific updates/history
+- Phase history: carbide/archive/phase_{{PHASE_NUMBER}}.md
 - This is a fork of Otterly (Tauri v2 + Milkdown markdown editor)
 - Moraya (/Users/abir/src/moraya) is a reference codebase for adapted features
 
@@ -22,8 +22,9 @@ Implement Phase {{PHASE_NUMBER}} of Carbide.
    - `[x]` when complete
    - `[-]` if dropped with a reason
 
-3. Before writing code, read devlog/architecture.md (if it exists) and follow
-   its decision tree. Follow AGENTS.md guidelines strictly. **copy any phase-specific plan files to the Phase\_{{PHASE_NUMBER}}.md**
+3. Before writing code, read docs/architecture.md and follow
+   its decision tree. Follow AGENTS.md guidelines strictly. Copy any phase-specific
+   plan or implementation notes into `carbide/archive/phase_{{PHASE_NUMBER}}.md`.
 
 4. Implement the phase:
    - Follow Otterly's existing architecture when appropriate (ports & adapters, layered services,
@@ -55,6 +56,6 @@ Implement Phase {{PHASE_NUMBER}} of Carbide.
    - Add any new tasks discovered during implementation
    - TODO updates can be part of the same commit as the related code change
 
-9. Write to Phase\_{{PHASE_NUMBER}}.md ot include:
+9. Write to `carbide/archive/phase_{{PHASE_NUMBER}}.md` to include:
    - Plan documents
    - updates on development and outcome post implementation
