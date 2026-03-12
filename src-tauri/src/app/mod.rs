@@ -19,7 +19,15 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
     log::info!("File open event: {}", path);
     let state = app.state::<PendingFileOpen>();
     *state.0.lock().unwrap() = Some(path.clone());
-    let _ = app.emit("file-open", &path);
+
+    // Delay emission slightly to ensure frontend is ready to receive it
+    // especially during cold start or single-instance wake-up
+    let app_handle = app.clone();
+    let path_clone = path.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let _ = app_handle.emit("file-open", &path_clone);
+    });
 
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
