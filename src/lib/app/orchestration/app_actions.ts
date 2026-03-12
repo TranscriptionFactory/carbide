@@ -326,43 +326,47 @@ export function register_app_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.app_handle_file_open,
     label: "Handle File Open",
     execute: async (file_path_raw: unknown) => {
-      const file_path = file_path_raw as string;
-      try {
-        const resolution =
-          await services.vault.resolve_file_to_vault(file_path);
+      // Small delay to ensure that if this was triggered by a single-instance event,
+      // all frontend reactors have finished their cycle.
+      setTimeout(async () => {
+        const file_path = file_path_raw as string;
+        try {
+          const resolution =
+            await services.vault.resolve_file_to_vault(file_path);
 
-        const current_vault_id = input.stores.vault.vault?.id;
+          const current_vault_id = input.stores.vault.vault?.id;
 
-        if (resolution && current_vault_id === resolution.vault_id) {
-          await registry.execute(ACTION_IDS.note_open, {
-            note_path: as_note_path(resolution.relative_path),
-            cleanup_if_missing: false,
-          });
-          return;
+          if (resolution && current_vault_id === resolution.vault_id) {
+            await registry.execute(ACTION_IDS.note_open, {
+              note_path: as_note_path(resolution.relative_path),
+              cleanup_if_missing: false,
+            });
+            return;
+          }
+
+          const vault_path = resolution
+            ? resolution.vault_path
+            : file_path.substring(0, file_path.lastIndexOf("/"));
+
+          const relative_path = resolution
+            ? resolution.relative_path
+            : file_path.substring(file_path.lastIndexOf("/") + 1);
+
+          if (!current_vault_id) {
+            await services.vault.change_vault_by_path(as_vault_path(vault_path));
+            await registry.execute(ACTION_IDS.note_open, {
+              note_path: as_note_path(relative_path),
+              cleanup_if_missing: false,
+            });
+            return;
+          }
+
+          await registry.execute(ACTION_IDS.window_open_viewer, relative_path);
+        } catch (error) {
+          log.error("Failed to handle file open", { error: String(error) });
+          toast.error("Failed to open file");
         }
-
-        const vault_path = resolution
-          ? resolution.vault_path
-          : file_path.substring(0, file_path.lastIndexOf("/"));
-
-        const relative_path = resolution
-          ? resolution.relative_path
-          : file_path.substring(file_path.lastIndexOf("/") + 1);
-
-        if (!current_vault_id) {
-          await services.vault.change_vault_by_path(as_vault_path(vault_path));
-          await registry.execute(ACTION_IDS.note_open, {
-            note_path: as_note_path(relative_path),
-            cleanup_if_missing: false,
-          });
-          return;
-        }
-
-        await registry.execute(ACTION_IDS.window_open_viewer, relative_path);
-      } catch (error) {
-        log.error("Failed to handle file open", { error: String(error) });
-        toast.error("Failed to open file");
-      }
+      }, 50);
     },
   });
 }
