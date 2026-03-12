@@ -15,6 +15,9 @@ function subscribe_vault_fs_events(
       return;
     }
     callback(event.payload);
+  }).catch((err) => {
+    console.error("Failed to setup vault_fs_event listener", err);
+    return () => {};
   });
 
   promise.then((fn_ref) => {
