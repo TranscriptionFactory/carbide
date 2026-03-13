@@ -119,7 +119,8 @@ export function create_backlinks_sync_reactor(
     $effect(() => {
       const decision = resolve_backlinks_sync_decision(state, {
         open_note_path: editor_store.open_note?.meta.path ?? null,
-        panel_open: ui_store.context_rail_open,
+        panel_open:
+          ui_store.context_rail_open && ui_store.context_rail_tab === "links",
         index_status: search_store.index_progress.status,
         is_dirty: editor_store.open_note?.is_dirty ?? false,
         snapshot_note_path: links_store.active_note_path,

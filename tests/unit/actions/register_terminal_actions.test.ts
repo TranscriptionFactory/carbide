@@ -13,6 +13,7 @@ import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
+import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
 
@@ -43,6 +44,8 @@ function create_harness() {
       search: new SearchStore(),
       tab: new TabStore(),
       git: new GitStore(),
+    graph: new GraphStore(),
+      graph: new GraphStore(),
       outline: new OutlineStore(),
       split_view: new SplitViewStore(),
     },

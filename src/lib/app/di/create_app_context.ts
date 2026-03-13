@@ -32,6 +32,10 @@ import {
   DocumentService,
   register_document_actions,
 } from "$lib/features/document";
+import {
+  GraphService,
+  register_graph_actions,
+} from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
 import { WatcherService } from "$lib/features/watcher";
@@ -219,6 +223,13 @@ export function create_app_context(input: {
     stores.terminal,
   );
 
+  const graph_service = new GraphService(
+    input.ports.graph,
+    stores.vault,
+    stores.editor,
+    stores.graph,
+  );
+
   const ai_service = new AiService(input.ports.ai, stores.vault);
 
   const base_action_input = {
@@ -235,6 +246,7 @@ export function create_app_context(input: {
       git: stores.git,
       outline: stores.outline,
       split_view: stores.split_view,
+      graph: stores.graph,
     },
     services: {
       vault: vault_service,
@@ -284,6 +296,12 @@ export function create_app_context(input: {
     ai_service,
   });
 
+  register_graph_actions({
+    ...base_action_input,
+    graph_store: stores.graph,
+    graph_service,
+  });
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -295,6 +313,7 @@ export function create_app_context(input: {
     git_store: stores.git,
     terminal_store: stores.terminal,
     links_store: stores.links,
+    graph_store: stores.graph,
     editor_service,
     note_service,
     vault_service,
@@ -303,6 +322,7 @@ export function create_app_context(input: {
     git_service,
     links_service,
     terminal_service,
+    graph_service,
     watcher_service,
     action_registry,
     workspace_reconcile,

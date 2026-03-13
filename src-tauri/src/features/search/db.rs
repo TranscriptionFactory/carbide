@@ -408,9 +408,7 @@ pub fn rebuild_index(
             };
             upsert_note(conn, &meta, &markdown)?;
             let targets = internal_link_targets(&markdown, &meta.path);
-            if !targets.is_empty() {
-                pending_links.push((meta.path.clone(), targets));
-            }
+            pending_links.push((meta.path.clone(), targets));
         }
 
         conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
@@ -510,9 +508,7 @@ pub fn sync_index(
             };
             upsert_note(conn, &meta, &markdown)?;
             let targets = internal_link_targets(&markdown, &meta.path);
-            if !targets.is_empty() {
-                pending_links.push((meta.path.clone(), targets));
-            }
+            pending_links.push((meta.path.clone(), targets));
         }
 
         conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
@@ -720,6 +716,19 @@ pub fn set_outlinks(conn: &Connection, source: &str, targets: &[String]) -> Resu
     Ok(())
 }
 
+pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMeta>, String> {
+    let sql = "SELECT path, title, mtime_ms, size_bytes
+               FROM notes
+               WHERE path = ?1";
+
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    match stmt.query_row(params![path], note_meta_from_row) {
+        Ok(note) => Ok(Some(note)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes
                FROM outlinks o
@@ -734,6 +743,42 @@ pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>,
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn note(path: &str, title: &str) -> IndexNoteMeta {
+        IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: title.to_string(),
+            name: file_stem_string(Path::new(path)),
+            mtime_ms: 100,
+            size_bytes: 10,
+        }
+    }
+
+    #[test]
+    fn resolve_batch_outlinks_replaces_removed_links_with_empty_snapshot() {
+        let conn = Connection::open_in_memory().expect("in-memory db should open");
+        init_schema(&conn).expect("schema should initialize");
+
+        let source = note("notes/source.md", "Source");
+        let target = note("notes/target.md", "Target");
+        upsert_note(&conn, &source, "body").expect("source should upsert");
+        upsert_note(&conn, &target, "body").expect("target should upsert");
+        set_outlinks(&conn, &source.path, &[target.path.clone()]).expect("outlinks should set");
+
+        resolve_batch_outlinks(&conn, &[(source.path.clone(), Vec::new())])
+            .expect("empty snapshot should clear old outlinks");
+
+        let outlinks = get_outlinks(&conn, &source.path).expect("outlinks should load");
+        assert!(outlinks.is_empty());
+        let orphans = get_orphan_outlinks(&conn, &source.path).expect("orphans should load");
+        assert!(orphans.is_empty());
+    }
 }
 
 pub fn get_orphan_outlinks(conn: &Connection, path: &str) -> Result<Vec<OrphanLink>, String> {

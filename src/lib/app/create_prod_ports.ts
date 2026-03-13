@@ -20,6 +20,7 @@ import { create_terminal_tauri_adapter } from "$lib/features/terminal";
 import { create_window_tauri_adapter } from "$lib/features/window";
 import { create_watcher_tauri_adapter } from "$lib/features/watcher";
 import { create_ai_tauri_adapter } from "$lib/features/ai";
+import { create_graph_tauri_adapter } from "$lib/features/graph";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -35,6 +36,7 @@ export function create_prod_ports(): Ports {
   const git = create_git_tauri_adapter();
   const watcher = create_watcher_tauri_adapter();
   const ai = create_ai_tauri_adapter();
+  const graph = create_graph_tauri_adapter();
 
   return {
     vault,
@@ -56,5 +58,6 @@ export function create_prod_ports(): Ports {
     window: create_window_tauri_adapter(),
     watcher,
     ai,
+    graph,
   };
 }

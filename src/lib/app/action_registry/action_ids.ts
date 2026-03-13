@@ -86,6 +86,14 @@ export const ACTION_IDS = {
   ui_open_vault_dashboard: "ui.open_vault_dashboard",
   ui_close_vault_dashboard: "ui.close_vault_dashboard",
 
+  graph_toggle_panel: "graph.toggle_panel",
+  graph_close: "graph.close",
+  graph_focus_active_note: "graph.focus_active_note",
+  graph_refresh: "graph.refresh",
+  graph_set_filter_query: "graph.set_filter_query",
+  graph_select_node: "graph.select_node",
+  graph_set_hovered_node: "graph.set_hovered_node",
+
   help_open: "help.open",
   help_close: "help.close",
 

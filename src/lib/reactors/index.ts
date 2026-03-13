@@ -25,6 +25,7 @@ import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
 import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
+import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -50,6 +51,7 @@ import type { SplitViewService } from "$lib/features/split_view";
 import type { DocumentService } from "$lib/features/document";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
+import type { GraphService, GraphStore } from "$lib/features/graph";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -62,6 +64,7 @@ export type ReactorContext = {
   git_store: GitStore;
   terminal_store: TerminalStore;
   links_store: LinksStore;
+  graph_store: GraphStore;
   editor_service: EditorService;
   note_service: NoteService;
   vault_service: VaultService;
@@ -70,6 +73,7 @@ export type ReactorContext = {
   git_service: GitService;
   links_service: LinksService;
   terminal_service: TerminalService;
+  graph_service: GraphService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
   workspace_reconcile?: WorkspaceReconcile | undefined;
@@ -191,6 +195,12 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.vault_store,
       context.terminal_service,
+    ),
+    create_graph_refresh_reactor(
+      context.graph_store,
+      context.search_store,
+      context.vault_store,
+      context.graph_service,
     ),
   ];
 

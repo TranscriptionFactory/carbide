@@ -87,7 +87,8 @@ export function create_local_links_sync_reactor(
       const open_note = editor_store.open_note;
       const decision = resolve_local_links_sync_decision(state, {
         open_note_path: open_note?.meta.path ?? null,
-        panel_open: ui_store.context_rail_open,
+        panel_open:
+          ui_store.context_rail_open && ui_store.context_rail_tab === "links",
         markdown: open_note?.markdown ?? null,
       });
       state = decision.next_state;

@@ -67,7 +67,12 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.ui_toggle_context_rail,
     label: "Toggle Context Panel",
     shortcut: "CmdOrCtrl+Shift+L",
-    execute: () => {
+    execute: async () => {
+      if (stores.graph.panel_open) {
+        await registry.execute(ACTION_IDS.graph_close);
+        return;
+      }
+
       stores.ui.toggle_context_rail();
     },
   });
@@ -75,13 +80,18 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.ui_toggle_outline_panel,
     label: "Toggle Outline Panel",
-    execute: () => {
+    execute: async () => {
       if (
         stores.ui.context_rail_open &&
         stores.ui.context_rail_tab === "outline"
       ) {
-        stores.ui.toggle_context_rail();
+        stores.ui.close_context_rail("outline");
       } else {
+        if (stores.graph.panel_open) {
+          await registry.execute(ACTION_IDS.graph_close, {
+            preserve_context_rail: true,
+          });
+        }
         stores.ui.set_context_rail_tab("outline");
       }
     },

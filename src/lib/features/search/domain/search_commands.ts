@@ -132,6 +132,13 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "link",
   },
   {
+    id: "toggle_graph_panel",
+    label: "Toggle Graph Panel",
+    description: "Show or hide the note neighborhood graph",
+    keywords: ["graph", "links", "context", "panel", "neighborhood", "visual"],
+    icon: "link",
+  },
+  {
     id: "toggle_outline_panel",
     label: "Toggle Outline Panel",
     description: "Show or hide the document heading outline",

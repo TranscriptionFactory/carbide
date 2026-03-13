@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ACTION_IDS } from "$lib/app";
   import { AiAssistantPanel } from "$lib/features/ai";
+  import { GraphPanel } from "$lib/features/graph";
   import LinksPanel from "$lib/features/links/ui/links_panel.svelte";
   import { OutlinePanel } from "$lib/features/outline";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -9,11 +10,28 @@
 
   const tabs = [
     { id: "links" as const, label: "Links" },
+    { id: "graph" as const, label: "Graph" },
     { id: "outline" as const, label: "Outline" },
     { id: "ai" as const, label: "AI" },
   ];
 
-  function select_tab(tab_id: (typeof tabs)[number]["id"]) {
+  async function select_tab(tab_id: (typeof tabs)[number]["id"]) {
+    if (tab_id === "graph") {
+      if (stores.graph.panel_open) {
+        stores.ui.set_context_rail_tab("graph");
+        return;
+      }
+
+      await action_registry.execute(ACTION_IDS.graph_focus_active_note);
+      return;
+    }
+
+    if (stores.graph.panel_open) {
+      await action_registry.execute(ACTION_IDS.graph_close, {
+        preserve_context_rail: true,
+      });
+    }
+
     if (tab_id !== "ai") {
       stores.ui.set_context_rail_tab(tab_id);
       return;
@@ -47,6 +65,8 @@
   >
     {#if stores.ui.context_rail_tab === "links"}
       <LinksPanel />
+    {:else if stores.ui.context_rail_tab === "graph"}
+      <GraphPanel />
     {:else if stores.ui.context_rail_tab === "outline"}
       <OutlinePanel />
     {:else if stores.ui.context_rail_tab === "ai"}

@@ -12,6 +12,7 @@ import { SplitViewStore } from "$lib/features/split_view";
 import { TerminalStore } from "$lib/features/terminal";
 import { DocumentStore } from "$lib/features/document";
 import { AiStore } from "$lib/features/ai";
+import { GraphStore } from "$lib/features/graph";
 
 export type AppStores = {
   vault: VaultStore;
@@ -28,6 +29,7 @@ export type AppStores = {
   terminal: TerminalStore;
   document: DocumentStore;
   ai: AiStore;
+  graph: GraphStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -46,5 +48,6 @@ export function create_app_stores(): AppStores {
     terminal: new TerminalStore(),
     document: new DocumentStore(),
     ai: new AiStore(),
+    graph: new GraphStore(),
   };
 }

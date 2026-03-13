@@ -126,6 +126,7 @@ pub fn run() {
             features::search::service::rewrite_note_links,
             features::search::service::resolve_note_link,
             features::search::service::resolve_wiki_link,
+            features::graph::service::graph_load_note_neighborhood,
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,

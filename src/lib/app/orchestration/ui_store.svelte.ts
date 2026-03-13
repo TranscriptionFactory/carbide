@@ -27,7 +27,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
 type SidebarView = "explorer" | "dashboard" | "starred";
-type ContextRailTab = "links" | "outline" | "ai";
+type ContextRailTab = "links" | "outline" | "ai" | "graph";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -434,6 +434,11 @@ export class UIStore {
 
   toggle_context_rail() {
     this.context_rail_open = !this.context_rail_open;
+  }
+
+  close_context_rail(tab: ContextRailTab = this.context_rail_tab) {
+    this.context_rail_tab = tab;
+    this.context_rail_open = false;
   }
 
   set_context_rail_tab(tab: ContextRailTab) {

@@ -23,6 +23,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   git_add_remote: ACTION_IDS.git_add_remote,
   ai_assistant: ACTION_IDS.ai_open_assistant,
   toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
+  toggle_graph_panel: ACTION_IDS.graph_toggle_panel,
   toggle_outline_panel: ACTION_IDS.ui_toggle_outline_panel,
   check_for_updates: ACTION_IDS.app_check_for_updates,
   export_as_pdf: ACTION_IDS.document_export_pdf,

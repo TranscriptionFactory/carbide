@@ -11,6 +11,7 @@ import type { TerminalPort } from "$lib/features/terminal";
 import type { WindowPort } from "$lib/features/window";
 import type { WatcherPort } from "$lib/features/watcher";
 import type { AiPort } from "$lib/features/ai";
+import type { GraphPort } from "$lib/features/graph";
 
 export type Ports = {
   vault: VaultPort;
@@ -29,4 +30,5 @@ export type Ports = {
   window: WindowPort;
   watcher: WatcherPort;
   ai: AiPort;
+  graph: GraphPort;
 };
