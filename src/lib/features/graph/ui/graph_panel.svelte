@@ -56,7 +56,8 @@
       <Button
         variant="ghost"
         size="icon"
-        onclick={() => void action_registry.execute(ACTION_IDS.graph_focus_active_note)}
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_focus_active_note)}
       >
         <Target size={14} />
       </Button>
@@ -115,7 +116,10 @@
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>
-          void action_registry.execute(ACTION_IDS.graph_set_hovered_node, node_id)}
+          void action_registry.execute(
+            ACTION_IDS.graph_set_hovered_node,
+            node_id,
+          )}
         on_open_existing_node={open_existing_node}
         on_open_orphan_node={open_orphan_node}
       />
@@ -126,7 +130,8 @@
         </p>
         <Button
           variant="outline"
-          onclick={() => void action_registry.execute(ACTION_IDS.graph_focus_active_note)}
+          onclick={() =>
+            void action_registry.execute(ACTION_IDS.graph_focus_active_note)}
         >
           Focus active note
         </Button>

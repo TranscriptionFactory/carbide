@@ -46,10 +46,7 @@
   }
 </script>
 
-<div
-  class="GraphCanvas"
-  style={`height:${String(view.height)}px;`}
->
+<div class="GraphCanvas" style={`height:${String(view.height)}px;`}>
   <svg
     class="GraphCanvas__edges"
     viewBox={`0 0 ${String(view.width)} ${String(view.height)}`}

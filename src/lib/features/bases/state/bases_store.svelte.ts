@@ -6,7 +6,7 @@ export class BasesStore {
     filters: [],
     sort: [],
     limit: 100,
-    offset: 0
+    offset: 0,
   });
   available_properties = $state<PropertyInfo[]>([]);
   result_set = $state<BaseNoteRow[]>([]);

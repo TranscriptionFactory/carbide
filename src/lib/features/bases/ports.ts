@@ -50,6 +50,10 @@ export interface BaseViewDefinition {
 export interface BasesPort {
   list_properties(vault_id: VaultId): Promise<PropertyInfo[]>;
   query(vault_id: VaultId, query: BaseQuery): Promise<BaseQueryResults>;
-  save_view(vault_id: VaultId, path: string, view: BaseViewDefinition): Promise<void>;
+  save_view(
+    vault_id: VaultId,
+    path: string,
+    view: BaseViewDefinition,
+  ): Promise<void>;
   load_view(vault_id: VaultId, path: string): Promise<BaseViewDefinition>;
 }

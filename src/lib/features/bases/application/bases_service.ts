@@ -5,7 +5,7 @@ import type { BasesStore } from "../state/bases_store.svelte";
 export class BasesService {
   constructor(
     private port: BasesPort,
-    private store: BasesStore
+    private store: BasesStore,
   ) {}
 
   async refresh_properties(vault_id: VaultId) {
@@ -35,7 +35,7 @@ export class BasesService {
     const view = {
       name,
       query: this.store.query,
-      view_mode: this.store.active_view_mode
+      view_mode: this.store.active_view_mode,
     };
     try {
       await this.port.save_view(vault_id, path, view);

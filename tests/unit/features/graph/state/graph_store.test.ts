@@ -78,7 +78,7 @@ describe("GraphStore", () => {
     const store = new GraphStore();
     store.set_panel_open(true);
     store.start_loading("test.md");
-    
+
     store.clear_snapshot();
     expect(store.snapshot).toBeNull();
     expect(store.center_note_path).toBeNull();
@@ -101,7 +101,7 @@ describe("GraphStore", () => {
 
   it("updates selection and hover", () => {
     const store = new GraphStore();
-    
+
     store.select_node("node-1");
     expect(store.selected_node_ids).toEqual(["node-1"]);
 

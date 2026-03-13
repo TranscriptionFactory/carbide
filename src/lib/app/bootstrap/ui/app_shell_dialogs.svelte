@@ -498,7 +498,6 @@
 />
 
 <HelpDialog
-
   open={stores.ui.help_dialog.open}
   hotkeys_config={stores.ui.hotkeys_config}
   on_close={() => void action_registry.execute(ACTION_IDS.help_close)}

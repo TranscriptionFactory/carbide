@@ -1,13 +1,13 @@
-import type { TaskPort } from '../ports';
-import type { TaskStore } from '../state/task_store.svelte';
-import type { VaultStore } from '$lib/features/vault/state/vault_store.svelte';
-import type { TaskFilter, TaskStatus } from '../types';
+import type { TaskPort } from "../ports";
+import type { TaskStore } from "../state/task_store.svelte";
+import type { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
+import type { TaskFilter, TaskStatus } from "../types";
 
 export class TaskService {
   constructor(
     private readonly port: TaskPort,
     private readonly store: TaskStore,
-    private readonly vaultStore: VaultStore
+    private readonly vaultStore: VaultStore,
   ) {}
 
   async queryTasks(filter?: TaskFilter) {
@@ -17,7 +17,10 @@ export class TaskService {
     this.store.setLoading(true);
     this.store.setError(null);
     try {
-      const tasks = await this.port.queryTasks(vault.id, filter || this.store.filter);
+      const tasks = await this.port.queryTasks(
+        vault.id,
+        filter || this.store.filter,
+      );
       this.store.setTasks(tasks);
     } catch (e) {
       this.store.setError(e instanceof Error ? e.message : String(e));
@@ -49,7 +52,11 @@ export class TaskService {
     if (!vault) return;
 
     try {
-      await this.port.updateTaskState(vault.id, { path, line_number: lineNumber, status });
+      await this.port.updateTaskState(vault.id, {
+        path,
+        line_number: lineNumber,
+        status,
+      });
       await this.queryTasks();
     } catch (e) {
       console.error(`Failed to update task status:`, e);

@@ -1,15 +1,15 @@
-import type { Task, TaskFilter, TaskGrouping } from '../types';
-import { SvelteMap } from 'svelte/reactivity';
+import type { Task, TaskFilter, TaskGrouping } from "../types";
+import { SvelteMap } from "svelte/reactivity";
 
 export class TaskStore {
   tasks = $state<Task[]>([]);
   loading = $state(false);
   error = $state<string | null>(null);
   filter = $state<TaskFilter>({});
-  grouping = $state<TaskGrouping>('none');
-  viewMode = $state<'list' | 'kanban' | 'schedule'>('list');
-  kanbanOrientation = $state<'horizontal' | 'vertical'>('horizontal');
-  
+  grouping = $state<TaskGrouping>("none");
+  viewMode = $state<"list" | "kanban" | "schedule">("list");
+  kanbanOrientation = $state<"horizontal" | "vertical">("horizontal");
+
   // Cache for tasks by note path
   noteTasks = new SvelteMap<string, Task[]>();
 
@@ -33,11 +33,11 @@ export class TaskStore {
     this.grouping = grouping;
   }
 
-  setViewMode(mode: 'list' | 'kanban' | 'schedule') {
+  setViewMode(mode: "list" | "kanban" | "schedule") {
     this.viewMode = mode;
   }
 
-  setKanbanOrientation(orientation: 'horizontal' | 'vertical') {
+  setKanbanOrientation(orientation: "horizontal" | "vertical") {
     this.kanbanOrientation = orientation;
   }
 

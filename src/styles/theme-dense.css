@@ -2,22 +2,22 @@
 
 :root {
   --radius: 0.25rem; /* Tight, almost square corners */
-  
+
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0 0);
-  
+
   --primary: oklch(0.45 0.15 250); /* A vibrant accent, e.g., Blue */
   --primary-foreground: oklch(1 0 0);
-  
+
   --muted: oklch(0.95 0 0);
   --muted-foreground: oklch(0.4 0 0);
-  
+
   --border: oklch(0.9 0 0);
   --sidebar: oklch(0.95 0 0);
   --sidebar-border: oklch(0.9 0 0);
-  
+
   /* Otterly Specific */
   --background-surface-2: oklch(0.96 0 0);
   --background-surface-3: oklch(0.93 0 0);
@@ -31,10 +31,10 @@
   --size-touch: 1.75rem;
   --size-tree-row: 1.625rem;
   --size-status-bar: 1.375rem;
-  
+
   /* Typography Overrides */
   --text-xs: 0.625rem; /* 10px */
-  --text-sm: 0.75rem;  /* 12px */
+  --text-sm: 0.75rem; /* 12px */
   --text-base: 0.8125rem; /* 13px */
 }
 
@@ -43,20 +43,20 @@
   --foreground: oklch(0.95 0 0);
   --card: oklch(0.14 0 0);
   --card-foreground: oklch(0.95 0 0);
-  
+
   --primary: oklch(0.65 0.2 250); /* Vibrant Blue */
   --primary-foreground: oklch(1 0 0);
-  
+
   --muted: oklch(0.22 0 0);
   --muted-foreground: oklch(0.65 0 0);
-  
+
   --border: oklch(0.25 0 0);
   --sidebar: oklch(0.14 0 0);
   --sidebar-border: oklch(0.25 0 0);
-  
+
   /* Otterly Specific */
   --background-surface-2: oklch(0.18 0 0);
-  --background-surface-3: oklch(0.20 0 0);
+  --background-surface-3: oklch(0.2 0 0);
   --border-strong: oklch(0.3 0 0);
   --border-subtle: oklch(0.22 0 0);
 }
@@ -71,4 +71,3 @@
   color: var(--accent-foreground);
   opacity: 1;
 }
-

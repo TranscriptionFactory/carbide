@@ -31,7 +31,10 @@
     }
 
     const current_note = stores.editor.open_note;
-    if (!current_note || session.context?.note_path !== current_note.meta.path) {
+    if (
+      !current_note ||
+      session.context?.note_path !== current_note.meta.path
+    ) {
       return;
     }
 

@@ -65,7 +65,9 @@ function matches_query(query: string, value: string): boolean {
   return value.toLocaleLowerCase().includes(query);
 }
 
-function dedupe_related_nodes(snapshot: GraphNeighborhoodSnapshot): RelatedNode[] {
+function dedupe_related_nodes(
+  snapshot: GraphNeighborhoodSnapshot,
+): RelatedNode[] {
   const nodes = new Map<string, RelatedNode>();
 
   for (const note of snapshot.backlinks) {
@@ -209,12 +211,12 @@ export function resolve_graph_canvas_view(input: {
   );
 
   const canvas_width = Math.max(input.container_width ?? 760, 400);
-  
+
   // Adaptive coordinates based on width
   const CENTER_X = Math.floor((canvas_width - NODE_WIDTH) / 2);
   const LEFT_X = 24;
   const RIGHT_X = canvas_width - NODE_WIDTH - 24;
-  
+
   const TOP_Y = 28;
   const CENTER_Y = 184;
   const BOTTOM_Y = 336;
@@ -224,12 +226,10 @@ export function resolve_graph_canvas_view(input: {
     outlinks.length,
     bidirectional.length > 0 ? 1 : 0,
   );
-  
+
   const height = Math.max(
     460,
-    BOTTOM_Y +
-      Math.max(1, orphan_links.length) * (NODE_HEIGHT + 16) +
-      24,
+    BOTTOM_Y + Math.max(1, orphan_links.length) * (NODE_HEIGHT + 16) + 24,
     CENTER_Y + max_column_length * (NODE_HEIGHT + COLUMN_GAP) + 120,
   );
 
@@ -320,7 +320,13 @@ export function resolve_graph_canvas_view(input: {
     }),
   );
 
-  const nodes = [center, ...top_nodes, ...left_nodes, ...right_nodes, ...orphan_nodes];
+  const nodes = [
+    center,
+    ...top_nodes,
+    ...left_nodes,
+    ...right_nodes,
+    ...orphan_nodes,
+  ];
   const edges = nodes
     .filter((node) => node.kind !== "center")
     .map((node) => edge_from_center(center, node));

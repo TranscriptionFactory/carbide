@@ -217,7 +217,6 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
   ];
 
-
   return () => {
     for (const unmount of unmounts) {
       unmount();

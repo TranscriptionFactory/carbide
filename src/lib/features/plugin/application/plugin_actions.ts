@@ -14,6 +14,6 @@ export function register_plugin_actions(
       if (!input.stores.ui.sidebar_open) {
         input.stores.ui.sidebar_open = true;
       }
-    }
+    },
   });
 }

@@ -20,11 +20,11 @@
   --border: oklch(0.95 0 0); /* Extremely subtle border */
   --input: oklch(0.95 0 0);
   --ring: oklch(0.8 0 0);
-  
+
   --sidebar: oklch(0.99 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-border: oklch(0.95 0 0);
-  
+
   /* Otterly Specific */
   --background-surface-2: oklch(0.99 0 0);
   --background-surface-3: oklch(0.98 0 0);
@@ -59,16 +59,15 @@
   --border: oklch(1 0 0 / 8%); /* Ultra subtle transparent border */
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(1 0 0 / 20%);
-  
+
   --sidebar: oklch(0.13 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
-  
+
   /* Otterly Specific */
   --background-surface-2: oklch(0.14 0 0);
   --background-surface-3: oklch(0.16 0 0);
   --border-strong: oklch(1 0 0 / 15%);
   --border-subtle: oklch(1 0 0 / 5%);
-  --accent-hover: oklch(0.20 0 0);
+  --accent-hover: oklch(0.2 0 0);
 }
-

@@ -1,4 +1,4 @@
-export type TaskStatus = 'todo' | 'doing' | 'done';
+export type TaskStatus = "todo" | "doing" | "done";
 
 export interface Task {
   id: string;
@@ -20,4 +20,4 @@ export type TaskFilter = {
   status?: TaskStatus;
 };
 
-export type TaskGrouping = 'none' | 'note' | 'section' | 'due_date' | 'status';
+export type TaskGrouping = "none" | "note" | "section" | "due_date" | "status";

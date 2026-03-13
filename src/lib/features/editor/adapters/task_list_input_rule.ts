@@ -10,15 +10,13 @@ export const task_list_input_rule = $prose((ctx) => {
 
   if (!task_list_item || !bullet_list) {
     return new Plugin({
-      key: new PluginKey("dummy")
+      key: new PluginKey("dummy"),
     });
   }
 
-  const rule = wrappingInputRule(
-    /^\s*\[\]\s$/,
-    task_list_item,
-    { checked: false }
-  );
+  const rule = wrappingInputRule(/^\s*\[\]\s$/, task_list_item, {
+    checked: false,
+  });
 
   return inputRules({ rules: [rule] });
 });

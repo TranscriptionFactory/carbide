@@ -1,4 +1,4 @@
-import type { Task, TaskFilter, TaskUpdate } from './types';
+import type { Task, TaskFilter, TaskUpdate } from "./types";
 
 export interface TaskPort {
   queryTasks(vaultId: string, filter?: TaskFilter): Promise<Task[]>;

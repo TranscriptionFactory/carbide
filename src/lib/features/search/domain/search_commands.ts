@@ -205,7 +205,15 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     id: "terminal_toggle",
     label: "Toggle Terminal",
     description: "Show or hide the terminal panel",
-    keywords: ["terminal", "shell", "console", "command", "line", "pty", "toggle"],
+    keywords: [
+      "terminal",
+      "shell",
+      "console",
+      "command",
+      "line",
+      "pty",
+      "toggle",
+    ],
     icon: "terminal",
   },
   {

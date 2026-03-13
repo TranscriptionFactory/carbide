@@ -8,7 +8,10 @@
   import Calendar from "@lucide/svelte/icons/calendar";
   import FileText from "@lucide/svelte/icons/file-text";
 
-  let { open, on_open_change }: { open: boolean, on_open_change: (open: boolean) => void } = $props();
+  let {
+    open,
+    on_open_change,
+  }: { open: boolean; on_open_change: (open: boolean) => void } = $props();
   const { stores, services } = use_app_context();
   const taskService = services.task;
 
@@ -68,7 +71,10 @@
 
       <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-2">
-          <label for="target" class="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+          <label
+            for="target"
+            class="text-xs font-medium flex items-center gap-1.5 text-muted-foreground"
+          >
             <FileText size={12} />
             Target Note
           </label>
@@ -80,7 +86,10 @@
           />
         </div>
         <div class="grid gap-2">
-          <label for="due" class="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+          <label
+            for="due"
+            class="text-xs font-medium flex items-center gap-1.5 text-muted-foreground"
+          >
             <Calendar size={12} />
             Due Date
           </label>
@@ -94,12 +103,14 @@
       </div>
 
       <Dialog.Footer>
-        <Button type="button" variant="ghost" onclick={() => on_open_change(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          onclick={() => on_open_change(false)}
+        >
           Cancel
         </Button>
-        <Button type="submit" disabled={!text.trim()}>
-          Add Task
-        </Button>
+        <Button type="submit" disabled={!text.trim()}>Add Task</Button>
       </Dialog.Footer>
     </form>
   </Dialog.Content>

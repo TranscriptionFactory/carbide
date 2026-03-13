@@ -1,4 +1,7 @@
-import type { GraphPort, GraphNeighborhoodSnapshot } from "$lib/features/graph/ports";
+import type {
+  GraphPort,
+  GraphNeighborhoodSnapshot,
+} from "$lib/features/graph/ports";
 import type { NoteId, NotePath } from "$lib/shared/types/ids";
 
 export function create_test_graph_adapter(): GraphPort {

@@ -2,25 +2,25 @@
 
 :root {
   --radius: 0.75rem; /* Larger, softer radius */
-  
+
   /* Transparent backgrounds for shell */
   --background: transparent;
   --sidebar: transparent;
-  
+
   /* Solid foregrounds for content */
   --foreground: oklch(0.145 0 0);
-  
+
   /* Solid card/editor background */
   --card: oklch(1 0 0 / 80%);
   --card-foreground: oklch(0.145 0 0);
-  
+
   --popover: oklch(1 0 0 / 90%);
   --popover-foreground: oklch(0.145 0 0);
-  
+
   /* Frosty borders */
   --border: oklch(0 0 0 / 10%);
   --sidebar-border: transparent;
-  
+
   /* Otterly Specific */
   --background-surface-2: transparent;
   --background-surface-3: oklch(1 0 0 / 40%);
@@ -36,19 +36,19 @@
 [data-color-scheme="dark"] {
   --background: transparent;
   --sidebar: transparent;
-  
+
   --foreground: oklch(0.985 0 0);
-  
+
   /* Solid dark editor card */
   --card: oklch(0.12 0 0 / 80%);
   --card-foreground: oklch(0.985 0 0);
-  
+
   --popover: oklch(0.15 0 0 / 90%);
   --popover-foreground: oklch(0.985 0 0);
-  
+
   --border: oklch(1 0 0 / 15%);
   --sidebar-border: transparent;
-  
+
   /* Otterly Specific */
   --background-surface-2: transparent;
   --background-surface-3: oklch(1 0 0 / 10%);
@@ -65,4 +65,3 @@
 [data-color-scheme="dark"] .ActivityBar {
   background-color: rgba(0, 0, 0, 0.2);
 }
-

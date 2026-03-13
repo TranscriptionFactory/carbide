@@ -3,7 +3,7 @@ import type { BasesService } from "$lib/features/bases";
 
 export function create_bases_refresh_reactor(
   vault_store: VaultStore,
-  bases_service: BasesService
+  bases_service: BasesService,
 ) {
   return $effect.root(() => {
     $effect(() => {

@@ -34,37 +34,48 @@
 
 <div class="flex items-start gap-3 p-2 hover:bg-muted/50 rounded-md group">
   <div class="mt-0.5">
-    <button 
+    <button
       class="h-4 w-4 rounded border border-gray-300 flex items-center justify-center text-[10px] font-bold leading-none bg-background hover:border-interactive transition-colors"
       onclick={toggleStatus}
     >
       {getStatusIcon(task.status)}
     </button>
   </div>
-  
+
   <div class="flex-1 min-w-0">
-    <p class="text-sm leading-tight {task.status === 'done' ? 'text-muted-foreground line-through' : ''}">
+    <p
+      class="text-sm leading-tight {task.status === 'done'
+        ? 'text-muted-foreground line-through'
+        : ''}"
+    >
       {task.text}
     </p>
-    
-    <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[10px] text-muted-foreground">
-      <button 
+
+    <div
+      class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[10px] text-muted-foreground"
+    >
+      <button
         class="flex items-center gap-1 hover:text-foreground truncate"
         onclick={openNote}
       >
         <FileText size={10} />
-        {task.path.split('/').pop()}
+        {task.path.split("/").pop()}
       </button>
-      
+
       {#if task.section}
         <div class="flex items-center gap-1">
           <Hash size={10} />
           {task.section}
         </div>
       {/if}
-      
+
       {#if task.due_date}
-        <div class="flex items-center gap-1 {new Date(task.due_date) < new Date() && task.status !== 'done' ? 'text-destructive' : ''}">
+        <div
+          class="flex items-center gap-1 {new Date(task.due_date) <
+            new Date() && task.status !== 'done'
+            ? 'text-destructive'
+            : ''}"
+        >
           <Calendar size={10} />
           {task.due_date}
         </div>
