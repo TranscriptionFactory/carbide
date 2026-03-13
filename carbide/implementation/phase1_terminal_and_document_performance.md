@@ -130,6 +130,9 @@ This keeps the implementation plugin-backed without letting a Svelte component o
 - define whether sessions follow the active vault automatically or remain pinned to their creation cwd
 - reapply theme and font settings without restarting sessions
 - ensure all exit and cleanup paths remove listeners deterministically
+- move vault and shell reconciliation out of terminal Svelte views and into a dedicated terminal reactor once tabs are stable
+- let that reactor watch vault and terminal settings state, then call `TerminalService` for respawn or reconciliation work
+- keep terminal Svelte components focused on xterm rendering, local focus, and viewport resize
 
 ### Milestone 4: Tiling, only if the session model stays clean
 
@@ -195,6 +198,7 @@ Do not overbuild CSV yet.
 
 - store tests for multi-session state transitions
 - service tests for session lifecycle decisions
+- reactor tests for vault and shell reconciliation once that logic moves into a dedicated terminal reactor
 - adapter-level tests or mocks for spawn, kill, resize, output, and exit handling
 - integration tests for vault switch behavior and cleanup
 
@@ -212,6 +216,7 @@ Terminal hardening is done when:
 - PTY lifecycle no longer lives directly in a component
 - multi-session tabs work reliably
 - vault switch behavior is deterministic
+- vault and shell reconciliation no longer lives in terminal Svelte components
 - theme and font updates reapply without restart
 - process cleanup is test-covered
 
