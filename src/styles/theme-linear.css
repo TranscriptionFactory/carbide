@@ -1,0 +1,74 @@
+/* Theme Template: The "Linear / Vercel" Minimalist Aesthetic (Ultra-Clean) */
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(1 0 0); /* Pure White */
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.145 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.98 0 0); /* Very faint gray */
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.98 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.98 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.95 0 0); /* Extremely subtle border */
+  --input: oklch(0.95 0 0);
+  --ring: oklch(0.8 0 0);
+  
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.95 0 0);
+  
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.99 0 0);
+  --background-surface-3: oklch(0.98 0 0);
+  --border-strong: oklch(0.9 0 0);
+  --border-subtle: oklch(0.97 0 0);
+  --accent-hover: oklch(0.96 0 0);
+
+  /* Structural Overrides */
+  --border-width-default: 1px;
+  --shadow-sm: 0 1px 2px color-mix(in oklch, oklch(0 0 0) 5%, transparent);
+  --shadow-md: 0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 7%, transparent);
+  --size-activity-bar: 2.5rem;
+  --size-activity-icon: 1.125rem;
+}
+
+[data-color-scheme="dark"] {
+  --background: oklch(0.12 0 0); /* Very Dark, almost black */
+  --foreground: oklch(0.985 0 0); /* Off-white */
+  --card: oklch(0.14 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.14 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.12 0 0);
+  --secondary: oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.18 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 8%); /* Ultra subtle transparent border */
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(1 0 0 / 20%);
+  
+  --sidebar: oklch(0.13 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.14 0 0);
+  --background-surface-3: oklch(0.16 0 0);
+  --border-strong: oklch(1 0 0 / 15%);
+  --border-subtle: oklch(1 0 0 / 5%);
+  --accent-hover: oklch(0.20 0 0);
+}
+

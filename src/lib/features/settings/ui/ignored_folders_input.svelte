@@ -34,15 +34,15 @@
     const current_line_num = lines.length;
     const current_line_text = lines[lines.length - 1] ?? "";
 
-    // This is a very rough approximation. 
-    // For a real implementation, we'd use a ghost element, 
+    // This is a very rough approximation.
+    // For a real implementation, we'd use a ghost element,
     // but for now let's try to anchor it to the bottom of the line.
     const line_height = 20; // approximate
     const char_width = 8; // approximate
-    
+
     const top = current_line_num * line_height;
     const left = current_line_text.length * char_width;
-    
+
     return { top, left };
   }
 
@@ -50,12 +50,12 @@
     const textarea = e.currentTarget;
     const text = textarea.value;
     const lines = text.split("\n");
-    on_change(lines.map(l => l.trim()).filter(l => l));
+    on_change(lines.map((l) => l.trim()).filter((l) => l));
 
     const { selectionStart } = textarea;
     const text_before = text.substring(0, selectionStart);
     const last_line = text_before.split("\n").pop() || "";
-    
+
     if (last_line.trim().length > 0) {
       query = last_line.trim();
       open = suggestions.length > 0;
@@ -75,7 +75,8 @@
       selected_index = (selected_index + 1) % suggestions.length;
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      selected_index = (selected_index - 1 + suggestions.length) % suggestions.length;
+      selected_index =
+        (selected_index - 1 + suggestions.length) % suggestions.length;
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       accept_suggestion(selected_index);
@@ -93,17 +94,20 @@
     const { selectionStart } = textarea;
     const text_before = text.substring(0, selectionStart);
     const text_after = text.substring(selectionStart);
-    
+
     const lines_before = text_before.split("\n");
     lines_before[lines_before.length - 1] = suggestion;
-    
+
     const new_text = lines_before.join("\n") + text_after;
-    const new_lines = new_text.split("\n").map(l => l.trim()).filter(l => l);
-    
+    const new_lines = new_text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l);
+
     on_change(new_lines);
     open = false;
     query = "";
-    
+
     // Focus back and set cursor
     setTimeout(() => {
       if (textarea_ref) {
@@ -127,9 +131,12 @@
   ></textarea>
 
   {#if open && suggestions.length > 0}
-    <div 
+    <div
       class="absolute z-50 w-64 bg-popover text-popover-foreground border rounded-md shadow-md p-1"
-      style="top: {cursor_pos.top + 24}px; left: {Math.min(cursor_pos.left, 200)}px"
+      style="top: {cursor_pos.top + 24}px; left: {Math.min(
+        cursor_pos.left,
+        200,
+      )}px"
     >
       {#each suggestions as suggestion, i}
         <button

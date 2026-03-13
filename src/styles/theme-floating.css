@@ -1,0 +1,62 @@
+/* Theme Template: Floating Shell / Docked Interface (Notion / Floating UI) */
+
+:root {
+  --radius: 1rem; /* Highly rounded pills and cards */
+  
+  --background: oklch(0.95 0 0); /* Light gray canvas */
+  --foreground: oklch(0.2 0 0);
+  
+  --card: oklch(1 0 0); /* Pure white floating cards */
+  --card-foreground: oklch(0.2 0 0);
+  
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0 0);
+  
+  --border: oklch(0.9 0 0);
+  --sidebar: oklch(1 0 0);
+  
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.98 0 0);
+  --background-surface-3: oklch(0.97 0 0);
+  --border-strong: oklch(0.85 0 0);
+  --border-subtle: oklch(0.92 0 0);
+
+  /* Floating Overrides */
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --size-activity-bar: 3.5rem;
+}
+
+[data-color-scheme="dark"] {
+  --background: oklch(0.12 0 0); /* Very dark canvas */
+  --foreground: oklch(0.95 0 0);
+  
+  --card: oklch(0.18 0 0); /* Lighter floating cards */
+  --card-foreground: oklch(0.95 0 0);
+  
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  
+  --border: oklch(1 0 0 / 10%);
+  --sidebar: oklch(0.18 0 0);
+  
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.20 0 0);
+  --background-surface-3: oklch(0.22 0 0);
+  --border-strong: oklch(1 0 0 / 20%);
+  --border-subtle: oklch(1 0 0 / 8%);
+}
+
+/* Floating Structural Changes */
+.ActivityBar {
+  margin: 1rem;
+  border-radius: 2rem;
+  height: calc(100% - 2rem);
+  border-inline-end: none;
+  box-shadow: var(--shadow-md);
+}
+
+.SidebarHeader {
+  border-radius: 1rem 1rem 0 0;
+}
+

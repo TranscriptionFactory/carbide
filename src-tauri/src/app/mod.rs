@@ -145,6 +145,8 @@ pub fn run() {
             features::settings::service::set_setting,
             features::vault_settings::service::get_vault_setting,
             features::vault_settings::service::set_vault_setting,
+            features::vault_settings::service::get_local_setting,
+            features::vault_settings::service::set_local_setting,
             features::git::service::git_has_repo,
             features::git::service::git_init_repo,
             features::git::service::git_status,

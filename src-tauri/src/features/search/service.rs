@@ -115,12 +115,14 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    let read_conn = search_db::open_search_db(&vault_root)?;
+    let read_conn = search_db::open_search_db(app, vault_id)?;
     let write_root = vault_root.clone();
     let (tx, rx) = mpsc::channel::<DbCommand>();
 
+    let app_for_writer = app.clone();
+    let vid_for_writer = vault_id.to_string();
     std::thread::spawn(move || {
-        writer_thread_loop(rx, &write_root);
+        writer_thread_loop(app_for_writer, vid_for_writer, rx, &write_root);
     });
 
     let worker = VaultWorker {
@@ -132,8 +134,8 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn writer_thread_loop(rx: Receiver<DbCommand>, vault_root: &Path) {
-    let conn = match search_db::open_search_db(vault_root) {
+fn writer_thread_loop(app: AppHandle, vault_id: String, rx: Receiver<DbCommand>, vault_root: &Path) {
+    let conn = match search_db::open_search_db(&app, &vault_id) {
         Ok(c) => c,
         Err(e) => {
             log::error!("writer thread: open db failed: {e}");

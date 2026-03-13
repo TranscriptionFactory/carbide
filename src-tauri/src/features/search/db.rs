@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 
 #[derive(Debug, Serialize)]
@@ -95,8 +96,16 @@ pub(crate) fn extract_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMet
     })
 }
 
-fn db_path(vault_root: &Path) -> PathBuf {
-    vault_root.join(constants::APP_DIR).join("search.db")
+fn db_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .home_dir()
+        .map_err(|e| e.to_string())?
+        .join(".otterly")
+        .join("caches")
+        .join("vaults");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join(format!("{}.db", vault_id)))
 }
 
 const EXPECTED_FTS_COLUMNS: &str = "title, name, path, body";
@@ -143,11 +152,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
-pub fn open_search_db(vault_root: &Path) -> Result<Connection, String> {
-    let path = db_path(vault_root);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, String> {
+    let path = db_path(app, vault_id)?;
     let conn = Connection::open(&path).map_err(|e| e.to_string())?;
     conn.busy_timeout(std::time::Duration::from_millis(5000))
         .map_err(|e| e.to_string())?;
