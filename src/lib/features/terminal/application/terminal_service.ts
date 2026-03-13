@@ -23,6 +23,11 @@ export type TerminalSessionRequest = {
   respawn_policy: TerminalRespawnPolicy;
 };
 
+export type TerminalSessionReconcileInput = Omit<
+  TerminalSessionRequest,
+  "cols" | "rows"
+>;
+
 export type TerminalViewSinks = {
   on_output: (data: Uint8Array) => void;
   on_exit: (event: TerminalExitEvent) => void;
@@ -158,6 +163,8 @@ export class TerminalService {
       return;
     }
 
+    runtime.process.cols = cols;
+    runtime.process.rows = rows;
     this.terminal_port.resize_session(runtime.process, cols, rows);
   }
 
@@ -190,6 +197,22 @@ export class TerminalService {
     this.cleanup_process(runtime, true);
     await this.spawn_session(session_id, runtime, input);
     return session_id;
+  }
+
+  async reconcile_session(
+    session_id: string,
+    input: TerminalSessionReconcileInput,
+  ): Promise<string> {
+    const runtime = this.ensure_runtime(session_id);
+
+    return this.respawn_session(session_id, {
+      cols: runtime.process?.cols ?? 80,
+      rows: runtime.process?.rows ?? 24,
+      shell_path: input.shell_path,
+      cwd: input.cwd,
+      cwd_policy: input.cwd_policy,
+      respawn_policy: input.respawn_policy,
+    });
   }
 
   activate_session(session_id: string): void {

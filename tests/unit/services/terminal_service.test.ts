@@ -297,6 +297,44 @@ describe("TerminalService", () => {
     });
   });
 
+  it("reconciles a session with its current runtime dimensions", async () => {
+    const { service, kill_session, spawn_session, resize_session } =
+      create_terminal_service_harness();
+
+    await service.ensure_active_session({
+      cols: 80,
+      rows: 24,
+      shell_path: "/bin/zsh",
+      cwd: "/vault-a",
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+    });
+
+    service.resize_session(DEFAULT_TERMINAL_SESSION_ID, 132, 41);
+    await service.reconcile_session(DEFAULT_TERMINAL_SESSION_ID, {
+      shell_path: "/bin/bash",
+      cwd: "/vault-b",
+      cwd_policy: "follow_active_vault",
+      respawn_policy: "on_context_change",
+    });
+
+    expect(resize_session).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "pty:1" }),
+      132,
+      41,
+    );
+    expect(kill_session).toHaveBeenCalledTimes(1);
+    expect(spawn_session).toHaveBeenLastCalledWith(
+      "/bin/bash",
+      [],
+      expect.objectContaining({
+        cols: 132,
+        rows: 41,
+        cwd: "/vault-b",
+      }),
+    );
+  });
+
   it("closes the active session and clears store state", async () => {
     const {
       service,

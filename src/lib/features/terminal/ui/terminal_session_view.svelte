@@ -27,8 +27,6 @@
   let destroyed = false;
   let session_syncing = $state(false);
   let attached_view_id = $state<string | null>(null);
-  let spawned_shell = $state("");
-  let spawned_vault_path = $state<string | undefined>(undefined);
 
   function get_shell(): string {
     return stores.ui.editor_settings.terminal_shell_path || "/bin/zsh";
@@ -121,8 +119,6 @@
       }
 
       attached_view_id = view_id;
-      spawned_shell = request.shell_path;
-      spawned_vault_path = request.cwd;
     } catch (error) {
       log.error("Failed to start terminal session", {
         error: String(error),
@@ -146,9 +142,6 @@
         request,
       );
       if (destroyed) return;
-
-      spawned_shell = request.shell_path;
-      spawned_vault_path = request.cwd;
 
       requestAnimationFrame(() => {
         if (!fit_addon || !terminal || destroyed) return;
@@ -238,8 +231,6 @@
       stores.terminal.set_focused(false);
     }
 
-    spawned_shell = "";
-    spawned_vault_path = undefined;
     terminal?.dispose();
     terminal = undefined;
     fit_addon = undefined;
@@ -287,29 +278,6 @@
         return;
       }
     });
-  });
-
-  $effect(() => {
-    const follow_active_vault =
-      stores.ui.editor_settings.terminal_follow_active_vault;
-    const vault_path = stores.vault.vault?.path ?? undefined;
-    if (
-      !follow_active_vault ||
-      !terminal ||
-      !attached_view_id ||
-      session_syncing
-    ) {
-      return;
-    }
-    if (spawned_vault_path === vault_path) return;
-    void respawn_terminal();
-  });
-
-  $effect(() => {
-    const shell = get_shell();
-    if (!terminal || !attached_view_id || session_syncing) return;
-    if (spawned_shell === shell) return;
-    void respawn_terminal();
   });
 
   onMount(() => {
