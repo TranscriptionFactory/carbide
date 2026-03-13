@@ -6,6 +6,7 @@ use crate::features::tasks::types::{Task, TaskUpdate};
 use crate::features::search::db::open_search_db;
 use crate::shared::storage;
 use crate::shared::io_utils;
+use crate::features::notes::service as notes_service;
 use crate::features::tasks::service::{query_tasks, get_tasks_for_path, update_task_state_in_file};
 
 #[command]
@@ -36,7 +37,7 @@ pub fn tasks_update_state(
 ) -> Result<(), String> {
     log::info!("Updating task state for {} at line {}", update.path, update.line_number);
     let vault_root = storage::vault_path(&app, &vault_id)?;
-    let abs_path = vault_root.join(&update.path);
+    let abs_path = notes_service::safe_vault_abs(&vault_root, &update.path)?;
     
     update_task_state_in_file(&abs_path, update.line_number, update.completed)
 }
@@ -50,7 +51,7 @@ pub fn tasks_create(
 ) -> Result<(), String> {
     log::info!("Creating task in {}: {}", path, text);
     let vault_root = storage::vault_path(&app, &vault_id)?;
-    let abs_path = vault_root.join(&path);
+    let abs_path = notes_service::safe_vault_abs_for_write(&vault_root, &path)?;
     
     let mut content = if abs_path.exists() {
         io_utils::read_file_to_string(&abs_path)?

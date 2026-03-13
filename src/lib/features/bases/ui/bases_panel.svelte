@@ -70,8 +70,9 @@
       {:else}
         <div class="p-4 space-y-4">
           {#each bases_store.result_set as row}
-            <div 
-              class="p-3 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer bg-white dark:bg-zinc-900/30"
+            <button 
+              type="button"
+              class="w-full text-left p-3 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer bg-white dark:bg-zinc-900/30"
               onclick={() => handle_note_click(row.note.path)}
             >
               <div class="flex items-start justify-between mb-2">
@@ -95,7 +96,7 @@
                   </div>
                 {/each}
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}
