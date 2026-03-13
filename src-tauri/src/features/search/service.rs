@@ -331,7 +331,7 @@ fn handle_upsert(
 }
 
 type IndexFn = fn(
-    &AppHandle,
+    Option<&AppHandle>,
     &str,
     &Connection,
     &Path,
@@ -404,7 +404,7 @@ fn run_index_op(
         };
 
         index_fn(
-            &app,
+            Some(&app),
             &vid,
             conn,
             vault_root,

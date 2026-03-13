@@ -1,7 +1,7 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, get_backlinks, get_manifest, get_orphan_outlinks, get_outlinks,
-    gfm_link_targets, internal_link_targets, list_note_paths_by_prefix, open_search_db,
+    gfm_link_targets, internal_link_targets, list_note_paths_by_prefix, open_search_db_at_path,
     rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path, search,
     set_outlinks, suggest_planned, sync_index, upsert_note, wiki_link_targets,
 };
@@ -66,7 +66,7 @@ fn unchanged_files_detected() {
 #[test]
 fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
     let tmp = TempDir::new().expect("temp dir should be created");
-    let conn = open_search_db(tmp.path()).expect("db should open");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
 
     let notes = vec![
         ("docs/a.md", "A", "a", "body a"),
@@ -104,7 +104,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
 #[test]
 fn rename_note_path_moves_note_and_outgoing_source_links() {
     let tmp = TempDir::new().expect("temp dir should be created");
-    let conn = open_search_db(tmp.path()).expect("db should open");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
 
     let a = IndexNoteMeta {
         id: "docs/old.md".to_string(),
@@ -147,7 +147,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
 #[test]
 fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
     let tmp = TempDir::new().expect("temp dir should be created");
-    let conn = open_search_db(tmp.path()).expect("db should open");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
 
     let source_a = IndexNoteMeta {
         id: "docs/source-a.md".to_string(),
@@ -207,7 +207,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
 fn sync_progress_advances_when_some_files_are_unreadable() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let root = tmp.path();
-    let conn = open_search_db(root).expect("db should open");
+    let conn = open_search_db_at_path(&root.join("test.db")).expect("db should open");
 
     write_md(root, "ok.md", "# ok");
     fs::write(root.join("bad.md"), [0xff, 0xfe, 0xfd]).expect("bad file should be written");
@@ -215,6 +215,8 @@ fn sync_progress_advances_when_some_files_are_unreadable() {
     let cancel = AtomicBool::new(false);
     let progress_points: RefCell<Vec<(usize, usize)>> = RefCell::new(Vec::new());
     let result = sync_index(
+        None,
+        "test-vault",
         &conn,
         root,
         &cancel,
@@ -237,7 +239,7 @@ fn sync_progress_advances_when_some_files_are_unreadable() {
 fn rebuild_resolves_batch_outlinks_before_yield() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let root = tmp.path();
-    let conn = open_search_db(root).expect("db should open");
+    let conn = open_search_db_at_path(&root.join("test.db")).expect("db should open");
 
     write_md(root, "notes/000-target.md", "# target");
     write_md(root, "notes/001-source.md", "[target](./000-target.md)");
@@ -247,15 +249,23 @@ fn rebuild_resolves_batch_outlinks_before_yield() {
 
     let cancel = AtomicBool::new(false);
     let mut first_yield_checked = false;
-    rebuild_index(&conn, root, &cancel, &|_, _| {}, &mut || {
-        if first_yield_checked {
-            return;
-        }
-        let outlinks = get_outlinks(&conn, "notes/001-source.md").expect("outlinks should load");
-        assert_eq!(outlinks.len(), 1);
-        assert_eq!(outlinks[0].path, "notes/000-target.md");
-        first_yield_checked = true;
-    })
+    rebuild_index(
+        None,
+        "test-vault",
+        &conn,
+        root,
+        &cancel,
+        &|_, _| {},
+        &mut || {
+            if first_yield_checked {
+                return;
+            }
+            let outlinks = get_outlinks(&conn, "notes/001-source.md").expect("outlinks should load");
+            assert_eq!(outlinks.len(), 1);
+            assert_eq!(outlinks[0].path, "notes/000-target.md");
+            first_yield_checked = true;
+        },
+    )
     .expect("rebuild should succeed");
 
     assert!(first_yield_checked);
@@ -285,7 +295,7 @@ fn link_target_parsers_cover_spaces_aliases_and_wikilinks() {
 #[test]
 fn rename_folder_paths_escapes_like_wildcards() {
     let tmp = TempDir::new().expect("temp dir should be created");
-    let conn = open_search_db(tmp.path()).expect("db should open");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
 
     let a = IndexNoteMeta {
         id: "old_50%/a.md".to_string(),
@@ -318,7 +328,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
 #[test]
 fn list_note_paths_by_prefix_respects_folder_boundary() {
     let tmp = TempDir::new().expect("temp dir should be created");
-    let conn = open_search_db(tmp.path()).expect("db should open");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
 
     let notes = vec![
         ("docs/a.md", "A", "a", "body a"),

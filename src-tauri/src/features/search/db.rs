@@ -51,11 +51,15 @@ pub fn extract_local_links_snapshot(markdown: &str, source_path: &str) -> LocalL
 }
 
 pub(crate) fn list_markdown_files(
-    app: &tauri::AppHandle,
+    app: Option<&tauri::AppHandle>,
     vault_id: &str,
     root: &Path,
 ) -> Result<Vec<PathBuf>, String> {
-    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(app, vault_id, root)?;
+    let ignore_matcher = if let Some(app) = app {
+        vault_ignore::load_vault_ignore_matcher(app, vault_id, root)?
+    } else {
+        vault_ignore::VaultIgnoreMatcher::default()
+    };
     let mut files: Vec<PathBuf> = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
@@ -154,7 +158,11 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 
 pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, String> {
     let path = db_path(app, vault_id)?;
-    let conn = Connection::open(&path).map_err(|e| e.to_string())?;
+    open_search_db_at_path(&path)
+}
+
+pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
+    let conn = Connection::open(path).map_err(|e| e.to_string())?;
     conn.busy_timeout(std::time::Duration::from_millis(5000))
         .map_err(|e| e.to_string())?;
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")
@@ -361,7 +369,7 @@ fn resolve_batch_outlinks(
 }
 
 pub fn rebuild_index(
-    app: &tauri::AppHandle,
+    app: Option<&tauri::AppHandle>,
     vault_id: &str,
     conn: &Connection,
     vault_root: &Path,
@@ -421,7 +429,7 @@ pub fn rebuild_index(
 }
 
 pub fn sync_index(
-    app: &tauri::AppHandle,
+    app: Option<&tauri::AppHandle>,
     vault_id: &str,
     conn: &Connection,
     vault_root: &Path,

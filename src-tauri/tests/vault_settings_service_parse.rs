@@ -1,4 +1,4 @@
-use crate::features::vault_settings::service::parse_vault_settings;
+use crate::features::vault_settings::service::parse_settings;
 
 #[test]
 fn parse_vault_settings_accepts_trailing_json_payload() {
@@ -12,7 +12,7 @@ fn parse_vault_settings_accepts_trailing_json_payload() {
 }
 "#;
 
-    let parsed = parse_vault_settings(bytes).expect("expected parse to succeed");
+    let parsed = parse_settings(bytes, "Vault").expect("expected parse to succeed");
     let editor_settings = parsed
         .get("editor_settings")
         .expect("editor_settings should be present")
@@ -32,7 +32,7 @@ fn parse_vault_settings_accepts_trailing_json_payload() {
 fn parse_vault_settings_rejects_invalid_json() {
     let bytes = br#"{ invalid json }"#;
 
-    let result = parse_vault_settings(bytes);
+    let result = parse_settings(bytes, "Vault");
 
     assert!(result.is_err());
 }
