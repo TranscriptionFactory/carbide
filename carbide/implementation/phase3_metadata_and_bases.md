@@ -23,6 +23,13 @@ Use as anti-pattern warnings:
 
 ## Core decision
 
+### In-file YAML is the source of truth
+
+Metadata is stored strictly as standard YAML frontmatter at the top of each Markdown document.
+- Preserves ecosystem portability (Obsidian, GitHub, Hugo).
+- Keeps data synchronized perfectly with standard file syncing tools.
+- Visual editing is handled via a frontend widget; the backend only reads/indexes standard `.md` files without requiring sidecar files.
+
 ### Metadata indexing lives beside search, not beside the frontend
 
 Use the existing search SQLite cache path as the home for metadata indexing.
@@ -87,6 +94,22 @@ This feature should expose read-only query operations over the metadata index, i
 - return basic stats for a result set where useful
 
 ## Frontend plan
+
+### Phase 3A: Properties Widget (Visual Frontmatter)
+
+Provide a premium, interactive widget to view and edit YAML frontmatter without forcing the user to manage raw YAML text in Visual mode.
+
+Create a new editor plugin and UI:
+- `src/lib/features/editor/ui/frontmatter_widget.svelte`: The visual UI component showing a key-value grid (text inputs, pill-based tags, boolean toggles, date pickers).
+- `src/lib/features/editor/adapters/frontmatter_plugin.ts`: A Milkdown plugin using `remark-frontmatter` to intercept the YAML block and render the Svelte NodeView.
+- Update `src/lib/features/editor/adapters/milkdown_adapter.ts` to register the plugin.
+
+Principles:
+- **Two-way sync:** Edits in the Svelte widget dispatch ProseMirror transactions to update the hidden YAML text seamlessly.
+- **Source mode fallback:** If the user switches to Source Mode, the widget hides and reveals the raw `---` fences.
+- **Graceful degradation:** If the YAML is severely malformed, show an error state and reveal the raw text box for manual fixing.
+
+### Phase 3B: Bases slice
 
 Create a dedicated Bases slice:
 
@@ -173,6 +196,12 @@ Update:
 - SQLite schema tests
 - incremental update tests for create, modify, rename, delete
 - property normalization tests
+
+### Properties Widget (Frontend)
+
+- Milkdown frontmatter parsing and NodeView mounting
+- Two-way sync: Svelte component updates dispatch correct ProseMirror transactions
+- Malformed YAML fallback behavior
 
 ### Bases
 
