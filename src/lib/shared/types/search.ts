@@ -1,52 +1,7 @@
 import type { NoteMeta } from "$lib/shared/types/note";
+import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 
-export type SearchCommandDefinition = {
-  id:
-    | "create_new_note"
-    | "change_vault"
-    | "open_settings"
-    | "open_hotkeys"
-    | "sync_index"
-    | "reindex_vault"
-    | "show_vault_dashboard"
-    | "git_version_history"
-    | "git_create_checkpoint"
-    | "git_init_repo"
-    | "git_push"
-    | "git_pull"
-    | "git_fetch"
-    | "git_add_remote"
-    | "ai_assistant"
-    | "toggle_links_panel"
-    | "toggle_graph_panel"
-    | "toggle_outline_panel"
-    | "toggle_tasks_panel"
-    | "quick_capture_task"
-    | "show_tasks_list"
-    | "show_tasks_kanban"
-    | "show_tasks_schedule"
-    | "check_for_updates"
-    | "export_as_pdf"
-    | "terminal_toggle"
-    | "terminal_new_session";
-  label: string;
-  description: string;
-  keywords: string[];
-  icon:
-    | "file-plus"
-    | "folder-open"
-    | "settings"
-    | "keyboard"
-    | "git-branch"
-    | "history"
-    | "bookmark"
-    | "link"
-    | "list-tree"
-    | "refresh-cw"
-    | "file-down"
-    | "sparkles"
-    | "terminal";
-};
+export type { SearchCommandDefinition } from "$lib/features/search/types/command_palette";
 
 export type SearchSettingDefinition = {
   key: string;
@@ -148,6 +103,6 @@ export type OmnibarItem =
       ref_count: number;
       score: number;
     }
-  | { kind: "command"; command: SearchCommandDefinition; score: number }
+  | { kind: "command"; command: CommandDefinition; score: number }
   | { kind: "setting"; setting: SearchSettingDefinition; score: number }
   | { kind: "recent_note"; note: NoteMeta };

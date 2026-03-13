@@ -28,6 +28,7 @@ import { create_logger } from "$lib/shared/utils/logger";
 import type { Vault } from "$lib/shared/types/vault";
 import type { VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
+import type { PluginStore } from "$lib/features/plugin";
 
 const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
@@ -144,6 +145,7 @@ export class SearchService {
       command: CommandDefinition,
     ) => boolean = () => true,
     private readonly index_port?: WorkspaceIndexPort,
+    private readonly plugin_store?: PluginStore,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -443,7 +445,12 @@ export class SearchService {
   }
 
   search_commands(query: string): OmnibarItem[] {
-    const available_commands = COMMANDS_REGISTRY.filter((command) =>
+    // Both built-in (static) and plugin (dynamic) commands
+    const static_commands = COMMANDS_REGISTRY;
+    const dynamic_commands = this.plugin_store?.commands ?? [];
+    const all_commands = [...static_commands, ...dynamic_commands];
+
+    const available_commands = all_commands.filter((command) =>
       this.is_command_enabled(command),
     );
     const q = query.toLowerCase().trim();

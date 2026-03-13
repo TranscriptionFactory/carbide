@@ -32,7 +32,7 @@
       filter_query,
       selected_node_ids,
       hovered_node_id,
-      container_width,
+      container_width: container_width ?? 0,
     }),
   );
 

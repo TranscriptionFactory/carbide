@@ -7,35 +7,35 @@ import { parse_search_query } from "$lib/features/search/domain/search_query_par
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
-  create_new_note: ACTION_IDS.note_create,
-  change_vault: ACTION_IDS.vault_request_change,
-  open_settings: ACTION_IDS.settings_open,
-  open_hotkeys: ACTION_IDS.settings_open,
-  sync_index: ACTION_IDS.vault_sync_index,
-  reindex_vault: ACTION_IDS.vault_reindex,
-  show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
-  git_version_history: ACTION_IDS.git_open_history,
-  git_create_checkpoint: ACTION_IDS.git_open_checkpoint,
-  git_init_repo: ACTION_IDS.git_init,
-  git_push: ACTION_IDS.git_push,
-  git_pull: ACTION_IDS.git_pull,
-  git_fetch: ACTION_IDS.git_fetch,
-  git_add_remote: ACTION_IDS.git_add_remote,
-  ai_assistant: ACTION_IDS.ai_open_assistant,
-  toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
-  toggle_graph_panel: ACTION_IDS.graph_toggle_panel,
-  toggle_outline_panel: ACTION_IDS.ui_toggle_outline_panel,
-  toggle_tasks_panel: ACTION_IDS.ui_toggle_tasks_panel,
-  quick_capture_task: ACTION_IDS.ui_quick_capture,
-  show_tasks_list: ACTION_IDS.ui_show_tasks_list,
-  show_tasks_kanban: ACTION_IDS.ui_show_tasks_kanban,
-  show_tasks_schedule: ACTION_IDS.ui_show_tasks_schedule,
-  check_for_updates: ACTION_IDS.app_check_for_updates,
-  export_as_pdf: ACTION_IDS.document_export_pdf,
-  terminal_toggle: ACTION_IDS.terminal_toggle,
-  terminal_new_session: ACTION_IDS.terminal_new_session,
+create_new_note: ACTION_IDS.note_create,
+change_vault: ACTION_IDS.vault_request_change,
+open_settings: ACTION_IDS.settings_open,
+open_hotkeys: ACTION_IDS.settings_open,
+sync_index: ACTION_IDS.vault_sync_index,
+reindex_vault: ACTION_IDS.vault_reindex,
+show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
+git_version_history: ACTION_IDS.git_open_history,
+git_create_checkpoint: ACTION_IDS.git_open_checkpoint,
+git_init_repo: ACTION_IDS.git_init,
+git_push: ACTION_IDS.git_push,
+git_pull: ACTION_IDS.git_pull,
+git_fetch: ACTION_IDS.git_fetch,
+git_add_remote: ACTION_IDS.git_add_remote,
+ai_assistant: ACTION_IDS.ai_open_assistant,
+toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
+toggle_graph_panel: ACTION_IDS.graph_toggle_panel,
+toggle_outline_panel: ACTION_IDS.ui_toggle_outline_panel,
+toggle_tasks_panel: ACTION_IDS.ui_toggle_tasks_panel,
+quick_capture_task: ACTION_IDS.ui_quick_capture,
+show_tasks_list: ACTION_IDS.ui_show_tasks_list,
+show_tasks_kanban: ACTION_IDS.ui_show_tasks_kanban,
+show_tasks_schedule: ACTION_IDS.ui_show_tasks_schedule,
+check_for_updates: ACTION_IDS.app_check_for_updates,
+export_as_pdf: ACTION_IDS.document_export_pdf,
+terminal_toggle: ACTION_IDS.terminal_toggle,
+terminal_new_session: ACTION_IDS.terminal_new_session,
+open_plugins: ACTION_IDS.ui_open_plugins,
 };
-
 function set_omnibar_state(
   input: ActionRegistrationInput,
   patch: Partial<ActionRegistrationInput["stores"]["ui"]["omnibar"]>,
@@ -176,10 +176,26 @@ async function execute_command(
 ) {
   const { registry } = input;
   const action_id = COMMAND_TO_ACTION_ID[command_id];
-  if (command_id === "open_hotkeys") {
-    await registry.execute(action_id, "hotkeys");
-  } else {
-    await registry.execute(action_id);
+
+  if (action_id) {
+    if (command_id === "open_hotkeys") {
+      await registry.execute(action_id, "hotkeys");
+    } else {
+      await registry.execute(action_id);
+    }
+    return;
+  }
+
+  // Handle plugin command
+  if (command_id.includes(":")) {
+    const [plugin_id] = command_id.split(":");
+    // Dispatch to plugin via broadcast or a service that the iframe host listens to
+    // For now, we'll use a simple custom event that PluginIframeHost can listen to
+    window.dispatchEvent(
+      new CustomEvent("otterly:plugin-command", {
+        detail: { plugin_id, command_id },
+      }),
+    );
   }
 }
 

@@ -1,0 +1,9 @@
+{
+  "id": "word-count",
+  "name": "Word Count",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "Shows word count in the status bar.",
+  "api_version": "1.0.0",
+  "permissions": ["editor:read", "ui:statusbar"]
+}

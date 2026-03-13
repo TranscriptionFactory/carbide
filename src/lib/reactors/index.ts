@@ -27,6 +27,7 @@ import { create_document_cache_reactor } from "$lib/reactors/document_cache.reac
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
+import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -54,6 +55,7 @@ import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconc
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
 import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
+import type { TaskService } from "$lib/features/task";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -84,6 +86,7 @@ export type ReactorContext = {
   split_view_store: SplitViewStore;
   split_view_service: SplitViewService;
   document_service: DocumentService;
+  task_service: TaskService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -207,7 +210,13 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
+    create_task_sync_reactor(
+      context.vault_store,
+      context.task_service,
+      context.watcher_service,
+    ),
   ];
+
 
   return () => {
     for (const unmount of unmounts) {

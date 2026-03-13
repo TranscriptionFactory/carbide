@@ -65,5 +65,10 @@ export function create_test_ports(): Ports {
       updateTaskState: () => Promise.resolve(),
       createTask: () => Promise.resolve(),
     },
+    plugin: {
+      discover: () => Promise.resolve([]),
+      load: () => Promise.resolve(),
+      unload: () => Promise.resolve(),
+    },
   };
 }

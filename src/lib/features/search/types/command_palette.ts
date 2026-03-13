@@ -25,7 +25,9 @@ export type CommandId =
   | "check_for_updates"
   | "export_as_pdf"
   | "terminal_toggle"
-  | "terminal_new_session";
+  | "terminal_new_session"
+  | "open_plugins"
+  | (string & {});
 
 export type CommandIcon =
   | "file-plus"
@@ -40,7 +42,9 @@ export type CommandIcon =
   | "refresh-cw"
   | "file-down"
   | "sparkles"
-  | "terminal";
+  | "terminal"
+  | "blocks"
+  | (string & {});
 
 export type CommandDefinition = {
   id: CommandId;
@@ -49,3 +53,5 @@ export type CommandDefinition = {
   keywords: string[];
   icon: CommandIcon;
 };
+
+export type SearchCommandDefinition = CommandDefinition;

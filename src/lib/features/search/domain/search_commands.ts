@@ -215,4 +215,11 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["terminal", "shell", "console", "new", "tab", "session", "add"],
     icon: "terminal",
   },
+  {
+    id: "open_plugins",
+    label: "Plugins",
+    description: "Manage installed plugins",
+    keywords: ["plugins", "extensions", "addons", "manage", "install"],
+    icon: "blocks",
+  },
 ];

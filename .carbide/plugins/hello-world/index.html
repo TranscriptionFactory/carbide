@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hello World Plugin</title>
+</head>
+<body>
+  <script>
+    // Minimal RPC bridge helper
+    const rpc = {
+      send(method, ...params) {
+        const id = Math.random().toString(36).substring(7);
+        window.parent.postMessage({ id, method, params }, "*");
+        return new Promise((resolve, reject) => {
+          const handler = (event) => {
+            if (event.data.id === id) {
+              window.removeEventListener("message", handler);
+              if (event.data.error) reject(event.data.error);
+              else resolve(event.data.result);
+            }
+          };
+          window.addEventListener("message", handler);
+        });
+      }
+    };
+
+    // Register command on load
+    rpc.send("commands.register", {
+      id: "say_hello",
+      label: "Say Hello",
+      description: "Inserts 'Hello from Carbide Plugin!' at cursor",
+      keywords: ["hello", "plugin", "demo"],
+      icon: "sparkles"
+    }).then(() => {
+      console.log("Hello World plugin registered command");
+    });
+
+    // Handle messages from host (e.g. command trigger)
+    window.addEventListener("message", (event) => {
+      const { method, params } = event.data;
+      if (method === "command.execute" && params[0] === "hello-world:say_hello") {
+        rpc.send("editor.insert_text", "Hello from Carbide Plugin! 🚀");
+      }
+    });
+  </script>
+</body>
+</html>

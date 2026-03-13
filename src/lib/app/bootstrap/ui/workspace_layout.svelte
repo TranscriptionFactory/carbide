@@ -18,6 +18,7 @@
   import { ContextRail } from "$lib/features/links";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
+  import { PluginIframeHost } from "$lib/features/plugin";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
@@ -34,7 +35,7 @@
     AppWindow,
   } from "@lucide/svelte";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, services } = use_app_context();
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
   const split_view_active = $derived(stores.split_view.active);
@@ -223,6 +224,7 @@
         sidebar_open={stores.ui.sidebar_open}
         active_view={stores.ui.sidebar_view}
         {is_vault_mode}
+        dynamic_views={stores.plugin.sidebar_views}
         on_open_explorer={() => {
           if (stores.ui.sidebar_open && stores.ui.sidebar_view === "explorer") {
             void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
@@ -270,6 +272,13 @@
           }
           void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "tasks");
         }}
+        on_open_dynamic={(id) => {
+          if (stores.ui.sidebar_open && stores.ui.sidebar_view === id) {
+            void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+            return;
+          }
+          void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, id);
+        }}
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
         on_open_settings={() =>
           void action_registry.execute(ACTION_IDS.settings_open)}
@@ -291,6 +300,12 @@
                         <span class="SidebarHeader__title">Starred</span>
                       {:else if stores.ui.sidebar_view === "dashboard"}
                         <span class="SidebarHeader__title">Dashboard</span>
+                      {:else if stores.plugin.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
+                        <span class="SidebarHeader__title">
+                          {stores.plugin.sidebar_views.find(
+                            (v) => v.id === stores.ui.sidebar_view,
+                          )?.label}
+                        </span>
                       {:else}
                         <VaultSwitcherDropdown
                           recent_vaults={stores.vault.recent_vaults}
@@ -514,6 +529,16 @@
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
                   {/if}
+
+                  {#each stores.plugin.sidebar_views as view (view.id)}
+                    {#if is_vault_mode && stores.ui.sidebar_view === view.id}
+                      <Sidebar.Group class="h-full">
+                        <Sidebar.GroupContent class="h-full">
+                          <view.panel />
+                        </Sidebar.GroupContent>
+                      </Sidebar.Group>
+                    {/if}
+                  {/each}
 
                   <Sidebar.Group
                     class="h-full"
@@ -755,9 +780,18 @@
       on_sync_click={() =>
         void action_registry.execute(ACTION_IDS.vault_sync_index)}
       editor_mode={stores.editor.editor_mode}
+      status_bar_items={stores.plugin.status_bar_items}
       on_mode_toggle={() =>
         void action_registry.execute(ACTION_IDS.editor_toggle_mode)}
     />
+
+    {#each stores.plugin.active_plugin_ids as id (id)}
+      <PluginIframeHost
+        plugin_id={id}
+        vault_path={stores.vault.vault?.path ?? ""}
+        on_message={(msg) => services.plugin.handle_rpc(id, msg)}
+      />
+    {/each}
   </div>
 
   <NoteDetailsDialog

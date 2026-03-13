@@ -8,18 +8,27 @@
     Share2,
     CheckCircle2,
   } from "@lucide/svelte";
+  import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
 
-  type SidebarView = "explorer" | "dashboard" | "starred" | "graph" | "tasks";
+  type SidebarView =
+    | "explorer"
+    | "dashboard"
+    | "starred"
+    | "graph"
+    | "tasks"
+    | string;
 
   type Props = {
     sidebar_open: boolean;
     active_view: SidebarView;
     is_vault_mode: boolean;
+    dynamic_views?: DynamicSidebarView[];
     on_open_explorer: () => void;
     on_open_dashboard: () => void;
     on_open_starred: () => void;
     on_open_graph: () => void;
     on_open_tasks: () => void;
+    on_open_dynamic: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
   };
@@ -28,11 +37,13 @@
     sidebar_open,
     active_view,
     is_vault_mode,
+    dynamic_views = [],
     on_open_explorer,
     on_open_dashboard,
     on_open_starred,
     on_open_graph,
     on_open_tasks,
+    on_open_dynamic,
     on_open_help,
     on_open_settings,
   }: Props = $props();
@@ -100,6 +111,20 @@
       >
         <Star class="ActivityBar__icon" />
       </button>
+
+      {#each dynamic_views as view (view.id)}
+        <button
+          type="button"
+          class="ActivityBar__button"
+          class:ActivityBar__button--active={sidebar_open &&
+            active_view === view.id}
+          onclick={() => on_open_dynamic(view.id)}
+          aria-pressed={sidebar_open && active_view === view.id}
+          aria-label={view.label}
+        >
+          <view.icon class="ActivityBar__icon" />
+        </button>
+      {/each}
     {/if}
   </div>
 

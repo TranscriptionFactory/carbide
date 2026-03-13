@@ -14,6 +14,7 @@ import type { AiPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
 import type { TaskPort } from "$lib/features/task";
+import type { PluginHostPort } from "$lib/features/plugin";
 
 export type Ports = {
   vault: VaultPort;
@@ -35,4 +36,5 @@ export type Ports = {
   graph: GraphPort;
   bases: BasesPort;
   task: TaskPort;
+  plugin: PluginHostPort;
 };

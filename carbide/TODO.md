@@ -372,30 +372,30 @@
 
 ### Backend (Rust)
 
-- [ ] Plugin discovery: scan `<vault>/.carbide/plugins/` for `manifest.json`
-- [ ] Manifest parsing and permission validation
+- [x] Plugin discovery: scan `<vault>/.carbide/plugins/` for `manifest.json`
+- [x] Manifest parsing and permission validation
 - [ ] Tauri commands for plugin ↔ vault/git/fs operations (gated by permissions)
 
 ### Frontend
 
-- [ ] Plugin sandbox: each plugin runs in sandboxed iframe
-- [ ] `postMessage`-based RPC bridge between plugin iframe and main app
-- [ ] TypeScript SDK: `@carbide/plugin-api` with types for Vault, Editor, Commands, UI, Events, Settings
-- [ ] Lifecycle: discover → validate → load → activate → deactivate
+- [x] Plugin sandbox: each plugin runs in sandboxed iframe
+- [x] `postMessage`-based RPC bridge between plugin iframe and main app
+- [ ] TypeScript SDK: `@badge-plugin-api` with types for Vault, Editor, Commands, UI, Events, Settings (Foundational RPC bridge added)
+- [x] Lifecycle: discover → validate → load → activate → deactivate
 - [ ] Hot-reload in dev mode
 
 ### Demo Plugins
 
-- [ ] "Hello World" — registers command palette entry, inserts text at cursor
-- [ ] "Word Count" — status bar item with live word/character count
+- [x] "Hello World" — registers command palette entry, inserts text at cursor
+- [x] "Word Count" — status bar item with live word/character count
 - [ ] "LaTeX Snippets" — snippet expansion (`//frac` → `\frac{}{}`)
 
 ### Testing
 
-- [ ] Test plugin discovery and manifest validation
+- [x] Test plugin discovery and manifest validation (Rust & UI)
 - [ ] Test plugin sandbox isolation
-- [ ] Test RPC bridge communication
-- [ ] Test each demo plugin
+- [x] Test RPC bridge communication
+- [x] Test each demo plugin
 
 ---
 

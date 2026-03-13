@@ -66,6 +66,7 @@ pub fn run() {
         .manage(PendingFileOpen::default())
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
+        .manage(features::plugin::service::PluginService::new())
         .manage(shared::buffer::BufferManager::new())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
@@ -172,6 +173,7 @@ pub fn run() {
             features::git::service::git_set_remote_url,
             features::git::service::git_push_with_upstream,
             features::vault::service::resolve_file_to_vault,
+            features::plugin::plugin_discover,
             shared::buffer::open_buffer,
             shared::buffer::update_buffer,
             shared::buffer::save_buffer,

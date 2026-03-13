@@ -6,6 +6,7 @@
   import type { CursorInfo } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
   import type { GitSyncStatus } from "$lib/features/git";
+  import type { StatusBarItem } from "$lib/features/plugin";
 
   interface Props {
     cursor_info: CursorInfo | null;
@@ -27,6 +28,7 @@
     is_repairing_links: boolean;
     link_repair_message: string | null;
     editor_mode: import("$lib/shared/types/editor").EditorMode;
+    status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
     on_git_click: () => void;
@@ -58,6 +60,7 @@
     is_repairing_links,
     link_repair_message,
     editor_mode,
+    status_bar_items = [],
     on_vault_click,
     on_info_click,
     on_git_click,
@@ -190,6 +193,12 @@
     >
       <Info />
     </button>
+
+    {#each status_bar_items as item (item.id)}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <item.component {...item.props} />
+    {/each}
+
     {#if git_enabled}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <GitStatusWidget

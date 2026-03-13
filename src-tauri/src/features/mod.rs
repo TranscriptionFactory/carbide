@@ -4,6 +4,7 @@ pub mod graph;
 pub mod git;
 pub mod notes;
 pub mod pipeline;
+pub mod plugin;
 pub mod search;
 pub mod settings;
 pub mod tasks;

@@ -1,0 +1,9 @@
+{
+  "id": "hello-world",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "A demo plugin that inserts hello world text.",
+  "api_version": "1.0.0",
+  "permissions": ["editor:modify", "commands:register"]
+}

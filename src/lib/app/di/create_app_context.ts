@@ -41,7 +41,13 @@ import { AiService, register_ai_actions } from "$lib/features/ai";
 import { BasesService } from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService } from "$lib/features/task";
+import {
+  PluginService,
+  register_plugin_actions,
+} from "$lib/features/plugin";
+import PluginManager from "$lib/features/plugin/ui/plugin_manager.svelte";
 import { mount_reactors } from "$lib/reactors";
+import { Blocks } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type AppContext = ReturnType<typeof create_app_context>;
@@ -58,6 +64,19 @@ export function create_app_context(input: {
     action_registry,
     () => stores.vault.is_vault_mode,
   );
+
+  const plugin_service = new PluginService(
+    stores.plugin,
+    stores.vault,
+    input.ports.plugin,
+  );
+
+  plugin_service.register_sidebar_view({
+    id: "plugins",
+    label: "Plugins",
+    icon: Blocks,
+    panel: PluginManager,
+  });
 
   const search_service = new SearchService(
     input.ports.search,
@@ -288,11 +307,19 @@ export function create_app_context(input: {
       theme: theme_service,
       bases: bases_service,
       task: task_service,
+      plugin: plugin_service,
     },
     default_mount_config: input.default_mount_config,
   };
 
   register_actions(base_action_input);
+
+  plugin_service.initialize_rpc({
+    services: base_action_input.services,
+    stores: base_action_input.stores,
+  });
+
+  register_plugin_actions(base_action_input, plugin_service);
 
   register_split_view_actions({
     ...base_action_input,
@@ -358,6 +385,7 @@ export function create_app_context(input: {
     split_view_store: stores.split_view,
     split_view_service,
     document_service,
+    task_service,
   });
 
   return {

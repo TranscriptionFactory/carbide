@@ -6,7 +6,7 @@ export class TaskTauriAdapter implements TaskPort {
   async queryTasks(vaultId: string, filter?: TaskFilter): Promise<Task[]> {
     return invoke<Task[]>('tasks_query', { 
       vaultId, 
-      completed: filter?.completed 
+      status: filter?.status 
     });
   }
 

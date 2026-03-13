@@ -12,7 +12,11 @@ import {
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
-import type { OpenNoteState, CursorInfo } from "$lib/shared/types/editor";
+import type {
+  OpenNoteState,
+  CursorInfo,
+  EditorSelectionSnapshot,
+} from "$lib/shared/types/editor";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
 

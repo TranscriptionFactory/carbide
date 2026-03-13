@@ -19,6 +19,7 @@
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
+  import BlocksIcon from "@lucide/svelte/icons/blocks";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -43,6 +44,7 @@
     "file-down": FileDownIcon,
     sparkles: SparklesIcon,
     terminal: CommandIcon,
+    blocks: BlocksIcon,
   };
 
   const SCOPES: OmnibarScope[] = ["current_vault", "all_vaults"];
@@ -507,7 +509,8 @@
                 </div>
               </div>
             {:else if item.kind === "command"}
-              {@const IconComponent = COMMAND_ICONS[item.command.icon]}
+              {@const IconComponent =
+                COMMAND_ICONS[item.command.icon] || CommandIcon}
               {@const command_key = action_id_to_key.get(
                 COMMAND_TO_ACTION_ID[item.command.id],
               )}
