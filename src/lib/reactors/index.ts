@@ -27,6 +27,7 @@ import { create_document_cache_reactor } from "$lib/reactors/document_cache.reac
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
+import { create_panel_positions_reactor } from "$lib/reactors/panel_positions.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -207,6 +208,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
+    create_panel_positions_reactor(context.ui_store, context.action_registry),
   ];
 
   return () => {

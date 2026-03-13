@@ -328,4 +328,18 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "Documents",
     keywords: ["documents", "cache", "inactive", "performance", "memory"],
   },
+  {
+    key: "graph_panel_side",
+    label: "Graph Panel Side",
+    description: "Whether the graph panel appears on the left or right side",
+    category: "Layout",
+    keywords: ["graph", "panel", "side", "left", "right", "layout"],
+  },
+  {
+    key: "tasks_panel_side",
+    label: "Tasks Panel Side",
+    description: "Whether the tasks panel appears on the left or right side",
+    category: "Layout",
+    keywords: ["tasks", "panel", "side", "left", "right", "layout"],
+  },
 ];

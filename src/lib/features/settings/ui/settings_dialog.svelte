@@ -196,6 +196,11 @@
     { value: "wavy", label: "Wavy" },
   ];
 
+  const panel_side_options = [
+    { value: "left", label: "Left" },
+    { value: "right", label: "Right" },
+  ];
+
   function update<K extends keyof EditorSettings>(
     key: K,
     value: EditorSettings[K],
@@ -668,6 +673,106 @@
                 >
                   <RotateCcw />
                 </button>
+              </div>
+            </div>
+
+            <div class="space-y-4 border-t pt-4">
+              <div
+                class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              >
+                Panel Positions
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Graph Panel Position</span>
+                  <span class="SettingsDialog__description"
+                    >Choose whether the graph appears on the left or right side</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.graph_panel_side}
+                    onValueChange={(v: string | undefined) => {
+                      if (v === "left" || v === "right")
+                        update("graph_panel_side", v);
+                    }}
+                  >
+                    <Select.Trigger class="w-28">
+                      <span data-slot="select-value">
+                        {panel_side_options.find(
+                          (o) => o.value === editor_settings.graph_panel_side,
+                        )?.label ?? "Right"}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each panel_side_options as opt (opt.value)}
+                        <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "graph_panel_side",
+                        DEFAULT_EDITOR_SETTINGS.graph_panel_side,
+                      )}
+                    disabled={editor_settings.graph_panel_side ===
+                      DEFAULT_EDITOR_SETTINGS.graph_panel_side}
+                    title="Reset to default (Right)"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Tasks Panel Position</span>
+                  <span class="SettingsDialog__description"
+                    >Choose whether the tasks panel appears on the left or right side</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.tasks_panel_side}
+                    onValueChange={(v: string | undefined) => {
+                      if (v === "left" || v === "right")
+                        update("tasks_panel_side", v);
+                    }}
+                  >
+                    <Select.Trigger class="w-28">
+                      <span data-slot="select-value">
+                        {panel_side_options.find(
+                          (o) => o.value === editor_settings.tasks_panel_side,
+                        )?.label ?? "Right"}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each panel_side_options as opt (opt.value)}
+                        <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "tasks_panel_side",
+                        DEFAULT_EDITOR_SETTINGS.tasks_panel_side,
+                      )}
+                    disabled={editor_settings.tasks_panel_side ===
+                      DEFAULT_EDITOR_SETTINGS.tasks_panel_side}
+                    title="Reset to default (Right)"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
               </div>
             </div>
 

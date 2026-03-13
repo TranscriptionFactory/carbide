@@ -25,13 +25,13 @@
   }
 
   function toggle_side() {
-    if (stores.ui.sidebar_view === "graph") {
-      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "explorer");
-      stores.ui.set_context_rail_tab("graph");
-    } else {
-      stores.ui.close_context_rail("graph");
-      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "graph");
-    }
+    const { services } = use_app_context();
+    const current_side = stores.ui.editor_settings.graph_panel_side;
+    const next_side = current_side === "left" ? "right" : "left";
+    void services.settings.update_settings({
+      ...stores.ui.editor_settings,
+      graph_panel_side: next_side,
+    });
   }
 </script>
 
