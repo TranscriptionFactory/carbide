@@ -11,6 +11,7 @@ If older documents under `carbide/` conflict with current implementation reality
 - **Otterly architecture stays intact.** New work must follow the existing Ports/Adapters, Stores, Services, Reactors, and Action Registry model from `docs/architecture.md`.
 - **Functionality and security beat plan consistency.** We are not obligated to preserve older plan shapes if they are stale, low-value, or unsafe.
 - **Lokus is a product and UX donor, not an implementation base.** Borrow concepts, data-flow shapes, and successful interactions. Do not transplant its React runtime or workspace assumptions.
+- **Use the revised donor rules from `carbide/research/lokus_portability_reassessment.md`.** Graph internals, Bases semantics, customization breadth, and task UX are valid donors. Lokus plugin runtime, command-execution exposure, calendar sync stack, and workspace bootstrap model are not.
 - **Ferrite is a performance and safety donor, not a UI donor.** Borrow buffer, encoding, write-safety, and execution patterns where they improve Carbide materially.
 - **Security is a product feature.**
   - Plugins never get raw Tauri `invoke()` access.
@@ -45,6 +46,12 @@ These are baseline capabilities. Future work should harden or extend them, not p
 ## Execution rules for every new feature
 
 Every roadmap item must be implemented as a first-class Otterly feature slice or an explicit extension of an existing slice.
+
+A feature is not portable just because Lokus ships it. Before borrowing from Lokus, classify the donor as one of:
+
+- **safe donor**: local logic, semantics, or UX patterns that can be translated cleanly
+- **rewrite donor**: valuable idea, wrong ownership model, must be rebuilt natively
+- **anti-donor**: broad coupling, direct `invoke()` exposure, dangerous permissions, or hard workspace assumptions
 
 Before implementation, each feature must name:
 
@@ -98,6 +105,7 @@ The terminal is not “done”. It is a useful v1 that now needs to become robus
 
 ##### Priorities
 
+- Keep Otterly's terminal as the base. Do not import terminal or command-runtime patterns from Lokus.
 - Move from a single terminal session model to a multi-session model.
 - Add tabs first. Add tiling only if the session model stays clean.
 - Define explicit session ownership for cwd, shell, focus, lifecycle, and persistence.
@@ -134,6 +142,7 @@ This is one of the highest-value Lokus borrow targets and should ship early.
 
 ##### Priorities
 
+- Use `src/core/editor/live-settings.js` and `src/views/Preferences.jsx` in Lokus as direct donor references for settings breadth and grouping.
 - Expand the existing theme and settings surfaces with more live CSS-variable control.
 - Add explicit controls for typography, spacing, selection, block styling, and editor width where they materially improve readability.
 - Keep setting scope explicit. Do not let global and vault-level settings blur together.
@@ -151,6 +160,8 @@ Goal: ship a native graph feature early, without waiting for full Bases maturity
 ##### Priorities
 
 - Build a native `graph` slice in Otterly.
+- Use `src/core/graph/GraphDataProcessor.js` as the main Lokus donor for build stages, batch processing, and incremental file-content updates.
+- Treat `src/features/graph/hooks/useGraphEngine.js` and graph state in `src/stores/editorGroups.js` as anti-patterns for ownership, not patterns to copy.
 - Use the existing link-resolution and links-store foundations for the first graph data model.
 - Borrow Lokus graph ideas at the data-flow level, not at the UI implementation level.
 - Start with a scoped MVP:
@@ -170,6 +181,8 @@ Goal: build the structured data layer carefully, because Bases, richer graph fea
 
 ##### Priorities
 
+- Use `src/bases/core/BaseSchema.js`, `src/bases/query/QueryExecutor.js`, and `src/bases/data/FrontmatterParser.js` in Lokus as semantic donors.
+- Treat `src/bases/BasesContext.jsx`, `.lokus/bases`, and `window.__WORKSPACE_PATH__` based access as anti-patterns to avoid.
 - Parse YAML frontmatter and structured note properties into a dedicated metadata index.
 - Keep the metadata cache system-local and derived from Markdown, not a competing source of truth.
 - Add a dedicated metadata reactor for file create, modify, rename, and delete flows.
@@ -192,6 +205,8 @@ Goal: treat tasks, boards, and scheduling as views over a real underlying model 
 
 ##### Priorities
 
+- Borrow task capture, task mention, and board UX ideas from Lokus.
+- Do not borrow workspace-boot flows like `initialize_workspace_kanban` or the external calendar stack.
 - Extract markdown tasks into a dedicated task domain and indexed cache.
 - Keep tasks grounded in Markdown and metadata, not in a parallel proprietary store.
 - Add fast task-creation interactions informed by Lokus only if they fit Carbide’s editor model cleanly.
@@ -220,6 +235,8 @@ Goal: add an extensibility system that is actually secure, architecture-complian
 ##### Priorities
 
 - Use the security model from `carbide/plugin_system.md` as the source of truth.
+- Treat `src/plugins/PluginManager.js`, `src/plugins/api/PluginApiManager.js`, `src/plugins/runtime/PluginRuntime.js`, and `src/plugins/core/PluginManifest.js` in Lokus as anti-donor references.
+- Borrow manifest vocabulary and contribution-slot thinking only where they do not weaken Carbide's trust boundaries.
 - Build a native Carbide plugin API first.
 - Use sandboxed iframes and `postMessage` RPC.
 - Expose host-owned contribution points, not arbitrary DOM mutation.
@@ -244,6 +261,17 @@ Goal: add an extensibility system that is actually secure, architecture-complian
 - A small set of demo plugins can run safely under clear permission gates.
 - Plugin contributions are dynamically registered without breaking the existing architecture.
 - Failure in one plugin does not compromise the app or other plugins.
+
+## Base-switch threshold
+
+Lokus should only become the implementation base if Carbide deliberately changes strategy to prefer raw feature breadth over:
+
+- Otterly's architecture rules
+- strict plugin and command security boundaries
+- explicit vault and state ownership
+- replay cost for already-landed Carbide work
+
+That is not the current strategy. So the working answer remains no.
 
 ## Later, only if justified
 
