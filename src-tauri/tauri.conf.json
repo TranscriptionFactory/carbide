@@ -59,7 +59,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: otterly-asset:; style-src 'self' 'unsafe-inline'; script-src 'self' blob:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost otterly-asset:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: otterly-asset: otterly-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: otterly-plugin:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost otterly-asset:; frame-src otterly-plugin:"
     }
   }
 }

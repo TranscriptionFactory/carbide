@@ -13,11 +13,7 @@ export class PluginHostAdapter implements PluginHostPort {
     }
   }
 
-  async load(id: string): Promise<void> {
-    console.log(`Loading plugin ${id} (mock)`);
-  }
+  async load(_id: string): Promise<void> {}
 
-  async unload(id: string): Promise<void> {
-    console.log(`Unloading plugin ${id} (mock)`);
-  }
+  async unload(_id: string): Promise<void> {}
 }

@@ -18,7 +18,7 @@
   import { ContextRail } from "$lib/features/links";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
-  import { PluginIframeHost } from "$lib/features/plugin";
+  import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
@@ -785,13 +785,7 @@
         void action_registry.execute(ACTION_IDS.editor_toggle_mode)}
     />
 
-    {#each stores.plugin.active_plugin_ids as id (id)}
-      <PluginIframeHost
-        plugin_id={id}
-        vault_path={stores.vault.vault?.path ?? ""}
-        on_message={(msg) => services.plugin.handle_rpc(id, msg)}
-      />
-    {/each}
+    <PluginRuntimeContainer />
   </div>
 
   <NoteDetailsDialog

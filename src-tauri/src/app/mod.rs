@@ -184,6 +184,9 @@ pub fn run() {
         .register_uri_scheme_protocol("otterly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
         })
+        .register_uri_scheme_protocol("otterly-plugin", |_ctx, req| {
+            shared::storage::handle_plugin_request(req)
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

@@ -1,9 +1,4 @@
 <script lang="ts">
-  /**
-   * Sandboxed iframe host for plugins.
-   * This component manages the lifecycle of a plugin iframe and
-   * sets up the postMessage RPC bridge.
-   */
   interface Props {
     plugin_id: string;
     vault_path: string;
@@ -63,6 +58,9 @@
   {src}
   title="Plugin: {plugin_id}"
   sandbox="allow-scripts"
+  {...{
+    csp: "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; connect-src none;",
+  } as any}
   class="w-0 h-0 hidden"
   aria-hidden="true"
 ></iframe>

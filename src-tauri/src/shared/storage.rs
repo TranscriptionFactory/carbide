@@ -132,6 +132,84 @@ fn url_decode(input: &str) -> String {
     result
 }
 
+pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
+    let uri = req.uri().to_string();
+
+    let without_scheme = uri
+        .trim_start_matches("otterly-plugin://")
+        .trim_start_matches("otterly-plugin:");
+
+    let query_start = without_scheme.find('?');
+    let (path_part, query_part) = if let Some(pos) = query_start {
+        (&without_scheme[..pos], &without_scheme[pos + 1..])
+    } else {
+        (without_scheme, "")
+    };
+
+    let mut path_segments = path_part.splitn(2, '/');
+    let plugin_id = match path_segments.next() {
+        Some(id) if !id.is_empty() => id,
+        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
+    };
+    let file_rel = path_segments.next().unwrap_or("index.html");
+    let file_rel = if file_rel.is_empty() {
+        "index.html"
+    } else {
+        file_rel
+    };
+
+    let vault_path = query_part
+        .split('&')
+        .find_map(|pair| {
+            let mut kv = pair.splitn(2, '=');
+            let key = kv.next()?;
+            if key == "vault" {
+                kv.next().map(url_decode)
+            } else {
+                None
+            }
+        });
+
+    let vault_path = match vault_path {
+        Some(p) if !p.is_empty() => p,
+        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
+    };
+
+    let vault_root = std::path::Path::new(&vault_path);
+    let plugin_dir = vault_root
+        .join(".carbide")
+        .join("plugins")
+        .join(plugin_id);
+
+    let canonical_plugin_dir = match plugin_dir.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+
+    let target = canonical_plugin_dir.join(file_rel);
+    let canonical_target = match target.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+
+    if !canonical_target.starts_with(&canonical_plugin_dir) {
+        return Response::builder().status(403).body(Vec::new()).unwrap();
+    }
+
+    let bytes = match std::fs::read(&canonical_target) {
+        Ok(b) => b,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+
+    let mime = mime_guess::from_path(&canonical_target).first_or_octet_stream();
+    Response::builder()
+        .header("Content-Type", mime.as_ref())
+        .header("Content-Length", bytes.len().to_string())
+        .header("Access-Control-Allow-Origin", "*")
+        .body(bytes)
+        .unwrap()
+}
+
 pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
     let rel = uri
