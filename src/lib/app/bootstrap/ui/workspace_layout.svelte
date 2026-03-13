@@ -16,6 +16,7 @@
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
+  import { TaskPanel } from "$lib/features/task";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
@@ -254,6 +255,19 @@
             "dashboard",
           );
         }}
+        on_open_tasks={() => {
+          if (
+            stores.ui.sidebar_open &&
+            stores.ui.sidebar_view === "tasks"
+          ) {
+            void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+            return;
+          }
+          void action_registry.execute(
+            ACTION_IDS.ui_set_sidebar_view,
+            "tasks",
+          );
+        }}
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
         on_open_settings={() =>
           void action_registry.execute(ACTION_IDS.settings_open)}
@@ -479,6 +493,14 @@
                               ACTION_IDS.vault_reindex,
                             )}
                         />
+                      </Sidebar.GroupContent>
+                    </Sidebar.Group>
+                  {/if}
+
+                  {#if is_vault_mode && stores.ui.sidebar_view === "tasks"}
+                    <Sidebar.Group class="h-full">
+                      <Sidebar.GroupContent class="h-full">
+                        <TaskPanel />
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
                   {/if}
