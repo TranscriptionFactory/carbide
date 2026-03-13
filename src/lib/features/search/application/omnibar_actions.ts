@@ -26,6 +26,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   toggle_outline_panel: ACTION_IDS.ui_toggle_outline_panel,
   check_for_updates: ACTION_IDS.app_check_for_updates,
   export_as_pdf: ACTION_IDS.document_export_pdf,
+  terminal_toggle: ACTION_IDS.terminal_toggle,
+  terminal_new_session: ACTION_IDS.terminal_new_session,
 };
 
 function set_omnibar_state(

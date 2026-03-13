@@ -235,6 +235,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
+    action_id: ACTION_IDS.terminal_new_session,
+    key: "CmdOrCtrl+Alt+Shift+T",
+    phase: "capture",
+    label: "New Terminal Session",
+    description: "Open a new terminal session in a new tab",
+    category: "navigation",
+  },
+  {
     action_id: ACTION_IDS.split_view_toggle,
     key: "CmdOrCtrl+\\",
     phase: "capture",
