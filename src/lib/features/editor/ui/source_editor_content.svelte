@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import type {
     CursorInfo,
     EditorSelectionSnapshot,
@@ -7,6 +7,7 @@
   import type { OutlineHeading } from "$lib/features/outline";
   import { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
   import { insert_markdown_hard_break } from "$lib/features/editor/domain/markdown_line_breaks";
+  import { sync_source_editor_markdown } from "$lib/features/editor/domain/source_editor_sync";
 
   interface Props {
     initial_markdown: string;
@@ -38,6 +39,7 @@
   const TAB_SIZE = 4;
 
   let content = $state("");
+  let last_applied_markdown: string | null = null;
   let textarea_el: HTMLTextAreaElement | undefined = $state();
   let ghost_el: HTMLDivElement | undefined = $state();
 
@@ -80,10 +82,27 @@
     sync_ghost();
   });
 
-  $effect(() => {
-    if (initial_markdown === content) return;
-    content = initial_markdown;
+  $effect.pre(() => {
+    const current_content = untrack(() => content);
+    const next_state = sync_source_editor_markdown({
+      content: current_content,
+      applied_markdown: last_applied_markdown,
+      next_markdown: initial_markdown,
+    });
+    const content_changed = next_state.content !== current_content;
+    const applied_markdown_changed =
+      next_state.applied_markdown !== last_applied_markdown;
+
+    if (!content_changed && !applied_markdown_changed) return;
+
+    content = next_state.content;
+    last_applied_markdown = next_state.applied_markdown;
+
+    if (!content_changed) return;
     on_selection_change?.(compute_selection_snapshot());
+    if (on_outline_change) {
+      on_outline_change(extract_headings_from_markdown(next_state.content));
+    }
   });
 
   function handle_input() {
