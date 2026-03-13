@@ -24,6 +24,19 @@ If older documents under `carbide/` conflict with current implementation reality
   - Link resolution and backlink rewrites must remain rename-safe.
   - JSON Canvas remains on the roadmap. Excalidraw remains the only drawing format in scope for now.
 
+## Companion implementation docs
+
+Use these documents as the implementation packet for the current roadmap:
+
+- `carbide/implementation/implementation_docs_index.md`
+- `carbide/implementation/execution_security_and_readiness.md`
+- `carbide/implementation/phase1_terminal_and_document_performance.md`
+- `carbide/implementation/phase1_visual_customization.md`
+- `carbide/implementation/phase2_graph_mvp.md`
+- `carbide/implementation/phase3_metadata_and_bases.md`
+- `carbide/implementation/phase4_tasks_and_views.md`
+- `carbide/implementation/phase5_plugin_host_implementation.md`
+
 ## Current baseline
 
 The roadmap should not spend time re-planning work that already exists.
