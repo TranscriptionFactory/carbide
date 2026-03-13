@@ -53,5 +53,17 @@ export function create_test_ports(): Ports {
     watcher: create_test_watcher_adapter(),
     ai: create_test_ai_adapter(),
     graph: create_test_graph_adapter(),
+    bases: {
+      list_properties: () => Promise.resolve([]),
+      query: () => Promise.resolve({ rows: [], total: 0 }),
+      save_view: () => Promise.resolve(),
+      load_view: () => Promise.reject("Not found"),
+    },
+    task: {
+      queryTasks: () => Promise.resolve([]),
+      getTasksForNote: () => Promise.resolve([]),
+      updateTaskState: () => Promise.resolve(),
+      createTask: () => Promise.resolve(),
+    },
   };
 }

@@ -83,6 +83,8 @@ export const ACTION_IDS = {
   ui_set_sidebar_view: "ui.set_sidebar_view",
   ui_toggle_context_rail: "ui.toggle_context_rail",
   ui_toggle_outline_panel: "ui.toggle_outline_panel",
+  ui_toggle_tasks_panel: "ui.toggle_tasks_panel",
+  ui_quick_capture: "ui.quick_capture",
   ui_open_vault_dashboard: "ui.open_vault_dashboard",
   ui_close_vault_dashboard: "ui.close_vault_dashboard",
 

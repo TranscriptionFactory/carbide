@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { get_app_context } from "$lib/app/di/app_context";
-  import { Table, List, RefreshCw } from "lucide-static";
+  import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import Table from "@lucide/svelte/icons/table";
+  import List from "@lucide/svelte/icons/list";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import BasesTable from "./bases_table.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
-  const { stores, services, action_registry } = get_app_context();
+  const { stores, services, action_registry } = use_app_context();
   const bases_store = stores.bases;
   const vault_store = stores.vault;
 

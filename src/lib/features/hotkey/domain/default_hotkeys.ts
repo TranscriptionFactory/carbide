@@ -139,6 +139,22 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
+    action_id: ACTION_IDS.ui_toggle_tasks_panel,
+    key: "CmdOrCtrl+Shift+T",
+    phase: "capture",
+    label: "Toggle Tasks Panel",
+    description: "Show or hide the tasks panel",
+    category: "navigation",
+  },
+  {
+    action_id: ACTION_IDS.ui_quick_capture,
+    key: "CmdOrCtrl+Shift+K",
+    phase: "capture",
+    label: "Quick Capture Task",
+    description: "Open the quick task capture dialog",
+    category: "general",
+  },
+  {
     action_id: ACTION_IDS.tab_close,
     key: "CmdOrCtrl+W",
     phase: "capture",

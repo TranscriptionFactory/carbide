@@ -1,0 +1,104 @@
+/* Theme: Paper — Warm parchment, literary aesthetic, earthy and organic */
+
+:root {
+  --radius: 0.25rem;
+
+  --background: oklch(0.96 0.015 75); /* Warm cream */
+  --foreground: oklch(0.22 0.02 55); /* Warm near-black */
+  --card: oklch(0.98 0.012 78); /* Lighter parchment */
+  --card-foreground: oklch(0.22 0.02 55);
+  --popover: oklch(0.98 0.012 78);
+  --popover-foreground: oklch(0.22 0.02 55);
+
+  --primary: oklch(0.42 0.08 45); /* Deep burnt sienna */
+  --primary-foreground: oklch(0.97 0.01 75);
+  --secondary: oklch(0.93 0.018 75);
+  --secondary-foreground: oklch(0.22 0.02 55);
+  --muted: oklch(0.93 0.015 75);
+  --muted-foreground: oklch(0.52 0.02 60);
+  --accent: oklch(0.88 0.04 75); /* Warm tan */
+  --accent-foreground: oklch(0.3 0.03 55);
+  --destructive: oklch(0.5 0.18 25);
+
+  --border: oklch(0.88 0.02 72); /* Warm visible border */
+  --input: oklch(0.88 0.02 72);
+  --ring: oklch(0.42 0.08 45);
+
+  --sidebar: oklch(0.94 0.018 74);
+  --sidebar-foreground: oklch(0.22 0.02 55);
+  --sidebar-border: oklch(0.88 0.02 72);
+
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.94 0.016 76);
+  --background-surface-3: oklch(0.91 0.02 73);
+  --border-strong: oklch(0.82 0.025 70);
+  --border-subtle: oklch(0.92 0.012 76);
+  --accent-hover: oklch(0.91 0.02 74);
+
+  --interactive: oklch(0.42 0.08 45);
+  --interactive-hover: oklch(0.36 0.08 45);
+  --interactive-bg: oklch(0.94 0.025 60);
+  --interactive-bg-hover: oklch(0.91 0.03 58);
+  --focus-ring: oklch(0.55 0.1 45);
+  --selection-bg: oklch(0.9 0.04 60);
+
+  /* Soft, warm shadows */
+  --shadow-color: oklch(0.3 0.02 55);
+  --shadow-xs: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+  --shadow-sm: 0 1px 4px color-mix(in oklch, var(--shadow-color) 8%, transparent);
+  --shadow-md: 0 3px 8px color-mix(in oklch, var(--shadow-color) 8%, transparent);
+  --shadow-lg: 0 8px 16px color-mix(in oklch, var(--shadow-color) 10%, transparent);
+
+  --scrollbar-thumb: oklch(0.82 0.025 70);
+  --scrollbar-thumb-hover: oklch(0.75 0.03 65);
+
+  --size-activity-bar: 2.75rem;
+
+  /* Slightly more generous spacing for readability */
+  --size-tree-row: 2rem;
+}
+
+[data-color-scheme="dark"] {
+  --background: oklch(0.16 0.015 55); /* Warm dark brown */
+  --foreground: oklch(0.9 0.015 75); /* Cream text */
+  --card: oklch(0.2 0.015 55);
+  --card-foreground: oklch(0.9 0.015 75);
+  --popover: oklch(0.2 0.015 55);
+  --popover-foreground: oklch(0.9 0.015 75);
+
+  --primary: oklch(0.68 0.1 45); /* Warm amber */
+  --primary-foreground: oklch(0.12 0.01 55);
+  --secondary: oklch(0.22 0.015 55);
+  --secondary-foreground: oklch(0.9 0.015 75);
+  --muted: oklch(0.22 0.015 55);
+  --muted-foreground: oklch(0.58 0.015 65);
+  --accent: oklch(0.3 0.025 55);
+  --accent-foreground: oklch(0.9 0.015 75);
+
+  --border: oklch(0.3 0.02 55);
+  --input: oklch(0.3 0.02 55);
+  --ring: oklch(0.68 0.1 45);
+
+  --sidebar: oklch(0.17 0.015 55);
+  --sidebar-foreground: oklch(0.9 0.015 75);
+  --sidebar-border: oklch(0.28 0.015 55);
+
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.19 0.015 55);
+  --background-surface-3: oklch(0.23 0.015 55);
+  --border-strong: oklch(0.36 0.02 55);
+  --border-subtle: oklch(0.22 0.01 55);
+  --accent-hover: oklch(0.25 0.02 55);
+
+  --interactive: oklch(0.68 0.1 45);
+  --interactive-hover: oklch(0.74 0.1 45);
+  --interactive-bg: oklch(0.22 0.03 50);
+  --interactive-bg-hover: oklch(0.26 0.035 48);
+  --focus-ring: oklch(0.68 0.1 45);
+  --selection-bg: oklch(0.26 0.04 50);
+
+  --shadow-color: oklch(0.06 0.01 55);
+
+  --scrollbar-thumb: oklch(0.3 0.015 55);
+  --scrollbar-thumb-hover: oklch(0.38 0.02 55);
+}

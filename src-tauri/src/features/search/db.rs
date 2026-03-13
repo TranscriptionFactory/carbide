@@ -1,6 +1,7 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::{frontmatter, link_parser};
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+use crate::features::tasks::service as tasks_service;
 use crate::shared::constants;
 use crate::shared::storage;
 use crate::shared::vault_ignore;
@@ -169,7 +170,22 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             PRIMARY KEY (path, tag)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);"
+        CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);
+
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            path TEXT NOT NULL,
+            text TEXT NOT NULL,
+            completed BOOLEAN NOT NULL,
+            due_date TEXT,
+            line_number INTEGER NOT NULL,
+            section TEXT,
+            FOREIGN KEY(path) REFERENCES notes(path) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_tasks_path ON tasks(path);
+        CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed);
+        "
     ))
     .map_err(|e| e.to_string())
 }
@@ -242,6 +258,10 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
         .map_err(|e| e.to_string())?;
     }
 
+    // Index tasks
+    let tasks = tasks_service::extract_tasks(&meta.path, body);
+    tasks_service::save_tasks(conn, &meta.path, &tasks)?;
+
     Ok(())
 }
 
@@ -255,6 +275,8 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
     conn.execute("DELETE FROM note_properties WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM note_tags WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM tasks WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -303,11 +325,13 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
         })
         .and_then(|_| {
             conn.execute(
-                "DELETE FROM notes WHERE path LIKE ?1 ESCAPE '\\'",
+                "DELETE FROM tasks WHERE path LIKE ?1 ESCAPE '\\'",
                 params![like_pattern],
             )
         })
+        .map(|_| ())
         .map_err(|e| e.to_string());
+
     match result {
         Ok(_) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
         Err(e) => {
@@ -1127,6 +1151,7 @@ pub fn query_bases(
         "ORDER BY path ASC".to_string()
     };
 
+    let params_len = params.len();
     // Re-bind sort param if needed
     let mut final_params = params;
     if let Some(sort) = query.sort.first() {
@@ -1199,8 +1224,8 @@ pub fn query_bases(
     let count_sql = format!("SELECT COUNT(*) FROM notes {}", where_sql);
     let mut count_stmt = conn.prepare(&count_sql).map_err(|e| e.to_string())?;
     // We need to exclude the sort param for count
-    let count_param_refs = if final_params.len() > params.len() {
-        &param_refs[..params.len()]
+    let count_param_refs = if final_params.len() > params_len {
+        &param_refs[..params_len]
     } else {
         &param_refs[..]
     };

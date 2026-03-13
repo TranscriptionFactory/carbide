@@ -40,6 +40,7 @@ import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
 import { BasesService } from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
+import { TaskService } from "$lib/features/task";
 import { mount_reactors } from "$lib/reactors";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 
@@ -235,6 +236,12 @@ export function create_app_context(input: {
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);
 
+  const task_service = new TaskService(
+    input.ports.task,
+    stores.task,
+    stores.vault,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -251,6 +258,7 @@ export function create_app_context(input: {
       split_view: stores.split_view,
       graph: stores.graph,
       bases: stores.bases,
+      task: stores.task,
     },
     services: {
       vault: vault_service,
@@ -266,6 +274,7 @@ export function create_app_context(input: {
       hotkey: hotkey_service,
       theme: theme_service,
       bases: bases_service,
+      task: task_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -341,6 +350,7 @@ export function create_app_context(input: {
   return {
     ports: input.ports,
     stores,
+    services: base_action_input.services,
     action_registry,
     terminal_runtime: terminal_service,
     destroy: () => {

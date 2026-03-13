@@ -98,6 +98,36 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.ui_toggle_tasks_panel,
+    label: "Toggle Tasks Panel",
+    shortcut: "CmdOrCtrl+Shift+T",
+    execute: async () => {
+      if (
+        stores.ui.context_rail_open &&
+        stores.ui.context_rail_tab === "tasks"
+      ) {
+        stores.ui.close_context_rail("tasks");
+      } else {
+        if (stores.graph.panel_open) {
+          await registry.execute(ACTION_IDS.graph_close, {
+            preserve_context_rail: true,
+          });
+        }
+        stores.ui.set_context_rail_tab("tasks");
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_quick_capture,
+    label: "Quick Capture Task",
+    shortcut: "CmdOrCtrl+Shift+K",
+    execute: () => {
+      stores.ui.quick_capture_open = true;
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ui_open_vault_dashboard,
     label: "Open Vault Dashboard",
     shortcut: "CmdOrCtrl+Shift+D",

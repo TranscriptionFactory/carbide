@@ -46,20 +46,20 @@ pub struct BaseQueryResults {
     pub total: usize,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BaseFilter {
     pub property: String,
     pub operator: String, // "eq", "neq", "contains", "gt", "lt", etc.
     pub value: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BaseSort {
     pub property: String,
     pub descending: bool,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BaseQuery {
     pub filters: Vec<BaseFilter>,
     pub sort: Vec<BaseSort>,

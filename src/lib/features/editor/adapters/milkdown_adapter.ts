@@ -333,7 +333,7 @@ export function create_milkdown_editor_port(args?: {
         .use(frontmatter_plugin)
         .use(imageBlockComponent)
         .config((ctx) => {
-          ctx.update(remarkPluginsCtx, (prev) => [...prev, remarkFrontmatter]);
+          ctx.update(remarkPluginsCtx, (prev) => [...prev, remarkFrontmatter as any]);
           if (resolve_asset_url_for_vault) {
             const resolve = resolve_asset_url_for_vault;
             const resolved_url_cache = new Map<string, string>();

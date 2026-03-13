@@ -1,5 +1,5 @@
 import type { VaultId } from "$lib/shared/types/ids";
-import type { IndexNoteMeta } from "$lib/features/editor/ports";
+import type { NoteMeta } from "$lib/shared/types/note";
 
 export interface PropertyValue {
   value: string;
@@ -7,7 +7,7 @@ export interface PropertyValue {
 }
 
 export interface BaseNoteRow {
-  note: IndexNoteMeta;
+  note: NoteMeta;
   properties: Record<string, PropertyValue>;
   tags: string[];
 }

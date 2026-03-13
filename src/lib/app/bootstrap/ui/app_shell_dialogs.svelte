@@ -27,6 +27,7 @@
   } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
+  import { QuickCaptureDialog } from "$lib/features/task";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OmnibarItem } from "$lib/shared/types/search";
@@ -491,7 +492,13 @@
     void action_registry.execute(ACTION_IDS.git_cancel_add_remote)}
 />
 
+<QuickCaptureDialog
+  open={stores.ui.quick_capture_open}
+  on_open_change={(open) => (stores.ui.quick_capture_open = open)}
+/>
+
 <HelpDialog
+
   open={stores.ui.help_dialog.open}
   hotkeys_config={stores.ui.hotkeys_config}
   on_close={() => void action_registry.execute(ACTION_IDS.help_close)}

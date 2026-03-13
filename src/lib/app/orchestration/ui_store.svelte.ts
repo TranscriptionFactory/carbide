@@ -27,7 +27,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
 type SidebarView = "explorer" | "dashboard" | "starred";
-type ContextRailTab = "links" | "outline" | "ai" | "graph";
+type ContextRailTab = "links" | "outline" | "ai" | "graph" | "tasks";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -339,6 +339,8 @@ export class UIStore {
   vault_switcher_open = $state(false);
 
   tab_drag_active = $state(false);
+
+  quick_capture_open = $state(false);
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");

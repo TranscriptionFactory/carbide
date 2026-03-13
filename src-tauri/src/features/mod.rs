@@ -6,6 +6,7 @@ pub mod notes;
 pub mod pipeline;
 pub mod search;
 pub mod settings;
+pub mod tasks;
 pub mod vault;
 pub mod vault_settings;
 pub mod watcher;

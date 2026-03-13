@@ -13,6 +13,7 @@ import type { WatcherPort } from "$lib/features/watcher";
 import type { AiPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
+import type { TaskPort } from "$lib/features/task";
 
 export type Ports = {
   vault: VaultPort;
@@ -33,4 +34,5 @@ export type Ports = {
   ai: AiPort;
   graph: GraphPort;
   bases: BasesPort;
+  task: TaskPort;
 };

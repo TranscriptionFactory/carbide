@@ -4,6 +4,7 @@
   import { GraphPanel } from "$lib/features/graph";
   import LinksPanel from "$lib/features/links/ui/links_panel.svelte";
   import { OutlinePanel } from "$lib/features/outline";
+  import { TaskPanel } from "$lib/features/task";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
 
   const { stores, action_registry } = use_app_context();
@@ -12,6 +13,7 @@
     { id: "links" as const, label: "Links" },
     { id: "graph" as const, label: "Graph" },
     { id: "outline" as const, label: "Outline" },
+    { id: "tasks" as const, label: "Tasks" },
     { id: "ai" as const, label: "AI" },
   ];
 
@@ -69,6 +71,8 @@
       <GraphPanel />
     {:else if stores.ui.context_rail_tab === "outline"}
       <OutlinePanel />
+    {:else if stores.ui.context_rail_tab === "tasks"}
+      <TaskPanel />
     {:else if stores.ui.context_rail_tab === "ai"}
       <AiAssistantPanel />
     {/if}

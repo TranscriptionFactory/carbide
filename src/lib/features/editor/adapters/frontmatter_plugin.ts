@@ -1,5 +1,4 @@
 import { $node, $prose } from "@milkdown/kit/utils";
-import { expectDomTypeError } from "@milkdown/kit/exception";
 import { type NodeView, type EditorView } from "@milkdown/kit/prose/view";
 import { type Node as ProseNode } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
@@ -27,7 +26,7 @@ export const frontmatter_node = $node("frontmatter", () => ({
       tag: "div[data-type='frontmatter']",
       getAttrs: (dom) => {
         if (!(dom instanceof HTMLElement)) {
-          throw expectDomTypeError(dom);
+          throw new Error("Expected HTMLElement");
         }
         return {};
       },

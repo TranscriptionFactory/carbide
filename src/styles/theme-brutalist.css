@@ -1,0 +1,114 @@
+/* Theme: Brutalist — Raw, industrial, high-contrast, zero ornamentation */
+
+:root {
+  --radius: 0; /* No rounding anywhere */
+
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.1 0 0); /* Near-black text */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.1 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.1 0 0);
+
+  --primary: oklch(0.1 0 0); /* Black as primary */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.1 0 0);
+  --muted: oklch(0.93 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.85 0.18 30); /* Harsh red-orange accent */
+  --accent-foreground: oklch(0.1 0 0);
+  --destructive: oklch(0.55 0.25 25);
+
+  --border: oklch(0.1 0 0); /* Black borders — defining trait */
+  --input: oklch(0.1 0 0);
+  --ring: oklch(0.1 0 0);
+
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.1 0 0);
+  --sidebar-border: oklch(0.1 0 0);
+
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.95 0 0);
+  --background-surface-3: oklch(0.93 0 0);
+  --border-strong: oklch(0.1 0 0);
+  --border-subtle: oklch(0.7 0 0);
+  --accent-hover: oklch(0.9 0 0);
+
+  /* Override interactive tokens to match raw aesthetic */
+  --interactive: oklch(0.1 0 0);
+  --interactive-hover: oklch(0.85 0.18 30);
+  --interactive-bg: oklch(0.93 0 0);
+  --interactive-bg-hover: oklch(0.88 0 0);
+  --focus-ring: oklch(0.85 0.18 30);
+  --selection-bg: oklch(0.88 0.1 30);
+
+  /* No shadows — structure comes from borders alone */
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* Structural overrides */
+  --border-width-default: 2px;
+  --border-width-thick: 3px;
+  --scrollbar-width: 8px;
+  --scrollbar-thumb: oklch(0.1 0 0);
+  --scrollbar-thumb-hover: oklch(0.85 0.18 30);
+
+  --size-activity-bar: 3rem;
+  --size-activity-icon: 1.25rem;
+}
+
+[data-color-scheme="dark"] {
+  --background: oklch(0.08 0 0); /* Near-black */
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+
+  --primary: oklch(0.95 0 0); /* White as primary */
+  --primary-foreground: oklch(0.08 0 0);
+  --secondary: oklch(0.16 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.16 0 0);
+  --muted-foreground: oklch(0.6 0 0);
+  --accent: oklch(0.7 0.2 30); /* Harsh red-orange */
+  --accent-foreground: oklch(0.95 0 0);
+
+  --border: oklch(0.95 0 0); /* White borders on dark */
+  --input: oklch(0.95 0 0);
+  --ring: oklch(0.95 0 0);
+
+  --sidebar: oklch(0.08 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.95 0 0);
+
+  /* Otterly Specific */
+  --background-surface-2: oklch(0.1 0 0);
+  --background-surface-3: oklch(0.14 0 0);
+  --border-strong: oklch(0.95 0 0);
+  --border-subtle: oklch(0.3 0 0);
+  --accent-hover: oklch(0.18 0 0);
+
+  --interactive: oklch(0.95 0 0);
+  --interactive-hover: oklch(0.7 0.2 30);
+  --interactive-bg: oklch(0.16 0 0);
+  --interactive-bg-hover: oklch(0.2 0 0);
+  --focus-ring: oklch(0.7 0.2 30);
+  --selection-bg: oklch(0.25 0.08 30);
+
+  --scrollbar-thumb: oklch(0.95 0 0);
+  --scrollbar-thumb-hover: oklch(0.7 0.2 30);
+}
+
+/* Brutalist structural overrides */
+.ActivityBar {
+  border-inline-end: 2px solid var(--border);
+}
+
+.ActivityBar__button--active {
+  background-color: var(--foreground);
+  color: var(--background);
+}

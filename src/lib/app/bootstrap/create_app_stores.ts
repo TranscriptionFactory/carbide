@@ -14,6 +14,7 @@ import { DocumentStore } from "$lib/features/document";
 import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases";
+import { TaskStore } from "$lib/features/task";
 
 export type AppStores = {
   vault: VaultStore;
@@ -32,6 +33,7 @@ export type AppStores = {
   ai: AiStore;
   graph: GraphStore;
   bases: BasesStore;
+  task: TaskStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -52,5 +54,6 @@ export function create_app_stores(): AppStores {
     ai: new AiStore(),
     graph: new GraphStore(),
     bases: new BasesStore(),
+    task: new TaskStore(),
   };
 }

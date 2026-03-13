@@ -26,6 +26,10 @@ export class VaultStore {
     return this.vault?.mode === "vault";
   }
 
+  get active_vault_id(): VaultId | null {
+    return this.vault?.id ?? null;
+  }
+
   clear() {
     this.vault = null;
     this.generation += 1;
