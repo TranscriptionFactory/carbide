@@ -159,4 +159,18 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["export", "pdf", "save", "print", "download"],
     icon: "file-down",
   },
+  {
+    id: "terminal_toggle",
+    label: "Toggle Terminal",
+    description: "Show or hide the terminal panel",
+    keywords: ["terminal", "shell", "console", "command", "line", "pty", "toggle"],
+    icon: "terminal",
+  },
+  {
+    id: "terminal_new_session",
+    label: "New Terminal Session",
+    description: "Open a new terminal session in a new tab",
+    keywords: ["terminal", "shell", "console", "new", "tab", "session", "add"],
+    icon: "terminal",
+  },
 ];

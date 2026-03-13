@@ -42,6 +42,7 @@
     "refresh-cw": RefreshCwIcon,
     "file-down": FileDownIcon,
     sparkles: SparklesIcon,
+    terminal: CommandIcon,
   };
 
   const SCOPES: OmnibarScope[] = ["current_vault", "all_vaults"];

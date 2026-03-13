@@ -17,7 +17,9 @@ export type CommandId =
   | "toggle_links_panel"
   | "toggle_outline_panel"
   | "check_for_updates"
-  | "export_as_pdf";
+  | "export_as_pdf"
+  | "terminal_toggle"
+  | "terminal_new_session";
 
 export type CommandIcon =
   | "file-plus"
@@ -31,7 +33,8 @@ export type CommandIcon =
   | "list-tree"
   | "refresh-cw"
   | "file-down"
-  | "sparkles";
+  | "sparkles"
+  | "terminal";
 
 export type CommandDefinition = {
   id: CommandId;
