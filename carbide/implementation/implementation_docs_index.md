@@ -26,6 +26,7 @@ This index is the implementation packet for the current Carbide roadmap. Read it
 | `phase3_metadata_and_bases.md`                | Metadata index plus Bases foundations                                   | Starting metadata extraction or Bases work                           | Shared model for frontmatter, properties, queries, and early view types      |
 | `phase4_tasks_and_views.md`                   | Task domain, Kanban, schedule view, and command-tool boundaries         | Starting task extraction or workflow views                           | Implementation plan for tasks as a real domain, not isolated UI              |
 | `phase5_plugin_host_implementation.md`        | Secure native plugin host                                               | Starting plugin work                                                 | Phase-by-phase plugin implementation plan over host-owned APIs               |
+| `phase6_canvas.md`                           | Native canvas feature (Excalidraw & JSON Canvas)                        | Starting canvas or whiteboard work                                   | Implementation plan for spatial note board and drawing feature               |
 
 ## Recommended reading order
 
@@ -41,6 +42,7 @@ This index is the implementation packet for the current Carbide roadmap. Read it
 5. `phase3_metadata_and_bases.md`
 6. `phase4_tasks_and_views.md`
 7. `phase5_plugin_host_implementation.md`
+8. `phase6_canvas.md`
 
 ## Current implementation stance
 

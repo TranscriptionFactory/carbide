@@ -399,6 +399,43 @@
 
 ---
 
+## Phase 9: Canvas & Visual Knowledge Layout
+
+### Architecture
+
+- [ ] Create `canvas` feature slice (`src/lib/features/canvas/`)
+- [ ] Define `CanvasPort` and `CanvasTauriAdapter` for IO
+- [ ] Implement `CanvasService` and `CanvasStore` for spatial state
+
+### JSON Canvas (Spatial Boards)
+
+- [ ] Parser/Serializer for `.canvas` (JSON Canvas standard)
+- [ ] Svelte-based renderer for nodes (Note, Text, File, Link) and edges
+- [ ] Basic node manipulation (add, move, resize, delete)
+- [ ] Note embedding: render Markdown content inside canvas nodes
+- [ ] Image embedding: render local assets inside canvas nodes
+
+### Excalidraw (Drawings)
+
+- [ ] Support for `.excalidraw` and `.excalidraw.json` files
+- [ ] Host Excalidraw editor (iframe sandbox or Svelte wrapper)
+- [ ] Bi-directional sync between app and Excalidraw instance
+- [ ] Export canvas/drawing to PNG/SVG
+
+### Vault & Link Integration
+
+- [ ] Canvas reactor: rename-safe backlink rewrites for note references inside canvases
+- [ ] Index canvas content in search DB (text nodes, note paths)
+
+### Testing
+
+- [ ] Test JSON Canvas schema validation and round-trip
+- [ ] Test node manipulation and state persistence
+- [ ] Test canvas link rewriting on note rename
+- [ ] Test canvas content indexing
+
+---
+
 ## Notes
 
 ### Single-Vault Assumptions (relevant if simultaneous multi-vault is pursued later)

@@ -275,6 +275,24 @@ Goal: add an extensibility system that is actually secure, architecture-complian
 - Plugin contributions are dynamically registered without breaking the existing architecture.
 - Failure in one plugin does not compromise the app or other plugins.
 
+### Phase 6: Canvas (Visual Knowledge Layout)
+
+Goal: ship a functional infinite canvas MVP that supports both Excalidraw drawings and JSON Canvas spatial arrangement.
+
+##### Priorities
+
+- Build a native `canvas` slice in Otterly.
+- Use JSON Canvas as the storage format for spatial note boards.
+- Support Excalidraw-only canvas support for now as the drawing experience.
+- Ensure canvas references (note links, image embeds) are rename-safe.
+- Integrate the canvas viewer into the existing multi-type document viewing stack.
+
+##### Exit criteria
+
+- Users can create, edit, and arrange notes on an infinite canvas.
+- Users can create and edit Excalidraw drawings.
+- The canvas implementation follows the Otterly slice architecture and security boundaries.
+
 ## Base-switch threshold
 
 Lokus should only become the implementation base if Carbide deliberately changes strategy to prefer raw feature breadth over:
