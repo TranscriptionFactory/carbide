@@ -11,6 +11,7 @@ import { create_test_clipboard_adapter } from "./test_clipboard_adapter";
 import { create_test_shell_adapter } from "./test_shell_adapter";
 import { create_test_git_adapter } from "./test_git_adapter";
 import { create_test_document_adapter } from "./test_document_adapter";
+import { create_test_terminal_adapter } from "./test_terminal_adapter";
 import { create_test_window_adapter } from "./test_window_adapter";
 import { create_test_watcher_adapter } from "./test_watcher_adapter";
 import type { AiPort } from "$lib/features/ai";
@@ -46,6 +47,7 @@ export function create_test_ports(): Ports {
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
     document: create_test_document_adapter(),
+    terminal: create_test_terminal_adapter(),
     window: create_test_window_adapter(),
     watcher: create_test_watcher_adapter(),
     ai: create_test_ai_adapter(),

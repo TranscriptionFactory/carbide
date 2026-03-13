@@ -1,6 +1,5 @@
 <script lang="ts">
   import "@xterm/xterm/css/xterm.css";
-  import { spawn, type IPty } from "tauri-pty";
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { onMount, onDestroy } from "svelte";
@@ -9,22 +8,38 @@
   import { X } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { create_logger } from "$lib/shared/utils/logger";
-  import { build_terminal_spawn_options } from "./build_terminal_spawn_options";
+  import type { TerminalSessionRequest } from "$lib/features/terminal/application/terminal_service";
 
   const log = create_logger("terminal_panel");
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, terminal_runtime } = use_app_context();
 
   let container_el: HTMLDivElement | undefined = $state();
   let terminal: Terminal | undefined;
   let fit_addon: FitAddon | undefined;
-  let pty_process: IPty | undefined;
   let resize_observer: ResizeObserver | undefined;
   let destroyed = false;
-  let spawned_shell = "";
-  let spawned_vault_path: string | undefined;
+  let session_syncing = $state(false);
+  let attached_session_id = $state<string | null>(null);
+  let attached_view_id = $state<string | null>(null);
+  let spawned_shell = $state("");
+  let spawned_vault_path = $state<string | undefined>(undefined);
 
   function get_shell(): string {
     return stores.ui.editor_settings.terminal_shell_path || "/bin/zsh";
+  }
+
+  function build_session_request(): TerminalSessionRequest {
+    const follow_active_vault =
+      stores.ui.editor_settings.terminal_follow_active_vault;
+
+    return {
+      cols: terminal?.cols ?? 80,
+      rows: terminal?.rows ?? 24,
+      shell_path: get_shell(),
+      cwd: stores.vault.vault?.path ?? undefined,
+      cwd_policy: follow_active_vault ? "follow_active_vault" : "fixed",
+      respawn_policy: follow_active_vault ? "on_context_change" : "manual",
+    };
   }
 
   function resolve_css_color(property: string, fallback: string): string {
@@ -50,46 +65,74 @@
     };
   }
 
-  function spawn_pty(cols: number, rows: number) {
-    const vault_path = stores.vault.vault?.path ?? undefined;
-    const shell = get_shell();
+  function detach_terminal_view() {
+    if (!attached_session_id || !attached_view_id) {
+      attached_session_id = null;
+      attached_view_id = null;
+      return;
+    }
 
+    terminal_runtime.detach_view(attached_session_id, attached_view_id);
+    attached_session_id = null;
+    attached_view_id = null;
+  }
+
+  async function ensure_terminal_session() {
+    if (!terminal || session_syncing) return;
+
+    session_syncing = true;
     try {
-      const options = build_terminal_spawn_options({
-        cols,
-        rows,
-        vault_path,
-      });
+      const request = build_session_request();
+      const { session_id, view_id } =
+        await terminal_runtime.ensure_active_session(request, {
+          on_output: (data) => {
+            if (destroyed) return;
+            terminal?.write(data);
+          },
+          on_exit: (event) => {
+            if (destroyed) return;
+            log.info("PTY exited", { exitCode: event.exit_code });
+            terminal?.write(
+              `\r\n[Process exited with code ${String(event.exit_code)}]\r\n`,
+            );
+          },
+        });
 
-      pty_process = spawn(shell, [], options);
-      spawned_shell = shell;
-      spawned_vault_path = vault_path;
-
-      pty_process.onData((data: Uint8Array | number[]) => {
-        if (!destroyed) {
-          const bytes =
-            data instanceof Uint8Array ? data : new Uint8Array(data);
-          terminal?.write(bytes);
+      if (destroyed) {
+        if (view_id) {
+          terminal_runtime.detach_view(session_id, view_id);
         }
-      });
+        return;
+      }
 
-      pty_process.onExit(({ exitCode }) => {
-        if (destroyed) return;
-        log.info("PTY exited", { exitCode });
-        terminal?.write(`\r\n[Process exited with code ${exitCode}]\r\n`);
-        pty_process = undefined;
-      });
+      attached_session_id = session_id;
+      attached_view_id = view_id;
+      spawned_shell = request.shell_path;
+      spawned_vault_path = request.cwd;
     } catch (error) {
-      log.error("Failed to spawn PTY", { error: String(error) });
-      terminal?.write(`\r\nFailed to start terminal: ${error}\r\n`);
+      log.error("Failed to start terminal session", { error: String(error) });
+      terminal?.write(`\r\nFailed to start terminal: ${String(error)}\r\n`);
+    } finally {
+      session_syncing = false;
     }
   }
 
-  function respawn_pty() {
-    if (!terminal) return;
-    pty_process?.kill();
-    pty_process = undefined;
-    spawn_pty(terminal.cols, terminal.rows);
+  async function respawn_terminal() {
+    if (!terminal || !attached_session_id || session_syncing) return;
+
+    session_syncing = true;
+    try {
+      const request = build_session_request();
+      await terminal_runtime.respawn_active_session(request);
+      if (destroyed) return;
+      spawned_shell = request.shell_path;
+      spawned_vault_path = request.cwd;
+    } catch (error) {
+      log.error("Failed to respawn terminal session", { error: String(error) });
+      terminal?.write(`\r\nFailed to restart terminal: ${String(error)}\r\n`);
+    } finally {
+      session_syncing = false;
+    }
   }
 
   function init_terminal() {
@@ -111,7 +154,7 @@
     terminal.focus();
 
     terminal.onData((data: string) => {
-      pty_process?.write(data);
+      terminal_runtime.write_active_session(data);
     });
 
     terminal.textarea?.addEventListener("focus", () => {
@@ -121,14 +164,14 @@
       stores.terminal.set_focused(false);
     });
 
-    spawn_pty(terminal.cols, terminal.rows);
+    void ensure_terminal_session();
 
     resize_observer = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         if (!fit_addon || !terminal || destroyed) return;
         try {
           fit_addon.fit();
-          pty_process?.resize(terminal.cols, terminal.rows);
+          terminal_runtime.resize_active_session(terminal.cols, terminal.rows);
         } catch {
           return;
         }
@@ -141,8 +184,8 @@
     destroyed = true;
     resize_observer?.disconnect();
     resize_observer = undefined;
-    pty_process?.kill();
-    pty_process = undefined;
+    detach_terminal_view();
+    stores.terminal.set_focused(false);
     spawned_shell = "";
     spawned_vault_path = undefined;
     terminal?.dispose();
@@ -156,6 +199,7 @@
     terminal.options.scrollback = stores.ui.editor_settings.terminal_scrollback;
     terminal.options.cursorBlink =
       stores.ui.editor_settings.terminal_cursor_blink;
+    terminal.options.theme = build_xterm_theme();
     requestAnimationFrame(() => {
       fit_addon?.fit();
     });
@@ -165,16 +209,23 @@
     const follow_active_vault =
       stores.ui.editor_settings.terminal_follow_active_vault;
     const vault_path = stores.vault.vault?.path ?? undefined;
-    if (!follow_active_vault || !terminal || !pty_process) return;
+    if (
+      !follow_active_vault ||
+      !terminal ||
+      !attached_session_id ||
+      session_syncing
+    ) {
+      return;
+    }
     if (spawned_vault_path === vault_path) return;
-    respawn_pty();
+    void respawn_terminal();
   });
 
   $effect(() => {
     const shell = get_shell();
-    if (!terminal || !pty_process) return;
+    if (!terminal || !attached_session_id || session_syncing) return;
     if (spawned_shell === shell) return;
-    respawn_pty();
+    void respawn_terminal();
   });
 
   onMount(() => {

@@ -24,7 +24,10 @@ import {
   SplitViewService,
   register_split_view_actions,
 } from "$lib/features/split_view";
-import { register_terminal_actions } from "$lib/features/terminal";
+import {
+  register_terminal_actions,
+  TerminalService,
+} from "$lib/features/terminal";
 import {
   DocumentService,
   register_document_actions,
@@ -211,6 +214,11 @@ export function create_app_context(input: {
     now_ms,
   );
 
+  const terminal_service = new TerminalService(
+    input.ports.terminal,
+    stores.terminal,
+  );
+
   const ai_service = new AiService(input.ports.ai, stores.vault);
 
   const base_action_input = {
@@ -257,6 +265,7 @@ export function create_app_context(input: {
   register_terminal_actions({
     ...base_action_input,
     terminal_store: stores.terminal,
+    terminal_service,
   });
 
   register_document_actions({
@@ -304,8 +313,10 @@ export function create_app_context(input: {
     ports: input.ports,
     stores,
     action_registry,
+    terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
+      terminal_service.destroy();
       split_view_service.destroy();
       editor_service.unmount();
       void watcher_service.stop();
