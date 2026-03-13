@@ -47,12 +47,12 @@ export function resolve_graph_refresh_decision(
   const index_completed =
     input.index_status === "completed" &&
     state.last_index_status !== "completed";
-  const needs_initial_load =
-    panel_opened &&
+  const note_path_changed =
+    input.panel_open &&
     input.snapshot_note_path !== input.center_note_path &&
     input.status !== "loading";
 
-  if (needs_initial_load || index_completed) {
+  if (panel_opened || index_completed || note_path_changed) {
     return {
       action: "load",
       note_path: input.center_note_path,

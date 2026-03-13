@@ -3,6 +3,7 @@ use crate::features::notes::service::{
     safe_vault_abs, safe_vault_abs_for_write, safe_vault_rename_target_abs, scan_folder_entries,
 };
 use crate::shared::storage;
+use crate::shared::vault_ignore::VaultIgnoreMatcher;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -90,21 +91,23 @@ fn scan_folder_entries_filters_and_sorts() {
     std::fs::write(root.join("a.md"), "a").expect("file should be created");
     std::fs::write(root.join("readme.txt"), "ignored").expect("file should be created");
 
-    let entries = scan_folder_entries(&root).expect("scan should succeed");
+    let ignore_matcher = VaultIgnoreMatcher::default();
+    let entries = scan_folder_entries(&root, &root, &ignore_matcher).expect("scan should succeed");
     let names: Vec<String> = entries.iter().map(|entry| entry.name.clone()).collect();
     let dirs_first = entries
         .iter()
         .map(|entry| (entry.name.clone(), entry.is_dir))
         .collect::<Vec<(String, bool)>>();
 
-    assert_eq!(names, vec!["alpha", "zeta", "a.md", "b.md"]);
+    assert_eq!(names, vec!["alpha", "zeta", "a.md", "b.md", "readme.txt"]);
     assert_eq!(
         dirs_first,
         vec![
             ("alpha".to_string(), true),
             ("zeta".to_string(), true),
             ("a.md".to_string(), false),
-            ("b.md".to_string(), false)
+            ("b.md".to_string(), false),
+            ("readme.txt".to_string(), false)
         ]
     );
     let _ = std::fs::remove_dir_all(&root);
@@ -117,16 +120,20 @@ fn folder_entries_cache_hit_and_invalidation() {
 
     let vault_id = format!("v{}", storage::now_ms());
     let folder_path = "";
-    let key = folder_cache_key(&vault_id, folder_path);
-    let first = get_or_scan_folder_entries(&key, &root).expect("first scan should succeed");
+    let ignore_matcher = VaultIgnoreMatcher::default();
+    let key = folder_cache_key(&vault_id, folder_path, ignore_matcher.cache_token());
+    let first = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+        .expect("first scan should succeed");
     assert_eq!(first.len(), 1);
 
     std::fs::write(root.join("b.md"), "b").expect("second file should be created");
-    let second = get_or_scan_folder_entries(&key, &root).expect("cache hit should succeed");
+    let second = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+        .expect("cache hit should succeed");
     assert_eq!(second.len(), 1);
 
     invalidate_folder_cache(&vault_id, folder_path);
-    let third = get_or_scan_folder_entries(&key, &root).expect("scan after invalidate should work");
+    let third = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+        .expect("scan after invalidate should work");
     assert_eq!(third.len(), 2);
 
     let _ = std::fs::remove_dir_all(&root);
