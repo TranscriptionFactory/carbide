@@ -39,14 +39,18 @@
   {:else if viewer_state.file_type === "csv" && content !== null}
     <CsvViewer {content} />
   {:else if (viewer_state.file_type === "code" || viewer_state.file_type === "text") && (content !== null || buffer_id !== null)}
-    <CodeViewer
-      {content}
-      {buffer_id}
-      {line_count}
-      file_type={viewer_state.file_type}
-      filename={viewer_state.file_path.split("/").pop() ?? ""}
-      wrap_lines={stores.ui.editor_settings.document_code_wrap}
-    />
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${viewer_state.file_type}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
+      <CodeViewer
+        tab_id={viewer_state.tab_id}
+        {content}
+        {buffer_id}
+        {line_count}
+        file_type={viewer_state.file_type}
+        filename={viewer_state.file_path.split("/").pop() ?? ""}
+        wrap_lines={stores.ui.editor_settings.document_code_wrap}
+        initial_scroll_top={viewer_state.scroll_top}
+      />
+    {/key}
   {:else if viewer_state.load_status === "error"}
     <div class="DocumentViewer__state DocumentViewer__state--error">
       <span>{viewer_state.error_message ?? "Failed to load document"}</span>

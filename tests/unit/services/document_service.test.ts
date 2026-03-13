@@ -90,6 +90,25 @@ describe("DocumentService", () => {
     expect(document_port.open_buffer).toHaveBeenCalledTimes(1);
   });
 
+  it("closes the managed buffer when the document is closed", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.txt", "text");
+    service.close_document("tab-1");
+
+    expect(document_port.close_buffer).toHaveBeenCalledWith("buf_tab-1");
+    expect(document_store.get_content_state("tab-1")).toBeUndefined();
+    expect(document_store.get_viewer_state("tab-1")).toBeUndefined();
+  });
+
   it("stores the initial pdf page when opening a pdf document", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
