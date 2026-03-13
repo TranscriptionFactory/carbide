@@ -161,16 +161,6 @@
     gap: var(--space-1);
   }
 
-  .GraphPanel__icon_button {
-    width: var(--size-touch-sm);
-    height: var(--size-touch-sm);
-  }
-
-  .GraphPanel__icon {
-    width: var(--size-icon-sm);
-    height: var(--size-icon-sm);
-  }
-
   .GraphPanel__toolbar {
     padding: var(--space-3);
     border-block-end: 1px solid var(--border-subtle, var(--border));

@@ -13,8 +13,14 @@
   const taskService = services.task;
 
   let text = $state("");
-  let targetPath = $state("Inbox.md");
+  let targetPath = $state(stores.editor.open_note?.meta.path || "Inbox.md");
   let dueDate = $state("");
+
+  $effect(() => {
+    if (open) {
+      targetPath = stores.editor.open_note?.meta.path || "Inbox.md";
+    }
+  });
 
   async function handleSubmit(e: Event) {
     e.preventDefault();

@@ -64,8 +64,21 @@ export function create_app_context(input: {
     stores.vault,
     stores.op,
     now_ms,
-    (command) =>
-      command.id !== "ai_assistant" || stores.ui.editor_settings.ai_enabled,
+    (command) => {
+      if (command.id === "ai_assistant") {
+        return stores.ui.editor_settings.ai_enabled;
+      }
+      if (
+        command.id === "toggle_tasks_panel" ||
+        command.id === "quick_capture_task" ||
+        command.id === "show_tasks_list" ||
+        command.id === "show_tasks_kanban" ||
+        command.id === "show_tasks_schedule"
+      ) {
+        return stores.vault.is_vault_mode;
+      }
+      return true;
+    },
     input.ports.index,
   );
 
