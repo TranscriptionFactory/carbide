@@ -5,6 +5,7 @@ import type {
   TerminalSessionReconcileInput,
   TerminalStore,
 } from "$lib/features/terminal";
+import { resolve_terminal_session_target } from "$lib/features/terminal";
 import type { VaultStore } from "$lib/features/vault";
 
 export type TerminalReconcileTarget = TerminalSessionReconcileInput & {
@@ -18,29 +19,23 @@ export function resolve_terminal_reconcile_targets(input: {
   vault_path: string | undefined;
   follow_active_vault: boolean;
 }): TerminalReconcileTarget[] {
-  const cwd_policy = input.follow_active_vault
-    ? "follow_active_vault"
-    : "fixed";
-  const respawn_policy = input.follow_active_vault
-    ? "on_context_change"
-    : "manual";
-
   return input.session_ids.flatMap((session_id) => {
     const session = input.sessions.get(session_id);
     if (!session) {
       return [];
     }
 
-    const cwd =
-      cwd_policy === "follow_active_vault"
-        ? input.vault_path
-        : (session.cwd ?? undefined);
-    const next_cwd = cwd ?? null;
+    const target = resolve_terminal_session_target({
+      follow_active_vault: input.follow_active_vault,
+      followed_cwd: input.vault_path,
+      fixed_cwd: session.cwd ?? undefined,
+    });
+    const next_cwd = target.cwd ?? null;
     const already_aligned =
       session.shell_path === input.shell_path &&
       session.cwd === next_cwd &&
-      session.cwd_policy === cwd_policy &&
-      session.respawn_policy === respawn_policy;
+      session.cwd_policy === target.cwd_policy &&
+      session.respawn_policy === target.respawn_policy;
 
     if (already_aligned) {
       return [];
@@ -50,9 +45,9 @@ export function resolve_terminal_reconcile_targets(input: {
       {
         session_id,
         shell_path: input.shell_path,
-        cwd,
-        cwd_policy,
-        respawn_policy,
+        cwd: target.cwd,
+        cwd_policy: target.cwd_policy,
+        respawn_policy: target.respawn_policy,
       },
     ];
   });
