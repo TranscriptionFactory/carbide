@@ -119,6 +119,33 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.ui_show_tasks_list,
+    label: "Show Task List",
+    execute: () => {
+      stores.task.setViewMode("list");
+      stores.ui.set_context_rail_tab("tasks");
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_show_tasks_kanban,
+    label: "Show Task Kanban",
+    execute: () => {
+      stores.task.setViewMode("kanban");
+      stores.ui.set_context_rail_tab("tasks");
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_show_tasks_schedule,
+    label: "Show Task Schedule",
+    execute: () => {
+      stores.task.setViewMode("schedule");
+      stores.ui.set_context_rail_tab("tasks");
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ui_quick_capture,
     label: "Quick Capture Task",
     shortcut: "CmdOrCtrl+Shift+K",

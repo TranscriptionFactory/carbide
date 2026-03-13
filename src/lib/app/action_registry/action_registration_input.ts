@@ -22,6 +22,8 @@ import type { GitStore } from "$lib/features/git";
 import type { OutlineStore } from "$lib/features/outline";
 import type { SplitViewStore } from "$lib/features/split_view";
 import type { GraphStore } from "$lib/features/graph";
+import type { BasesStore } from "$lib/features/bases";
+import type { TaskStore } from "$lib/features/task";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type ActionRegistrationInput = {
@@ -39,6 +41,8 @@ export type ActionRegistrationInput = {
     outline: OutlineStore;
     split_view: SplitViewStore;
     graph: GraphStore;
+    bases: BasesStore;
+    task: TaskStore;
   };
   services: {
     vault: VaultService;
