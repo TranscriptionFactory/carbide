@@ -7,6 +7,7 @@
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
+  import { resolve_terminal_session_target } from "$lib/features/terminal";
   import { create_logger } from "$lib/shared/utils/logger";
   import type { TerminalSessionRequest } from "$lib/features/terminal/application/terminal_service";
 
@@ -33,16 +34,20 @@
   }
 
   function build_session_request(): TerminalSessionRequest {
-    const follow_active_vault =
-      stores.ui.editor_settings.terminal_follow_active_vault;
+    const target = resolve_terminal_session_target({
+      follow_active_vault:
+        stores.ui.editor_settings.terminal_follow_active_vault,
+      followed_cwd: stores.vault.vault?.path ?? undefined,
+      fixed_cwd: stores.vault.vault?.path ?? undefined,
+    });
 
     return {
       cols: terminal?.cols ?? 80,
       rows: terminal?.rows ?? 24,
       shell_path: get_shell(),
-      cwd: stores.vault.vault?.path ?? undefined,
-      cwd_policy: follow_active_vault ? "follow_active_vault" : "fixed",
-      respawn_policy: follow_active_vault ? "on_context_change" : "manual",
+      cwd: target.cwd,
+      cwd_policy: target.cwd_policy,
+      respawn_policy: target.respawn_policy,
     };
   }
 

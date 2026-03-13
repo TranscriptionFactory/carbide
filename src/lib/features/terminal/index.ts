@@ -6,6 +6,11 @@ export type {
 } from "$lib/features/terminal/ports";
 export { create_terminal_tauri_adapter } from "$lib/features/terminal/adapters/terminal_tauri_adapter";
 export {
+  resolve_terminal_session_policy,
+  resolve_terminal_session_target,
+  type TerminalSessionTarget,
+} from "$lib/features/terminal/domain/terminal_session_target";
+export {
   TerminalService,
   type TerminalSessionReconcileInput,
   type TerminalSessionRequest,
