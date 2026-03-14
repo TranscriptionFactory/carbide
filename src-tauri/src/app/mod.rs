@@ -77,6 +77,7 @@ pub fn run() {
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,
+            features::notes::service::read_note_meta,
             features::notes::service::write_note,
             features::notes::service::create_note,
             features::notes::service::create_folder,

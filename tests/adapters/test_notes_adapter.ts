@@ -112,6 +112,21 @@ export function create_test_notes_adapter(): NotesPort {
       };
     },
 
+    async read_note_meta(
+      _vault_id: VaultId,
+      note_id: NoteId,
+    ): Promise<NoteMeta> {
+      const notes = await load_base_files();
+      const note_path = as_note_path(note_id);
+      const note_data = user_notes.get(note_path) ?? notes.get(note_path);
+
+      if (!note_data) {
+        throw new Error(`Note not found: ${note_id}`);
+      }
+
+      return derive_note_meta(note_path, note_data);
+    },
+
     write_note(
       _vault_id: VaultId,
       note_id: NoteId,

@@ -252,11 +252,27 @@ export class NoteService {
     }
 
     try {
-      await this.notes_port.read_note(vault_id, note_path);
+      await this.notes_port.read_note_meta(vault_id, note_path);
       return true;
     } catch (error) {
       if (this.is_not_found_error(error)) {
         return false;
+      }
+      throw error;
+    }
+  }
+
+  async get_note_meta(note_path: NotePath): Promise<NoteMeta | null> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      return null;
+    }
+
+    try {
+      return await this.notes_port.read_note_meta(vault_id, note_path);
+    } catch (error) {
+      if (this.is_not_found_error(error)) {
+        return null;
       }
       throw error;
     }
