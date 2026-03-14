@@ -5,7 +5,10 @@ import type { Camera } from "$lib/features/canvas/types/canvas";
 export function create_canvas_tauri_adapter(): CanvasPort {
   return {
     async read_file(vault_id: string, relative_path: string): Promise<string> {
-      return invoke<string>("read_vault_file", { vault_id, relative_path });
+      return invoke<string>("read_vault_file", {
+        vaultId: vault_id,
+        relativePath: relative_path,
+      });
     },
 
     async write_file(
@@ -14,8 +17,8 @@ export function create_canvas_tauri_adapter(): CanvasPort {
       content: string,
     ): Promise<void> {
       return invoke("write_vault_file", {
-        vault_id,
-        relative_path,
+        vaultId: vault_id,
+        relativePath: relative_path,
         content,
       });
     },
