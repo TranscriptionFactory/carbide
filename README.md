@@ -1,6 +1,6 @@
 <img src="./assets/icon.png" alt="Badgerly Carbide" width="150">
 
-[![Release](https://github.com/TranscriptionFactory/otterly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/otterly/actions/workflows/release.yml)
+[![Release](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml)
 
 # Badgerly
 
@@ -71,7 +71,13 @@ pnpm format     # Prettier
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=TranscriptionFactory/otterly&type=date&legend=top-left)](https://www.star-history.com/#TranscriptionFactory/otterly&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=TranscriptionFactory/badgerly&type=date&legend=top-left)](https://www.star-history.com/#TranscriptionFactory/badgerly&type=date&legend=top-left)
+
+## Acknowledgments
+
+Badgerly is a fork of [Otterly](https://github.com/TranscriptionFactory/otterly). Thank you to the Otterly project for providing the foundation this project builds on.
+
+Thanks also to Ferrite, Moraya, Scratch, and Lokus for inspiration.
 
 ## License
 
