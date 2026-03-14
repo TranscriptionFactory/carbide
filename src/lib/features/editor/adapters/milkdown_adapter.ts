@@ -7,7 +7,12 @@ import {
   parserCtx,
   remarkPluginsCtx,
 } from "@milkdown/kit/core";
-import { EditorState, Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import {
+  EditorState,
+  Plugin,
+  PluginKey,
+  TextSelection,
+} from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import remarkFrontmatter from "remark-frontmatter";
 import { frontmatter_plugin } from "./frontmatter_plugin";
@@ -804,6 +809,11 @@ export function create_milkdown_editor_port(args?: {
             const view = ctx.get(editorViewCtx);
             const parser = ctx.get(parserCtx);
 
+            const previous_selection =
+              is_same_path && restore_policy === "fresh"
+                ? view.state.selection
+                : null;
+
             const saved_entry = should_reuse_cache
               ? buffer_map.get(next_config.note_path)
               : null;
@@ -826,11 +836,27 @@ export function create_milkdown_editor_port(args?: {
                   view.state.doc;
               }
 
-              const new_state = EditorState.create({
+              let selection: TextSelection | undefined;
+              if (previous_selection) {
+                try {
+                  const max_pos = parsed_doc.content.size;
+                  const anchor = Math.min(previous_selection.anchor, max_pos);
+                  const head = Math.min(previous_selection.head, max_pos);
+                  selection = TextSelection.create(parsed_doc, anchor, head);
+                } catch {
+                  // positions invalid for new doc, fall back to default
+                }
+              }
+
+              const state_config: Parameters<typeof EditorState.create>[0] = {
                 schema: view.state.schema,
                 doc: parsed_doc,
                 plugins: view.state.plugins,
-              });
+              };
+              if (selection) {
+                state_config.selection = selection;
+              }
+              const new_state = EditorState.create(state_config);
 
               view.updateState(new_state);
               current_markdown = normalized_initial_markdown;

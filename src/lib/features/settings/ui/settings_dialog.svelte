@@ -19,7 +19,6 @@
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
   import type {
-    AiDefaultBackend,
     DocumentImageBackground,
     DocumentPdfZoomMode,
     EditorBlockquotePadding,
@@ -33,6 +32,7 @@
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
   import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+  import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
   import type { Theme } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import { slide } from "svelte/transition";
@@ -131,22 +131,93 @@
     label: `${String(n)} px`,
   }));
 
-  const terminal_scrollback_options = [0, 1000, 5000, 10000].map((n) => ({
-    value: String(n),
-    label: n.toLocaleString(),
-  }));
-
   const ai_timeout_options = [60, 120, 300, 600].map((n) => ({
     value: String(n),
     label: n >= 60 ? `${String(n / 60)} min` : `${String(n)} sec`,
   }));
 
-  const ai_backend_options: { value: AiDefaultBackend; label: string }[] = [
-    { value: "auto", label: "Auto" },
-    { value: "claude", label: "Claude" },
-    { value: "codex", label: "Codex" },
-    { value: "ollama", label: "Ollama" },
+  const template_kind_options = [
+    { value: "claude", label: "Claude (prompt as arg)" },
+    { value: "codex", label: "Codex (stdin + temp file)" },
+    { value: "ollama", label: "Ollama (run model, stdin)" },
+    { value: "stdin", label: "Generic (stdin)" },
   ];
+
+  let editing_provider_id = $state<string | null>(null);
+  let new_provider = $state<{
+    id: string;
+    name: string;
+    command: string;
+    args_template_kind: string;
+    model: string;
+  } | null>(null);
+
+  function update_provider(
+    id: string,
+    updates: {
+      [K in keyof AiProviderConfig]?: AiProviderConfig[K] | undefined;
+    },
+  ) {
+    const providers = [...editor_settings.ai_providers];
+    const idx = providers.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const merged = Object.assign({}, providers[idx]) as AiProviderConfig;
+    for (const key of Object.keys(updates) as (keyof AiProviderConfig)[]) {
+      const val = updates[key];
+      if (val === undefined) {
+        delete merged[key];
+      } else {
+        (merged as Record<string, unknown>)[key] = val;
+      }
+    }
+    providers[idx] = merged;
+    update("ai_providers", providers);
+  }
+
+  function remove_provider(id: string) {
+    const providers = editor_settings.ai_providers.filter((p) => p.id !== id);
+    update("ai_providers", providers);
+    if (editor_settings.ai_default_provider_id === id) {
+      update("ai_default_provider_id", "auto");
+    }
+  }
+
+  function add_provider() {
+    if (
+      !new_provider ||
+      !new_provider.id.trim() ||
+      !new_provider.name.trim() ||
+      !new_provider.command.trim()
+    )
+      return;
+    const kind = new_provider.args_template_kind;
+    const args_template =
+      kind === "args"
+        ? { kind: "args" as const, args: [] }
+        : { kind: kind as "claude" | "codex" | "ollama" | "stdin" };
+    const trimmed_model = new_provider.model.trim();
+    const provider: AiProviderConfig = {
+      id: new_provider.id.trim(),
+      name: new_provider.name.trim(),
+      command: new_provider.command.trim(),
+      args_template,
+      ...(trimmed_model ? { model: trimmed_model } : {}),
+    };
+    const providers = [...editor_settings.ai_providers, provider];
+    update("ai_providers", providers);
+    new_provider = null;
+  }
+
+  function move_provider(id: string, direction: -1 | 1) {
+    const providers = [...editor_settings.ai_providers];
+    const idx = providers.findIndex((p) => p.id === id);
+    const target = idx + direction;
+    if (target < 0 || target >= providers.length) return;
+    const tmp = providers[idx]!;
+    providers[idx] = providers[target]!;
+    providers[target] = tmp;
+    update("ai_providers", providers);
+  }
 
   const pdf_zoom_options: { value: DocumentPdfZoomMode; label: string }[] = [
     { value: "actual_size", label: "Actual Size" },
@@ -336,39 +407,34 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Default Backend</span>
-                <span class="SettingsDialog__description"
-                  >Auto selects the first available CLI in Claude, Codex, then
-                  Ollama order</span
-                >
+                <span class="SettingsDialog__label">Default Provider</span>
+                <span class="SettingsDialog__description">
+                  Auto selects the first available CLI in configured order
+                </span>
               </div>
               <div class="flex items-center gap-3">
                 <Select.Root
                   type="single"
-                  value={editor_settings.ai_default_backend}
+                  value={editor_settings.ai_default_provider_id}
                   onValueChange={(v: string | undefined) => {
-                    if (
-                      v === "auto" ||
-                      v === "claude" ||
-                      v === "codex" ||
-                      v === "ollama"
-                    ) {
-                      update("ai_default_backend", v);
-                    }
+                    if (v) update("ai_default_provider_id", v);
                   }}
                   disabled={ai_settings_disabled}
                 >
                   <Select.Trigger class="w-36">
                     <span data-slot="select-value">
-                      {ai_backend_options.find(
-                        (opt) =>
-                          opt.value === editor_settings.ai_default_backend,
-                      )?.label ?? editor_settings.ai_default_backend}
+                      {editor_settings.ai_default_provider_id === "auto"
+                        ? "Auto"
+                        : (editor_settings.ai_providers.find(
+                            (p) =>
+                              p.id === editor_settings.ai_default_provider_id,
+                          )?.name ?? editor_settings.ai_default_provider_id)}
                     </span>
                   </Select.Trigger>
                   <Select.Content>
-                    {#each ai_backend_options as opt (opt.value)}
-                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    <Select.Item value="auto">Auto</Select.Item>
+                    {#each editor_settings.ai_providers as p (p.id)}
+                      <Select.Item value={p.id}>{p.name}</Select.Item>
                     {/each}
                   </Select.Content>
                 </Select.Root>
@@ -377,161 +443,316 @@
                   class="SettingsDialog__reset"
                   onclick={() =>
                     update(
-                      "ai_default_backend",
-                      DEFAULT_EDITOR_SETTINGS.ai_default_backend,
+                      "ai_default_provider_id",
+                      DEFAULT_EDITOR_SETTINGS.ai_default_provider_id,
                     )}
                   disabled={ai_settings_disabled ||
-                    editor_settings.ai_default_backend ===
-                      DEFAULT_EDITOR_SETTINGS.ai_default_backend}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_default_backend})`}
+                    editor_settings.ai_default_provider_id ===
+                      DEFAULT_EDITOR_SETTINGS.ai_default_provider_id}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_default_provider_id})`}
                 >
                   <RotateCcw />
                 </button>
               </div>
             </div>
 
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Ollama Model</span>
-                <span class="SettingsDialog__description"
-                  >Default local model used for Ollama-powered edits</span
-                >
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Providers</span>
+                  <span class="SettingsDialog__description">
+                    CLI tools used for AI assistance. Order determines
+                    auto-detection priority.
+                  </span>
+                </div>
               </div>
-              <div class="flex items-center gap-3">
-                <Input
-                  type="text"
-                  value={editor_settings.ai_ollama_model}
-                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                    update("ai_ollama_model", e.currentTarget.value);
-                  }}
-                  class="w-48"
-                  placeholder="qwen3:8b"
-                  disabled={ai_settings_disabled}
-                />
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "ai_ollama_model",
-                      DEFAULT_EDITOR_SETTINGS.ai_ollama_model,
-                    )}
-                  disabled={ai_settings_disabled ||
-                    editor_settings.ai_ollama_model ===
-                      DEFAULT_EDITOR_SETTINGS.ai_ollama_model}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_ollama_model})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
 
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Claude Command</span>
-                <span class="SettingsDialog__description"
-                  >CLI command or executable path for Claude Code</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Input
-                  type="text"
-                  value={editor_settings.ai_claude_command}
-                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                    update("ai_claude_command", e.currentTarget.value);
-                  }}
-                  class="w-48"
-                  placeholder="claude"
-                  disabled={ai_settings_disabled}
-                />
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "ai_claude_command",
-                      DEFAULT_EDITOR_SETTINGS.ai_claude_command,
-                    )}
-                  disabled={ai_settings_disabled ||
-                    editor_settings.ai_claude_command ===
-                      DEFAULT_EDITOR_SETTINGS.ai_claude_command}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_claude_command})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
+              {#each editor_settings.ai_providers as provider, i (provider.id)}
+                <div class="rounded-md border p-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <span class="text-sm font-medium">{provider.name}</span>
+                      <span class="ml-2 text-xs text-muted-foreground"
+                        >{provider.command}</span
+                      >
+                      {#if provider.model}
+                        <span class="ml-2 text-xs text-muted-foreground"
+                          >({provider.model})</span
+                        >
+                      {/if}
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class="SettingsDialog__reset"
+                        onclick={() => move_provider(provider.id, -1)}
+                        disabled={ai_settings_disabled || i === 0}
+                        title="Move up"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        class="SettingsDialog__reset"
+                        onclick={() => move_provider(provider.id, 1)}
+                        disabled={ai_settings_disabled ||
+                          i === editor_settings.ai_providers.length - 1}
+                        title="Move down"
+                      >
+                        ▼
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() =>
+                          (editing_provider_id =
+                            editing_provider_id === provider.id
+                              ? null
+                              : provider.id)}
+                        disabled={ai_settings_disabled}
+                      >
+                        {editing_provider_id === provider.id ? "Done" : "Edit"}
+                      </Button>
+                      {#if !provider.is_preset}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => remove_provider(provider.id)}
+                          disabled={ai_settings_disabled}
+                        >
+                          Remove
+                        </Button>
+                      {/if}
+                    </div>
+                  </div>
 
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Codex Command</span>
-                <span class="SettingsDialog__description"
-                  >CLI command or executable path for Codex</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Input
-                  type="text"
-                  value={editor_settings.ai_codex_command}
-                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                    update("ai_codex_command", e.currentTarget.value);
-                  }}
-                  class="w-48"
-                  placeholder="codex"
-                  disabled={ai_settings_disabled}
-                />
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "ai_codex_command",
-                      DEFAULT_EDITOR_SETTINGS.ai_codex_command,
-                    )}
-                  disabled={ai_settings_disabled ||
-                    editor_settings.ai_codex_command ===
-                      DEFAULT_EDITOR_SETTINGS.ai_codex_command}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_codex_command})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
+                  {#if editing_provider_id === provider.id}
+                    <div class="space-y-2 border-t pt-2">
+                      <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs text-muted-foreground"
+                          >Name</label
+                        >
+                        <Input
+                          type="text"
+                          value={provider.name}
+                          class="flex-1"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_provider(provider.id, {
+                              name: e.currentTarget.value,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs text-muted-foreground"
+                          >Command</label
+                        >
+                        <Input
+                          type="text"
+                          value={provider.command}
+                          class="flex-1"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_provider(provider.id, {
+                              command: e.currentTarget.value,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs text-muted-foreground"
+                          >Template</label
+                        >
+                        <Select.Root
+                          type="single"
+                          value={provider.args_template.kind}
+                          disabled={ai_settings_disabled}
+                          onValueChange={(v: string | undefined) => {
+                            if (!v) return;
+                            const tpl =
+                              v === "args"
+                                ? { kind: "args" as const, args: [] }
+                                : {
+                                    kind: v as
+                                      | "claude"
+                                      | "codex"
+                                      | "ollama"
+                                      | "stdin",
+                                  };
+                            update_provider(provider.id, {
+                              args_template: tpl,
+                            });
+                          }}
+                        >
+                          <Select.Trigger class="flex-1">
+                            <span data-slot="select-value"
+                              >{template_kind_options.find(
+                                (o) => o.value === provider.args_template.kind,
+                              )?.label ?? provider.args_template.kind}</span
+                            >
+                          </Select.Trigger>
+                          <Select.Content>
+                            {#each template_kind_options as opt (opt.value)}
+                              <Select.Item value={opt.value}
+                                >{opt.label}</Select.Item
+                              >
+                            {/each}
+                          </Select.Content>
+                        </Select.Root>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs text-muted-foreground"
+                          >Model</label
+                        >
+                        <Input
+                          type="text"
+                          value={provider.model ?? ""}
+                          class="flex-1"
+                          placeholder="Optional"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_provider(provider.id, {
+                              model: e.currentTarget.value || undefined,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs text-muted-foreground"
+                          >Install URL</label
+                        >
+                        <Input
+                          type="text"
+                          value={provider.install_url ?? ""}
+                          class="flex-1"
+                          placeholder="Optional"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_provider(provider.id, {
+                              install_url: e.currentTarget.value || undefined,
+                            })}
+                        />
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
 
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Ollama Command</span>
-                <span class="SettingsDialog__description"
-                  >CLI command or executable path for Ollama</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Input
-                  type="text"
-                  value={editor_settings.ai_ollama_command}
-                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                    update("ai_ollama_command", e.currentTarget.value);
-                  }}
-                  class="w-48"
-                  placeholder="ollama"
-                  disabled={ai_settings_disabled}
-                />
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
+              {#if new_provider}
+                <div class="rounded-md border border-dashed p-3 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <label class="w-20 text-xs text-muted-foreground">ID</label>
+                    <Input
+                      type="text"
+                      bind:value={new_provider.id}
+                      class="flex-1"
+                      placeholder="unique-id"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="w-20 text-xs text-muted-foreground"
+                      >Name</label
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_provider.name}
+                      class="flex-1"
+                      placeholder="My Provider"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="w-20 text-xs text-muted-foreground"
+                      >Command</label
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_provider.command}
+                      class="flex-1"
+                      placeholder="lms"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="w-20 text-xs text-muted-foreground"
+                      >Template</label
+                    >
+                    <Select.Root
+                      type="single"
+                      value={new_provider.args_template_kind}
+                      disabled={ai_settings_disabled}
+                      onValueChange={(v: string | undefined) => {
+                        if (v && new_provider)
+                          new_provider.args_template_kind = v;
+                      }}
+                    >
+                      <Select.Trigger class="flex-1">
+                        <span data-slot="select-value"
+                          >{template_kind_options.find(
+                            (o) => o.value === new_provider!.args_template_kind,
+                          )?.label ?? new_provider!.args_template_kind}</span
+                        >
+                      </Select.Trigger>
+                      <Select.Content>
+                        {#each template_kind_options as opt (opt.value)}
+                          <Select.Item value={opt.value}
+                            >{opt.label}</Select.Item
+                          >
+                        {/each}
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="w-20 text-xs text-muted-foreground"
+                      >Model</label
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_provider.model}
+                      class="flex-1"
+                      placeholder="Optional"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onclick={() => (new_provider = null)}>Cancel</Button
+                    >
+                    <Button
+                      size="sm"
+                      onclick={add_provider}
+                      disabled={!new_provider.id.trim() ||
+                        !new_provider.name.trim() ||
+                        !new_provider.command.trim()}>Add</Button
+                    >
+                  </div>
+                </div>
+              {:else}
+                <Button
+                  variant="outline"
+                  size="sm"
                   onclick={() =>
-                    update(
-                      "ai_ollama_command",
-                      DEFAULT_EDITOR_SETTINGS.ai_ollama_command,
-                    )}
-                  disabled={ai_settings_disabled ||
-                    editor_settings.ai_ollama_command ===
-                      DEFAULT_EDITOR_SETTINGS.ai_ollama_command}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.ai_ollama_command})`}
+                    (new_provider = {
+                      id: "",
+                      name: "",
+                      command: "",
+                      args_template_kind: "stdin",
+                      model: "",
+                    })}
+                  disabled={ai_settings_disabled}
                 >
-                  <RotateCcw />
-                </button>
-              </div>
+                  Add Provider
+                </Button>
+              {/if}
             </div>
 
             <div class="SettingsDialog__row">
@@ -1651,48 +1872,6 @@
                   disabled={editor_settings.terminal_font_size_px ===
                     DEFAULT_EDITOR_SETTINGS.terminal_font_size_px}
                   title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.terminal_font_size_px)} px)`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Scrollback</span>
-                <span class="SettingsDialog__description"
-                  >Maximum number of terminal lines kept in history</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Select.Root
-                  type="single"
-                  value={String(editor_settings.terminal_scrollback)}
-                  onValueChange={(v: string | undefined) => {
-                    if (v) update("terminal_scrollback", Number(v));
-                  }}
-                >
-                  <Select.Trigger class="w-28">
-                    <span data-slot="select-value"
-                      >{editor_settings.terminal_scrollback.toLocaleString()}</span
-                    >
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each terminal_scrollback_options as opt (opt.value)}
-                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "terminal_scrollback",
-                      DEFAULT_EDITOR_SETTINGS.terminal_scrollback,
-                    )}
-                  disabled={editor_settings.terminal_scrollback ===
-                    DEFAULT_EDITOR_SETTINGS.terminal_scrollback}
-                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.terminal_scrollback.toLocaleString()})`}
                 >
                   <RotateCcw />
                 </button>

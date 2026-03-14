@@ -180,7 +180,6 @@
       fontSize: stores.ui.editor_settings.terminal_font_size_px,
       lineHeight: 1.3,
       cursorBlink: stores.ui.editor_settings.terminal_cursor_blink,
-      scrollback: stores.ui.editor_settings.terminal_scrollback,
       theme: build_xterm_theme(),
     });
 
@@ -259,7 +258,6 @@
   $effect(() => {
     if (!terminal) return;
     terminal.options.fontSize = stores.ui.editor_settings.terminal_font_size_px;
-    terminal.options.scrollback = stores.ui.editor_settings.terminal_scrollback;
     terminal.options.cursorBlink =
       stores.ui.editor_settings.terminal_cursor_blink;
     terminal.options.theme = build_xterm_theme();

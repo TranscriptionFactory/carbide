@@ -1,3 +1,8 @@
+import {
+  BUILTIN_PROVIDER_PRESETS,
+  type AiProviderConfig,
+} from "$lib/shared/types/ai_provider_config";
+
 export type SettingsCategory =
   | "theme"
   | "ai"
@@ -13,7 +18,6 @@ export type GitAutocommitMode = "off" | "on_save" | "interval";
 export type GitPullStrategy = "merge" | "rebase" | "ff_only";
 export type DocumentPdfZoomMode = "actual_size" | "fit_width";
 export type DocumentImageBackground = "checkerboard" | "light" | "dark";
-export type AiDefaultBackend = "auto" | "claude" | "codex" | "ollama";
 export type EditorSpacingDensity = "compact" | "normal" | "relaxed";
 export type EditorLinkUnderlineStyle = "solid" | "dotted" | "wavy";
 export type EditorCodeBlockPadding = "compact" | "normal" | "relaxed";
@@ -44,15 +48,11 @@ export type EditorSettings = {
   editor_link_underline_style: EditorLinkUnderlineStyle;
   terminal_shell_path: string;
   terminal_font_size_px: number;
-  terminal_scrollback: number;
   terminal_cursor_blink: boolean;
   terminal_follow_active_vault: boolean;
   ai_enabled: boolean;
-  ai_default_backend: AiDefaultBackend;
-  ai_ollama_model: string;
-  ai_claude_command: string;
-  ai_codex_command: string;
-  ai_ollama_command: string;
+  ai_providers: AiProviderConfig[];
+  ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
   document_pdf_default_zoom: DocumentPdfZoomMode;
   document_code_wrap: boolean;
@@ -83,15 +83,11 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_link_underline_style: "solid",
   terminal_shell_path: "/bin/zsh",
   terminal_font_size_px: 13,
-  terminal_scrollback: 0,
   terminal_cursor_blink: true,
   terminal_follow_active_vault: false,
   ai_enabled: true,
-  ai_default_backend: "auto",
-  ai_ollama_model: "qwen3.5:9b",
-  ai_claude_command: "claude",
-  ai_codex_command: "codex",
-  ai_ollama_command: "ollama",
+  ai_providers: BUILTIN_PROVIDER_PRESETS,
+  ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
   document_pdf_default_zoom: "fit_width",
   document_code_wrap: true,
@@ -120,15 +116,11 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_link_underline_style",
   "terminal_shell_path",
   "terminal_font_size_px",
-  "terminal_scrollback",
   "terminal_cursor_blink",
   "terminal_follow_active_vault",
   "ai_enabled",
-  "ai_default_backend",
-  "ai_ollama_model",
-  "ai_claude_command",
-  "ai_codex_command",
-  "ai_ollama_command",
+  "ai_providers",
+  "ai_default_provider_id",
   "ai_execution_timeout_seconds",
   "document_pdf_default_zoom",
   "document_code_wrap",
@@ -162,7 +154,11 @@ export async function apply_global_only_overrides(
     })),
   );
   for (const { key, value } of entries) {
-    if (typeof value === typeof base[key]) {
+    if (
+      value !== null &&
+      typeof value === typeof base[key] &&
+      Array.isArray(value) === Array.isArray(base[key])
+    ) {
       (result as Record<string, unknown>)[key] = value;
     }
   }
