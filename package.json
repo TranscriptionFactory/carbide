@@ -23,7 +23,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version": "node scripts/sync-versions.mjs && pnpm install"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
@@ -62,6 +63,7 @@
     "tauri-pty": "^0.2.1"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@excalidraw/excalidraw": "^0.18.0",
     "@internationalized/date": "^3.10.1",
     "@lucide/svelte": "^0.561.0",
