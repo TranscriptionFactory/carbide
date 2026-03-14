@@ -143,13 +143,13 @@
         class:VaultGraph__node--dimmed={node.dimmed}
         class:VaultGraph__node--connected={node.connected_to_hovered}
         style={`left:${String(node.x)}px; top:${String(node.y)}px;`}
-        title={node.label}
         onclick={() => on_select_node(node.id)}
         ondblclick={() => on_open_node(node.id)}
         onmouseenter={() => on_hover_node(node.id)}
         onmouseleave={() => on_hover_node(null)}
       >
         <span class="VaultGraph__dot"></span>
+        <span class="VaultGraph__label">{node.label}</span>
       </button>
     {/each}
   </div>
@@ -227,6 +227,30 @@
   .VaultGraph__node:focus-visible .VaultGraph__dot {
     background: var(--primary);
     transform: scale(1.5);
+  }
+
+  .VaultGraph__label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+    white-space: nowrap;
+    font-size: var(--text-xs);
+    color: var(--foreground);
+    background: var(--background);
+    padding: 2px 6px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  .VaultGraph__node:hover .VaultGraph__label,
+  .VaultGraph__node--hovered .VaultGraph__label,
+  .VaultGraph__node--selected .VaultGraph__label {
+    opacity: 1;
   }
 
   .VaultGraph__dot {
