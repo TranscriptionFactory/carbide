@@ -385,7 +385,10 @@
         on_open_settings={() =>
           void action_registry.execute(ACTION_IDS.settings_open)}
       />
-      <Sidebar.Provider open={stores.ui.sidebar_open} class="flex-1 min-h-0">
+      <Sidebar.Provider
+        open={stores.ui.sidebar_open}
+        class="flex-1 min-h-0 min-w-0"
+      >
         <Resizable.PaneGroup direction="horizontal" class="h-full">
           {#if stores.ui.sidebar_open}
             <Resizable.Pane
@@ -643,7 +646,7 @@
             <Resizable.Handle withHandle />
           {/if}
           <Resizable.Pane order={2}>
-            <Sidebar.Inset class="flex h-full min-h-0 flex-col">
+            <Sidebar.Inset class="flex h-full min-h-0 min-w-0 flex-col">
               <TabBar />
               <div class="flex min-h-0 flex-1 flex-col">
                 <FindInFileBar

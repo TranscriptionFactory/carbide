@@ -399,6 +399,8 @@
     border-block-end: 1px solid var(--border);
     position: relative;
     flex-shrink: 0;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .TabBar__tabs {
