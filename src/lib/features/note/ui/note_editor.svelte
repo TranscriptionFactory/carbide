@@ -7,6 +7,7 @@
   import { HotkeyKey } from "$lib/features/hotkey";
   import { Button } from "$lib/components/ui/button";
   import { DocumentViewer } from "$lib/features/document";
+  import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -15,6 +16,11 @@
   const open_note = $derived(stores.editor.open_note);
   const editor_mode = $derived(stores.editor.editor_mode);
   const active_tab = $derived(stores.tab.active_tab);
+  const is_canvas_tab = $derived(
+    active_tab?.kind === "document" &&
+      (active_tab.file_type === "canvas" ||
+        active_tab.file_type === "excalidraw"),
+  );
   const document_viewer_state = $derived(
     active_tab?.kind === "document"
       ? stores.document.get_viewer_state(active_tab.id)
@@ -44,7 +50,13 @@
 </script>
 
 <div class="NoteEditor">
-  {#if active_tab?.kind === "document" && document_viewer_state}
+  {#if is_canvas_tab && active_tab?.kind === "document"}
+    <CanvasViewer
+      tab_id={active_tab.id}
+      file_path={active_tab.file_path}
+      file_type={active_tab.file_type as "canvas" | "excalidraw"}
+    />
+  {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer
       viewer_state={document_viewer_state}
       content_state={document_content_state}
