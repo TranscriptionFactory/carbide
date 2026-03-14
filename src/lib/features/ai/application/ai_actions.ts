@@ -3,6 +3,7 @@ import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import type {
   AiApplyTarget,
+  AiMode,
   AiProvider,
 } from "$lib/features/ai/domain/ai_types";
 import { AI_PROVIDER_DISPLAY } from "$lib/features/ai/domain/ai_types";
@@ -236,6 +237,18 @@ export function register_ai_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.ai_update_mode,
+    label: "Update AI Mode",
+    execute: (mode: unknown) => {
+      const next_mode = String(mode) as AiMode;
+      if (next_mode !== "edit" && next_mode !== "ask") {
+        return;
+      }
+      ai_store.set_mode(next_mode);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ai_update_target,
     label: "Update AI Target",
     execute: (target: unknown) => {
@@ -294,7 +307,11 @@ export function register_ai_actions(
       if (dialog.is_executing) return;
       if (dialog.cli_status !== "available") return;
       if (dialog.prompt.trim() === "") {
-        toast.info("Describe how you want to edit the note");
+        toast.info(
+          dialog.mode === "ask"
+            ? "Type a question about the note"
+            : "Describe how you want to edit the note",
+        );
         return;
       }
 
@@ -306,6 +323,7 @@ export function register_ai_actions(
           provider: dialog.provider,
           prompt: dialog.prompt,
           context: dialog.context,
+          mode: dialog.mode,
           command: command_for(dialog.provider),
           ollama_model: dialog.ollama_model,
           timeout_seconds:

@@ -6,6 +6,7 @@ import {
   DEFAULT_OLLAMA_MODEL,
   type AiDialogContext,
   type AiExecutionResult,
+  type AiMode,
   type AiProvider,
 } from "$lib/features/ai/domain/ai_types";
 import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
@@ -29,6 +30,7 @@ export class AiService {
     provider: AiProvider;
     prompt: string;
     context: AiDialogContext;
+    mode: AiMode;
     command?: string | null;
     ollama_model?: string;
     timeout_seconds?: number | null;
@@ -44,6 +46,7 @@ export class AiService {
       selection: input.context.selection,
       user_prompt: input.prompt,
       target: input.context.target,
+      mode: input.mode,
     });
 
     const result = await this.ai_port.execute({
@@ -72,7 +75,7 @@ export class AiService {
         result.error ??
         (result.success
           ? null
-          : `${AI_PROVIDER_DISPLAY[input.provider].name} failed to edit the note`),
+          : `${AI_PROVIDER_DISPLAY[input.provider].name} failed to ${input.mode === "ask" ? "answer the question" : "edit the note"}`),
     };
   }
 }

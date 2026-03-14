@@ -10,6 +10,7 @@ export {
   AI_PROVIDER_DISPLAY,
   DEFAULT_OLLAMA_MODEL,
   type AiApplyTarget,
+  type AiMode,
   type AiCliStatus,
   type AiDialogContext,
   type AiExecutionResult,

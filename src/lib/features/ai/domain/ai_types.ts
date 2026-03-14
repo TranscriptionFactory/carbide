@@ -3,6 +3,7 @@ import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 
 export type AiProvider = "claude" | "codex" | "ollama";
 export type AiApplyTarget = "selection" | "full_note";
+export type AiMode = "edit" | "ask";
 export type AiCliStatus =
   | "idle"
   | "checking"
@@ -20,6 +21,7 @@ export type AiConversationTurn = {
   id: number;
   provider: AiProvider;
   target: AiApplyTarget;
+  mode: AiMode;
   prompt: string;
   status: "pending" | "completed";
   result: AiExecutionResult | null;

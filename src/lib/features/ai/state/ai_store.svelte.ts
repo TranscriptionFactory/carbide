@@ -4,6 +4,7 @@ import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 const DEFAULT_OLLAMA_MODEL = "qwen3:8b";
 
 type AiProvider = "claude" | "codex" | "ollama";
+type AiMode = "edit" | "ask";
 type AiCliStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 type AiExecutionResult = {
@@ -24,6 +25,7 @@ type AiConversationTurn = {
   id: number;
   provider: AiProvider;
   target: "selection" | "full_note";
+  mode: AiMode;
   prompt: string;
   status: "pending" | "completed";
   result: AiExecutionResult | null;
@@ -32,6 +34,7 @@ type AiConversationTurn = {
 export type AiDialogState = {
   open: boolean;
   provider: AiProvider;
+  mode: AiMode;
   prompt: string;
   context: AiDialogContext | null;
   cli_status: AiCliStatus;
@@ -47,6 +50,7 @@ function initial_state(): AiDialogState {
   return {
     open: false,
     provider: "claude",
+    mode: "edit",
     prompt: "",
     context: null,
     cli_status: "idle",
@@ -92,12 +96,15 @@ export class AiStore {
     this.dialog.cli_error = null;
   }
 
+  set_mode(mode: AiMode) {
+    this.dialog.mode = mode;
+  }
+
   update_context(context: AiDialogContext) {
     if (!this.dialog.open || !this.dialog.context) {
       return;
     }
 
-    // Keep the current target if it's still valid, otherwise use the new one
     const next_target =
       context.target === "selection" &&
       (!context.selection || context.selection.text.trim() === "")
@@ -146,6 +153,7 @@ export class AiStore {
         id: this.dialog.next_turn_id,
         provider: this.dialog.provider,
         target: this.dialog.context.target,
+        mode: this.dialog.mode,
         prompt: this.dialog.prompt.trim(),
         status: "pending",
         result: null,

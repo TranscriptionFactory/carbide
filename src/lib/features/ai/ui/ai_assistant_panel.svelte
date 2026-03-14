@@ -86,6 +86,7 @@
 {:else}
   <AiAssistantContent
     provider={session.provider}
+    mode={session.mode}
     prompt={session.prompt}
     ollama_model={session.ollama_model}
     cli_status={session.cli_status}
@@ -101,6 +102,8 @@
     close_label="Hide Panel"
     on_provider_change={(value) =>
       void action_registry.execute(ACTION_IDS.ai_update_provider, value)}
+    on_mode_change={(value) =>
+      void action_registry.execute(ACTION_IDS.ai_update_mode, value)}
     on_target_change={(value) =>
       void action_registry.execute(ACTION_IDS.ai_update_target, value)}
     on_prompt_change={(value) =>

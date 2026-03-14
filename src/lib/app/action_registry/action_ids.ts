@@ -200,6 +200,7 @@ export const ACTION_IDS = {
   ai_open_ollama: "ai.open_ollama",
   ai_close_dialog: "ai.close_dialog",
   ai_update_provider: "ai.update_provider",
+  ai_update_mode: "ai.update_mode",
   ai_update_target: "ai.update_target",
   ai_update_context: "ai.update_context",
   ai_update_prompt: "ai.update_prompt",

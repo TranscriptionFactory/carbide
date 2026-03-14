@@ -37,6 +37,7 @@ describe("AiService", () => {
     const result = await service.execute({
       provider: "ollama",
       prompt: "Tighten this note",
+      mode: "edit",
       command: "/opt/homebrew/bin/ollama",
       ollama_model: "llama3:8b",
       timeout_seconds: 120,

@@ -5,12 +5,14 @@
     AiCliStatus,
     AiConversationTurn,
     AiExecutionResult,
+    AiMode,
     AiProvider,
   } from "$lib/features/ai/domain/ai_types";
 
   type AiEditDialogProps = {
     open: boolean;
     provider: AiProvider;
+    mode: AiMode;
     prompt: string;
     ollama_model: string;
     cli_status: AiCliStatus;
@@ -25,6 +27,7 @@
     result: AiExecutionResult | null;
     on_open_change: (open: boolean) => void;
     on_provider_change: (provider: AiProvider) => void;
+    on_mode_change: (mode: AiMode) => void;
     on_target_change: (target: AiApplyTarget) => void;
     on_prompt_change: (prompt: string) => void;
     on_ollama_model_change: (model: string) => void;
@@ -36,6 +39,7 @@
   let {
     open,
     provider,
+    mode,
     prompt,
     ollama_model,
     cli_status,
@@ -50,6 +54,7 @@
     result,
     on_open_change,
     on_provider_change,
+    on_mode_change,
     on_target_change,
     on_prompt_change,
     on_ollama_model_change,
@@ -67,6 +72,7 @@
   component_props={{
     open,
     provider,
+    mode,
     prompt,
     ollama_model,
     cli_status,
@@ -81,6 +87,7 @@
     result,
     on_open_change,
     on_provider_change,
+    on_mode_change,
     on_target_change,
     on_prompt_change,
     on_ollama_model_change,

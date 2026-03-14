@@ -15,11 +15,13 @@
     type AiCliStatus,
     type AiConversationTurn,
     type AiExecutionResult,
+    type AiMode,
     type AiProvider,
   } from "$lib/features/ai/domain/ai_types";
 
   type Props = {
     provider: AiProvider;
+    mode: AiMode;
     prompt: string;
     ollama_model: string;
     cli_status: AiCliStatus;
@@ -36,6 +38,7 @@
     description?: string | null;
     close_label: string;
     on_provider_change: (provider: AiProvider) => void;
+    on_mode_change: (mode: AiMode) => void;
     on_target_change: (target: AiApplyTarget) => void;
     on_prompt_change: (prompt: string) => void;
     on_ollama_model_change: (model: string) => void;
@@ -47,6 +50,7 @@
 
   let {
     provider,
+    mode,
     prompt,
     ollama_model,
     cli_status,
@@ -63,6 +67,7 @@
     description = null,
     close_label,
     on_provider_change,
+    on_mode_change,
     on_target_change,
     on_prompt_change,
     on_ollama_model_change,
@@ -74,6 +79,10 @@
 
   const provider_display = $derived(AI_PROVIDER_DISPLAY[provider]);
   const provider_options: AiProvider[] = ["claude", "codex", "ollama"];
+  const is_ask_mode = $derived(mode === "ask");
+  const last_turn = $derived(turns.length > 0 ? turns[turns.length - 1] : null);
+  const last_turn_was_ask = $derived(last_turn?.mode === "ask");
+  const result_is_answer = $derived(result !== null && last_turn_was_ask);
   const history_turns = $derived(
     result && turns.length > 0 ? turns.slice(0, -1) : turns,
   );
@@ -86,13 +95,17 @@
   const description_text = $derived(
     description ??
       (note_title
-        ? target === "selection"
-          ? `Editing a selection in ${note_title}`
-          : `Editing ${note_title}`
-        : "Review and apply AI-assisted note edits"),
+        ? is_ask_mode
+          ? `Asking about ${note_title}`
+          : target === "selection"
+            ? `Editing a selection in ${note_title}`
+            : `Editing ${note_title}`
+        : is_ask_mode
+          ? "Ask questions about your note"
+          : "Review and apply AI-assisted note edits"),
   );
   const draft_diff = $derived<AiDraftDiff | null>(
-    result?.success
+    result?.success && !result_is_answer
       ? create_ai_draft_diff({
           original_text,
           draft_text: result.output,
@@ -109,6 +122,7 @@
   let selected_hunk_ids = $state<string[]>([]);
   let last_diff_signature = $state("");
   let context_preview_open = $state(false);
+  let copied = $state(false);
   const context_preview = $derived(
     describe_ai_context_preview({
       note_path,
@@ -187,6 +201,13 @@
   function apply_current_selection() {
     on_apply(selected_output ?? undefined);
   }
+
+  async function copy_result() {
+    if (!result?.output) return;
+    await navigator.clipboard.writeText(result.output);
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  }
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col">
@@ -218,6 +239,26 @@
           {/each}
         </Select.Content>
       </Select.Root>
+    </div>
+
+    <div class="space-y-2">
+      <p class="text-sm font-medium">Mode</p>
+      <div class="flex flex-wrap gap-2">
+        <Button
+          variant={mode === "edit" ? "default" : "outline"}
+          size="sm"
+          onclick={() => on_mode_change("edit")}
+        >
+          Edit
+        </Button>
+        <Button
+          variant={mode === "ask" ? "default" : "outline"}
+          size="sm"
+          onclick={() => on_mode_change("ask")}
+        >
+          Ask
+        </Button>
+      </div>
     </div>
 
     <div class="space-y-2">
@@ -357,6 +398,7 @@
             <div class="space-y-2 rounded-md border bg-muted/20 p-3">
               <div class="text-xs font-medium text-muted-foreground">
                 You ·
+                {turn.mode === "ask" ? "Ask" : "Edit"} ·
                 {turn.target === "selection" ? "Selection" : "Full Note"} ·
                 {AI_PROVIDER_DISPLAY[turn.provider].name}
               </div>
@@ -365,7 +407,9 @@
                 Assistant
               </div>
               {#if turn.status === "pending"}
-                <p class="text-sm text-muted-foreground">Generating draft…</p>
+                <p class="text-sm text-muted-foreground">
+                  {turn.mode === "ask" ? "Thinking…" : "Generating draft…"}
+                </p>
               {:else if turn.result?.success}
                 <p
                   class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
@@ -384,11 +428,15 @@
     {/if}
 
     <div class="space-y-2">
-      <label class="text-sm font-medium" for="ai-prompt">Instructions</label>
+      <label class="text-sm font-medium" for="ai-prompt">
+        {is_ask_mode ? "Question" : "Instructions"}
+      </label>
       <textarea
         id="ai-prompt"
         class="min-h-36 w-full rounded-md border bg-background px-3 py-2 text-sm"
-        placeholder="Describe how you want to edit the note…"
+        placeholder={is_ask_mode
+          ? "Ask a question about the note…"
+          : "Describe how you want to edit the note…"}
         value={prompt}
         oninput={(event) => on_prompt_change(event.currentTarget.value)}
         onkeydown={handle_prompt_keydown}
@@ -399,61 +447,79 @@
 
     {#if result}
       {#if result.success}
-        <div class="space-y-3">
-          <div class="flex items-center justify-between gap-3">
+        {#if result_is_answer}
+          <div class="space-y-3">
             <div
               class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
             >
-              Review the generated content before applying it to the note.
+              Answer from
               <span class="ml-1 text-foreground">
-                Backend: {provider_display.name}
+                {provider_display.name}
               </span>
             </div>
-            {#if draft_diff}
-              <div class="flex items-center gap-2 text-xs">
-                <span
-                  class="rounded-md border px-2 py-1 text-emerald-700 dark:text-emerald-400"
-                >
-                  +{draft_diff.additions}
-                </span>
-                <span class="rounded-md border px-2 py-1 text-destructive">
-                  -{draft_diff.deletions}
+            <div
+              class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
+            >
+              {result.output}
+            </div>
+          </div>
+        {:else}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div
+                class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+              >
+                Review the generated content before applying it to the note.
+                <span class="ml-1 text-foreground">
+                  Backend: {provider_display.name}
                 </span>
               </div>
-            {/if}
-          </div>
-          {#if draft_diff && draft_diff.hunks.length > 1}
-            <div
-              class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
-            >
-              Select the change groups you want to apply. Unselected hunks keep
-              the original note content.
+              {#if draft_diff}
+                <div class="flex items-center gap-2 text-xs">
+                  <span
+                    class="rounded-md border px-2 py-1 text-emerald-700 dark:text-emerald-400"
+                  >
+                    +{draft_diff.additions}
+                  </span>
+                  <span class="rounded-md border px-2 py-1 text-destructive">
+                    -{draft_diff.deletions}
+                  </span>
+                </div>
+              {/if}
             </div>
-          {/if}
-          <AiDiffView
-            diff={draft_diff}
-            {selected_hunk_ids}
-            on_toggle_hunk={draft_diff && draft_diff.hunks.length > 1
-              ? toggle_hunk
-              : undefined}
-            on_select_all={draft_diff && draft_diff.hunks.length > 1
-              ? select_all_hunks
-              : undefined}
-            on_clear_selection={draft_diff && draft_diff.hunks.length > 1
-              ? clear_hunk_selection
-              : undefined}
-          />
-          <textarea
-            class="min-h-80 w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
-            readonly
-            value={selected_output ?? result.output}
-          ></textarea>
-        </div>
+            {#if draft_diff && draft_diff.hunks.length > 1}
+              <div
+                class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
+              >
+                Select the change groups you want to apply. Unselected hunks
+                keep the original note content.
+              </div>
+            {/if}
+            <AiDiffView
+              diff={draft_diff}
+              {selected_hunk_ids}
+              on_toggle_hunk={draft_diff && draft_diff.hunks.length > 1
+                ? toggle_hunk
+                : undefined}
+              on_select_all={draft_diff && draft_diff.hunks.length > 1
+                ? select_all_hunks
+                : undefined}
+              on_clear_selection={draft_diff && draft_diff.hunks.length > 1
+                ? clear_hunk_selection
+                : undefined}
+            />
+            <textarea
+              class="min-h-80 w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
+              readonly
+              value={selected_output ?? result.output}
+            ></textarea>
+          </div>
+        {/if}
       {:else}
         <div
           class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
         >
-          {result.error ?? `${provider_display.name} failed to edit the note.`}
+          {result.error ?? `${provider_display.name} failed.`}
         </div>
       {/if}
     {/if}
@@ -461,10 +527,17 @@
 
   <div class="flex flex-wrap justify-end gap-2 border-t px-4 py-3">
     {#if result}
-      <Button variant="outline" onclick={on_clear_result}>Dismiss Draft</Button>
+      <Button variant="outline" onclick={on_clear_result}>
+        {result_is_answer ? "Dismiss" : "Dismiss Draft"}
+      </Button>
     {/if}
     <Button variant="outline" onclick={on_close}>{close_label}</Button>
-    {#if result?.success}
+    {#if result?.success && result_is_answer}
+      <Button variant="outline" onclick={copy_result}>
+        {copied ? "Copied" : "Copy"}
+      </Button>
+    {/if}
+    {#if result?.success && !result_is_answer}
       <Button
         onclick={apply_current_selection}
         disabled={draft_diff ? selected_hunk_ids.length === 0 : false}
@@ -477,11 +550,13 @@
       </Button>
     {/if}
     <Button onclick={on_execute} disabled={execute_disabled}>
-      {is_executing
-        ? `Running ${provider_display.name}…`
-        : result
-          ? "Refine Draft"
-          : "Generate Draft"}
+      {#if is_executing}
+        Running {provider_display.name}…
+      {:else if result}
+        {is_ask_mode ? "Ask Again" : "Refine Draft"}
+      {:else}
+        {is_ask_mode ? "Ask" : "Generate Draft"}
+      {/if}
     </Button>
   </div>
 </div>
