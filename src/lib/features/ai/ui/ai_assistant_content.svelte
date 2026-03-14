@@ -329,8 +329,8 @@
     <div
       class="space-y-3 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
     >
-      <div class="flex items-start justify-between gap-3">
-        <div class="space-y-1">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div class="min-w-0 flex-1 space-y-1">
           <p>
             Sending the
             <span class="font-medium text-foreground">
@@ -345,6 +345,7 @@
         <Button
           variant="ghost"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
           onclick={() => (context_preview_open = !context_preview_open)}
         >
           {context_preview_open ? "Hide Payload" : "Show Payload"}
@@ -465,9 +466,9 @@
           </div>
         {:else}
           <div class="space-y-3">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <div
-                class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+                class="min-w-0 flex-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
               >
                 Review the generated content before applying it to the note.
                 <span class="ml-1 text-foreground">
@@ -475,7 +476,7 @@
                 </span>
               </div>
               {#if draft_diff}
-                <div class="flex items-center gap-2 text-xs">
+                <div class="flex shrink-0 items-center gap-2 text-xs">
                   <span
                     class="rounded-md border px-2 py-1 text-emerald-700 dark:text-emerald-400"
                   >
@@ -525,38 +526,45 @@
     {/if}
   </div>
 
-  <div class="flex flex-wrap justify-end gap-2 border-t px-4 py-3">
-    {#if result}
-      <Button variant="outline" onclick={on_clear_result}>
-        {result_is_answer ? "Dismiss" : "Dismiss Draft"}
-      </Button>
-    {/if}
-    <Button variant="outline" onclick={on_close}>{close_label}</Button>
-    {#if result?.success && result_is_answer}
-      <Button variant="outline" onclick={copy_result}>
-        {copied ? "Copied" : "Copy"}
-      </Button>
-    {/if}
-    {#if result?.success && !result_is_answer}
-      <Button
-        onclick={apply_current_selection}
-        disabled={draft_diff ? selected_hunk_ids.length === 0 : false}
+  <div class="flex flex-col gap-2 border-t px-4 py-3">
+    <div class="flex flex-wrap justify-end gap-2">
+      {#if result}
+        <Button variant="outline" size="sm" onclick={on_clear_result}>
+          {result_is_answer ? "Dismiss" : "Dismiss Draft"}
+        </Button>
+      {/if}
+      <Button variant="outline" size="sm" onclick={on_close}
+        >{close_label}</Button
       >
-        {#if partial_selection_active}
-          Apply Selected Changes
+      {#if result?.success && result_is_answer}
+        <Button variant="outline" size="sm" onclick={copy_result}>
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      {/if}
+    </div>
+    <div class="flex flex-wrap justify-end gap-2">
+      {#if result?.success && !result_is_answer}
+        <Button
+          size="sm"
+          onclick={apply_current_selection}
+          disabled={draft_diff ? selected_hunk_ids.length === 0 : false}
+        >
+          {#if partial_selection_active}
+            Apply Selected Changes
+          {:else}
+            {target === "selection" ? "Apply to Selection" : "Replace Note"}
+          {/if}
+        </Button>
+      {/if}
+      <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
+        {#if is_executing}
+          Running {provider_display.name}…
+        {:else if result}
+          {is_ask_mode ? "Ask Again" : "Refine Draft"}
         {:else}
-          {target === "selection" ? "Apply to Selection" : "Replace Note"}
+          {is_ask_mode ? "Ask" : "Generate Draft"}
         {/if}
       </Button>
-    {/if}
-    <Button onclick={on_execute} disabled={execute_disabled}>
-      {#if is_executing}
-        Running {provider_display.name}…
-      {:else if result}
-        {is_ask_mode ? "Ask Again" : "Refine Draft"}
-      {:else}
-        {is_ask_mode ? "Ask" : "Generate Draft"}
-      {/if}
-    </Button>
+    </div>
   </div>
 </div>

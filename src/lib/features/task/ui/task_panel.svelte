@@ -50,16 +50,16 @@
   ] as const;
 </script>
 
-<div class="flex flex-col h-full bg-background border-r">
-  <div class="p-3 border-b flex flex-col gap-2">
-    <div class="flex items-center justify-between">
+<div class="flex flex-col h-full min-w-0 bg-background border-r">
+  <div class="p-3 border-b flex flex-col gap-2 min-w-0">
+    <div class="flex items-center justify-between min-w-0 gap-2">
       <h2
-        class="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2"
+        class="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2"
       >
         <CheckCircle2 size={14} />
         Tasks
       </h2>
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1 flex-wrap">
         <Button
           variant="ghost"
           size="icon"
@@ -119,18 +119,20 @@
       />
     </div>
 
-    <div class="flex items-center gap-2 justify-between">
+    <div class="flex items-center gap-2 justify-between min-w-0 flex-wrap">
       <Button
         variant={showCompleted ? "secondary" : "ghost"}
         size="sm"
-        class="h-6 px-2 text-[10px]"
+        class="h-6 shrink-0 px-2 text-[10px]"
         onclick={() => (showCompleted = !showCompleted)}
       >
         <ListFilter size={10} class="mr-1" />
         {showCompleted ? "Showing All" : "Hide Completed"}
       </Button>
 
-      <div class="flex items-center gap-1 text-[10px] text-muted-foreground">
+      <div
+        class="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0"
+      >
         {#if taskStore.viewMode === "kanban"}
           <Button
             variant="ghost"
@@ -154,7 +156,7 @@
         {/if}
         <Columns size={10} />
         <select
-          class="bg-transparent border-none focus:ring-0 text-[10px] cursor-pointer"
+          class="min-w-0 bg-transparent border-none focus:ring-0 text-[10px] cursor-pointer"
           value={taskStore.grouping}
           onchange={(e) => taskStore.setGrouping(e.currentTarget.value as any)}
         >
