@@ -43,7 +43,7 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import PluginManager from "$lib/features/plugin/ui/plugin_manager.svelte";
 import CanvasPanel from "$lib/features/canvas/ui/canvas_panel.svelte";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PenTool } from "@lucide/svelte";
+import { Blocks, PencilRuler } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type AppContext = ReturnType<typeof create_app_context>;
@@ -70,7 +70,7 @@ export function create_app_context(input: {
   plugin_service.register_sidebar_view({
     id: "canvases",
     label: "Canvases",
-    icon: PenTool,
+    icon: PencilRuler,
     panel: CanvasPanel,
   });
 

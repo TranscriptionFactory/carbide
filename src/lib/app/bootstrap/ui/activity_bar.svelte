@@ -5,8 +5,8 @@
     Settings,
     Star,
     CircleHelp,
-    Share2,
-    CheckCircle2,
+    VectorSquare,
+    ListChecks,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
 
@@ -68,24 +68,12 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "dashboard"}
-        onclick={on_open_dashboard}
-        aria-pressed={sidebar_open && active_view === "dashboard"}
-        aria-label="Dashboard"
+          active_view === "starred"}
+        onclick={on_open_starred}
+        aria-pressed={sidebar_open && active_view === "starred"}
+        aria-label="Starred"
       >
-        <LayoutDashboard class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === "graph"}
-        onclick={on_open_graph}
-        aria-pressed={sidebar_open && active_view === "graph"}
-        aria-label="Graph"
-      >
-        <Share2 class="ActivityBar__icon" />
+        <Star class="ActivityBar__icon" />
       </button>
 
       <button
@@ -97,19 +85,19 @@
         aria-pressed={sidebar_open && active_view === "tasks"}
         aria-label="Tasks"
       >
-        <CheckCircle2 class="ActivityBar__icon" />
+        <ListChecks class="ActivityBar__icon" />
       </button>
 
       <button
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "starred"}
-        onclick={on_open_starred}
-        aria-pressed={sidebar_open && active_view === "starred"}
-        aria-label="Starred"
+          active_view === "graph"}
+        onclick={on_open_graph}
+        aria-pressed={sidebar_open && active_view === "graph"}
+        aria-label="Graph"
       >
-        <Star class="ActivityBar__icon" />
+        <VectorSquare class="ActivityBar__icon" />
       </button>
 
       {#each dynamic_views as view (view.id)}
@@ -125,6 +113,18 @@
           <view.icon class="ActivityBar__icon" />
         </button>
       {/each}
+
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === "dashboard"}
+        onclick={on_open_dashboard}
+        aria-pressed={sidebar_open && active_view === "dashboard"}
+        aria-label="Dashboard"
+      >
+        <LayoutDashboard class="ActivityBar__icon" />
+      </button>
     {/if}
   </div>
 
