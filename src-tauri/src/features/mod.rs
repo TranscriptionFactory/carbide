@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod canvas;
 pub mod bases;
 pub mod graph;
 pub mod git;

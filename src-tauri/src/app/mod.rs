@@ -180,7 +180,10 @@ pub fn run() {
             shared::buffer::save_buffer,
             shared::buffer::read_buffer_window,
             shared::buffer::close_buffer,
-            get_pending_file_open
+            get_pending_file_open,
+            features::canvas::extract_canvas_links,
+            features::canvas::extract_canvas_text,
+            features::canvas::rewrite_canvas_file_refs
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
