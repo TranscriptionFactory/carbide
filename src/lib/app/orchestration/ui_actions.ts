@@ -1,26 +1,21 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 
-type SidebarView = "explorer" | "dashboard" | "starred" | "tasks" | "graph";
+type SidebarView =
+  | "explorer"
+  | "dashboard"
+  | "starred"
+  | "tasks"
+  | "graph"
+  | (string & {});
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();
-    if (value === "starred") {
-      return "starred";
-    }
-    if (value === "dashboard") {
-      return "dashboard";
-    }
-    if (value === "tasks") {
-      return "tasks";
-    }
-    if (value === "graph") {
-      return "graph";
-    }
-    return "explorer";
+    if (!value) return "explorer";
+    return value;
   }
 
   function set_vault_dashboard_open(open: boolean) {

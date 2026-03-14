@@ -236,11 +236,22 @@ pub fn handle_excalidraw_request(app: &tauri::AppHandle, req: Request<Vec<u8>>) 
         .unwrap_or_default()
         .join("excalidraw-dist");
 
-    let target = resource_dir.join(file_rel);
+    let excalidraw_dir = if resource_dir.exists() {
+        resource_dir
+    } else {
+        // Dev mode fallback: excalidraw-dist is built into src-tauri/excalidraw-dist/
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir.join("excalidraw-dist")
+    };
 
-    let canonical_base = match resource_dir.canonicalize() {
+    let target = excalidraw_dir.join(file_rel);
+
+    let canonical_base = match excalidraw_dir.canonicalize() {
         Ok(p) => p,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+        Err(_) => {
+            log::warn!("Excalidraw dist not found at {:?}", excalidraw_dir);
+            return Response::builder().status(404).body(Vec::new()).unwrap();
+        }
     };
     let canonical_target = match target.canonicalize() {
         Ok(p) => p,
