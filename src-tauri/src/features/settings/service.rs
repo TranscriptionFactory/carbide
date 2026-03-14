@@ -1,3 +1,4 @@
+use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -24,13 +25,6 @@ fn read_settings_file(path: &Path) -> Result<Option<Vec<u8>>, String> {
     }
 }
 
-fn write_settings_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let temporary_path = path.with_extension("json.tmp");
-    std::fs::write(&temporary_path, bytes).map_err(|e| e.to_string())?;
-    std::fs::rename(&temporary_path, path).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 pub fn load_settings(app: &AppHandle) -> Result<SettingsStore, String> {
     let path = settings_path(app)?;
     let Some(bytes) = read_settings_file(&path)? else {
@@ -43,7 +37,7 @@ pub fn load_settings(app: &AppHandle) -> Result<SettingsStore, String> {
 pub fn save_settings(app: &AppHandle, store: &SettingsStore) -> Result<(), String> {
     let path = settings_path(app)?;
     let bytes = serde_json::to_vec_pretty(store).map_err(|e| e.to_string())?;
-    write_settings_file(&path, &bytes)
+    io_utils::atomic_write(&path, &bytes)
 }
 
 #[tauri::command]
