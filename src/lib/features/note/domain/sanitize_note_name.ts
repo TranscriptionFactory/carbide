@@ -28,7 +28,7 @@ const MAX_LENGTH = 200;
 export function sanitize_note_name(name: string): string {
   let sanitized = name.trim();
 
-  if (!sanitized) return "Untitled.md";
+  if (!sanitized) return "";
 
   sanitized = sanitized.replace(/\//g, "-");
 

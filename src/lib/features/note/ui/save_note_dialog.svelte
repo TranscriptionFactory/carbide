@@ -102,9 +102,9 @@
 
     {#if !error && !show_overwrite_confirm}
       <div class="space-y-4">
-        {#if folder_path}
-          <p class="text-sm text-muted-foreground">Location: {folder_path}/</p>
-        {/if}
+        <p class="text-sm text-muted-foreground">
+          Location: {folder_path === "" ? "./" : folder_path + "/"}
+        </p>
         <div class="flex items-center">
           <Input
             bind:ref={input_el}

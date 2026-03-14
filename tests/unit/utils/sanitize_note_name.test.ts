@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";
 
 describe("sanitize_note_name", () => {
-  it("returns Untitled.md for empty input", () => {
-    expect(sanitize_note_name("")).toBe("Untitled.md");
-    expect(sanitize_note_name("   ")).toBe("Untitled.md");
+  it("returns empty string for empty input", () => {
+    expect(sanitize_note_name("")).toBe("");
+    expect(sanitize_note_name("   ")).toBe("");
   });
 
   it("trims whitespace", () => {
