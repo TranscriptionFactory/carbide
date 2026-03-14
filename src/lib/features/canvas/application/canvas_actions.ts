@@ -2,6 +2,11 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { CanvasService } from "$lib/features/canvas/application/canvas_service";
 
+function unique_canvas_path(folder: string, base: string, ext: string): string {
+  const prefix = folder ? `${folder}/` : "";
+  return `${prefix}${base} ${Date.now()}.${ext}`;
+}
+
 export function register_canvas_actions(
   input: ActionRegistrationInput & {
     canvas_service: CanvasService;
@@ -49,11 +54,17 @@ export function register_canvas_actions(
     id: ACTION_IDS.canvas_create,
     label: "New Canvas",
     execute: async (...args: unknown[]) => {
-      const file_path = args[0] as string;
-      if (typeof file_path !== "string") return;
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return;
+
+      const folder = stores.ui.selected_folder_path;
+      const file_path =
+        typeof args[0] === "string"
+          ? args[0]
+          : unique_canvas_path(folder, "Untitled", "canvas");
+
       await canvas_service.create_canvas(vault_id, file_path);
+      await registry.execute(ACTION_IDS.canvas_open, file_path);
     },
   });
 
@@ -61,11 +72,17 @@ export function register_canvas_actions(
     id: ACTION_IDS.canvas_create_drawing,
     label: "New Drawing",
     execute: async (...args: unknown[]) => {
-      const file_path = args[0] as string;
-      if (typeof file_path !== "string") return;
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return;
+
+      const folder = stores.ui.selected_folder_path;
+      const file_path =
+        typeof args[0] === "string"
+          ? args[0]
+          : unique_canvas_path(folder, "Untitled", "excalidraw");
+
       await canvas_service.create_drawing(vault_id, file_path);
+      await registry.execute(ACTION_IDS.canvas_open, file_path);
     },
   });
 }

@@ -8,6 +8,8 @@ import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
+  create_new_canvas: ACTION_IDS.canvas_create,
+  create_new_drawing: ACTION_IDS.canvas_create_drawing,
   change_vault: ACTION_IDS.vault_request_change,
   open_settings: ACTION_IDS.settings_open,
   open_hotkeys: ACTION_IDS.settings_open,

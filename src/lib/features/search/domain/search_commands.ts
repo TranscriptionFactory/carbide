@@ -9,6 +9,27 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "file-plus",
   },
   {
+    id: "create_new_canvas",
+    label: "New Canvas",
+    description: "Create a new JSON Canvas board",
+    keywords: ["new", "canvas", "board", "spatial", "create"],
+    icon: "file-plus",
+  },
+  {
+    id: "create_new_drawing",
+    label: "New Drawing",
+    description: "Create a new Excalidraw drawing",
+    keywords: [
+      "new",
+      "drawing",
+      "excalidraw",
+      "sketch",
+      "create",
+      "whiteboard",
+    ],
+    icon: "file-plus",
+  },
+  {
     id: "change_vault",
     label: "Change vault",
     description: "Switch to a different vault",

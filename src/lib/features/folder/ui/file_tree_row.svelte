@@ -109,6 +109,8 @@
     on_request_delete_folder?: ((folder_path: string) => void) | undefined;
     on_request_rename_folder?: ((folder_path: string) => void) | undefined;
     on_request_create_note?: (() => void) | undefined;
+    on_request_create_canvas?: (() => void) | undefined;
+    on_request_create_drawing?: (() => void) | undefined;
     on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_toggle_star?: ((path: string) => void) | undefined;
     selection_count?: number;
@@ -143,6 +145,8 @@
     on_request_delete_folder,
     on_request_rename_folder,
     on_request_create_note,
+    on_request_create_canvas,
+    on_request_create_drawing,
     on_request_create_folder,
     on_toggle_star,
     selection_count = 1,
@@ -366,6 +370,18 @@
             <FolderPlus class="mr-2 h-4 w-4" />
             <span>New Folder</span>
           </ContextMenu.Item>
+          {#if on_request_create_canvas}
+            <ContextMenu.Item onSelect={() => on_request_create_canvas()}>
+              <FilePlus class="mr-2 h-4 w-4" />
+              <span>New Canvas</span>
+            </ContextMenu.Item>
+          {/if}
+          {#if on_request_create_drawing}
+            <ContextMenu.Item onSelect={() => on_request_create_drawing()}>
+              <FilePlus class="mr-2 h-4 w-4" />
+              <span>New Drawing</span>
+            </ContextMenu.Item>
+          {/if}
           <ContextMenu.Separator />
           <ContextMenu.Item onSelect={() => on_toggle_star?.(node.path)}>
             {#if is_starred}
