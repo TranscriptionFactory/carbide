@@ -80,6 +80,18 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
+          active_view === "dashboard"}
+        onclick={on_open_dashboard}
+        aria-pressed={sidebar_open && active_view === "dashboard"}
+        aria-label="Dashboard"
+      >
+        <LayoutDashboard class="ActivityBar__icon" />
+      </button>
+      
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
           active_view === "tasks"}
         onclick={on_open_tasks}
         aria-pressed={sidebar_open && active_view === "tasks"}
@@ -113,18 +125,6 @@
           <view.icon class="ActivityBar__icon" />
         </button>
       {/each}
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === "dashboard"}
-        onclick={on_open_dashboard}
-        aria-pressed={sidebar_open && active_view === "dashboard"}
-        aria-label="Dashboard"
-      >
-        <LayoutDashboard class="ActivityBar__icon" />
-      </button>
     {/if}
   </div>
 
