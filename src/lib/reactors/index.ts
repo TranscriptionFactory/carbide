@@ -28,6 +28,7 @@ import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconc
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
+import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -214,6 +215,9 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.task_service,
       context.watcher_service,
+    ),
+    create_menu_action_reactor(
+      (action_id) => void context.action_registry.execute(action_id),
     ),
   ];
 
