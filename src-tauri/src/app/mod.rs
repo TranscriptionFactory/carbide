@@ -1,3 +1,5 @@
+pub mod menu;
+
 use crate::features;
 use crate::shared;
 use std::sync::Mutex;
@@ -93,6 +95,17 @@ pub fn run() {
                 )
                 .build(),
         )
+        .setup(|app| {
+            let menu = menu::build_menu(app)?;
+            app.set_menu(menu)?;
+            app.on_menu_event(|app, event| {
+                let id = event.id().0.as_str();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("menu-action", id);
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
             features::ai::service::ai_execute_claude,
