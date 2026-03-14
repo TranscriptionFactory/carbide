@@ -3,6 +3,7 @@
   import type { CanvasTabState } from "$lib/features/canvas/state/canvas_store.svelte";
   import type { Camera } from "$lib/features/canvas/types/canvas";
   import CanvasSurface from "$lib/features/canvas/ui/canvas_surface.svelte";
+  import ExcalidrawHost from "$lib/features/canvas/ui/excalidraw_host.svelte";
 
   interface Props {
     tab_id: string;
@@ -17,26 +18,70 @@
     stores.canvas.get_state(tab_id),
   );
 
+  const app_theme = $derived(
+    document.documentElement.classList.contains("dark")
+      ? ("dark" as const)
+      : ("light" as const),
+  );
+
   function handle_camera_change(camera: Camera) {
     stores.canvas.set_camera(tab_id, camera);
+  }
+
+  function handle_excalidraw_change(
+    elements: unknown[],
+    appState: Record<string, unknown>,
+    dirty: boolean,
+  ) {
+    if (dirty) {
+      stores.canvas.set_excalidraw_scene(tab_id, {
+        type: "excalidraw",
+        version: 2,
+        source: "badgerly",
+        elements,
+        appState,
+      });
+      stores.canvas.set_dirty(tab_id, true);
+    }
+  }
+
+  async function handle_save_request() {
+    return (
+      canvas_state?.excalidraw_scene ?? {
+        type: "excalidraw",
+        version: 2,
+        source: "badgerly",
+        elements: [],
+        appState: {},
+      }
+    );
   }
 </script>
 
 <div class="CanvasViewer">
   {#if canvas_state?.status === "loading"}
     <div class="CanvasViewer__state">
-      <span>Loading canvas…</span>
+      <span>Loading…</span>
     </div>
   {:else if canvas_state?.status === "error"}
     <div class="CanvasViewer__state CanvasViewer__state--error">
-      <span>{canvas_state.error_message ?? "Failed to load canvas"}</span>
+      <span>{canvas_state.error_message ?? "Failed to load"}</span>
     </div>
-  {:else if canvas_state?.status === "ready" && canvas_state.canvas_data}
-    <CanvasSurface
-      canvas_data={canvas_state.canvas_data}
-      camera={canvas_state.camera}
-      on_camera_change={handle_camera_change}
-    />
+  {:else if canvas_state?.status === "ready"}
+    {#if file_type === "excalidraw" && canvas_state.excalidraw_scene}
+      <ExcalidrawHost
+        scene={canvas_state.excalidraw_scene}
+        theme={app_theme}
+        on_change={handle_excalidraw_change}
+        on_save_request={handle_save_request}
+      />
+    {:else if canvas_state.canvas_data}
+      <CanvasSurface
+        canvas_data={canvas_state.canvas_data}
+        camera={canvas_state.camera}
+        on_camera_change={handle_camera_change}
+      />
+    {/if}
   {:else}
     <div class="CanvasViewer__state">
       <span>No canvas loaded</span>

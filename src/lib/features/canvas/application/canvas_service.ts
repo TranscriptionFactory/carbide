@@ -1,5 +1,8 @@
 import type { CanvasPort } from "$lib/features/canvas/ports";
-import type { CanvasStore } from "$lib/features/canvas/state/canvas_store.svelte";
+import type {
+  CanvasStore,
+  ExcalidrawScene,
+} from "$lib/features/canvas/state/canvas_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import {
@@ -20,23 +23,31 @@ export class CanvasService {
     private readonly now_ms: () => number = () => Date.now(),
   ) {}
 
-  async open_canvas(tab_id: string, file_path: string): Promise<void> {
+  async open_canvas(
+    tab_id: string,
+    file_path: string,
+    file_type: "canvas" | "excalidraw" = "canvas",
+  ): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
-    this.canvas_store.init_state(tab_id, file_path);
+    this.canvas_store.init_state(tab_id, file_path, file_type);
     this.canvas_store.set_status(tab_id, "loading");
 
     try {
       const content = await this.canvas_port.read_file(vault_id, file_path);
-      const result = parse_canvas(content);
 
-      if (!result.ok) {
-        this.canvas_store.set_status(tab_id, "error", result.error);
-        return;
+      if (file_type === "excalidraw") {
+        const scene = JSON.parse(content) as ExcalidrawScene;
+        this.canvas_store.set_excalidraw_scene(tab_id, scene);
+      } else {
+        const result = parse_canvas(content);
+        if (!result.ok) {
+          this.canvas_store.set_status(tab_id, "error", result.error);
+          return;
+        }
+        this.canvas_store.set_canvas_data(tab_id, result.data);
       }
-
-      this.canvas_store.set_canvas_data(tab_id, result.data);
 
       const camera = await this.canvas_port.read_camera(vault_id, file_path);
       if (camera) {
@@ -54,10 +65,18 @@ export class CanvasService {
     if (!vault_id) return;
 
     const state = this.canvas_store.get_state(tab_id);
-    if (!state?.canvas_data) return;
+    if (!state) return;
 
     try {
-      const content = serialize_canvas(state.canvas_data);
+      let content: string;
+      if (state.file_type === "excalidraw" && state.excalidraw_scene) {
+        content = JSON.stringify(state.excalidraw_scene, null, 2);
+      } else if (state.canvas_data) {
+        content = serialize_canvas(state.canvas_data);
+      } else {
+        return;
+      }
+
       await this.canvas_port.write_file(vault_id, state.file_path, content);
       this.canvas_store.set_dirty(tab_id, false);
     } catch (error) {
@@ -65,6 +84,15 @@ export class CanvasService {
         error instanceof Error ? error.message : "Failed to save canvas";
       this.canvas_store.set_status(tab_id, "error", message);
     }
+  }
+
+  async save_excalidraw_scene(
+    tab_id: string,
+    scene: ExcalidrawScene,
+  ): Promise<void> {
+    this.canvas_store.set_excalidraw_scene(tab_id, scene);
+    this.canvas_store.set_dirty(tab_id, true);
+    await this.save_canvas(tab_id);
   }
 
   async save_camera(tab_id: string): Promise<void> {

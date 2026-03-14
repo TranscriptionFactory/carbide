@@ -5,7 +5,7 @@
   "identifier": "com.badgerly.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build && pnpm build:excalidraw",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
@@ -20,6 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": ["excalidraw-dist/*", "excalidraw-dist/assets/*"],
     "macOS": {
       "signingIdentity": "-"
     },
@@ -34,6 +35,18 @@
         "ext": ["txt"],
         "name": "Text Document",
         "mimeType": "text/plain",
+        "role": "Editor"
+      },
+      {
+        "ext": ["canvas"],
+        "name": "JSON Canvas",
+        "mimeType": "application/json",
+        "role": "Editor"
+      },
+      {
+        "ext": ["excalidraw"],
+        "name": "Excalidraw Drawing",
+        "mimeType": "application/json",
         "role": "Editor"
       }
     ]
@@ -59,7 +72,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: badgerly-asset: badgerly-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: badgerly-plugin:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost badgerly-asset:; frame-src badgerly-plugin:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: badgerly-asset: badgerly-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: badgerly-plugin:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost badgerly-asset:; frame-src badgerly-plugin: badgerly-excalidraw:"
     }
   }
 }
