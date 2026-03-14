@@ -6,6 +6,7 @@
     csp?: string;
     sandbox?: string;
     class?: string;
+    visible?: boolean;
     on_message: (data: unknown) => void;
   }
 
@@ -16,6 +17,7 @@
     csp = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; connect-src none;",
     sandbox = "allow-scripts",
     class: class_name = "",
+    visible = false,
     on_message,
   }: Props = $props();
 
@@ -51,5 +53,5 @@
   {sandbox}
   {...{ csp } as any}
   class={class_name}
-  aria-hidden="true"
+  aria-hidden={!visible}
 ></iframe>
