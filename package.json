@@ -2,7 +2,7 @@
   "name": "badgerly",
   "private": true,
   "type": "module",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=20"
