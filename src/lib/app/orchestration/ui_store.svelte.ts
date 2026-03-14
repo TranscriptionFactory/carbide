@@ -180,6 +180,7 @@ function initial_settings_dialog(settings: EditorSettings) {
     active_category: "theme" as SettingsCategory,
     hotkey_draft_overrides: [] as HotkeyOverride[],
     hotkey_draft_config: { bindings: [] } as HotkeyConfig,
+    all_folder_paths: [] as string[],
   };
 }
 
@@ -284,6 +285,7 @@ export class UIStore {
     active_category: SettingsCategory;
     hotkey_draft_overrides: HotkeyOverride[];
     hotkey_draft_config: HotkeyConfig;
+    all_folder_paths: string[];
   }>(initial_settings_dialog(DEFAULT_EDITOR_SETTINGS));
 
   omnibar = $state<{

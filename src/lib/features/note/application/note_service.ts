@@ -95,6 +95,10 @@ export class NoteService {
     private readonly split_view_service?: SplitViewService,
   ) {}
 
+  async list_all_folders(vault_id: VaultId): Promise<string[]> {
+    return this.notes_port.list_folders(vault_id);
+  }
+
   clear_open_note() {
     this.editor_store.clear_open_note();
   }

@@ -93,6 +93,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
       active_category: category,
       hotkey_draft_overrides: draft_overrides,
       hotkey_draft_config: draft_config,
+      all_folder_paths: [],
     };
   }
 
@@ -158,6 +159,21 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           has_unsaved_changes: false,
         };
         stores.ui.set_editor_settings(result.settings);
+      }
+
+      const vault_id = stores.vault.vault?.id;
+      if (vault_id) {
+        services.note
+          .list_all_folders(vault_id)
+          .then((folders) => {
+            if (open_revision !== settings_open_revision) return;
+            if (!stores.ui.settings_dialog.open) return;
+            stores.ui.settings_dialog = {
+              ...stores.ui.settings_dialog,
+              all_folder_paths: folders,
+            };
+          })
+          .catch(() => {});
       }
     },
   });

@@ -34,6 +34,9 @@ function create_harness(
       reset_load_operation: vi.fn(),
       reset_save_operation: vi.fn(),
     },
+    note: {
+      list_all_folders: vi.fn().mockResolvedValue([]),
+    },
     hotkey: {
       save_hotkey_overrides: vi.fn().mockResolvedValue(undefined),
       merge_config: vi.fn(() => ({ bindings: [] })),
@@ -148,6 +151,35 @@ describe("register_settings_actions", () => {
       stores.ui.settings_dialog.persisted_settings.terminal_font_size_px,
     ).toBe(16);
     expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(false);
+  });
+
+  it("loads all folder paths when settings dialog opens", async () => {
+    const { registry, stores, services } = create_harness();
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 0,
+      mode: "vault",
+    });
+
+    services.note.list_all_folders.mockResolvedValue([
+      "docs",
+      "docs/nested",
+      "papers",
+      "papers/raw",
+    ]);
+
+    await registry.execute(ACTION_IDS.settings_open, "vault");
+    await vi.waitFor(() => {
+      expect(stores.ui.settings_dialog.all_folder_paths).toEqual([
+        "docs",
+        "docs/nested",
+        "papers",
+        "papers/raw",
+      ]);
+    });
   });
 
   it("uses workspace_reconcile for ignored folder saves when available", async () => {

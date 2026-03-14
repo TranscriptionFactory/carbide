@@ -307,7 +307,7 @@
 <SettingsDialog
   open={stores.ui.settings_dialog.open}
   editor_settings={stores.ui.settings_dialog.current_settings}
-  folder_paths={stores.notes.folder_paths}
+  folder_paths={stores.ui.settings_dialog.all_folder_paths}
   git_enabled={stores.git.enabled}
   git_remote_url={stores.ui.settings_dialog.git_remote_url}
   active_category={stores.ui.settings_dialog.active_category}
