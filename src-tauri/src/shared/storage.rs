@@ -213,6 +213,58 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
         .unwrap()
 }
 
+pub fn handle_excalidraw_request(app: &tauri::AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
+    let uri = req.uri().to_string();
+
+    let without_scheme = uri
+        .trim_start_matches("badgerly-excalidraw://")
+        .trim_start_matches("badgerly-excalidraw:");
+
+    let query_start = without_scheme.find('?');
+    let path_part = if let Some(pos) = query_start {
+        &without_scheme[..pos]
+    } else {
+        without_scheme
+    };
+
+    let file_rel = path_part.trim_start_matches("localhost/").trim_start_matches('/');
+    let file_rel = if file_rel.is_empty() { "index.html" } else { file_rel };
+
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .unwrap_or_default()
+        .join("excalidraw-dist");
+
+    let target = resource_dir.join(file_rel);
+
+    let canonical_base = match resource_dir.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+    let canonical_target = match target.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+
+    if !canonical_target.starts_with(&canonical_base) {
+        return Response::builder().status(403).body(Vec::new()).unwrap();
+    }
+
+    let bytes = match std::fs::read(&canonical_target) {
+        Ok(b) => b,
+        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+    };
+
+    let mime = mime_guess::from_path(&canonical_target).first_or_octet_stream();
+    Response::builder()
+        .header("Content-Type", mime.as_ref())
+        .header("Content-Length", bytes.len().to_string())
+        .header("Access-Control-Allow-Origin", "*")
+        .body(bytes)
+        .unwrap()
+}
+
 pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
     let rel = uri

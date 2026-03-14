@@ -23,7 +23,7 @@ export function register_canvas_actions(
       const file_type = is_excalidraw ? "excalidraw" : "canvas";
 
       const tab = stores.tab.open_document_tab(file_path, filename, file_type);
-      await canvas_service.open_canvas(tab.id, file_path);
+      await canvas_service.open_canvas(tab.id, file_path, file_type);
     },
   });
 

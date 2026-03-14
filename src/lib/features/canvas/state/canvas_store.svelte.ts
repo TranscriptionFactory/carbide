@@ -1,9 +1,20 @@
 import type { Camera, CanvasData } from "$lib/features/canvas/types/canvas";
 
+export type ExcalidrawScene = {
+  type?: string;
+  version?: number;
+  source?: string;
+  elements: unknown[];
+  appState?: Record<string, unknown>;
+  files?: Record<string, unknown>;
+};
+
 export type CanvasTabState = {
   tab_id: string;
   file_path: string;
+  file_type: "canvas" | "excalidraw";
   canvas_data: CanvasData | null;
+  excalidraw_scene: ExcalidrawScene | null;
   camera: Camera;
   is_dirty: boolean;
   status: "idle" | "loading" | "ready" | "error";
@@ -27,12 +38,18 @@ export class CanvasStore {
     this.states = next;
   }
 
-  init_state(tab_id: string, file_path: string): void {
+  init_state(
+    tab_id: string,
+    file_path: string,
+    file_type: "canvas" | "excalidraw" = "canvas",
+  ): void {
     if (this.states.has(tab_id)) return;
     this.set_state(tab_id, {
       tab_id,
       file_path,
+      file_type,
       canvas_data: null,
+      excalidraw_scene: null,
       camera: { x: 0, y: 0, zoom: 1 },
       is_dirty: false,
       status: "idle",
@@ -43,6 +60,14 @@ export class CanvasStore {
   set_canvas_data(tab_id: string, data: CanvasData): void {
     this.#patch(tab_id, {
       canvas_data: data,
+      status: "ready",
+      error_message: null,
+    });
+  }
+
+  set_excalidraw_scene(tab_id: string, scene: ExcalidrawScene): void {
+    this.#patch(tab_id, {
+      excalidraw_scene: scene,
       status: "ready",
       error_message: null,
     });

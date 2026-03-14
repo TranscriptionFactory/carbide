@@ -16,6 +16,7 @@ export {
 export {
   CanvasStore,
   type CanvasTabState,
+  type ExcalidrawScene,
 } from "$lib/features/canvas/state/canvas_store.svelte";
 export { type CanvasPort } from "$lib/features/canvas/ports";
 export { create_canvas_tauri_adapter } from "$lib/features/canvas/adapters/canvas_tauri_adapter";

@@ -11,6 +11,7 @@ build/
 dist/
 .DS_Store
 src-tauri/target/
+src-tauri/excalidraw-dist/
 .pnpm-store/
 devlog/
 .design-engineer/

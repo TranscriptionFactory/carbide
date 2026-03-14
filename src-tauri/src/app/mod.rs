@@ -188,6 +188,9 @@ pub fn run() {
         .register_uri_scheme_protocol("badgerly-plugin", |_ctx, req| {
             shared::storage::handle_plugin_request(req)
         })
+        .register_uri_scheme_protocol("badgerly-excalidraw", |ctx, req| {
+            shared::storage::handle_excalidraw_request(ctx.app_handle(), req)
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
