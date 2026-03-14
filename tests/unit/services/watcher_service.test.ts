@@ -69,13 +69,13 @@ describe("WatcherService", () => {
     await expect(service.stop()).resolves.toBeUndefined();
   });
 
-  it("suppress_next marks path as suppressed", () => {
+  it("suppress_next marks path as suppressed and token is consumed on first check", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
 
     expect(service.is_suppressed("notes/test.md")).toBe(true);
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
   });
 
   it("is_suppressed returns false for unknown path", () => {
@@ -92,17 +92,38 @@ describe("WatcherService", () => {
     expect(service.is_suppressed("notes/test.md")).toBe(true);
   });
 
-  it("suppress_next resets timer on repeated calls", () => {
+  it("multiple suppress_next calls stack and each is_suppressed consumes one token", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    service.suppress_next("notes/test.md");
+
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+  });
+
+  it("fallback timeout clears stale tokens after 10s", () => {
     vi.useFakeTimers();
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(10_001);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("fallback timeout decrements count when multiple tokens are stacked", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(1_000);
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(9_001);
 
     expect(service.is_suppressed("notes/test.md")).toBe(true);
-    vi.advanceTimersByTime(501);
     expect(service.is_suppressed("notes/test.md")).toBe(false);
     vi.useRealTimers();
   });
