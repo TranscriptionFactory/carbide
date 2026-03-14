@@ -336,6 +336,7 @@ export class NoteService {
     this.start_operation("note.delete");
 
     try {
+      this.on_file_written?.(note.id);
       await this.notes_port.delete_note(vault_id, note.id);
       await this.index_port.remove_note(vault_id, note.id);
 

@@ -108,7 +108,9 @@ export function create_watcher_reactor(
 
     function handle_event(event: VaultFsEvent) {
       if (
-        event.type === "note_changed_externally" &&
+        (event.type === "note_changed_externally" ||
+          event.type === "note_added" ||
+          event.type === "note_removed") &&
         watcher_service.is_suppressed(event.note_path)
       ) {
         log.info("Suppressed self-triggered event", {

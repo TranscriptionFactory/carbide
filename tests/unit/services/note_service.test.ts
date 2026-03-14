@@ -421,6 +421,8 @@ describe("NoteService", () => {
       rename_buffer: vi.fn(),
     } as unknown as EditorService;
 
+    const on_file_written = vi.fn();
+
     const service = new NoteService(
       notes_port,
       index_port,
@@ -431,11 +433,14 @@ describe("NoteService", () => {
       op_store,
       editor_service,
       () => 1,
+      null,
+      on_file_written,
     );
 
     await service.delete_note(note_meta);
 
     expect(notes_store.recent_notes).toEqual([]);
+    expect(on_file_written).toHaveBeenCalledWith(note_meta.id);
   });
 
   it("updates recent notes when a note is renamed", async () => {

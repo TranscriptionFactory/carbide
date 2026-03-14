@@ -315,4 +315,94 @@ describe("watcher_reactor", () => {
 
     unmount();
   });
+
+  it("ignores suppressed note_added events", async () => {
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const watcher_port = create_mock_watcher_port();
+    const watcher_service = new WatcherService(watcher_port);
+    const note_service = {
+      open_note: vi.fn(),
+      clear_open_note: vi.fn(),
+    };
+    const tab_service = {
+      invalidate_cache: vi.fn(),
+      mark_conflict: vi.fn(),
+      remove_tab: vi.fn(),
+      sync_dirty_state: vi.fn(),
+    };
+    const action_registry = {
+      execute: vi.fn(),
+    };
+
+    vault_store.set_vault(create_test_vault());
+
+    const unmount = create_watcher_reactor(
+      vault_store,
+      editor_store,
+      tab_store,
+      tab_service as never,
+      note_service as never,
+      watcher_service,
+      action_registry as never,
+    );
+
+    await flush_effects();
+
+    watcher_service.suppress_next("notes/new.md");
+    watcher_port._emit(added_event("notes/new.md"));
+
+    await flush_effects();
+
+    expect(action_registry.execute).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it("ignores suppressed note_removed events", async () => {
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const watcher_port = create_mock_watcher_port();
+    const watcher_service = new WatcherService(watcher_port);
+    const note_service = {
+      open_note: vi.fn(),
+      clear_open_note: vi.fn(),
+    };
+    const tab_service = {
+      invalidate_cache: vi.fn(),
+      mark_conflict: vi.fn(),
+      remove_tab: vi.fn(),
+      sync_dirty_state: vi.fn(),
+    };
+    const action_registry = {
+      execute: vi.fn(),
+    };
+
+    vault_store.set_vault(create_test_vault());
+
+    const unmount = create_watcher_reactor(
+      vault_store,
+      editor_store,
+      tab_store,
+      tab_service as never,
+      note_service as never,
+      watcher_service,
+      action_registry as never,
+    );
+
+    await flush_effects();
+
+    watcher_service.suppress_next("notes/deleted.md");
+    watcher_port._emit(removed_event("notes/deleted.md"));
+
+    await flush_effects();
+
+    expect(action_registry.execute).not.toHaveBeenCalled();
+    expect(note_service.clear_open_note).not.toHaveBeenCalled();
+    expect(tab_service.remove_tab).not.toHaveBeenCalled();
+
+    unmount();
+  });
 });
