@@ -26,11 +26,12 @@ describe("WatcherService", () => {
     expect(port._calls.unwatch_vault).toBe(1);
   });
 
-  it("subscribe forwards events to handler", () => {
+  it("subscribe forwards events to handler after start", async () => {
     const { port, service } = setup();
     const handler = vi.fn();
 
     service.subscribe(handler);
+    await service.start("v1" as VaultId);
     port._emit({
       type: "note_added",
       vault_id: "v1",
@@ -106,21 +107,38 @@ describe("WatcherService", () => {
     vi.useRealTimers();
   });
 
-  it("subscribe replaces previous subscription", () => {
+  it("supports multiple concurrent subscribers", async () => {
     const { port, service } = setup();
     const handler_1 = vi.fn();
     const handler_2 = vi.fn();
 
     service.subscribe(handler_1);
     service.subscribe(handler_2);
+    await service.start("v1" as VaultId);
     port._emit({
       type: "note_added",
       vault_id: "v1",
       note_path: "test.md",
     });
 
-    expect(handler_1).not.toHaveBeenCalled();
+    expect(handler_1).toHaveBeenCalledOnce();
     expect(handler_2).toHaveBeenCalledOnce();
+  });
+
+  it("unsubscribe removes handler", async () => {
+    const { port, service } = setup();
+    const handler = vi.fn();
+
+    const unsub = service.subscribe(handler);
+    await service.start("v1" as VaultId);
+    unsub();
+    port._emit({
+      type: "note_added",
+      vault_id: "v1",
+      note_path: "test.md",
+    });
+
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("serializes stop before a later start", async () => {

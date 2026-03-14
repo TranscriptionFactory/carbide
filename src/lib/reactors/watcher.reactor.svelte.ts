@@ -182,10 +182,11 @@ export function create_watcher_reactor(
         return;
       }
 
+      const unsub = watcher_service.subscribe(handle_event);
       void watcher_service.start(vault.id);
-      watcher_service.subscribe(handle_event);
 
       return () => {
+        unsub();
         tree_refresh.cancel();
         void watcher_service.stop();
       };
