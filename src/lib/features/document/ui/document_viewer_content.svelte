@@ -8,6 +8,7 @@
   import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import CodeViewer from "$lib/features/document/ui/code_viewer.svelte";
+  import { CanvasViewer } from "$lib/features/canvas";
 
   interface Props {
     viewer_state: DocumentViewerState;
@@ -23,7 +24,13 @@
 </script>
 
 <div class="DocumentViewer">
-  {#if viewer_state.file_type === "pdf" && asset_url}
+  {#if viewer_state.file_type === "canvas" || viewer_state.file_type === "excalidraw"}
+    <CanvasViewer
+      tab_id={viewer_state.tab_id}
+      file_path={viewer_state.file_path}
+      file_type={viewer_state.file_type}
+    />
+  {:else if viewer_state.file_type === "pdf" && asset_url}
     {#key `${viewer_state.file_path}:${viewer_state.pdf_page}`}
       <PdfViewer
         src={asset_url}

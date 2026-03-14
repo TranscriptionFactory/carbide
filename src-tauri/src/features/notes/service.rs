@@ -1340,3 +1340,15 @@ pub fn read_vault_file(
 
     io_utils::read_file_to_string(&abs)
 }
+
+#[tauri::command]
+pub fn write_vault_file(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+    content: String,
+) -> Result<(), String> {
+    let root = storage::vault_path(&app, &vault_id)?;
+    let abs = safe_vault_abs(&root, &relative_path)?;
+    io_utils::atomic_write(&abs, content.as_bytes())
+}

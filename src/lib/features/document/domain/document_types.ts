@@ -26,6 +26,8 @@ const DOCUMENT_TYPE_MAP: Record<string, DocumentFileType> = {
   ".txt": "text",
   ".log": "text",
   ".ini": "text",
+  ".canvas": "canvas",
+  ".excalidraw": "excalidraw",
 };
 
 export function detect_file_type(filename: string): DocumentFileType | null {

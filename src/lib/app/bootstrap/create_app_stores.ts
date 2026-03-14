@@ -16,6 +16,7 @@ import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases";
 import { TaskStore } from "$lib/features/task";
 import { PluginStore } from "$lib/features/plugin";
+import { CanvasStore } from "$lib/features/canvas";
 
 export type AppStores = {
   vault: VaultStore;
@@ -36,6 +37,7 @@ export type AppStores = {
   bases: BasesStore;
   task: TaskStore;
   plugin: PluginStore;
+  canvas: CanvasStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -58,5 +60,6 @@ export function create_app_stores(): AppStores {
     bases: new BasesStore(),
     task: new TaskStore(),
     plugin: new PluginStore(),
+    canvas: new CanvasStore(),
   };
 }

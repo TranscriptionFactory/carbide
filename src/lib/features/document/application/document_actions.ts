@@ -62,6 +62,11 @@ export function register_document_actions(
       const file_type = detect_file_type(filename);
       if (!file_type) return;
 
+      if (file_type === "canvas" || file_type === "excalidraw") {
+        await registry.execute(ACTION_IDS.canvas_open, file_path);
+        return;
+      }
+
       const tab = stores.tab.open_document_tab(file_path, filename, file_type);
       await document_service.open_document(
         tab.id,

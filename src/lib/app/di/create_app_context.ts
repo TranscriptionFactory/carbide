@@ -39,6 +39,7 @@ import { BasesService } from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService } from "$lib/features/task";
 import { PluginService, register_plugin_actions } from "$lib/features/plugin";
+import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import PluginManager from "$lib/features/plugin/ui/plugin_manager.svelte";
 import { mount_reactors } from "$lib/reactors";
 import { Blocks } from "@lucide/svelte";
@@ -269,6 +270,14 @@ export function create_app_context(input: {
     stores.vault,
   );
 
+  const canvas_service = new CanvasService(
+    input.ports.canvas,
+    stores.vault,
+    stores.canvas,
+    stores.op,
+    now_ms,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -349,6 +358,11 @@ export function create_app_context(input: {
     ...base_action_input,
     graph_store: stores.graph,
     graph_service,
+  });
+
+  register_canvas_actions({
+    ...base_action_input,
+    canvas_service,
   });
 
   const cleanup_reactors = mount_reactors({

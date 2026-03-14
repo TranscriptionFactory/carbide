@@ -222,6 +222,12 @@ export const ACTION_IDS = {
 
   window_open_viewer: "window.open_viewer",
   window_open_new: "window.open_new",
+
+  canvas_open: "canvas.open",
+  canvas_close: "canvas.close",
+  canvas_save: "canvas.save",
+  canvas_create: "canvas.create",
+  canvas_create_drawing: "canvas.create_drawing",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

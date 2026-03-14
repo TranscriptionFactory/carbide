@@ -1,1 +1,8 @@
-export type DocumentFileType = "pdf" | "image" | "csv" | "code" | "text";
+export type DocumentFileType =
+  | "pdf"
+  | "image"
+  | "csv"
+  | "code"
+  | "text"
+  | "canvas"
+  | "excalidraw";
