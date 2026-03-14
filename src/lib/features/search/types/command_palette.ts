@@ -27,6 +27,7 @@ export type CommandId =
   | "terminal_toggle"
   | "terminal_new_session"
   | "open_plugins"
+  | "toggle_zen_mode"
   | (string & {});
 
 export type CommandIcon =
@@ -44,6 +45,7 @@ export type CommandIcon =
   | "sparkles"
   | "terminal"
   | "blocks"
+  | "maximize"
   | (string & {});
 
 export type CommandDefinition = {

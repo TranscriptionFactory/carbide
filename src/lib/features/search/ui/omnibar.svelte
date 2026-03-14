@@ -20,6 +20,7 @@
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import BlocksIcon from "@lucide/svelte/icons/blocks";
+  import MaximizeIcon from "@lucide/svelte/icons/maximize";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -45,6 +46,7 @@
     sparkles: SparklesIcon,
     terminal: CommandIcon,
     blocks: BlocksIcon,
+    maximize: MaximizeIcon,
   };
 
   const SCOPES: OmnibarScope[] = ["current_vault", "all_vaults"];

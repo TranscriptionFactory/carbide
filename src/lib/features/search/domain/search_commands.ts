@@ -246,4 +246,20 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["plugins", "extensions", "addons", "manage", "install"],
     icon: "blocks",
   },
+  {
+    id: "toggle_zen_mode",
+    label: "Toggle Zen Mode",
+    description: "Hide all panels and enter distraction-free writing mode",
+    keywords: [
+      "zen",
+      "focus",
+      "distraction",
+      "free",
+      "fullscreen",
+      "writing",
+      "minimal",
+      "clean",
+    ],
+    icon: "maximize",
+  },
 ];
