@@ -376,6 +376,19 @@
               <span>Star</span>
             {/if}
           </ContextMenu.Item>
+          <ContextMenu.Item
+            onSelect={async () => {
+              try {
+                await navigator.clipboard.writeText(node.path);
+                toast.success("Path copied");
+              } catch {
+                toast.error("Failed to copy path");
+              }
+            }}
+          >
+            <Copy class="mr-2 h-4 w-4" />
+            <span>Copy Folder Path</span>
+          </ContextMenu.Item>
           {#if on_request_rename_folder || on_request_delete_folder}
             <ContextMenu.Separator />
             {#if on_request_rename_folder}
