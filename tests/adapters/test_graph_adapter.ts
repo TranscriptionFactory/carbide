@@ -6,7 +6,7 @@ import type { NoteId, NotePath } from "$lib/shared/types/ids";
 
 export function create_test_graph_adapter(): GraphPort {
   return {
-    load_note_neighborhood: (vault_id, note_path) =>
+    load_note_neighborhood: (_vault_id, note_path) =>
       Promise.resolve({
         center: {
           id: "test-id" as NoteId,
@@ -28,5 +28,15 @@ export function create_test_graph_adapter(): GraphPort {
           bidirectional_count: 0,
         },
       } as GraphNeighborhoodSnapshot),
+    invalidate_cache: () => Promise.resolve(),
+    cache_stats: () =>
+      Promise.resolve({
+        size: 0,
+        hits: 0,
+        misses: 0,
+        insertions: 0,
+        evictions: 0,
+        hit_rate: 0,
+      }),
   };
 }

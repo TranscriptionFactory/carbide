@@ -36,6 +36,16 @@ pub struct GraphNeighborhoodSnapshot {
     pub stats: GraphNeighborhoodStats,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct GraphCacheStatsSnapshot {
+    pub size: usize,
+    pub hits: u64,
+    pub misses: u64,
+    pub insertions: u64,
+    pub evictions: u64,
+    pub hit_rate: f64,
+}
+
 impl From<IndexNoteMeta> for GraphNoteMeta {
     fn from(value: IndexNoteMeta) -> Self {
         Self {

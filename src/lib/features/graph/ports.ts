@@ -19,9 +19,20 @@ export type GraphNeighborhoodSnapshot = {
   stats: GraphNeighborhoodStats;
 };
 
+export type GraphCacheStats = {
+  size: number;
+  hits: number;
+  misses: number;
+  insertions: number;
+  evictions: number;
+  hit_rate: number;
+};
+
 export interface GraphPort {
   load_note_neighborhood(
     vault_id: VaultId,
     note_path: string,
   ): Promise<GraphNeighborhoodSnapshot>;
+  invalidate_cache(vault_id: VaultId, note_id?: string): Promise<void>;
+  cache_stats(): Promise<GraphCacheStats>;
 }

@@ -70,6 +70,7 @@ pub fn run() {
         .manage(features::search::service::SearchDbState::default())
         .manage(features::plugin::service::PluginService::new())
         .manage(shared::buffer::BufferManager::new())
+        .manage(features::graph::service::GraphCacheState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             // The first arg is the executable, subsequent args might be file paths
@@ -149,6 +150,8 @@ pub fn run() {
             features::tasks::tasks_update_state,
             features::tasks::tasks_create,
             features::graph::service::graph_load_note_neighborhood,
+            features::graph::service::graph_invalidate_cache,
+            features::graph::service::graph_cache_stats,
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,

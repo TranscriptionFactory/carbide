@@ -93,7 +93,10 @@ export function create_graph_refresh_reactor(
       }
 
       if (decision.action === "load" && decision.note_path) {
-        void graph_service.load_note_neighborhood(decision.note_path);
+        const note_path = decision.note_path;
+        void graph_service
+          .invalidate_cache()
+          .then(() => graph_service.load_note_neighborhood(note_path));
       }
     });
   });

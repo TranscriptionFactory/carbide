@@ -4,6 +4,9 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { Check, Copy } from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
+import { LruCache } from "$lib/shared/utils/lru_cache";
+
+const mermaid_svg_cache = new LruCache<string, string>(128);
 
 function resize_icon(svg: string, size: number): string {
   return svg
@@ -146,6 +149,14 @@ type MermaidState = {
   render_timer: ReturnType<typeof setTimeout> | undefined;
 };
 
+function mermaid_cache_key(code: string): string {
+  const theme =
+    document.documentElement.getAttribute("data-color-scheme") === "dark"
+      ? "dark"
+      : "default";
+  return `${theme}:${code}`;
+}
+
 async function render_mermaid_preview(
   code: string,
   container: HTMLElement,
@@ -155,22 +166,31 @@ async function render_mermaid_preview(
     return;
   }
 
+  const key = mermaid_cache_key(code);
+  const cached_svg = mermaid_svg_cache.get(key);
+  if (cached_svg !== undefined) {
+    container.innerHTML = cached_svg;
+    return;
+  }
+
   container.innerHTML =
     '<div class="mermaid-loading"><div class="mermaid-spinner"></div></div>';
 
   try {
     const mermaid = await import("mermaid");
+    const theme =
+      document.documentElement.getAttribute("data-color-scheme") === "dark"
+        ? "dark"
+        : "default";
     mermaid.default.initialize({
       startOnLoad: false,
-      theme:
-        document.documentElement.getAttribute("data-color-scheme") === "dark"
-          ? "dark"
-          : "default",
+      theme,
       securityLevel: "loose",
     });
 
     const id = `mermaid-${String(Date.now())}`;
     const { svg } = await mermaid.default.render(id, code);
+    mermaid_svg_cache.set(key, svg);
     container.innerHTML = svg;
   } catch {
     container.innerHTML = '<div class="mermaid-error">Invalid diagram</div>';

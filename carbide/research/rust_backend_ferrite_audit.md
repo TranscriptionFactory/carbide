@@ -7,13 +7,13 @@
 
 All planned Ferrite ports (from `carbide/implementation/ferrite_port_plan.md`) are complete:
 
-| Port | Module | Status |
-|------|--------|--------|
-| Atomic writes | `src-tauri/src/shared/io_utils.rs` | Done |
-| Encoding detection | `chardetng` + `encoding_rs` in `io_utils::read_file_to_string` | Done |
-| Rope buffer | `ropey` via `ManagedBuffer` in `src-tauri/src/shared/buffer.rs` | Done |
-| Generic CLI pipeline | `src-tauri/src/features/pipeline/service.rs` | Done |
-| Single instance IPC | `tauri-plugin-single-instance` | Done |
+| Port                 | Module                                                          | Status |
+| -------------------- | --------------------------------------------------------------- | ------ |
+| Atomic writes        | `src-tauri/src/shared/io_utils.rs`                              | Done   |
+| Encoding detection   | `chardetng` + `encoding_rs` in `io_utils::read_file_to_string`  | Done   |
+| Rope buffer          | `ropey` via `ManagedBuffer` in `src-tauri/src/shared/buffer.rs` | Done   |
+| Generic CLI pipeline | `src-tauri/src/features/pipeline/service.rs`                    | Done   |
+| Single instance IPC  | `tauri-plugin-single-instance`                                  | Done   |
 
 ## Issues in existing ports
 
@@ -78,6 +78,7 @@ Effort: 1–2 days. Impacts every Tauri command boundary.
 ### Binary file detection heuristics — MEDIUM value
 
 Ferrite's `src/state.rs:125-168` uses multi-heuristic binary detection:
+
 - Null byte presence (strong binary indicator)
 - 8KB sample with non-printable character ratio (>10% = binary)
 - Excludes common whitespace (tabs, LF, CR) from counts
@@ -90,6 +91,7 @@ Effort: half day.
 ### Cache observability with LRU and statistics — MEDIUM value
 
 Ferrite's `src/markdown/mermaid/cache.rs` (365 lines) implements:
+
 - Blake3 hashing for cache keys
 - Intelligent key rounding (font size ×2, width ÷10) to reduce cache misses
 - LRU eviction (50 entries default)
@@ -102,6 +104,7 @@ Effort: 1 day per cache consumer.
 ### Worker thread infrastructure — MEDIUM value
 
 Ferrite's `src/workers/mod.rs` (137 lines) provides a `WorkerHandle` abstraction:
+
 - Uses `std::sync::mpsc` (not tokio) for cross-thread-boundary safety
 - Bidirectional channels for command sending and response polling
 - Spawns dedicated thread with tokio runtime inside
@@ -114,6 +117,7 @@ Effort: 1–2 days.
 ### Watcher event filtering — LOW value
 
 Ferrite's `src/workspaces/watcher.rs` (196 lines) wraps `notify` with:
+
 - Path-component filtering (`.git`, `node_modules`, hidden files)
 - Enum-based `WorkspaceEvent` (FileCreated, FileModified, FileDeleted, FileRenamed, Error)
 - MPSC channel for non-blocking event polling

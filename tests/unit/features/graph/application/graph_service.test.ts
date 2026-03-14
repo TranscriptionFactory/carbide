@@ -13,6 +13,15 @@ import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
 describe("GraphService", () => {
   const mock_graph_port = {
     load_note_neighborhood: vi.fn(),
+    invalidate_cache: vi.fn().mockResolvedValue(undefined),
+    cache_stats: vi.fn().mockResolvedValue({
+      size: 0,
+      hits: 0,
+      misses: 0,
+      insertions: 0,
+      evictions: 0,
+      hit_rate: 0,
+    }),
   } as unknown as GraphPort;
 
   const mock_vault_store = {

@@ -1,10 +1,25 @@
 use crate::features::graph::types::{
-    GraphNeighborhoodSnapshot, GraphNeighborhoodStats, GraphNoteMeta, GraphOrphanLink,
+    GraphCacheStatsSnapshot, GraphNeighborhoodSnapshot, GraphNeighborhoodStats, GraphNoteMeta,
+    GraphOrphanLink,
 };
 use crate::features::search::db as search_db;
+use crate::shared::cache::ObservableCache;
 use rusqlite::Connection;
 use std::collections::BTreeSet;
-use tauri::AppHandle;
+use std::sync::Mutex;
+use tauri::{AppHandle, State};
+
+pub struct GraphCacheState(pub Mutex<ObservableCache<String, GraphNeighborhoodSnapshot>>);
+
+impl Default for GraphCacheState {
+    fn default() -> Self {
+        Self(Mutex::new(ObservableCache::new(64)))
+    }
+}
+
+fn cache_key(vault_id: &str, note_id: &str) -> String {
+    format!("{vault_id}:{note_id}")
+}
 
 fn build_stats(
     backlinks: &[GraphNoteMeta],
@@ -64,9 +79,75 @@ pub fn graph_load_note_neighborhood(
     app: AppHandle,
     vault_id: String,
     note_id: String,
+    cache_state: State<'_, GraphCacheState>,
 ) -> Result<GraphNeighborhoodSnapshot, String> {
+    let key = cache_key(&vault_id, &note_id);
+
+    {
+        let mut cache = cache_state.0.lock().map_err(|e| e.to_string())?;
+        if let Some(snapshot) = cache.get_cloned(&key) {
+            return Ok(snapshot);
+        }
+    }
+
     let conn = search_db::open_search_db(&app, &vault_id)?;
-    load_note_neighborhood(&conn, &note_id)
+    let snapshot = load_note_neighborhood(&conn, &note_id)?;
+
+    {
+        let mut cache = cache_state.0.lock().map_err(|e| e.to_string())?;
+        cache.insert(key, snapshot.clone());
+    }
+
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn graph_invalidate_cache(
+    vault_id: String,
+    note_id: Option<String>,
+    cache_state: State<'_, GraphCacheState>,
+) -> Result<(), String> {
+    let mut cache = cache_state.0.lock().map_err(|e| e.to_string())?;
+    match note_id {
+        Some(id) => {
+            let key = cache_key(&vault_id, &id);
+            cache.invalidate(&key);
+            cache.invalidate_matching(|k| {
+                k.starts_with(&format!("{vault_id}:"))
+                    && k != &key
+                    && would_be_affected_by(&id, k)
+            });
+        }
+        None => {
+            let prefix = format!("{vault_id}:");
+            cache.invalidate_matching(|k| k.starts_with(&prefix));
+        }
+    }
+    Ok(())
+}
+
+fn would_be_affected_by(_changed_note_id: &str, _cache_key: &str) -> bool {
+    // Conservative: invalidate all entries for the vault when a specific note changes,
+    // since any note's neighborhood might reference the changed note as a backlink/outlink.
+    // A more precise approach would track reverse dependencies, but the conservative
+    // strategy is correct and the cache rebuilds cheaply.
+    true
+}
+
+#[tauri::command]
+pub fn graph_cache_stats(
+    cache_state: State<'_, GraphCacheState>,
+) -> Result<GraphCacheStatsSnapshot, String> {
+    let cache = cache_state.0.lock().map_err(|e| e.to_string())?;
+    let stats = cache.stats();
+    Ok(GraphCacheStatsSnapshot {
+        size: cache.len(),
+        hits: stats.hits,
+        misses: stats.misses,
+        insertions: stats.insertions,
+        evictions: stats.evictions,
+        hit_rate: stats.hit_rate(),
+    })
 }
 
 #[cfg(test)]

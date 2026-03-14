@@ -57,12 +57,19 @@ export class GraphService {
     await this.load_note_neighborhood(note_path);
   }
 
+  async invalidate_cache(note_id?: string): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    await this.graph_port.invalidate_cache(vault_id, note_id);
+  }
+
   async refresh_current(): Promise<void> {
     const note_path = this.graph_store.center_note_path;
     if (!note_path) {
       return;
     }
 
+    await this.invalidate_cache(note_path);
     await this.load_note_neighborhood(note_path);
   }
 
