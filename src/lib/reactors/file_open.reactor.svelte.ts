@@ -20,7 +20,11 @@ export function create_file_open_reactor(
     on_file_open(event.payload);
   }).then((fn) => {
     if (cancelled) {
-      fn();
+      try {
+        void Promise.resolve(fn()).catch(() => {});
+      } catch {
+        // Listener may already have been unregistered
+      }
     } else {
       unlisten = fn;
     }
@@ -28,7 +32,14 @@ export function create_file_open_reactor(
 
   return () => {
     cancelled = true;
-    unlisten?.();
-    unlisten = null;
+    if (unlisten) {
+      const fn = unlisten;
+      unlisten = null;
+      try {
+        void Promise.resolve(fn()).catch(() => {});
+      } catch {
+        // Listener may already have been unregistered
+      }
+    }
   };
 }

@@ -12,7 +12,8 @@ function suppressed_path_key(path: string): string {
 }
 
 export class WatcherService {
-  private unsubscribe: (() => void) | null = null;
+  private port_unsubscribe: (() => void) | null = null;
+  private handlers = new Set<(event: VaultFsEvent) => void>();
   private suppressed = new Map<string, ReturnType<typeof setTimeout>>();
   private lifecycle = Promise.resolve();
 
@@ -34,7 +35,12 @@ export class WatcherService {
 
   async start(vault_id: VaultId): Promise<void> {
     await this.run_lifecycle(async () => {
-      await this.unwatch();
+      await this.teardown_port();
+      this.port_unsubscribe = this.port.subscribe_fs_events((event) => {
+        for (const handler of this.handlers) {
+          handler(event);
+        }
+      });
       try {
         await this.port.watch_vault(vault_id);
       } catch (error) {
@@ -45,8 +51,15 @@ export class WatcherService {
 
   async stop(): Promise<void> {
     await this.run_lifecycle(async () => {
-      await this.unwatch();
+      await this.teardown_port();
     });
+  }
+
+  subscribe(handler: (event: VaultFsEvent) => void): () => void {
+    this.handlers.add(handler);
+    return () => {
+      this.handlers.delete(handler);
+    };
   }
 
   private run_lifecycle(operation: () => Promise<void>): Promise<void> {
@@ -58,20 +71,16 @@ export class WatcherService {
     return next;
   }
 
-  private async unwatch(): Promise<void> {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
+  private async teardown_port(): Promise<void> {
+    if (this.port_unsubscribe) {
+      const unsub = this.port_unsubscribe;
+      this.port_unsubscribe = null;
+      unsub();
+    }
     try {
       await this.port.unwatch_vault();
     } catch (error) {
       log.from_error("Failed to stop vault watcher", error);
     }
-  }
-
-  subscribe(handler: (event: VaultFsEvent) => void): () => void {
-    this.unsubscribe?.();
-    const unsub = this.port.subscribe_fs_events(handler);
-    this.unsubscribe = unsub;
-    return unsub;
   }
 }

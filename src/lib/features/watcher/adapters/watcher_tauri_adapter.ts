@@ -18,7 +18,11 @@ function subscribe_vault_fs_events(
   })
     .then((fn_ref) => {
       if (is_disposed) {
-        fn_ref();
+        try {
+          void Promise.resolve(fn_ref()).catch(() => {});
+        } catch {
+          // Listener may already have been unregistered
+        }
         return;
       }
       unlisten_fn = fn_ref;
@@ -30,11 +34,13 @@ function subscribe_vault_fs_events(
   return () => {
     is_disposed = true;
     if (unlisten_fn) {
-      unlisten_fn();
+      const fn = unlisten_fn;
       unlisten_fn = null;
-    } else {
-      // If we haven't gotten the unlisten function yet,
-      // the promise resolution will handle it via is_disposed check.
+      try {
+        void Promise.resolve(fn()).catch(() => {});
+      } catch {
+        // Listener may already have been unregistered
+      }
     }
   };
 }
