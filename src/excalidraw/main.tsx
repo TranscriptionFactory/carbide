@@ -11,7 +11,6 @@ function App() {
     null,
   );
   const [theme, set_theme] = useState<"light" | "dark">("light");
-  const dirty_ref = useRef(false);
 
   useEffect(() => {
     function handle_message(event: MessageEvent<HostMessage>) {
@@ -63,14 +62,11 @@ function App() {
     return () => window.removeEventListener("message", handle_message);
   }, []);
 
-  const on_change = useCallback((elements: readonly any[], appState: any) => {
-    dirty_ref.current = true;
+  const on_change = useCallback(() => {
     post_to_host({
       type: "on_change",
-      elements: JSON.parse(JSON.stringify(elements)),
-      appState: {
-        viewBackgroundColor: appState?.viewBackgroundColor ?? "#ffffff",
-      },
+      elements: [],
+      appState: {},
       dirty: true,
     });
   }, []);

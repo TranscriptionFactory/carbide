@@ -10,10 +10,9 @@
       appState: Record<string, unknown>,
       dirty: boolean,
     ) => void;
-    on_save_request: () => Promise<ExcalidrawScene>;
   }
 
-  let { scene, theme, on_change, on_save_request }: Props = $props();
+  let { scene, theme, on_change }: Props = $props();
 
   let iframe: SandboxedIframe | undefined = $state();
   let is_ready = $state(false);
@@ -22,7 +21,6 @@
   const src = "badgerly-excalidraw://localhost/index.html";
   const origin = "badgerly-excalidraw://localhost";
 
-  let save_generation = $state(0);
   let resolve_scene: ((scene: ExcalidrawScene) => void) | null = null;
 
   function handle_message(data: unknown) {
@@ -64,7 +62,9 @@
 
   export async function get_scene(): Promise<ExcalidrawScene> {
     return new Promise((resolve) => {
-      save_generation++;
+      if (resolve_scene) {
+        resolve_scene(scene);
+      }
       resolve_scene = resolve;
       iframe?.post_message({ type: "get_scene" });
 

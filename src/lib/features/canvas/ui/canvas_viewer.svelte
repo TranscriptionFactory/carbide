@@ -2,7 +2,6 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type { CanvasTabState } from "$lib/features/canvas/state/canvas_store.svelte";
   import type { Camera } from "$lib/features/canvas/types/canvas";
-  import { EMPTY_EXCALIDRAW_SCENE } from "$lib/features/canvas";
   import CanvasSurface from "$lib/features/canvas/ui/canvas_surface.svelte";
   import ExcalidrawHost from "$lib/features/canvas/ui/excalidraw_host.svelte";
 
@@ -19,9 +18,9 @@
     stores.canvas.get_state(tab_id),
   );
 
-  let is_dark = $state(
-    document.documentElement.classList.contains("dark"),
-  );
+  let excalidraw_host: ExcalidrawHost | undefined = $state();
+
+  let is_dark = $state(document.documentElement.classList.contains("dark"));
 
   $effect(() => {
     const observer = new MutationObserver(() => {
@@ -34,6 +33,22 @@
     return () => observer.disconnect();
   });
 
+  $effect(() => {
+    if (file_type !== "excalidraw") return;
+    stores.canvas.register_scene_provider(tab_id, async () => {
+      return excalidraw_host
+        ? await excalidraw_host.get_scene()
+        : (canvas_state?.excalidraw_scene ?? {
+            type: "excalidraw",
+            version: 2,
+            source: "badgerly",
+            elements: [],
+            appState: {},
+          });
+    });
+    return () => stores.canvas.unregister_scene_provider(tab_id);
+  });
+
   const app_theme = $derived(is_dark ? ("dark" as const) : ("light" as const));
 
   function handle_camera_change(camera: Camera) {
@@ -41,22 +56,13 @@
   }
 
   function handle_excalidraw_change(
-    elements: unknown[],
-    appState: Record<string, unknown>,
+    _elements: unknown[],
+    _appState: Record<string, unknown>,
     dirty: boolean,
   ) {
     if (dirty) {
-      stores.canvas.set_excalidraw_scene(tab_id, {
-        ...EMPTY_EXCALIDRAW_SCENE,
-        elements,
-        appState,
-      });
       stores.canvas.set_dirty(tab_id, true);
     }
-  }
-
-  async function handle_save_request() {
-    return canvas_state?.excalidraw_scene ?? EMPTY_EXCALIDRAW_SCENE;
   }
 </script>
 
@@ -72,6 +78,7 @@
   {:else if canvas_state?.status === "ready"}
     {#if file_type === "excalidraw" && canvas_state.excalidraw_scene}
       <ExcalidrawHost
+        bind:this={excalidraw_host}
         scene={canvas_state.excalidraw_scene}
         theme={app_theme}
         on_change={handle_excalidraw_change}

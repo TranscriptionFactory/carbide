@@ -26,10 +26,14 @@
     label_y: number;
   };
 
+  const node_map: Map<string, CanvasNode> = $derived(
+    new Map(nodes.map((n) => [n.id, n])),
+  );
+
   const rendered_edges: RenderedEdge[] = $derived(
     edges
       .map((edge) => {
-        const endpoints = get_edge_endpoints(edge, nodes);
+        const endpoints = get_edge_endpoints(edge, node_map);
         if (!endpoints) return null;
         const { from, to } = endpoints;
         const path = build_edge_path(from, to);

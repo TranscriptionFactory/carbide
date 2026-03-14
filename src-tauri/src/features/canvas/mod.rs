@@ -43,6 +43,17 @@ pub fn rewrite_canvas_file_refs(
     let mut json: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse canvas: {e}"))?;
 
+    let old_name = old_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&old_path)
+        .trim_end_matches(".md");
+    let new_name = new_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&new_path)
+        .trim_end_matches(".md");
+
     let mut changed = false;
 
     if let Some(nodes) = json.get_mut("nodes").and_then(|n| n.as_array_mut()) {
@@ -55,16 +66,6 @@ pub fn rewrite_canvas_file_refs(
             }
             if let Some(text_val) = node.get_mut("text") {
                 if let Some(text) = text_val.as_str() {
-                    let old_name = old_path
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(&old_path)
-                        .trim_end_matches(".md");
-                    let new_name = new_path
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(&new_path)
-                        .trim_end_matches(".md");
 
                     let old_link = format!("[[{old_name}]]");
                     let new_link = format!("[[{new_name}]]");

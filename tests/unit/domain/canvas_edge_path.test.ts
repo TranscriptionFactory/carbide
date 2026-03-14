@@ -26,6 +26,10 @@ const NODE_B: CanvasNode = {
   height: 100,
 };
 
+function make_node_map(...nodes: CanvasNode[]): Map<string, CanvasNode> {
+  return new Map(nodes.map((n) => [n.id, n]));
+}
+
 describe("get_edge_endpoints", () => {
   it("returns endpoints for valid edge", () => {
     const edge: CanvasEdge = {
@@ -36,7 +40,7 @@ describe("get_edge_endpoints", () => {
       toSide: "left",
     };
 
-    const result = get_edge_endpoints(edge, [NODE_A, NODE_B]);
+    const result = get_edge_endpoints(edge, make_node_map(NODE_A, NODE_B));
     expect(result).not.toBeNull();
     expect(result!.from).toEqual({ x: 200, y: 50 });
     expect(result!.to).toEqual({ x: 400, y: 50 });
@@ -48,7 +52,7 @@ describe("get_edge_endpoints", () => {
       fromNode: "missing",
       toNode: "b",
     };
-    expect(get_edge_endpoints(edge, [NODE_A, NODE_B])).toBeNull();
+    expect(get_edge_endpoints(edge, make_node_map(NODE_A, NODE_B))).toBeNull();
   });
 
   it("auto-detects side when not specified", () => {
@@ -58,7 +62,7 @@ describe("get_edge_endpoints", () => {
       toNode: "b",
     };
 
-    const result = get_edge_endpoints(edge, [NODE_A, NODE_B]);
+    const result = get_edge_endpoints(edge, make_node_map(NODE_A, NODE_B));
     expect(result).not.toBeNull();
     expect(result!.from.x).toBe(200);
     expect(result!.to.x).toBe(400);
@@ -75,7 +79,7 @@ describe("get_edge_endpoints", () => {
       toSide: "top",
     };
 
-    const result = get_edge_endpoints(edge, [above, below]);
+    const result = get_edge_endpoints(edge, make_node_map(above, below));
     expect(result!.from.y).toBe(-100);
     expect(result!.to.y).toBe(200);
   });

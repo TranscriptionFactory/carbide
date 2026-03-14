@@ -3,8 +3,6 @@
   import {
     zoom_at_point,
     clamp_zoom,
-    ZOOM_MIN,
-    ZOOM_MAX,
   } from "$lib/features/canvas/domain/canvas_viewport";
   import CanvasNodeComponent from "$lib/features/canvas/ui/canvas_node.svelte";
   import CanvasEdges from "$lib/features/canvas/ui/canvas_edges.svelte";

@@ -8,10 +8,10 @@ type Point = { x: number; y: number };
 
 export function get_edge_endpoints(
   edge: CanvasEdge,
-  nodes: CanvasNode[],
+  node_map: Map<string, CanvasNode>,
 ): { from: Point; to: Point } | null {
-  const from_node = nodes.find((n) => n.id === edge.fromNode);
-  const to_node = nodes.find((n) => n.id === edge.toNode);
+  const from_node = node_map.get(edge.fromNode);
+  const to_node = node_map.get(edge.toNode);
   if (!from_node || !to_node) return null;
 
   const from = get_anchor_point(from_node, edge.fromSide, to_node);

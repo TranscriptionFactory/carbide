@@ -35,7 +35,10 @@ export class CanvasService {
     this.canvas_store.set_status(tab_id, "loading");
 
     try {
-      const content = await this.canvas_port.read_file(vault_id, file_path);
+      const [content, camera] = await Promise.all([
+        this.canvas_port.read_file(vault_id, file_path),
+        this.canvas_port.read_camera(vault_id, file_path),
+      ]);
 
       if (file_type === "excalidraw") {
         const scene = JSON.parse(content) as ExcalidrawScene;
@@ -49,7 +52,6 @@ export class CanvasService {
         this.canvas_store.set_canvas_data(tab_id, result.data);
       }
 
-      const camera = await this.canvas_port.read_camera(vault_id, file_path);
       if (camera) {
         this.canvas_store.set_camera(tab_id, camera);
       }
@@ -69,8 +71,14 @@ export class CanvasService {
 
     try {
       let content: string;
-      if (state.file_type === "excalidraw" && state.excalidraw_scene) {
-        content = JSON.stringify(state.excalidraw_scene, null, 2);
+      if (state.file_type === "excalidraw") {
+        const provider = this.canvas_store.get_scene_provider(tab_id);
+        const scene = provider ? await provider() : state.excalidraw_scene;
+        if (!scene) return;
+        if (provider) {
+          this.canvas_store.set_excalidraw_scene(tab_id, scene);
+        }
+        content = JSON.stringify(scene, null, 2);
       } else if (state.canvas_data) {
         content = serialize_canvas(state.canvas_data);
       } else {
