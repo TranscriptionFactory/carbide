@@ -67,4 +67,17 @@ export function register_canvas_actions(
       await registry.execute(ACTION_IDS.canvas_open, file_path);
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.canvas_repair_refs,
+    label: "Repair Canvas References",
+    execute: async (...args: unknown[]) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id) return;
+      const old_path = args[0] as string;
+      const new_path = args[1] as string;
+      if (typeof old_path !== "string" || typeof new_path !== "string") return;
+      await canvas_service.repair_canvas_refs(vault_id, old_path, new_path);
+    },
+  });
 }

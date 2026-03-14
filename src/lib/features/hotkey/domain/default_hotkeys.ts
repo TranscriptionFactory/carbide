@@ -219,6 +219,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
+    action_id: ACTION_IDS.canvas_create,
+    key: "CmdOrCtrl+Shift+C",
+    phase: "bubble",
+    label: "Create Canvas",
+    description: "Create a new Excalidraw canvas",
+    category: "editing",
+  },
+  {
     action_id: ACTION_IDS.window_open_new,
     key: "CmdOrCtrl+Shift+N",
     phase: "capture",

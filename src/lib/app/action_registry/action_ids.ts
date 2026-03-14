@@ -227,6 +227,7 @@ export const ACTION_IDS = {
   canvas_close: "canvas.close",
   canvas_save: "canvas.save",
   canvas_create: "canvas.create",
+  canvas_repair_refs: "canvas.repair_refs",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

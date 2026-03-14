@@ -183,7 +183,8 @@ pub fn run() {
             get_pending_file_open,
             features::canvas::extract_canvas_links,
             features::canvas::extract_canvas_text,
-            features::canvas::rewrite_canvas_file_refs
+            features::canvas::rewrite_canvas_file_refs,
+            features::canvas::rewrite_canvas_refs_for_rename
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

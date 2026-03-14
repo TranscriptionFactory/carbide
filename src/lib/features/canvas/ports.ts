@@ -13,4 +13,9 @@ export interface CanvasPort {
     canvas_path: string,
     camera: Camera,
   ): Promise<void>;
+  rewrite_refs_for_rename(
+    vault_id: string,
+    old_path: string,
+    new_path: string,
+  ): Promise<number>;
 }

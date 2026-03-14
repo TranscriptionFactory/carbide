@@ -324,6 +324,11 @@ export function register_note_actions(input: ActionRegistrationInput) {
     if (result.status === "renamed") {
       apply_note_rename(target.note.path, target.new_path);
       close_rename_dialog(input);
+      await registry.execute(
+        ACTION_IDS.canvas_repair_refs,
+        target.note.path,
+        target.new_path,
+      );
     }
   }
 

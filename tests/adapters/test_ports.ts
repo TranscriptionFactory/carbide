@@ -75,6 +75,7 @@ export function create_test_ports(): Ports {
       write_file: () => Promise.resolve(),
       read_camera: () => Promise.resolve(null),
       write_camera: () => Promise.resolve(),
+      rewrite_refs_for_rename: () => Promise.resolve(0),
     },
   };
 }

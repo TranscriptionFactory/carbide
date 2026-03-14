@@ -35,5 +35,17 @@ export function create_canvas_tauri_adapter(): CanvasPort {
       _canvas_path: string,
       _camera: Camera,
     ): Promise<void> {},
+
+    async rewrite_refs_for_rename(
+      vault_id: string,
+      old_path: string,
+      new_path: string,
+    ): Promise<number> {
+      return invoke<number>("rewrite_canvas_refs_for_rename", {
+        vaultId: vault_id,
+        oldPath: old_path,
+        newPath: new_path,
+      });
+    },
   };
 }

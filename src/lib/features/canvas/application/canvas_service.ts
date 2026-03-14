@@ -130,4 +130,16 @@ export class CanvasService {
     const content = JSON.stringify(EMPTY_EXCALIDRAW_SCENE, null, 2);
     await this.canvas_port.write_file(vault_id, file_path, content);
   }
+
+  async repair_canvas_refs(
+    vault_id: string,
+    old_path: string,
+    new_path: string,
+  ): Promise<void> {
+    await this.canvas_port.rewrite_refs_for_rename(
+      vault_id,
+      old_path,
+      new_path,
+    );
+  }
 }

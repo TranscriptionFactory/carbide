@@ -13,6 +13,7 @@ function make_port(overrides: Partial<CanvasPort> = {}): CanvasPort {
     write_file: vi.fn().mockResolvedValue(undefined),
     read_camera: vi.fn().mockResolvedValue(null),
     write_camera: vi.fn().mockResolvedValue(undefined),
+    rewrite_refs_for_rename: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
 }
