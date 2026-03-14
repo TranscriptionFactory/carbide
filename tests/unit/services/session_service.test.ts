@@ -30,6 +30,22 @@ function create_setup() {
   };
   const note_service = {
     note_exists: vi.fn().mockResolvedValue(true),
+    get_note_meta: vi.fn().mockImplementation((note_path: string) => {
+      if (note_path === "docs/missing.md") {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve({
+        id: note_path,
+        path: note_path,
+        name: note_path.split("/").at(-1)?.replace(/\.md$/, "") ?? "",
+        title: note_path.replace(".md", ""),
+        mtime_ms: Date.now(),
+        size_bytes: 100,
+      });
+    }),
+    notes_store: {
+      add_note: vi.fn(),
+    },
   };
 
   const service = new SessionService(
@@ -37,6 +53,7 @@ function create_setup() {
     vault_store,
     tab_store,
     editor_store,
+    { add_note: vi.fn() } as never,
     editor_service as never,
     note_service as never,
   );

@@ -280,6 +280,16 @@ pub fn read_note(app: AppHandle, vault_id: String, note_id: String) -> Result<No
     })
 }
 
+#[tauri::command]
+pub fn read_note_meta(app: AppHandle, vault_id: String, note_id: String) -> Result<NoteMeta, String> {
+    log::debug!("Reading note meta vault_id={} note_id={}", vault_id, note_id);
+    let root = storage::vault_path(&app, &vault_id)?;
+    // safe_vault_abs will fail if the file doesn't exist or escapes the vault
+    let _abs = safe_vault_abs(&root, &note_id)?;
+    
+    build_note_meta(&root, &note_id)
+}
+
 fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
     let dir = path.parent().ok_or("invalid note path")?;
     std::fs::create_dir_all(dir).map_err(|e| {

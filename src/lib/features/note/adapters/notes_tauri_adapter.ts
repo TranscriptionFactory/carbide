@@ -41,6 +41,12 @@ export function create_notes_tauri_adapter(): NotesPort {
         noteId: note_id,
       });
     },
+    async read_note_meta(vault_id: VaultId, note_id: NoteId) {
+      return await invoke_notes<NoteMeta>("read_note_meta", {
+        vaultId: vault_id,
+        noteId: note_id,
+      });
+    },
     async write_note(
       vault_id: VaultId,
       note_id: NoteId,

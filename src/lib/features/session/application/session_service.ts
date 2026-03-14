@@ -1,6 +1,6 @@
 import type { EditorService } from "$lib/features/editor";
 import type { EditorStore } from "$lib/features/editor";
-import type { NoteService } from "$lib/features/note";
+import type { NoteService, NotesStore } from "$lib/features/note";
 import { is_draft_note_path } from "$lib/features/note";
 import type { SessionPort } from "$lib/features/session/ports";
 import type { VaultSession } from "$lib/features/session/types/session";
@@ -18,6 +18,7 @@ export class SessionService {
     private readonly vault_store: VaultStore,
     private readonly tab_store: TabStore,
     private readonly editor_store: EditorStore,
+    private readonly notes_store: NotesStore,
     private readonly editor_service: EditorService,
     private readonly note_service: NoteService,
   ) {}
@@ -137,8 +138,13 @@ export class SessionService {
           if (is_draft_note_path(entry.note_path)) {
             return entry.cached_note ? entry : null;
           }
-          const exists = await this.note_service.note_exists(entry.note_path);
-          return exists ? entry : null;
+          const meta = await this.note_service.get_note_meta(entry.note_path);
+          if (meta) {
+            // Add the note to the store so it's available for UI components (like context menus)
+            this.notes_store.add_note(meta);
+            return entry;
+          }
+          return null;
         }),
       )
     ).filter((entry): entry is VaultSession["tabs"][number] => entry !== null);

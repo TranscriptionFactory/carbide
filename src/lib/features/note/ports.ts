@@ -38,6 +38,7 @@ export interface NotesPort {
   list_notes(vault_id: VaultId): Promise<NoteMeta[]>;
   list_folders(vault_id: VaultId): Promise<string[]>;
   read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc>;
+  read_note_meta(vault_id: VaultId, note_id: NoteId): Promise<NoteMeta>;
   write_note(
     vault_id: VaultId,
     note_id: NoteId,

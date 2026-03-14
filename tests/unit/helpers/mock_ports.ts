@@ -156,6 +156,16 @@ export function create_mock_notes_port(): NotesPort & {
         markdown: "" as MarkdownText,
       });
     },
+    read_note_meta(_vault_id: VaultId, _note_id: NoteId) {
+      return Promise.resolve({
+        id: _note_id,
+        path: _note_id,
+        name: String(_note_id).split("/").at(-1)?.replace(/\.md$/, "") ?? "",
+        title: "",
+        mtime_ms: 0,
+        size_bytes: 0,
+      });
+    },
     write_note(
       vault_id: VaultId,
       note_id: NoteId,
