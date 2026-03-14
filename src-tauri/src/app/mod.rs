@@ -68,9 +68,11 @@ pub fn run() {
         .manage(PendingFileOpen::default())
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
+        .manage(features::search::embeddings::EmbeddingServiceState::default())
         .manage(features::plugin::service::PluginService::new())
         .manage(shared::buffer::BufferManager::new())
         .manage(features::graph::service::GraphCacheState::default())
+        .manage(features::graph::service::VaultGraphCacheState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             // The first arg is the executable, subsequent args might be file paths
@@ -109,9 +111,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
-            features::ai::service::ai_execute_claude,
-            features::ai::service::ai_execute_codex,
-            features::ai::service::ai_execute_ollama,
+            features::ai::service::ai_execute_cli,
             features::pipeline::service::pipeline_execute,
             features::vault::service::open_vault,
             features::vault::service::open_vault_by_id,
@@ -141,6 +141,11 @@ pub fn run() {
             features::search::service::rewrite_note_links,
             features::search::service::resolve_note_link,
             features::search::service::resolve_wiki_link,
+            features::search::service::semantic_search,
+            features::search::service::hybrid_search,
+            features::search::service::get_embedding_status,
+            features::search::service::rebuild_embeddings,
+            features::search::service::embed_sync,
             features::bases::service::bases_list_properties,
             features::bases::service::bases_query,
             features::bases::service::bases_save_view,
@@ -152,6 +157,7 @@ pub fn run() {
             features::graph::service::graph_load_note_neighborhood,
             features::graph::service::graph_invalidate_cache,
             features::graph::service::graph_cache_stats,
+            features::graph::service::graph_load_vault_graph,
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,

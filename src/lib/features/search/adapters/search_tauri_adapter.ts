@@ -10,6 +10,10 @@ import type {
   PlannedLinkSuggestion,
   SearchQuery,
   WikiSuggestion,
+  SemanticSearchHit,
+  HybridSearchHit,
+  EmbeddingStatus,
+  HitSource,
 } from "$lib/shared/types/search";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
@@ -47,6 +51,25 @@ type TauriLinksSnapshot = {
   backlinks: TauriNoteMeta[];
   outlinks: TauriNoteMeta[];
   orphan_links: TauriOrphanLink[];
+};
+
+type TauriSemanticSearchHit = {
+  note: TauriNoteMeta;
+  distance: number;
+};
+
+type TauriHybridSearchHit = {
+  note: TauriNoteMeta;
+  score: number;
+  snippet: string | null;
+  source: HitSource;
+};
+
+type TauriEmbeddingStatus = {
+  total_notes: number;
+  embedded_notes: number;
+  model_version: string;
+  is_embedding: boolean;
 };
 
 type TauriExternalLink = {
@@ -227,6 +250,50 @@ export function create_search_tauri_adapter(): SearchPort {
       return invoke_search<string | null>("resolve_wiki_link", {
         sourcePath: source_path,
         rawTarget: raw_target,
+      });
+    },
+
+    async semantic_search(
+      vault_id: VaultId,
+      query: string,
+      limit = 20,
+    ): Promise<SemanticSearchHit[]> {
+      const hits = await invoke_search<TauriSemanticSearchHit[]>(
+        "semantic_search",
+        { vaultId: vault_id, query, limit },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        distance: hit.distance,
+      }));
+    },
+
+    async hybrid_search(
+      vault_id: VaultId,
+      query: string,
+      limit = 20,
+    ): Promise<HybridSearchHit[]> {
+      const hits = await invoke_search<TauriHybridSearchHit[]>(
+        "hybrid_search",
+        { vaultId: vault_id, query, limit },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        score: hit.score,
+        snippet: hit.snippet ?? undefined,
+        source: hit.source,
+      }));
+    },
+
+    async get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus> {
+      return invoke_search<TauriEmbeddingStatus>("get_embedding_status", {
+        vaultId: vault_id,
+      });
+    },
+
+    async rebuild_embeddings(vault_id: VaultId): Promise<void> {
+      await invoke_search<undefined>("rebuild_embeddings", {
+        vaultId: vault_id,
       });
     },
   };

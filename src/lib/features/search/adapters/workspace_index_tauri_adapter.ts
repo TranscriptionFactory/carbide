@@ -2,7 +2,10 @@ import { create_abort_error } from "$lib/features/search/adapters/index_run_abor
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import type { WorkspaceIndexPort } from "$lib/features/search/ports";
 import type { NoteId, VaultId } from "$lib/shared/types/ids";
-import type { IndexProgressEvent } from "$lib/shared/types/search";
+import type {
+  EmbeddingProgressEvent,
+  IndexProgressEvent,
+} from "$lib/shared/types/search";
 import { listen } from "@tauri-apps/api/event";
 
 type RunWaiter = {
@@ -22,6 +25,10 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
   const run_waiters_by_vault = new Map<string, RunWaiter[]>();
   const progress_listeners = new Set<(event: IndexProgressEvent) => void>();
   let progress_listener_ready: Promise<void> | null = null;
+  const ensure_embedding_listener_ref: {
+    ready?: Promise<void>;
+    listeners?: Set<(event: EmbeddingProgressEvent) => void>;
+  } = {};
 
   function remove_waiter(vault_id: string, waiter: RunWaiter): void {
     const queue = run_waiters_by_vault.get(vault_id);
@@ -286,6 +293,35 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
       return () => {
         progress_listeners.delete(callback);
       };
+    },
+
+    subscribe_embedding_progress(
+      callback: (event: EmbeddingProgressEvent) => void,
+    ) {
+      const embedding_listeners = (ensure_embedding_listener_ref.listeners ??=
+        new Set());
+      embedding_listeners.add(callback);
+
+      if (!ensure_embedding_listener_ref.ready) {
+        ensure_embedding_listener_ref.ready = listen<EmbeddingProgressEvent>(
+          "embedding_progress",
+          (event) => {
+            for (const listener of embedding_listeners) {
+              listener(event.payload);
+            }
+          },
+        ).then(() => undefined);
+      }
+
+      return () => {
+        embedding_listeners.delete(callback);
+      };
+    },
+
+    async embed_sync(vault_id: VaultId): Promise<void> {
+      await tauri_invoke<undefined>("embed_sync", {
+        vaultId: vault_id,
+      });
     },
   };
 }

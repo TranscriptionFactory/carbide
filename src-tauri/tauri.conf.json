@@ -20,7 +20,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["excalidraw-dist/*", "excalidraw-dist/assets/*"],
+    "resources": [
+      "excalidraw-dist/*",
+      "excalidraw-dist/assets/*",
+      "resources/extensions/*",
+      "resources/models/**/*"
+    ],
     "macOS": {
       "signingIdentity": "-"
     },

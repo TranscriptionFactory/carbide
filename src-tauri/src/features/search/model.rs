@@ -1,6 +1,36 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+#[derive(Debug, Serialize, Clone)]
+pub struct SemanticSearchHit {
+    pub note: IndexNoteMeta,
+    pub distance: f32,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum HitSource {
+    Fts,
+    Vector,
+    Both,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct HybridSearchHit {
+    pub note: IndexNoteMeta,
+    pub score: f32,
+    pub snippet: Option<String>,
+    pub source: HitSource,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct EmbeddingStatus {
+    pub total_notes: usize,
+    pub embedded_notes: usize,
+    pub model_version: String,
+    pub is_embedding: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IndexNoteMeta {
     pub id: String,

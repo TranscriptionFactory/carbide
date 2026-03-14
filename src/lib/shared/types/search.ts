@@ -79,6 +79,43 @@ export type IndexProgressEvent =
     } & IndexProgressMeta)
   | ({ status: "failed"; vault_id: string; error: string } & IndexProgressMeta);
 
+export type SemanticSearchHit = {
+  note: NoteMeta;
+  distance: number;
+};
+
+export type HitSource = "fts" | "vector" | "both";
+
+export type HybridSearchHit = {
+  note: NoteMeta;
+  score: number;
+  snippet?: string | undefined;
+  source: HitSource;
+};
+
+export type EmbeddingStatus = {
+  total_notes: number;
+  embedded_notes: number;
+  model_version: string;
+  is_embedding: boolean;
+};
+
+export type EmbeddingProgressEvent =
+  | { status: "started"; vault_id: string; total: number }
+  | {
+      status: "progress";
+      vault_id: string;
+      embedded: number;
+      total: number;
+    }
+  | {
+      status: "completed";
+      vault_id: string;
+      embedded: number;
+      elapsed_ms: number;
+    }
+  | { status: "failed"; vault_id: string; error: string };
+
 export type OmnibarItem =
   | {
       kind: "note";

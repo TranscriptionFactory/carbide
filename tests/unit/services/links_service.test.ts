@@ -59,6 +59,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
     const vault_store = new VaultStore();
@@ -93,6 +104,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
     const vault_store = new VaultStore();
@@ -143,6 +165,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
     const vault_store = new VaultStore();
@@ -197,6 +230,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
     const vault_store = new VaultStore();
@@ -238,6 +282,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
@@ -285,6 +340,17 @@ describe("LinksService", () => {
         ),
       resolve_note_link: vi.fn().mockResolvedValue(null),
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi
+        .fn()
+        .mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
     const vault_store = new VaultStore();

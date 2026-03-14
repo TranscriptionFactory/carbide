@@ -1,7 +1,11 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
+use crate::features::search::embeddings::EmbeddingServiceState;
 use crate::features::search::link_parser;
-use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+use crate::features::search::model::{
+    EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope, SemanticSearchHit,
+};
+use crate::features::search::{hybrid, vector_db};
 use crate::shared::storage;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -52,6 +56,29 @@ pub enum IndexProgressEvent {
     },
 }
 
+#[derive(Clone, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum EmbeddingProgressEvent {
+    Started {
+        vault_id: String,
+        total: usize,
+    },
+    Progress {
+        vault_id: String,
+        embedded: usize,
+        total: usize,
+    },
+    Completed {
+        vault_id: String,
+        embedded: usize,
+        elapsed_ms: u64,
+    },
+    Failed {
+        vault_id: String,
+        error: String,
+    },
+}
+
 #[allow(dead_code)]
 enum DbCommand {
     UpsertNote {
@@ -82,6 +109,18 @@ enum DbCommand {
         cancel: Arc<AtomicBool>,
         app_handle: AppHandle,
         vault_id: String,
+    },
+    EmbedBatch {
+        vault_root: PathBuf,
+        app_handle: AppHandle,
+        vault_id: String,
+        cancel: Arc<AtomicBool>,
+    },
+    RebuildEmbeddings {
+        vault_root: PathBuf,
+        app_handle: AppHandle,
+        vault_id: String,
+        cancel: Arc<AtomicBool>,
     },
     RenamePaths {
         old_prefix: String,
@@ -292,6 +331,38 @@ fn dispatch_command(
                 notes_cache,
             );
         }
+        DbCommand::EmbedBatch {
+            vault_root,
+            app_handle,
+            vault_id,
+            cancel,
+        } => {
+            handle_embed_batch(
+                conn,
+                &vault_root,
+                &cancel,
+                &app_handle,
+                &vault_id,
+                notes_cache,
+                false,
+            );
+        }
+        DbCommand::RebuildEmbeddings {
+            vault_root,
+            app_handle,
+            vault_id,
+            cancel,
+        } => {
+            handle_embed_batch(
+                conn,
+                &vault_root,
+                &cancel,
+                &app_handle,
+                &vault_id,
+                notes_cache,
+                true,
+            );
+        }
         DbCommand::Shutdown => {
             return LoopAction::Break;
         }
@@ -362,7 +433,10 @@ fn run_index_op(
         let mut drain_pending = || {
             while let Ok(cmd) = rx.try_recv() {
                 match cmd {
-                    DbCommand::Rebuild { .. } | DbCommand::Sync { .. } => {
+                    DbCommand::Rebuild { .. }
+                    | DbCommand::Sync { .. }
+                    | DbCommand::EmbedBatch { .. }
+                    | DbCommand::RebuildEmbeddings { .. } => {
                         deferred.borrow_mut().push(cmd);
                     }
                     DbCommand::Shutdown => {
@@ -529,6 +603,145 @@ fn handle_sync(
         "sync",
         search_db::sync_index,
     );
+}
+
+fn handle_embed_batch(
+    conn: &Connection,
+    vault_root: &Path,
+    cancel: &Arc<AtomicBool>,
+    app_handle: &AppHandle,
+    vault_id: &str,
+    notes_cache: &BTreeMap<String, IndexNoteMeta>,
+    clear_first: bool,
+) {
+    let embedding_state = app_handle.state::<EmbeddingServiceState>();
+    let cache_dir = app_handle
+        .path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| PathBuf::from(".cache"))
+        .join("models");
+    let model = match embedding_state.get_or_init(cache_dir) {
+        Ok(m) => m,
+        Err(e) => {
+            log::warn!("embed_batch: model unavailable: {e}");
+            let _ = app_handle.emit(
+                "embedding_progress",
+                EmbeddingProgressEvent::Failed {
+                    vault_id: vault_id.to_string(),
+                    error: format!("Embedding model unavailable: {e}"),
+                },
+            );
+            return;
+        }
+    };
+
+    if clear_first {
+        if let Err(e) = vector_db::clear_all_embeddings(conn) {
+            log::warn!("embed_batch: clear failed: {e}");
+        }
+    }
+
+    let model_version = vector_db::get_model_version(conn);
+    if model_version.as_deref() != Some(vector_db::MODEL_VERSION) {
+        log::info!(
+            "embedding model version changed ({:?} -> {}), re-embedding all",
+            model_version,
+            vector_db::MODEL_VERSION
+        );
+        if let Err(e) = vector_db::clear_all_embeddings(conn) {
+            log::warn!("embed_batch: clear for model upgrade failed: {e}");
+        }
+    }
+
+    let notes_needing_embedding: Vec<(&str, &str)> = notes_cache
+        .iter()
+        .filter(|(path, _)| !vector_db::has_embedding(conn, path))
+        .map(|(path, _)| (path.as_str(), path.as_str()))
+        .collect();
+
+    let total = notes_needing_embedding.len();
+    if total == 0 {
+        return;
+    }
+
+    let _ = app_handle.emit(
+        "embedding_progress",
+        EmbeddingProgressEvent::Started {
+            vault_id: vault_id.to_string(),
+            total,
+        },
+    );
+
+    let start = Instant::now();
+    let mut embedded = 0usize;
+    let batch_size = 50;
+
+    for chunk in notes_needing_embedding.chunks(batch_size) {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let mut texts = Vec::with_capacity(chunk.len());
+        let mut paths = Vec::with_capacity(chunk.len());
+
+        for (path, _) in chunk {
+            let abs = match notes_service::safe_vault_abs(vault_root, path) {
+                Ok(a) => a,
+                Err(_) => continue,
+            };
+            let body = match std::fs::read_to_string(&abs) {
+                Ok(b) if !b.trim().is_empty() => b,
+                _ => continue,
+            };
+            paths.push(*path);
+            texts.push(body);
+        }
+
+        if texts.is_empty() {
+            continue;
+        }
+
+        let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+        match model.embed_batch(&text_refs) {
+            Ok(embeddings) => {
+                for (path, embedding) in paths.iter().zip(embeddings.iter()) {
+                    if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
+                        log::warn!("embed_batch: upsert failed for {path}: {e}");
+                    }
+                }
+                embedded += embeddings.len();
+            }
+            Err(e) => {
+                log::warn!("embed_batch: batch embedding failed: {e}");
+            }
+        }
+
+        let _ = app_handle.emit(
+            "embedding_progress",
+            EmbeddingProgressEvent::Progress {
+                vault_id: vault_id.to_string(),
+                embedded,
+                total,
+            },
+        );
+    }
+
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let _ = app_handle.emit(
+        "embedding_progress",
+        EmbeddingProgressEvent::Completed {
+            vault_id: vault_id.to_string(),
+            embedded,
+            elapsed_ms,
+        },
+    );
+}
+
+fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| PathBuf::from(".cache"))
+        .join("models")
 }
 
 pub(crate) fn with_read_conn<F, T>(app: &AppHandle, vault_id: &str, f: F) -> Result<T, String>
@@ -819,4 +1032,96 @@ pub fn resolve_note_link(source_path: String, raw_target: String) -> Option<Stri
 #[tauri::command]
 pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<String> {
     link_parser::resolve_wiki_target(&source_path, &raw_target)
+}
+
+#[tauri::command]
+pub fn semantic_search(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SemanticSearchHit>, String> {
+    let embedding_state = app.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(&app);
+    let model = embedding_state.get_or_init(cache_dir)?;
+    let query_vec = model.embed_one(&query)?;
+    let limit = limit.unwrap_or(20);
+
+    with_read_conn(&app, &vault_id, |conn| {
+        let hits = vector_db::knn_search(conn, &query_vec, limit)?;
+        let mut results = Vec::with_capacity(hits.len());
+        for (path, distance) in hits {
+            if let Ok(Some(note)) = search_db::get_note_meta(conn, &path) {
+                results.push(SemanticSearchHit { note, distance });
+            }
+        }
+        Ok(results)
+    })
+}
+
+#[tauri::command]
+pub fn hybrid_search(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<HybridSearchHit>, String> {
+    let embedding_state = app.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(&app);
+    let model = embedding_state.get_or_init(cache_dir)?;
+    let limit = limit.unwrap_or(20);
+
+    with_read_conn(&app, &vault_id, |conn| {
+        hybrid::hybrid_search(conn, &model, &query, limit)
+    })
+}
+
+#[tauri::command]
+pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<EmbeddingStatus, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        let total_notes = search_db::get_note_count(conn)?;
+        let embedded_notes = vector_db::get_embedding_count(conn);
+        let model_version = vector_db::get_model_version(conn)
+            .unwrap_or_else(|| "unavailable".to_string());
+        Ok(EmbeddingStatus {
+            total_notes,
+            embedded_notes,
+            model_version,
+            is_embedding: false,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let vault_root = storage::vault_path(&app, &vault_id)?;
+    let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let vid = vault_id.clone();
+    send_write(
+        &app,
+        &vault_id,
+        DbCommand::RebuildEmbeddings {
+            vault_root,
+            app_handle: app.clone(),
+            vault_id: vid,
+            cancel,
+        },
+    )
+}
+
+#[tauri::command]
+pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let vault_root = storage::vault_path(&app, &vault_id)?;
+    let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let vid = vault_id.clone();
+    send_write(
+        &app,
+        &vault_id,
+        DbCommand::EmbedBatch {
+            vault_root,
+            app_handle: app.clone(),
+            vault_id: vid,
+            cancel,
+        },
+    )
 }

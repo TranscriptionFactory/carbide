@@ -111,5 +111,16 @@ export function create_test_search_adapter(): SearchPort {
           : "";
       return Promise.resolve(resolve_relative_path(base_dir, with_ext));
     },
+
+    semantic_search: () => Promise.resolve([]),
+    hybrid_search: () => Promise.resolve([]),
+    get_embedding_status: () =>
+      Promise.resolve({
+        total_notes: 0,
+        embedded_notes: 0,
+        model_version: "unavailable",
+        is_embedding: false,
+      }),
+    rebuild_embeddings: () => Promise.resolve(),
   };
 }

@@ -526,6 +526,12 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     subscribe_index_progress() {
       return () => {};
     },
+    subscribe_embedding_progress() {
+      return () => {};
+    },
+    embed_sync() {
+      return Promise.resolve();
+    },
   };
   return mock;
 }

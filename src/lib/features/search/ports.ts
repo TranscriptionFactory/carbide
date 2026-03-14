@@ -6,6 +6,10 @@ import type {
   SearchQuery,
   WikiSuggestion,
   IndexProgressEvent,
+  SemanticSearchHit,
+  HybridSearchHit,
+  EmbeddingStatus,
+  EmbeddingProgressEvent,
 } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { ExternalLink } from "$lib/features/links";
@@ -67,6 +71,18 @@ export interface SearchPort {
     source_path: string,
     raw_target: string,
   ): Promise<string | null>;
+  semantic_search(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
+  ): Promise<SemanticSearchHit[]>;
+  hybrid_search(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
+  ): Promise<HybridSearchHit[]>;
+  get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
+  rebuild_embeddings(vault_id: VaultId): Promise<void>;
 }
 
 export interface WorkspaceIndexPort {
@@ -94,4 +110,8 @@ export interface WorkspaceIndexPort {
   subscribe_index_progress(
     callback: (event: IndexProgressEvent) => void,
   ): () => void;
+  subscribe_embedding_progress(
+    callback: (event: EmbeddingProgressEvent) => void,
+  ): () => void;
+  embed_sync(vault_id: VaultId): Promise<void>;
 }

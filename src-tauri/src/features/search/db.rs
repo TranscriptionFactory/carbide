@@ -1,5 +1,5 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::{frontmatter, link_parser};
+use crate::features::search::{frontmatter, link_parser, vector_db};
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
 use crate::features::tasks::service as tasks_service;
 use crate::shared::constants;
@@ -233,7 +233,57 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 
 pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, String> {
     let path = db_path(app, vault_id)?;
-    open_search_db_at_path(&path)
+    let conn = open_search_db_at_path(&path)?;
+    try_init_vector_tables(app, &conn);
+    Ok(conn)
+}
+
+fn resolve_sqlite_vec_ext_path(app: &AppHandle) -> Option<PathBuf> {
+    let ext_name = if cfg!(target_os = "macos") {
+        "vec0.dylib"
+    } else if cfg!(target_os = "windows") {
+        "vec0.dll"
+    } else {
+        "vec0.so"
+    };
+
+    let resource_path = app
+        .path()
+        .resource_dir()
+        .ok()?
+        .join("extensions")
+        .join(ext_name);
+
+    if resource_path.exists() {
+        return Some(resource_path);
+    }
+
+    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("extensions")
+        .join(ext_name);
+
+    if dev_path.exists() {
+        return Some(dev_path);
+    }
+
+    None
+}
+
+fn try_init_vector_tables(app: &AppHandle, conn: &Connection) {
+    let Some(ext_path) = resolve_sqlite_vec_ext_path(app) else {
+        log::info!("sqlite-vec extension not found, vector search unavailable");
+        return;
+    };
+
+    if let Err(e) = vector_db::load_sqlite_vec_extension(conn, &ext_path) {
+        log::warn!("Failed to load sqlite-vec extension: {e}");
+        return;
+    }
+
+    if let Err(e) = vector_db::init_vector_schema(conn) {
+        log::warn!("Failed to init vector schema: {e}");
+    }
 }
 
 pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
@@ -319,6 +369,9 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM tasks WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
+    if let Err(e) = vector_db::remove_embedding(conn, path) {
+        log::debug!("vector_db::remove_embedding skipped: {e}");
+    }
     Ok(())
 }
 
@@ -374,7 +427,13 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
         .map_err(|e| e.to_string());
 
     match result {
-        Ok(_) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
+        Ok(_) => {
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            if let Err(e) = vector_db::remove_embeddings_by_prefix(conn, prefix) {
+                log::debug!("vector_db::remove_embeddings_by_prefix skipped: {e}");
+            }
+            Ok(())
+        }
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
             Err(e)
@@ -684,6 +743,26 @@ pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, Index
     Ok(map)
 }
 
+pub fn get_all_graph_edges(conn: &Connection) -> Result<Vec<(String, String)>, String> {
+    let sql = "SELECT DISTINCT source_path, target_path
+               FROM outlinks
+               WHERE source_path IN (SELECT path FROM notes)
+                 AND target_path IN (SELECT path FROM notes)
+                 AND source_path != target_path";
+
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            let source: String = row.get(0)?;
+            let target: String = row.get(1)?;
+            Ok((source, target))
+        })
+        .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 fn escape_fts_query(query: &str) -> String {
     query
         .split_whitespace()
@@ -862,6 +941,12 @@ pub fn set_outlinks(conn: &Connection, source: &str, targets: &[String]) -> Resu
     Ok(())
 }
 
+pub fn get_note_count(conn: &Connection) -> Result<usize, String> {
+    conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get::<_, i64>(0))
+        .map(|c| c as usize)
+        .map_err(|e| e.to_string())
+}
+
 pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMeta>, String> {
     let sql = "SELECT path, title, mtime_ms, size_bytes
                FROM notes
@@ -1021,6 +1106,9 @@ pub fn rename_folder_paths(
     match result {
         Ok(_) => {
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            if let Err(e) = vector_db::rename_embeddings_by_prefix(conn, old_prefix, new_prefix) {
+                log::debug!("vector_db::rename_embeddings_by_prefix skipped: {e}");
+            }
             Ok(count)
         }
         Err(e) => {
@@ -1067,7 +1155,13 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
         .map_err(|e| e.to_string());
 
     match result {
-        Ok(_) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
+        Ok(_) => {
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            if let Err(e) = vector_db::rename_embedding_path(conn, old_path, new_path) {
+                log::debug!("vector_db::rename_embedding_path skipped: {e}");
+            }
+            Ok(())
+        }
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
             Err(e)
