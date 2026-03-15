@@ -76,9 +76,9 @@ function make_mock_search_port(
     semantic_search: vi.fn().mockResolvedValue([]),
     hybrid_search: vi.fn().mockResolvedValue([]),
     get_embedding_status: vi.fn().mockResolvedValue({
-      total_notes: 0,
-      embedded_notes: 0,
-      model_version: "",
+      total_notes: 10,
+      embedded_notes: 10,
+      model_version: "bge-small-en-v1.5-q",
       is_embedding: false,
     }),
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
@@ -122,6 +122,33 @@ describe("GraphService.load_semantic_edges", () => {
       nodes,
       edges: [],
       stats: { node_count: 201, edge_count: 0 },
+    });
+
+    await service.load_semantic_edges();
+    expect(search_port.find_similar_notes).not.toHaveBeenCalled();
+    expect(graph_store.semantic_edges).toHaveLength(0);
+  });
+
+  it("does nothing when no embeddings exist", async () => {
+    const hits = new Map([["a.md", [make_hit("b.md", 0.2)]]]);
+    const { service, graph_store, search_port } = setup(hits);
+
+    (
+      search_port.get_embedding_status as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      total_notes: 5,
+      embedded_notes: 0,
+      model_version: "",
+      is_embedding: false,
+    });
+
+    graph_store.set_vault_snapshot({
+      nodes: [
+        { path: "a.md", title: "A" },
+        { path: "b.md", title: "B" },
+      ],
+      edges: [],
+      stats: { node_count: 2, edge_count: 0 },
     });
 
     await service.load_semantic_edges();

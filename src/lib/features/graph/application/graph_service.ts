@@ -3,6 +3,7 @@ import type { GraphPort } from "$lib/features/graph/ports";
 import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import {
   build_semantic_edges,
+  SEMANTIC_EDGE_DISTANCE_THRESHOLD,
   SEMANTIC_EDGE_KNN_LIMIT,
   SEMANTIC_EDGE_MAX_VAULT_SIZE,
 } from "$lib/features/graph/domain/semantic_edges";
@@ -162,8 +163,29 @@ export class GraphService {
     if (snapshot.stats.node_count > max_size) {
       log.warn("Vault too large for semantic edges", {
         node_count: snapshot.stats.node_count,
+        max_size,
       });
       return;
+    }
+
+    try {
+      const status = await this.search_port.get_embedding_status(vault_id);
+      if (status.embedded_notes === 0) {
+        log.warn("No embeddings found — semantic edges unavailable", {
+          total_notes: status.total_notes,
+          model_version: status.model_version,
+        });
+        return;
+      }
+      log.info("Loading semantic edges", {
+        embedded: status.embedded_notes,
+        total: status.total_notes,
+        nodes: snapshot.stats.node_count,
+        knn_limit,
+        similarity_threshold: threshold,
+      });
+    } catch {
+      log.warn("Could not check embedding status, proceeding anyway");
     }
 
     const revision = ++this.semantic_load_revision;
@@ -179,17 +201,25 @@ export class GraphService {
     if (revision !== this.semantic_load_revision) return;
 
     const results = new Map<string, SemanticSearchHit[]>();
+    let notes_with_hits = 0;
     for (const result of settled) {
       if (result.status === "fulfilled") {
         const [path, hits] = result.value;
         results.set(path, hits);
+        if (hits.length > 0) notes_with_hits++;
       }
     }
 
-    const edges = build_semantic_edges(
-      results,
-      threshold !== undefined ? 1 - threshold : undefined,
-    );
+    const distance_cutoff = threshold !== undefined ? 1 - threshold : undefined;
+    const edges = build_semantic_edges(results, distance_cutoff);
+
+    log.info("Semantic edges loaded", {
+      notes_queried: results.size,
+      notes_with_hits,
+      edges_built: edges.length,
+      distance_cutoff: distance_cutoff ?? SEMANTIC_EDGE_DISTANCE_THRESHOLD,
+    });
+
     this.graph_store.set_semantic_edges(edges);
   }
 
