@@ -122,4 +122,12 @@ export function register_graph_actions(
       await graph_service.load_vault_graph();
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.graph_toggle_semantic_edges,
+    label: "Toggle Semantic Connections",
+    execute: async () => {
+      await graph_service.toggle_semantic_edges();
+    },
+  });
 }

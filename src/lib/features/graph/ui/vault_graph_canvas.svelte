@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { VaultGraphSnapshot } from "$lib/features/graph/ports";
+  import type {
+    SemanticEdge,
+    VaultGraphSnapshot,
+  } from "$lib/features/graph/ports";
   import {
     create_vault_graph_simulation,
     resolve_vault_graph_view,
@@ -12,6 +15,8 @@
     filter_query: string;
     selected_node_ids: string[];
     hovered_node_id: string | null;
+    semantic_edges: SemanticEdge[];
+    show_semantic_edges: boolean;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
@@ -22,6 +27,8 @@
     filter_query,
     selected_node_ids,
     hovered_node_id,
+    semantic_edges,
+    show_semantic_edges,
     on_select_node,
     on_hover_node,
     on_open_node,
@@ -50,6 +57,8 @@
       filter_query,
       selected_node_ids,
       hovered_node_id,
+      semantic_edges,
+      show_semantic_edges,
     });
   });
 
@@ -126,11 +135,16 @@
           class="VaultGraph__edge"
           class:VaultGraph__edge--dimmed={edge.dimmed}
           class:VaultGraph__edge--highlighted={edge.highlighted}
+          class:VaultGraph__edge--semantic={edge.semantic}
           x1={edge.x1}
           y1={edge.y1}
           x2={edge.x2}
           y2={edge.y2}
-        />
+        >
+          {#if edge.semantic && edge.distance !== undefined}
+            <title>Similarity: {(1 - edge.distance).toFixed(2)}</title>
+          {/if}
+        </line>
       {/each}
     </svg>
 
@@ -205,6 +219,23 @@
     stroke: var(--primary);
     stroke-width: 1.5;
     opacity: 0.9;
+  }
+
+  .VaultGraph__edge--semantic {
+    stroke: var(--chart-4, oklch(0.6 0.15 300));
+    stroke-dasharray: 5 4;
+    stroke-width: 1;
+    opacity: 0.45;
+  }
+
+  .VaultGraph__edge--semantic.VaultGraph__edge--highlighted {
+    stroke: var(--chart-4, oklch(0.6 0.15 300));
+    opacity: 0.85;
+    stroke-width: 1.5;
+  }
+
+  .VaultGraph__edge--semantic.VaultGraph__edge--dimmed {
+    opacity: 0.06;
   }
 
   .VaultGraph__node {

@@ -137,18 +137,22 @@ pub fn knn_search(
     Ok(results)
 }
 
-pub fn get_embedding(conn: &Connection, path: &str) -> Result<Option<Vec<f32>>, String> {
-    let mut stmt = conn
-        .prepare("SELECT embedding FROM note_embeddings WHERE path = ?1")
-        .map_err(|e| e.to_string())?;
-    let result = stmt.query_row(params![path], |row| {
-        let bytes: Vec<u8> = row.get(0)?;
-        Ok(bytes_to_floats(&bytes))
-    });
-    match result {
-        Ok(vec) => Ok(Some(vec)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.to_string()),
+pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT embedding FROM note_embeddings WHERE path = ?1",
+            params![path],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let floats: Vec<f32> = bytes
+        .chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect();
+    if floats.is_empty() {
+        None
+    } else {
+        Some(floats)
     }
 }
 
@@ -191,9 +195,3 @@ fn floats_to_bytes(floats: &[f32]) -> Vec<u8> {
     bytes
 }
 
-fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
-    bytes
-        .chunks_exact(4)
-        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
-        .collect()
-}

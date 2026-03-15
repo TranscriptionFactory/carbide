@@ -102,6 +102,7 @@ export const ACTION_IDS = {
   graph_set_hovered_node: "graph.set_hovered_node",
   graph_toggle_view_mode: "graph.toggle_view_mode",
   graph_load_vault_graph: "graph.load_vault_graph",
+  graph_toggle_semantic_edges: "graph.toggle_semantic_edges",
 
   help_open: "help.open",
   help_close: "help.close",

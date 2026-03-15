@@ -8,7 +8,10 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from "d3-force";
-import type { VaultGraphSnapshot } from "$lib/features/graph/ports";
+import type {
+  SemanticEdge,
+  VaultGraphSnapshot,
+} from "$lib/features/graph/ports";
 
 export type ForceNode = SimulationNodeDatum & {
   id: string;
@@ -39,6 +42,8 @@ export type VaultGraphViewEdge = {
   y2: number;
   dimmed: boolean;
   highlighted: boolean;
+  semantic: boolean;
+  distance?: number;
 };
 
 export type VaultGraphView = {
@@ -112,9 +117,18 @@ export function resolve_vault_graph_view(input: {
   selected_node_ids: string[];
   hovered_node_id: string | null;
   viewport?: { x: number; y: number; width: number; height: number };
+  semantic_edges?: SemanticEdge[];
+  show_semantic_edges?: boolean;
 }): VaultGraphView {
-  const { state, filter_query, selected_node_ids, hovered_node_id, viewport } =
-    input;
+  const {
+    state,
+    filter_query,
+    selected_node_ids,
+    hovered_node_id,
+    viewport,
+    semantic_edges = [],
+    show_semantic_edges = false,
+  } = input;
   const selected = new Set(selected_node_ids);
   const query = filter_query.trim();
 
@@ -182,7 +196,40 @@ export function resolve_vault_graph_view(input: {
       y2: tgt_pos.y,
       dimmed: !!query && (!src_matches || !tgt_matches),
       highlighted: is_highlighted,
+      semantic: false,
     });
+  }
+
+  if (show_semantic_edges) {
+    const node_map = new Map<string, ForceNode>(
+      state.nodes.map((n) => [n.id, n]),
+    );
+
+    for (const sem_edge of semantic_edges) {
+      const src = node_map.get(sem_edge.source);
+      const tgt = node_map.get(sem_edge.target);
+      if (!src || !tgt) continue;
+
+      const src_pos = get_node_position(src);
+      const tgt_pos = get_node_position(tgt);
+      const src_matches = matches_filter(query, src.label, src.id);
+      const tgt_matches = matches_filter(query, tgt.label, tgt.id);
+      const is_highlighted =
+        hovered_node_id !== null &&
+        (src.id === hovered_node_id || tgt.id === hovered_node_id);
+
+      edges.push({
+        id: `sem:${src.id}↔${tgt.id}`,
+        x1: src_pos.x,
+        y1: src_pos.y,
+        x2: tgt_pos.x,
+        y2: tgt_pos.y,
+        dimmed: !!query && (!src_matches || !tgt_matches),
+        highlighted: is_highlighted,
+        semantic: true,
+        distance: sem_edge.distance,
+      });
+    }
   }
 
   return { nodes, edges };

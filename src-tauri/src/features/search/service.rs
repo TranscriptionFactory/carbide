@@ -1060,6 +1060,62 @@ pub fn semantic_search(
 }
 
 #[tauri::command]
+pub fn find_similar_notes(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    limit: Option<usize>,
+    exclude_linked: Option<bool>,
+) -> Result<Vec<SemanticSearchHit>, String> {
+    let limit = limit.unwrap_or(5);
+    let exclude = exclude_linked.unwrap_or(false);
+
+    with_read_conn(&app, &vault_id, |conn| {
+        let query_vec = match vector_db::get_embedding(conn, &note_path) {
+            Some(v) => v,
+            None => return Ok(vec![]),
+        };
+
+        let fetch_limit = if exclude { limit + 20 } else { limit + 1 };
+        let hits = vector_db::knn_search(conn, &query_vec, fetch_limit)?;
+
+        let linked: std::collections::HashSet<String> = if exclude {
+            let mut set = std::collections::HashSet::new();
+            if let Ok(backlinks) = search_db::get_backlinks(conn, &note_path) {
+                for n in backlinks {
+                    set.insert(n.path.clone());
+                }
+            }
+            if let Ok(outlinks) = search_db::get_outlinks(conn, &note_path) {
+                for n in outlinks {
+                    set.insert(n.path.clone());
+                }
+            }
+            set
+        } else {
+            std::collections::HashSet::new()
+        };
+
+        let mut results = Vec::with_capacity(limit);
+        for (path, distance) in hits {
+            if path == note_path {
+                continue;
+            }
+            if exclude && linked.contains(&path) {
+                continue;
+            }
+            if let Ok(Some(note)) = search_db::get_note_meta(conn, &path) {
+                results.push(SemanticSearchHit { note, distance });
+                if results.len() >= limit {
+                    break;
+                }
+            }
+        }
+        Ok(results)
+    })
+}
+
+#[tauri::command]
 pub fn hybrid_search(
     app: AppHandle,
     vault_id: String,
@@ -1073,55 +1129,6 @@ pub fn hybrid_search(
 
     with_read_conn(&app, &vault_id, |conn| {
         hybrid::hybrid_search(conn, &model, &query, limit)
-    })
-}
-
-#[tauri::command]
-pub fn find_similar_notes(
-    app: AppHandle,
-    vault_id: String,
-    note_path: String,
-    limit: Option<usize>,
-    exclude_linked: Option<bool>,
-) -> Result<Vec<SemanticSearchHit>, String> {
-    let limit = limit.unwrap_or(10);
-    let exclude_linked = exclude_linked.unwrap_or(false);
-
-    with_read_conn(&app, &vault_id, |conn| {
-        let embedding = vector_db::get_embedding(conn, &note_path)?
-            .ok_or_else(|| format!("No embedding found for note: {note_path}"))?;
-
-        let fetch_limit = limit + 1;
-        let hits = vector_db::knn_search(conn, &embedding, fetch_limit)?;
-
-        let linked_paths: std::collections::HashSet<String> = if exclude_linked {
-            let outlinks = search_db::get_outlinks(conn, &note_path)?;
-            let backlinks = search_db::get_backlinks(conn, &note_path)?;
-            outlinks
-                .iter()
-                .chain(backlinks.iter())
-                .map(|n| n.path.clone())
-                .collect()
-        } else {
-            std::collections::HashSet::new()
-        };
-
-        let mut results = Vec::with_capacity(limit);
-        for (path, distance) in hits {
-            if path == note_path {
-                continue;
-            }
-            if exclude_linked && linked_paths.contains(&path) {
-                continue;
-            }
-            if let Ok(Some(note)) = search_db::get_note_meta(conn, &path) {
-                results.push(SemanticSearchHit { note, distance });
-            }
-            if results.len() >= limit {
-                break;
-            }
-        }
-        Ok(results)
     })
 }
 

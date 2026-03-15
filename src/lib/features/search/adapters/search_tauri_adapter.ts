@@ -253,6 +253,27 @@ export function create_search_tauri_adapter(): SearchPort {
       });
     },
 
+    async find_similar_notes(
+      vault_id: VaultId,
+      note_path: string,
+      limit = 5,
+      exclude_linked = true,
+    ): Promise<SemanticSearchHit[]> {
+      const hits = await invoke_search<TauriSemanticSearchHit[]>(
+        "find_similar_notes",
+        {
+          vaultId: vault_id,
+          notePath: note_path,
+          limit,
+          excludeLinked: exclude_linked,
+        },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        distance: hit.distance,
+      }));
+    },
+
     async semantic_search(
       vault_id: VaultId,
       query: string,
@@ -282,27 +303,6 @@ export function create_search_tauri_adapter(): SearchPort {
         score: hit.score,
         snippet: hit.snippet ?? undefined,
         source: hit.source,
-      }));
-    },
-
-    async find_similar_notes(
-      vault_id: VaultId,
-      note_path: string,
-      limit = 10,
-      exclude_linked = false,
-    ): Promise<SemanticSearchHit[]> {
-      const hits = await invoke_search<TauriSemanticSearchHit[]>(
-        "find_similar_notes",
-        {
-          vaultId: vault_id,
-          notePath: note_path,
-          limit,
-          excludeLinked: exclude_linked,
-        },
-      );
-      return hits.map((hit) => ({
-        note: to_note_meta(hit.note),
-        distance: hit.distance,
       }));
     },
 

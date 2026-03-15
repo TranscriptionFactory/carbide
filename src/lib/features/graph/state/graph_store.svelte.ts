@@ -1,5 +1,6 @@
 import type {
   GraphNeighborhoodSnapshot,
+  SemanticEdge,
   VaultGraphSnapshot,
 } from "$lib/features/graph/ports";
 
@@ -17,6 +18,8 @@ export class GraphStore {
   filter_query = $state("");
   view_mode = $state<GraphViewMode>("neighborhood");
   vault_snapshot = $state<VaultGraphSnapshot | null>(null);
+  semantic_edges = $state<SemanticEdge[]>([]);
+  show_semantic_edges = $state(false);
 
   set_panel_open(open: boolean) {
     this.panel_open = open;
@@ -91,10 +94,20 @@ export class GraphStore {
     this.error = null;
   }
 
+  set_semantic_edges(edges: SemanticEdge[]) {
+    this.semantic_edges = edges;
+  }
+
+  toggle_show_semantic_edges() {
+    this.show_semantic_edges = !this.show_semantic_edges;
+  }
+
   clear() {
     this.panel_open = false;
     this.clear_snapshot();
     this.vault_snapshot = null;
     this.view_mode = "neighborhood";
+    this.semantic_edges = [];
+    this.show_semantic_edges = false;
   }
 }

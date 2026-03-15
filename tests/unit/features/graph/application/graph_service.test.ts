@@ -8,6 +8,7 @@ import type {
 import { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
+import type { SearchPort } from "$lib/features/search/ports";
 import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
 
 describe("GraphService", () => {
@@ -38,10 +39,15 @@ describe("GraphService", () => {
     },
   } as unknown as EditorStore;
 
+  const mock_search_port = {
+    find_similar_notes: vi.fn().mockResolvedValue([]),
+  } as unknown as SearchPort;
+
   const graph_store = new GraphStore();
 
   const service = new GraphService(
     mock_graph_port,
+    mock_search_port,
     mock_vault_store,
     mock_editor_store,
     graph_store,
@@ -103,6 +109,7 @@ describe("GraphService", () => {
   it("clears store if no vault is active", async () => {
     const service_no_vault = new GraphService(
       mock_graph_port,
+      mock_search_port,
       { vault: null } as unknown as VaultStore,
       mock_editor_store,
       graph_store,

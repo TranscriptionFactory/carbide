@@ -14,8 +14,5 @@ fs.writeFileSync(
 const cargoToml = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
 fs.writeFileSync(
   "src-tauri/Cargo.toml",
-  cargoToml.replace(
-    /^version\s*=\s*"[^"]*"/m,
-    `version = "${pkg.version}"`,
-  ),
+  cargoToml.replace(/^version\s*=\s*"[^"]*"/m, `version = "${pkg.version}"`),
 );
