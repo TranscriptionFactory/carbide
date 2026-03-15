@@ -81,6 +81,12 @@ export interface SearchPort {
     query: string,
     limit?: number,
   ): Promise<HybridSearchHit[]>;
+  find_similar_notes(
+    vault_id: VaultId,
+    note_path: string,
+    limit?: number,
+    exclude_linked?: boolean,
+  ): Promise<SemanticSearchHit[]>;
   get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
   rebuild_embeddings(vault_id: VaultId): Promise<void>;
 }

@@ -112,6 +112,7 @@ export function create_test_search_adapter(): SearchPort {
       return Promise.resolve(resolve_relative_path(base_dir, with_ext));
     },
 
+    find_similar_notes: () => Promise.resolve([]),
     semantic_search: () => Promise.resolve([]),
     hybrid_search: () => Promise.resolve([]),
     get_embedding_status: () =>

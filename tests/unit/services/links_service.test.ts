@@ -67,6 +67,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -110,6 +111,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -169,6 +171,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -232,6 +235,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -282,6 +286,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
     const vault_store = new VaultStore();
@@ -338,6 +343,7 @@ describe("LinksService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 

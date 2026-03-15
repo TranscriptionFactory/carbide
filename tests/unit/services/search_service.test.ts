@@ -88,6 +88,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -141,6 +142,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -193,6 +195,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -242,6 +245,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -298,6 +302,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -362,6 +367,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -427,6 +433,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -476,6 +483,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -537,6 +545,7 @@ describe("SearchService", () => {
         model_version: "unavailable",
         is_embedding: false,
       }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
 

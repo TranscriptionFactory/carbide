@@ -285,6 +285,22 @@ export function create_search_tauri_adapter(): SearchPort {
       }));
     },
 
+    async find_similar_notes(
+      vault_id: VaultId,
+      note_path: string,
+      limit = 10,
+      exclude_linked = false,
+    ): Promise<SemanticSearchHit[]> {
+      const hits = await invoke_search<TauriSemanticSearchHit[]>(
+        "find_similar_notes",
+        { vaultId: vault_id, notePath: note_path, limit, excludeLinked: exclude_linked },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        distance: hit.distance,
+      }));
+    },
+
     async get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus> {
       return invoke_search<TauriEmbeddingStatus>("get_embedding_status", {
         vaultId: vault_id,
