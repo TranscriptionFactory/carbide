@@ -4,6 +4,7 @@
     VaultGraphSnapshot,
   } from "$lib/features/graph/ports";
   import { VaultGraphRenderer } from "$lib/features/graph/domain/vault_graph_renderer";
+  import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import { onDestroy } from "svelte";
 
   type Props = {
@@ -34,15 +35,6 @@
   let renderer: VaultGraphRenderer | null = null;
   let worker: Worker | null = null;
   let current_snapshot_ref: VaultGraphSnapshot | null = null;
-
-  function matches_filter(query: string, label: string, id: string): boolean {
-    if (!query) return true;
-    const lower = query.toLocaleLowerCase();
-    return (
-      label.toLocaleLowerCase().includes(lower) ||
-      id.toLocaleLowerCase().includes(lower)
-    );
-  }
 
   function compute_filter_set(
     query: string,

@@ -260,7 +260,10 @@ pub fn graph_load_vault_graph_streamed(
 fn get_connected_paths(app: &AppHandle, vault_id: &str, note_path: &str) -> Vec<String> {
     let conn = match search_db::open_search_db(app, vault_id) {
         Ok(c) => c,
-        Err(_) => return vec![],
+        Err(e) => {
+            log::warn!("get_connected_paths: failed to open db for {vault_id}: {e}");
+            return vec![];
+        }
     };
 
     let mut paths = Vec::new();

@@ -102,14 +102,7 @@ export function compute_adaptive_tick_budget(node_count: number): number {
   return Math.max(50, Math.min(Math.round(node_count * 0.5), 500));
 }
 
-function matches_filter(query: string, label: string, id: string): boolean {
-  if (!query) return true;
-  const lower = query.toLocaleLowerCase();
-  return (
-    label.toLocaleLowerCase().includes(lower) ||
-    id.toLocaleLowerCase().includes(lower)
-  );
-}
+import { matches_filter } from "$lib/features/graph/domain/graph_filter";
 
 function get_node_position(node: ForceNode): { x: number; y: number } {
   return { x: node.x ?? 0, y: node.y ?? 0 };

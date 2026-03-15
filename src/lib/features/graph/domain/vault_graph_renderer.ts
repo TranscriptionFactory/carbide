@@ -67,6 +67,7 @@ export class VaultGraphRenderer {
 
   async initialize(container: HTMLElement): Promise<void> {
     const pixi = await import("pixi.js");
+    if (this.destroyed) return;
     this.pixi = pixi;
 
     this.container_el = container;
@@ -80,6 +81,12 @@ export class VaultGraphRenderer {
       resolution: window.devicePixelRatio,
       autoDensity: true,
     });
+
+    if (this.destroyed) {
+      this.app.destroy(true, { children: true });
+      this.app = null;
+      return;
+    }
 
     container.appendChild(this.app.canvas);
     this.app.canvas.style.touchAction = "none";
@@ -202,19 +209,16 @@ export class VaultGraphRenderer {
   highlight_node(id: string | null): void {
     this.hovered_id = id;
     this.rebuild_hovered_connections();
-    this.apply_node_states();
     this.request_render();
   }
 
   select_node(id: string | null): void {
     this.selected_id = id;
-    this.apply_node_states();
     this.request_render();
   }
 
   set_filter(matching_ids: Set<string> | null): void {
     this.filter_set = matching_ids;
-    this.apply_node_states();
     this.request_render();
   }
 
@@ -229,6 +233,7 @@ export class VaultGraphRenderer {
   destroy(): void {
     this.destroyed = true;
     cancelAnimationFrame(this.raf_id);
+    this.teardown_input();
     if (this.app) {
       this.app.destroy(true, { children: true });
       this.app = null;
@@ -248,7 +253,7 @@ export class VaultGraphRenderer {
     if (this.destroyed || !this.app) return;
     this.apply_culling();
     this.draw_edges();
-    this.apply_lod();
+    this.apply_visual_state();
   }
 
   private apply_transform(): void {
@@ -283,9 +288,9 @@ export class VaultGraphRenderer {
     }
   }
 
-  private apply_lod(): void {
+  private apply_visual_state(): void {
     const show_labels = this.zoom > LOD_FULL_ZOOM;
-    const scale =
+    const base_scale =
       this.zoom > LOD_FULL_ZOOM
         ? 1
         : this.zoom > LOD_MEDIUM_ZOOM
@@ -294,18 +299,7 @@ export class VaultGraphRenderer {
 
     for (const entry of this.node_map.values()) {
       if (!entry.container.visible) continue;
-      entry.circle.scale.set(scale);
-      const show_this_label =
-        show_labels &&
-        (entry.id === this.hovered_id ||
-          entry.id === this.selected_id ||
-          this.hovered_connections.has(entry.id));
-      entry.label.visible = show_this_label;
-    }
-  }
 
-  private apply_node_states(): void {
-    for (const entry of this.node_map.values()) {
       const is_selected = entry.id === this.selected_id;
       const is_hovered = entry.id === this.hovered_id;
       const is_connected = this.hovered_connections.has(entry.id);
@@ -315,17 +309,27 @@ export class VaultGraphRenderer {
       if (is_dimmed) {
         entry.circle.tint = this.colors.node;
         entry.circle.alpha = 0.15;
-      } else if (is_selected || is_hovered) {
+        entry.circle.scale.set(base_scale);
+      } else if (is_selected) {
         entry.circle.tint = this.colors.primary;
         entry.circle.alpha = 1;
-        entry.circle.scale.set(is_selected ? 1.8 : 1.5);
+        entry.circle.scale.set(base_scale * 1.8);
+      } else if (is_hovered) {
+        entry.circle.tint = this.colors.primary;
+        entry.circle.alpha = 1;
+        entry.circle.scale.set(base_scale * 1.5);
       } else if (is_connected) {
         entry.circle.tint = this.colors.primary;
         entry.circle.alpha = 1;
+        entry.circle.scale.set(base_scale);
       } else {
         entry.circle.tint = this.colors.node;
         entry.circle.alpha = 1;
+        entry.circle.scale.set(base_scale);
       }
+
+      entry.label.visible =
+        show_labels && (is_hovered || is_selected || is_connected);
     }
   }
 
@@ -423,6 +427,24 @@ export class VaultGraphRenderer {
     container.addEventListener("pointermove", this.handle_pointer_move);
     container.addEventListener("pointerup", this.handle_pointer_up);
     container.addEventListener("pointercancel", this.handle_pointer_up);
+  }
+
+  private teardown_input(): void {
+    if (!this.container_el) return;
+    this.container_el.removeEventListener("wheel", this.handle_wheel);
+    this.container_el.removeEventListener(
+      "pointerdown",
+      this.handle_pointer_down,
+    );
+    this.container_el.removeEventListener(
+      "pointermove",
+      this.handle_pointer_move,
+    );
+    this.container_el.removeEventListener("pointerup", this.handle_pointer_up);
+    this.container_el.removeEventListener(
+      "pointercancel",
+      this.handle_pointer_up,
+    );
   }
 
   private handle_wheel = (e: WheelEvent): void => {
