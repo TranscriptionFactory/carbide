@@ -137,6 +137,25 @@ pub fn knn_search(
     Ok(results)
 }
 
+pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT embedding FROM note_embeddings WHERE path = ?1",
+            params![path],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let floats: Vec<f32> = bytes
+        .chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect();
+    if floats.is_empty() {
+        None
+    } else {
+        Some(floats)
+    }
+}
+
 pub fn has_embedding(conn: &Connection, path: &str) -> bool {
     conn.query_row(
         "SELECT 1 FROM note_embeddings WHERE path = ?1",

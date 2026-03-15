@@ -6,6 +6,7 @@ export type {
   VaultGraphNode,
   VaultGraphEdge,
   VaultGraphStats,
+  SemanticEdge,
 } from "$lib/features/graph/ports";
 export { create_graph_tauri_adapter } from "$lib/features/graph/adapters/graph_tauri_adapter";
 export {

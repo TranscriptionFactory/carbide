@@ -263,6 +263,7 @@ export function create_app_context(input: {
 
   const graph_service = new GraphService(
     input.ports.graph,
+    input.ports.search,
     stores.vault,
     stores.editor,
     stores.graph,

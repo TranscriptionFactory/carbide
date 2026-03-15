@@ -40,6 +40,12 @@ export type GraphNeighborhoodSnapshot = {
   stats: GraphNeighborhoodStats;
 };
 
+export type SemanticEdge = {
+  source: string;
+  target: string;
+  distance: number;
+};
+
 export type GraphCacheStats = {
   size: number;
   hits: number;

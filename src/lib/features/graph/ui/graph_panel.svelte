@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Globe, RefreshCw, Target, X } from "@lucide/svelte";
+  import { Globe, RefreshCw, Sparkles, Target, X } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -18,6 +18,9 @@
   const has_snapshot = $derived(snapshot !== null);
   const has_vault_snapshot = $derived(vault_snapshot !== null);
   const is_vault_mode = $derived(view_mode === "vault");
+  const semantic_edges = $derived(stores.graph.semantic_edges);
+  const show_semantic_edges = $derived(stores.graph.show_semantic_edges);
+  const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
 
   let container_element = $state<HTMLElement | null>(null);
   let container_width = $state<number>(760);
@@ -81,6 +84,22 @@
           <Target size={14} />
         </Button>
       {/if}
+      {#if is_vault_mode && vault_node_count > 0 && vault_node_count <= 200}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={show_semantic_edges
+            ? "Hide semantic connections"
+            : "Show semantic connections"}
+          aria-pressed={show_semantic_edges}
+          onclick={() =>
+            void action_registry.execute(
+              ACTION_IDS.graph_toggle_semantic_edges,
+            )}
+        >
+          <Sparkles size={14} />
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
@@ -141,6 +160,8 @@
         {filter_query}
         selected_node_ids={stores.graph.selected_node_ids}
         hovered_node_id={stores.graph.hovered_node_id}
+        {semantic_edges}
+        {show_semantic_edges}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>

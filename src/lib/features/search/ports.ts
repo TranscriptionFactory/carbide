@@ -71,6 +71,12 @@ export interface SearchPort {
     source_path: string,
     raw_target: string,
   ): Promise<string | null>;
+  find_similar_notes(
+    vault_id: VaultId,
+    note_path: string,
+    limit?: number,
+    exclude_linked?: boolean,
+  ): Promise<SemanticSearchHit[]>;
   semantic_search(
     vault_id: VaultId,
     query: string,
