@@ -75,7 +75,7 @@ pnpm format     # Prettier
 
 ## Acknowledgments
 
-Badgerly is a fork of [Otterly](https://github.com/TranscriptionFactory/otterly). Thank you to the Otterly project for providing the foundation this project builds on.
+Badgerly is a fork of [Otterly](https://github.com/TranscriptionFactory/badgerly). Thank you to the Otterly project for providing the foundation this project builds on.
 
 Thanks also to [Ferrite](https://github.com/OlaProeis/Ferrite), [Moraya](https://github.com/TranscriptionFactory/moraya), [Scratch](https://github.com/TranscriptionFactory/scratch), and [Lokus](https://github.com/lokus-ai/lokus) for inspiration.
 
