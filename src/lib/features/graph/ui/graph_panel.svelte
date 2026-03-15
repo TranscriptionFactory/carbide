@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Globe, RefreshCw, Sparkles, Target, X } from "@lucide/svelte";
+  import {
+    Globe,
+    Maximize2,
+    RefreshCw,
+    Sparkles,
+    Target,
+    X,
+  } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -103,6 +110,15 @@
           <Sparkles size={14} />
         </Button>
       {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        title="Open graph in tab"
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_open_as_tab)}
+      >
+        <Maximize2 size={14} />
+      </Button>
       <Button
         variant="ghost"
         size="icon"

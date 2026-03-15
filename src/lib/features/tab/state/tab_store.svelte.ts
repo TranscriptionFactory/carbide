@@ -120,6 +120,29 @@ export class TabStore {
     return tab;
   }
 
+  open_graph_tab(tab_id: string, title: string): Tab {
+    const existing = this.tabs.find((t) => t.id === tab_id);
+    if (existing) {
+      this.active_tab_id = existing.id;
+      this.move_to_front_mru(existing.id);
+      return existing;
+    }
+
+    const tab: Tab = {
+      kind: "graph",
+      id: tab_id,
+      view_mode: "vault",
+      title,
+      is_pinned: false,
+      is_dirty: false,
+    };
+
+    this.tabs = [...this.tabs, tab];
+    this.active_tab_id = tab.id;
+    this.mru_order = [tab.id, ...this.mru_order];
+    return tab;
+  }
+
   activate_tab(tab_id: TabId) {
     const tab = this.tabs.find((t) => t.id === tab_id);
     if (!tab) return;

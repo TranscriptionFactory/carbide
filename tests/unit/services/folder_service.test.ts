@@ -440,7 +440,11 @@ describe("FolderService", () => {
     ]);
     expect(
       tab_store.tabs.map((tab) =>
-        tab.kind === "note" ? tab.note_path : tab.file_path,
+        tab.kind === "note"
+          ? tab.note_path
+          : tab.kind === "document"
+            ? tab.file_path
+            : tab.id,
       ),
     ).toEqual(["archive/note-001.md", "archive/work/todo.md"]);
   });

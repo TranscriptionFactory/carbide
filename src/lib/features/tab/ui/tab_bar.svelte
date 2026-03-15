@@ -271,7 +271,11 @@
                   {/snippet}
                 </Tooltip.Trigger>
                 <Tooltip.Content side="bottom" sideOffset={4}>
-                  {tab.kind === "note" ? tab.note_path : tab.file_path}
+                  {tab.kind === "note"
+                    ? tab.note_path
+                    : tab.kind === "document"
+                      ? tab.file_path
+                      : tab.title}
                 </Tooltip.Content>
               </Tooltip.Root>
             {/snippet}

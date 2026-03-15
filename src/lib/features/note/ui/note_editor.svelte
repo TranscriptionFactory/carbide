@@ -9,6 +9,7 @@
   import { DocumentViewer } from "$lib/features/document";
   import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
+  import { GraphTabView } from "$lib/features/graph";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
   const { stores, action_registry } = use_app_context();
@@ -50,7 +51,9 @@
 </script>
 
 <div class="NoteEditor">
-  {#if is_canvas_tab && active_tab?.kind === "document"}
+  {#if active_tab?.kind === "graph"}
+    <GraphTabView />
+  {:else if is_canvas_tab && active_tab?.kind === "document"}
     <CanvasViewer
       tab_id={active_tab.id}
       file_path={active_tab.file_path}

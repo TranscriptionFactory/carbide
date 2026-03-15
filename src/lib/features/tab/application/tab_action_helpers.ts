@@ -29,6 +29,7 @@ function push_closed_tab_history(
   stores: ActionRegistrationInput["stores"],
   tab: Tab,
 ): void {
+  if (tab.kind === "graph") return;
   const snapshot = stores.tab.get_snapshot(tab.id);
   const base = {
     title: tab.title,

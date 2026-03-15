@@ -338,6 +338,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       const tab = find_tab(id);
       if (!tab) return;
 
+      if (tab.kind === "graph") return;
       const path = tab.kind === "note" ? tab.note_path : tab.file_path;
       try {
         await services.clipboard.copy_text(path);

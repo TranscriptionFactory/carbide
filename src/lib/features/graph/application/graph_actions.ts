@@ -2,6 +2,10 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
 import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
+import {
+  GRAPH_TAB_ID,
+  GRAPH_TAB_TITLE,
+} from "$lib/features/graph/domain/graph_tab";
 
 type GraphCloseOptions = {
   preserve_context_rail?: boolean;
@@ -133,6 +137,16 @@ export function register_graph_actions(
         knn_limit: s.semantic_graph_edges_per_note,
         distance_threshold: s.semantic_similarity_threshold,
       });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.graph_open_as_tab,
+    label: "Open Vault Graph",
+    execute: async () => {
+      stores.tab.open_graph_tab(GRAPH_TAB_ID, GRAPH_TAB_TITLE);
+      stores.editor.clear_open_note();
+      await graph_service.load_vault_graph();
     },
   });
 }

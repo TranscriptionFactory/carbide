@@ -7,6 +7,7 @@ import type { Tab, PersistedTabState } from "$lib/features/tab/types/tab";
 import type { NotePath, VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import { create_logger } from "$lib/shared/utils/logger";
+import { GRAPH_TAB_ID, GRAPH_TAB_TITLE } from "$lib/features/graph";
 
 const log = create_logger("tab_service");
 const TABS_KEY = "open_tabs";
@@ -44,6 +45,8 @@ export class TabService {
         : null;
     } else if (active_tab?.kind === "document") {
       active_tab_path = active_tab.file_path;
+    } else if (active_tab?.kind === "graph") {
+      active_tab_path = active_tab.id;
     }
 
     return {
@@ -55,6 +58,14 @@ export class TabService {
             note_path: tab.note_path,
             is_pinned: tab.is_pinned,
             cursor: snapshot?.cursor ?? null,
+          };
+        }
+        if (tab.kind === "graph") {
+          return {
+            kind: "graph" as const,
+            view_mode: tab.view_mode,
+            is_pinned: tab.is_pinned,
+            cursor: null,
           };
         }
         return {
@@ -82,11 +93,13 @@ export class TabService {
               (t) =>
                 t.kind === "note" && t.note_path === persisted_tab.note_path,
             )
-          : tabs.find(
-              (t) =>
-                t.kind === "document" &&
-                t.file_path === persisted_tab.file_path,
-            );
+          : persisted_tab.kind === "document"
+            ? tabs.find(
+                (t) =>
+                  t.kind === "document" &&
+                  t.file_path === persisted_tab.file_path,
+              )
+            : undefined;
 
       if (!tab) continue;
 
@@ -171,6 +184,18 @@ export class TabService {
 
   async restore_tabs(persisted: PersistedTabState): Promise<void> {
     const restored_tabs: Tab[] = persisted.tabs.flatMap((t): Tab[] => {
+      if (t.kind === "graph") {
+        return [
+          {
+            kind: "graph" as const,
+            id: GRAPH_TAB_ID,
+            view_mode: "vault" as const,
+            title: GRAPH_TAB_TITLE,
+            is_pinned: Boolean(t.is_pinned),
+            is_dirty: false,
+          },
+        ];
+      }
       if (t.kind === "document") {
         if (typeof t.file_path !== "string") return [];
         return [
@@ -212,7 +237,9 @@ export class TabService {
     if (!active_id) return;
 
     const active_tab = restored_tabs.find((tab) => tab.id === active_id);
-    if (!active_tab || active_tab.kind !== "note") return;
+    if (!active_tab) return;
+    if (active_tab.kind === "graph") return;
+    if (active_tab.kind !== "note") return;
 
     const result = await this.note_service.open_note(
       active_tab.note_path,

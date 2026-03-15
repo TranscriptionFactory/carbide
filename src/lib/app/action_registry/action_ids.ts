@@ -103,6 +103,7 @@ export const ACTION_IDS = {
   graph_toggle_view_mode: "graph.toggle_view_mode",
   graph_load_vault_graph: "graph.load_vault_graph",
   graph_toggle_semantic_edges: "graph.toggle_semantic_edges",
+  graph_open_as_tab: "graph.open_as_tab",
 
   help_open: "help.open",
   help_close: "help.close",

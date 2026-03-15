@@ -527,7 +527,13 @@ describe("TabStore", () => {
       store.update_tab_path_prefix("docs/", "notes/");
 
       expect(
-        store.tabs.map((t) => (t.kind === "note" ? t.note_path : t.file_path)),
+        store.tabs.map((t) =>
+          t.kind === "note"
+            ? t.note_path
+            : t.kind === "document"
+              ? t.file_path
+              : t.id,
+        ),
       ).toEqual(["notes/a.md", "notes/b.md", "other/c.md"]);
       expect(store.active_tab_id).toBe("notes/a.md");
     });
@@ -541,7 +547,13 @@ describe("TabStore", () => {
       store.update_tab_path_prefix("docs/", "notes/");
 
       expect(
-        store.tabs.map((t) => (t.kind === "note" ? t.note_path : t.file_path)),
+        store.tabs.map((t) =>
+          t.kind === "note"
+            ? t.note_path
+            : t.kind === "document"
+              ? t.file_path
+              : t.id,
+        ),
       ).toEqual(["notes/a.md", "notes/b.md", "other/c.md"]);
     });
 

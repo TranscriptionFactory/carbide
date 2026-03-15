@@ -29,7 +29,12 @@ export function create_tab_persist_reactor(
   function current_snapshot(): PersistedTabSnapshot {
     return {
       tabs: tab_store.tabs.map((t) => ({
-        p: t.kind === "note" ? t.note_path : t.file_path,
+        p:
+          t.kind === "note"
+            ? t.note_path
+            : t.kind === "document"
+              ? t.file_path
+              : t.id,
         pin: t.is_pinned,
       })),
       active: tab_store.active_tab_id,
