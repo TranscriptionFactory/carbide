@@ -5,7 +5,7 @@
   } from "$lib/features/graph/ports";
   import { VaultGraphRenderer } from "$lib/features/graph/domain/vault_graph_renderer";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
-  import { onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
 
   type Props = {
     snapshot: VaultGraphSnapshot;
@@ -31,10 +31,10 @@
     on_open_node,
   }: Props = $props();
 
-  let container_el = $state<HTMLElement | null>(null);
+  let container_el: HTMLElement | undefined;
   let renderer: VaultGraphRenderer | null = null;
   let worker: Worker | null = null;
-  let current_snapshot_ref: VaultGraphSnapshot | null = null;
+  let mounted = false;
 
   function compute_filter_set(
     query: string,
@@ -49,6 +49,14 @@
       }
     }
     return set;
+  }
+
+  function plain_nodes(snap: VaultGraphSnapshot) {
+    return snap.nodes.map((n) => ({ id: n.path, label: n.title }));
+  }
+
+  function plain_edges(snap: VaultGraphSnapshot) {
+    return snap.edges.map((e) => ({ source: e.source, target: e.target }));
   }
 
   function create_worker(): Worker {
@@ -89,10 +97,9 @@
 
     await r.initialize(el);
 
-    r.set_graph(
-      snap.nodes.map((n) => ({ id: n.path, label: n.title })),
-      snap.edges.map((e) => ({ source: e.source, target: e.target })),
-    );
+    if (!mounted) return;
+
+    r.set_graph(plain_nodes(snap), plain_edges(snap));
 
     const w = create_worker();
     worker = w;
@@ -100,7 +107,7 @@
     w.postMessage({
       type: "init",
       nodes: snap.nodes.map((n) => ({ id: n.path })),
-      edges: snap.edges.map((e) => ({ source: e.source, target: e.target })),
+      edges: plain_edges(snap),
     });
   }
 
@@ -116,34 +123,47 @@
     }
   }
 
-  $effect(() => {
-    if (!container_el) return;
-    if (snapshot === current_snapshot_ref) return;
-    current_snapshot_ref = snapshot;
-    void setup(container_el, snapshot);
+  onMount(() => {
+    mounted = true;
+    if (container_el) {
+      void setup(container_el, snapshot);
+    }
+    return () => {
+      mounted = false;
+      cleanup();
+    };
   });
 
   $effect(() => {
-    renderer?.set_filter(compute_filter_set(filter_query, snapshot));
+    if (!mounted || !renderer) return;
+    renderer.set_filter(compute_filter_set(filter_query, snapshot));
   });
 
   $effect(() => {
+    if (!mounted || !renderer) return;
     if (selected_node_ids.length > 0) {
-      renderer?.select_node(selected_node_ids[0] ?? null);
+      renderer.select_node(selected_node_ids[0] ?? null);
     } else {
-      renderer?.select_node(null);
+      renderer.select_node(null);
     }
   });
 
   $effect(() => {
-    renderer?.highlight_node(hovered_node_id);
+    if (!mounted || !renderer) return;
+    renderer.highlight_node(hovered_node_id);
   });
 
   $effect(() => {
-    renderer?.set_semantic_edges(semantic_edges, show_semantic_edges);
+    if (!mounted || !renderer) return;
+    renderer.set_semantic_edges(
+      semantic_edges.map((e) => ({
+        source: e.source,
+        target: e.target,
+        distance: e.distance,
+      })),
+      show_semantic_edges,
+    );
   });
-
-  onDestroy(cleanup);
 </script>
 
 <div class="VaultGraph" role="img" aria-label="Full vault graph">
