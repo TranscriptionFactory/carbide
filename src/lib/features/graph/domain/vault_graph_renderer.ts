@@ -6,6 +6,7 @@ import type {
   Text,
   Texture,
 } from "pixi.js";
+import type { Viewport } from "pixi-viewport";
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
 import type { SemanticEdge } from "$lib/features/graph/ports";
 
@@ -15,6 +16,7 @@ const NODE_RADIUS = 8;
 const NODE_RADIUS_MEDIUM = 4;
 const NODE_RADIUS_SMALL = 2;
 const HIT_AREA_RADIUS = 14;
+const WORLD_SIZE = 10_000;
 
 type NodeEntry = {
   id: string;
@@ -32,6 +34,7 @@ type SemanticEdgeDef = SemanticEdge;
 export class VaultGraphRenderer {
   private pixi: typeof import("pixi.js") | null = null;
   private app: Application | null = null;
+  private vp: Viewport | null = null;
   private edges_gfx: Graphics | null = null;
   private nodes_layer: Container | null = null;
   private node_map = new Map<string, NodeEntry>();
@@ -40,9 +43,6 @@ export class VaultGraphRenderer {
   private show_semantic = false;
   private spatial = new SpatialIndex();
   private circle_texture: Texture | null = null;
-  private viewport = { x: 0, y: 0, width: 800, height: 600 };
-  private zoom = 1;
-  private pan = { x: 0, y: 0 };
   private filter_set: Set<string> | null = null;
   private selected_id: string | null = null;
   private hovered_id: string | null = null;
@@ -55,27 +55,34 @@ export class VaultGraphRenderer {
     bg: 0x1a1a2e,
     label_fill: 0xffffff,
   };
-  private dragging = false;
-  private drag_start = { x: 0, y: 0, px: 0, py: 0 };
   private destroyed = false;
   private container_el: HTMLElement | null = null;
   private raf_id = 0;
+  private edges_dirty = true;
+  private last_lod_tier = -1;
 
   on_node_click: (id: string) => void = () => {};
   on_node_hover: (id: string | null) => void = () => {};
   on_node_dblclick: (id: string) => void = () => {};
 
   async initialize(container: HTMLElement): Promise<void> {
-    const pixi = await import("pixi.js");
+    const [pixi, { Viewport }] = await Promise.all([
+      import("pixi.js"),
+      import("pixi-viewport"),
+    ]);
     if (this.destroyed) return;
     this.pixi = pixi;
 
     this.container_el = container;
     this.read_theme_colors(container);
 
+    const w = container.clientWidth || 300;
+    const h = container.clientHeight || 300;
+
     this.app = new pixi.Application();
     await this.app.init({
-      resizeTo: container,
+      width: w,
+      height: h,
       background: this.colors.bg,
       antialias: true,
       resolution: window.devicePixelRatio,
@@ -89,7 +96,28 @@ export class VaultGraphRenderer {
     }
 
     container.appendChild(this.app.canvas);
-    this.app.canvas.style.touchAction = "none";
+
+    this.vp = new Viewport({
+      screenWidth: w,
+      screenHeight: h,
+      worldWidth: WORLD_SIZE,
+      worldHeight: WORLD_SIZE,
+      events: this.app.renderer.events,
+    });
+
+    this.vp
+      .drag({ mouseButtons: "left" })
+      .pinch()
+      .wheel()
+      .decelerate()
+      .clampZoom({ minScale: 0.05, maxScale: 4 });
+
+    this.vp.moveCenter(0, 0);
+
+    this.app.stage.addChild(this.vp);
+
+    this.vp.on("moved", () => this.request_render());
+    this.vp.on("zoomed", () => this.request_render());
 
     this.edges_gfx = new pixi.Graphics();
     this.nodes_layer = new pixi.Container();
@@ -100,16 +128,8 @@ export class VaultGraphRenderer {
     this.circle_texture = this.app.renderer.generateTexture(g);
     g.destroy();
 
-    this.app.stage.addChild(this.edges_gfx);
-    this.app.stage.addChild(this.nodes_layer);
-
-    this.viewport.width = container.clientWidth;
-    this.viewport.height = container.clientHeight;
-    this.pan.x = this.viewport.width / 2;
-    this.pan.y = this.viewport.height / 2;
-    this.apply_transform();
-
-    this.setup_input(container);
+    this.vp.addChild(this.edges_gfx);
+    this.vp.addChild(this.nodes_layer);
   }
 
   set_graph(nodes: { id: string; label: string }[], edges: EdgeDef[]): void {
@@ -122,6 +142,7 @@ export class VaultGraphRenderer {
     this.node_map.clear();
     this.nodes_layer.removeChildren();
     this.edge_defs = edges;
+    this.edges_dirty = true;
 
     for (const node of nodes) {
       const c = new C();
@@ -197,18 +218,21 @@ export class VaultGraphRenderer {
       }
     }
     this.spatial.rebuild(spatial_nodes);
+    this.edges_dirty = true;
     this.request_render();
   }
 
   set_semantic_edges(edges: SemanticEdgeDef[], visible: boolean): void {
     this.semantic_edge_defs = edges;
     this.show_semantic = visible;
+    this.edges_dirty = true;
     this.request_render();
   }
 
   highlight_node(id: string | null): void {
     this.hovered_id = id;
     this.rebuild_hovered_connections();
+    this.edges_dirty = true;
     this.request_render();
   }
 
@@ -219,28 +243,35 @@ export class VaultGraphRenderer {
 
   set_filter(matching_ids: Set<string> | null): void {
     this.filter_set = matching_ids;
+    this.edges_dirty = true;
     this.request_render();
   }
 
   resize(): void {
-    if (!this.container_el || !this.app) return;
-    this.viewport.width = this.container_el.clientWidth;
-    this.viewport.height = this.container_el.clientHeight;
-    this.app.renderer.resize(this.viewport.width, this.viewport.height);
+    if (!this.container_el || !this.app || !this.vp) return;
+    const w = this.container_el.clientWidth;
+    const h = this.container_el.clientHeight;
+    if (w === 0 || h === 0) return;
+    this.app.renderer.resize(w, h);
+    this.vp.resize(w, h);
     this.request_render();
   }
 
   destroy(): void {
     this.destroyed = true;
     cancelAnimationFrame(this.raf_id);
-    this.teardown_input();
     if (this.app) {
       this.app.destroy(true, { children: true });
       this.app = null;
     }
+    this.vp = null;
     this.node_map.clear();
     this.circle_texture = null;
     this.container_el = null;
+  }
+
+  private get zoom(): number {
+    return this.vp?.scale.x ?? 1;
   }
 
   private request_render(): void {
@@ -249,17 +280,21 @@ export class VaultGraphRenderer {
     this.raf_id = requestAnimationFrame(() => this.render());
   }
 
+  private lod_tier(): number {
+    const z = this.zoom;
+    return z > LOD_FULL_ZOOM ? 2 : z > LOD_MEDIUM_ZOOM ? 1 : 0;
+  }
+
   private render(): void {
     if (this.destroyed || !this.app) return;
+    const tier = this.lod_tier();
+    if (tier !== this.last_lod_tier) {
+      this.last_lod_tier = tier;
+      this.edges_dirty = true;
+    }
     this.apply_culling();
     this.draw_edges();
     this.apply_visual_state();
-  }
-
-  private apply_transform(): void {
-    if (!this.app) return;
-    this.app.stage.position.set(this.pan.x, this.pan.y);
-    this.app.stage.scale.set(this.zoom);
   }
 
   private graph_viewport(): {
@@ -268,12 +303,14 @@ export class VaultGraphRenderer {
     width: number;
     height: number;
   } {
+    if (!this.vp) return { x: 0, y: 0, width: 800, height: 600 };
     const margin = 50;
+    const corner = this.vp.corner;
     return {
-      x: -this.pan.x / this.zoom - margin,
-      y: -this.pan.y / this.zoom - margin,
-      width: this.viewport.width / this.zoom + margin * 2,
-      height: this.viewport.height / this.zoom + margin * 2,
+      x: corner.x - margin,
+      y: corner.y - margin,
+      width: this.vp.screenWidth / this.zoom + margin * 2,
+      height: this.vp.screenHeight / this.zoom + margin * 2,
     };
   }
 
@@ -289,11 +326,12 @@ export class VaultGraphRenderer {
   }
 
   private apply_visual_state(): void {
-    const show_labels = this.zoom > LOD_FULL_ZOOM;
+    const z = this.zoom;
+    const show_labels = z > LOD_FULL_ZOOM;
     const base_scale =
-      this.zoom > LOD_FULL_ZOOM
+      z > LOD_FULL_ZOOM
         ? 1
-        : this.zoom > LOD_MEDIUM_ZOOM
+        : z > LOD_MEDIUM_ZOOM
           ? NODE_RADIUS_MEDIUM / NODE_RADIUS
           : NODE_RADIUS_SMALL / NODE_RADIUS;
 
@@ -329,7 +367,7 @@ export class VaultGraphRenderer {
       }
 
       entry.label.visible =
-        show_labels && (is_hovered || is_selected || is_connected);
+        is_hovered || is_selected || (show_labels && is_connected);
     }
   }
 
@@ -346,6 +384,8 @@ export class VaultGraphRenderer {
 
   private draw_edges(): void {
     if (!this.edges_gfx) return;
+    if (!this.edges_dirty) return;
+    this.edges_dirty = false;
     this.edges_gfx.clear();
 
     const gv = this.graph_viewport();
@@ -353,14 +393,15 @@ export class VaultGraphRenderer {
       this.spatial.query_viewport(gv.x, gv.y, gv.width, gv.height),
     );
 
+    const z = this.zoom;
     const edge_alpha =
-      this.zoom > LOD_FULL_ZOOM
-        ? 0.55
-        : this.zoom > LOD_MEDIUM_ZOOM
-          ? 0.35
-          : 0.2;
-    const edge_width =
-      this.zoom > LOD_FULL_ZOOM ? 1 : this.zoom > LOD_MEDIUM_ZOOM ? 0.5 : 0.3;
+      z > LOD_FULL_ZOOM ? 0.55 : z > LOD_MEDIUM_ZOOM ? 0.35 : 0.2;
+    const edge_width = z > LOD_FULL_ZOOM ? 1 : z > LOD_MEDIUM_ZOOM ? 0.5 : 0.3;
+
+    type EdgeEndpoints = { x1: number; y1: number; x2: number; y2: number };
+    const dimmed: EdgeEndpoints[] = [];
+    const normal: EdgeEndpoints[] = [];
+    const highlighted: EdgeEndpoints[] = [];
 
     for (const edge of this.edge_defs) {
       const src = this.node_map.get(edge.source);
@@ -377,124 +418,118 @@ export class VaultGraphRenderer {
         (!this.filter_set.has(edge.source) ||
           !this.filter_set.has(edge.target));
 
-      const alpha = is_dimmed ? 0.08 : is_highlighted ? 0.9 : edge_alpha;
-      const width = is_highlighted ? 1.5 : edge_width;
-      const color = is_highlighted ? this.colors.primary : this.colors.edge;
-
-      this.edges_gfx.moveTo(src.x, src.y);
-      this.edges_gfx.lineTo(tgt.x, tgt.y);
-      this.edges_gfx.stroke({ width, color, alpha });
+      const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
+      if (is_dimmed) dimmed.push(ep);
+      else if (is_highlighted) highlighted.push(ep);
+      else normal.push(ep);
     }
 
-    if (this.show_semantic) {
-      for (const edge of this.semantic_edge_defs) {
-        const src = this.node_map.get(edge.source);
-        const tgt = this.node_map.get(edge.target);
-        if (!src || !tgt) continue;
-        if (!visible_ids.has(edge.source) && !visible_ids.has(edge.target))
-          continue;
-
-        const is_highlighted =
-          this.hovered_id !== null &&
-          (edge.source === this.hovered_id || edge.target === this.hovered_id);
-        const is_dimmed =
-          this.filter_set !== null &&
-          (!this.filter_set.has(edge.source) ||
-            !this.filter_set.has(edge.target));
-
-        const alpha = is_dimmed ? 0.1 : is_highlighted ? 1 : 0.7;
-        const width = is_highlighted ? 2 : 1.5;
-
-        draw_dashed_line(
-          this.edges_gfx,
-          src.x,
-          src.y,
-          tgt.x,
-          tgt.y,
-          5,
-          4,
-          width,
-          this.colors.semantic_edge,
-          alpha,
-        );
-      }
+    for (const ep of dimmed) {
+      this.edges_gfx.moveTo(ep.x1, ep.y1);
+      this.edges_gfx.lineTo(ep.x2, ep.y2);
     }
-  }
-
-  private setup_input(container: HTMLElement): void {
-    container.addEventListener("wheel", this.handle_wheel, { passive: false });
-    container.addEventListener("pointerdown", this.handle_pointer_down);
-    container.addEventListener("pointermove", this.handle_pointer_move);
-    container.addEventListener("pointerup", this.handle_pointer_up);
-    container.addEventListener("pointercancel", this.handle_pointer_up);
-  }
-
-  private teardown_input(): void {
-    if (!this.container_el) return;
-    this.container_el.removeEventListener("wheel", this.handle_wheel);
-    this.container_el.removeEventListener(
-      "pointerdown",
-      this.handle_pointer_down,
-    );
-    this.container_el.removeEventListener(
-      "pointermove",
-      this.handle_pointer_move,
-    );
-    this.container_el.removeEventListener("pointerup", this.handle_pointer_up);
-    this.container_el.removeEventListener(
-      "pointercancel",
-      this.handle_pointer_up,
-    );
-  }
-
-  private handle_wheel = (e: WheelEvent): void => {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const next_zoom = Math.min(4, Math.max(0.05, this.zoom * factor));
-
-    const rect = this.container_el?.getBoundingClientRect();
-    if (rect) {
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      this.pan.x = mx - ((mx - this.pan.x) / this.zoom) * next_zoom;
-      this.pan.y = my - ((my - this.pan.y) / this.zoom) * next_zoom;
+    if (dimmed.length > 0) {
+      this.edges_gfx.stroke({
+        width: edge_width,
+        color: this.colors.edge,
+        alpha: 0.08,
+      });
     }
 
-    this.zoom = next_zoom;
-    this.apply_transform();
-    this.request_render();
-  };
+    for (const ep of normal) {
+      this.edges_gfx.moveTo(ep.x1, ep.y1);
+      this.edges_gfx.lineTo(ep.x2, ep.y2);
+    }
+    if (normal.length > 0) {
+      this.edges_gfx.stroke({
+        width: edge_width,
+        color: this.colors.edge,
+        alpha: edge_alpha,
+      });
+    }
 
-  private handle_pointer_down = (e: PointerEvent): void => {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target !== this.app?.canvas) return;
+    for (const ep of highlighted) {
+      this.edges_gfx.moveTo(ep.x1, ep.y1);
+      this.edges_gfx.lineTo(ep.x2, ep.y2);
+    }
+    if (highlighted.length > 0) {
+      this.edges_gfx.stroke({
+        width: 1.5,
+        color: this.colors.primary,
+        alpha: 0.9,
+      });
+    }
 
-    this.dragging = true;
-    this.drag_start = {
-      x: e.clientX,
-      y: e.clientY,
-      px: this.pan.x,
-      py: this.pan.y,
-    };
-    this.container_el?.setPointerCapture(e.pointerId);
-    if (this.container_el) this.container_el.style.cursor = "grabbing";
-  };
+    if (!this.show_semantic) return;
 
-  private handle_pointer_move = (e: PointerEvent): void => {
-    if (!this.dragging) return;
-    this.pan.x = this.drag_start.px + (e.clientX - this.drag_start.x);
-    this.pan.y = this.drag_start.py + (e.clientY - this.drag_start.y);
-    this.apply_transform();
-    this.request_render();
-  };
+    const sem_dimmed: EdgeEndpoints[] = [];
+    const sem_normal: EdgeEndpoints[] = [];
+    const sem_highlighted: Array<EdgeEndpoints & { width: number }> = [];
 
-  private handle_pointer_up = (e: PointerEvent): void => {
-    if (!this.dragging) return;
-    this.dragging = false;
-    this.container_el?.releasePointerCapture(e.pointerId);
-    if (this.container_el) this.container_el.style.cursor = "grab";
-  };
+    for (const edge of this.semantic_edge_defs) {
+      const src = this.node_map.get(edge.source);
+      const tgt = this.node_map.get(edge.target);
+      if (!src || !tgt) continue;
+      if (!visible_ids.has(edge.source) && !visible_ids.has(edge.target))
+        continue;
+
+      const is_highlighted =
+        this.hovered_id !== null &&
+        (edge.source === this.hovered_id || edge.target === this.hovered_id);
+      const is_dimmed =
+        this.filter_set !== null &&
+        (!this.filter_set.has(edge.source) ||
+          !this.filter_set.has(edge.target));
+
+      const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
+      if (is_dimmed) sem_dimmed.push(ep);
+      else if (is_highlighted) sem_highlighted.push({ ...ep, width: 2 });
+      else sem_normal.push(ep);
+    }
+
+    for (const ep of sem_dimmed) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        5,
+        4,
+        1.5,
+        this.colors.semantic_edge,
+        0.1,
+      );
+    }
+    for (const ep of sem_normal) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        5,
+        4,
+        1.5,
+        this.colors.semantic_edge,
+        0.7,
+      );
+    }
+    for (const ep of sem_highlighted) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        5,
+        4,
+        ep.width,
+        this.colors.semantic_edge,
+        1,
+      );
+    }
+  }
 
   private read_theme_colors(el: HTMLElement): void {
     this.colors.node = resolve_css_color(el, "--muted-foreground", 0x888888);
@@ -523,9 +558,10 @@ function resolve_css_color(
   const ctx = canvas.getContext("2d");
   if (!ctx) return fallback;
 
-  ctx.fillStyle = raw.includes(",") ? raw : `hsl(${raw})`;
+  ctx.fillStyle = raw;
   ctx.fillRect(0, 0, 1, 1);
-  const [r = 0, g = 0, b = 0] = ctx.getImageData(0, 0, 1, 1).data;
+  const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
+  if (a === 0) return fallback;
   return (r << 16) | (g << 8) | b;
 }
 
