@@ -252,53 +252,11 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, String> {
     let path = db_path(app, vault_id)?;
     let conn = open_search_db_at_path(&path)?;
-    try_init_vector_tables(app, &conn);
+    try_init_vector_tables(&conn);
     Ok(conn)
 }
 
-fn resolve_sqlite_vec_ext_path(app: &AppHandle) -> Option<PathBuf> {
-    let ext_name = if cfg!(target_os = "macos") {
-        "vec0.dylib"
-    } else if cfg!(target_os = "windows") {
-        "vec0.dll"
-    } else {
-        "vec0.so"
-    };
-
-    let resource_path = app
-        .path()
-        .resource_dir()
-        .ok()?
-        .join("extensions")
-        .join(ext_name);
-
-    if resource_path.exists() {
-        return Some(resource_path);
-    }
-
-    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("resources")
-        .join("extensions")
-        .join(ext_name);
-
-    if dev_path.exists() {
-        return Some(dev_path);
-    }
-
-    None
-}
-
-fn try_init_vector_tables(app: &AppHandle, conn: &Connection) {
-    let Some(ext_path) = resolve_sqlite_vec_ext_path(app) else {
-        log::info!("sqlite-vec extension not found, vector search unavailable");
-        return;
-    };
-
-    if let Err(e) = vector_db::load_sqlite_vec_extension(conn, &ext_path) {
-        log::warn!("Failed to load sqlite-vec extension: {e}");
-        return;
-    }
-
+fn try_init_vector_tables(conn: &Connection) {
     if let Err(e) = vector_db::init_vector_schema(conn) {
         log::warn!("Failed to init vector schema: {e}");
     }

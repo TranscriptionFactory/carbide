@@ -23,7 +23,6 @@
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
-      "resources/extensions/*",
       "resources/models/**/*"
     ],
     "macOS": {

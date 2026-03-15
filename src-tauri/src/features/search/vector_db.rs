@@ -1,25 +1,13 @@
 use rusqlite::{params, Connection};
-use std::path::Path;
 
-pub const MODEL_VERSION: &str = "bge-small-en-v1.5-q";
+pub const MODEL_VERSION: &str = "bge-small-en-v1.5";
 pub const EMBEDDING_DIMS: usize = 384;
-
-pub fn load_sqlite_vec_extension(conn: &Connection, ext_path: &Path) -> Result<(), String> {
-    unsafe {
-        let _guard = conn
-            .load_extension_enable()
-            .map_err(|e| format!("Failed to enable extension loading: {e}"))?;
-        conn.load_extension(ext_path, None)
-            .map_err(|e| format!("Failed to load sqlite-vec extension: {e}"))?;
-    }
-    Ok(())
-}
 
 pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
-        "CREATE VIRTUAL TABLE IF NOT EXISTS note_embeddings USING vec0(
+        "CREATE TABLE IF NOT EXISTS note_embeddings (
             path TEXT PRIMARY KEY,
-            embedding float[384]
+            embedding BLOB NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS embedding_meta (
@@ -114,27 +102,28 @@ pub fn knn_search(
     query_vec: &[f32],
     limit: usize,
 ) -> Result<Vec<(String, f32)>, String> {
-    let bytes = floats_to_bytes(query_vec);
     let mut stmt = conn
-        .prepare(
-            "SELECT path, distance FROM note_embeddings
-             WHERE embedding MATCH ?1
-             ORDER BY distance ASC
-             LIMIT ?2",
-        )
+        .prepare("SELECT path, embedding FROM note_embeddings")
         .map_err(|e| e.to_string())?;
 
-    let rows = stmt
-        .query_map(params![bytes, limit as i64], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, f32>(1)?))
+    let mut scored: Vec<(String, f32)> = stmt
+        .query_map([], |row| {
+            let path: String = row.get(0)?;
+            let blob: Vec<u8> = row.get(1)?;
+            Ok((path, blob))
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .map(|(path, blob)| {
+            let vec = bytes_to_floats(&blob);
+            let dist = cosine_distance(query_vec, &vec);
+            (path, dist)
+        })
+        .collect();
 
-    let mut results = Vec::new();
-    for row in rows {
-        results.push(row.map_err(|e| e.to_string())?);
-    }
-    Ok(results)
+    scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(limit);
+    Ok(scored)
 }
 
 pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
@@ -145,10 +134,7 @@ pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
             |row| row.get(0),
         )
         .ok()?;
-    let floats: Vec<f32> = bytes
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-        .collect();
+    let floats = bytes_to_floats(&bytes);
     if floats.is_empty() {
         None
     } else {
@@ -187,6 +173,23 @@ pub fn clear_all_embeddings(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
+    let mut dot = 0.0f32;
+    let mut norm_a = 0.0f32;
+    let mut norm_b = 0.0f32;
+    for (x, y) in a.iter().zip(b.iter()) {
+        dot += x * y;
+        norm_a += x * x;
+        norm_b += y * y;
+    }
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom == 0.0 {
+        1.0
+    } else {
+        1.0 - (dot / denom)
+    }
+}
+
 fn floats_to_bytes(floats: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(floats.len() * 4);
     for f in floats {
@@ -195,3 +198,9 @@ fn floats_to_bytes(floats: &[f32]) -> Vec<u8> {
     bytes
 }
 
+fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
+    bytes
+        .chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect()
+}

@@ -8,7 +8,7 @@ pub struct EmbeddingService {
 
 impl EmbeddingService {
     pub fn new(cache_dir: PathBuf) -> Result<Self, String> {
-        let options = InitOptions::new(EmbeddingModel::BGESmallENV15Q)
+        let options = InitOptions::new(EmbeddingModel::BGESmallENV15)
             .with_cache_dir(cache_dir)
             .with_show_download_progress(false);
         let model = TextEmbedding::try_new(options).map_err(|e| e.to_string())?;

@@ -615,11 +615,7 @@ fn handle_embed_batch(
     clear_first: bool,
 ) {
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .unwrap_or_else(|_| PathBuf::from(".cache"))
-        .join("models");
+    let cache_dir = resolve_embedding_cache_dir(app_handle);
     let model = match embedding_state.get_or_init(cache_dir) {
         Ok(m) => m,
         Err(e) => {
@@ -738,10 +734,13 @@ fn handle_embed_batch(
 }
 
 fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {
-    app.path()
+    let dir = app
+        .path()
         .app_cache_dir()
         .unwrap_or_else(|_| PathBuf::from(".cache"))
-        .join("models")
+        .join("models");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
 }
 
 pub(crate) fn with_read_conn<F, T>(app: &AppHandle, vault_id: &str, f: F) -> Result<T, String>
