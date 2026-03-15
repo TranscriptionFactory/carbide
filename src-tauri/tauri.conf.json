@@ -60,7 +60,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMkY0REEwMEVGODhEQkYKUldTL2pmZ09vRTB2N1p4bWhJRGxkc2lZLy9ocTU3b2VBT1R5NHVtSzNsWFpzTDVWckQ4cnhSbEsK",
       "endpoints": [
-        "https://github.com/TranscriptionFactory/otterly/releases/latest/download/latest.json"
+        "https://github.com/TranscriptionFactory/badgerly/releases/latest/download/latest.json"
       ]
     }
   },
