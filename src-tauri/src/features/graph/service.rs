@@ -111,6 +111,7 @@ pub fn graph_load_note_neighborhood(
 
 #[tauri::command]
 pub fn graph_invalidate_cache(
+    app: AppHandle,
     vault_id: String,
     note_id: Option<String>,
     cache_state: State<'_, GraphCacheState>,
@@ -122,11 +123,13 @@ pub fn graph_invalidate_cache(
             Some(id) => {
                 let key = cache_key(&vault_id, id);
                 cache.invalidate(&key);
-                cache.invalidate_matching(|k| {
-                    k.starts_with(&format!("{vault_id}:"))
-                        && k != &key
-                        && would_be_affected_by(id, k)
-                });
+
+                let connected = get_connected_paths(&app, &vault_id, id);
+                let connected_keys: BTreeSet<String> = connected
+                    .iter()
+                    .map(|p| cache_key(&vault_id, p))
+                    .collect();
+                cache.invalidate_matching(|k| connected_keys.contains(k));
             }
             None => {
                 let prefix = format!("{vault_id}:");
@@ -195,12 +198,24 @@ pub fn graph_load_vault_graph(
     Ok(snapshot)
 }
 
-fn would_be_affected_by(_changed_note_id: &str, _cache_key: &str) -> bool {
-    // Conservative: invalidate all entries for the vault when a specific note changes,
-    // since any note's neighborhood might reference the changed note as a backlink/outlink.
-    // A more precise approach would track reverse dependencies, but the conservative
-    // strategy is correct and the cache rebuilds cheaply.
-    true
+fn get_connected_paths(app: &AppHandle, vault_id: &str, note_path: &str) -> Vec<String> {
+    let conn = match search_db::open_search_db(app, vault_id) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let mut paths = Vec::new();
+    if let Ok(backlinks) = search_db::get_backlinks(&conn, note_path) {
+        for n in backlinks {
+            paths.push(n.path);
+        }
+    }
+    if let Ok(outlinks) = search_db::get_outlinks(&conn, note_path) {
+        for n in outlinks {
+            paths.push(n.path);
+        }
+    }
+    paths
 }
 
 #[tauri::command]
