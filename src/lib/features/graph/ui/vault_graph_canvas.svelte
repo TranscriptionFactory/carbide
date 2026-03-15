@@ -76,39 +76,57 @@
     r.on_node_hover = on_hover_node;
     r.on_node_dblclick = on_open_node;
 
-    r.initialize(el).then(() => {
-      if (renderer !== r) return;
-
-      r.set_graph(plain_nodes(snapshot), plain_edges(snapshot));
-
-      const w = new Worker(
-        new URL("../domain/vault_graph_worker.ts", import.meta.url),
-        { type: "module" },
-      );
-      worker = w;
-      w.onmessage = (event) => {
-        const msg = event.data;
-        if (msg.type === "positions") {
-          const ids: string[] = msg.ids;
-          const buffer = new Float64Array(msg.buffer as ArrayBuffer);
-          const positions = new Map<string, { x: number; y: number }>();
-          for (let i = 0; i < ids.length; i++) {
-            positions.set(ids[i]!, {
-              x: buffer[i * 2]!,
-              y: buffer[i * 2 + 1]!,
-            });
-          }
-          r.update_positions(positions);
-        }
-      };
-      w.postMessage({
-        type: "init",
-        nodes: snapshot.nodes.map((n) => ({ id: n.path })),
-        edges: plain_edges(snapshot),
-      });
+    const resize_observer = new ResizeObserver(() => {
+      if (renderer === r) r.resize();
     });
 
-    return { destroy: cleanup };
+    r.initialize(el)
+      .then(() => {
+        if (renderer !== r) return;
+
+        r.set_graph(plain_nodes(snapshot), plain_edges(snapshot));
+
+        resize_observer.observe(el);
+
+        const w = new Worker(
+          new URL("../domain/vault_graph_worker.ts", import.meta.url),
+          { type: "module" },
+        );
+        worker = w;
+        w.onerror = (event) => {
+          console.error("[VaultGraph] Worker error:", event);
+        };
+        w.onmessage = (event) => {
+          const msg = event.data;
+          if (msg.type === "positions") {
+            const ids: string[] = msg.ids;
+            const buffer = new Float64Array(msg.buffer as ArrayBuffer);
+            const positions = new Map<string, { x: number; y: number }>();
+            for (let i = 0; i < ids.length; i++) {
+              positions.set(ids[i]!, {
+                x: buffer[i * 2]!,
+                y: buffer[i * 2 + 1]!,
+              });
+            }
+            r.update_positions(positions);
+          }
+        };
+        w.postMessage({
+          type: "init",
+          nodes: snapshot.nodes.map((n) => ({ id: n.path })),
+          edges: plain_edges(snapshot),
+        });
+      })
+      .catch((err) => {
+        console.error("[VaultGraph] Init failed:", err);
+      });
+
+    return {
+      destroy() {
+        resize_observer.disconnect();
+        cleanup();
+      },
+    };
   }
 
   $effect(() => {
@@ -164,8 +182,6 @@
   .VaultGraph__canvas {
     position: absolute;
     inset: 0;
-    cursor: grab;
-    touch-action: none;
   }
 
   .VaultGraph__warning {
