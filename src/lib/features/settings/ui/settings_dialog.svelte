@@ -659,9 +659,7 @@
                     />
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="w-20 text-xs text-muted-foreground"
-                      >Name</span
-                    >
+                    <span class="w-20 text-xs text-muted-foreground">Name</span>
                     <Input
                       type="text"
                       bind:value={new_provider.name}
@@ -712,8 +710,7 @@
                     </Select.Root>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="w-20 text-xs text-muted-foreground"
-                      >Model</span
+                    <span class="w-20 text-xs text-muted-foreground">Model</span
                     >
                     <Input
                       type="text"
