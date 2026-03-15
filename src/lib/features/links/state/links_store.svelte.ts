@@ -1,5 +1,5 @@
 import type { NoteMeta } from "$lib/shared/types/note";
-import type { OrphanLink, SemanticSearchHit } from "$lib/shared/types/search";
+import type { OrphanLink } from "$lib/shared/types/search";
 import type { ExternalLink } from "$lib/features/links/types/link";
 
 export type SuggestedLink = {
@@ -19,7 +19,6 @@ type LocalLinksSnapshot = {
 };
 
 export type LinksGlobalStatus = "idle" | "loading" | "ready" | "error";
-export type RelatedNotesStatus = "idle" | "loading" | "ready" | "error";
 
 export class LinksStore {
   local_outlink_paths = $state<string[]>([]);
@@ -31,11 +30,6 @@ export class LinksStore {
   active_note_path = $state<string | null>(null);
   global_status = $state<LinksGlobalStatus>("idle");
   global_error = $state<string | null>(null);
-
-  related_notes = $state<SemanticSearchHit[]>([]);
-  related_notes_status = $state<RelatedNotesStatus>("idle");
-  related_notes_error = $state<string | null>(null);
-  related_notes_note_path = $state<string | null>(null);
 
   suggested_links = $state<SuggestedLink[]>([]);
   suggested_links_loading = $state(false);
@@ -78,34 +72,6 @@ export class LinksStore {
     this.orphan_links = [];
   }
 
-  start_related_notes_load(note_path: string) {
-    this.related_notes_note_path = note_path;
-    this.related_notes_status = "loading";
-    this.related_notes_error = null;
-    this.related_notes = [];
-  }
-
-  set_related_notes(note_path: string, hits: SemanticSearchHit[]) {
-    this.related_notes_note_path = note_path;
-    this.related_notes_status = "ready";
-    this.related_notes_error = null;
-    this.related_notes = hits;
-  }
-
-  set_related_notes_error(note_path: string, error: string) {
-    this.related_notes_note_path = note_path;
-    this.related_notes_status = "error";
-    this.related_notes_error = error;
-    this.related_notes = [];
-  }
-
-  clear_related_notes() {
-    this.related_notes_note_path = null;
-    this.related_notes_status = "idle";
-    this.related_notes_error = null;
-    this.related_notes = [];
-  }
-
   start_suggested_links_load(note_path: string) {
     this.suggested_links_note_path = note_path;
     this.suggested_links_loading = true;
@@ -133,7 +99,6 @@ export class LinksStore {
     this.orphan_links = [];
     this.global_status = "idle";
     this.global_error = null;
-    this.clear_related_notes();
     this.clear_suggested_links();
   }
 

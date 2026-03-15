@@ -41,7 +41,6 @@ const SETTINGS_COMPARE_KEYS: readonly (keyof EditorSettings)[] = [
   "document_image_background",
   "document_inactive_cache_limit",
   "semantic_similarity_threshold",
-  "semantic_related_notes_limit",
   "semantic_suggested_links_limit",
   "semantic_graph_edges_per_note",
   "semantic_graph_max_vault_size",

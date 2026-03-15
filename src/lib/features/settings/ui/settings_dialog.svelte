@@ -1958,46 +1958,6 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Related Notes Limit</span>
-                <span class="SettingsDialog__description"
-                  >Max related notes shown in the Related panel</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Slider
-                  type="single"
-                  value={editor_settings.semantic_related_notes_limit}
-                  onValueChange={(v: number | undefined) => {
-                    if (v !== undefined)
-                      update("semantic_related_notes_limit", v);
-                  }}
-                  min={3}
-                  max={25}
-                  step={1}
-                  class="w-32"
-                />
-                <span class="text-sm tabular-nums w-10"
-                  >{editor_settings.semantic_related_notes_limit}</span
-                >
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "semantic_related_notes_limit",
-                      DEFAULT_EDITOR_SETTINGS.semantic_related_notes_limit,
-                    )}
-                  disabled={editor_settings.semantic_related_notes_limit ===
-                    DEFAULT_EDITOR_SETTINGS.semantic_related_notes_limit}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.semantic_related_notes_limit)})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
-
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Suggested Links Limit</span>
                 <span class="SettingsDialog__description"
                   >Max suggested wiki-links shown in the Links panel</span

@@ -30,7 +30,6 @@ import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reacto
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
-import { create_related_notes_refresh_reactor } from "$lib/reactors/related_notes_refresh.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -227,11 +226,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.search_store,
       context.vault_store,
       context.workspace_index_port,
-    ),
-    create_related_notes_refresh_reactor(
-      context.editor_store,
-      context.ui_store,
-      context.links_service,
     ),
     create_suggested_links_refresh_reactor(
       context.editor_store,

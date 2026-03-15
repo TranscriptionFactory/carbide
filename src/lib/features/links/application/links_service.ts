@@ -107,36 +107,6 @@ export class LinksService {
     }
   }
 
-  async load_related_notes(note_path: string, limit = 10): Promise<void> {
-    const vault_id = this.get_active_vault_id();
-    if (!vault_id) {
-      this.links_store.clear_related_notes();
-      return;
-    }
-
-    this.links_store.start_related_notes_load(note_path);
-
-    try {
-      const hits = await this.search_port.find_similar_notes(
-        vault_id,
-        note_path,
-        limit,
-        false,
-      );
-      if (this.links_store.related_notes_note_path !== note_path) return;
-      this.links_store.set_related_notes(note_path, hits);
-    } catch (error) {
-      if (this.links_store.related_notes_note_path !== note_path) return;
-      const message = error_message(error);
-      log.error("Failed to load related notes", { error: message });
-      this.links_store.set_related_notes_error(note_path, message);
-    }
-  }
-
-  clear_related_notes() {
-    this.links_store.clear_related_notes();
-  }
-
   async load_suggested_links(
     note_path: string,
     limit = 5,

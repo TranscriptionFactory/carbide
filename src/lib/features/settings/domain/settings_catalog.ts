@@ -319,13 +319,6 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["semantic", "similarity", "threshold", "distance", "embedding"],
   },
   {
-    key: "semantic_related_notes_limit",
-    label: "Related Notes Limit",
-    description: "Maximum number of related notes shown in the panel",
-    category: "Semantic",
-    keywords: ["related", "notes", "limit", "similar", "panel"],
-  },
-  {
     key: "semantic_suggested_links_limit",
     label: "Suggested Links Limit",
     description:
