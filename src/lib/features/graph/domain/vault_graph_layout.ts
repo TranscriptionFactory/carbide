@@ -98,6 +98,10 @@ export function stabilize_simulation(
   state.simulation.tick(ticks);
 }
 
+export function compute_adaptive_tick_budget(node_count: number): number {
+  return Math.max(50, Math.min(Math.round(node_count * 0.5), 500));
+}
+
 function matches_filter(query: string, label: string, id: string): boolean {
   if (!query) return true;
   const lower = query.toLocaleLowerCase();
