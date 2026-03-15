@@ -39,6 +39,9 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ["d3-force"],
+  },
   worker: {
     format: "es",
   },
