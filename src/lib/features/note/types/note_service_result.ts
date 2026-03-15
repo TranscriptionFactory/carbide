@@ -47,6 +47,7 @@ export type NoteSaveResult =
   | {
       status: "saved";
       saved_path: NotePath;
+      saved_mtime_ms: number;
     }
   | {
       status: "conflict";

@@ -1,11 +1,16 @@
 import type { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import type { NotePath } from "$lib/shared/types/ids";
+import type { OpenNoteState } from "$lib/shared/types/editor";
 
 export class TabService {
   constructor(private readonly tab_store: TabStore) {}
 
   sync_dirty_state(tab_id: string, is_dirty: boolean) {
     this.tab_store.set_dirty(tab_id, is_dirty);
+  }
+
+  reconcile_saved_note(note: OpenNoteState) {
+    this.tab_store.reconcile_saved_note(note);
   }
 
   mark_conflict(note_path: NotePath) {
