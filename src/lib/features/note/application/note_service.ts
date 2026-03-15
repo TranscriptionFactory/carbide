@@ -64,6 +64,11 @@ type SavePlanDecision =
   | { status: "conflict" }
   | { status: "ready"; plan: SavePlan };
 
+type SaveExecutionResult = {
+  saved_path: NotePath;
+  saved_mtime_ms: number;
+};
+
 export class NoteService {
   private readonly enqueue_write = create_write_queue();
   private open_abort: AbortController | null = null;
@@ -452,15 +457,17 @@ export class NoteService {
     this.begin_save_operation();
 
     try {
-      await this.run_save_plan(save_context.vault_id, plan_decision.plan);
+      const save_result = await this.run_save_plan(
+        save_context.vault_id,
+        plan_decision.plan,
+      );
 
       this.editor_service.mark_clean();
       this.finish_save_operation(null);
-
-      const saved_path = this.resolve_saved_path(plan_decision.plan.open_note);
       return {
         status: "saved",
-        saved_path,
+        saved_path: save_result.saved_path,
+        saved_mtime_ms: save_result.saved_mtime_ms,
       };
     } catch (error) {
       if (this.is_mtime_conflict_error(error)) {
@@ -625,20 +632,29 @@ export class NoteService {
     };
   }
 
-  private async run_save_plan(vault_id: VaultId, plan: SavePlan) {
-    await this.enqueue_write(
+  private async run_save_plan(
+    vault_id: VaultId,
+    plan: SavePlan,
+  ): Promise<SaveExecutionResult> {
+    return await this.enqueue_write(
       `note.save:${plan.open_note.meta.id}`,
       async () => {
         if (plan.kind === "save_untitled") {
-          await this.save_untitled_note(
+          return await this.save_untitled_note(
             vault_id,
             plan.open_note,
             plan.target_path,
             plan.overwrite,
           );
-          return;
         }
-        await this.write_existing_note(vault_id, plan.open_note);
+        const saved_mtime_ms = await this.write_existing_note(
+          vault_id,
+          plan.open_note,
+        );
+        return {
+          saved_path: plan.open_note.meta.path,
+          saved_mtime_ms,
+        };
       },
     );
   }
@@ -646,7 +662,7 @@ export class NoteService {
   private async write_existing_note(
     vault_id: VaultId,
     open_note: OpenEditorNote,
-  ) {
+  ): Promise<number> {
     this.on_file_written?.(open_note.meta.id);
     const new_mtime = await this.notes_port.write_note(
       vault_id,
@@ -656,12 +672,7 @@ export class NoteService {
     );
     await this.index_port.upsert_note(vault_id, open_note.meta.id);
     this.editor_store.mark_clean(open_note.meta.id, new_mtime);
-  }
-
-  private resolve_saved_path(fallback_note: OpenEditorNote): NotePath {
-    return as_note_path(
-      this.editor_store.open_note?.meta.path ?? fallback_note.meta.path,
-    );
+    return new_mtime;
   }
 
   reset_save_operation() {
@@ -714,7 +725,7 @@ export class NoteService {
     open_note: NonNullable<EditorStore["open_note"]>,
     target_path: NotePath,
     overwrite: boolean,
-  ) {
+  ): Promise<SaveExecutionResult> {
     const old_path = open_note.meta.path;
 
     try {
@@ -730,7 +741,10 @@ export class NoteService {
       this.editor_store.update_open_note_path(target_path);
       this.editor_store.mark_clean(target_path, created_meta.mtime_ms);
       this.notes_store.add_recent_note(created_meta);
-      return;
+      return {
+        saved_path: target_path,
+        saved_mtime_ms: created_meta.mtime_ms,
+      };
     } catch (error) {
       if (!this.is_note_exists_error(error)) {
         throw error;
@@ -753,6 +767,10 @@ export class NoteService {
     this.editor_store.update_open_note_path(target_path);
     this.editor_store.mark_clean(target_path, new_mtime);
     this.notes_store.add_recent_note(written.meta);
+    return {
+      saved_path: target_path,
+      saved_mtime_ms: new_mtime,
+    };
   }
 
   async write_note_content(note_path: NotePath, markdown: MarkdownText) {

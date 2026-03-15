@@ -237,6 +237,15 @@ export class TabStore {
     this.note_cache = next;
   }
 
+  reconcile_saved_note(note: OpenNoteState) {
+    const tab = this.find_tab_by_path(note.meta.path);
+    if (!tab) return;
+
+    const saved_note = note.is_dirty ? { ...note, is_dirty: false } : note;
+    this.set_cached_note(tab.id, saved_note);
+    this.set_dirty(tab.id, false);
+  }
+
   get_cached_note(tab_id: TabId): OpenNoteState | null {
     return this.note_cache.get(tab_id) ?? null;
   }

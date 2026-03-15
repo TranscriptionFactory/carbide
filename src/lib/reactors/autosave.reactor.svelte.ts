@@ -20,11 +20,24 @@ export function create_autosave_reactor(
       if (!open_note?.is_dirty) return;
       if (is_draft_note_path(open_note.meta.path)) return;
 
+      const note_snapshot = open_note;
       const note_path = open_note.meta.path;
       const delay = ui_store.editor_settings.autosave_delay_ms;
 
       const handle = setTimeout(() => {
         void note_service.save_note(null, true).then((result) => {
+          if (result.status === "saved") {
+            tab_service.reconcile_saved_note({
+              ...note_snapshot,
+              is_dirty: false,
+              meta: {
+                ...note_snapshot.meta,
+                path: result.saved_path,
+                id: result.saved_path,
+                mtime_ms: result.saved_mtime_ms,
+              },
+            });
+          }
           if (result.status === "conflict") {
             tab_service.mark_conflict(note_path);
           }

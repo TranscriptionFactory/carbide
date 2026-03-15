@@ -872,10 +872,14 @@ describe("NoteService", () => {
       as_note_path("docs/my-note.md"),
     );
     expect(editor_store.open_note?.is_dirty).toBe(false);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       status: "saved",
       saved_path: as_note_path("docs/my-note.md"),
     });
+    expect(result.status).toBe("saved");
+    if (result.status === "saved") {
+      expect(result.saved_mtime_ms).toBe(editor_store.open_note?.meta.mtime_ms);
+    }
     expect(op_store.get("note.save").status).toBe("success");
     expect(notes_store.recent_notes[0]?.id).toBe(
       as_note_path("docs/my-note.md"),

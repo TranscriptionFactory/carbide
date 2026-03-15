@@ -185,6 +185,41 @@ describe("register_tab_actions", () => {
       expect(services.note.save_note).toHaveBeenCalledWith(null, true);
     });
 
+    it("switching away from a dirty tab refreshes cached state after save", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.activate_tab("a.md");
+
+      stores.editor.set_open_note({
+        ...mock_open_note("a.md"),
+        markdown: as_markdown_text("updated"),
+        is_dirty: true,
+        meta: {
+          ...mock_open_note("a.md").meta,
+          mtime_ms: 10,
+        },
+      });
+
+      services.note.save_note.mockImplementation(() => {
+        stores.editor.mark_clean(np("a.md"), 99);
+        return {
+          status: "saved",
+          saved_path: np("a.md"),
+          saved_mtime_ms: 99,
+        };
+      });
+
+      await registry.execute(ACTION_IDS.tab_activate, "b.md");
+
+      expect(stores.tab.get_cached_note("a.md")).toEqual({
+        ...stores.editor.open_note,
+      });
+      expect(stores.tab.get_cached_note("a.md")?.is_dirty).toBe(false);
+      expect(stores.tab.get_cached_note("a.md")?.meta.mtime_ms).toBe(99);
+      expect(stores.tab.find_tab_by_path(np("a.md"))?.is_dirty).toBe(false);
+    });
+
     it("switching away from a dirty tab does not save when autosave is disabled", async () => {
       const { registry, stores, services } = create_tab_actions_harness();
       stores.ui.editor_settings = {

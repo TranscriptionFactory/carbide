@@ -72,6 +72,32 @@ describe("TabService", () => {
     expect(tab_store.get_cached_note(note_path)).toBeNull();
   });
 
+  it("reconciles saved note state for an open tab", () => {
+    const { service, tab_store } = create_setup();
+    const note_path = as_note_path("docs/alpha.md");
+    tab_store.open_tab(note_path, "alpha");
+    tab_store.set_dirty(note_path, true);
+    tab_store.mark_conflict(note_path);
+
+    service.reconcile_saved_note({
+      meta: {
+        id: note_path,
+        path: note_path,
+        name: "alpha.md",
+        title: "alpha",
+        mtime_ms: 123,
+        size_bytes: 0,
+      },
+      markdown: as_markdown_text("# Alpha"),
+      buffer_id: note_path,
+      is_dirty: false,
+    });
+
+    expect(tab_store.find_tab_by_path(note_path)?.is_dirty).toBe(false);
+    expect(tab_store.has_conflict(note_path)).toBe(false);
+    expect(tab_store.get_cached_note(note_path)?.meta.mtime_ms).toBe(123);
+  });
+
   it("removes a tab by note path", () => {
     const { service, tab_store } = create_setup();
     const note_path = as_note_path("docs/alpha.md");
