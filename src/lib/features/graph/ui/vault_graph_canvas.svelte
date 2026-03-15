@@ -208,11 +208,11 @@
   .VaultGraph__edge {
     stroke: var(--muted-foreground);
     stroke-width: 1;
-    opacity: 0.4;
+    opacity: 0.55;
   }
 
   .VaultGraph__edge--dimmed {
-    opacity: 0.08;
+    opacity: 0.12;
   }
 
   .VaultGraph__edge--highlighted {
@@ -222,20 +222,20 @@
   }
 
   .VaultGraph__edge--semantic {
-    stroke: var(--chart-4, oklch(0.6 0.15 300));
+    stroke: var(--semantic-edge);
     stroke-dasharray: 5 4;
-    stroke-width: 1;
-    opacity: 0.45;
+    stroke-width: 1.5;
+    opacity: 0.7;
   }
 
   .VaultGraph__edge--semantic.VaultGraph__edge--highlighted {
-    stroke: var(--chart-4, oklch(0.6 0.15 300));
-    opacity: 0.85;
-    stroke-width: 1.5;
+    stroke: var(--semantic-edge);
+    opacity: 1;
+    stroke-width: 2;
   }
 
   .VaultGraph__edge--semantic.VaultGraph__edge--dimmed {
-    opacity: 0.06;
+    opacity: 0.15;
   }
 
   .VaultGraph__node {
