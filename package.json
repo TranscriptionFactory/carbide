@@ -58,6 +58,7 @@
     "node-emoji": "^2.2.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^4.10.38",
+    "pixi.js": "^8.17.0",
     "prismjs": "^1.30.0",
     "remark-frontmatter": "^5.0.0",
     "svelte-themes": "^2.0.10",
