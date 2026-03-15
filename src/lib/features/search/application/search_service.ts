@@ -7,6 +7,7 @@ import type { OpStore } from "$lib/app";
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 import type { SettingDefinition } from "$lib/features/settings";
 import type {
+  HybridSearchHit,
   InFileMatch,
   OmnibarItem,
   PlannedLinkSuggestion,
@@ -34,6 +35,38 @@ const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
 const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
+const HYBRID_FALLBACK_THRESHOLD = 3;
+const HYBRID_FALLBACK_MIN_WORDS = 3;
+
+function word_count(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function merge_fts_with_hybrid(
+  fts_items: OmnibarItem[],
+  hybrid_hits: HybridSearchHit[],
+): OmnibarItem[] {
+  const seen_paths = new Set(
+    fts_items
+      .filter(
+        (item): item is Extract<OmnibarItem, { kind: "note" }> =>
+          item.kind === "note",
+      )
+      .map((item) => String(item.note.path)),
+  );
+
+  const hybrid_items: OmnibarItem[] = hybrid_hits
+    .filter((hit) => !seen_paths.has(String(hit.note.path)))
+    .map((hit) => ({
+      kind: "note" as const,
+      note: hit.note,
+      score: hit.score,
+      snippet: hit.snippet,
+      source: hit.source,
+    }));
+
+  return [...fts_items, ...hybrid_items];
+}
 type CrossVaultSettledSearch = PromiseSettledResult<
   Awaited<ReturnType<SearchPort["search_notes"]>>
 >;
@@ -505,13 +538,35 @@ export class SearchService {
     }
 
     const result = await this.search_notes(raw_query);
-    const items: OmnibarItem[] = result.results.map((r) => ({
+    const fts_items: OmnibarItem[] = result.results.map((r) => ({
       kind: "note" as const,
       note: r.note,
       score: r.score,
       snippet: r.snippet,
     }));
-    return { domain: "notes", items, status: result.status };
+
+    const vault_id = this.get_active_vault_id();
+    if (
+      vault_id !== null &&
+      fts_items.length < HYBRID_FALLBACK_THRESHOLD &&
+      word_count(parsed.text) >= HYBRID_FALLBACK_MIN_WORDS
+    ) {
+      try {
+        const hybrid_hits = await this.search_port.hybrid_search(
+          vault_id,
+          parsed.text,
+          20,
+        );
+        const items = merge_fts_with_hybrid(fts_items, hybrid_hits);
+        return { domain: "notes", items, status: result.status };
+      } catch (error) {
+        log.error("Hybrid search fallback failed", {
+          error: error_message(error),
+        });
+      }
+    }
+
+    return { domain: "notes", items: fts_items, status: result.status };
   }
 
   reset_search_notes_operation() {

@@ -293,7 +293,12 @@ export function create_search_tauri_adapter(): SearchPort {
     ): Promise<SemanticSearchHit[]> {
       const hits = await invoke_search<TauriSemanticSearchHit[]>(
         "find_similar_notes",
-        { vaultId: vault_id, notePath: note_path, limit, excludeLinked: exclude_linked },
+        {
+          vaultId: vault_id,
+          notePath: note_path,
+          limit,
+          excludeLinked: exclude_linked,
+        },
       );
       return hits.map((hit) => ({
         note: to_note_meta(hit.note),

@@ -501,6 +501,11 @@
                     <span class="Omnibar__item-snippet">{item.snippet}</span>
                   {/if}
                 </div>
+                {#if item.source === "vector" || item.source === "both"}
+                  <span class="Omnibar__badge Omnibar__badge--semantic"
+                    >Semantic</span
+                  >
+                {/if}
               </div>
             {:else if item.kind === "recent_note"}
               <div class="Omnibar__item-row">
@@ -929,6 +934,12 @@
     border-radius: var(--radius-sm);
     background-color: var(--muted);
     color: var(--muted-foreground);
+  }
+
+  .Omnibar__badge--semantic {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+    flex-shrink: 0;
   }
 
   .Omnibar__empty {

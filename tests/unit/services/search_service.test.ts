@@ -8,6 +8,8 @@ import {
   as_vault_path,
 } from "$lib/shared/types/ids";
 import type {
+  HybridSearchHit,
+  NoteSearchHit,
   PlannedLinkSuggestion,
   WikiSuggestion,
 } from "$lib/shared/types/search";
@@ -581,5 +583,237 @@ describe("SearchService", () => {
     );
 
     expect(resolved).toBe("exposomics/exposomics.md");
+  });
+
+  describe("search_omnibar hybrid fallback", () => {
+    function make_note_hit(path: string, score = 1): HybridSearchHit {
+      return {
+        note: {
+          id: as_note_path(path),
+          path: as_note_path(path),
+          name: path.split("/").at(-1)?.replace(".md", "") ?? "",
+          title: path.split("/").at(-1)?.replace(".md", "") ?? "",
+          mtime_ms: 0,
+          size_bytes: 0,
+        },
+        score,
+        source: "vector",
+      };
+    }
+
+    function make_search_port(overrides: {
+      search_notes_results?: NoteSearchHit[];
+      hybrid_search_results?: HybridSearchHit[];
+    }) {
+      return {
+        suggest_wiki_links: vi.fn().mockResolvedValue([]),
+        suggest_planned_links: vi.fn().mockResolvedValue([]),
+        search_notes: vi
+          .fn()
+          .mockResolvedValue(overrides.search_notes_results ?? []),
+        get_note_links_snapshot: vi.fn().mockResolvedValue({
+          backlinks: [],
+          outlinks: [],
+          orphan_links: [],
+        }),
+        extract_local_note_links: vi
+          .fn()
+          .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+        rewrite_note_links: vi
+          .fn()
+          .mockImplementation((markdown: string) =>
+            Promise.resolve({ markdown, changed: false }),
+          ),
+        resolve_note_link: vi.fn().mockResolvedValue(null),
+        resolve_wiki_link: vi.fn().mockResolvedValue(null),
+        semantic_search: vi.fn().mockResolvedValue([]),
+        hybrid_search: vi
+          .fn()
+          .mockResolvedValue(overrides.hybrid_search_results ?? []),
+        get_embedding_status: vi.fn().mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+        find_similar_notes: vi.fn().mockResolvedValue([]),
+        rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    it("triggers hybrid fallback when FTS returns fewer than 3 results for a 3+ word query", async () => {
+      const hybrid_hit = make_note_hit("docs/semantic.md", 0.9);
+      const search_port = make_search_port({
+        search_notes_results: [],
+        hybrid_search_results: [hybrid_hit],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.search_omnibar("how to write notes");
+
+      expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
+      expect(result.domain).toBe("notes");
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        kind: "note",
+        source: "vector",
+      });
+    });
+
+    it("does not trigger hybrid fallback for short queries under 3 words", async () => {
+      const search_port = make_search_port({
+        search_notes_results: [],
+        hybrid_search_results: [make_note_hit("docs/semantic.md")],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("two words");
+
+      expect(search_port.hybrid_search).not.toHaveBeenCalled();
+    });
+
+    it("does not trigger hybrid fallback when FTS returns 3 or more results", async () => {
+      const fts_results = ["a.md", "b.md", "c.md"].map((path) => ({
+        note: {
+          id: as_note_path(path),
+          path: as_note_path(path),
+          name: path.replace(".md", ""),
+          title: path.replace(".md", ""),
+          mtime_ms: 0,
+          size_bytes: 0,
+        },
+        score: 1,
+      }));
+      const search_port = make_search_port({
+        search_notes_results: fts_results,
+        hybrid_search_results: [make_note_hit("docs/semantic.md")],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.search_omnibar("three word query here");
+
+      expect(search_port.hybrid_search).not.toHaveBeenCalled();
+      expect(result.items).toHaveLength(3);
+    });
+
+    it("deduplicates hybrid results that overlap with FTS results by path", async () => {
+      const fts_results = [
+        {
+          note: {
+            id: as_note_path("docs/a.md"),
+            path: as_note_path("docs/a.md"),
+            name: "a",
+            title: "a",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 1,
+        },
+      ];
+      const hybrid_hits: HybridSearchHit[] = [
+        {
+          note: {
+            id: as_note_path("docs/a.md"),
+            path: as_note_path("docs/a.md"),
+            name: "a",
+            title: "a",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 0.9,
+          source: "both",
+        },
+        make_note_hit("docs/b.md", 0.8),
+      ];
+
+      const search_port = make_search_port({
+        search_notes_results: fts_results,
+        hybrid_search_results: hybrid_hits,
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.search_omnibar("query with enough words");
+
+      expect(result.items).toHaveLength(2);
+      const paths = result.items
+        .filter((item) => item.kind === "note")
+        .map((item) => (item.kind === "note" ? String(item.note.path) : ""));
+      expect(paths).toEqual(["docs/a.md", "docs/b.md"]);
+    });
+
+    it("omits source field from FTS-only items", async () => {
+      const fts_results = [
+        {
+          note: {
+            id: as_note_path("docs/a.md"),
+            path: as_note_path("docs/a.md"),
+            name: "a",
+            title: "a",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 1,
+          snippet: "match",
+        },
+      ];
+      const search_port = make_search_port({
+        search_notes_results: fts_results,
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.search_omnibar("quick fts");
+
+      expect(search_port.hybrid_search).not.toHaveBeenCalled();
+      const item = result.items[0];
+      expect(item?.kind).toBe("note");
+      if (item?.kind === "note") {
+        expect(item.source).toBeUndefined();
+      }
+    });
   });
 });

@@ -122,6 +122,7 @@ export type OmnibarItem =
       note: NoteMeta;
       score: number;
       snippet?: string | undefined;
+      source?: HitSource | undefined;
     }
   | {
       kind: "cross_vault_note";
