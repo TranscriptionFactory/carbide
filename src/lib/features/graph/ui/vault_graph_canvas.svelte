@@ -91,7 +91,7 @@
 
     r.set_graph(
       snap.nodes.map((n) => ({ id: n.path, label: n.title })),
-      snap.edges,
+      snap.edges.map((e) => ({ source: e.source, target: e.target })),
     );
 
     const w = create_worker();
@@ -100,7 +100,7 @@
     w.postMessage({
       type: "init",
       nodes: snap.nodes.map((n) => ({ id: n.path })),
-      edges: snap.edges,
+      edges: snap.edges.map((e) => ({ source: e.source, target: e.target })),
     });
   }
 
