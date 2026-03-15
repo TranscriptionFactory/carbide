@@ -26,33 +26,27 @@ function make_hit(path: string, distance: number): SemanticSearchHit {
 
 function make_mock_graph_port(): GraphPort {
   return {
-    load_note_neighborhood: vi
-      .fn()
-      .mockResolvedValue({
-        center: {},
-        backlinks: [],
-        outlinks: [],
-        orphan_links: [],
-        stats: {},
-      }),
-    load_vault_graph: vi
-      .fn()
-      .mockResolvedValue({
-        nodes: [],
-        edges: [],
-        stats: { node_count: 0, edge_count: 0 },
-      }),
+    load_note_neighborhood: vi.fn().mockResolvedValue({
+      center: {},
+      backlinks: [],
+      outlinks: [],
+      orphan_links: [],
+      stats: {},
+    }),
+    load_vault_graph: vi.fn().mockResolvedValue({
+      nodes: [],
+      edges: [],
+      stats: { node_count: 0, edge_count: 0 },
+    }),
     invalidate_cache: vi.fn().mockResolvedValue(undefined),
-    cache_stats: vi
-      .fn()
-      .mockResolvedValue({
-        size: 0,
-        hits: 0,
-        misses: 0,
-        insertions: 0,
-        evictions: 0,
-        hit_rate: 0,
-      }),
+    cache_stats: vi.fn().mockResolvedValue({
+      size: 0,
+      hits: 0,
+      misses: 0,
+      insertions: 0,
+      evictions: 0,
+      hit_rate: 0,
+    }),
   };
 }
 
@@ -81,14 +75,12 @@ function make_mock_search_port(
     resolve_wiki_link: vi.fn().mockResolvedValue(null),
     semantic_search: vi.fn().mockResolvedValue([]),
     hybrid_search: vi.fn().mockResolvedValue([]),
-    get_embedding_status: vi
-      .fn()
-      .mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "",
-        is_embedding: false,
-      }),
+    get_embedding_status: vi.fn().mockResolvedValue({
+      total_notes: 0,
+      embedded_notes: 0,
+      model_version: "",
+      is_embedding: false,
+    }),
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
   };
 }
