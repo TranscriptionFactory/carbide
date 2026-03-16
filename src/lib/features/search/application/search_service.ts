@@ -5,8 +5,12 @@ import type { CommandDefinition } from "$lib/features/search/types/command_palet
 import type { SettingDefinition } from "$lib/features/settings";
 import type {
   InFileMatch,
+  NoteMatchDetail,
+  NoteSearchHit,
+  OmnibarQueryTarget,
   OmnibarItem,
   PlannedLinkSuggestion,
+  SearchQuery,
   WikiSuggestion,
 } from "$lib/shared/types/search";
 import type {
@@ -29,9 +33,9 @@ const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
 const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
-type CrossVaultSettledSearch = PromiseSettledResult<
-  Awaited<ReturnType<SearchPort["search_notes"]>>
->;
+const OMNIBAR_FILE_LIMIT = 8;
+const OMNIBAR_CONTENT_LIMIT = 8;
+type CrossVaultSettledSearch = PromiseSettledResult<NoteSearchHit[]>;
 
 type CrossVaultAggregation = {
   groups: CrossVaultSearchGroup[];
@@ -55,6 +59,97 @@ function score_setting(query: string, setting: SettingDefinition): number {
   if (setting.description.toLowerCase().includes(query)) return 40;
   if (setting.category.toLowerCase().includes(query)) return 20;
   return 0;
+}
+
+function normalize_match_query(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function compute_text_match_score(candidate: string, query: string): number {
+  const normalized_candidate = normalize_match_query(candidate);
+  const normalized_query = normalize_match_query(query);
+
+  if (!normalized_candidate || !normalized_query) return 0;
+  if (normalized_candidate === normalized_query) return 100;
+  if (normalized_candidate.startsWith(normalized_query)) return 90;
+
+  const boundary_pattern = new RegExp(
+    `(^|[\\s/_.-])${normalized_query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+  );
+  if (boundary_pattern.test(normalized_candidate)) return 80;
+
+  const substring_index = normalized_candidate.indexOf(normalized_query);
+  if (substring_index >= 0) return Math.max(40, 70 - substring_index);
+
+  let query_index = 0;
+  let streak = 0;
+  let score = 0;
+
+  for (const candidate_char of normalized_candidate) {
+    if (query_index >= normalized_query.length) break;
+    if (candidate_char !== normalized_query[query_index]) {
+      streak = 0;
+      continue;
+    }
+
+    score += 8 + streak * 3;
+    streak += 1;
+    query_index += 1;
+  }
+
+  if (query_index !== normalized_query.length) return 0;
+  return 30 + score;
+}
+
+function resolve_file_match_detail(
+  note: NoteSearchHit["note"],
+  query: string,
+  target: OmnibarQueryTarget,
+): NoteMatchDetail | null {
+  const candidates: Array<{ detail: NoteMatchDetail; score: number }> = [
+    {
+      detail: "filename",
+      score: compute_text_match_score(note.name, query) * 1.3,
+    },
+    {
+      detail: "title",
+      score: compute_text_match_score(note.title, query) * 1.15,
+    },
+    {
+      detail: "path",
+      score: compute_text_match_score(note.path, query),
+    },
+  ];
+
+  if (target === "path") {
+    return candidates.find((candidate) => candidate.detail === "path")?.score
+      ? "path"
+      : null;
+  }
+
+  if (target === "title") {
+    if (candidates.find((candidate) => candidate.detail === "title")?.score) {
+      return "title";
+    }
+    return candidates.find((candidate) => candidate.detail === "filename")
+      ?.score
+      ? "filename"
+      : null;
+  }
+
+  const best = candidates.sort((left, right) => right.score - left.score)[0];
+  return best?.score ? best.detail : null;
+}
+
+function with_note_match(
+  hit: NoteSearchHit,
+  match_detail: NoteMatchDetail,
+): NoteSearchHit {
+  return {
+    ...hit,
+    match_kind: match_detail === "content" ? "content" : "file",
+    match_detail,
+  };
 }
 
 function merge_wiki_suggestions(input: {
@@ -196,6 +291,85 @@ export class SearchService {
     return ordered_vaults;
   }
 
+  private build_notes_query(query: string): SearchQuery {
+    return {
+      ...parse_search_query(query),
+      domain: "notes",
+    };
+  }
+
+  private async search_content_hits(
+    vault_id: VaultId,
+    query: SearchQuery,
+    limit: number,
+  ): Promise<NoteSearchHit[]> {
+    const results = await this.search_port.search_notes(vault_id, query, limit);
+    return results.map((hit) => with_note_match(hit, "content"));
+  }
+
+  private async search_file_hits(
+    vault_id: VaultId,
+    query: SearchQuery,
+    limit: number,
+  ): Promise<NoteSearchHit[]> {
+    const results = await this.search_port.suggest_files(
+      vault_id,
+      query.text,
+      limit,
+    );
+
+    return results.flatMap((hit) => {
+      const match_detail = resolve_file_match_detail(
+        hit.note,
+        query.text,
+        query.target,
+      );
+      if (!match_detail) {
+        return [];
+      }
+      return [with_note_match(hit, match_detail)];
+    });
+  }
+
+  private async search_blended_hits(
+    vault_id: VaultId,
+    query: SearchQuery,
+  ): Promise<NoteSearchHit[]> {
+    const [file_hits, content_hits] = await Promise.all([
+      this.search_file_hits(
+        vault_id,
+        { ...query, target: "files" },
+        OMNIBAR_FILE_LIMIT,
+      ),
+      this.search_content_hits(vault_id, query, OMNIBAR_CONTENT_LIMIT),
+    ]);
+
+    const file_hit_ids = new Set(file_hits.map((hit) => String(hit.note.id)));
+    const unique_content_hits = content_hits.filter(
+      (hit) => !file_hit_ids.has(String(hit.note.id)),
+    );
+
+    return [...file_hits, ...unique_content_hits];
+  }
+
+  private async search_note_hits_for_vault(
+    vault_id: VaultId,
+    raw_query: string,
+  ): Promise<NoteSearchHit[]> {
+    const query = this.build_notes_query(raw_query);
+
+    switch (query.target) {
+      case "files":
+      case "path":
+      case "title":
+        return this.search_file_hits(vault_id, query, OMNIBAR_FILE_LIMIT);
+      case "content":
+        return this.search_content_hits(vault_id, query, OMNIBAR_CONTENT_LIMIT);
+      default:
+        return this.search_blended_hits(vault_id, query);
+    }
+  }
+
   async search_notes(query: string): Promise<SearchNotesResult> {
     const trimmed = query.trim();
     if (!trimmed) {
@@ -213,9 +387,9 @@ export class SearchService {
     this.start_operation("search.notes");
 
     try {
-      const results = await this.search_port.search_notes(
+      const results = await this.search_content_hits(
         vault_id,
-        parse_search_query(query),
+        this.build_notes_query(query),
         20,
       );
       if (this.is_search_stale(revision)) {
@@ -367,22 +541,13 @@ export class SearchService {
     return revision !== this.active_cross_vault_search_revision;
   }
 
-  private parse_notes_domain_query(query: string) {
-    const parsed = parse_search_query(query);
-    return {
-      ...parsed,
-      domain: "notes" as const,
-    };
-  }
-
   private async run_cross_vault_search(
     searchable_vaults: Vault[],
     query: string,
   ): Promise<CrossVaultSettledSearch[]> {
-    const parsed_query = this.parse_notes_domain_query(query);
     return await Promise.allSettled(
       searchable_vaults.map((vault) =>
-        this.search_port.search_notes(vault.id, parsed_query, 20),
+        this.search_note_hits_for_vault(vault.id, query),
       ),
     );
   }
@@ -485,14 +650,56 @@ export class SearchService {
       return this.search_planned_omnibar_items(parsed.text);
     }
 
-    const result = await this.search_notes(raw_query);
+    const result = await this.search_omnibar_notes(raw_query);
     const items: OmnibarItem[] = result.results.map((r) => ({
       kind: "note" as const,
       note: r.note,
       score: r.score,
       snippet: r.snippet,
+      match_kind: r.match_kind,
+      match_detail: r.match_detail,
     }));
     return { domain: "notes", items, status: result.status };
+  }
+
+  private async search_omnibar_notes(
+    query: string,
+  ): Promise<SearchNotesResult> {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      this.op_store.reset("search.notes");
+      return { status: "empty", results: [] };
+    }
+
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      this.op_store.reset("search.notes");
+      return { status: "skipped", results: [] };
+    }
+
+    const revision = ++this.active_search_revision;
+    this.start_operation("search.notes");
+
+    try {
+      const results = await this.search_note_hits_for_vault(vault_id, query);
+      if (this.is_search_stale(revision)) {
+        return { status: "stale", results: [] };
+      }
+
+      this.succeed_operation("search.notes");
+      return { status: "success", results };
+    } catch (error) {
+      if (this.is_search_stale(revision)) {
+        return { status: "stale", results: [] };
+      }
+
+      const message = this.fail_operation(
+        "search.notes",
+        "Omnibar search failed",
+        error,
+      );
+      return { status: "failed", error: message, results: [] };
+    }
   }
 
   reset_search_notes_operation() {

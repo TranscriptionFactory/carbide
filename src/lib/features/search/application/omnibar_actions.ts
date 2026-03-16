@@ -56,6 +56,8 @@ function map_cross_vault_items(
       vault_is_available: group.vault_is_available,
       score: entry.score,
       snippet: entry.snippet,
+      match_kind: entry.match_kind,
+      match_detail: entry.match_detail,
     })),
   );
 }
@@ -255,6 +257,10 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.omnibar_open,
     label: "Open Omnibar",
     execute: () => {
+      if (stores.ui.omnibar.open) {
+        set_omnibar_state(input, { scope: "current_vault" });
+        return;
+      }
       open_omnibar(input);
     },
   });
@@ -263,6 +269,10 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.omnibar_open_all_vaults,
     label: "Open Omnibar (All Vaults)",
     execute: () => {
+      if (stores.ui.omnibar.open) {
+        set_omnibar_state(input, { scope: "all_vaults" });
+        return;
+      }
       set_omnibar_state(input, {
         open: true,
         query: "",

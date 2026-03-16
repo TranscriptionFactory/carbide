@@ -667,6 +667,23 @@ pub fn index_suggest(
 }
 
 #[tauri::command]
+pub fn index_suggest_files(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<search_db::SuggestionHit>, String> {
+    log::debug!(
+        "Suggesting files from index vault_id={} query={}",
+        vault_id,
+        query
+    );
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::suggest_files(conn, &query, limit.unwrap_or(15))
+    })
+}
+
+#[tauri::command]
 pub fn index_suggest_planned(
     app: AppHandle,
     vault_id: String,

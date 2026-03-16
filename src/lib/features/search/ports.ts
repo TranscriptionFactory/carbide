@@ -34,6 +34,11 @@ export interface SearchPort {
     query: SearchQuery,
     limit?: number,
   ): Promise<NoteSearchHit[]>;
+  suggest_files(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
+  ): Promise<NoteSearchHit[]>;
   suggest_wiki_links(
     vault_id: VaultId,
     query: string,

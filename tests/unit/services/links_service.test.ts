@@ -48,6 +48,7 @@ describe("LinksService", () => {
     };
     const search_port = {
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue(snapshot),
@@ -81,6 +82,7 @@ describe("LinksService", () => {
   it("clears state when no vault is selected", async () => {
     const search_port = {
       search_notes: vi.fn(),
+      suggest_files: vi.fn(),
       suggest_wiki_links: vi.fn(),
       suggest_planned_links: vi.fn(),
       get_note_links_snapshot: vi.fn(),
@@ -127,6 +129,7 @@ describe("LinksService", () => {
 
     const search_port = {
       search_notes: vi.fn(),
+      suggest_files: vi.fn(),
       suggest_wiki_links: vi.fn(),
       suggest_planned_links: vi.fn(),
       get_note_links_snapshot: vi.fn().mockImplementation(() => {
@@ -183,6 +186,7 @@ describe("LinksService", () => {
     }>();
     const search_port = {
       search_notes: vi.fn(),
+      suggest_files: vi.fn(),
       suggest_wiki_links: vi.fn(),
       suggest_planned_links: vi.fn(),
       get_note_links_snapshot: vi.fn().mockReturnValue(deferred.promise),
@@ -223,6 +227,7 @@ describe("LinksService", () => {
       .mockResolvedValue(local_snapshot());
     const search_port = {
       search_notes: vi.fn(),
+      suggest_files: vi.fn(),
       suggest_wiki_links: vi.fn(),
       suggest_planned_links: vi.fn(),
       get_note_links_snapshot: vi.fn(),
@@ -269,6 +274,7 @@ describe("LinksService", () => {
 
     const search_port = {
       search_notes: vi.fn(),
+      suggest_files: vi.fn(),
       suggest_wiki_links: vi.fn(),
       suggest_planned_links: vi.fn(),
       get_note_links_snapshot: vi.fn(),

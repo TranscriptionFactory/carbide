@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
+import {
+  parse_search_query,
+  set_search_query_target,
+} from "$lib/features/search/domain/search_query_parser";
 
 describe("parse_search_query", () => {
   it("parses path scope", () => {
@@ -7,6 +10,7 @@ describe("parse_search_query", () => {
     expect(result.scope).toBe("path");
     expect(result.text).toBe("foo bar");
     expect(result.domain).toBe("notes");
+    expect(result.target).toBe("path");
   });
 
   it("parses content scope without space", () => {
@@ -14,6 +18,7 @@ describe("parse_search_query", () => {
     expect(result.scope).toBe("content");
     expect(result.text).toBe("foo");
     expect(result.domain).toBe("notes");
+    expect(result.target).toBe("content");
   });
 
   it("defaults to all scope and notes domain", () => {
@@ -21,6 +26,7 @@ describe("parse_search_query", () => {
     expect(result.scope).toBe("all");
     expect(result.text).toBe("hello world");
     expect(result.domain).toBe("notes");
+    expect(result.target).toBe("all");
   });
 
   it("returns empty text and notes domain for blank input", () => {
@@ -28,6 +34,7 @@ describe("parse_search_query", () => {
     expect(result.text).toBe("");
     expect(result.scope).toBe("all");
     expect(result.domain).toBe("notes");
+    expect(result.target).toBe("all");
   });
 
   it("detects commands domain with > prefix", () => {
@@ -35,6 +42,7 @@ describe("parse_search_query", () => {
     expect(result.domain).toBe("commands");
     expect(result.text).toBe("open settings");
     expect(result.scope).toBe("all");
+    expect(result.target).toBe("all");
   });
 
   it("detects commands domain with > prefix and extra spaces", () => {
@@ -54,6 +62,7 @@ describe("parse_search_query", () => {
     expect(result.domain).toBe("planned");
     expect(result.text).toBe("architecture");
     expect(result.scope).toBe("all");
+    expect(result.target).toBe("all");
   });
 
   it("detects planned domain case-insensitively", () => {
@@ -72,5 +81,32 @@ describe("parse_search_query", () => {
     expect(result.scope).toBe("title");
     expect(result.text).toBe("meeting notes");
     expect(result.domain).toBe("notes");
+    expect(result.target).toBe("title");
+  });
+
+  it("parses @file as a files-target query", () => {
+    const result = parse_search_query("@file meeting");
+    expect(result.scope).toBe("all");
+    expect(result.text).toBe("meeting");
+    expect(result.target).toBe("files");
+  });
+
+  it("parses @content as a content-target query", () => {
+    const result = parse_search_query("@content roadmap");
+    expect(result.scope).toBe("content");
+    expect(result.text).toBe("roadmap");
+    expect(result.target).toBe("content");
+  });
+
+  it("sets the query target without losing the query text", () => {
+    expect(set_search_query_target("meeting notes", "files")).toBe(
+      "@file meeting notes",
+    );
+    expect(set_search_query_target("@content meeting notes", "all")).toBe(
+      "meeting notes",
+    );
+    expect(set_search_query_target("path: planning/q1", "content")).toBe(
+      "@content planning/q1",
+    );
   });
 });

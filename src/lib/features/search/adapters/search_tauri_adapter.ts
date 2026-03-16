@@ -137,6 +137,25 @@ export function create_search_tauri_adapter(): SearchPort {
       }));
     },
 
+    async suggest_files(
+      vault_id: VaultId,
+      query: string,
+      limit = 15,
+    ): Promise<NoteSearchHit[]> {
+      const hits = await invoke_search<TauriSuggestionHit[]>(
+        "index_suggest_files",
+        {
+          vaultId: vault_id,
+          query,
+          limit,
+        },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        score: hit.score,
+      }));
+    },
+
     async suggest_wiki_links(
       vault_id: VaultId,
       query: string,
