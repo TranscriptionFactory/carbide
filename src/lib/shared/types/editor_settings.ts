@@ -31,6 +31,7 @@ export type EditorCodeBlockPadding = EditorSpacingDensity;
 export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
 export type EditorBlockquotePadding = EditorSpacingDensity;
 export type PanelSide = "left" | "right";
+export type OutlineMode = "rail" | "floating";
 
 export type EditorSettings = {
   attachment_folder: string;
@@ -76,6 +77,7 @@ export type EditorSettings = {
   graph_force_charge_strength: number;
   graph_force_collision_radius: number;
   graph_force_charge_max_distance: number;
+  outline_mode: OutlineMode;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -122,6 +124,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_strength: -200,
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
+  outline_mode: "rail",
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -160,6 +163,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_charge_strength",
   "graph_force_collision_radius",
   "graph_force_charge_max_distance",
+  "outline_mode",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
