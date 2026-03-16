@@ -66,6 +66,9 @@ export class VaultGraphRenderer {
   on_node_dblclick: (id: string) => void = () => {};
 
   async initialize(container: HTMLElement): Promise<void> {
+    // @ts-expect-error pixi.js/unsafe-eval is a side-effect-only module that
+    // patches Pixi prototypes to avoid new Function() — required for strict CSP
+    await import("pixi.js/unsafe-eval");
     const [pixi, { Viewport }] = await Promise.all([
       import("pixi.js"),
       import("pixi-viewport"),
