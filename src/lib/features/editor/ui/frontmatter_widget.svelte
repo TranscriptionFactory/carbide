@@ -6,6 +6,7 @@
   import Tag from "@lucide/svelte/icons/tag";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import yaml from "js-yaml";
+  import * as Switch from "$lib/components/ui/switch/index.js";
 
   let {
     node,
@@ -17,12 +18,26 @@
     get_pos: () => number | undefined;
   } = $props();
 
+  type PropType = "boolean" | "number" | "date" | "string";
+
+  function detect_type(value: unknown): PropType {
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "number") return "number";
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+      return "date";
+    return "string";
+  }
+
+  function coerce_value(raw: string, type: PropType): unknown {
+    if (type === "number") return raw === "" ? "" : Number(raw);
+    if (type === "date") return raw;
+    return raw;
+  }
+
   function update_node(new_content: string) {
     const pos = get_pos();
     if (pos === undefined) return;
 
-    // We replace the entire content of the YAML node
-    // In Milkdown, the YAML node content is the raw text between --- fences
     const tr = view.state.tr.insertText(
       new_content,
       pos + 1,
@@ -34,6 +49,8 @@
   let properties = $state<{ key: string; value: any }[]>([]);
   let tags = $state<string[]>([]);
   let parse_error = $state<string | null>(null);
+  let adding_tag = $state(false);
+  let new_tag_value = $state("");
 
   $effect(() => {
     const content = node.textContent;
@@ -91,11 +108,32 @@
     save();
   }
 
-  function add_tag() {
-    const tag = prompt("Enter tag name:");
-    if (tag) {
-      tags.push(tag);
+  function begin_add_tag() {
+    adding_tag = true;
+    new_tag_value = "";
+  }
+
+  function commit_tag() {
+    const trimmed = new_tag_value.trim();
+    if (trimmed) {
+      tags.push(trimmed);
       save();
+    }
+    adding_tag = false;
+    new_tag_value = "";
+  }
+
+  function cancel_tag() {
+    adding_tag = false;
+    new_tag_value = "";
+  }
+
+  function handle_tag_keydown(e: KeyboardEvent) {
+    if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      commit_tag();
+    } else if (e.key === "Escape") {
+      cancel_tag();
     }
   }
 
@@ -106,6 +144,16 @@
 
   function handle_prop_change() {
     save();
+  }
+
+  function handle_boolean_change(prop: { key: string; value: any }, checked: boolean) {
+    prop.value = checked;
+    save();
+  }
+
+  function handle_number_input(prop: { key: string; value: any }, e: Event) {
+    const input = e.target as HTMLInputElement;
+    prop.value = input.value === "" ? "" : Number(input.value);
   }
 </script>
 
@@ -128,6 +176,7 @@
 
   <div class="space-y-2">
     {#each properties as prop, i}
+      {@const prop_type = detect_type(prop.value)}
       <div class="flex items-center gap-2 group/row">
         <div
           class="text-zinc-300 dark:text-zinc-700 opacity-0 group-hover/row:opacity-100 transition-opacity"
@@ -142,13 +191,38 @@
           class="flex-1 bg-transparent border-none px-1 py-0.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 focus:ring-0 focus:outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
         />
         <div class="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
-        <input
-          type="text"
-          bind:value={prop.value}
-          onblur={handle_prop_change}
-          placeholder="Value"
-          class="flex-[2] bg-transparent border-none px-1 py-0.5 text-sm text-zinc-900 dark:text-zinc-100 focus:ring-0 focus:outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
-        />
+        {#if prop_type === "boolean"}
+          <div class="flex-[2] flex items-center px-1 py-0.5">
+            <Switch.Root
+              checked={Boolean(prop.value)}
+              onCheckedChange={(checked) => handle_boolean_change(prop, checked)}
+            />
+          </div>
+        {:else if prop_type === "number"}
+          <input
+            type="number"
+            value={prop.value}
+            oninput={(e) => handle_number_input(prop, e)}
+            onblur={handle_prop_change}
+            placeholder="Value"
+            class="flex-[2] bg-transparent border-none px-1 py-0.5 text-sm text-zinc-900 dark:text-zinc-100 focus:ring-0 focus:outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
+          />
+        {:else if prop_type === "date"}
+          <input
+            type="date"
+            bind:value={prop.value}
+            onchange={handle_prop_change}
+            class="flex-[2] bg-transparent border-none px-1 py-0.5 text-sm text-zinc-900 dark:text-zinc-100 focus:ring-0 focus:outline-none"
+          />
+        {:else}
+          <input
+            type="text"
+            bind:value={prop.value}
+            onblur={handle_prop_change}
+            placeholder="Value"
+            class="flex-[2] bg-transparent border-none px-1 py-0.5 text-sm text-zinc-900 dark:text-zinc-100 focus:ring-0 focus:outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
+          />
+        {/if}
         <button
           onclick={() => remove_property(i)}
           class="p-1 text-zinc-300 hover:text-red-500 opacity-0 group-hover/row:opacity-100 transition-opacity"
@@ -173,13 +247,25 @@
             </button>
           </span>
         {/each}
-        <button
-          onclick={add_tag}
-          class="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all"
-        >
-          <Plus size={10} />
-          Add tag
-        </button>
+        {#if adding_tag}
+          <input
+            type="text"
+            bind:value={new_tag_value}
+            onkeydown={handle_tag_keydown}
+            onblur={commit_tag}
+            autofocus
+            placeholder="Tag name…"
+            class="inline-flex items-center px-2 py-0.5 rounded border border-zinc-400 dark:border-zinc-500 bg-transparent text-[11px] text-zinc-900 dark:text-zinc-100 focus:ring-0 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600 w-24"
+          />
+        {:else}
+          <button
+            onclick={begin_add_tag}
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all"
+          >
+            <Plus size={10} />
+            Add tag
+          </button>
+        {/if}
       </div>
     {/if}
 
