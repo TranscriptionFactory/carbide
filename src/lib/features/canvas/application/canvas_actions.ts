@@ -74,7 +74,7 @@ export function register_canvas_actions(
 
       stores.ui.create_canvas_dialog = {
         open: true,
-        folder_path: stores.ui.selected_folder_path,
+        folder_path: "assets/excalidraw",
         canvas_name: "",
       };
     },
