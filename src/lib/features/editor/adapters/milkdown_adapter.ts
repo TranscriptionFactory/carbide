@@ -70,6 +70,7 @@ import {
 } from "./find_highlight_plugin";
 import { code_block_copy_plugin } from "./code_block_copy_plugin";
 import { mark_escape_plugin } from "./mark_escape_plugin";
+import { leading_block_escape_plugin } from "./leading_block_escape_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
 import { error_message } from "$lib/shared/utils/error_message";
 import { count_words } from "$lib/shared/utils/count_words";
@@ -392,6 +393,7 @@ export function create_milkdown_editor_port(args?: {
         .use(non_inclusive_link)
         .use(non_inclusive_strikethrough)
         .use(mark_escape_plugin)
+        .use(leading_block_escape_plugin)
         .use(prism)
         .use(code_block_copy_plugin)
         .use(indent)
