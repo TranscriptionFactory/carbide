@@ -1559,6 +1559,11 @@
   color: var(--destructive);
 }
 
+.toolbar-btn.active {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
 .toolbar-divider {
   width: 1px;
   height: 1rem;

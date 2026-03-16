@@ -9,12 +9,17 @@ import {
   addRowBefore,
   deleteColumn,
   deleteRow,
+  findTable,
+  TableMap,
+  selectionCell,
 } from "@milkdown/kit/prose/tables";
 import {
   compute_floating_position,
   create_backdrop,
   Z_TABLE_TOOLBAR,
 } from "./floating_toolbar_utils";
+
+export type ColumnAlignment = "left" | "center" | "right";
 
 function is_in_table(pos: ResolvedPos): boolean {
   for (let d = pos.depth; d > 0; d--) {
@@ -44,6 +49,56 @@ function find_table_dom(view: EditorView): HTMLTableElement | null {
     }
   }
   return null;
+}
+
+export function get_current_column_alignment(
+  view: EditorView,
+): ColumnAlignment {
+  const { state } = view;
+  try {
+    const $cell = selectionCell(state);
+    const alignment = $cell.nodeAfter?.attrs["alignment"];
+    if (alignment === "center" || alignment === "right") return alignment;
+  } catch {
+    // not in a table cell
+  }
+  return "left";
+}
+
+export function align_column(
+  view: EditorView,
+  alignment: ColumnAlignment,
+): void {
+  const { state } = view;
+  const table_info = findTable(state.selection.$from);
+  if (!table_info) return;
+
+  const map = TableMap.get(table_info.node);
+  try {
+    const $cell = selectionCell(state);
+    const cell_pos = $cell.pos - table_info.start;
+    const col = map.colCount(cell_pos);
+    const col_cells = map.cellsInRect({
+      left: col,
+      right: col + 1,
+      top: 0,
+      bottom: map.height,
+    });
+
+    const tr = state.tr;
+    for (const cell_offset of col_cells) {
+      const node = table_info.node.nodeAt(cell_offset);
+      if (!node) continue;
+      const abs_pos = table_info.start + cell_offset;
+      tr.setNodeMarkup(abs_pos, undefined, {
+        ...node.attrs,
+        alignment,
+      });
+    }
+    view.dispatch(tr);
+  } catch {
+    // cursor not in a valid cell position
+  }
 }
 
 type ToolbarButton = {
@@ -94,7 +149,18 @@ function toolbar_config(): Array<ToolbarButton | typeof SEPARATOR> {
   ];
 }
 
-function create_toolbar_dom(view: EditorView): HTMLElement {
+const ALIGNMENTS: Array<{ label: string; icon: string; value: ColumnAlignment }> =
+  [
+    { label: "Align left", icon: "⫷", value: "left" },
+    { label: "Align center", icon: "⊟", value: "center" },
+    { label: "Align right", icon: "⫸", value: "right" },
+  ];
+
+type AlignmentButtonRefs = Map<ColumnAlignment, HTMLButtonElement>;
+
+function create_toolbar_dom(
+  view: EditorView,
+): { el: HTMLElement; align_btns: AlignmentButtonRefs } {
   const toolbar = document.createElement("div");
   toolbar.className = "table-toolbar";
   toolbar.contentEditable = "false";
@@ -120,7 +186,40 @@ function create_toolbar_dom(view: EditorView): HTMLElement {
     toolbar.appendChild(btn);
   }
 
-  return toolbar;
+  const sep = document.createElement("div");
+  sep.className = "toolbar-divider";
+  toolbar.appendChild(sep);
+
+  const align_btns: AlignmentButtonRefs = new Map();
+  for (const { label, icon, value } of ALIGNMENTS) {
+    const btn = document.createElement("button");
+    btn.className = "toolbar-btn";
+    btn.type = "button";
+    btn.title = label;
+    btn.textContent = icon;
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      align_column(view, value);
+    });
+    align_btns.set(value, btn);
+    toolbar.appendChild(btn);
+  }
+
+  return { el: toolbar, align_btns };
+}
+
+function update_alignment_buttons(
+  align_btns: AlignmentButtonRefs,
+  current: ColumnAlignment,
+): void {
+  for (const [value, btn] of align_btns) {
+    if (value === current) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  }
 }
 
 export const table_toolbar_plugin_key = new PluginKey("table-toolbar");
@@ -128,12 +227,14 @@ export const table_toolbar_plugin_key = new PluginKey("table-toolbar");
 export const table_toolbar_plugin = $prose(() => {
   let toolbar_el: HTMLElement | null = null;
   let backdrop_el: HTMLElement | null = null;
+  let align_btn_refs: AlignmentButtonRefs | null = null;
 
   function remove_toolbar() {
     toolbar_el?.remove();
     backdrop_el?.remove();
     toolbar_el = null;
     backdrop_el = null;
+    align_btn_refs = null;
   }
 
   return new Plugin({
@@ -154,11 +255,18 @@ export const table_toolbar_plugin = $prose(() => {
           }
 
           if (!toolbar_el) {
-            toolbar_el = create_toolbar_dom(view);
+            const { el, align_btns } = create_toolbar_dom(view);
+            toolbar_el = el;
+            align_btn_refs = align_btns;
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
             backdrop_el = create_backdrop(remove_toolbar);
             document.body.appendChild(backdrop_el);
             document.body.appendChild(toolbar_el);
+          }
+
+          if (align_btn_refs) {
+            const current_align = get_current_column_alignment(view);
+            update_alignment_buttons(align_btn_refs, current_align);
           }
 
           void compute_floating_position(table_dom, toolbar_el, "top").then(
