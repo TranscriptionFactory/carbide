@@ -141,7 +141,7 @@ export function register_graph_actions(
   registry.register({
     id: ACTION_IDS.graph_open_as_tab,
     label: "Open Vault Graph",
-    execute: async () => {
+    execute: () => {
       graph_service.close_panel();
       if (stores.ui.sidebar_view === "graph") {
         stores.ui.sidebar_view = "explorer";
@@ -150,10 +150,6 @@ export function register_graph_actions(
       graph_store.set_view_mode("vault");
       stores.tab.open_graph_tab(GRAPH_TAB_ID, GRAPH_TAB_TITLE);
       stores.editor.clear_open_note();
-
-      if (!graph_store.vault_snapshot) {
-        await graph_service.load_vault_graph();
-      }
     },
   });
 }

@@ -19,7 +19,7 @@
   );
 
   $effect(() => {
-    if (!vault_snapshot && status === "idle") {
+    if (!vault_snapshot && status !== "loading" && status !== "error") {
       void action_registry.execute(ACTION_IDS.graph_load_vault_graph);
     }
   });
