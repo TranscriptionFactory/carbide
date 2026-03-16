@@ -5,7 +5,7 @@
     Settings,
     Star,
     CircleHelp,
-    VectorSquare,
+    Network,
     ListChecks,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
@@ -109,7 +109,7 @@
         aria-pressed={sidebar_open && active_view === "graph"}
         aria-label="Graph"
       >
-        <VectorSquare class="ActivityBar__icon" />
+        <Network class="ActivityBar__icon" />
       </button>
 
       {#each dynamic_views as view (view.id)}

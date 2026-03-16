@@ -65,11 +65,12 @@
 <div class="GraphPanel">
   <div class="GraphPanel__header">
     <div class="GraphPanel__title_group">
-      <h2 class="GraphPanel__title">Graph</h2>
       {#if is_vault_mode}
-        <p class="GraphPanel__subtitle">Full vault</p>
+        <h2 class="GraphPanel__title">Full vault</h2>
       {:else if snapshot}
-        <p class="GraphPanel__subtitle">{snapshot.center.title}</p>
+        <h2 class="GraphPanel__title">{snapshot.center.title}</h2>
+      {:else}
+        <h2 class="GraphPanel__title">Graph</h2>
       {/if}
     </div>
 
@@ -267,15 +268,6 @@
     font-size: var(--text-sm);
     font-weight: 700;
     margin: 0;
-  }
-
-  .GraphPanel__subtitle {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: var(--text-xs);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .GraphPanel__actions {
