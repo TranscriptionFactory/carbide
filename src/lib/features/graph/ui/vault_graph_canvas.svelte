@@ -17,6 +17,12 @@
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
+    force_params?: {
+      link_distance: number;
+      charge_strength: number;
+      collision_radius: number;
+      charge_max_distance: number;
+    };
   };
 
   let {
@@ -29,6 +35,7 @@
     on_select_node,
     on_hover_node,
     on_open_node,
+    force_params,
   }: Props = $props();
 
   let renderer = $state<VaultGraphRenderer | null>(null);
@@ -117,6 +124,7 @@
           type: "init",
           nodes: snapshot.nodes.map((n) => ({ id: n.path })),
           edges: plain_edges(snapshot),
+          force_params,
         });
       })
       .catch((err) => {

@@ -99,6 +99,15 @@
             node_id,
           )}
         on_open_node={open_node}
+        force_params={{
+          link_distance: stores.ui.editor_settings.graph_force_link_distance,
+          charge_strength:
+            stores.ui.editor_settings.graph_force_charge_strength,
+          collision_radius:
+            stores.ui.editor_settings.graph_force_collision_radius,
+          charge_max_distance:
+            stores.ui.editor_settings.graph_force_charge_max_distance,
+        }}
       />
     {:else if status === "loading"}
       <p class="GraphTabView__message">Loading vault graph...</p>

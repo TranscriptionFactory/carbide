@@ -15,11 +15,19 @@ type WorkerEdge = SimulationLinkDatum<WorkerNode> & {
   target_id: string;
 };
 
+type ForceParams = {
+  link_distance: number;
+  charge_strength: number;
+  collision_radius: number;
+  charge_max_distance: number;
+};
+
 type InboundMessage =
   | {
       type: "init";
       nodes: { id: string; x?: number; y?: number }[];
       edges: { source: string; target: string }[];
+      force_params?: ForceParams;
     }
   | { type: "tick_budget"; ticks: number }
   | { type: "reheat"; alpha?: number }
@@ -86,16 +94,22 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
       target_id: e.target,
     }));
 
+  const fp = msg.force_params;
+  const link_dist = fp?.link_distance ?? 80;
+  const charge = fp?.charge_strength ?? -200;
+  const collision = fp?.collision_radius ?? 20;
+  const charge_max = fp?.charge_max_distance ?? 500;
+
   simulation = forceSimulation<WorkerNode, WorkerEdge>(nodes)
     .force(
       "link",
       forceLink<WorkerNode, WorkerEdge>(edges)
         .id((d) => d.id)
-        .distance(80),
+        .distance(link_dist),
     )
-    .force("charge", forceManyBody().strength(-200).distanceMax(500))
+    .force("charge", forceManyBody().strength(charge).distanceMax(charge_max))
     .force("center", forceCenter(0, 0))
-    .force("collide", forceCollide(20))
+    .force("collide", forceCollide(collision))
     .stop();
 
   const budget = compute_tick_budget(nodes.length);

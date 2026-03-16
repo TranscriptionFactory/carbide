@@ -11,6 +11,7 @@ export type SettingsCategory =
   | "git"
   | "documents"
   | "terminal"
+  | "graph"
   | "semantic"
   | "misc"
   | "hotkeys";
@@ -71,6 +72,10 @@ export type EditorSettings = {
   semantic_graph_max_vault_size: number;
   semantic_omnibar_fallback_enabled: boolean;
   semantic_omnibar_min_words: number;
+  graph_force_link_distance: number;
+  graph_force_charge_strength: number;
+  graph_force_collision_radius: number;
+  graph_force_charge_max_distance: number;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -113,6 +118,10 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   semantic_graph_max_vault_size: 200,
   semantic_omnibar_fallback_enabled: true,
   semantic_omnibar_min_words: 3,
+  graph_force_link_distance: 80,
+  graph_force_charge_strength: -200,
+  graph_force_collision_radius: 20,
+  graph_force_charge_max_distance: 500,
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -147,6 +156,10 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "document_code_wrap",
   "document_image_background",
   "document_inactive_cache_limit",
+  "graph_force_link_distance",
+  "graph_force_charge_strength",
+  "graph_force_collision_radius",
+  "graph_force_charge_max_distance",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

@@ -364,4 +364,42 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "Semantic",
     keywords: ["omnibar", "words", "minimum", "fallback", "threshold"],
   },
+  {
+    key: "graph_force_link_distance",
+    label: "Link Distance",
+    description:
+      "Target distance between connected nodes (higher = more spread)",
+    category: "Graph",
+    keywords: ["graph", "force", "layout", "spacing", "link", "distance"],
+  },
+  {
+    key: "graph_force_charge_strength",
+    label: "Repulsion Strength",
+    description:
+      "How strongly nodes push apart (more negative = more repulsion)",
+    category: "Graph",
+    keywords: ["graph", "force", "layout", "spacing", "charge", "repulsion"],
+  },
+  {
+    key: "graph_force_collision_radius",
+    label: "Collision Radius",
+    description: "Minimum distance between node centers",
+    category: "Graph",
+    keywords: ["graph", "force", "layout", "spacing", "collision", "radius"],
+  },
+  {
+    key: "graph_force_charge_max_distance",
+    label: "Repulsion Range",
+    description: "Maximum distance for repulsion force to act",
+    category: "Graph",
+    keywords: [
+      "graph",
+      "force",
+      "layout",
+      "spacing",
+      "charge",
+      "range",
+      "distance",
+    ],
+  },
 ];

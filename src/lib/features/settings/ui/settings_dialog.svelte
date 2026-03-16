@@ -15,6 +15,7 @@
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import SlidersIcon from "@lucide/svelte/icons/sliders-horizontal";
   import BrainIcon from "@lucide/svelte/icons/brain";
+  import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
   import { HotkeysPanel } from "$lib/features/hotkey";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
@@ -289,6 +290,7 @@
     { id: "git", label: "Git", icon: GitBranchIcon },
     { id: "documents", label: "Documents", icon: FileTextIcon },
     { id: "terminal", label: "Terminal", icon: TerminalIcon },
+    { id: "graph", label: "Graph", icon: NetworkIcon },
     { id: "semantic", label: "Semantic", icon: BrainIcon },
     { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
@@ -1957,6 +1959,171 @@
                   update("terminal_follow_active_vault", v);
                 }}
               />
+            </div>
+          </div>
+        {:else if active_category === "graph"}
+          <h2 class="SettingsDialog__content-header">Graph</h2>
+
+          <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Link Distance</span>
+                <span class="SettingsDialog__description"
+                  >Target distance between connected nodes (higher = more
+                  spread)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.graph_force_link_distance}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) update("graph_force_link_distance", v);
+                  }}
+                  min={20}
+                  max={300}
+                  step={10}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.graph_force_link_distance}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "graph_force_link_distance",
+                      DEFAULT_EDITOR_SETTINGS.graph_force_link_distance,
+                    )}
+                  disabled={editor_settings.graph_force_link_distance ===
+                    DEFAULT_EDITOR_SETTINGS.graph_force_link_distance}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.graph_force_link_distance)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Repulsion Strength</span>
+                <span class="SettingsDialog__description"
+                  >How strongly nodes push apart (more negative = more
+                  repulsion)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.graph_force_charge_strength}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined)
+                      update("graph_force_charge_strength", v);
+                  }}
+                  min={-500}
+                  max={-50}
+                  step={10}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.graph_force_charge_strength}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "graph_force_charge_strength",
+                      DEFAULT_EDITOR_SETTINGS.graph_force_charge_strength,
+                    )}
+                  disabled={editor_settings.graph_force_charge_strength ===
+                    DEFAULT_EDITOR_SETTINGS.graph_force_charge_strength}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.graph_force_charge_strength)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Collision Radius</span>
+                <span class="SettingsDialog__description"
+                  >Minimum distance between node centers</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.graph_force_collision_radius}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined)
+                      update("graph_force_collision_radius", v);
+                  }}
+                  min={5}
+                  max={60}
+                  step={5}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.graph_force_collision_radius}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "graph_force_collision_radius",
+                      DEFAULT_EDITOR_SETTINGS.graph_force_collision_radius,
+                    )}
+                  disabled={editor_settings.graph_force_collision_radius ===
+                    DEFAULT_EDITOR_SETTINGS.graph_force_collision_radius}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.graph_force_collision_radius)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Repulsion Range</span>
+                <span class="SettingsDialog__description"
+                  >Maximum distance for repulsion force to act</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.graph_force_charge_max_distance}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined)
+                      update("graph_force_charge_max_distance", v);
+                  }}
+                  min={100}
+                  max={1500}
+                  step={50}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.graph_force_charge_max_distance}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "graph_force_charge_max_distance",
+                      DEFAULT_EDITOR_SETTINGS.graph_force_charge_max_distance,
+                    )}
+                  disabled={editor_settings.graph_force_charge_max_distance ===
+                    DEFAULT_EDITOR_SETTINGS.graph_force_charge_max_distance}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.graph_force_charge_max_distance)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
             </div>
           </div>
         {:else if active_category === "semantic"}
