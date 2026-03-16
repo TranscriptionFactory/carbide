@@ -17,6 +17,14 @@ export function create_test_search_adapter(): SearchPort {
       return Promise.resolve([]);
     },
 
+    suggest_files(
+      _vault_id: VaultId,
+      _query: string,
+      _limit?: number,
+    ): Promise<NoteSearchHit[]> {
+      return Promise.resolve([]);
+    },
+
     suggest_wiki_links(
       _vault_id: VaultId,
       _query: string,

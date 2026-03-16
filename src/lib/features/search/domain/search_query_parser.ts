@@ -1,15 +1,46 @@
-import type { SearchQuery, SearchScope } from "$lib/shared/types/search";
+import type {
+  OmnibarQueryTarget,
+  SearchQuery,
+  SearchScope,
+} from "$lib/shared/types/search";
 
-const scope_tokens: Array<{ token: string; scope: SearchScope }> = [
-  { token: "path:", scope: "path" },
-  { token: "content:", scope: "content" },
-  { token: "title:", scope: "title" },
+const scope_tokens: Array<{
+  token: string;
+  scope: SearchScope;
+  target: OmnibarQueryTarget;
+}> = [
+  { token: "@file", scope: "all", target: "files" },
+  { token: "@path", scope: "path", target: "path" },
+  { token: "@content", scope: "content", target: "content" },
+  { token: "path:", scope: "path", target: "path" },
+  { token: "content:", scope: "content", target: "content" },
+  { token: "title:", scope: "title", target: "title" },
 ];
+
+function consume_token(
+  lower: string,
+  trimmed: string,
+  token: string,
+): string | null {
+  if (lower === token) {
+    return "";
+  }
+
+  if (lower.startsWith(`${token} `)) {
+    return trimmed.slice(token.length).trim();
+  }
+
+  if (token.endsWith(":") && lower.startsWith(token)) {
+    return trimmed.slice(token.length).trim();
+  }
+
+  return null;
+}
 
 export function parse_search_query(raw: string): SearchQuery {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { raw, text: "", scope: "all", domain: "notes" };
+    return { raw, text: "", scope: "all", domain: "notes", target: "all" };
   }
 
   const lower = trimmed.toLowerCase();
@@ -20,6 +51,7 @@ export function parse_search_query(raw: string): SearchQuery {
       text: trimmed.slice(1).trim(),
       scope: "all",
       domain: "commands",
+      target: "all",
     };
   }
 
@@ -29,19 +61,76 @@ export function parse_search_query(raw: string): SearchQuery {
       text: trimmed.slice("#planned".length).trim(),
       scope: "all",
       domain: "planned",
+      target: "all",
     };
   }
 
-  for (const { token, scope } of scope_tokens) {
-    if (lower.startsWith(token)) {
+  for (const { token, scope, target } of scope_tokens) {
+    const text = consume_token(lower, trimmed, token);
+    if (text !== null) {
       return {
         raw,
-        text: trimmed.slice(token.length).trim(),
+        text,
         scope,
         domain: "notes",
+        target,
       };
     }
   }
 
-  return { raw, text: trimmed, scope: "all", domain: "notes" };
+  return { raw, text: trimmed, scope: "all", domain: "notes", target: "all" };
+}
+
+const query_prefix_tokens = scope_tokens.map((entry) => entry.token);
+
+function strip_query_prefix(trimmed: string): string {
+  const lower = trimmed.toLowerCase();
+
+  for (const token of query_prefix_tokens) {
+    const text = consume_token(lower, trimmed, token);
+    if (text !== null) {
+      return text;
+    }
+  }
+
+  return trimmed;
+}
+
+export function set_search_query_target(
+  raw: string,
+  target: OmnibarQueryTarget,
+): string {
+  const parsed = parse_search_query(raw);
+  if (parsed.domain !== "notes") {
+    return raw;
+  }
+
+  const text = strip_query_prefix(raw.trim());
+  if (!text) {
+    switch (target) {
+      case "files":
+        return "@file ";
+      case "path":
+        return "@path ";
+      case "content":
+        return "@content ";
+      case "title":
+        return "title: ";
+      default:
+        return "";
+    }
+  }
+
+  switch (target) {
+    case "files":
+      return `@file ${text}`;
+    case "path":
+      return `@path ${text}`;
+    case "content":
+      return `@content ${text}`;
+    case "title":
+      return `title: ${text}`;
+    default:
+      return text;
+  }
 }

@@ -3,7 +3,7 @@ use crate::features::search::db::{
     compute_sync_plan, get_backlinks, get_manifest, get_orphan_outlinks, get_outlinks,
     gfm_link_targets, internal_link_targets, list_note_paths_by_prefix, open_search_db,
     rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path, search,
-    set_outlinks, suggest_planned, sync_index, upsert_note, wiki_link_targets,
+    set_outlinks, suggest_files, suggest_planned, sync_index, upsert_note, wiki_link_targets,
 };
 use crate::features::search::model::{IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
@@ -201,6 +201,37 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
     assert_eq!(suggestions[0].ref_count, 2);
     assert_eq!(suggestions[1].target_path, "docs/planned/low.md");
     assert_eq!(suggestions[1].ref_count, 1);
+}
+
+#[test]
+fn suggest_files_matches_filename_path_and_fuzzy_input() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db(tmp.path()).expect("db should open");
+
+    for (path, title, name) in [
+        ("notes/meeting-notes.md", "Meeting Notes", "meeting-notes"),
+        ("projects/roadmap-2026.md", "Roadmap 2026", "roadmap-2026"),
+        ("archive/retrospective.md", "Retrospective", "retrospective"),
+    ] {
+        let meta = IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: title.to_string(),
+            name: name.to_string(),
+            mtime_ms: 100,
+            size_bytes: 10,
+        };
+        upsert_note(&conn, &meta, "body").expect("upsert should succeed");
+    }
+
+    let substring_hits = suggest_files(&conn, "road", 10).expect("file suggest should work");
+    assert_eq!(substring_hits[0].note.path, "projects/roadmap-2026.md");
+
+    let fuzzy_hits = suggest_files(&conn, "mtn", 10).expect("fuzzy suggest should work");
+    assert_eq!(fuzzy_hits[0].note.path, "notes/meeting-notes.md");
+
+    let path_hits = suggest_files(&conn, "archive/retro", 10).expect("path suggest should work");
+    assert_eq!(path_hits[0].note.path, "archive/retrospective.md");
 }
 
 #[test]

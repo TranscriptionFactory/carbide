@@ -322,6 +322,30 @@ describe("register_omnibar_actions", () => {
     expect(stores.ui.omnibar.scope).toBe("all_vaults");
   });
 
+  it("omnibar_open switches to current_vault when already open in all_vaults", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+
+    await registry.execute(ACTION_IDS.omnibar_open_all_vaults);
+    expect(stores.ui.omnibar.open).toBe(true);
+    expect(stores.ui.omnibar.scope).toBe("all_vaults");
+
+    await registry.execute(ACTION_IDS.omnibar_open);
+    expect(stores.ui.omnibar.open).toBe(true);
+    expect(stores.ui.omnibar.scope).toBe("current_vault");
+  });
+
+  it("omnibar_open_all_vaults switches to all_vaults when already open in current_vault", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+
+    await registry.execute(ACTION_IDS.omnibar_open);
+    expect(stores.ui.omnibar.open).toBe(true);
+    expect(stores.ui.omnibar.scope).toBe("current_vault");
+
+    await registry.execute(ACTION_IDS.omnibar_open_all_vaults);
+    expect(stores.ui.omnibar.open).toBe(true);
+    expect(stores.ui.omnibar.scope).toBe("all_vaults");
+  });
+
   it("does not prompt switch for vault already marked unavailable", async () => {
     const { registry, stores, execute_vault_select, execute_note_open } =
       create_omnibar_actions_harness();

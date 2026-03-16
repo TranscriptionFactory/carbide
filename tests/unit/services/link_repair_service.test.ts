@@ -42,6 +42,7 @@ const EMPTY_SNAPSHOT = {
 function create_mock_search_port(overrides?: Partial<SearchPort>): SearchPort {
   return {
     search_notes: vi.fn(),
+    suggest_files: vi.fn(),
     suggest_wiki_links: vi.fn(),
     suggest_planned_links: vi.fn(),
     get_note_links_snapshot: vi.fn().mockResolvedValue(EMPTY_SNAPSHOT),

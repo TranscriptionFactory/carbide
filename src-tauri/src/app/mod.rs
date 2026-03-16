@@ -62,6 +62,7 @@ pub fn run() {
             features::search::service::index_rebuild,
             features::search::service::index_search,
             features::search::service::index_suggest,
+            features::search::service::index_suggest_files,
             features::search::service::index_suggest_planned,
             features::search::service::index_list_note_paths_by_prefix,
             features::search::service::index_upsert_note,

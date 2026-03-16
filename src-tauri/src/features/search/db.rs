@@ -560,6 +560,130 @@ fn like_contains_pattern(query: &str) -> String {
     format!("%{escaped}%")
 }
 
+fn normalize_match_text(value: &str) -> String {
+    value.trim().to_lowercase()
+}
+
+fn is_boundary_char(ch: char) -> bool {
+    matches!(ch, '/' | '\\' | ' ' | '_' | '-' | '.')
+}
+
+fn boundary_prefix_score(candidate: &str, query: &str) -> Option<f64> {
+    let query_len = query.chars().count();
+    let candidate_len = candidate.chars().count();
+    if query_len == 0 || candidate_len < query_len {
+        return None;
+    }
+
+    let mut iter = candidate.char_indices().peekable();
+    while let Some((byte_index, _)) = iter.next() {
+        let start_is_boundary = if byte_index == 0 {
+            true
+        } else {
+            candidate[..byte_index]
+                .chars()
+                .next_back()
+                .is_some_and(is_boundary_char)
+        };
+        if !start_is_boundary {
+            continue;
+        }
+        if !candidate[byte_index..].starts_with(query) {
+            continue;
+        }
+
+        let gap_penalty = byte_index as f64 * 0.4;
+        let length_penalty = (candidate_len - query_len) as f64 * 0.15;
+        return Some(820.0 - gap_penalty - length_penalty);
+    }
+
+    None
+}
+
+fn fuzzy_subsequence_score(candidate: &str, query: &str) -> Option<f64> {
+    if query.is_empty() {
+        return None;
+    }
+
+    let candidate_chars: Vec<char> = candidate.chars().collect();
+    let query_chars: Vec<char> = query.chars().collect();
+    let mut query_index = 0usize;
+    let mut score = 0.0;
+    let mut last_match_index: Option<usize> = None;
+
+    for (candidate_index, candidate_char) in candidate_chars.iter().enumerate() {
+        if query_index >= query_chars.len() {
+            break;
+        }
+        if *candidate_char != query_chars[query_index] {
+            continue;
+        }
+
+        score += 12.0;
+
+        if candidate_index == 0 {
+            score += 18.0;
+        } else if let Some(prev) = candidate_chars.get(candidate_index - 1) {
+            if is_boundary_char(*prev) {
+                score += 16.0;
+            }
+        }
+
+        if let Some(previous_match_index) = last_match_index {
+            if candidate_index == previous_match_index + 1 {
+                score += 14.0;
+            } else {
+                score -= (candidate_index - previous_match_index - 1) as f64 * 1.5;
+            }
+        }
+
+        if query_index == 0 {
+            score -= candidate_index as f64 * 0.5;
+        }
+
+        last_match_index = Some(candidate_index);
+        query_index += 1;
+    }
+
+    if query_index != query_chars.len() {
+        return None;
+    }
+
+    score -= (candidate_chars.len().saturating_sub(query_chars.len())) as f64 * 0.25;
+    Some(420.0 + score)
+}
+
+fn text_match_score(candidate: &str, query: &str) -> Option<f64> {
+    if query.is_empty() {
+        return None;
+    }
+
+    if candidate == query {
+        return Some(1200.0);
+    }
+
+    if candidate.starts_with(query) {
+        let length_penalty = (candidate.len().saturating_sub(query.len())) as f64 * 0.2;
+        return Some(1040.0 - length_penalty);
+    }
+
+    if let Some(score) = boundary_prefix_score(candidate, query) {
+        return Some(score);
+    }
+
+    if let Some(index) = candidate.find(query) {
+        let gap_penalty = index as f64 * 0.5;
+        let length_penalty = (candidate.len().saturating_sub(query.len())) as f64 * 0.1;
+        return Some(720.0 - gap_penalty - length_penalty);
+    }
+
+    fuzzy_subsequence_score(candidate, query)
+}
+
+fn field_score(candidate: &str, query: &str, weight: f64) -> Option<f64> {
+    text_match_score(candidate, query).map(|score| score * weight)
+}
+
 fn note_meta_from_row(row: &rusqlite::Row) -> rusqlite::Result<IndexNoteMeta> {
     let path: String = row.get(0)?;
     let title: String = row.get(1)?;
@@ -649,6 +773,51 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+pub fn suggest_files(
+    conn: &Connection,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SuggestionHit>, String> {
+    let normalized_query = normalize_match_text(query);
+    if normalized_query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let sql = "SELECT path, title, mtime_ms, size_bytes FROM notes";
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| note_meta_from_row(row))
+        .map_err(|e| e.to_string())?;
+
+    let mut hits = Vec::new();
+    for row in rows {
+        let note = row.map_err(|e| e.to_string())?;
+        let name_score = field_score(&normalize_match_text(&note.name), &normalized_query, 1.3);
+        let title_score = field_score(&normalize_match_text(&note.title), &normalized_query, 1.15);
+        let path_score = field_score(&normalize_match_text(&note.path), &normalized_query, 1.0);
+        let score = [name_score, title_score, path_score]
+            .into_iter()
+            .flatten()
+            .fold(None, |best: Option<f64>, candidate| match best {
+                Some(current) if current >= candidate => Some(current),
+                _ => Some(candidate),
+            });
+
+        if let Some(score) = score {
+            hits.push(SuggestionHit { note, score });
+        }
+    }
+
+    hits.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.note.path.cmp(&right.note.path))
+    });
+    hits.truncate(limit);
+    Ok(hits)
 }
 
 pub fn suggest_planned(

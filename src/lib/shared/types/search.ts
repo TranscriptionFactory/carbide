@@ -40,18 +40,24 @@ export type SearchSettingDefinition = {
 export type SearchScope = "all" | "path" | "title" | "content";
 export type SearchDomain = "notes" | "commands" | "planned";
 export type OmnibarScope = "current_vault" | "all_vaults";
+export type OmnibarQueryTarget = "all" | "files" | "path" | "title" | "content";
+export type NoteMatchKind = "file" | "content";
+export type NoteMatchDetail = "filename" | "title" | "path" | "content";
 
 export type SearchQuery = {
   raw: string;
   text: string;
   scope: SearchScope;
   domain: SearchDomain;
+  target: OmnibarQueryTarget;
 };
 
 export type NoteSearchHit = {
   note: NoteMeta;
   score: number;
   snippet?: string | undefined;
+  match_kind?: NoteMatchKind | undefined;
+  match_detail?: NoteMatchDetail | undefined;
 };
 
 export type PlannedLinkSuggestion = {
@@ -111,6 +117,8 @@ export type OmnibarItem =
       note: NoteMeta;
       score: number;
       snippet?: string | undefined;
+      match_kind?: NoteMatchKind | undefined;
+      match_detail?: NoteMatchDetail | undefined;
     }
   | {
       kind: "cross_vault_note";
@@ -122,6 +130,8 @@ export type OmnibarItem =
       vault_is_available?: boolean;
       score: number;
       snippet?: string | undefined;
+      match_kind?: NoteMatchKind | undefined;
+      match_detail?: NoteMatchDetail | undefined;
     }
   | {
       kind: "planned_note";

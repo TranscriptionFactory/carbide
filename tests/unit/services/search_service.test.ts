@@ -64,6 +64,7 @@ describe("SearchService", () => {
           snippet: "match",
         },
       ]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -80,8 +81,9 @@ describe("SearchService", () => {
       resolve_note_link: vi.fn().mockResolvedValue(null),
     };
 
+    const vault = create_test_vault();
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
 
     const op_store = new OpStore();
 
@@ -107,6 +109,7 @@ describe("SearchService", () => {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -149,6 +152,7 @@ describe("SearchService", () => {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -196,6 +200,7 @@ describe("SearchService", () => {
       }),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -212,8 +217,9 @@ describe("SearchService", () => {
       resolve_note_link: vi.fn().mockResolvedValue(null),
     };
 
+    const vault = create_test_vault();
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
     const op_store = new OpStore();
     const service = new SearchService(
       search_port,
@@ -241,6 +247,7 @@ describe("SearchService", () => {
       suggest_wiki_links: vi.fn().mockReturnValue(deferred.promise),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -257,8 +264,9 @@ describe("SearchService", () => {
       resolve_note_link: vi.fn().mockResolvedValue(null),
     };
 
+    const vault = create_test_vault();
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
     const op_store = new OpStore();
     const service = new SearchService(
       search_port,
@@ -304,6 +312,7 @@ describe("SearchService", () => {
           planned("docs/planned-tail.md", 2),
         ]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -363,6 +372,7 @@ describe("SearchService", () => {
           planned("docs/planned/b.md", 3),
         ]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -407,6 +417,150 @@ describe("SearchService", () => {
     ]);
   });
 
+  it("blends file hits ahead of content hits in omnibar search", async () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([
+        {
+          note: {
+            id: as_note_path("notes/meeting-notes.md"),
+            path: as_note_path("notes/meeting-notes.md"),
+            name: "meeting-notes",
+            title: "Meeting Notes",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 0.8,
+          snippet: "weekly meeting agenda",
+        },
+        {
+          note: {
+            id: as_note_path("notes/agenda.md"),
+            path: as_note_path("notes/agenda.md"),
+            name: "agenda",
+            title: "Agenda",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 0.7,
+          snippet: "meeting follow-up",
+        },
+      ]),
+      suggest_files: vi.fn().mockResolvedValue([
+        {
+          note: {
+            id: as_note_path("notes/meeting-notes.md"),
+            path: as_note_path("notes/meeting-notes.md"),
+            name: "meeting-notes",
+            title: "Meeting Notes",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 90,
+        },
+      ]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+    };
+
+    const vault = create_test_vault();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const service = new SearchService(
+      search_port,
+      vault_store,
+      new OpStore(),
+      () => 1,
+    );
+
+    const result = await service.search_omnibar("meet");
+
+    expect(result.domain).toBe("notes");
+    expect(result.items).toMatchObject([
+      {
+        kind: "note",
+        note: { path: as_note_path("notes/meeting-notes.md") },
+        match_kind: "file",
+        match_detail: "filename",
+      },
+      {
+        kind: "note",
+        note: { path: as_note_path("notes/agenda.md") },
+        match_kind: "content",
+        match_detail: "content",
+      },
+    ]);
+  });
+
+  it("uses file-only omnibar mode for @file queries", async () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([
+        {
+          note: {
+            id: as_note_path("docs/meeting-notes.md"),
+            path: as_note_path("docs/meeting-notes.md"),
+            name: "meeting-notes",
+            title: "Meeting Notes",
+            mtime_ms: 0,
+            size_bytes: 0,
+          },
+          score: 95,
+        },
+      ]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+    };
+
+    const vault = create_test_vault();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const service = new SearchService(
+      search_port,
+      vault_store,
+      new OpStore(),
+      () => 1,
+    );
+
+    const result = await service.search_omnibar("@file meet");
+
+    expect(search_port.search_notes).not.toHaveBeenCalled();
+    expect(search_port.suggest_files).toHaveBeenCalledWith(vault.id, "meet", 8);
+    expect(result.items).toMatchObject([
+      {
+        kind: "note",
+        match_kind: "file",
+      },
+    ]);
+  });
+
   it("searches across available vaults and groups results by vault", async () => {
     const search_port = {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
@@ -443,6 +597,7 @@ describe("SearchService", () => {
           },
         ]);
       }),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -511,6 +666,7 @@ describe("SearchService", () => {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockRejectedValue(new Error("index unavailable")),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -557,6 +713,7 @@ describe("SearchService", () => {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
       search_notes: vi.fn().mockResolvedValue([]),
+      suggest_files: vi.fn().mockResolvedValue([]),
       get_note_links_snapshot: vi.fn().mockResolvedValue({
         backlinks: [],
         outlinks: [],
@@ -595,8 +752,14 @@ describe("SearchService", () => {
 
     expect(search_port.search_notes).toHaveBeenCalledWith(
       as_vault_id("vault-active"),
-      expect.objectContaining({ domain: "notes" }),
-      20,
+      {
+        raw: "ml",
+        text: "ml",
+        scope: "all",
+        domain: "notes",
+        target: "all",
+      },
+      8,
     );
   });
 });
