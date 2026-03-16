@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import type { ColumnAlignment } from "$lib/features/editor/adapters/table_toolbar_plugin";
 
