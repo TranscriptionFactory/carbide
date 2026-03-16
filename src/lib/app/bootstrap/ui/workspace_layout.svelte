@@ -16,6 +16,7 @@
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
+  import { FloatingOutline } from "$lib/features/outline";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
@@ -739,6 +740,7 @@
                           }}
                         >
                           <NoteEditor />
+                          <FloatingOutline />
                         </div>
                         {#if split_view_active}
                           <div class="SplitViewContainer__handle"></div>
@@ -850,6 +852,7 @@
   }
 
   .SplitViewContainer__primary {
+    position: relative;
     flex: 1;
     min-width: 0;
     height: 100%;

@@ -31,6 +31,7 @@
     EditorSettings,
     GitAutocommitMode,
     GitPullStrategy,
+    OutlineMode,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
   import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
@@ -893,6 +894,35 @@
                   <RotateCcw />
                 </button>
               </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Outline Position</span>
+                <span class="SettingsDialog__description"
+                  >Show outline as a floating panel over the editor or in the
+                  sidebar rail</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.outline_mode}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("outline_mode", v as OutlineMode);
+                }}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value"
+                    >{editor_settings.outline_mode === "floating"
+                      ? "Floating"
+                      : "Sidebar"}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="rail">Sidebar</Select.Item>
+                  <Select.Item value="floating">Floating</Select.Item>
+                </Select.Content>
+              </Select.Root>
             </div>
 
             <div class="space-y-4 border-t pt-4">
