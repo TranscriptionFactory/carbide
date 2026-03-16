@@ -44,6 +44,7 @@ export function extract_slash_query_from_state(
   const { $from } = selection;
   if (!$from.parent.isTextblock) return null;
   if ($from.parent.type.name === "code_block") return null;
+  if ($from.parent.type.name === "math_block") return null;
   for (let depth = $from.depth; depth >= 0; depth--) {
     if ($from.node(depth).type.name === "list_item") return null;
   }
@@ -207,6 +208,26 @@ function make_table_insert() {
   };
 }
 
+function make_math_block_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const math_type = state.schema.nodes["math_block"];
+    const para = state.schema.nodes["paragraph"];
+    if (!math_type || !para) return;
+
+    const $pos = state.doc.resolve(from);
+    const start = $pos.before();
+
+    const tr = state.tr.replaceWith(start, $pos.after(), [
+      math_type.create({ value: "" }),
+      para.create(),
+    ]);
+    const sel = TextSelection.findFrom(tr.doc.resolve(start + 1), 1);
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 function make_divider_insert() {
   return (view: EditorView, from: number) => {
     const { state } = view;
@@ -332,6 +353,14 @@ export function create_commands(): SlashCommand[] {
       icon: "—",
       keywords: ["divider", "hr", "horizontal", "rule", "separator", "line"],
       insert: make_divider_insert(),
+    },
+    {
+      id: "math",
+      label: "Math Block",
+      description: "Block math equation using LaTeX",
+      icon: "∑",
+      keywords: ["math", "latex", "equation", "formula", "block", "katex"],
+      insert: make_math_block_insert(),
     },
   ];
 }

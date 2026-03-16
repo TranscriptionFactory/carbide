@@ -15,7 +15,9 @@ import {
 } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkMath from "remark-math";
 import { frontmatter_plugin } from "./frontmatter_plugin";
+import { math_plugin } from "./math_plugin";
 import type {
   CursorInfo,
   EditorSelectionSnapshot,
@@ -366,12 +368,14 @@ export function create_milkdown_editor_port(args?: {
 
         .use(commonmark)
         .use(frontmatter_plugin)
+        .use(math_plugin)
         .use(imageBlockComponent)
         .use(image_block_schema_with_width)
         .config((ctx) => {
           ctx.update(remarkPluginsCtx, (prev) => [
             ...prev,
             remarkFrontmatter as any,
+            remarkMath as any,
           ]);
           if (resolve_asset_url_for_vault) {
             const resolve = resolve_asset_url_for_vault;

@@ -4,6 +4,7 @@
   import "../styles/design_tokens.css";
   import "../styles/component_overrides.css";
   import "../styles/editor.css";
+  import "katex/dist/katex.min.css";
   import { Toaster } from "$lib/components/ui/sonner";
   import { toast } from "svelte-sonner";
   import { create_logger } from "$lib/shared/utils/logger";

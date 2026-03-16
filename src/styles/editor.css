@@ -1608,3 +1608,20 @@
   color: var(--interactive);
   border-color: var(--interactive);
 }
+
+/* ============================================
+   MATH (KaTeX)
+   ============================================ */
+
+.math-inline {
+  display: inline-block;
+  cursor: default;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.math-block-error {
+  color: var(--color-destructive, #b91c1c);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.875rem;
+}

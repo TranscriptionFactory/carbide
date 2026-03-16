@@ -53,6 +53,7 @@
     "isomorphic-git": "^1.37.1",
     "js-yaml": "^4.1.1",
     "jspdf": "^2.5.2",
+    "katex": "^0.16.38",
     "lucide-static": "^0.563.0",
     "mermaid": "^11.12.3",
     "node-emoji": "^2.2.0",
@@ -62,6 +63,7 @@
     "pixi.js": "^8.17.0",
     "prismjs": "^1.30.0",
     "remark-frontmatter": "^5.0.0",
+    "remark-math": "^6.0.0",
     "svelte-themes": "^2.0.10",
     "tauri-pty": "^0.2.1"
   },
@@ -77,6 +79,7 @@
     "@tauri-apps/cli": "^2.10.0",
     "@types/d3-force": "^3.0.10",
     "@types/js-yaml": "^4.0.9",
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.19.7",
     "@types/papaparse": "^5.3.15",
     "@types/react": "^19.2.14",

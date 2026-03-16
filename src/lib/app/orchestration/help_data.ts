@@ -45,4 +45,6 @@ export const MARKDOWN_SYNTAX: MarkdownSyntaxEntry[] = [
   { label: "Line Break", syntax: "line one\\\\\nline two" },
   { label: "Horizontal Rule", syntax: "---" },
   { label: "Table", syntax: "| A | B |\n|---|---|\n| 1 | 2 |" },
+  { label: "Inline Math", syntax: "$expr$" },
+  { label: "Block Math", syntax: "$$expr$$" },
 ];

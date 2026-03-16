@@ -132,6 +132,7 @@ export function create_wiki_link_converter_prose_plugin(input: {
       ) => {
         if (!text_block.isTextblock) return;
         if (text_block.type.name === "code_block") return;
+        if (text_block.type.name === "math_block") return;
 
         const { segments, combined, has_non_text_inline } = build_segments({
           text_block,
