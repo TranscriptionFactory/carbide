@@ -33,6 +33,7 @@
       const el = input_el;
       void tick().then(() => {
         el.focus();
+        el.select();
       });
     }
   });
