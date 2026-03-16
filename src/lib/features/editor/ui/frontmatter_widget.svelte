@@ -146,7 +146,10 @@
     save();
   }
 
-  function handle_boolean_change(prop: { key: string; value: any }, checked: boolean) {
+  function handle_boolean_change(
+    prop: { key: string; value: any },
+    checked: boolean,
+  ) {
     prop.value = checked;
     save();
   }
@@ -195,7 +198,8 @@
           <div class="flex-[2] flex items-center px-1 py-0.5">
             <Switch.Root
               checked={Boolean(prop.value)}
-              onCheckedChange={(checked) => handle_boolean_change(prop, checked)}
+              onCheckedChange={(checked) =>
+                handle_boolean_change(prop, checked)}
             />
           </div>
         {:else if prop_type === "number"}

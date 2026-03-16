@@ -272,6 +272,29 @@ pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
+fn is_iso_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    match b.len() {
+        10 => {
+            b[4] == b'-' && b[7] == b'-'
+                && b[..4].iter().all(|c| c.is_ascii_digit())
+                && b[5..7].iter().all(|c| c.is_ascii_digit())
+                && b[8..10].iter().all(|c| c.is_ascii_digit())
+        }
+        n if n >= 19 => {
+            b[4] == b'-' && b[7] == b'-' && b[10] == b'T'
+                && b[13] == b':' && b[16] == b':'
+                && b[..4].iter().all(|c| c.is_ascii_digit())
+                && b[5..7].iter().all(|c| c.is_ascii_digit())
+                && b[8..10].iter().all(|c| c.is_ascii_digit())
+                && b[11..13].iter().all(|c| c.is_ascii_digit())
+                && b[14..16].iter().all(|c| c.is_ascii_digit())
+                && b[17..19].iter().all(|c| c.is_ascii_digit())
+        }
+        _ => false,
+    }
+}
+
 pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
     let content = frontmatter::strip_frontmatter(body);
     let word_count = content.split_whitespace().count() as i64;
@@ -308,7 +331,10 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
 
     for (key, value) in fm.properties {
         let (val_str, val_type) = match value {
-            serde_yml::Value::String(s) => (s, "string"),
+            serde_yml::Value::String(s) => {
+                let t = if is_iso_date(&s) { "date" } else { "string" };
+                (s, t)
+            }
             serde_yml::Value::Number(n) => (n.to_string(), "number"),
             serde_yml::Value::Bool(b) => (b.to_string(), "boolean"),
             _ => (
@@ -1223,6 +1249,543 @@ mod tests {
             get_index_meta(&conn, "last_indexed_commit"),
             Some("def456".to_string())
         );
+    }
+
+    fn open_mem_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        conn
+    }
+
+    fn count_rows(conn: &Connection, table: &str, path: &str) -> usize {
+        conn.query_row(
+            &format!("SELECT COUNT(*) FROM {table} WHERE path = ?1"),
+            params![path],
+            |row| row.get(0),
+        )
+        .unwrap_or(0)
+    }
+
+    fn make_query(
+        filters: Vec<crate::features::search::model::BaseFilter>,
+        sort: Vec<crate::features::search::model::BaseSort>,
+        limit: usize,
+        offset: usize,
+    ) -> crate::features::search::model::BaseQuery {
+        crate::features::search::model::BaseQuery { filters, sort, limit, offset }
+    }
+
+    fn filter(property: &str, operator: &str, value: &str) -> crate::features::search::model::BaseFilter {
+        crate::features::search::model::BaseFilter {
+            property: property.to_string(),
+            operator: operator.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    fn sort(property: &str, descending: bool) -> crate::features::search::model::BaseSort {
+        crate::features::search::model::BaseSort {
+            property: property.to_string(),
+            descending,
+        }
+    }
+
+    #[test]
+    fn upsert_note_stores_properties_and_tags() {
+        let conn = open_mem_db();
+        let meta = note("notes/a.md", "Note A");
+        let body = "---\nstatus: active\npriority: 3\ntags: [foo, bar]\n---\nbody";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let prop_count: usize = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_properties WHERE path = ?1",
+                params!["notes/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(prop_count, 2);
+
+        let tag_count: usize = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_tags WHERE path = ?1",
+                params!["notes/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(tag_count, 2);
+
+        let val: String = conn
+            .query_row(
+                "SELECT value FROM note_properties WHERE path = ?1 AND key = 'status'",
+                params!["notes/a.md"],
+                |r| r.get(0),
+            )
+            .expect("value");
+        assert_eq!(val, "active");
+    }
+
+    #[test]
+    fn upsert_note_replaces_old_properties_and_tags() {
+        let conn = open_mem_db();
+        let meta = note("notes/b.md", "Note B");
+
+        upsert_note(&conn, &meta, "---\nstatus: old\ntags: [old_tag]\n---\nbody").expect("first");
+        upsert_note(&conn, &meta, "---\nstatus: new\ntags: [new_tag]\n---\nbody").expect("second");
+
+        let prop_count: usize = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_properties WHERE path = ?1",
+                params!["notes/b.md"],
+                |r| r.get(0),
+            )
+            .expect("prop count");
+        assert_eq!(prop_count, 1);
+
+        let val: String = conn
+            .query_row(
+                "SELECT value FROM note_properties WHERE path = ?1 AND key = 'status'",
+                params!["notes/b.md"],
+                |r| r.get(0),
+            )
+            .expect("value");
+        assert_eq!(val, "new");
+
+        let tag_count: usize = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_tags WHERE path = ?1",
+                params!["notes/b.md"],
+                |r| r.get(0),
+            )
+            .expect("tag count");
+        assert_eq!(tag_count, 1);
+
+        let tag: String = conn
+            .query_row(
+                "SELECT tag FROM note_tags WHERE path = ?1",
+                params!["notes/b.md"],
+                |r| r.get(0),
+            )
+            .expect("tag");
+        assert_eq!(tag, "new_tag");
+    }
+
+    #[test]
+    fn remove_note_cleans_up_properties_and_tags() {
+        let conn = open_mem_db();
+        let meta = note("notes/c.md", "Note C");
+        upsert_note(&conn, &meta, "---\nstatus: done\ntags: [x]\n---\nbody").expect("upsert");
+
+        remove_note(&conn, "notes/c.md").expect("remove");
+
+        assert_eq!(count_rows(&conn, "note_properties", "notes/c.md"), 0);
+        assert_eq!(count_rows(&conn, "note_tags", "notes/c.md"), 0);
+        let note_count: usize = conn
+            .query_row(
+                "SELECT COUNT(*) FROM notes WHERE path = ?1",
+                params!["notes/c.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(note_count, 0);
+    }
+
+    #[test]
+    fn rename_note_path_updates_properties_and_tags() {
+        let conn = open_mem_db();
+        let meta = note("old/note.md", "Old Note");
+        upsert_note(&conn, &meta, "---\nstatus: draft\ntags: [renamed]\n---\nbody").expect("upsert");
+
+        rename_note_path(&conn, "old/note.md", "new/note.md").expect("rename");
+
+        assert_eq!(count_rows(&conn, "note_properties", "old/note.md"), 0);
+        assert_eq!(count_rows(&conn, "note_tags", "old/note.md"), 0);
+        assert_eq!(count_rows(&conn, "note_properties", "new/note.md"), 1);
+        assert_eq!(count_rows(&conn, "note_tags", "new/note.md"), 1);
+    }
+
+    #[test]
+    fn rename_folder_paths_batch_updates_properties_and_tags() {
+        let conn = open_mem_db();
+        let a = note("folder/a.md", "A");
+        let b = note("folder/b.md", "B");
+        upsert_note(&conn, &a, "---\nstatus: a\ntags: [ta]\n---\nbody").expect("upsert a");
+        upsert_note(&conn, &b, "---\nstatus: b\ntags: [tb]\n---\nbody").expect("upsert b");
+
+        rename_folder_paths(&conn, "folder", "archive").expect("rename");
+
+        assert_eq!(count_rows(&conn, "note_properties", "folder/a.md"), 0);
+        assert_eq!(count_rows(&conn, "note_tags", "folder/a.md"), 0);
+        assert_eq!(count_rows(&conn, "note_properties", "archive/a.md"), 1);
+        assert_eq!(count_rows(&conn, "note_tags", "archive/a.md"), 1);
+        assert_eq!(count_rows(&conn, "note_properties", "archive/b.md"), 1);
+        assert_eq!(count_rows(&conn, "note_tags", "archive/b.md"), 1);
+    }
+
+    #[test]
+    fn list_all_properties_aggregates_by_key_and_type() {
+        let conn = open_mem_db();
+        let a = note("p/a.md", "A");
+        let b = note("p/b.md", "B");
+        upsert_note(&conn, &a, "---\nstatus: active\npriority: 1\n---\nbody").expect("upsert a");
+        upsert_note(&conn, &b, "---\nstatus: done\n---\nbody").expect("upsert b");
+
+        let props = list_all_properties(&conn).expect("list");
+        let status = props.iter().find(|p| p.name == "status").expect("status key");
+        assert_eq!(status.property_type, "string");
+        assert_eq!(status.count, 2);
+
+        let priority = props.iter().find(|p| p.name == "priority").expect("priority key");
+        assert_eq!(priority.property_type, "number");
+        assert_eq!(priority.count, 1);
+    }
+
+    #[test]
+    fn property_type_string() {
+        let conn = open_mem_db();
+        let meta = note("t/string.md", "T");
+        upsert_note(&conn, &meta, "---\nfield: hello\n---\nbody").expect("upsert");
+
+        let typ: String = conn
+            .query_row(
+                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'field'",
+                params!["t/string.md"],
+                |r| r.get(0),
+            )
+            .expect("type");
+        assert_eq!(typ, "string");
+    }
+
+    #[test]
+    fn property_type_number() {
+        let conn = open_mem_db();
+        let meta = note("t/number.md", "T");
+        upsert_note(&conn, &meta, "---\ncount: 42\n---\nbody").expect("upsert");
+
+        let typ: String = conn
+            .query_row(
+                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'count'",
+                params!["t/number.md"],
+                |r| r.get(0),
+            )
+            .expect("type");
+        assert_eq!(typ, "number");
+    }
+
+    #[test]
+    fn property_type_boolean() {
+        let conn = open_mem_db();
+        let meta = note("t/bool.md", "T");
+        upsert_note(&conn, &meta, "---\npublished: true\n---\nbody").expect("upsert");
+
+        let typ: String = conn
+            .query_row(
+                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'published'",
+                params!["t/bool.md"],
+                |r| r.get(0),
+            )
+            .expect("type");
+        assert_eq!(typ, "boolean");
+    }
+
+    #[test]
+    fn property_type_json_for_nested() {
+        let conn = open_mem_db();
+        let meta = note("t/json.md", "T");
+        upsert_note(&conn, &meta, "---\nmeta:\n  a: 1\n---\nbody").expect("upsert");
+
+        let typ: String = conn
+            .query_row(
+                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'meta'",
+                params!["t/json.md"],
+                |r| r.get(0),
+            )
+            .expect("type");
+        assert_eq!(typ, "json");
+    }
+
+    #[test]
+    fn query_bases_no_filters_returns_all_notes() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "body").expect("c");
+
+        let result = query_bases(&conn, make_query(vec![], vec![], 100, 0)).expect("query");
+        assert_eq!(result.total, 3);
+        assert_eq!(result.rows.len(), 3);
+    }
+
+    #[test]
+    fn query_bases_filter_by_tag() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\ntags: [rust]\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\ntags: [python]\n---\nbody").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("tag", "eq", "rust")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_by_property_equality() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nstatus: draft\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nstatus: done\n---\nbody").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("status", "eq", "draft")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_by_property_contains() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\ntitle_prop: hello world\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\ntitle_prop: goodbye\n---\nbody").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("title_prop", "contains", "hello")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_property_numeric_gt() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nscore: 10\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nscore: 5\n---\nbody").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("score", "gt", "7")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_property_numeric_lte() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nscore: 3\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nscore: 7\n---\nbody").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "---\nscore: 10\n---\nbody").expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("score", "lte", "7")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 2);
+    }
+
+    #[test]
+    fn query_bases_filter_by_neq() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nstatus: draft\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nstatus: done\n---\nbody").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("status", "neq", "draft")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/b.md");
+    }
+
+    #[test]
+    fn query_bases_sort_by_property_asc() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nrank: 2\n---\nbody").expect("b");
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nrank: 1\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/c.md", "C"), "---\nrank: 3\n---\nbody").expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![], vec![sort("rank", false)], 100, 0),
+        )
+        .expect("query");
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert_eq!(paths, vec!["q/a.md", "q/b.md", "q/c.md"]);
+    }
+
+    #[test]
+    fn query_bases_sort_by_property_desc() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nrank: 1\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nrank: 2\n---\nbody").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "---\nrank: 3\n---\nbody").expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![], vec![sort("rank", true)], 100, 0),
+        )
+        .expect("query");
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert_eq!(paths, vec!["q/c.md", "q/b.md", "q/a.md"]);
+    }
+
+    #[test]
+    fn query_bases_sort_by_title_asc() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/z.md", "Zebra"), "body").expect("z");
+        upsert_note(&conn, &note("q/a.md", "Apple"), "body").expect("a");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![], vec![sort("title", false)], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.rows[0].note.title, "Apple");
+        assert_eq!(result.rows[1].note.title, "Zebra");
+    }
+
+    #[test]
+    fn query_bases_pagination_limit_and_offset() {
+        let conn = open_mem_db();
+        for i in 0..5u32 {
+            upsert_note(&conn, &note(&format!("q/{i}.md"), &format!("Note {i}")), "body")
+                .expect("upsert");
+        }
+
+        let page1 = query_bases(&conn, make_query(vec![], vec![], 2, 0)).expect("page1");
+        let page2 = query_bases(&conn, make_query(vec![], vec![], 2, 2)).expect("page2");
+        let page3 = query_bases(&conn, make_query(vec![], vec![], 2, 4)).expect("page3");
+
+        assert_eq!(page1.rows.len(), 2);
+        assert_eq!(page2.rows.len(), 2);
+        assert_eq!(page3.rows.len(), 1);
+        assert_eq!(page1.total, 5);
+        assert_eq!(page2.total, 5);
+    }
+
+    #[test]
+    fn query_bases_multiple_filters_anded() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nstatus: active\npriority: 1\ntags: [x]\n---\nbody").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "---\nstatus: active\npriority: 2\ntags: [y]\n---\nbody").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "---\nstatus: done\npriority: 1\ntags: [x]\n---\nbody").expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("status", "eq", "active"), filter("tag", "eq", "x")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_empty_result_set() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "---\nstatus: draft\n---\nbody").expect("a");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("status", "eq", "nonexistent")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 0);
+        assert!(result.rows.is_empty());
+    }
+
+    #[test]
+    fn query_bases_returns_properties_and_tags_per_row() {
+        let conn = open_mem_db();
+        upsert_note(
+            &conn,
+            &note("q/a.md", "A"),
+            "---\nstatus: active\ntags: [foo, bar]\n---\nbody",
+        )
+        .expect("upsert");
+
+        let result = query_bases(&conn, make_query(vec![], vec![], 100, 0)).expect("query");
+        assert_eq!(result.rows.len(), 1);
+        let row = &result.rows[0];
+        assert!(row.properties.contains_key("status"));
+        assert!(row.tags.contains(&"foo".to_string()));
+        assert!(row.tags.contains(&"bar".to_string()));
+    }
+
+    #[test]
+    fn upsert_note_no_frontmatter_has_no_properties_or_tags() {
+        let conn = open_mem_db();
+        let meta = note("q/plain.md", "Plain");
+        upsert_note(&conn, &meta, "Just plain body text.").expect("upsert");
+
+        assert_eq!(count_rows(&conn, "note_properties", "q/plain.md"), 0);
+        assert_eq!(count_rows(&conn, "note_tags", "q/plain.md"), 0);
+    }
+
+    #[test]
+    fn is_iso_date_recognizes_date() {
+        assert!(is_iso_date("2024-01-15"));
+        assert!(is_iso_date("2000-12-31"));
+    }
+
+    #[test]
+    fn is_iso_date_recognizes_datetime() {
+        assert!(is_iso_date("2024-01-15T10:30:00"));
+        assert!(is_iso_date("2024-01-15T00:00:00Z"));
+    }
+
+    #[test]
+    fn is_iso_date_rejects_non_dates() {
+        assert!(!is_iso_date("2024"));
+        assert!(!is_iso_date("01-15-2024"));
+        assert!(!is_iso_date("January 15"));
+        assert!(!is_iso_date("not-a-date"));
+        assert!(!is_iso_date(""));
+    }
+
+    #[test]
+    fn upsert_note_classifies_date_property() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("dated.md", "Dated");
+        let body = "---\ndue: 2024-01-15\ncreated: 2024-03-10T09:00:00\ntitle: plain\n---\nbody";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT key, value, type FROM note_properties WHERE path = ?1 ORDER BY key")
+            .expect("prepare");
+        let rows: Vec<(String, String, String)> = stmt
+            .query_map(params!["dated.md"], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        let created = rows.iter().find(|(k, _, _)| k == "created").expect("created");
+        assert_eq!(created.2, "date");
+        assert_eq!(created.1, "2024-03-10T09:00:00");
+
+        let due = rows.iter().find(|(k, _, _)| k == "due").expect("due");
+        assert_eq!(due.2, "date");
+        assert_eq!(due.1, "2024-01-15");
+
+        let title = rows.iter().find(|(k, _, _)| k == "title").expect("title");
+        assert_eq!(title.2, "string");
     }
 }
 
