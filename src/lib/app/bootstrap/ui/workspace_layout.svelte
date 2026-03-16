@@ -543,7 +543,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "graph" && stores.tab.active_tab?.kind !== "graph"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === "graph"}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <GraphPanel />

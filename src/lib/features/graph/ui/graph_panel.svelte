@@ -31,6 +31,7 @@
   const max_vault_size = $derived(
     stores.ui.editor_settings.semantic_graph_max_vault_size,
   );
+  const graph_tab_active = $derived(stores.tab.active_tab?.kind === "graph");
 
   let container_element = $state<HTMLElement | null>(null);
   let container_width = $state<number>(760);
@@ -163,7 +164,9 @@
   {/if}
 
   <div class="GraphPanel__body" bind:this={container_element}>
-    {#if is_vault_mode && has_vault_snapshot && vault_snapshot}
+    {#if graph_tab_active && is_vault_mode}
+      <p class="GraphPanel__message">Vault graph is open in a tab.</p>
+    {:else if is_vault_mode && has_vault_snapshot && vault_snapshot}
       <VaultGraphCanvas
         snapshot={vault_snapshot}
         {filter_query}
