@@ -1,6 +1,7 @@
 use crate::shared::storage;
 use crate::shared::storage::{Vault, VaultEntry, VaultMode, VaultStore};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use tauri::AppHandle;
 use walkdir::WalkDir;
@@ -74,7 +75,7 @@ fn load_note_count(app: &AppHandle, vault_id: &str) -> Option<u64> {
     Some(count)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Type)]
 pub struct OpenVaultArgs {
     pub vault_path: String,
 }
@@ -162,6 +163,7 @@ fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening vault path={}", args.vault_path);
     let resolved = resolve_open_path(&app, &args)?;
@@ -170,6 +172,7 @@ pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, String> {
     log::info!("Opening vault by id vault_id={}", vault_id);
     let mut store = storage::load_store(&app)?;
@@ -200,6 +203,7 @@ pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn list_vaults(app: AppHandle) -> Result<Vec<Vault>, String> {
     log::info!("Listing vaults");
     let mut store = storage::load_store(&app)?;
@@ -221,17 +225,18 @@ pub fn list_vaults(app: AppHandle) -> Result<Vec<Vault>, String> {
     Ok(vaults)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Type)]
 pub struct RememberLastArgs {
     pub vault_id: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Type)]
 pub struct RemoveVaultArgs {
     pub vault_id: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(), String> {
     log::info!("Remembering last vault vault_id={}", args.vault_id);
     let mut store = storage::load_store(&app)?;
@@ -241,6 +246,7 @@ pub fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(),
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Result<(), String> {
     log::info!("Removing vault from registry vault_id={}", args.vault_id);
     let mut store = storage::load_store(&app)?;
@@ -253,12 +259,14 @@ pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Resu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
     let store = storage::load_store(&app)?;
     Ok(store.last_vault_id)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening folder path={}", args.vault_path);
     let resolved = resolve_open_path(&app, &args)?;
@@ -280,12 +288,13 @@ pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String>
     finish_open(&app, resolved, mode, note_count)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Type)]
 pub struct PromoteToVaultArgs {
     pub vault_id: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
     log::info!("Promoting to vault vault_id={}", args.vault_id);
     let mut store = storage::load_store(&app)?;
@@ -306,6 +315,7 @@ pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vaul
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
     let count = load_note_count(&app, &vault_id);
     if let Some(c) = count {
@@ -318,7 +328,7 @@ pub fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64
     Ok(count)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileVaultResolution {
     pub vault_id: String,
     pub vault_path: String,
@@ -326,6 +336,7 @@ pub struct FileVaultResolution {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn resolve_file_to_vault(
     app: AppHandle,
     file_path: String,

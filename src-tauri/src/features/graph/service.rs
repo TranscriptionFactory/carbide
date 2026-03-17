@@ -84,6 +84,7 @@ fn load_note_neighborhood(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn graph_load_note_neighborhood(
     app: AppHandle,
     vault_id: String,
@@ -111,6 +112,7 @@ pub fn graph_load_note_neighborhood(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn graph_invalidate_cache(
     app: AppHandle,
     vault_id: String,
@@ -126,10 +128,8 @@ pub fn graph_invalidate_cache(
                 cache.invalidate(&key);
 
                 let connected = get_connected_paths(&app, &vault_id, id);
-                let connected_keys: BTreeSet<String> = connected
-                    .iter()
-                    .map(|p| cache_key(&vault_id, p))
-                    .collect();
+                let connected_keys: BTreeSet<String> =
+                    connected.iter().map(|p| cache_key(&vault_id, p)).collect();
                 cache.invalidate_matching(|k| connected_keys.contains(k));
             }
             None => {
@@ -149,6 +149,7 @@ pub fn graph_invalidate_cache(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn graph_load_vault_graph(
     app: AppHandle,
     vault_id: String,
@@ -200,6 +201,7 @@ pub fn graph_load_vault_graph(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn graph_load_vault_graph_streamed(
     app: AppHandle,
     vault_id: String,
@@ -208,8 +210,7 @@ pub fn graph_load_vault_graph_streamed(
     let chunk_size = chunk_size.unwrap_or(1000);
     let conn = search_db::open_search_db(&app, &vault_id)?;
 
-    let total_notes =
-        search_db::get_note_count(&conn).unwrap_or(0);
+    let total_notes = search_db::get_note_count(&conn).unwrap_or(0);
 
     search_db::get_all_notes_chunked(&conn, chunk_size, &|batch, emitted| {
         let nodes: Vec<VaultGraphNode> = batch
@@ -229,20 +230,21 @@ pub fn graph_load_vault_graph_streamed(
         );
     })?;
 
-    let total_edges = search_db::get_all_graph_edges_chunked(&conn, chunk_size, &|batch, emitted| {
-        let edges: Vec<VaultGraphEdge> = batch
-            .into_iter()
-            .map(|(source, target)| VaultGraphEdge { source, target })
-            .collect();
-        let _ = app.emit(
-            "graph-chunk",
-            VaultGraphChunkEvent::Edges {
-                edges,
-                total: 0,
-                progress: emitted,
-            },
-        );
-    })?;
+    let total_edges =
+        search_db::get_all_graph_edges_chunked(&conn, chunk_size, &|batch, emitted| {
+            let edges: Vec<VaultGraphEdge> = batch
+                .into_iter()
+                .map(|(source, target)| VaultGraphEdge { source, target })
+                .collect();
+            let _ = app.emit(
+                "graph-chunk",
+                VaultGraphChunkEvent::Edges {
+                    edges,
+                    total: 0,
+                    progress: emitted,
+                },
+            );
+        })?;
 
     let _ = app.emit(
         "graph-chunk",
@@ -281,6 +283,7 @@ fn get_connected_paths(app: &AppHandle, vault_id: &str, note_path: &str) -> Vec<
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn graph_cache_stats(
     cache_state: State<'_, GraphCacheState>,
 ) -> Result<GraphCacheStatsSnapshot, String> {

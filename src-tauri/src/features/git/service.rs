@@ -3,15 +3,16 @@ use git2::{
     StatusOptions, StatusShow,
 };
 use serde::Serialize;
+use specta::Type;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitFileStatus {
     pub path: String,
     pub status: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitStatus {
     pub branch: String,
     pub is_dirty: bool,
@@ -23,7 +24,7 @@ pub struct GitStatus {
     pub files: Vec<GitFileStatus>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitCommit {
     pub hash: String,
     pub short_hash: String,
@@ -32,7 +33,7 @@ pub struct GitCommit {
     pub message: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitDiffLine {
     #[serde(rename = "type")]
     pub line_type: String,
@@ -41,13 +42,13 @@ pub struct GitDiffLine {
     pub new_line: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitDiffHunk {
     pub header: String,
     pub lines: Vec<GitDiffLine>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitDiff {
     pub additions: usize,
     pub deletions: usize,
@@ -102,11 +103,13 @@ fn status_string(s: git2::Status) -> &'static str {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_has_repo(vault_path: String) -> Result<bool, String> {
     Ok(Path::new(&vault_path).join(".git").exists())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_init_repo(vault_path: String) -> Result<(), String> {
     let repo = Repository::init(&vault_path).map_err(|e| format!("failed to init repo: {}", e))?;
     write_default_gitignore_if_missing(&vault_path)?;
@@ -118,6 +121,7 @@ pub fn git_init_repo(vault_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_status(vault_path: String) -> Result<GitStatus, String> {
     let repo = open_repo(&vault_path)?;
 
@@ -291,6 +295,7 @@ fn commit_tree(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_stage_and_commit(
     vault_path: String,
     message: String,
@@ -306,6 +311,7 @@ pub fn git_stage_and_commit(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_create_tag(vault_path: String, name: String, message: String) -> Result<(), String> {
     let repo = open_repo(&vault_path)?;
     let head = repo
@@ -361,6 +367,7 @@ fn collect_git_log(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn git_log(
     vault_path: String,
     file_path: Option<String>,
@@ -500,6 +507,7 @@ fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String>
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_diff(
     vault_path: String,
     commit_a: String,
@@ -526,6 +534,7 @@ pub fn git_diff(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_show_file_at_commit(
     vault_path: String,
     file_path: String,
@@ -556,6 +565,7 @@ pub fn git_show_file_at_commit(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_restore_file(
     vault_path: String,
     file_path: String,
@@ -582,7 +592,7 @@ pub fn git_restore_file(
     git_stage_and_commit(vault_path, message, Some(vec![file_path]))
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct GitRemoteResult {
     pub success: bool,
     pub message: Option<String>,
@@ -643,6 +653,7 @@ fn is_valid_remote_url(url: &str) -> bool {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_push(vault_path: String) -> GitRemoteResult {
     let output = git_cmd(&vault_path)
         .args([
@@ -680,6 +691,7 @@ pub fn git_push(vault_path: String) -> GitRemoteResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_fetch(vault_path: String) -> GitRemoteResult {
     let output = git_cmd(&vault_path)
         .args([
@@ -718,6 +730,7 @@ pub fn git_fetch(vault_path: String) -> GitRemoteResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult {
     let selected_strategy = strategy.unwrap_or_else(|| "merge".to_string());
     let mut cmd = git_cmd(&vault_path);
@@ -776,6 +789,7 @@ pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
     if !is_valid_remote_url(&url) {
         return GitRemoteResult {
@@ -825,6 +839,7 @@ pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
     if !is_valid_remote_url(&url) {
         return GitRemoteResult {
@@ -881,6 +896,7 @@ pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn git_push_with_upstream(vault_path: String, branch: String) -> GitRemoteResult {
     let output = git_cmd(&vault_path)
         .args([

@@ -1,7 +1,8 @@
 use crate::features::search::model::IndexNoteMeta;
 use serde::Serialize;
+use specta::Type;
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct GraphNoteMeta {
     pub id: String,
     pub path: String,
@@ -11,13 +12,13 @@ pub struct GraphNoteMeta {
     pub size_bytes: i64,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct GraphOrphanLink {
     pub target_path: String,
     pub ref_count: i64,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct GraphNeighborhoodStats {
     pub node_count: usize,
     pub edge_count: usize,
@@ -27,7 +28,7 @@ pub struct GraphNeighborhoodStats {
     pub bidirectional_count: usize,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct GraphNeighborhoodSnapshot {
     pub center: GraphNoteMeta,
     pub backlinks: Vec<GraphNoteMeta>,
@@ -36,7 +37,7 @@ pub struct GraphNeighborhoodSnapshot {
     pub stats: GraphNeighborhoodStats,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Type)]
 pub struct GraphCacheStatsSnapshot {
     pub size: usize,
     pub hits: u64,
@@ -46,32 +47,32 @@ pub struct GraphCacheStatsSnapshot {
     pub hit_rate: f64,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct VaultGraphNode {
     pub path: String,
     pub title: String,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct VaultGraphEdge {
     pub source: String,
     pub target: String,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct VaultGraphStats {
     pub node_count: usize,
     pub edge_count: usize,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Type)]
 pub struct VaultGraphSnapshot {
     pub nodes: Vec<VaultGraphNode>,
     pub edges: Vec<VaultGraphEdge>,
     pub stats: VaultGraphStats,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum VaultGraphChunkEvent {
     Nodes {
