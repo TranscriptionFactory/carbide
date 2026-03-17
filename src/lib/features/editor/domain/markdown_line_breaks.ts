@@ -3,6 +3,10 @@ type CodeFenceState = {
   length: number;
 };
 
+function is_math_fence_line(line: string): boolean {
+  return /^(?: {0,3})\$\$\s*$/.test(line);
+}
+
 export const MARKDOWN_HARD_BREAK = "\\\n";
 
 export function insert_markdown_hard_break(input: {
@@ -29,6 +33,7 @@ export function normalize_markdown_line_breaks(raw: string): string {
   let result = "";
   let index = 0;
   let fence_state: CodeFenceState | null = null;
+  let in_math_block = false;
 
   while (index < without_zero_width.length) {
     let line_end = without_zero_width.indexOf("\n", index);
@@ -47,20 +52,30 @@ export function normalize_markdown_line_breaks(raw: string): string {
         : "\n"
       : "";
 
-    if (fence_state) {
+    if (in_math_block) {
+      result += line + newline;
+      if (is_math_fence_line(line)) {
+        in_math_block = false;
+      }
+    } else if (fence_state) {
       result += line + newline;
       if (is_closing_fence_line(line, fence_state)) {
         fence_state = null;
       }
     } else {
-      const opening_fence = get_opening_fence(line);
-      if (opening_fence) {
-        fence_state = opening_fence;
-        result += line + newline;
-      } else if (is_indented_code_line(line)) {
+      if (is_math_fence_line(line)) {
+        in_math_block = true;
         result += line + newline;
       } else {
-        result += normalize_line_break_line(line) + newline;
+        const opening_fence = get_opening_fence(line);
+        if (opening_fence) {
+          fence_state = opening_fence;
+          result += line + newline;
+        } else if (is_indented_code_line(line)) {
+          result += line + newline;
+        } else {
+          result += normalize_line_break_line(line) + newline;
+        }
       }
     }
 
@@ -79,6 +94,7 @@ export function prepare_markdown_line_breaks_for_visual_editor(
   let result = "";
   let index = 0;
   let fence_state: CodeFenceState | null = null;
+  let in_math_block = false;
 
   while (index < normalized.length) {
     let line_end = normalized.indexOf("\n", index);
@@ -95,20 +111,30 @@ export function prepare_markdown_line_breaks_for_visual_editor(
         : "\n"
       : "";
 
-    if (fence_state) {
+    if (in_math_block) {
+      result += line + newline;
+      if (is_math_fence_line(line)) {
+        in_math_block = false;
+      }
+    } else if (fence_state) {
       result += line + newline;
       if (is_closing_fence_line(line, fence_state)) {
         fence_state = null;
       }
     } else {
-      const opening_fence = get_opening_fence(line);
-      if (opening_fence) {
-        fence_state = opening_fence;
-        result += line + newline;
-      } else if (is_indented_code_line(line)) {
+      if (is_math_fence_line(line)) {
+        in_math_block = true;
         result += line + newline;
       } else {
-        result += prepare_line_break_line_for_visual_editor(line) + newline;
+        const opening_fence = get_opening_fence(line);
+        if (opening_fence) {
+          fence_state = opening_fence;
+          result += line + newline;
+        } else if (is_indented_code_line(line)) {
+          result += line + newline;
+        } else {
+          result += prepare_line_break_line_for_visual_editor(line) + newline;
+        }
       }
     }
 

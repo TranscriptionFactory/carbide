@@ -105,4 +105,46 @@ describe("prepare_markdown_line_breaks_for_visual_editor", () => {
       markdown,
     );
   });
+
+  it("preserves backslashes inside math blocks", () => {
+    const markdown = ["$$", "x = \\frac{1}{2}\\", "$$"].join("\n");
+    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
+      markdown,
+    );
+  });
+
+  it("preserves LaTeX line breaks (double backslash) inside math blocks", () => {
+    const markdown = [
+      "$$",
+      "\\begin{aligned}",
+      "  x &= y \\\\",
+      "  a &= b",
+      "\\end{aligned}",
+      "$$",
+    ].join("\n");
+    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
+      markdown,
+    );
+  });
+
+  it("resumes normal processing after math block closes", () => {
+    const markdown = ["$$", "x\\", "$$", "after\\"].join("\n");
+    const expected = ["$$", "x\\", "$$", "after<br />"].join("\n");
+    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
+      expected,
+    );
+  });
+});
+
+describe("normalize_markdown_line_breaks — math blocks", () => {
+  it("preserves content inside math blocks without normalization", () => {
+    const markdown = ["$$", "x<br />", "$$"].join("\n");
+    expect(normalize_markdown_line_breaks(markdown)).toBe(markdown);
+  });
+
+  it("normalizes content outside math blocks normally", () => {
+    const markdown = ["$$", "x<br />", "$$", "one  "].join("\n");
+    const expected = ["$$", "x<br />", "$$", "one\\"].join("\n");
+    expect(normalize_markdown_line_breaks(markdown)).toBe(expected);
+  });
 });
