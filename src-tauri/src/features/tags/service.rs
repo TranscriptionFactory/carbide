@@ -1,14 +1,16 @@
 use crate::features::search::service::with_read_conn;
 use serde::Serialize;
+use specta::Type;
 use tauri::AppHandle;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Type)]
 pub struct TagInfo {
     pub tag: String,
     pub count: i64,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn tags_list_all(app: AppHandle, vault_id: String) -> Result<Vec<TagInfo>, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let mut stmt = conn
@@ -24,11 +26,13 @@ pub fn tags_list_all(app: AppHandle, vault_id: String) -> Result<Vec<TagInfo>, S
                 })
             })
             .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
     })
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn tags_get_notes_for_tag(
     app: AppHandle,
     vault_id: String,
@@ -41,6 +45,7 @@ pub fn tags_get_notes_for_tag(
         let rows = stmt
             .query_map(rusqlite::params![tag], |row| row.get(0))
             .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
     })
 }

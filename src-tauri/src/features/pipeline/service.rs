@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PipelineResult {
     pub success: bool,
     pub output: String,
@@ -293,6 +294,7 @@ pub async fn execute_pipeline(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn pipeline_execute(
     command: String,
     args: Vec<String>,

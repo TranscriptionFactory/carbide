@@ -22,7 +22,7 @@ mod specta_export {
         let typescript = Typescript::default().bigint(BigIntExportBehavior::Number);
         Builder::<tauri::Wry>::new()
             .commands(collect_commands![
-                // Notes commands
+                // Notes commands (16)
                 crate::features::notes::service::list_notes,
                 crate::features::notes::service::list_folders,
                 crate::features::notes::service::read_note,
@@ -39,7 +39,7 @@ mod specta_export {
                 crate::features::notes::service::get_folder_stats,
                 crate::features::notes::service::read_vault_file,
                 crate::features::notes::service::write_vault_file,
-                // Search commands
+                // Search commands (26)
                 crate::features::search::service::index_build,
                 crate::features::search::service::index_cancel,
                 crate::features::search::service::index_rebuild,
@@ -66,6 +66,75 @@ mod specta_export {
                 crate::features::search::service::rebuild_embeddings,
                 crate::features::search::service::embed_sync,
                 crate::features::search::service::get_note_stats,
+                // Git commands (15)
+                crate::features::git::service::git_has_repo,
+                crate::features::git::service::git_init_repo,
+                crate::features::git::service::git_status,
+                crate::features::git::service::git_stage_and_commit,
+                crate::features::git::service::git_log,
+                crate::features::git::service::git_diff,
+                crate::features::git::service::git_show_file_at_commit,
+                crate::features::git::service::git_restore_file,
+                crate::features::git::service::git_create_tag,
+                crate::features::git::service::git_push,
+                crate::features::git::service::git_fetch,
+                crate::features::git::service::git_pull,
+                crate::features::git::service::git_add_remote,
+                crate::features::git::service::git_set_remote_url,
+                crate::features::git::service::git_push_with_upstream,
+                // Vault commands (10)
+                crate::features::vault::service::open_vault,
+                crate::features::vault::service::open_vault_by_id,
+                crate::features::vault::service::open_folder,
+                crate::features::vault::service::promote_to_vault,
+                crate::features::vault::service::list_vaults,
+                crate::features::vault::service::remove_vault_from_registry,
+                crate::features::vault::service::remember_last_vault,
+                crate::features::vault::service::get_last_vault_id,
+                crate::features::vault::service::resolve_file_to_vault,
+                crate::features::vault::service::refresh_note_count,
+                // Graph commands (5)
+                crate::features::graph::service::graph_load_note_neighborhood,
+                crate::features::graph::service::graph_invalidate_cache,
+                crate::features::graph::service::graph_cache_stats,
+                crate::features::graph::service::graph_load_vault_graph,
+                crate::features::graph::service::graph_load_vault_graph_streamed,
+                // Bases commands (4)
+                crate::features::bases::service::bases_list_properties,
+                crate::features::bases::service::bases_query,
+                crate::features::bases::service::bases_save_view,
+                crate::features::bases::service::bases_load_view,
+                // Watcher commands (2)
+                crate::features::watcher::service::watch_vault,
+                crate::features::watcher::service::unwatch_vault,
+                // Tags commands (2)
+                crate::features::tags::service::tags_list_all,
+                crate::features::tags::service::tags_get_notes_for_tag,
+                // AI commands (2)
+                crate::features::ai::service::ai_check_cli,
+                crate::features::ai::service::ai_execute_cli,
+                // Canvas commands (4)
+                crate::features::canvas::extract_canvas_links,
+                crate::features::canvas::extract_canvas_text,
+                crate::features::canvas::rewrite_canvas_file_refs,
+                crate::features::canvas::rewrite_canvas_refs_for_rename,
+                // Tasks commands (4)
+                crate::features::tasks::tasks_query,
+                crate::features::tasks::tasks_get_for_note,
+                crate::features::tasks::tasks_update_state,
+                crate::features::tasks::tasks_create,
+                // Pipeline commands (1)
+                crate::features::pipeline::service::pipeline_execute,
+                // Buffer commands (5)
+                crate::shared::buffer::open_buffer,
+                crate::shared::buffer::update_buffer,
+                crate::shared::buffer::save_buffer,
+                crate::shared::buffer::read_buffer_window,
+                crate::shared::buffer::close_buffer,
+                // App commands (1)
+                crate::app::get_pending_file_open,
+                // Note: settings and vault_settings commands are excluded because they use
+                // serde_json::Value which cannot be statically typed in TypeScript
             ])
             .export(typescript, "../src/lib/generated/bindings.ts")
             .expect("Failed to export typescript bindings");

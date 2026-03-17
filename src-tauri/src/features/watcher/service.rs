@@ -3,6 +3,7 @@ use crate::shared::storage;
 use crate::shared::vault_ignore;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
+use specta::Type;
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -18,7 +19,7 @@ struct WatcherRuntime {
     stop_tx: mpsc::Sender<()>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum VaultFsEvent {
     NoteChangedExternally {
@@ -117,6 +118,7 @@ fn classify_event(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn watch_vault(
     app: AppHandle,
     state: State<WatcherState>,
@@ -225,6 +227,7 @@ pub fn watch_vault(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
     log::info!("Unwatching vault");
     stop_active_runtime(&state)

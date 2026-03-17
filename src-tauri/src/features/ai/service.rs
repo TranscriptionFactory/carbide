@@ -1,10 +1,11 @@
 use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::{Component, PathBuf};
 use std::process::Stdio;
 use tempfile::tempdir;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AiExecutionResult {
     pub success: bool,
     pub output: String,
@@ -21,7 +22,7 @@ impl From<pipeline::PipelineResult> for AiExecutionResult {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
 pub enum AiArgsTemplate {
     #[serde(rename = "claude")]
@@ -36,7 +37,7 @@ pub enum AiArgsTemplate {
     Args { args: Vec<String> },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AiProviderConfig {
     pub id: String,
     pub name: String,
@@ -124,6 +125,7 @@ fn not_found_message(config: &AiProviderConfig) -> String {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn ai_check_cli(command: String) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let path = pipeline::get_expanded_path();
@@ -134,6 +136,7 @@ pub async fn ai_check_cli(command: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn ai_execute_cli(
     provider_config: AiProviderConfig,
     vault_path: String,

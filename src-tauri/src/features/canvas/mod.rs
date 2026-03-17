@@ -4,6 +4,7 @@ use crate::shared::storage;
 use tauri::AppHandle;
 
 #[tauri::command]
+#[specta::specta]
 pub fn extract_canvas_links(
     app: AppHandle,
     vault_id: String,
@@ -16,6 +17,7 @@ pub fn extract_canvas_links(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn extract_canvas_text(
     app: AppHandle,
     vault_id: String,
@@ -29,6 +31,7 @@ pub fn extract_canvas_text(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rewrite_canvas_file_refs(
     app: AppHandle,
     vault_id: String,
@@ -66,7 +69,6 @@ pub fn rewrite_canvas_file_refs(
             }
             if let Some(text_val) = node.get_mut("text") {
                 if let Some(text) = text_val.as_str() {
-
                     let old_link = format!("[[{old_name}]]");
                     let new_link = format!("[[{new_name}]]");
                     if text.contains(&old_link) {
@@ -88,6 +90,7 @@ pub fn rewrite_canvas_file_refs(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rewrite_canvas_refs_for_rename(
     app: AppHandle,
     vault_id: String,

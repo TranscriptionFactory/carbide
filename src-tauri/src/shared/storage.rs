@@ -1,5 +1,6 @@
 use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::http::{Request, Response};
@@ -9,7 +10,7 @@ fn default_is_available() -> bool {
     true
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum VaultMode {
     Vault,
@@ -22,7 +23,7 @@ impl Default for VaultMode {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Vault {
     pub id: String,
     pub path: String,
@@ -38,13 +39,13 @@ pub struct Vault {
     pub mode: VaultMode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VaultEntry {
     pub vault: Vault,
     pub last_opened_at: i64,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct VaultStore {
     pub vaults: Vec<VaultEntry>,
     pub last_vault_id: Option<String>,
@@ -171,17 +172,15 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
         file_rel
     };
 
-    let vault_path = query_part
-        .split('&')
-        .find_map(|pair| {
-            let mut kv = pair.splitn(2, '=');
-            let key = kv.next()?;
-            if key == "vault" {
-                kv.next().map(url_decode)
-            } else {
-                None
-            }
-        });
+    let vault_path = query_part.split('&').find_map(|pair| {
+        let mut kv = pair.splitn(2, '=');
+        let key = kv.next()?;
+        if key == "vault" {
+            kv.next().map(url_decode)
+        } else {
+            None
+        }
+    });
 
     let vault_path = match vault_path {
         Some(p) if !p.is_empty() => p,
@@ -189,10 +188,7 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     };
 
     let vault_root = std::path::Path::new(&vault_path);
-    let plugin_dir = vault_root
-        .join(".carbide")
-        .join("plugins")
-        .join(plugin_id);
+    let plugin_dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
 
     let canonical_plugin_dir = match plugin_dir.canonicalize() {
         Ok(p) => p,
@@ -223,7 +219,10 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
         .unwrap()
 }
 
-pub fn handle_excalidraw_request(app: &tauri::AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn handle_excalidraw_request(
+    app: &tauri::AppHandle,
+    req: Request<Vec<u8>>,
+) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
     let without_scheme = uri
@@ -237,8 +236,14 @@ pub fn handle_excalidraw_request(app: &tauri::AppHandle, req: Request<Vec<u8>>) 
         without_scheme
     };
 
-    let file_rel = path_part.trim_start_matches("localhost/").trim_start_matches('/');
-    let file_rel = if file_rel.is_empty() { "index.html" } else { file_rel };
+    let file_rel = path_part
+        .trim_start_matches("localhost/")
+        .trim_start_matches('/');
+    let file_rel = if file_rel.is_empty() {
+        "index.html"
+    } else {
+        file_rel
+    };
 
     let resource_dir = app
         .path()
