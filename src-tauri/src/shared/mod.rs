@@ -1,6 +1,9 @@
 pub mod buffer;
 pub mod cache;
 pub mod constants;
+pub mod frontmatter;
 pub mod io_utils;
+pub mod link_parser;
+pub mod markdown_doc;
 pub mod storage;
 pub mod vault_ignore;

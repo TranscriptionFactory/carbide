@@ -1,7 +1,7 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::EmbeddingServiceState;
-use crate::features::search::link_parser;
+use crate::shared::link_parser;
 use crate::features::search::model::{
     BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope,
     SemanticSearchHit,
@@ -391,7 +391,7 @@ fn handle_upsert(
         Err(e) => return Err(e.to_string()),
     };
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let parsed = crate::features::search::markdown_doc::parse_note(&markdown, &meta.path);
+    let parsed = crate::shared::markdown_doc::parse_note(&markdown, &meta.path);
     meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
 
     search_db::upsert_note_parsed(conn, &meta, &markdown, &parsed)?;
