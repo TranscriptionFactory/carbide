@@ -13,6 +13,7 @@ include!(concat!(env!("OUT_DIR"), "/icon_stamp.rs"));
 pub struct PendingFileOpen(pub Mutex<Option<String>>);
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_pending_file_open(state: tauri::State<PendingFileOpen>) -> Option<String> {
     state.0.lock().unwrap().take()
 }

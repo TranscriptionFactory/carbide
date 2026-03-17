@@ -1,13 +1,15 @@
-use rusqlite::{params, Connection};
 use crate::features::tasks::types::{Task, TaskStatus};
-use regex::Regex;
-use lazy_static::lazy_static;
-use std::path::Path;
 use crate::shared::io_utils;
+use lazy_static::lazy_static;
+use regex::Regex;
+use rusqlite::{params, Connection};
+use std::path::Path;
 
 lazy_static! {
     static ref TASK_REGEX: Regex = Regex::new(r"(?m)^(\s*)[-*+]\s+\[(.)\]\s+(.*)$").unwrap();
-    static ref DUE_DATE_REGEX: Regex = Regex::new(r"📅\s*(\d{4}-\d{2}-\d{2})|due:\s*(\d{4}-\d{2}-\d{2})|@(\d{4}-\d{2}-\d{2})").unwrap();
+    static ref DUE_DATE_REGEX: Regex =
+        Regex::new(r"📅\s*(\d{4}-\d{2}-\d{2})|due:\s*(\d{4}-\d{2}-\d{2})|@(\d{4}-\d{2}-\d{2})")
+            .unwrap();
 }
 
 pub fn extract_tasks(path: &str, markdown: &str) -> Vec<Task> {
@@ -32,9 +34,14 @@ pub fn extract_tasks(path: &str, markdown: &str) -> Vec<Task> {
             let text = caps.get(3).map(|m: regex::Match| m.as_str()).unwrap_or("");
 
             // Extract due date if present
-            let due_date = DUE_DATE_REGEX.captures(text).and_then(|c: regex::Captures| {
-                c.get(1).or(c.get(2)).or(c.get(3)).map(|m: regex::Match| m.as_str().to_string())
-            });
+            let due_date = DUE_DATE_REGEX
+                .captures(text)
+                .and_then(|c: regex::Captures| {
+                    c.get(1)
+                        .or(c.get(2))
+                        .or(c.get(3))
+                        .map(|m: regex::Match| m.as_str().to_string())
+                });
 
             tasks.push(Task {
                 id: format!("{}:{}", path, line_number),
@@ -113,8 +120,12 @@ pub fn get_tasks_for_path(conn: &Connection, path: &str) -> Result<Vec<Task>, St
     Ok(tasks)
 }
 
-pub fn query_tasks(conn: &Connection, filter_status: Option<TaskStatus>) -> Result<Vec<Task>, String> {
-    let mut query = "SELECT id, path, text, status, due_date, line_number, section FROM tasks".to_string();
+pub fn query_tasks(
+    conn: &Connection,
+    filter_status: Option<TaskStatus>,
+) -> Result<Vec<Task>, String> {
+    let mut query =
+        "SELECT id, path, text, status, due_date, line_number, section FROM tasks".to_string();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     if let Some(status) = filter_status {
@@ -175,13 +186,13 @@ pub fn update_task_state_in_file(
     if let Some(caps) = TASK_REGEX.captures(line) {
         let indent = caps.get(1).map(|m: regex::Match| m.as_str()).unwrap_or("");
         let text = caps.get(3).map(|m: regex::Match| m.as_str()).unwrap_or("");
-        
+
         let status_char = match status {
             TaskStatus::Todo => " ",
             TaskStatus::Doing => "-",
             TaskStatus::Done => "x",
         };
-        
+
         // Reconstruct the line preserving bullet style
         let original_bullet = line.trim_start().chars().next().unwrap_or('-');
         *line = format!("{}{} [{}] {}", indent, original_bullet, status_char, text);
@@ -219,17 +230,17 @@ mod tests {
 "#;
         let tasks = extract_tasks("test.md", markdown);
         assert_eq!(tasks.len(), 6);
-        
+
         assert_eq!(tasks[0].text, "Task 1");
         assert_eq!(tasks[0].status, TaskStatus::Todo);
         assert_eq!(tasks[0].section, Some("Project A".to_string()));
-        
+
         assert_eq!(tasks[1].text, "Task 2 @2023-10-27");
         assert_eq!(tasks[1].status, TaskStatus::Done);
-        
+
         assert_eq!(tasks[2].text, "Task 3 in progress");
         assert_eq!(tasks[2].status, TaskStatus::Doing);
-        
+
         assert_eq!(tasks[4].due_date, Some("2024-01-01".to_string()));
     }
 }

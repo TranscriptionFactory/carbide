@@ -1,15 +1,16 @@
-pub mod types;
 pub mod service;
+pub mod types;
 
-use tauri::{AppHandle, command};
-use crate::features::tasks::types::{Task, TaskUpdate, TaskStatus};
-use crate::features::search::db::open_search_db;
-use crate::shared::storage;
-use crate::shared::io_utils;
 use crate::features::notes::service as notes_service;
-use crate::features::tasks::service::{query_tasks, get_tasks_for_path, update_task_state_in_file};
+use crate::features::search::db::open_search_db;
+use crate::features::tasks::service::{get_tasks_for_path, query_tasks, update_task_state_in_file};
+use crate::features::tasks::types::{Task, TaskStatus, TaskUpdate};
+use crate::shared::io_utils;
+use crate::shared::storage;
+use tauri::{command, AppHandle};
 
 #[command]
+#[specta::specta]
 pub fn tasks_query(
     app: AppHandle,
     vault_id: String,
@@ -20,6 +21,7 @@ pub fn tasks_query(
 }
 
 #[command]
+#[specta::specta]
 pub fn tasks_get_for_note(
     app: AppHandle,
     vault_id: String,
@@ -30,15 +32,21 @@ pub fn tasks_get_for_note(
 }
 
 #[command]
+#[specta::specta]
 pub fn tasks_update_state(
     app: AppHandle,
     vault_id: String,
     update: TaskUpdate,
 ) -> Result<(), String> {
-    log::info!("Updating task state for {} at line {} to status {:?}", update.path, update.line_number, update.status);
+    log::info!(
+        "Updating task state for {} at line {} to status {:?}",
+        update.path,
+        update.line_number,
+        update.status
+    );
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let abs_path = notes_service::safe_vault_abs(&vault_root, &update.path)?;
-    
+
     update_task_state_in_file(&abs_path, update.line_number, update.status)?;
 
     // Re-index this file's tasks in the DB so the next query reflects the change
@@ -51,6 +59,7 @@ pub fn tasks_update_state(
 }
 
 #[command]
+#[specta::specta]
 pub fn tasks_create(
     app: AppHandle,
     vault_id: String,
@@ -60,7 +69,7 @@ pub fn tasks_create(
     log::info!("Creating task in {}: {}", path, text);
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let abs_path = notes_service::safe_vault_abs_for_write(&vault_root, &path)?;
-    
+
     let mut content = if abs_path.exists() {
         io_utils::read_file_to_string(&abs_path)?
     } else {
@@ -70,10 +79,10 @@ pub fn tasks_create(
     if !content.is_empty() && !content.ends_with('\n') {
         content.push('\n');
     }
-    
+
     // Add task at the end of the file for now
     content.push_str(&format!("- [ ] {}\n", text));
-    
+
     io_utils::atomic_write(&abs_path, content.as_bytes())?;
 
     // Re-index this file's tasks in the DB

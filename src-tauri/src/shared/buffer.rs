@@ -1,9 +1,9 @@
+use crate::shared::io_utils;
+use crate::shared::storage;
 use ropey::Rope;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::State;
-use crate::shared::storage;
-use crate::shared::io_utils;
 
 pub struct ManagedBuffer {
     pub rope: Rope,
@@ -21,14 +21,20 @@ impl BufferManager {
         }
     }
 
-    pub fn open_buffer(&self, app: &tauri::AppHandle, id: String, vault_id: String, relative_path: String) -> Result<usize, String> {
+    pub fn open_buffer(
+        &self,
+        app: &tauri::AppHandle,
+        id: String,
+        vault_id: String,
+        relative_path: String,
+    ) -> Result<usize, String> {
         let root = storage::vault_path(app, &vault_id)?;
         let abs = crate::features::notes::service::safe_vault_abs(&root, &relative_path)?;
-        
+
         let content = io_utils::read_file_to_string(&abs)?;
         let rope = Rope::from_str(&content);
         let line_count = rope.len_lines();
-        
+
         let mut buffers = self.buffers.lock().unwrap();
         buffers.insert(
             id,
@@ -73,6 +79,7 @@ impl BufferManager {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_buffer(
     app: tauri::AppHandle,
     id: String,
@@ -84,6 +91,7 @@ pub fn open_buffer(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_buffer(
     id: String,
     content: String,
@@ -93,14 +101,13 @@ pub fn update_buffer(
 }
 
 #[tauri::command]
-pub fn save_buffer(
-    id: String,
-    manager: State<'_, BufferManager>,
-) -> Result<(), String> {
+#[specta::specta]
+pub fn save_buffer(id: String, manager: State<'_, BufferManager>) -> Result<(), String> {
     manager.save_buffer(id)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn read_buffer_window(
     id: String,
     start_line: usize,
@@ -131,6 +138,7 @@ pub fn read_buffer_window(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn close_buffer(id: String, manager: State<'_, BufferManager>) -> Result<(), String> {
     manager.close_buffer(&id);
     Ok(())
