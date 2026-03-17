@@ -416,6 +416,7 @@ export class VaultService {
       this.trigger_dashboard_stats_refresh(vault.id, open_revision);
       this.subscribe_open_vault_index_progress(vault.id, open_revision);
       this.trigger_background_index_sync(vault.id, open_revision);
+      this.trigger_background_note_count_refresh(vault.id, open_revision);
     }
 
     return {
@@ -576,6 +577,24 @@ export class VaultService {
       }
       log.error("Background index sync failed", { error });
     });
+  }
+
+  private trigger_background_note_count_refresh(
+    vault_id: VaultId,
+    open_revision: number,
+  ) {
+    this.vault_port
+      .refresh_note_count(vault_id)
+      .then((count) => {
+        if (!this.is_current_open_revision(open_revision)) return;
+        if (count !== null && count !== undefined) {
+          this.vault_store.update_note_count(count);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!this.is_current_open_revision(open_revision)) return;
+        log.error("Background note count refresh failed", { error });
+      });
   }
 
   private async load_editor_settings(

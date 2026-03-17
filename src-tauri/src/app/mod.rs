@@ -200,6 +200,7 @@ pub fn run() {
             features::git::service::git_set_remote_url,
             features::git::service::git_push_with_upstream,
             features::vault::service::resolve_file_to_vault,
+            features::vault::service::refresh_note_count,
             features::plugin::plugin_discover,
             shared::buffer::open_buffer,
             shared::buffer::update_buffer,

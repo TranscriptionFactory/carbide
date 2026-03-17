@@ -18,6 +18,7 @@ export interface VaultPort {
   remember_last_vault(vault_id: VaultId): Promise<void>;
   get_last_vault_id(): Promise<VaultId | null>;
   resolve_file_to_vault(file_path: string): Promise<FileVaultResolution | null>;
+  refresh_note_count(vault_id: VaultId): Promise<number | null>;
 }
 
 export interface VaultSettingsPort {

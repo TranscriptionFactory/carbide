@@ -79,6 +79,9 @@ export function create_mock_vault_port(): VaultPort & {
       if (!vault) return Promise.reject(new Error("vault not found"));
       return Promise.resolve({ ...vault, mode: "vault" as const });
     },
+    refresh_note_count(_vault_id: VaultId): Promise<null> {
+      return Promise.resolve(null);
+    },
   };
   return mock;
 }

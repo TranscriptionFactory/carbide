@@ -270,7 +270,7 @@ pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|e| e.to_string())?;
     conn.busy_timeout(std::time::Duration::from_millis(5000))
         .map_err(|e| e.to_string())?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-8000; PRAGMA mmap_size=268435456;")
         .map_err(|e| e.to_string())?;
     init_schema(&conn)?;
     Ok(conn)
@@ -629,8 +629,8 @@ pub fn rebuild_index(
             pending_links.push((meta.path.clone(), targets));
         }
 
-        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         resolve_batch_outlinks(conn, &pending_links)?;
+        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         on_progress(indexed, total);
         yield_fn();
     }
@@ -730,8 +730,8 @@ pub fn sync_index(
             pending_links.push((meta.path.clone(), targets));
         }
 
-        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         resolve_batch_outlinks(conn, &pending_links)?;
+        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         on_progress(indexed, total);
         yield_fn();
     }

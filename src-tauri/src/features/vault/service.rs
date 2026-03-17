@@ -165,7 +165,7 @@ fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
 pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening vault path={}", args.vault_path);
     let resolved = resolve_open_path(&app, &args)?;
-    let note_count = load_note_count(&app, &resolved.id).or(resolved.existing_note_count);
+    let note_count = resolved.existing_note_count;
     finish_open(&app, resolved, VaultMode::Vault, note_count)
 }
 
@@ -174,7 +174,6 @@ pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, Strin
     log::info!("Opening vault by id vault_id={}", vault_id);
     let mut store = storage::load_store(&app)?;
     let now = storage::now_ms();
-    let note_count = load_note_count(&app, &vault_id);
 
     let entry = store
         .vaults
@@ -195,9 +194,6 @@ pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, Strin
 
     entry.last_opened_at = now;
     mark_vault_opened(&mut entry.vault, now);
-    if note_count.is_some() {
-        entry.vault.note_count = note_count;
-    }
     let vault = entry.vault.clone();
     storage::save_store(&app, &store)?;
     Ok(vault)
@@ -276,7 +272,7 @@ pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String>
         VaultMode::Browse
     };
     let note_count = if has_badgerly_dir {
-        load_note_count(&app, &resolved.id).or(resolved.existing_note_count)
+        resolved.existing_note_count
     } else {
         None
     };
@@ -304,14 +300,22 @@ pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vaul
         })?;
 
     entry.vault.mode = VaultMode::Vault;
-    let note_count = load_note_count(&app, &args.vault_id);
-    if note_count.is_some() {
-        entry.vault.note_count = note_count;
-    }
-
     let vault = entry.vault.clone();
     storage::save_store(&app, &store)?;
     Ok(vault)
+}
+
+#[tauri::command]
+pub fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
+    let count = load_note_count(&app, &vault_id);
+    if let Some(c) = count {
+        let mut store = storage::load_store(&app)?;
+        if let Some(entry) = store.vaults.iter_mut().find(|v| v.vault.id == vault_id) {
+            entry.vault.note_count = Some(c);
+            storage::save_store(&app, &store)?;
+        }
+    }
+    Ok(count)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

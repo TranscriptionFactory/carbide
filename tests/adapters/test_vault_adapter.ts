@@ -162,5 +162,9 @@ export function create_test_vault_adapter(): VaultPort {
     resolve_file_to_vault(): Promise<null> {
       return Promise.resolve(null);
     },
+
+    refresh_note_count(_vault_id: VaultId): Promise<null> {
+      return Promise.resolve(null);
+    },
   };
 }

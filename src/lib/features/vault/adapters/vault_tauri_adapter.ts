@@ -53,5 +53,10 @@ export function create_vault_tauri_adapter(): VaultPort {
         relative_path: string;
       } | null>("resolve_file_to_vault", { filePath: file_path });
     },
+    async refresh_note_count(vault_id: VaultId) {
+      return await invoke_vault<number | null>("refresh_note_count", {
+        vaultId: vault_id,
+      });
+    },
   };
 }

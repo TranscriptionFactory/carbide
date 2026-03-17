@@ -52,6 +52,7 @@ describe("VaultService", () => {
       list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
       remember_last_vault: vi.fn().mockResolvedValue(undefined),
       get_last_vault_id: vi.fn().mockResolvedValue(null),
+      refresh_note_count: vi.fn().mockResolvedValue(null),
     };
 
     const notes_port = {
@@ -157,6 +158,7 @@ describe("VaultService", () => {
       list_vaults: vi.fn().mockResolvedValue([vault]),
       remember_last_vault: vi.fn().mockResolvedValue(undefined),
       get_last_vault_id: vi.fn().mockResolvedValue(null),
+      refresh_note_count: vi.fn().mockResolvedValue(null),
     };
 
     const notes_port = {
@@ -364,6 +366,7 @@ describe("VaultService", () => {
         list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
         remember_last_vault: vi.fn(),
         get_last_vault_id: vi.fn(),
+        refresh_note_count: vi.fn().mockResolvedValue(null),
       } as never,
       {
         list_folder_contents: vi.fn().mockResolvedValue({
@@ -446,6 +449,7 @@ describe("VaultService", () => {
         list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
         remember_last_vault: vi.fn(),
         get_last_vault_id: vi.fn(),
+        refresh_note_count: vi.fn().mockResolvedValue(null),
       } as never,
       {
         list_folder_contents: vi.fn().mockResolvedValue({
@@ -524,6 +528,7 @@ describe("VaultService", () => {
       list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
       remember_last_vault: vi.fn().mockResolvedValue(undefined),
       get_last_vault_id: vi.fn().mockResolvedValue(null),
+      refresh_note_count: vi.fn().mockResolvedValue(null),
     };
 
     const notes_port = {

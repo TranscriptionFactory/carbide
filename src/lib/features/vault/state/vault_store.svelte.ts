@@ -74,6 +74,12 @@ export class VaultStore {
     );
   }
 
+  update_note_count(count: number) {
+    if (this.vault) {
+      this.vault = { ...this.vault, note_count: count };
+    }
+  }
+
   set_vault_availability(vault_id: VaultId, is_available: boolean) {
     this.recent_vaults = this.recent_vaults.map((vault) =>
       vault.id === vault_id ? { ...vault, is_available } : vault,
