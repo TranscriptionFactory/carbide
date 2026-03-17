@@ -72,7 +72,7 @@
             }
           }}
           placeholder="e.g., architecture-diagram"
-          class="rounded-r-none"
+          class="flex-1 rounded-r-none"
         />
         <span
           class="px-3 py-2 bg-muted text-muted-foreground border border-l-0 rounded-r-md text-sm"
