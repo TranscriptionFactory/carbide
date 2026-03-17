@@ -346,7 +346,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
         await capture_active_tab_snapshot(input);
 
         const open_titles = stores.tab.tabs.map((tab) => tab.title);
-        services.note.create_new_note(open_titles);
+        const template = stores.ui.editor_settings.default_note_name_template;
+        services.note.create_new_note(open_titles, template || undefined);
 
         const open_note = stores.editor.open_note;
         if (!open_note) {

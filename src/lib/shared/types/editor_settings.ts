@@ -80,6 +80,7 @@ export type EditorSettings = {
   graph_force_collision_radius: number;
   graph_force_charge_max_distance: number;
   outline_mode: OutlineMode;
+  default_note_name_template: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -128,6 +129,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
+  default_note_name_template: "",
 };
 
 export const SETTINGS_KEY = "editor" as const;

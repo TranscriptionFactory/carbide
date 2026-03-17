@@ -203,11 +203,13 @@ export class NoteService {
     }
   }
 
-  create_new_note(open_titles: string[]) {
-    const open_note = create_untitled_open_note({
+  create_new_note(open_titles: string[], template?: string) {
+    const args: { open_titles: string[]; now_ms: number; template?: string } = {
       open_titles,
       now_ms: this.now_ms(),
-    });
+    };
+    if (template) args.template = template;
+    const open_note = create_untitled_open_note(args);
 
     this.editor_store.set_open_note(open_note);
   }

@@ -10,6 +10,23 @@ export type SettingDefinition = {
 
 export const SETTINGS_REGISTRY: SettingDefinition[] = [
   {
+    key: "default_note_name_template",
+    label: "Default Note Name",
+    description:
+      "Template for new note names using strftime tokens: %Y (year), %m (month), %d (day), %H (hour), %M (minute), %S (second). Leave empty for Untitled-N.",
+    category: "Files",
+    keywords: [
+      "name",
+      "template",
+      "date",
+      "daily",
+      "zettelkasten",
+      "strftime",
+      "default",
+      "naming",
+    ],
+  },
+  {
     key: "attachment_folder",
     label: "Attachment Folder",
     description: "Folder name for storing pasted images and attachments",

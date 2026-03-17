@@ -1,5 +1,6 @@
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import { format_note_name } from "$lib/features/note/domain/format_note_name";
 
 const DRAFT_PREFIX = "draft:";
 const UNTITLED_PATTERN = /^Untitled(?:-(\d+))?$/;
@@ -29,11 +30,29 @@ export function is_draft_note_path(path: string): boolean {
   return path.startsWith(DRAFT_PREFIX);
 }
 
+function next_template_title(base: string, open_titles: string[]): string {
+  const titles_set = new Set(open_titles);
+  if (!titles_set.has(base)) {
+    return base;
+  }
+  let n = 2;
+  while (titles_set.has(`${base}-${String(n)}`)) {
+    n += 1;
+  }
+  return `${base}-${String(n)}`;
+}
+
 export function create_untitled_open_note(args: {
   open_titles: string[];
   now_ms: number;
+  template?: string;
 }): OpenNoteState {
-  const title = next_untitled_title(args.open_titles);
+  const formatted = args.template
+    ? format_note_name(args.template, new Date(args.now_ms))
+    : "";
+  const title = formatted
+    ? next_template_title(formatted, args.open_titles)
+    : next_untitled_title(args.open_titles);
   const draft_path = create_draft_path(args.now_ms, title);
 
   return {

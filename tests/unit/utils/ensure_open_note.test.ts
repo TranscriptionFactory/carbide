@@ -54,3 +54,57 @@ describe("create_untitled_open_note", () => {
     expect(result.meta.path).toBe("draft:1000:Untitled-1" as NotePath);
   });
 });
+
+describe("create_untitled_open_note with template", () => {
+  const now_ms = new Date(2024, 0, 5, 9, 3, 7).getTime();
+
+  test("uses formatted name from template", () => {
+    const result = create_untitled_open_note({
+      open_titles: [],
+      now_ms,
+      template: "%Y-%m-%d",
+    });
+
+    expect(result.meta.title).toBe("2024-01-05");
+    expect(result.meta.name).toBe("2024-01-05");
+  });
+
+  test("appends -2 suffix when formatted name collides with open title", () => {
+    const result = create_untitled_open_note({
+      open_titles: ["2024-01-05"],
+      now_ms,
+      template: "%Y-%m-%d",
+    });
+
+    expect(result.meta.title).toBe("2024-01-05-2");
+  });
+
+  test("increments suffix past -2 when both collide", () => {
+    const result = create_untitled_open_note({
+      open_titles: ["2024-01-05", "2024-01-05-2"],
+      now_ms,
+      template: "%Y-%m-%d",
+    });
+
+    expect(result.meta.title).toBe("2024-01-05-3");
+  });
+
+  test("falls back to Untitled-N when template is empty string", () => {
+    const result = create_untitled_open_note({
+      open_titles: [],
+      now_ms,
+      template: "",
+    });
+
+    expect(result.meta.title).toBe("Untitled-1");
+  });
+
+  test("falls back to Untitled-N when template is undefined", () => {
+    const result = create_untitled_open_note({
+      open_titles: [],
+      now_ms,
+    });
+
+    expect(result.meta.title).toBe("Untitled-1");
+  });
+});
