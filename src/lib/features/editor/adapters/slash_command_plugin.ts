@@ -563,10 +563,8 @@ export const slash_command_plugin = $prose(() => {
           event.preventDefault();
           slash_state = {
             ...slash_state,
-            selected_index: Math.min(
-              slash_state.selected_index + 1,
-              slash_state.filtered.length - 1,
-            ),
+            selected_index:
+              (slash_state.selected_index + 1) % slash_state.filtered.length,
           };
           render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
           scroll_selected_into_view(menu, slash_state.selected_index);
@@ -577,7 +575,9 @@ export const slash_command_plugin = $prose(() => {
           event.preventDefault();
           slash_state = {
             ...slash_state,
-            selected_index: Math.max(slash_state.selected_index - 1, 0),
+            selected_index:
+              (slash_state.selected_index - 1 + slash_state.filtered.length) %
+              slash_state.filtered.length,
           };
           render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
           scroll_selected_into_view(menu, slash_state.selected_index);
