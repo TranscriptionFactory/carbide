@@ -36,6 +36,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   terminal_toggle: ACTION_IDS.terminal_toggle,
   terminal_new_session: ACTION_IDS.terminal_new_session,
   open_plugins: ACTION_IDS.ui_open_plugins,
+  toggle_frontmatter: ACTION_IDS.editor_toggle_frontmatter,
   toggle_zen_mode: ACTION_IDS.ui_toggle_zen_mode,
   toggle_focus_mode: ACTION_IDS.ui_toggle_focus_mode,
 };

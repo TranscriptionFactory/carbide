@@ -39,6 +39,8 @@ export type EditorSession = {
   close_buffer: (note_path: string) => void;
   update_find_state?: (query: string, selected_index: number) => void;
   scroll_to_position?: (pos: number) => void;
+  insert_frontmatter?: () => boolean;
+  has_frontmatter?: () => boolean;
 };
 
 export type EditorEventHandlers = {

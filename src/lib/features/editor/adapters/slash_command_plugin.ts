@@ -25,6 +25,7 @@ type SlashCommand = {
   icon: string;
   keywords: string[];
   insert: (view: EditorView, slash_from: number) => void;
+  is_available?: (state: EditorState) => boolean;
 };
 
 const EMPTY_STATE: SlashState = {
@@ -248,6 +249,31 @@ function make_divider_insert() {
   };
 }
 
+function make_frontmatter_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const fm_type = state.schema.nodes["frontmatter"];
+    const para = state.schema.nodes["paragraph"];
+    if (!fm_type || !para) return;
+    if (state.doc.firstChild?.type.name === "frontmatter") return;
+
+    const $pos = state.doc.resolve(from);
+    const start = $pos.before();
+
+    const fm_node = fm_type.create(null, state.schema.text("tags:\n  - \n"));
+    const tr = state.tr.replaceWith(start, $pos.after(), [
+      fm_node,
+      para.create(),
+    ]);
+    const sel = TextSelection.findFrom(
+      tr.doc.resolve(start + fm_node.nodeSize + 1),
+      1,
+    );
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 export function create_commands(): SlashCommand[] {
   return [
     {
@@ -361,6 +387,16 @@ export function create_commands(): SlashCommand[] {
       icon: "∑",
       keywords: ["math", "latex", "equation", "formula", "block", "katex"],
       insert: make_math_block_insert(),
+    },
+    {
+      id: "frontmatter",
+      label: "Properties",
+      description: "Add note properties and frontmatter",
+      icon: "🏷",
+      keywords: ["frontmatter", "properties", "metadata", "yaml", "tags"],
+      insert: make_frontmatter_insert(),
+      is_available: (state) =>
+        state.doc.firstChild?.type.name !== "frontmatter",
     },
   ];
 }
@@ -520,7 +556,10 @@ export const slash_command_plugin = $prose(() => {
           }
 
           const query = result.query.trim();
-          const filtered = filter_commands(all_commands, query);
+          const available = all_commands.filter(
+            (cmd) => !cmd.is_available || cmd.is_available(view.state),
+          );
+          const filtered = filter_commands(available, query);
           const prev_index = slash_state.selected_index;
           const prev_query = slash_state.query;
 

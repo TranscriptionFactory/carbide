@@ -1013,6 +1013,34 @@ export function create_milkdown_editor_port(args?: {
             }
           });
         },
+        has_frontmatter() {
+          if (!editor) return false;
+          let result = false;
+          run_editor_action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            result = view.state.doc.firstChild?.type.name === "frontmatter";
+          });
+          return result;
+        },
+        insert_frontmatter() {
+          if (!editor) return false;
+          let inserted = false;
+          run_editor_action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            const { state } = view;
+            if (state.doc.firstChild?.type.name === "frontmatter") return;
+            const fm_type = state.schema.nodes["frontmatter"];
+            if (!fm_type) return;
+            const fm_node = fm_type.create(
+              null,
+              state.schema.text("tags:\n  - \n"),
+            );
+            const tr = state.tr.insert(0, fm_node);
+            view.dispatch(tr.scrollIntoView());
+            inserted = true;
+          });
+          return inserted;
+        },
       };
 
       return handle;

@@ -28,6 +28,9 @@
     is_repairing_links: boolean;
     link_repair_message: string | null;
     editor_mode: import("$lib/shared/types/editor").EditorMode;
+    has_frontmatter: boolean;
+    show_frontmatter: boolean;
+    on_frontmatter_toggle: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -60,6 +63,9 @@
     is_repairing_links,
     link_repair_message,
     editor_mode,
+    has_frontmatter,
+    show_frontmatter,
+    on_frontmatter_toggle,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -140,6 +146,21 @@
     >
       {editor_mode === "visual" ? "Visual" : "Source"}
     </button>
+    {#if has_note && editor_mode === "visual"}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="StatusBar__mode-toggle"
+        class:StatusBar__mode-toggle--dimmed={has_frontmatter &&
+          !show_frontmatter}
+        onclick={on_frontmatter_toggle}
+        aria-label={has_frontmatter
+          ? "Toggle properties visibility"
+          : "Add properties"}
+      >
+        {has_frontmatter ? "Properties" : "No Properties"}
+      </button>
+    {/if}
     {#if saved_label}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <span class="StatusBar__item StatusBar__item--saved">{saved_label}</span>
@@ -380,6 +401,11 @@
   .StatusBar__mode-toggle:hover {
     opacity: 1;
     color: var(--interactive);
+  }
+
+  .StatusBar__mode-toggle--dimmed {
+    opacity: 0.4;
+    text-decoration: line-through;
   }
 
   :global(.StatusBar__item svg),

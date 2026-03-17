@@ -126,6 +126,9 @@
 
   const word_count = $derived(stores.editor.cursor?.total_words ?? 0);
   const line_count = $derived(stores.editor.cursor?.total_lines ?? 0);
+  const has_frontmatter = $derived(
+    stores.editor.open_note?.markdown.trimStart().startsWith("---") ?? false,
+  );
 
   let details_dialog_open = $state(false);
 
@@ -838,6 +841,10 @@
         on_sync_click={() =>
           void action_registry.execute(ACTION_IDS.vault_sync_index)}
         editor_mode={stores.editor.editor_mode}
+        {has_frontmatter}
+        show_frontmatter={stores.editor.show_frontmatter}
+        on_frontmatter_toggle={() =>
+          void action_registry.execute(ACTION_IDS.editor_toggle_frontmatter)}
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_mode)}

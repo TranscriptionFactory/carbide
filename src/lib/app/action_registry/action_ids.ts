@@ -5,6 +5,7 @@ export const ACTION_IDS = {
   app_editor_unmount: "app.editor.unmount",
   editor_toggle_mode: "editor.toggle_mode",
   editor_insert_frontmatter: "editor.insert_frontmatter",
+  editor_toggle_frontmatter: "editor.toggle_frontmatter",
   app_handle_file_open: "app.handle_file_open",
 
   note_create: "note.create",

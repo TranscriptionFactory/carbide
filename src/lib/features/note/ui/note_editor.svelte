@@ -66,7 +66,11 @@
     />
   {:else if open_note}
     {#if editor_mode === "visual"}
-      <div use:mount_editor={open_note} class="NoteEditor__content"></div>
+      <div
+        use:mount_editor={open_note}
+        class="NoteEditor__content"
+        class:frontmatter-hidden={!stores.editor.show_frontmatter}
+      ></div>
     {:else}
       <SourceEditor
         initial_markdown={open_note.markdown}
@@ -126,6 +130,10 @@
 
   .NoteEditor__content {
     width: 100%;
+  }
+
+  :global(.frontmatter-hidden [data-type="frontmatter"]) {
+    display: none;
   }
 
   .NoteEditor__empty {

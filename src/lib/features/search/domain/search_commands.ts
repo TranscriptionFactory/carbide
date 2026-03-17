@@ -247,6 +247,20 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "blocks",
   },
   {
+    id: "toggle_frontmatter",
+    label: "Toggle Properties",
+    description: "Show or hide note properties and frontmatter",
+    keywords: [
+      "frontmatter",
+      "properties",
+      "metadata",
+      "yaml",
+      "tags",
+      "toggle",
+    ],
+    icon: "list-tree",
+  },
+  {
     id: "toggle_zen_mode",
     label: "Toggle Zen Mode",
     description: "Hide all panels and enter distraction-free writing mode",

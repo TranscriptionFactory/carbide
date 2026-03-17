@@ -276,19 +276,16 @@ export class EditorService {
 
   insert_frontmatter(): boolean {
     if (!this.session || !this.active_note) return false;
+    if (this.session.has_frontmatter?.()) return false;
+    const inserted = this.session.insert_frontmatter?.() ?? false;
+    if (inserted) {
+      this.editor_store.set_dirty(this.active_note.meta.id, true);
+    }
+    return inserted;
+  }
 
-    const markdown = this.session.get_markdown();
-    if (markdown.trimStart().startsWith("---")) return false;
-
-    const frontmatter_block = "---\ntags:\n  - \n---\n\n";
-    const new_markdown = frontmatter_block + markdown;
-    this.session.set_markdown(new_markdown);
-    this.editor_store.set_markdown(
-      this.active_note.meta.id,
-      as_markdown_text(new_markdown),
-    );
-    this.editor_store.set_dirty(this.active_note.meta.id, true);
-    return true;
+  has_frontmatter(): boolean {
+    return this.session?.has_frontmatter?.() ?? false;
   }
 
   private resolve_visual_selection(): EditorSelectionSnapshot | null {
