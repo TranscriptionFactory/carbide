@@ -394,8 +394,8 @@ export function create_milkdown_editor_port(args?: {
           }));
           ctx.update(remarkPluginsCtx, (prev) => [
             ...prev,
-            { plugin: remarkFrontmatter, options: {} } as any,
-            { plugin: remarkMath, options: {} } as any,
+            { plugin: remarkFrontmatter, options: undefined } as any,
+            { plugin: remarkMath, options: undefined } as any,
           ]);
           if (resolve_asset_url_for_vault) {
             const resolve = resolve_asset_url_for_vault;
