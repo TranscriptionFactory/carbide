@@ -1,5 +1,5 @@
-use crate::features::search::frontmatter::{self, Frontmatter};
-use crate::features::search::link_parser::{self, ExternalLink};
+use crate::shared::frontmatter::{self, Frontmatter};
+use crate::shared::link_parser::{self, ExternalLink};
 use crate::features::tasks::service as tasks_service;
 use crate::features::tasks::types::Task;
 use comrak::nodes::NodeValue;

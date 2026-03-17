@@ -353,3 +353,143 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
         vec!["docs/a.md".to_string(), "docs/sub/b.md".to_string()]
     );
 }
+
+#[test]
+fn upsert_note_populates_note_headings() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db = tmp.path().join("test.db");
+    let conn = open_search_db_at_path(&db).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "test.md".into(),
+        path: "test.md".into(),
+        title: "Test".into(),
+        name: "test".into(),
+        mtime_ms: 100,
+        size_bytes: 50,
+    };
+    upsert_note(&conn, &meta, "# Title\n## Sub\n### Deep").expect("upsert");
+
+    let rows: Vec<(String, i64, String, i64)> = conn
+        .prepare("SELECT note_path, level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
+        .unwrap()
+        .query_map(rusqlite::params!["test.md"], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0].1, 1);
+    assert_eq!(rows[0].2, "Title");
+    assert_eq!(rows[1].1, 2);
+    assert_eq!(rows[1].2, "Sub");
+    assert_eq!(rows[2].1, 3);
+    assert_eq!(rows[2].2, "Deep");
+}
+
+#[test]
+fn upsert_note_populates_note_links() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db = tmp.path().join("test.db");
+    let conn = open_search_db_at_path(&db).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "notes/test.md".into(),
+        path: "notes/test.md".into(),
+        title: "Test".into(),
+        name: "test".into(),
+        mtime_ms: 100,
+        size_bytes: 100,
+    };
+    upsert_note(&conn, &meta, "[[Other]] and [link](./local.md) and [ext](https://example.com)").expect("upsert");
+
+    let rows: Vec<(String, String, Option<String>, String)> = conn
+        .prepare("SELECT source_path, target_path, link_text, link_type FROM note_links WHERE source_path = ?1 ORDER BY link_type")
+        .unwrap()
+        .query_map(rusqlite::params!["notes/test.md"], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(rows.len(), 3);
+
+    let external: Vec<_> = rows.iter().filter(|r| r.3 == "external").collect();
+    assert_eq!(external.len(), 1);
+    assert_eq!(external[0].1, "https://example.com");
+    assert_eq!(external[0].2.as_deref(), Some("ext"));
+
+    let wiki: Vec<_> = rows.iter().filter(|r| r.3 == "wiki").collect();
+    assert_eq!(wiki.len(), 1);
+    assert_eq!(wiki[0].1, "Other.md");
+
+    let md: Vec<_> = rows.iter().filter(|r| r.3 == "markdown").collect();
+    assert_eq!(md.len(), 1);
+    assert_eq!(md[0].1, "notes/local.md");
+}
+
+#[test]
+fn remove_note_clears_headings_and_links() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db = tmp.path().join("test.db");
+    let conn = open_search_db_at_path(&db).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "test.md".into(),
+        path: "test.md".into(),
+        title: "Test".into(),
+        name: "test".into(),
+        mtime_ms: 100,
+        size_bytes: 50,
+    };
+    upsert_note(&conn, &meta, "# Title\n[[Other]]").expect("upsert");
+
+    use crate::features::search::db::remove_note;
+    remove_note(&conn, "test.md").expect("remove");
+
+    let h_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM note_headings WHERE note_path = 'test.md'", [], |r| r.get(0))
+        .unwrap();
+    let l_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM note_links WHERE source_path = 'test.md'", [], |r| r.get(0))
+        .unwrap();
+
+    assert_eq!(h_count, 0);
+    assert_eq!(l_count, 0);
+}
+
+#[test]
+fn rename_note_propagates_to_headings_and_links() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db = tmp.path().join("test.db");
+    let conn = open_search_db_at_path(&db).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "old.md".into(),
+        path: "old.md".into(),
+        title: "Old".into(),
+        name: "old".into(),
+        mtime_ms: 100,
+        size_bytes: 50,
+    };
+    upsert_note(&conn, &meta, "# Title\n[[Target]]").expect("upsert");
+
+    rename_note_path(&conn, "old.md", "new.md").expect("rename");
+
+    let h_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM note_headings WHERE note_path = 'new.md'", [], |r| r.get(0))
+        .unwrap();
+    let l_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM note_links WHERE source_path = 'new.md'", [], |r| r.get(0))
+        .unwrap();
+    let old_h: i64 = conn
+        .query_row("SELECT COUNT(*) FROM note_headings WHERE note_path = 'old.md'", [], |r| r.get(0))
+        .unwrap();
+
+    assert_eq!(h_count, 1);
+    assert_eq!(l_count, 1);
+    assert_eq!(old_h, 0);
+}
