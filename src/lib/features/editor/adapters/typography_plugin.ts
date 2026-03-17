@@ -14,8 +14,6 @@ const TYPOGRAPHY_RULES: TypographyRule[] = [
   { trigger: "=", pattern: "<==", replacement: "\u21D0" },
   { trigger: ">", pattern: "<->", replacement: "\u2194" },
   { trigger: ">", pattern: "<=>", replacement: "\u21D4" },
-  { trigger: "-", pattern: "---", replacement: "\u2014" },
-  { trigger: ".", pattern: "...", replacement: "\u2026" },
 ];
 
 export function find_typography_match(

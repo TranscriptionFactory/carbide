@@ -39,35 +39,6 @@ describe("find_typography_match", () => {
     });
   });
 
-  describe("em dash", () => {
-    it("converts --- to em dash", () => {
-      const result = find_typography_match("word--", "-");
-      expect(result).toEqual({ from_offset: 4, replacement: "\u2014" });
-    });
-
-    it("converts --- at start of text", () => {
-      const result = find_typography_match("--", "-");
-      expect(result).toEqual({ from_offset: 0, replacement: "\u2014" });
-    });
-
-    it("does not convert -- (two hyphens only)", () => {
-      const result = find_typography_match("word-", "-");
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("ellipsis", () => {
-    it("converts ... to ellipsis", () => {
-      const result = find_typography_match("wait..", ".");
-      expect(result).toEqual({ from_offset: 4, replacement: "\u2026" });
-    });
-
-    it("converts ... at start of text", () => {
-      const result = find_typography_match("..", ".");
-      expect(result).toEqual({ from_offset: 0, replacement: "\u2026" });
-    });
-  });
-
   describe("no match", () => {
     it("returns null for unrecognized patterns", () => {
       expect(find_typography_match("hello", "x")).toBeNull();
