@@ -8,7 +8,8 @@
   const visible = $derived(
     stores.ui.editor_settings.outline_mode === "floating" &&
       stores.outline.headings.length > 0 &&
-      !stores.ui.zen_mode,
+      !stores.ui.zen_mode &&
+      !stores.ui.floating_outline_collapsed,
   );
 </script>
 

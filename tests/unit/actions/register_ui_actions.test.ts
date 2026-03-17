@@ -164,6 +164,69 @@ describe("register_ui_actions", () => {
     expect(stores.ui.context_rail_open).toBe(false);
   });
 
+  it("toggles floating outline collapsed when outline_mode is floating", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      outline_mode: "floating",
+    });
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    expect(stores.ui.floating_outline_collapsed).toBe(false);
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.floating_outline_collapsed).toBe(true);
+    expect(stores.ui.context_rail_open).toBe(false);
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.floating_outline_collapsed).toBe(false);
+  });
+
+  it("toggles context rail outline when outline_mode is rail", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.context_rail_open).toBe(true);
+    expect(stores.ui.context_rail_tab).toBe("outline");
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.context_rail_open).toBe(false);
+  });
+
   it("switches from graph to outline by closing graph first", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();

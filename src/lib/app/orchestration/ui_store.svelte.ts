@@ -193,6 +193,7 @@ export class UIStore {
 
   sidebar_open = $state(true);
   zen_mode = $state(false);
+  floating_outline_collapsed = $state(false);
   sidebar_view = $state<SidebarView>("explorer");
   selected_folder_path = $state("");
   filetree_revealed_note_path = $state("");
@@ -479,6 +480,9 @@ export class UIStore {
   }
 
   set_editor_settings(settings: EditorSettings) {
+    if (settings.outline_mode !== this.editor_settings.outline_mode) {
+      this.floating_outline_collapsed = false;
+    }
     this.editor_settings = settings;
   }
 
@@ -528,6 +532,7 @@ export class UIStore {
     this.add_remote_dialog = { ...INITIAL_ADD_REMOTE_DIALOG };
     this.vault_switcher_open = false;
     this.zen_mode = false;
+    this.floating_outline_collapsed = false;
     this.context_rail_open = false;
     this.context_rail_tab = "links";
   }

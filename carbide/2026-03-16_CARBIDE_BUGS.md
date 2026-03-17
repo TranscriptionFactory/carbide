@@ -39,16 +39,18 @@
 **Action:** Profile the indexing path (FTS + frontmatter + metadata). Likely candidates: synchronous SQLite inserts without batching, or blocking the main thread during file walk. Consider: batch inserts in a transaction, progressive/async indexing with a progress bar, or indexing in a background thread that doesn't block the UI.
 **Resolution:** Root cause was `load_note_count()` blocking all vault open IPC commands with a synchronous WalkDir scan. Removed sync note count from open path; vault now opens instantly using cached count and refreshes asynchronously. Added SQLite PRAGMAs (8MB cache, 256MB mmap) and moved outlink resolution inside transactions. See `carbide/sprints/2026-03-16_vault_indexing_perf.md` for details.
 
-### 6. Global search omnibar keyboard shortcut not working/discoverable — NOT STARTED
+### 6. Global search omnibar keyboard shortcut not working/discoverable — VERIFIED WORKING
 
-**Symptom:** User expects a keyboard shortcut for vault-wide search but can't find or trigger it.
+**Symptom:** User expects a keyboard shortcut for vault-wide search but can’t find or trigger it.
 **Status:** Omnibar exists (Phase 6c references it). Shortcut may not be bound or discoverable.
 **Action:** Verify `Cmd+Shift+F` (or equivalent) is bound and working. If it exists, this is a discoverability issue — add it to help/onboarding. If missing, bind it.
+**Resolution:** `Cmd+Shift+F` is already bound to `omnibar_open_all_vaults` (searches across all vaults). `Cmd+O` opens omnibar for current vault. `Cmd+P` opens command palette. All three are registered in `default_hotkeys.ts` and wired to omnibar actions. This was a discoverability issue, not a code bug.
 
-### 7. Floating outline panel shortcut not working — NOT STARTED
+### 7. Floating outline panel shortcut not working — IMPLEMENTED
 
 **Symptom:** User wants a quick-access shortcut for the outline.
-**Status:** Phase 2 (Outline View) is **COMPLETED** with `Cmd+Shift+O`, but this opens the right rail outline (even when floating outline is enabled). Make a toggle/shortcut to show/collapse the outline in floating view. The user can always manually close the outline by pressing ‘x’ or can open the right rail outline if desired. 
+**Status:** Phase 2 (Outline View) is **COMPLETED** with `Cmd+Shift+O`, but this opens the right rail outline (even when floating outline is enabled). Make a toggle/shortcut to show/collapse the outline in floating view. The user can always manually close the outline by pressing ‘x’ or can open the right rail outline if desired.
+**Resolution:** `Cmd+Shift+O` (`ui_toggle_outline_panel`) now checks `editor_settings.outline_mode`. When `"floating"`, it toggles `floating_outline_collapsed` (new UIStore state) instead of the context rail. The floating outline component respects this state. Collapsed state resets when switching outline modes. See `carbide/sprints/2026-03-16_shortcut_fixes.md` for details.
 
 ---
 
@@ -145,7 +147,7 @@
 **Next sprint (P1 — core UX):**
 4\. ~~Vault indexing performance (#4) — first impression killer~~ DONE
 5\. Find & Replace (#5) — table-stakes editor feature
-6\. Verify omnibar/outline shortcuts (#6, #7) — possibly just discoverability fixes
+6\. ~~Verify omnibar/outline shortcuts (#6, #7) — possibly just discoverability fixes~~ DONE
 
 **Then (P2 — editor polish, aligns with PRIORITIES.md Tier 2):**
 7\. Contextual Command Palette (already in PRIORITIES.md Tier 2 #1)

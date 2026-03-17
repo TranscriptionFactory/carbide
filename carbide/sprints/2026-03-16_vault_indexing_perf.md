@@ -10,6 +10,7 @@
 The ~30s spinner on vault open was caused by `load_note_count()` being called synchronously inside `open_vault()`, `open_vault_by_id()`, `open_folder()`, and `promote_to_vault()` Tauri commands. This function performs a full `WalkDir` scan of the vault directory to count `.md` files — blocking the IPC response until the walk completes. For large vaults (1000+ files on spinning disk or networked storage), this takes 10-30 seconds.
 
 Secondary contributors:
+
 - SQLite page cache defaulting to 2MB (insufficient for index-heavy workloads)
 - Outlink resolution running outside transactions (extra I/O per batch)
 
@@ -38,6 +39,7 @@ Added `trigger_background_note_count_refresh()` — called in `finish_open_vault
 **`src-tauri/src/features/search/db.rs`**
 
 Added to `open_search_db_at_path()`:
+
 - `PRAGMA cache_size=-8000` — 8MB page cache (up from default ~2MB)
 - `PRAGMA mmap_size=268435456` — 256MB memory-mapped I/O for faster reads
 
