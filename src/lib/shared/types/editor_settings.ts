@@ -105,7 +105,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_blockquote_padding: "normal",
   editor_blockquote_border_width: 2,
   editor_link_underline_style: "solid",
-  editor_divider_style: "gradient",
+  editor_divider_style: "solid",
   terminal_shell_path: "/bin/zsh",
   terminal_font_size_px: 13,
   terminal_cursor_blink: true,

@@ -724,7 +724,7 @@
 
 .ProseMirror hr {
   border: none;
-  height: 1px;
+  height: 2px;
   background: var(
     --editor-hr-background,
     linear-gradient(
@@ -737,7 +737,7 @@
   border-top: var(--editor-hr-border-top, none);
   margin-top: calc(var(--editor-spacing) * 2.5);
   margin-bottom: calc(var(--editor-spacing) * 2.5);
-  opacity: var(--editor-hr-opacity, 0.5);
+  opacity: var(--editor-hr-opacity, 0.75);
 }
 
 /* ============================================
