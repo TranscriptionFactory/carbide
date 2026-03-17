@@ -1,15 +1,16 @@
 use comrak::nodes::{AstNode, NodeCode, NodeLink, NodeValue, NodeWikiLink, Sourcepos};
 use comrak::{parse_document, Arena, Options};
 use serde::Serialize;
+use specta::Type;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Type)]
 pub struct ExternalLink {
     pub url: String,
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Type)]
 pub struct LocalLinksSnapshot {
     pub outlink_paths: Vec<String>,
     pub external_links: Vec<ExternalLink>,
@@ -368,7 +369,7 @@ pub(crate) fn extract_local_links_snapshot(
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct RewriteResult {
     pub markdown: String,
     pub changed: bool,

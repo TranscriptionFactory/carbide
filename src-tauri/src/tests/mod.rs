@@ -22,6 +22,7 @@ mod specta_export {
         let typescript = Typescript::default().bigint(BigIntExportBehavior::Number);
         Builder::<tauri::Wry>::new()
             .commands(collect_commands![
+                // Notes commands
                 crate::features::notes::service::list_notes,
                 crate::features::notes::service::list_folders,
                 crate::features::notes::service::read_note,
@@ -38,6 +39,33 @@ mod specta_export {
                 crate::features::notes::service::get_folder_stats,
                 crate::features::notes::service::read_vault_file,
                 crate::features::notes::service::write_vault_file,
+                // Search commands
+                crate::features::search::service::index_build,
+                crate::features::search::service::index_cancel,
+                crate::features::search::service::index_rebuild,
+                crate::features::search::service::index_search,
+                crate::features::search::service::index_suggest,
+                crate::features::search::service::index_suggest_planned,
+                crate::features::search::service::index_list_note_paths_by_prefix,
+                crate::features::search::service::index_upsert_note,
+                crate::features::search::service::index_remove_note,
+                crate::features::search::service::index_remove_notes,
+                crate::features::search::service::index_remove_notes_by_prefix,
+                crate::features::search::service::index_rename_folder,
+                crate::features::search::service::index_rename_note,
+                crate::features::search::service::index_note_links_snapshot,
+                crate::features::search::service::index_extract_local_note_links,
+                crate::features::search::service::rewrite_note_links,
+                crate::features::search::service::resolve_note_link,
+                crate::features::search::service::resolve_wiki_link,
+                crate::features::search::service::semantic_search,
+                crate::features::search::service::find_similar_notes,
+                crate::features::search::service::semantic_search_batch,
+                crate::features::search::service::hybrid_search,
+                crate::features::search::service::get_embedding_status,
+                crate::features::search::service::rebuild_embeddings,
+                crate::features::search::service::embed_sync,
+                crate::features::search::service::get_note_stats,
             ])
             .export(typescript, "../src/lib/generated/bindings.ts")
             .expect("Failed to export typescript bindings");

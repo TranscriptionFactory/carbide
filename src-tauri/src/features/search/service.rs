@@ -1,15 +1,16 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::EmbeddingServiceState;
-use crate::shared::link_parser;
 use crate::features::search::model::{
     BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope,
     SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
+use crate::shared::link_parser;
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -19,14 +20,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Type)]
 pub struct NoteLinksSnapshot {
     pub backlinks: Vec<IndexNoteMeta>,
     pub outlinks: Vec<IndexNoteMeta>,
     pub orphan_links: Vec<search_db::OrphanLink>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Type)]
 pub struct SearchQueryInput {
     #[allow(dead_code)]
     pub raw: String,
@@ -34,7 +35,7 @@ pub struct SearchQueryInput {
     pub scope: SearchScope,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Type)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum IndexProgressEvent {
     Started {
@@ -57,7 +58,7 @@ pub enum IndexProgressEvent {
     },
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Type)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum EmbeddingProgressEvent {
     Started {
@@ -177,7 +178,12 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn writer_thread_loop(app: AppHandle, vault_id: String, rx: Receiver<DbCommand>, _vault_root: &Path) {
+fn writer_thread_loop(
+    app: AppHandle,
+    vault_id: String,
+    rx: Receiver<DbCommand>,
+    _vault_root: &Path,
+) {
     let conn = match search_db::open_search_db(&app, &vault_id) {
         Ok(c) => c,
         Err(e) => {
@@ -828,6 +834,7 @@ fn enqueue_index_command(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Building index vault_id={}", vault_id);
     enqueue_index_command(
@@ -843,6 +850,7 @@ pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
     with_worker(&app, &vault_id, |worker| {
         worker.cancel.store(true, Ordering::Relaxed);
@@ -851,6 +859,7 @@ pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Rebuilding index vault_id={}", vault_id);
     enqueue_index_command(
@@ -866,6 +875,7 @@ pub fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_search(
     app: AppHandle,
     vault_id: String,
@@ -878,6 +888,7 @@ pub fn index_search(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_suggest(
     app: AppHandle,
     vault_id: String,
@@ -895,6 +906,7 @@ pub fn index_suggest(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_suggest_planned(
     app: AppHandle,
     vault_id: String,
@@ -912,6 +924,7 @@ pub fn index_suggest_planned(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_list_note_paths_by_prefix(
     app: AppHandle,
     vault_id: String,
@@ -923,6 +936,7 @@ pub fn index_list_note_paths_by_prefix(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_upsert_note(app: AppHandle, vault_id: String, note_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertNote {
@@ -933,6 +947,7 @@ pub fn index_upsert_note(app: AppHandle, vault_id: String, note_id: String) -> R
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_remove_note(app: AppHandle, vault_id: String, note_id: String) -> Result<(), String> {
     send_write_blocking(&app, &vault_id, |reply| DbCommand::RemoveNote {
         note_id,
@@ -941,6 +956,7 @@ pub fn index_remove_note(app: AppHandle, vault_id: String, note_id: String) -> R
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_remove_notes(
     app: AppHandle,
     vault_id: String,
@@ -953,6 +969,7 @@ pub fn index_remove_notes(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_remove_notes_by_prefix(
     app: AppHandle,
     vault_id: String,
@@ -965,6 +982,7 @@ pub fn index_remove_notes_by_prefix(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_rename_folder(
     app: AppHandle,
     vault_id: String,
@@ -979,6 +997,7 @@ pub fn index_rename_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_rename_note(
     app: AppHandle,
     vault_id: String,
@@ -993,6 +1012,7 @@ pub fn index_rename_note(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_note_links_snapshot(
     app: AppHandle,
     vault_id: String,
@@ -1008,6 +1028,7 @@ pub fn index_note_links_snapshot(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn index_extract_local_note_links(
     app: AppHandle,
     vault_id: String,
@@ -1020,6 +1041,7 @@ pub fn index_extract_local_note_links(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rewrite_note_links(
     markdown: String,
     old_source_path: String,
@@ -1030,16 +1052,19 @@ pub fn rewrite_note_links(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn resolve_note_link(source_path: String, raw_target: String) -> Option<String> {
     link_parser::resolve_markdown_target(&source_path, &raw_target)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<String> {
     link_parser::resolve_wiki_target(&source_path, &raw_target)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn semantic_search(
     app: AppHandle,
     vault_id: String,
@@ -1065,6 +1090,7 @@ pub fn semantic_search(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn find_similar_notes(
     app: AppHandle,
     vault_id: String,
@@ -1121,6 +1147,7 @@ pub fn find_similar_notes(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn semantic_search_batch(
     app: AppHandle,
     vault_id: String,
@@ -1156,6 +1183,7 @@ pub fn semantic_search_batch(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn hybrid_search(
     app: AppHandle,
     vault_id: String,
@@ -1173,12 +1201,13 @@ pub fn hybrid_search(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<EmbeddingStatus, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let total_notes = search_db::get_note_count(conn)?;
         let embedded_notes = vector_db::get_embedding_count(conn);
-        let model_version = vector_db::get_model_version(conn)
-            .unwrap_or_else(|| "unavailable".to_string());
+        let model_version =
+            vector_db::get_model_version(conn).unwrap_or_else(|| "unavailable".to_string());
         Ok(EmbeddingStatus {
             total_notes,
             embedded_notes,
@@ -1189,6 +1218,7 @@ pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<Embeddin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let cancel = replace_worker_cancel_token(&app, &vault_id)?;
@@ -1206,6 +1236,7 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let cancel = replace_worker_cancel_token(&app, &vault_id)?;
@@ -1223,6 +1254,7 @@ pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_note_stats(
     app: AppHandle,
     vault_id: String,

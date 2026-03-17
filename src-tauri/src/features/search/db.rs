@@ -1,33 +1,34 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::vector_db;
-use crate::shared::{link_parser, markdown_doc};
-use crate::shared::markdown_doc::ParsedNote;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+use crate::features::search::vector_db;
 use crate::features::tasks::service as tasks_service;
 use crate::shared::constants;
+use crate::shared::markdown_doc::ParsedNote;
 use crate::shared::storage;
 use crate::shared::vault_ignore;
+use crate::shared::{link_parser, markdown_doc};
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use specta::Type;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Type)]
 pub struct SuggestionHit {
     pub note: IndexNoteMeta,
     pub score: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Type)]
 pub struct PlannedSuggestionHit {
     pub target_path: String,
     pub ref_count: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Type)]
 pub struct OrphanLink {
     pub target_path: String,
     pub ref_count: i64,
@@ -106,7 +107,6 @@ fn extract_indexable_body(abs: &Path, raw: &str) -> String {
         raw.to_string()
     }
 }
-
 
 pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
     let rel = abs.strip_prefix(vault_root).map_err(|e| e.to_string())?;
@@ -300,14 +300,18 @@ fn is_iso_date(s: &str) -> bool {
     let b = s.as_bytes();
     match b.len() {
         10 => {
-            b[4] == b'-' && b[7] == b'-'
+            b[4] == b'-'
+                && b[7] == b'-'
                 && b[..4].iter().all(|c| c.is_ascii_digit())
                 && b[5..7].iter().all(|c| c.is_ascii_digit())
                 && b[8..10].iter().all(|c| c.is_ascii_digit())
         }
         n if n >= 19 => {
-            b[4] == b'-' && b[7] == b'-' && b[10] == b'T'
-                && b[13] == b':' && b[16] == b':'
+            b[4] == b'-'
+                && b[7] == b'-'
+                && b[10] == b'T'
+                && b[13] == b':'
+                && b[16] == b':'
                 && b[..4].iter().all(|c| c.is_ascii_digit())
                 && b[5..7].iter().all(|c| c.is_ascii_digit())
                 && b[8..10].iter().all(|c| c.is_ascii_digit())
@@ -359,10 +363,7 @@ pub fn upsert_note_parsed(
             }
             serde_yml::Value::Number(n) => (n.to_string(), "number"),
             serde_yml::Value::Bool(b) => (b.to_string(), "boolean"),
-            _ => (
-                serde_json::to_string(&value).unwrap_or_default(),
-                "json",
-            ),
+            _ => (serde_json::to_string(&value).unwrap_or_default(), "json"),
         };
         conn.execute(
             "REPLACE INTO note_properties (path, key, value, type) VALUES (?1, ?2, ?3, ?4)",
@@ -738,9 +739,8 @@ fn index_single_file(
     if is_canvas_file(abs) {
         let body = extract_indexable_body(abs, raw);
         upsert_note(conn, meta, &body)?;
-        let targets =
-            crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
-                .unwrap_or_default();
+        let targets = crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
+            .unwrap_or_default();
         pending_links.push((meta.path.clone(), targets));
     } else {
         let parsed = markdown_doc::parse_note(raw, &meta.path);
@@ -1388,10 +1388,19 @@ mod tests {
         limit: usize,
         offset: usize,
     ) -> crate::features::search::model::BaseQuery {
-        crate::features::search::model::BaseQuery { filters, sort, limit, offset }
+        crate::features::search::model::BaseQuery {
+            filters,
+            sort,
+            limit,
+            offset,
+        }
     }
 
-    fn filter(property: &str, operator: &str, value: &str) -> crate::features::search::model::BaseFilter {
+    fn filter(
+        property: &str,
+        operator: &str,
+        value: &str,
+    ) -> crate::features::search::model::BaseFilter {
         crate::features::search::model::BaseFilter {
             property: property.to_string(),
             operator: operator.to_string(),
@@ -1510,7 +1519,12 @@ mod tests {
     fn rename_note_path_updates_properties_and_tags() {
         let conn = open_mem_db();
         let meta = note("old/note.md", "Old Note");
-        upsert_note(&conn, &meta, "---\nstatus: draft\ntags: [renamed]\n---\nbody").expect("upsert");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\nstatus: draft\ntags: [renamed]\n---\nbody",
+        )
+        .expect("upsert");
 
         rename_note_path(&conn, "old/note.md", "new/note.md").expect("rename");
 
@@ -1547,11 +1561,17 @@ mod tests {
         upsert_note(&conn, &b, "---\nstatus: done\n---\nbody").expect("upsert b");
 
         let props = list_all_properties(&conn).expect("list");
-        let status = props.iter().find(|p| p.name == "status").expect("status key");
+        let status = props
+            .iter()
+            .find(|p| p.name == "status")
+            .expect("status key");
         assert_eq!(status.property_type, "string");
         assert_eq!(status.count, 2);
 
-        let priority = props.iter().find(|p| p.name == "priority").expect("priority key");
+        let priority = props
+            .iter()
+            .find(|p| p.name == "priority")
+            .expect("priority key");
         assert_eq!(priority.property_type, "number");
         assert_eq!(priority.count, 1);
     }
@@ -1636,7 +1656,12 @@ mod tests {
     fn query_bases_filter_by_tag() {
         let conn = open_mem_db();
         upsert_note(&conn, &note("q/a.md", "A"), "---\ntags: [rust]\n---\nbody").expect("a");
-        upsert_note(&conn, &note("q/b.md", "B"), "---\ntags: [python]\n---\nbody").expect("b");
+        upsert_note(
+            &conn,
+            &note("q/b.md", "B"),
+            "---\ntags: [python]\n---\nbody",
+        )
+        .expect("b");
 
         let result = query_bases(
             &conn,
@@ -1665,12 +1690,27 @@ mod tests {
     #[test]
     fn query_bases_filter_by_property_contains() {
         let conn = open_mem_db();
-        upsert_note(&conn, &note("q/a.md", "A"), "---\ntitle_prop: hello world\n---\nbody").expect("a");
-        upsert_note(&conn, &note("q/b.md", "B"), "---\ntitle_prop: goodbye\n---\nbody").expect("b");
+        upsert_note(
+            &conn,
+            &note("q/a.md", "A"),
+            "---\ntitle_prop: hello world\n---\nbody",
+        )
+        .expect("a");
+        upsert_note(
+            &conn,
+            &note("q/b.md", "B"),
+            "---\ntitle_prop: goodbye\n---\nbody",
+        )
+        .expect("b");
 
         let result = query_bases(
             &conn,
-            make_query(vec![filter("title_prop", "contains", "hello")], vec![], 100, 0),
+            make_query(
+                vec![filter("title_prop", "contains", "hello")],
+                vec![],
+                100,
+                0,
+            ),
         )
         .expect("query");
         assert_eq!(result.total, 1);
@@ -1729,11 +1769,8 @@ mod tests {
         upsert_note(&conn, &note("q/a.md", "A"), "---\nrank: 1\n---\nbody").expect("a");
         upsert_note(&conn, &note("q/c.md", "C"), "---\nrank: 3\n---\nbody").expect("c");
 
-        let result = query_bases(
-            &conn,
-            make_query(vec![], vec![sort("rank", false)], 100, 0),
-        )
-        .expect("query");
+        let result = query_bases(&conn, make_query(vec![], vec![sort("rank", false)], 100, 0))
+            .expect("query");
         let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
         assert_eq!(paths, vec!["q/a.md", "q/b.md", "q/c.md"]);
     }
@@ -1745,11 +1782,8 @@ mod tests {
         upsert_note(&conn, &note("q/b.md", "B"), "---\nrank: 2\n---\nbody").expect("b");
         upsert_note(&conn, &note("q/c.md", "C"), "---\nrank: 3\n---\nbody").expect("c");
 
-        let result = query_bases(
-            &conn,
-            make_query(vec![], vec![sort("rank", true)], 100, 0),
-        )
-        .expect("query");
+        let result = query_bases(&conn, make_query(vec![], vec![sort("rank", true)], 100, 0))
+            .expect("query");
         let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
         assert_eq!(paths, vec!["q/c.md", "q/b.md", "q/a.md"]);
     }
@@ -1773,8 +1807,12 @@ mod tests {
     fn query_bases_pagination_limit_and_offset() {
         let conn = open_mem_db();
         for i in 0..5u32 {
-            upsert_note(&conn, &note(&format!("q/{i}.md"), &format!("Note {i}")), "body")
-                .expect("upsert");
+            upsert_note(
+                &conn,
+                &note(&format!("q/{i}.md"), &format!("Note {i}")),
+                "body",
+            )
+            .expect("upsert");
         }
 
         let page1 = query_bases(&conn, make_query(vec![], vec![], 2, 0)).expect("page1");
@@ -1791,9 +1829,24 @@ mod tests {
     #[test]
     fn query_bases_multiple_filters_anded() {
         let conn = open_mem_db();
-        upsert_note(&conn, &note("q/a.md", "A"), "---\nstatus: active\npriority: 1\ntags: [x]\n---\nbody").expect("a");
-        upsert_note(&conn, &note("q/b.md", "B"), "---\nstatus: active\npriority: 2\ntags: [y]\n---\nbody").expect("b");
-        upsert_note(&conn, &note("q/c.md", "C"), "---\nstatus: done\npriority: 1\ntags: [x]\n---\nbody").expect("c");
+        upsert_note(
+            &conn,
+            &note("q/a.md", "A"),
+            "---\nstatus: active\npriority: 1\ntags: [x]\n---\nbody",
+        )
+        .expect("a");
+        upsert_note(
+            &conn,
+            &note("q/b.md", "B"),
+            "---\nstatus: active\npriority: 2\ntags: [y]\n---\nbody",
+        )
+        .expect("b");
+        upsert_note(
+            &conn,
+            &note("q/c.md", "C"),
+            "---\nstatus: done\npriority: 1\ntags: [x]\n---\nbody",
+        )
+        .expect("c");
 
         let result = query_bases(
             &conn,
@@ -1892,7 +1945,10 @@ mod tests {
             .collect::<Result<_, _>>()
             .expect("collect");
 
-        let created = rows.iter().find(|(k, _, _)| k == "created").expect("created");
+        let created = rows
+            .iter()
+            .find(|(k, _, _)| k == "created")
+            .expect("created");
         assert_eq!(created.2, "date");
         assert_eq!(created.1, "2024-03-10T09:00:00");
 
@@ -2143,13 +2199,19 @@ pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>
         .map_err(|e| e.to_string())
 }
 
-pub fn get_note_properties(conn: &Connection, path: &str) -> Result<BTreeMap<String, (String, String)>, String> {
+pub fn get_note_properties(
+    conn: &Connection,
+    path: &str,
+) -> Result<BTreeMap<String, (String, String)>, String> {
     let mut stmt = conn
         .prepare("SELECT key, value, type FROM note_properties WHERE path = ?1")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![path], |row| {
-            Ok((row.get::<_, String>(0)?, (row.get::<_, String>(1)?, row.get::<_, String>(2)?)))
+            Ok((
+                row.get::<_, String>(0)?,
+                (row.get::<_, String>(1)?, row.get::<_, String>(2)?),
+            ))
         })
         .map_err(|e| e.to_string())?;
     rows.collect::<Result<BTreeMap<_, _>, _>>()
@@ -2167,7 +2229,9 @@ pub fn get_note_tags(conn: &Connection, path: &str) -> Result<Vec<String>, Strin
         .map_err(|e| e.to_string())
 }
 
-pub fn list_all_properties(conn: &Connection) -> Result<Vec<crate::features::search::model::PropertyInfo>, String> {
+pub fn list_all_properties(
+    conn: &Connection,
+) -> Result<Vec<crate::features::search::model::PropertyInfo>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT key, type, COUNT(*)
@@ -2204,9 +2268,7 @@ pub fn query_bases(
     ];
     let direct_columns = ["path", "title", "mtime_ms", "size_bytes"];
 
-    let is_direct_col = |prop: &str| {
-        direct_columns.contains(&prop) || stat_columns.contains(&prop)
-    };
+    let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
 
     let mut where_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -2272,7 +2334,11 @@ pub fn query_bases(
 
     let order_sql = if let Some(sort) = query.sort.first() {
         if is_direct_col(&sort.property) {
-            format!("ORDER BY {} {}", sort.property, if sort.descending { "DESC" } else { "ASC" })
+            format!(
+                "ORDER BY {} {}",
+                sort.property,
+                if sort.descending { "DESC" } else { "ASC" }
+            )
         } else {
             format!(
                 "ORDER BY (SELECT value FROM note_properties WHERE path = notes.path AND key = ?{}) {}",
