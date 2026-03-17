@@ -64,11 +64,12 @@
 
 \
 
-### 9. Typographic auto-substitution (arrows, em-dashes, etc.) — NOT STARTED
+### 9. Typographic auto-substitution (arrows, em-dashes, etc.) — IMPLEMENTED
 
 **Symptom:** User wants `->` to auto-convert to `→`, `--` to `—`, etc.
 **Status:** Not tracked. Small editor polish item.
 **Action:** ProseMirror `inputRules` — a handful of regex rules. Small, self-contained. Could be a quick win or a demo plugin for the plugin system (Phase 8).
+**Resolution:** Implemented via `handleTextInput` plugin (same pattern as emoji plugin). Supports 8 substitutions: arrows (`-->` → `→`, `<--` → `←`, `<->` → `↔`, `==>` → `⇒`, `<==` → `⇐`, `<=>` → `⇔`), em dash (`---` → `—`), and ellipsis (`...` → `…`). Skips code blocks and math blocks. Used `---` for em dash (not `--`) to avoid conflict with `-->` arrow. See `carbide/sprints/2026-03-16_typographic_substitution.md` for details.
 
 ### 10. Configurable default note naming (`{YYYY-MM-DD-HHMM}` vs `Untitled`) — NOT STARTED
 
@@ -152,7 +153,7 @@
 **Then (P2 — editor polish, aligns with PRIORITIES.md Tier 2):**
 7\. Contextual Command Palette (already in PRIORITIES.md Tier 2 #1)
 8\. AI streaming + markdown rendering (#12)
-9\. Typographic substitution (#9) — quick win
+9\. ~~Typographic substitution (#9) — quick win~~ DONE
 10\. Configurable note naming (#10)
 
 **Backlog (P3 — new features):**

@@ -86,6 +86,7 @@ import {
   image_width_plugin,
 } from "./image_width_plugin";
 import { emoji_plugin } from "./emoji_plugin";
+import { typography_plugin } from "./typography_plugin";
 import { mark_escape_plugin } from "./mark_escape_plugin";
 import { paired_delimiter_plugin } from "./paired_delimiter_plugin";
 import { slash_command_plugin } from "./slash_command_plugin";
@@ -502,6 +503,7 @@ export function create_milkdown_editor_port(args?: {
         .use(image_toolbar_plugin)
         .use(image_width_plugin)
         .use(emoji_plugin)
+        .use(typography_plugin)
         .use(indent)
         .use(create_link_tooltip_plugin())
         .use(listItemBlockComponent)
