@@ -39,6 +39,7 @@ export type AppMountConfig = {
   bootstrap_default_vault_path: VaultPath | null;
   open_file_after_mount?: string | null;
   window_kind?: "main" | "viewer";
+  bootstrap_as_folder?: boolean;
 };
 
 const RECENT_NOTES_KEY = "recent_notes";
@@ -118,7 +119,10 @@ export class VaultService {
         const default_path = config.bootstrap_default_vault_path;
         const open_revision = await this.begin_open_revision();
         const result = await this.open_vault(
-          () => this.vault_port.open_vault(default_path),
+          () =>
+            config.bootstrap_as_folder
+              ? this.vault_port.open_folder(default_path)
+              : this.vault_port.open_vault(default_path),
           open_revision,
         );
         editor_settings = result.editor_settings;

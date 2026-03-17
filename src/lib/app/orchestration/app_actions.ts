@@ -177,6 +177,7 @@ async function resolve_pending_file_open(
       ...input.default_mount_config,
       bootstrap_default_vault_path: as_vault_path(vault_path),
       open_file_after_mount: relative_path,
+      bootstrap_as_folder: !resolution,
     };
 
     const vault_result = await input.services.vault.initialize(open_config);
@@ -375,7 +376,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
           : file_path.substring(file_path.lastIndexOf("/") + 1);
 
         if (!current_vault_id) {
-          await services.vault.change_vault_by_path(as_vault_path(vault_path));
+          await services.vault.change_folder_by_path(as_vault_path(vault_path));
           await registry.execute(ACTION_IDS.note_open, {
             note_path: as_note_path(relative_path),
             cleanup_if_missing: false,

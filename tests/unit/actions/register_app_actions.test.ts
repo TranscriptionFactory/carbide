@@ -334,11 +334,11 @@ describe("register_app_actions", () => {
       });
     });
 
-    it("opens parent dir as vault when no vault is active and file not in known vault", async () => {
+    it("opens parent dir as folder when no vault is active and file not in known vault", async () => {
       const { registry, services, execute_note_open } = create_harness();
 
       services.vault.resolve_file_to_vault = vi.fn().mockResolvedValue(null);
-      services.vault.change_vault_by_path = vi.fn().mockResolvedValue({
+      services.vault.change_folder_by_path = vi.fn().mockResolvedValue({
         status: "ok",
       });
 
@@ -347,7 +347,7 @@ describe("register_app_actions", () => {
         "/Users/foo/docs/readme.md",
       );
 
-      expect(services.vault.change_vault_by_path).toHaveBeenCalledWith(
+      expect(services.vault.change_folder_by_path).toHaveBeenCalledWith(
         "/Users/foo/docs",
       );
       expect(execute_note_open).toHaveBeenCalledWith({
