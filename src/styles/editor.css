@@ -503,11 +503,30 @@ li[data-item-type="task"][data-checked="false"]::before {
   padding: 0.125rem 0.375rem;
   border-radius: calc(var(--radius) * 0.35);
   transition: all var(--duration-fast) var(--ease-default);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.code-lang-label::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 3.5px solid currentColor;
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) var(--ease-default);
 }
 
 .code-lang-label:hover {
   background: color-mix(in oklch, var(--foreground) 10%, transparent);
   color: var(--foreground);
+}
+
+.code-lang-label:hover::after {
+  opacity: 1;
 }
 
 /* ── Language picker dropdown ── */
@@ -664,19 +683,20 @@ li[data-item-type="task"][data-checked="false"]::before {
   background: color-mix(in oklch, var(--foreground) 8%, transparent);
   color: var(--muted-foreground);
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.6;
   transition:
     opacity var(--duration-normal) var(--ease-default),
     background var(--duration-fast) var(--ease-default);
 }
 
 .code-block-wrapper:hover .code-block-copy {
-  opacity: 1;
+  opacity: 0.8;
 }
 
 .code-block-wrapper .code-block-copy:hover {
   background: color-mix(in oklch, var(--foreground) 15%, transparent);
   color: var(--foreground);
+  opacity: 1;
 }
 
 .code-block-wrapper .code-block-copy--copied {

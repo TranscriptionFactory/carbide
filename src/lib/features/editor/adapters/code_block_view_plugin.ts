@@ -7,6 +7,7 @@ import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 
 const mermaid_svg_cache = new LruCache<string, string>(128);
+let mermaid_initialized_theme: string | null = null;
 
 function resize_icon(svg: string, size: number): string {
   return svg
@@ -147,6 +148,7 @@ type MermaidState = {
   preview_container: HTMLElement;
   toggle_btn: HTMLButtonElement;
   render_timer: ReturnType<typeof setTimeout> | undefined;
+  last_rendered_content: string;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -182,11 +184,15 @@ async function render_mermaid_preview(
       document.documentElement.getAttribute("data-color-scheme") === "dark"
         ? "dark"
         : "default";
-    mermaid.default.initialize({
-      startOnLoad: false,
-      theme,
-      securityLevel: "loose",
-    });
+
+    if (mermaid_initialized_theme !== theme) {
+      mermaid.default.initialize({
+        startOnLoad: false,
+        theme,
+        securityLevel: "loose",
+      });
+      mermaid_initialized_theme = theme;
+    }
 
     const id = `mermaid-${String(Date.now())}`;
     const { svg } = await mermaid.default.render(id, code);
@@ -277,6 +283,7 @@ class CodeBlockView implements NodeView {
       preview_container,
       toggle_btn,
       render_timer: undefined,
+      last_rendered_content: "",
     };
 
     pre.style.display = "none";
@@ -384,7 +391,11 @@ class CodeBlockView implements NodeView {
     }
 
     if (this.mermaid?.is_preview) {
-      this.schedule_mermaid_render();
+      const new_content = updated.textContent;
+      if (new_content !== this.mermaid.last_rendered_content) {
+        this.mermaid.last_rendered_content = new_content;
+        this.schedule_mermaid_render();
+      }
     }
 
     this.node = updated;
