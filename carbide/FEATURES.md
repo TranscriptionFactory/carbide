@@ -15,6 +15,7 @@
 - Right-click context menu: Remove from list, Reveal in Finder
 - Persisted vault order across sessions
 - Single active vault with full store reset on switch
+- Configurable default note naming with strftime templates (`%Y %m %d %H %M %S`), collision suffixes, per-vault setting
 
 ## Editor
 
@@ -23,11 +24,15 @@
 - WYSIWYG Markdown editing with Obsidian-flavored syntax
 - Wiki-links (`[[Note]]`, `[[folder/Note]]`, `[[Note|Label]]`)
 - Slash commands for block insertion
-- Floating table toolbar (insert/delete rows and columns, delete table)
-- Floating image resize toolbar
-- Code block language picker with syntax highlighting
+- Floating table toolbar (insert/delete rows and columns, delete table, cell alignment)
+- Floating image resize toolbar (width applies to DOM)
+- Code block syntax highlighting via Shiki (33 language grammars, auto light/dark theme)
 - Mermaid diagram preview (live render in code blocks)
 - Emoji shortcodes (`:emoji:` expansion)
+- Typographic auto-substitution (6 arrow conversions: `-->` → `→`, `<--` → `←`, `<->` → `↔`, `==>` → `⇒`, `<==` → `⇐`, `<=>` → `⇔`)
+- Date link auto-suggest (`@` trigger with floating popup for Today/Tomorrow/Yesterday → `[[YYYY-MM-DD]]` wiki links)
+- Math/LaTeX support: inline `$expr$` and block `$$expr$$` with KaTeX rendering, `/math` slash command, direct input rules
+- Insert Frontmatter command (adds empty YAML block with `tags` field to notes without frontmatter)
 
 ### Split view
 
@@ -46,6 +51,7 @@
 - Active heading highlighting based on scroll position
 - Debounced live updates (300ms)
 - Right sidebar tab alongside Links panel (`Cmd+Shift+O`)
+- Floating outline mode with collapse/expand toggle (persists across mode changes and vault switches)
 
 ## Document viewer
 
@@ -80,6 +86,7 @@ Multi-format document viewing in the editor pane, dispatched by file extension.
 
 - Auto-commit on save
 - Status bar widget showing branch and dirty state
+- Timestamp-based file watcher suppression (prevents spurious "modified externally" toasts from app-initiated saves)
 
 ### Remote operations
 
@@ -156,6 +163,14 @@ Multi-format document viewing in the editor pane, dispatched by file extension.
 - Graceful degradation on malformed YAML (error state with raw text fallback)
 - Source mode: widget auto-destroyed, raw YAML fences shown
 
+### Tags sidebar panel
+
+- Browsable tag list with counts in activity bar
+- Click tag to see notes, click note to open it
+- Search input for filtering tags
+- Auto-refreshes on index-complete
+- Rust Tauri commands: `tags_list_all`, `tags_get_notes_for_tag`
+
 ### Bases
 
 - Dedicated feature slice: ports, store, service, adapter, panel, table
@@ -166,6 +181,12 @@ Multi-format document viewing in the editor pane, dispatched by file extension.
 - Pagination (limit + offset)
 - `.base` view persistence (save/load JSON definitions)
 - Auto-refresh on vault change via reactor
+
+## Performance
+
+- Async note count on vault open (eliminates blocking WalkDir scan)
+- SQLite PRAGMAs: 8MB cache, 256MB mmap for indexing throughput
+- Browse mode guard: no `.badgerly/` directory creation in non-vault mode
 
 ## macOS integration
 

@@ -51,6 +51,10 @@
 - [x] Test vault switching via dropdown
 - [x] Test "Add Vault" flow from dropdown
 
+### Vault Features
+
+- [x] Configurable default note naming with strftime templates (`%Y %m %d %H %M %S`), per-vault setting with collision suffixes
+
 ### Future: Simultaneous Multi-Vault Sidebar
 
 - [ ] (Deferred) Refactor to show all open vaults as collapsible root nodes in sidebar
@@ -71,6 +75,7 @@
 - [x] Active heading highlighting (track scroll position)
 - [x] Add Outline tab to right sidebar (alongside Links panel)
 - [x] Hotkey: `Cmd+Shift+O` to toggle outline panel
+- [x] Floating outline mode with collapse/expand toggle (persists across mode/vault changes)
 
 ### Reference
 
@@ -213,6 +218,7 @@
 - [x] Inline tag input (replaces `prompt()`)
 - [x] Graceful degradation on malformed YAML
 - [x] Source mode fallback via NodeView lifecycle
+- [x] Insert Frontmatter command (command palette: "Insert Frontmatter" — adds YAML block with `tags` field for notes without frontmatter)
 
 ### Phase 3B: Bases Query Surface — COMPLETED
 
@@ -303,6 +309,8 @@
 - [x] Style math blocks to match editor theme
 - [x] Exclude math nodes from wiki-link and slash-command processing
 - [x] Add `/math` slash command
+- [x] Add math input rules for typing `$...$` and `$$...$$` directly in the editor
+- [x] Protect math blocks in line break preprocessing
 - [x] Add to help data: inline math `$expr$`, block math `$$expr$$`
 - [x] Unit tests for slash command exclusion and wikilink exclusion
 
@@ -357,6 +365,9 @@
 
 - [x] Table cell alignment support (Milkdown GFM schema investigation needed)
 - [x] Image width application to actual DOM (sets attr but needs CSS hookup)
+- [x] Shiki syntax highlighting for code blocks (replaces Prism; 33 language grammars, auto light/dark theme)
+- [x] Typographic auto-substitution (6 arrow conversions; em dash/ellipsis excluded — Markdown conflicts)
+- [x] Date link auto-suggest (`@`-trigger with floating popup for date presets → `[[YYYY-MM-DD]]` wiki links)
 - [ ] Mermaid serial render queue + stale result guard
 - [ ] Mermaid theme re-render on color scheme change (MutationObserver)
 

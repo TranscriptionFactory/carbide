@@ -152,11 +152,11 @@ For later (no plan to implement)
 
 ## Recommended Attack Order
 
-**Immediate (P0 — regressions/data bugs):**
+**Immediate (P0 — regressions/data bugs):** ALL DONE
 
-1. File-modified race condition (#1) — data loss risk
-2. LaTeX regression (#2) — completed feature now broken
-3. `.badgerly` folder leak (#3) — trust violation
+~~1. File-modified race condition (#1) — data loss risk~~ DONE
+~~2. LaTeX regression (#2) — completed feature now broken~~ DONE
+~~3. `.badgerly` folder leak (#3) — trust violation~~ DONE
 
 **Next sprint (P1 — core UX):**
 
