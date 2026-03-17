@@ -25,6 +25,7 @@ import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_task_tauri_adapter } from "$lib/features/task";
 import { PluginHostAdapter } from "$lib/features/plugin";
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
+import { create_tag_tauri_adapter } from "$lib/features/tags";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -70,5 +71,6 @@ export function create_prod_ports(): Ports {
     task,
     plugin,
     canvas: create_canvas_tauri_adapter(),
+    tag: create_tag_tauri_adapter(),
   };
 }

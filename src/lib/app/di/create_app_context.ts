@@ -44,6 +44,7 @@ import { WatcherService } from "$lib/features/watcher";
 import { TaskService } from "$lib/features/task";
 import { PluginService, register_plugin_actions } from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
+import { TagService, register_tag_actions } from "$lib/features/tags";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -291,6 +292,8 @@ export function create_app_context(input: {
     now_ms,
   );
 
+  const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -379,6 +382,8 @@ export function create_app_context(input: {
     ...base_action_input,
     canvas_service,
   });
+
+  register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
 
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,

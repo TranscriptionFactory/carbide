@@ -7,6 +7,7 @@
     CircleHelp,
     Network,
     ListChecks,
+    Tag,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
 
@@ -16,6 +17,7 @@
     | "starred"
     | "graph"
     | "tasks"
+    | "tags"
     | string;
 
   type Props = {
@@ -28,6 +30,7 @@
     on_open_starred: () => void;
     on_open_graph: () => void;
     on_open_tasks: () => void;
+    on_open_tags: () => void;
     on_open_dynamic: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
@@ -43,6 +46,7 @@
     on_open_starred,
     on_open_graph,
     on_open_tasks,
+    on_open_tags,
     on_open_dynamic,
     on_open_help,
     on_open_settings,
@@ -98,6 +102,18 @@
         aria-label="Tasks"
       >
         <ListChecks class="ActivityBar__icon" />
+      </button>
+
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === "tags"}
+        onclick={on_open_tags}
+        aria-pressed={sidebar_open && active_view === "tags"}
+        aria-label="Tags"
+      >
+        <Tag class="ActivityBar__icon" />
       </button>
 
       <button

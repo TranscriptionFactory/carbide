@@ -19,6 +19,7 @@
   import { FloatingOutline } from "$lib/features/outline";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
+  import { TagPanel } from "$lib/features/tags";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
@@ -293,6 +294,16 @@
               "tasks",
             );
           }}
+          on_open_tags={() => {
+            if (stores.ui.sidebar_open && stores.ui.sidebar_view === "tags") {
+              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+              return;
+            }
+            void action_registry.execute(
+              ACTION_IDS.ui_set_sidebar_view,
+              "tags",
+            );
+          }}
           on_open_dynamic={(id) => {
             if (stores.ui.sidebar_open && stores.ui.sidebar_view === id) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
@@ -556,6 +567,14 @@
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <TaskPanel />
+                      </Sidebar.GroupContent>
+                    </Sidebar.Group>
+                  {/if}
+
+                  {#if is_vault_mode && stores.ui.sidebar_view === "tags"}
+                    <Sidebar.Group class="h-full">
+                      <Sidebar.GroupContent class="h-full">
+                        <TagPanel />
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
                   {/if}

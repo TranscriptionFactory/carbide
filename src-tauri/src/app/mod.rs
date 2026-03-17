@@ -153,6 +153,8 @@ pub fn run() {
             features::bases::service::bases_query,
             features::bases::service::bases_save_view,
             features::bases::service::bases_load_view,
+            features::tags::service::tags_list_all,
+            features::tags::service::tags_get_notes_for_tag,
             features::tasks::tasks_query,
             features::tasks::tasks_get_for_note,
             features::tasks::tasks_update_state,
