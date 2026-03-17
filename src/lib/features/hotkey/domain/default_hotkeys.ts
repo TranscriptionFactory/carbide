@@ -316,7 +316,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   },
   {
     action_id: ACTION_IDS.editor_toggle_frontmatter,
-    key: "CmdOrCtrl+Shift+P",
+    key: "CmdOrCtrl+P",
     phase: "capture",
     label: "Toggle Properties",
     description: "Show or hide the front matter properties panel",
