@@ -3,6 +3,7 @@
     GitBranch,
     ArrowUp,
     ArrowDown,
+    ArrowUpDown,
     RefreshCw,
     Link,
   } from "@lucide/svelte";
@@ -23,6 +24,7 @@
     on_fetch: () => void;
     on_push: () => void;
     on_pull: () => void;
+    on_sync: () => void;
     on_add_remote: () => void;
   }
 
@@ -40,6 +42,7 @@
     on_fetch,
     on_push,
     on_pull,
+    on_sync,
     on_add_remote,
   }: Props = $props();
 
@@ -148,6 +151,26 @@
             </Tooltip.Trigger>
             <Tooltip.Content side="top" sideOffset={4}>
               Push{ahead > 0 ? ` (${ahead} ahead)` : ""}
+            </Tooltip.Content>
+          </Tooltip.Root>
+
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <button
+                  {...props}
+                  type="button"
+                  class="GitStatusGroup__btn"
+                  onclick={on_sync}
+                  disabled={is_syncing}
+                  aria-label="Git sync (commit all, pull, push)"
+                >
+                  <ArrowUpDown class="GitStatusGroup__btn-icon" />
+                </button>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="top" sideOffset={4}>
+              Sync (commit all + pull + push)
             </Tooltip.Content>
           </Tooltip.Root>
         </Tooltip.Provider>

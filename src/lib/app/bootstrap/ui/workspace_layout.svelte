@@ -855,6 +855,7 @@
         on_git_fetch={() => void action_registry.execute(ACTION_IDS.git_fetch)}
         on_git_push={() => void action_registry.execute(ACTION_IDS.git_push)}
         on_git_pull={() => void action_registry.execute(ACTION_IDS.git_pull)}
+        on_git_sync={() => void action_registry.execute(ACTION_IDS.git_sync)}
         on_git_add_remote={() =>
           void action_registry.execute(ACTION_IDS.git_add_remote)}
         on_sync_click={() =>

@@ -38,6 +38,7 @@
     on_git_fetch: () => void;
     on_git_push: () => void;
     on_git_pull: () => void;
+    on_git_sync: () => void;
     on_git_add_remote: () => void;
     on_sync_click: () => void;
     on_mode_toggle: () => void;
@@ -73,6 +74,7 @@
     on_git_fetch,
     on_git_push,
     on_git_pull,
+    on_git_sync,
     on_git_add_remote,
     on_sync_click,
     on_mode_toggle,
@@ -236,6 +238,7 @@
         on_fetch={on_git_fetch}
         on_push={on_git_push}
         on_pull={on_git_pull}
+        on_sync={on_git_sync}
         on_add_remote={on_git_add_remote}
       />
     {/if}

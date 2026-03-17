@@ -2578,8 +2578,8 @@
   .SettingsDialog__nav {
     display: flex;
     flex-direction: column;
-    width: 12rem;
-    min-width: 12rem;
+    width: 9rem;
+    min-width: 9rem;
     padding: var(--space-3);
     gap: var(--space-0-5);
     border-inline-end: 1px solid var(--border);

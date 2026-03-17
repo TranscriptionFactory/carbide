@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
@@ -202,11 +202,19 @@ export function create_wiki_suggest_prose_plugin(
     const item = state.items[index];
     if (!item) return;
     const target = format_wiki_display(item.path);
-    const replacement = `[[${target}`;
+    const replacement = `[[${target}]]`;
+    const selection_from = view.state.selection.from;
+    const replace_to = Math.min(
+      selection_from + 2,
+      view.state.doc.content.size,
+    );
     const tr = view.state.tr.replaceWith(
       state.from,
-      view.state.selection.from,
+      replace_to,
       view.state.schema.text(replacement),
+    );
+    tr.setSelection(
+      TextSelection.create(tr.doc, state.from + replacement.length),
     );
     tr.setMeta(wiki_suggest_plugin_key, EMPTY_STATE);
     view.dispatch(tr);

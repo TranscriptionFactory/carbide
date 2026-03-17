@@ -7,7 +7,7 @@
     CircleHelp,
     Network,
     ListChecks,
-    Tag,
+    Hash,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
 
@@ -113,7 +113,7 @@
         aria-pressed={sidebar_open && active_view === "tags"}
         aria-label="Tags"
       >
-        <Tag class="ActivityBar__icon" />
+        <Hash class="ActivityBar__icon" />
       </button>
 
       <button
