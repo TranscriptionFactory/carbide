@@ -100,6 +100,7 @@ const parser_tokens: Record<string, ParseSpec> = {
     noCloseToken: true,
   },
 
+  front_matter: { ignore: true, noCloseToken: true },
   table: { block: "table" },
   thead: { ignore: true },
   tbody: { ignore: true },
