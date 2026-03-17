@@ -1,7 +1,7 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { onMount } from "svelte";
-  import Tag from "@lucide/svelte/icons/tag";
+  import Tag from "@lucide/svelte/icons/hash";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Search from "@lucide/svelte/icons/search";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";

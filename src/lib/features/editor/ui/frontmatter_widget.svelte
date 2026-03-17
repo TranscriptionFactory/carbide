@@ -3,7 +3,7 @@
   import { type Node as ProseNode } from "prosemirror-model";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
-  import Tag from "@lucide/svelte/icons/tag";
+  import Tag from "@lucide/svelte/icons/hash";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import yaml from "js-yaml";
   import * as Switch from "$lib/components/ui/switch/index.js";

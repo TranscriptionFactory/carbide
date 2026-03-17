@@ -13,10 +13,15 @@ function make_state_with_plugin(text: string): EditorState {
   const doc = schema.nodes.doc.create(null, [para]);
   const state = EditorState.create({ doc, plugins: [plugin] });
   const pos = 1 + text.length;
-  return state.apply(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+  return state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, pos)),
+  );
 }
 
-function trigger_input_rule(prefix: string, final_char: string): EditorState | null {
+function trigger_input_rule(
+  prefix: string,
+  final_char: string,
+): EditorState | null {
   const state = make_state_with_plugin(prefix);
   const plugin = state.plugins[0];
   const { from } = state.selection;
@@ -29,7 +34,12 @@ function trigger_input_rule(prefix: string, final_char: string): EditorState | n
     },
   } as unknown as import("prosemirror-view").EditorView;
 
-  const handled = plugin.props.handleTextInput?.(mock_view, from, from, final_char);
+  const handled = plugin.props.handleTextInput?.(
+    mock_view,
+    from,
+    from,
+    final_char,
+  );
   if (!handled || !dispatched) return null;
 
   return state.apply(dispatched);

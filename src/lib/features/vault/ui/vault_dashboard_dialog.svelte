@@ -7,7 +7,7 @@
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
   import ClockIcon from "@lucide/svelte/icons/clock";
-  import TagsIcon from "@lucide/svelte/icons/tags";
+  import TagsIcon from "@lucide/svelte/icons/hash";
   import InboxIcon from "@lucide/svelte/icons/inbox";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
