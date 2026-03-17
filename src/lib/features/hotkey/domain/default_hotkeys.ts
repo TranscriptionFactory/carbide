@@ -4,7 +4,7 @@ import type { HotkeyBinding } from "$lib/features/hotkey/types/hotkey_config";
 export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   {
     action_id: ACTION_IDS.omnibar_toggle,
-    key: "CmdOrCtrl+P",
+    key: "CmdOrCtrl+Shift+P",
     phase: "capture",
     label: "Command Palette",
     description: "Open or close the command palette",
@@ -312,6 +312,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     phase: "capture",
     label: "Toggle Editor Mode",
     description: "Switch between visual and source editing modes",
+    category: "editing",
+  },
+  {
+    action_id: ACTION_IDS.editor_toggle_frontmatter,
+    key: "CmdOrCtrl+Shift+P",
+    phase: "capture",
+    label: "Toggle Properties",
+    description: "Show or hide the front matter properties panel",
     category: "editing",
   },
 ];
