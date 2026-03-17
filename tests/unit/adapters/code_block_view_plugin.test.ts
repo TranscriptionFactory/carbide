@@ -79,7 +79,7 @@ describe("CodeBlockView", () => {
 
       const toggle_btn = get_mermaid_toggle_btn(container!);
       expect(toggle_btn).not.toBeNull();
-      expect(toggle_btn?.textContent).toBe("Preview");
+      expect(toggle_btn?.textContent).toBe("Edit");
 
       view.destroy();
     });

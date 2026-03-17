@@ -473,6 +473,7 @@ li[data-item-type="task"][data-checked="false"]::before {
 /* ── Code block toolbar ── */
 
 .code-block-wrapper .code-block-toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -254,11 +254,15 @@ class CodeBlockView implements NodeView {
       this.setup_mermaid(pre);
     }
 
-    this.dom.addEventListener("keydown", (e) => {
-      if (this.handle_keydown(e)) {
-        e.stopPropagation();
-      }
-    });
+    this.dom.addEventListener(
+      "keydown",
+      (e) => {
+        if (this.handle_keydown(e)) {
+          e.stopPropagation();
+        }
+      },
+      true,
+    );
   }
 
   private setup_mermaid(pre: HTMLElement) {
@@ -268,7 +272,7 @@ class CodeBlockView implements NodeView {
     const toggle_btn = document.createElement("button");
     toggle_btn.className = "mermaid-toggle-btn";
     toggle_btn.type = "button";
-    toggle_btn.textContent = "Preview";
+    toggle_btn.textContent = "Edit";
     toggle_btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -411,7 +415,7 @@ class CodeBlockView implements NodeView {
     });
 
     document.body.appendChild(this.backdrop_el);
-    this.dom.appendChild(this.picker_el);
+    this.toolbar.appendChild(this.picker_el);
   }
 
   private dismiss_picker() {
