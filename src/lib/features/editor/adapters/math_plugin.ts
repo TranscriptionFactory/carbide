@@ -76,7 +76,7 @@ class MathBlockNodeView implements NodeView {
     if (updated.type.name !== "math_block") return false;
     if (updated.attrs["value"] !== this.node.attrs["value"]) {
       this.node = updated;
-      if (this.svelte_app) unmount(this.svelte_app);
+      if (this.svelte_app) void unmount(this.svelte_app);
       this.svelte_app = mount(MathBlockEditor, {
         target: this.dom,
         props: {
@@ -93,7 +93,7 @@ class MathBlockNodeView implements NodeView {
 
   destroy() {
     if (this.svelte_app) {
-      unmount(this.svelte_app);
+      void unmount(this.svelte_app);
     }
   }
 

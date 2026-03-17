@@ -56,7 +56,7 @@ export function get_current_column_alignment(
   const { state } = view;
   try {
     const $cell = selectionCell(state);
-    const alignment = $cell.nodeAfter?.attrs["alignment"];
+    const alignment = $cell.nodeAfter?.attrs["alignment"] as string | undefined;
     if (alignment === "center" || alignment === "right") return alignment;
   } catch {
     // not in a table cell

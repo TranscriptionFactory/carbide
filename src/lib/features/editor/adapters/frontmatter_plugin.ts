@@ -6,7 +6,7 @@ import FrontmatterWidget from "../ui/frontmatter_widget.svelte";
 
 class FrontmatterNodeView implements NodeView {
   dom: HTMLElement;
-  private svelte_app: any;
+  private svelte_app: Record<string, unknown> | undefined;
 
   constructor(
     private node: ProseNode,
@@ -34,7 +34,7 @@ class FrontmatterNodeView implements NodeView {
 
   destroy() {
     if (this.svelte_app) {
-      unmount(this.svelte_app);
+      void unmount(this.svelte_app);
     }
   }
 
