@@ -726,6 +726,8 @@
                         matches={stores.search.in_file_matches}
                         selected_match_index={stores.ui.find_in_file
                           .selected_match_index}
+                        show_replace={stores.ui.find_in_file.show_replace}
+                        replace_text={stores.ui.find_in_file.replace_text}
                         on_query_change={(query: string) =>
                           void action_registry.execute(
                             ACTION_IDS.find_in_file_set_query,
@@ -742,6 +744,23 @@
                         on_close={() =>
                           void action_registry.execute(
                             ACTION_IDS.find_in_file_close,
+                          )}
+                        on_toggle_replace={() =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_toggle_replace,
+                          )}
+                        on_replace_text_change={(text: string) =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_set_replace_text,
+                            text,
+                          )}
+                        on_replace_one={() =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_replace_one,
+                          )}
+                        on_replace_all={() =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_replace_all,
                           )}
                       />
                       <div

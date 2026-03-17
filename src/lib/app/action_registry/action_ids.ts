@@ -135,6 +135,10 @@ export const ACTION_IDS = {
   find_in_file_set_query: "find_in_file.set_query",
   find_in_file_next: "find_in_file.next",
   find_in_file_prev: "find_in_file.prev",
+  find_in_file_toggle_replace: "find_in_file.toggle_replace",
+  find_in_file_set_replace_text: "find_in_file.set_replace_text",
+  find_in_file_replace_one: "find_in_file.replace_one",
+  find_in_file_replace_all: "find_in_file.replace_all",
 
   tab_close: "tab.close",
   tab_close_other: "tab.close_other",

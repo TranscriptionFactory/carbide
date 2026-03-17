@@ -7,6 +7,8 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     open: false,
     query: "",
     selected_match_index: 0,
+    replace_text: "",
+    show_replace: false,
   } as const;
 
   function update_find_state(
@@ -94,6 +96,58 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     shortcut: "Shift+CmdOrCtrl+G",
     execute: () => {
       move_selection(-1);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_toggle_replace,
+    label: "Find and Replace",
+    shortcut: "CmdOrCtrl+H",
+    execute: () => {
+      const currently_showing = stores.ui.find_in_file.show_replace;
+      update_find_state({ open: true, show_replace: !currently_showing });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_set_replace_text,
+    label: "Set Replace Text",
+    execute: (text: unknown) => {
+      update_find_state({ replace_text: String(text) });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_replace_one,
+    label: "Replace",
+    execute: () => {
+      const { selected_match_index, query, replace_text } =
+        stores.ui.find_in_file;
+      const total = stores.search.in_file_matches.length;
+      if (total === 0) return;
+      services.editor.replace_at_match(selected_match_index, replace_text);
+      const markdown = services.editor.get_markdown();
+      const matches = services.search.search_within_file(markdown, query);
+      stores.search.set_in_file_matches(matches);
+      const new_index =
+        matches.length > 0
+          ? Math.min(selected_match_index, matches.length - 1)
+          : 0;
+      update_find_state({ selected_match_index: new_index });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_replace_all,
+    label: "Replace All",
+    execute: () => {
+      const { query, replace_text } = stores.ui.find_in_file;
+      if (stores.search.in_file_matches.length === 0) return;
+      services.editor.replace_all_matches(replace_text);
+      const markdown = services.editor.get_markdown();
+      const matches = services.search.search_within_file(markdown, query);
+      stores.search.set_in_file_matches(matches);
+      update_find_state({ selected_match_index: 0 });
     },
   });
 }

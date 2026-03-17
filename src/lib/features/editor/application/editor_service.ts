@@ -270,6 +270,18 @@ export class EditorService {
     this.session?.update_find_state?.(query, selected_index);
   }
 
+  replace_at_match(match_index: number, replacement: string) {
+    this.session?.replace_at_match?.(match_index, replacement);
+  }
+
+  replace_all_matches(replacement: string) {
+    this.session?.replace_all_matches?.(replacement);
+  }
+
+  get_markdown(): string {
+    return this.session?.get_markdown() ?? "";
+  }
+
   scroll_to_position(pos: number) {
     this.session?.scroll_to_position?.(pos);
   }

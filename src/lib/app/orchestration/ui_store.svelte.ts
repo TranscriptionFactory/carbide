@@ -99,6 +99,8 @@ const INITIAL_FIND_IN_FILE = {
   open: false,
   query: "",
   selected_match_index: 0,
+  replace_text: "",
+  show_replace: false,
 } as const;
 
 const INITIAL_IMAGE_PASTE_DIALOG = {
@@ -301,6 +303,8 @@ export class UIStore {
     open: boolean;
     query: string;
     selected_match_index: number;
+    replace_text: string;
+    show_replace: boolean;
   }>({ ...INITIAL_FIND_IN_FILE });
 
   filetree = $state<{

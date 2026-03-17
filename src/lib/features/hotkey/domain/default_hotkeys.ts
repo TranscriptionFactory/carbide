@@ -267,6 +267,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
+    action_id: ACTION_IDS.find_in_file_toggle_replace,
+    key: "CmdOrCtrl+H",
+    phase: "capture",
+    label: "Find and Replace",
+    description: "Open find and replace bar",
+    category: "editing",
+  },
+  {
     action_id: ACTION_IDS.terminal_toggle,
     key: "CmdOrCtrl+Shift+`",
     phase: "capture",
