@@ -237,6 +237,12 @@ export const ACTION_IDS = {
   canvas_repair_refs: "canvas.repair_refs",
 
   links_insert_suggested_link: "links.insert_suggested_link",
+
+  tags_refresh: "tags.refresh",
+  tags_select: "tags.select",
+  tags_open_note: "tags.open_note",
+  tags_set_search_query: "tags.set_search_query",
+  tags_toggle_panel: "tags.toggle_panel",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];
