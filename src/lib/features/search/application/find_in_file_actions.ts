@@ -14,14 +14,14 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
   function update_find_state(
     patch: Partial<ActionRegistrationInput["stores"]["ui"]["find_in_file"]>,
   ) {
-    stores.ui.find_in_file = {
-      ...stores.ui.find_in_file,
-      ...patch,
-    };
+    const state = stores.ui.find_in_file;
+    for (const key of Object.keys(patch) as Array<keyof typeof patch>) {
+      (state as Record<string, unknown>)[key] = patch[key];
+    }
   }
 
   function close_find() {
-    stores.ui.find_in_file = { ...CLOSED_FIND_STATE };
+    update_find_state(CLOSED_FIND_STATE);
     stores.search.clear_in_file_matches();
   }
 

@@ -390,12 +390,14 @@ fn handle_upsert(
         }
         Err(e) => return Err(e.to_string()),
     };
-    let meta = search_db::extract_meta(&abs, vault_root)?;
+    let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
+    let parsed = crate::features::search::markdown_doc::parse_note(&markdown, &meta.path);
+    meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
 
-    search_db::upsert_note(conn, &meta, &markdown)?;
+    search_db::upsert_note_parsed(conn, &meta, &markdown, &parsed)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
 
-    let targets = search_db::internal_link_targets(&markdown, &meta.path);
+    let targets = parsed.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
     for target in targets {
         if target != meta.path {

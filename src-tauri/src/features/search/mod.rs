@@ -3,6 +3,7 @@ pub mod embeddings;
 pub mod frontmatter;
 pub mod hybrid;
 pub mod link_parser;
+pub mod markdown_doc;
 pub mod model;
 pub mod service;
 pub mod vector_db;

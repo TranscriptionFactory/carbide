@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { InFileMatch } from "$lib/shared/types/search";
   import ChevronUpIcon from "@lucide/svelte/icons/chevron-up";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
@@ -52,10 +53,8 @@
 
   $effect(() => {
     if (!open) return;
-    const ref = input_ref;
-    if (!ref) return;
     setTimeout(() => {
-      ref.focus();
+      untrack(() => input_ref)?.focus();
     }, 0);
   });
 

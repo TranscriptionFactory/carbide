@@ -1,5 +1,6 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::{frontmatter, link_parser, vector_db};
+use crate::features::search::{link_parser, markdown_doc, vector_db};
+use crate::features::search::markdown_doc::ParsedNote;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
 use crate::features::tasks::service as tasks_service;
 use crate::shared::constants;
@@ -41,6 +42,7 @@ pub(crate) fn wiki_link_targets(markdown: &str, source_path: &str) -> Vec<String
     link_parser::wiki_link_targets(markdown, source_path)
 }
 
+#[allow(dead_code)]
 pub(crate) fn internal_link_targets(markdown: &str, source_path: &str) -> Vec<String> {
     link_parser::internal_link_targets(markdown, source_path)
 }
@@ -104,29 +106,27 @@ fn extract_indexable_body(abs: &Path, raw: &str) -> String {
     }
 }
 
-fn extract_link_targets(abs: &Path, raw: &str, source_path: &str) -> Vec<String> {
-    if is_canvas_file(abs) {
-        crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
-            .unwrap_or_default()
-    } else {
-        internal_link_targets(raw, source_path)
-    }
-}
 
-pub(crate) fn extract_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
+pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
     let rel = abs.strip_prefix(vault_root).map_err(|e| e.to_string())?;
     let rel = storage::normalize_relative_path(rel);
-    let title = notes_service::extract_title(abs);
     let name = file_stem_string(abs);
     let (mtime_ms, size_bytes) = notes_service::file_meta(abs)?;
     Ok(IndexNoteMeta {
         id: rel.clone(),
         path: rel,
-        title,
+        title: name.clone(),
         name,
         mtime_ms,
         size_bytes,
     })
+}
+
+#[allow(dead_code)]
+pub(crate) fn extract_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
+    let mut meta = extract_file_meta(abs, vault_root)?;
+    meta.title = notes_service::extract_title(abs);
+    Ok(meta)
 }
 
 fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -299,12 +299,12 @@ fn is_iso_date(s: &str) -> bool {
     }
 }
 
-pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
-    let content = frontmatter::strip_frontmatter(body);
-    let word_count = content.split_whitespace().count() as i64;
-    let char_count = content.len() as i64;
-    let heading_count = content.lines().filter(|l| l.starts_with('#')).count() as i64;
-    let reading_time_secs = (word_count as f64 / 238.0 * 60.0) as i64;
+pub fn upsert_note_parsed(
+    conn: &Connection,
+    meta: &IndexNoteMeta,
+    raw_markdown: &str,
+    parsed: &ParsedNote,
+) -> Result<(), String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -312,7 +312,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
 
     conn.execute(
         "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms],
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, parsed.word_count, parsed.char_count, parsed.heading_count, parsed.reading_time_secs, now_ms],
     )
     .map_err(|e| e.to_string())?;
 
@@ -321,11 +321,9 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
 
     conn.execute(
         "INSERT INTO notes_fts (title, name, path, body) VALUES (?1, ?2, ?3, ?4)",
-        params![meta.title, meta.name, meta.path, body],
+        params![meta.title, meta.name, meta.path, raw_markdown],
     )
     .map_err(|e| e.to_string())?;
-
-    let fm = frontmatter::extract_frontmatter(body);
 
     conn.execute(
         "DELETE FROM note_properties WHERE path = ?1",
@@ -333,11 +331,11 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
     )
     .map_err(|e| e.to_string())?;
 
-    for (key, value) in fm.properties {
+    for (key, value) in &parsed.frontmatter.properties {
         let (val_str, val_type) = match value {
             serde_yml::Value::String(s) => {
-                let t = if is_iso_date(&s) { "date" } else { "string" };
-                (s, t)
+                let t = if is_iso_date(s) { "date" } else { "string" };
+                (s.clone(), t)
             }
             serde_yml::Value::Number(n) => (n.to_string(), "number"),
             serde_yml::Value::Bool(b) => (b.to_string(), "boolean"),
@@ -356,7 +354,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
     conn.execute("DELETE FROM note_tags WHERE path = ?1", params![meta.path])
         .map_err(|e| e.to_string())?;
 
-    for tag in fm.tags {
+    for tag in &parsed.frontmatter.tags {
         conn.execute(
             "REPLACE INTO note_tags (path, tag) VALUES (?1, ?2)",
             params![meta.path, tag],
@@ -364,10 +362,14 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
         .map_err(|e| e.to_string())?;
     }
 
-    let tasks = tasks_service::extract_tasks(&meta.path, body);
-    tasks_service::save_tasks(conn, &meta.path, &tasks)?;
+    tasks_service::save_tasks(conn, &meta.path, &parsed.tasks)?;
 
     Ok(())
+}
+
+pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
+    let parsed = markdown_doc::parse_note(body, &meta.path);
+    upsert_note_parsed(conn, meta, body, &parsed)
 }
 
 pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
@@ -616,17 +618,15 @@ pub fn rebuild_index(
                     continue;
                 }
             };
-            let meta = match extract_meta(abs, vault_root) {
+            let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
                     log::warn!("skip {}: {}", abs.display(), e);
                     continue;
                 }
             };
-            let body = extract_indexable_body(abs, &raw);
-            upsert_note(conn, &meta, &body)?;
-            let targets = extract_link_targets(abs, &raw, &meta.path);
-            pending_links.push((meta.path.clone(), targets));
+
+            index_single_file(conn, abs, &raw, &mut meta, &mut pending_links)?;
         }
 
         resolve_batch_outlinks(conn, &pending_links)?;
@@ -636,6 +636,30 @@ pub fn rebuild_index(
     }
 
     Ok(IndexResult { total, indexed })
+}
+
+fn index_single_file(
+    conn: &Connection,
+    abs: &Path,
+    raw: &str,
+    meta: &mut IndexNoteMeta,
+    pending_links: &mut Vec<(String, Vec<String>)>,
+) -> Result<(), String> {
+    if is_canvas_file(abs) {
+        let body = extract_indexable_body(abs, raw);
+        upsert_note(conn, meta, &body)?;
+        let targets =
+            crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
+                .unwrap_or_default();
+        pending_links.push((meta.path.clone(), targets));
+    } else {
+        let parsed = markdown_doc::parse_note(raw, &meta.path);
+        meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
+        upsert_note_parsed(conn, meta, raw, &parsed)?;
+        let targets = parsed.links.all_internal_targets();
+        pending_links.push((meta.path.clone(), targets));
+    }
+    Ok(())
 }
 
 pub fn sync_index(
@@ -717,17 +741,15 @@ pub fn sync_index(
                     continue;
                 }
             };
-            let meta = match extract_meta(abs, vault_root) {
+            let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
                     log::warn!("skip {}: {}", abs.display(), e);
                     continue;
                 }
             };
-            let body = extract_indexable_body(abs, &raw);
-            upsert_note(conn, &meta, &body)?;
-            let targets = extract_link_targets(abs, &raw, &meta.path);
-            pending_links.push((meta.path.clone(), targets));
+
+            index_single_file(conn, abs, &raw, &mut meta, &mut pending_links)?;
         }
 
         resolve_batch_outlinks(conn, &pending_links)?;

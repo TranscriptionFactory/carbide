@@ -182,11 +182,23 @@ Multi-format document viewing in the editor pane, dispatched by file extension.
 - `.base` view persistence (save/load JSON definitions)
 - Auto-refresh on vault change via reactor
 
+## Backend architecture
+
+### Shared markdown AST (`markdown_doc`)
+
+- Single-pass parsed note representation (`ParsedNote`) consumed by all Rust features
+- Comrak-based AST walk extracts headings, links (wiki + markdown + external), and text stats in one pass
+- Frontmatter parsing (YAML), task extraction (regex), and link resolution reuse existing tested modules
+- Eliminates redundant file reads (title extraction no longer re-reads from disk) and duplicate frontmatter scans during indexing
+- `parse_note()` is the single entry point; `upsert_note_parsed()` accepts pre-parsed data for the indexing hot path
+- `markdown_options()` shared between `markdown_doc` and `link_parser` for consistent comrak configuration
+
 ## Performance
 
 - Async note count on vault open (eliminates blocking WalkDir scan)
 - SQLite PRAGMAs: 8MB cache, 256MB mmap for indexing throughput
 - Browse mode guard: no `.badgerly/` directory creation in non-vault mode
+- Single-pass markdown parsing during indexing (shared AST eliminates redundant comrak, frontmatter, and string-scan passes)
 
 ## macOS integration
 

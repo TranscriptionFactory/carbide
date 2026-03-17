@@ -22,14 +22,10 @@ struct ParsedLinks {
     external_links: Vec<ExternalLink>,
 }
 
+use super::markdown_doc;
+
 fn markdown_options() -> Options<'static> {
-    let mut options = Options::default();
-    options.extension.autolink = true;
-    options.extension.table = true;
-    options.extension.tasklist = true;
-    options.extension.strikethrough = true;
-    options.extension.wikilinks_title_after_pipe = true;
-    options
+    markdown_doc::markdown_options()
 }
 
 fn hex_nibble(byte: u8) -> Option<u8> {
@@ -61,7 +57,7 @@ fn decode_percent_sequences(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-fn is_external_url(value: &str) -> bool {
+pub(crate) fn is_external_url(value: &str) -> bool {
     let trimmed = value.trim();
     let Some((scheme, _)) = trimmed.split_once(':') else {
         return false;
@@ -222,7 +218,7 @@ pub(crate) fn resolve_wiki_target(source_path: &str, raw_target: &str) -> Option
     resolve_relative_path(base_dir, &candidate)
 }
 
-fn collect_plain_text<'a>(node: &'a AstNode<'a>) -> String {
+pub(crate) fn collect_plain_text<'a>(node: &'a AstNode<'a>) -> String {
     let mut out = String::new();
     for descendant in node.descendants().skip(1) {
         match &descendant.data.borrow().value {
@@ -250,7 +246,7 @@ fn ends_with_unescaped_bang(value: &str) -> bool {
     slash_count % 2 == 0
 }
 
-fn is_embedded_wikilink(node: &AstNode<'_>) -> bool {
+pub(crate) fn is_embedded_wikilink(node: &AstNode<'_>) -> bool {
     let Some(prev) = node.previous_sibling() else {
         return false;
     };
@@ -261,12 +257,12 @@ fn is_embedded_wikilink(node: &AstNode<'_>) -> bool {
     false
 }
 
-fn parse_link_node(link: &NodeLink, source_path: &str) -> Option<String> {
+pub(crate) fn parse_link_node(link: &NodeLink, source_path: &str) -> Option<String> {
     let parsed = parse_internal_markdown_target(&link.url)?;
     resolve_markdown_target(source_path, &parsed)
 }
 
-fn parse_wikilink_node(link: &NodeWikiLink, source_path: &str) -> Option<String> {
+pub(crate) fn parse_wikilink_node(link: &NodeWikiLink, source_path: &str) -> Option<String> {
     let raw_target = parse_wiki_link_target(&link.url)?;
     resolve_wiki_target(source_path, &raw_target)
 }

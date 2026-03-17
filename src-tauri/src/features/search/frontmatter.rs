@@ -7,28 +7,33 @@ pub struct Frontmatter {
     pub properties: BTreeMap<String, serde_yml::Value>,
 }
 
-pub fn extract_frontmatter(markdown: &str) -> Frontmatter {
-    let mut frontmatter = Frontmatter::default();
-
+pub fn split_frontmatter(markdown: &str) -> (Option<&str>, &str) {
     if !markdown.starts_with("---") {
-        return frontmatter;
+        return (None, markdown);
     }
-
     let Some(first_newline) = markdown.find('\n') else {
-        return frontmatter;
+        return (None, markdown);
     };
-    
     let first_line = markdown[..first_newline].trim();
     if first_line != "---" {
-        return frontmatter;
+        return (None, markdown);
     }
-
-    // Look for the end of the frontmatter
     let Some(end_index) = markdown[first_newline + 1..].find("\n---") else {
-        return frontmatter;
+        return (None, markdown);
     };
-
     let yaml_str = &markdown[first_newline + 1..first_newline + 1 + end_index];
+    let after_close = first_newline + 1 + end_index + 4;
+    let body = if after_close >= markdown.len() {
+        ""
+    } else {
+        &markdown[after_close..]
+    };
+    (Some(yaml_str), body)
+}
+
+pub fn parse_yaml_frontmatter(yaml_str: &str) -> Frontmatter {
+    let mut frontmatter = Frontmatter::default();
+
     let Ok(value): Result<serde_yml::Value, _> = serde_yml::from_str(yaml_str) else {
         return frontmatter;
     };
@@ -60,25 +65,17 @@ pub fn extract_frontmatter(markdown: &str) -> Frontmatter {
     frontmatter
 }
 
+#[allow(dead_code)]
+pub fn extract_frontmatter(markdown: &str) -> Frontmatter {
+    match split_frontmatter(markdown).0 {
+        Some(yaml_str) => parse_yaml_frontmatter(yaml_str),
+        None => Frontmatter::default(),
+    }
+}
+
+#[allow(dead_code)]
 pub fn strip_frontmatter(markdown: &str) -> &str {
-    if !markdown.starts_with("---") {
-        return markdown;
-    }
-    let Some(first_newline) = markdown.find('\n') else {
-        return markdown;
-    };
-    let first_line = markdown[..first_newline].trim();
-    if first_line != "---" {
-        return markdown;
-    }
-    let Some(end_index) = markdown[first_newline + 1..].find("\n---") else {
-        return markdown;
-    };
-    let after_close = first_newline + 1 + end_index + 4;
-    if after_close >= markdown.len() {
-        return "";
-    }
-    &markdown[after_close..]
+    split_frontmatter(markdown).1
 }
 
 #[cfg(test)]

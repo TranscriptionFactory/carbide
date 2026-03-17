@@ -2,7 +2,7 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
 
   interface Props {
     open: boolean;
@@ -27,11 +27,13 @@
   const is_valid = $derived(canvas_name.trim().length > 0);
 
   $effect(() => {
-    if (open && input_el) {
-      const el = input_el;
+    if (open) {
       void tick().then(() => {
-        el.focus();
-        el.select();
+        const el = untrack(() => input_el);
+        if (el) {
+          el.focus();
+          el.select();
+        }
       });
     }
   });
