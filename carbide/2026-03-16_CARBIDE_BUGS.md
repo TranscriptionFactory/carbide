@@ -21,11 +21,12 @@
 **Action:** Check whether a dependency update (Milkdown, remark-math, or KaTeX) broke the plugin registration or node schema. Likely a quick fix once root cause is identified.
 **Resolution:** Root cause was three-fold: (a) no input rules for typing math in the editor — only `/math` slash command existed for block math, (b) line break preprocessor corrupted LaTeX with trailing backslashes inside `$$` blocks, (c) MathBlockNodeView didn't propagate updates to Svelte component. See `carbide/sprints/2026-03-16_sprint.md` for details.
 
-### 3. `.badgerly` folder created in browse/non-vault mode — NOT STARTED
+### 3. `.badgerly` folder created in browse/non-vault mode — IMPLEMENTED
 
 **Symptom:** Opening a folder in browse mode still writes a `.badgerly/` config directory.
 **Status:** Not tracked. Config/state leak bug.
 **Action:** Guard vault-config writes behind an `is_vault` check. For browse mode, use an in-memory or global-level default config instead of writing to disk. Small fix, but violates user trust — apps shouldn't write to directories the user didn't designate as vaults.
+**Resolution:** Added vault mode guards to `set_vault_setting`, `set_local_setting`, and `ensure_worker` (search index) at the Rust backend level. Split `local_state_path` into read/write variants so reads don't create directories. See `carbide/sprints/2026-03-16_badgerly_browse_mode_fix.md` for details.
 
 ---
 

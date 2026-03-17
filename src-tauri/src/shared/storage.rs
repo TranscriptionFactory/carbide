@@ -116,6 +116,16 @@ pub fn vault_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
 }
 
+pub fn vault_mode_for_id(app: &AppHandle, vault_id: &str) -> Result<VaultMode, String> {
+    let store = load_store(app)?;
+    store
+        .vaults
+        .iter()
+        .find(|v| v.vault.id == vault_id)
+        .map(|v| v.vault.mode.clone())
+        .ok_or_else(|| "vault not found".to_string())
+}
+
 fn url_decode(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
     let mut chars = input.bytes();

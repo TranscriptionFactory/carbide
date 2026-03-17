@@ -1,6 +1,6 @@
 use crate::shared::constants;
 use crate::shared::io_utils;
-use crate::shared::storage::{load_store, vault_path_by_id};
+use crate::shared::storage::{load_store, vault_mode_for_id, vault_path_by_id, VaultMode};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -28,13 +28,25 @@ fn vault_settings_path_for_write(app: &AppHandle, vault_id: &str) -> Result<Path
     Ok(settings_dir.join(SETTINGS_FILE))
 }
 
-fn local_state_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
-    let dir = app
+fn local_state_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app
         .path()
         .home_dir()
         .map_err(|e| e.to_string())?
         .join(".badgerly")
-        .join("local_state");
+        .join("local_state"))
+}
+
+fn local_state_path_for_read(app: &AppHandle, vault_id: &str) -> Result<Option<PathBuf>, String> {
+    let dir = local_state_dir(app)?;
+    if !dir.is_dir() {
+        return Ok(None);
+    }
+    Ok(Some(dir.join(format!("{}.json", vault_id))))
+}
+
+fn local_state_path_for_write(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
+    let dir = local_state_dir(app)?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join(format!("{}.json", vault_id)))
 }
@@ -50,7 +62,9 @@ fn load_vault_settings(app: &AppHandle, vault_id: &str) -> Result<HashMap<String
 }
 
 fn load_local_settings(app: &AppHandle, vault_id: &str) -> Result<HashMap<String, Value>, String> {
-    let path = local_state_path(app, vault_id)?;
+    let Some(path) = local_state_path_for_read(app, vault_id)? else {
+        return Ok(HashMap::new());
+    };
     let Some(bytes) = read_settings_file(&path)? else {
         return Ok(HashMap::new());
     };
@@ -105,7 +119,7 @@ fn save_local_settings(
     vault_id: &str,
     settings: &HashMap<String, Value>,
 ) -> Result<(), String> {
-    let path = local_state_path(app, vault_id)?;
+    let path = local_state_path_for_write(app, vault_id)?;
     let bytes = serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?;
     write_settings_file(&path, &bytes)
 }
@@ -137,6 +151,10 @@ pub async fn set_vault_setting(
     app: AppHandle,
 ) -> Result<(), String> {
     log::debug!("Setting vault setting vault_id={} key={}", vault_id, key);
+    if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
+        log::debug!("Skipping vault setting write in browse mode vault_id={}", vault_id);
+        return Ok(());
+    }
     let mut settings = load_vault_settings(&app, &vault_id)?;
     settings.insert(key, value);
     save_vault_settings(&app, &vault_id, &settings)?;
@@ -162,6 +180,10 @@ pub async fn set_local_setting(
     app: AppHandle,
 ) -> Result<(), String> {
     log::debug!("Setting local setting vault_id={} key={}", vault_id, key);
+    if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
+        log::debug!("Skipping local setting write in browse mode vault_id={}", vault_id);
+        return Ok(());
+    }
     let mut settings = load_local_settings(&app, &vault_id)?;
     settings.insert(key, value);
     save_local_settings(&app, &vault_id, &settings)?;

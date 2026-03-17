@@ -7,7 +7,7 @@ use crate::features::search::model::{
     SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
-use crate::shared::storage;
+use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -148,6 +148,9 @@ pub struct SearchDbState {
 }
 
 fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
+    if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
+        return Err("search indexing is not available in browse mode".to_string());
+    }
     let vault_root = storage::vault_path(app, vault_id)?;
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
