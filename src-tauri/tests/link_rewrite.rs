@@ -1,4 +1,4 @@
-use crate::features::search::link_parser::{
+use crate::shared::link_parser::{
     compute_relative_path, format_markdown_link_href, format_wiki_target, resolve_markdown_target,
     resolve_wiki_target, rewrite_links,
 };

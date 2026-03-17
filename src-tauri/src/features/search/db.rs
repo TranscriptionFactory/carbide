@@ -1,6 +1,7 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::{link_parser, markdown_doc, vector_db};
-use crate::features::search::markdown_doc::ParsedNote;
+use crate::features::search::vector_db;
+use crate::shared::{link_parser, markdown_doc};
+use crate::shared::markdown_doc::ParsedNote;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
 use crate::features::tasks::service as tasks_service;
 use crate::shared::constants;
@@ -231,6 +232,25 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         CREATE INDEX IF NOT EXISTS idx_tasks_path ON tasks(path);
         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 
+        CREATE TABLE IF NOT EXISTS note_headings (
+            note_path TEXT NOT NULL,
+            level INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            line INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_note_headings_path ON note_headings(note_path);
+
+        CREATE TABLE IF NOT EXISTS note_links (
+            source_path TEXT NOT NULL,
+            target_path TEXT NOT NULL,
+            link_text TEXT,
+            link_type TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_note_links_source ON note_links(source_path);
+        CREATE INDEX IF NOT EXISTS idx_note_links_target ON note_links(target_path);
+
         CREATE TABLE IF NOT EXISTS index_meta (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -364,6 +384,50 @@ pub fn upsert_note_parsed(
 
     tasks_service::save_tasks(conn, &meta.path, &parsed.tasks)?;
 
+    conn.execute(
+        "DELETE FROM note_headings WHERE note_path = ?1",
+        params![meta.path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for h in &parsed.headings {
+        conn.execute(
+            "INSERT INTO note_headings (note_path, level, text, line) VALUES (?1, ?2, ?3, ?4)",
+            params![meta.path, h.level, h.text, h.line],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute(
+        "DELETE FROM note_links WHERE source_path = ?1",
+        params![meta.path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for target in &parsed.links.wiki_targets {
+        conn.execute(
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type) VALUES (?1, ?2, NULL, 'wiki')",
+            params![meta.path, target],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    for target in &parsed.links.markdown_targets {
+        conn.execute(
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type) VALUES (?1, ?2, NULL, 'markdown')",
+            params![meta.path, target],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    for link in &parsed.links.external_links {
+        conn.execute(
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type) VALUES (?1, ?2, ?3, 'external')",
+            params![meta.path, link.url, link.text],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
     Ok(())
 }
 
@@ -385,6 +449,16 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM tasks WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_headings WHERE note_path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_links WHERE source_path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
     if let Err(e) = vector_db::remove_embedding(conn, path) {
         log::debug!("vector_db::remove_embedding skipped: {e}");
     }
@@ -436,6 +510,18 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
         .and_then(|_| {
             conn.execute(
                 "DELETE FROM tasks WHERE path LIKE ?1 ESCAPE '\\'",
+                params![like_pattern],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "DELETE FROM note_headings WHERE note_path LIKE ?1 ESCAPE '\\'",
+                params![like_pattern],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "DELETE FROM note_links WHERE source_path LIKE ?1 ESCAPE '\\'",
                 params![like_pattern],
             )
         })
@@ -593,6 +679,10 @@ pub fn rebuild_index(
     conn.execute("DELETE FROM notes_fts", [])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM outlinks", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_headings", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_links", [])
         .map_err(|e| e.to_string())?;
 
     let paths = list_indexable_files(app, vault_id, vault_root)?;
@@ -1942,6 +2032,21 @@ pub fn rename_folder_paths(
          WHERE path LIKE ?3 ESCAPE '\\'",
         params![new_prefix, old_len, like_pattern],
     ))
+    .and_then(|_| conn.execute(
+        "UPDATE note_headings SET note_path = ?1 || substr(note_path, ?2 + 1)
+         WHERE note_path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, like_pattern],
+    ))
+    .and_then(|_| conn.execute(
+        "UPDATE note_links SET source_path = ?1 || substr(source_path, ?2 + 1)
+         WHERE source_path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, like_pattern],
+    ))
+    .and_then(|_| conn.execute(
+        "UPDATE note_links SET target_path = ?1 || substr(target_path, ?2 + 1)
+         WHERE target_path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, like_pattern],
+    ))
     .map_err(|e| e.to_string());
 
     match result {
@@ -1989,6 +2094,18 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
         .and_then(|_| {
             conn.execute(
                 "UPDATE note_tags SET path = ?1 WHERE path = ?2",
+                params![new_path, old_path],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "UPDATE note_headings SET note_path = ?1 WHERE note_path = ?2",
+                params![new_path, old_path],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "UPDATE note_links SET source_path = ?1 WHERE source_path = ?2",
                 params![new_path, old_path],
             )
         })
