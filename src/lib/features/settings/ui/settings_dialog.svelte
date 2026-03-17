@@ -1256,6 +1256,22 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Code Block Wrap</span>
+                  <span class="SettingsDialog__description"
+                    >Wrap long lines instead of horizontal scroll</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.editor_code_block_wrap}
+                    onCheckedChange={(v: boolean) =>
+                      update("editor_code_block_wrap", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Blockquote Padding</span>
                   <span class="SettingsDialog__description"
                     >Adjust padding inside blockquotes</span

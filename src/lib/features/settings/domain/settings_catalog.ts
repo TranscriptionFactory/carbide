@@ -218,6 +218,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "code", "block", "radius", "appearance"],
   },
   {
+    key: "editor_code_block_wrap",
+    label: "Code Block Wrap",
+    description: "Wrap long lines in code blocks instead of horizontal scroll",
+    category: "Layout",
+    keywords: ["editor", "code", "block", "wrap", "scroll", "overflow"],
+  },
+  {
     key: "editor_blockquote_padding",
     label: "Blockquote Padding",
     description: "Controls padding inside editor blockquotes",

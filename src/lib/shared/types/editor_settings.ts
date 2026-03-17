@@ -53,6 +53,7 @@ export type EditorSettings = {
   editor_list_spacing_density: EditorSpacingDensity;
   editor_code_block_padding: EditorCodeBlockPadding;
   editor_code_block_radius: EditorCodeBlockRadius;
+  editor_code_block_wrap: boolean;
   editor_blockquote_padding: EditorBlockquotePadding;
   editor_blockquote_border_width: 2 | 3 | 4;
   editor_link_underline_style: EditorLinkUnderlineStyle;
@@ -102,6 +103,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_list_spacing_density: "normal",
   editor_code_block_padding: "normal",
   editor_code_block_radius: "normal",
+  editor_code_block_wrap: false,
   editor_blockquote_padding: "normal",
   editor_blockquote_border_width: 2,
   editor_link_underline_style: "solid",
@@ -149,6 +151,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_list_spacing_density",
   "editor_code_block_padding",
   "editor_code_block_radius",
+  "editor_code_block_wrap",
   "editor_blockquote_padding",
   "editor_blockquote_border_width",
   "editor_link_underline_style",

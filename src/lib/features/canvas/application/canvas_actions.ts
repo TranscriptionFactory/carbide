@@ -73,10 +73,10 @@ export function register_canvas_actions(
         return;
       }
 
-      const default_name = format_note_name(
-        "%Y-%m-%d-%H-%M",
-        new Date(Date.now()),
-      );
+      const template =
+        stores.ui.editor_settings.default_note_name_template ||
+        "%Y-%m-%d-%H-%M";
+      const default_name = format_note_name(template, new Date(Date.now()));
       stores.ui.create_canvas_dialog = {
         open: true,
         folder_path: "assets/excalidraw",

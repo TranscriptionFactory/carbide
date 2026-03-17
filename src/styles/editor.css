@@ -457,6 +457,7 @@ li[data-item-type="task"][data-checked="false"]::before {
   border: 1px solid var(--editor-code-border);
   font-weight: 400;
   letter-spacing: -0.01em;
+  white-space: var(--editor-code-block-white-space, pre);
 }
 
 .ProseMirror pre code {

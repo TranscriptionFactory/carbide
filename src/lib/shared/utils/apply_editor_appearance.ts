@@ -265,6 +265,10 @@ export function apply_editor_appearance(settings: EditorSettings): void {
       "--editor-code-block-radius",
       code_block_radius_map[settings.editor_code_block_radius],
     ],
+    [
+      "--editor-code-block-white-space",
+      settings.editor_code_block_wrap ? "pre-wrap" : "pre",
+    ],
     ["--editor-blockquote-padding-y", blockquote_padding.y],
     ["--editor-blockquote-padding-x", blockquote_padding.x],
     [

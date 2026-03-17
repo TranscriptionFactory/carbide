@@ -26,6 +26,7 @@ const SETTINGS_COMPARE_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_list_spacing_density",
   "editor_code_block_padding",
   "editor_code_block_radius",
+  "editor_code_block_wrap",
   "editor_blockquote_padding",
   "editor_blockquote_border_width",
   "editor_link_underline_style",
