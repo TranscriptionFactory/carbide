@@ -14,6 +14,7 @@ export { note_path_exists } from "$lib/features/note/domain/note_path_exists";
 export { resolve_existing_note_path } from "$lib/features/note/domain/note_lookup";
 export { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";
 export { extract_note_title } from "$lib/features/note/domain/extract_note_title";
+export { format_note_name } from "$lib/features/note/domain/format_note_name";
 export type {
   AssetsPort,
   FolderStats,

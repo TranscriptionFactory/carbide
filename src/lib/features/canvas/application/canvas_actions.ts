@@ -1,6 +1,7 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { CanvasService } from "$lib/features/canvas/application/canvas_service";
+import { format_note_name } from "$lib/features/note";
 
 function sanitize_canvas_name(name: string): string {
   return name
@@ -72,10 +73,14 @@ export function register_canvas_actions(
         return;
       }
 
+      const default_name = format_note_name(
+        "%Y-%m-%d-%H-%M",
+        new Date(Date.now()),
+      );
       stores.ui.create_canvas_dialog = {
         open: true,
         folder_path: "assets/excalidraw",
-        canvas_name: "",
+        canvas_name: default_name,
       };
     },
   });

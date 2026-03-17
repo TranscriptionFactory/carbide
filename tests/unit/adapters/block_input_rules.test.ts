@@ -24,6 +24,8 @@ function trigger_input_rule(
 ): EditorState | null {
   const state = make_state_with_plugin(prefix);
   const plugin = state.plugins[0];
+  if (!plugin) return null;
+
   const { from } = state.selection;
 
   let dispatched: Transaction | null = null;
@@ -34,12 +36,18 @@ function trigger_input_rule(
     },
   } as unknown as import("prosemirror-view").EditorView;
 
-  const handled = plugin.props.handleTextInput?.(
-    mock_view,
-    from,
-    from,
-    final_char,
-  );
+  const handle_text_input = plugin.props.handleTextInput;
+  if (!handle_text_input) return null;
+
+  const handled = (
+    handle_text_input as (
+      view: import("prosemirror-view").EditorView,
+      from: number,
+      to: number,
+      text: string,
+    ) => boolean
+  ).call(plugin, mock_view, from, from, final_char);
+
   if (!handled || !dispatched) return null;
 
   return state.apply(dispatched);
