@@ -532,9 +532,7 @@ li[data-item-type="task"][data-checked="false"]::before {
 /* ── Language picker dropdown ── */
 
 .code-lang-picker {
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   z-index: 55;
   min-width: 200px;
   max-width: 280px;

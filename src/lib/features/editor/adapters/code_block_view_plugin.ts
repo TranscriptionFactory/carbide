@@ -311,7 +311,7 @@ class CodeBlockView implements NodeView {
     clearTimeout(this.mermaid.render_timer);
     this.mermaid.render_timer = setTimeout(() => {
       if (!this.mermaid) return;
-      const code = this.contentDOM.textContent ?? "";
+      const code = this.node.textContent;
       void render_mermaid_preview(code, this.mermaid.preview_container);
     }, 150);
   }
@@ -350,6 +350,11 @@ class CodeBlockView implements NodeView {
       },
     );
 
+    const rect = this.lang_label.getBoundingClientRect();
+    this.picker_el.style.position = "fixed";
+    this.picker_el.style.top = `${String(rect.bottom + 4)}px`;
+    this.picker_el.style.left = `${String(rect.left)}px`;
+
     this.backdrop_el = document.createElement("div");
     this.backdrop_el.style.cssText =
       "position:fixed;inset:0;z-index:49;pointer-events:auto;";
@@ -359,7 +364,7 @@ class CodeBlockView implements NodeView {
     });
 
     document.body.appendChild(this.backdrop_el);
-    this.toolbar.appendChild(this.picker_el);
+    document.body.appendChild(this.picker_el);
   }
 
   private dismiss_picker() {
@@ -404,12 +409,7 @@ class CodeBlockView implements NodeView {
 
   stopEvent(event: Event): boolean {
     if (!(event.target instanceof HTMLElement)) return false;
-    return (
-      event.target.closest(".code-block-copy") !== null ||
-      event.target.closest(".code-lang-label") !== null ||
-      event.target.closest(".code-lang-picker") !== null ||
-      event.target.closest(".mermaid-toggle-btn") !== null
-    );
+    return event.target.closest(".code-block-toolbar") !== null;
   }
 
   destroy() {
