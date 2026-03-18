@@ -503,7 +503,9 @@ li[data-item-type="task"][data-checked="false"]::before {
   cursor: pointer;
   padding: 0.125rem 0.375rem;
   border-radius: calc(var(--radius) * 0.35);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -660,7 +662,9 @@ li[data-item-type="task"][data-checked="false"]::before {
   cursor: pointer;
   padding: 0.0625rem 0.375rem;
   border-radius: calc(var(--radius) * 0.35);
-  transition: all var(--duration-fast) var(--ease-default);
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
 }
 
 .mermaid-toggle-btn:hover {

@@ -15,7 +15,19 @@ export const shiki_plugin_key = new PluginKey<ShikiPluginState>(
 type ShikiPluginState = {
   decorations: DecorationSet;
   theme: string;
+  code_fingerprint: string;
 };
+
+function compute_code_fingerprint(doc: ProseNode): string {
+  const parts: string[] = [];
+  doc.descendants((node) => {
+    if (node.type.name === "code_block") {
+      parts.push((node.attrs.language as string) || "");
+      parts.push(node.textContent);
+    }
+  });
+  return parts.join("\0");
+}
 
 function build_decorations(
   doc: ProseNode,
@@ -83,12 +95,18 @@ export function create_shiki_prose_plugin(): Plugin {
       init(_, { doc }): ShikiPluginState {
         const highlighter = get_highlighter_sync();
         const theme = resolve_theme();
+        const fp = compute_code_fingerprint(doc);
         if (!highlighter) {
-          return { decorations: DecorationSet.empty, theme };
+          return {
+            decorations: DecorationSet.empty,
+            theme,
+            code_fingerprint: fp,
+          };
         }
         return {
           theme,
           decorations: build_decorations(doc, highlighter, theme),
+          code_fingerprint: fp,
         };
       },
 
@@ -101,16 +119,31 @@ export function create_shiki_prose_plugin(): Plugin {
           meta?.theme !== undefined && meta.theme !== prev_state.theme;
 
         if (!tr.docChanged && !theme_changed) {
-          return {
-            theme,
-            decorations: prev_state.decorations.map(tr.mapping, tr.doc),
-          };
+          return prev_state;
         }
 
         const highlighter = get_highlighter_sync();
         if (!highlighter) {
           return {
+            ...prev_state,
             theme,
+            decorations: prev_state.decorations.map(tr.mapping, tr.doc),
+          };
+        }
+
+        if (theme_changed) {
+          const fp = compute_code_fingerprint(tr.doc);
+          return {
+            theme,
+            decorations: build_decorations(tr.doc, highlighter, theme),
+            code_fingerprint: fp,
+          };
+        }
+
+        const new_fp = compute_code_fingerprint(tr.doc);
+        if (new_fp === prev_state.code_fingerprint) {
+          return {
+            ...prev_state,
             decorations: prev_state.decorations.map(tr.mapping, tr.doc),
           };
         }
@@ -118,6 +151,7 @@ export function create_shiki_prose_plugin(): Plugin {
         return {
           theme,
           decorations: build_decorations(tr.doc, highlighter, theme),
+          code_fingerprint: new_fp,
         };
       },
     },

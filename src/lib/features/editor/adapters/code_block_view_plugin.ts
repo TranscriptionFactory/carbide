@@ -1,10 +1,17 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
-import type { EditorView, NodeView } from "prosemirror-view";
+import type {
+  EditorView,
+  NodeView,
+  ViewMutationRecord,
+} from "prosemirror-view";
 import { Check, Copy } from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("code_block_view");
 
 const mermaid_svg_cache = new LruCache<string, string>(128);
 let mermaid_initialized_theme: string | null = null;
@@ -206,7 +213,8 @@ async function render_mermaid_preview(
     const { svg } = await mermaid.default.render(id, code, temp_el);
     mermaid_svg_cache.set(key, svg);
     container.innerHTML = svg;
-  } catch {
+  } catch (error: unknown) {
+    log.error("Mermaid render failed", { error });
     container.innerHTML = '<div class="mermaid-error">Invalid diagram</div>';
   } finally {
     temp_el?.remove();
@@ -293,7 +301,7 @@ class CodeBlockView implements NodeView {
       preview_container,
       toggle_btn,
       render_timer: undefined,
-      last_rendered_content: "",
+      last_rendered_content: this.node.textContent,
     };
 
     pre.style.display = "none";
@@ -420,6 +428,11 @@ class CodeBlockView implements NodeView {
   stopEvent(event: Event): boolean {
     if (!(event.target instanceof HTMLElement)) return false;
     return event.target.closest(".code-block-toolbar") !== null;
+  }
+
+  ignoreMutation(mutation: ViewMutationRecord): boolean {
+    if (!this.contentDOM.contains(mutation.target)) return true;
+    return false;
   }
 
   destroy() {
