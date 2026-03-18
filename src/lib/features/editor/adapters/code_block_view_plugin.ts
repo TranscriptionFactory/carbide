@@ -185,7 +185,6 @@ async function render_mermaid_preview(
   container.innerHTML =
     '<div class="mermaid-loading"><div class="mermaid-spinner"></div></div>';
 
-  let temp_el: HTMLElement | null = null;
   try {
     const mermaid = await import("mermaid");
     const theme =
@@ -205,19 +204,12 @@ async function render_mermaid_preview(
     await mermaid.default.parse(code);
 
     const id = `mermaid-${String(Date.now())}`;
-    temp_el = document.createElement("div");
-    temp_el.id = id;
-    temp_el.style.cssText = "position:absolute;left:-9999px;top:-9999px;";
-    document.body.appendChild(temp_el);
-
-    const { svg } = await mermaid.default.render(id, code, temp_el);
+    const { svg } = await mermaid.default.render(id, code);
     mermaid_svg_cache.set(key, svg);
     container.innerHTML = svg;
   } catch (error: unknown) {
     log.error("Mermaid render failed", { error });
     container.innerHTML = '<div class="mermaid-error">Invalid diagram</div>';
-  } finally {
-    temp_el?.remove();
   }
 }
 
