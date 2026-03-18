@@ -7,6 +7,8 @@ use crate::shared::markdown_doc::ParsedNote;
 use crate::shared::storage;
 use crate::shared::vault_ignore;
 use crate::shared::{link_parser, markdown_doc};
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use specta::Type;
@@ -1146,6 +1148,62 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+pub fn fuzzy_suggest(
+    conn: &Connection,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SuggestionHit>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let sql = "SELECT path, title, mtime_ms, size_bytes FROM notes";
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+
+    let matcher = SkimMatcherV2::default();
+    let mut scored: Vec<SuggestionHit> = Vec::new();
+
+    let rows = stmt
+        .query_map([], |row| {
+            let path: String = row.get(0)?;
+            let title: String = row.get(1)?;
+            let name = file_stem_string(Path::new(&path));
+            let mtime_ms: i64 = row.get(2)?;
+            let size_bytes: i64 = row.get(3)?;
+            Ok((path, title, name, mtime_ms, size_bytes))
+        })
+        .map_err(|e| e.to_string())?;
+
+    for row in rows {
+        let (path, title, name, mtime_ms, size_bytes) = row.map_err(|e| e.to_string())?;
+
+        let best_score = [&title, &name, &path]
+            .iter()
+            .filter_map(|target| matcher.fuzzy_match(target, trimmed))
+            .max()
+            .unwrap_or(0);
+
+        if best_score > 0 {
+            scored.push(SuggestionHit {
+                note: IndexNoteMeta {
+                    id: path.clone(),
+                    path,
+                    title,
+                    name,
+                    mtime_ms,
+                    size_bytes,
+                },
+                score: best_score as f64,
+            });
+        }
+    }
+
+    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(limit);
+    Ok(scored)
 }
 
 pub fn suggest_planned(

@@ -945,8 +945,24 @@ pub fn index_suggest(
         vault_id,
         query
     );
+    let max = limit.unwrap_or(15);
+    let fuzzy_threshold = 5;
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::suggest(conn, &query, limit.unwrap_or(15))
+        let fts_results = search_db::suggest(conn, &query, max)?;
+        if fts_results.len() >= fuzzy_threshold {
+            return Ok(fts_results);
+        }
+        let fuzzy_results = search_db::fuzzy_suggest(conn, &query, max)?;
+        let seen: std::collections::HashSet<String> =
+            fts_results.iter().map(|h| h.note.path.clone()).collect();
+        let mut merged = fts_results;
+        for hit in fuzzy_results {
+            if !seen.contains(&hit.note.path) {
+                merged.push(hit);
+            }
+        }
+        merged.truncate(max);
+        Ok(merged)
     })
 }
 
