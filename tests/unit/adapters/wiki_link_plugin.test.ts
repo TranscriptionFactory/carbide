@@ -256,6 +256,29 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     expect(observer_state?.saw_mark_clean).toBe(true);
   });
 
+  it("does not append .md to wikilinks that already have an extension", () => {
+    const schema = create_schema();
+    const plugin = create_wiki_link_converter_prose_plugin({
+      link_type: schema.marks.link,
+    });
+
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, schema.text("See ")),
+    ]);
+
+    const state = EditorState.create({ schema, doc, plugins: [plugin] });
+
+    const inserted = "[[drawing.excalidraw]]";
+    const insert_pos = 1 + "See ".length;
+    const tr = state.tr.insertText(inserted, insert_pos);
+    tr.setSelection(TextSelection.create(tr.doc, insert_pos + inserted.length));
+    const next = state.apply(tr);
+
+    const info = get_link_info(next.doc, schema.marks.link);
+    expect(info?.href).toBe("drawing.excalidraw");
+    expect(info?.link_source).toBe("wiki");
+  });
+
   it("does not convert wikilinks inside code marks", () => {
     const schema = create_schema();
     const plugin = create_wiki_link_converter_prose_plugin({

@@ -727,6 +727,44 @@
 }
 
 /* ============================================
+   EXCALIDRAW EMBED COMPONENT
+   ============================================ */
+
+.excalidraw-embed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.excalidraw-embed:hover {
+  background: var(--accent);
+}
+
+.excalidraw-embed-icon {
+  display: flex;
+  align-items: center;
+  color: var(--muted-foreground);
+}
+
+.excalidraw-embed-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.excalidraw-embed-label {
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+/* ============================================
    MILKDOWN IMAGE BLOCK COMPONENT
    ============================================ */
 

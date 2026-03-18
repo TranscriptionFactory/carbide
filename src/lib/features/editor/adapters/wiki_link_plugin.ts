@@ -86,7 +86,10 @@ function contains_protected_mark(
 }
 
 function ensure_md_extension(value: string): string {
-  return value.endsWith(".md") ? value : `${value}.md`;
+  const dot = value.lastIndexOf(".");
+  const slash = value.lastIndexOf("/");
+  if (dot > slash && dot !== -1) return value;
+  return `${value}.md`;
 }
 
 function build_replacement(input: {

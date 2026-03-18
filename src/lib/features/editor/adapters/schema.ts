@@ -180,6 +180,35 @@ const list_item: NodeSpec = {
   },
 };
 
+const excalidraw_embed: NodeSpec = {
+  group: "block",
+  selectable: true,
+  draggable: true,
+  atom: true,
+  marks: "",
+  attrs: {
+    src: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: 'div[data-type="excalidraw-embed"]',
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return { src: dom.getAttribute("data-src") ?? "" };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "div",
+      {
+        "data-type": "excalidraw-embed",
+        "data-src": node.attrs["src"] as string,
+      },
+    ];
+  },
+};
+
 const image_block: NodeSpec = {
   group: "block",
   selectable: true,
@@ -567,6 +596,7 @@ export const schema = new Schema({
     bullet_list,
     ordered_list,
     list_item,
+    excalidraw_embed,
     "image-block": image_block,
     image,
     hardbreak,

@@ -261,6 +261,14 @@ fn resolve_dot_slash_from_root_escapes() {
     assert_eq!(resolve_wiki_target("source.md", "../outside"), None);
 }
 
+#[test]
+fn resolve_excalidraw_extension_not_appended() {
+    assert_eq!(
+        resolve_wiki_target("notes/test.md", "drawing.excalidraw"),
+        Some("drawing.excalidraw".to_string())
+    );
+}
+
 // --- format_wiki_target ---
 
 #[test]

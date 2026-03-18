@@ -74,6 +74,8 @@ import {
   create_outline_prose_plugin,
 } from "./outline_plugin";
 import { create_file_drop_prose_plugin } from "$lib/features/editor/domain/file_drop_plugin";
+import { create_excalidraw_embed_plugin } from "./excalidraw_embed_plugin";
+import { create_excalidraw_embed_view_plugin } from "./excalidraw_embed_view_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import { create_frontmatter_view_prose_plugin } from "./frontmatter_plugin";
@@ -509,6 +511,16 @@ export function create_prosemirror_editor_port(args?: {
       }
       plugins.push(create_task_keymap_prose_plugin());
       plugins.push(create_image_input_rule_prose_plugin());
+      plugins.push(create_excalidraw_embed_plugin());
+      plugins.push(
+        create_excalidraw_embed_view_plugin({
+          on_open_file: (path) => {
+            if (on_internal_link_click) {
+              on_internal_link_click(path, current_note_path, "wiki");
+            }
+          },
+        }),
+      );
       plugins.push(create_block_input_rules_prose_plugin());
       plugins.push(
         create_editor_context_plugin_instance({

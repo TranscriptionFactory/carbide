@@ -320,6 +320,10 @@ const serializer = new MarkdownSerializer(
       }
       state.renderContent(node);
     },
+    excalidraw_embed(state, node) {
+      state.write(`![[${node.attrs["src"] as string}]]`);
+      state.closeBlock(node);
+    },
     "image-block": function image_block_serializer(state, node) {
       const alt = state.esc(
         (node.attrs["alt"] as string) ||

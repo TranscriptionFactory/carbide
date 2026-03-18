@@ -17,7 +17,7 @@ use walkdir::WalkDir;
 
 const VIEWABLE_EXTENSIONS: &[&str] = &[
     "md", "pdf", "png", "jpg", "jpeg", "gif", "svg", "webp", "csv", "tsv", "py", "r", "rs", "ts",
-    "js", "json", "yaml", "yml", "toml", "sh", "txt", "log",
+    "js", "json", "yaml", "yml", "toml", "sh", "txt", "log", "excalidraw", "canvas",
 ];
 
 fn is_viewable_extension(ext: &str) -> bool {
