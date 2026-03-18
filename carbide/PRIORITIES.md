@@ -1,63 +1,270 @@
-# Carbide — Editor Improvement Priorities
-
-> Ranked list of remaining editor improvements and new features.
-> For task-level status, see `carbide/TODO.md`.
-
----
-
-## Tier 1: Core Writing Experience
-
-### ~~1. Focus/Zen Mode (Phase 6a)~~ (COMPLETED)
-
-Highest-impact editor improvement. A note-taking app's core job is letting you write without distraction. Small scope, high daily-use value — just a boolean toggle that hides panels with an animated transition.
-
-### ~~1. Math/LaTeX Support (Phase 6b)~~ (COMPLETED)
-
-Built from scratch with `remark-math` + `katex` + `$node` (deprecated `@milkdown/plugin-math` incompatible with kit v7.18). Inline `$expr$` and block `$$expr$$` with KaTeX rendering, `/math` slash command, wiki-link exclusion.
-
-### ~~3. Table Cell Alignment (Phase 6e — Batches 1–2 remaining)~~ (COMPLETED)
-
-Tables render and the floating toolbar works, but cell alignment (left/center/right) is missing. This is the kind of gap that erodes trust in the editor — "if tables don't work right, what else doesn't?"
-
----
-
-## Tier 2: Editor Polish & Power Features
-
-### ~~4. Image Width CSS Hookup (Phase 6e — Batches 1–2 remaining)~~ (COMPLETED)
-
-The resize toolbar exists and sets the width attribute, but it didn't apply to the DOM visually. Fixed.
+# 1. Editor Polish & Power Features
 
 ### 1. Contextual Command Palette (Phase 6c)
 
 Smart `when` predicate filtering reduces clutter as command count grows. Not urgent at current feature count, but becomes important soon.
 
+- [ ] `image_context_menu_plugin.ts` — right-click on images
+- [ ] `image_context_menu.svelte` + `image_alt_editor.svelte`
+- [ ] Actions: resize, copy image/URL, edit alt, open in browser, save as, delete
+
 ### 2. Formatting Toolbar (Phase 6e — Batch 5)
 
 Useful for discoverability and touch/trackpad users. WYSIWYG editors without a toolbar feel incomplete. Keyboard-first early adopters can live without it.
 
-### 3. Mermaid Improvements (Phase 6e — Batches 1–2 remaining)
+- [ ] `formatting_toolbar.svelte` + `formatting_toolbar_commands.ts`
+- [ ] Toolbar: undo/redo, bold/italic/strike/code/link, H1-H3, quote, lists, code block, table, image, HR
+- [ ] Show/hide via settings toggle or responsive breakpoint
 
-Serial render queue, stale result guard, and theme re-render on color scheme change. Mermaid works today; this is polish for heavy diagram users.
+### 3. Document viewing in editor
+
+### Architecture
+
+- [x] Create `DocumentViewer.svelte` — dispatches to renderer by file extension
+- [x] Extend editor pane: show Milkdown for `.md`, appropriate viewer for other types
+
+### PDF Viewer
+
+- [x] Add `pdfjs-dist` to `package.json`
+- [x] Render PDF in editor pane: page navigation, zoom, scroll, text search
+- [x] "Open to Side" context menu for side-by-side PDF + notes
+
+### Image Viewer
+
+- [x] Display PNG, JPG, SVG, GIF, WebP in editor pane
+- [x] Zoom/pan controls, fit-to-width default
+- [x] Dark/light checkerboard for transparent images
+
+### CSV/TSV Viewer
+
+- [-] Add `papaparse` to `package.json` — deferred (large file DOM performance concerns)
+- [-] Render as scrollable, sortable table — deferred
+- [-] Column resize, row count display — deferred
+
+### Code/Text Viewer
+
+- [x] Syntax-highlighted read-only view (CodeMirror with @codemirror/language-data)
+- [x] Line numbers, copy button
+- [x] Support: `.py`, `.R`, `.rs`, `.json`, `.yaml`, `.toml`, `.sh`
+
+### Cross-cutting
+
+- [x] File tree icon badges by file type
+- [x] Drag non-markdown file into note → insert markdown link
+- [x] PDF export of notes (jsPDF + Cmd+Shift+E)
+
+### Stretch
+
+- [ ] PDF text selection → "Copy as Quote" into active note
+- [ ] PDF annotations stored in `.carbide/annotations/<filename>.json`
+
+### 4: Canvas & Visual Knowledge Layout
+
+### Architecture
+
+- [x] Create `canvas` feature slice (`src/lib/features/canvas/`)
+- [x] Define `CanvasPort` and `CanvasTauriAdapter` for IO
+- [x] Implement `CanvasService` and `CanvasStore` for spatial state
+
+### JSON Canvas (Spatial Boards)
+
+- [ ] Parser/Serializer for `.canvas` (JSON Canvas standard)
+- [ ] Svelte-based renderer for nodes (Note, Text, File, Link) and edges
+- [ ] Basic node manipulation (add, move, resize, delete)
+- [ ] Note embedding: render Markdown content inside canvas nodes
+- [ ] Image embedding: render local assets inside canvas nodes
+
+### Excalidraw (Drawings)
+
+- [x] Support for `.excalidraw` and `.excalidraw.json` files
+- [x] Host Excalidraw editor (iframe sandbox with custom URI scheme)
+- [x] Bi-directional sync between app and Excalidraw instance
+- [x] Canvas naming dialog on create
+- [x] Theme-aware background
+- [ ] Export canvas/drawing to PNG/SVG
+
+### Vault & Link Integration
+
+- [ ] Canvas reactor: rename-safe backlink rewrites for note references inside canvases
+- [ ] Index canvas content in search DB (text nodes, note paths)
+
+### Testing
+
+- [ ] Test JSON Canvas schema validation and round-trip
+- [ ] Test node manipulation and state persistence
+- [ ] Test canvas link rewriting on note rename
+- [ ] Test canvas content indexing
+
+# 2. Backend Architecture: What AppFlowy's Stack Gets Right
+
+> This section evaluates AppFlowy's technical backend patterns (block-ID tree, protobuf+FFI, Rust collab crate) for applicability to Carbide, given that Carbide is not bound by any legacy constraints and targets extensibility, efficiency, and flexibility. The hard constraint remains: markdown files on disk, Obsidian-compatible, human-readable. AppFlowy's CRDT storage format is explicitly rejected — that is the format problem.
+
+### 1. Shared parsed AST in Rust — ✅ IMPLEMENTED
+
+> **Status (2026-03-17):** Fully implemented. `shared/markdown_doc.rs` provides a centralized `parse_note()` function using `comrak` (v0.50.0) that returns a `ParsedNote` struct with headings, links (wiki + markdown), tasks, frontmatter, and word/char counts. Consumed by search indexing and other backend features.
+
+~~AppFlowy's collab crate holds a structured document tree as the authoritative representation in Rust. Carbide's Rust backend is a file I/O layer — it reads/writes `.md` bytes and delegates all structure to ProseMirror on the frontend.~~
+
+~~The gap: every Rust feature that needs document structure (`search`, `bases`, `graph`, `tags`, `pipeline`, `links`) either reparses markdown independently or receives pre-parsed data pushed from the frontend. These features almost certainly each implement their own string/regex markdown parsing rather than sharing a single AST.~~
+
+~~**Recommendation:** A shared `markdown_doc` internal crate (using `comrak` or `pulldown-cmark`) that parses markdown into a structured AST, consumed by all Rust backend features. ProseMirror stays authoritative for _editing_. Rust owns the parsed representation for _backend operations_. This eliminates redundant parsing and creates a single upgrade point for parser improvements.~~
+
+### 2. Richer SQLite schema — index the AST, not just frontmatter — ⚠️ PARTIALLY IMPLEMENTED
+
+> **Status (2026-03-17):** `note_headings` and `note_links` tables implemented in `features/search/db.rs`. `note_blocks` table is still missing. Schema also includes `notes` (with word/char counts, heading count, reading time), `notes_fts`, `outlinks`, `note_properties` (typed: date/string/number/boolean/json), `note_tags`, `tasks`, and `note_embeddings` (384-dim bge-small-en-v1.5 vectors).
+
+~~AppFlowy's `DatabaseViewCache` indexes typed fields per row. Carbide's SQLite index (`note_properties`, `note_tags`, FTS5) is flat: frontmatter key/value pairs and raw text. This is a ceiling for Bases query expressiveness and search result quality.~~
+
+Tables ~~worth adding~~ derived from the shared AST (#16.1):
+
+| Table           | Columns                                          | Enables                                                                           | Status     |
+| --------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------- |
+| `note_headings` | `note_path, level, text, char_offset`            | Heading deep links, outline search, section-level FTS                             | ✅ Done    |
+| `note_blocks`   | `note_path, block_type, content, position`       | "Find all code blocks", task count summaries in Bases, block-level search results | ❌ Not yet |
+| `note_links`    | `source_path, target_path, link_text, link_type` | Proper relation table for backlinks, orphan detection, graph queries              | ✅ Done    |
+
+The `graph` and `links` features ~~would benefit~~ benefit from `note_links` being a real relation table ~~rather than a re-scanned wikilink search~~.
+
+### 3. Event-driven incremental index invalidation — ✅ IMPLEMENTED
+
+> **Status (2026-03-17):** Fully implemented. `features/watcher/service.rs` emits typed `VaultFsEvent` variants (`NoteChangedExternally`, `NoteAdded`, `NoteRemoved`, `AssetChanged`) with vault ID and path. Uses `notify` crate (v7.0.0) with debouncing. Frontend listens and triggers incremental index operations per-note.
+
+~~AppFlowy propagates changes via typed callbacks (`OnRowsCreated`, `OnFiltersChanged`, etc.). Carbide has a `watcher` feature detecting filesystem changes. The risk is that post-detection behavior re-indexes more than necessary, or that the index update is disconnected from the save path.~~
+
+~~The target model: the watcher emits a typed `NoteChanged { path, change_kind }` event; a pipeline handler processes only that note; SQLite is updated incrementally. No polling, no full-vault re-index on change. This mirrors AppFlowy's callback pattern adapted to Carbide's file-based model.~~
+
+### 4. Type-safe IPC schema (protobuf's benefit, without protobuf) — ✅ IMPLEMENTED
+
+> **Status (2026-03-17):** Fully implemented. `tauri-specta` (v2.0.0-rc.21) with `specta` (v2.0.0-rc.22) and `specta-typescript` (v0.0.9) generate TypeScript bindings at `src/lib/generated/bindings.ts`. All 95+ Rust commands decorated with `#[specta::specta]`. Full type-safe IPC boundary with zero serialization overhead.
+
+~~AppFlowy uses protobuf because Dart↔Rust has no shared type system. Tauri provides Rust↔TypeScript — and `tauri-specta` generates TypeScript types directly from Rust structs. If Carbide isn't already using `tauri-specta`, this is the highest-leverage zero-cost improvement: generated types make the IPC boundary as type-safe as AppFlowy's protobuf schema, with no serialization overhead and no separate schema language.~~
+
+### 5. Atomic save → parse → index pipeline — ✅ IMPLEMENTED
+
+> **Status (2026-03-17):** Fully implemented. Single IPC call `write_and_index_note` writes to disk via BufferManager, then passes the in-memory markdown to the search writer thread (`DbCommand::UpsertNoteWithContent`) which parses and indexes without re-reading from disk. `upsert_note_parsed` now wraps all SQL in `BEGIN IMMEDIATE` / `COMMIT` / `ROLLBACK` for crash consistency. Bulk callers use `upsert_note_parsed_inner` (non-transactional) since they manage their own batch transactions. Frontend `write_existing_note` calls the unified command in vault mode, falls back to `write_note` in browse mode.
+
+Current model:
+
+```
+ProseMirror edit → markdown serialized → IPC → Rust handler (write_and_index_note)
+                                                    │
+                                   ┌────────────────┼────────────────┐
+                                   │                │                │
+                               write file     pass markdown     writer thread:
+                             (BufferManager)   (no re-read)      parse AST →
+                                                                 BEGIN IMMEDIATE →
+                                                                   upsert index →
+                                                                   set outlinks →
+                                                                 COMMIT
+```
+
+Implementation details: `carbide/implementation/atomic_save_parse_index.md`
+
+### 6. What to explicitly not adopt
+
+| AppFlowy pattern                                | Reason to skip                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| CRDT collab crate (y-crdt)                      | Breaks markdown storage; this is the format problem                                  |
+| Block-ID tree as document storage format        | IDs embedded in `.md` files destroy readability and Obsidian compatibility           |
+| Full block-ID tree in Rust as editing authority | Duplicates ProseMirror, requires bidirectional sync, high complexity for single-user |
+| Protobuf for IPC                                | `tauri-specta` gives equivalent type safety with less ceremony                       |
+| Awareness / cursor collaboration metadata       | Single-user app; irrelevant                                                          |
+
+### Implementation priority (updated 2026-03-17)
+
+1. ~~**`tauri-specta` for typed IPC**~~ — ✅ Done. 95+ commands with generated TypeScript bindings.
+2. ~~**Shared `comrak`-based AST parser**~~ — ✅ Done. `shared/markdown_doc.rs` with `ParsedNote`.
+3. **Richer SQLite schema** — ⚠️ `note_headings` ✅, `note_links` ✅, `note_blocks` ❌ still needed
+4. ~~**Atomic save → parse → index handler**~~ — ✅ Done. `write_and_index_note` unifies write + parse + index into single IPC call with transaction wrapping.
 
 ---
 
-## Tier 3: Nice-to-Have
+## 3. Frontend Architecture: What AppFlowy's Stack Gets Right
 
-### 4. Image Context Menu + Alt Text Editor (Phase 6e — Batch 4)
+> This section evaluates AppFlowy's frontend patterns (BlockComponentBuilder system, BLoC state, type-dispatch cell editors) for applicability to Carbide's Svelte 5 + ProseMirror frontend. Findings are grounded in Carbide's actual codebase: 22+ PM plugins in `editor/adapters/`, `EditorStore` state shape, and `bases/ui/` structure. **Note:** Milkdown has been fully ejected as of 2026-03-17; the editor now uses raw ProseMirror exclusively.
 
-Right-click actions for images (resize, copy, edit alt, open in browser, save as, delete). Convenient but not blocking any workflow.
+### 17.1 Editor extension contribution points model — ❌ NOT IMPLEMENTED
 
-### 5. Auto-commit Settings UI (Phase 5 — remaining)
+> **Status (2026-03-17):** Not implemented. Plugins are still registered as an ad-hoc array in `prosemirror_adapter.ts` (lines 404-523) via individual `create_*_plugin()` calls pushed to a `plugins: Plugin[]` array. No unified `EditorExtension` interface exists.
 
-The auto-commit reactor exists; this adds a settings panel for off / on-save / interval. Low urgency since the default behavior works.
+Carbide has 22+ individual ProseMirror plugin files in `editor/adapters/`. Each is ad-hoc — a slash command plugin looks nothing like a toolbar plugin or a keymap plugin. There is no shared interface. Adding a new block type requires knowing to touch multiple unrelated files.
 
-### 6. Structured AI Edit Proposals (Phase 6d — remaining)
+AppFlowy's `BlockComponentBuilder` gives each block type a single registration point declaring all its contributions. The Carbide equivalent would be an `EditorExtension` interface:
 
-Machine-validated payloads for AI-generated edits. An infrastructure investment, not user-facing yet.
+```ts
+interface EditorExtension {
+  schema?: NodeSpec | MarkSpec;
+  plugins?: () => Plugin[];
+  inputRules?: (schema: Schema) => InputRule[];
+  keymaps?: (schema: Schema) => Keymap;
+  slashCommands?: SlashCommandEntry[];
+  toolbarItems?: ToolbarItem[];
+}
+```
 
----
+Each existing plugin file becomes one conforming export. New block types (toggle, inline AI, outline block) are self-contained and auditable from a single location. This refactor should be done **before** adding further complex block types — the current flat-file approach does not scale past ~35 plugins without becoming a maintenance burden.
 
-## Graph & Semantic Search — Current State and Next Steps
+### 17.2 PM selection state in EditorStore — ⚠️ INTENTIONALLY RETAINED
+
+> **Status (2026-03-17):** `EditorStore` still holds `selection`, `cursor`, and `cursor_offset` fields (in `editor_store.svelte.ts`). These serve legitimate cross-feature UI purposes: `cursor` drives the status bar line/column display, `cursor_offset` persists scroll position across tab switches, and `selection` tracks selected text for UI features. Projected from PM via `on_cursor_change` callback — not owned by the store. The dual-source-of-truth concern remains valid but the fields have clear consumers.
+
+`EditorStore` holds `selection`, `cursor`, and `cursor_offset` — projected from ProseMirror via callbacks in the PM adapter. This creates two sources of truth: ProseMirror's authoritative `state.selection` and a Svelte store mirror. They stay in sync only as long as every mutation path fires the callback correctly.
+
+AppFlowy keeps document/editing state strictly inside the editor's state machine. Only coarse-grained signals are projected to the app layer.
+
+**Recommendation:** Still relevant — audit whether floating toolbar visibility and format mark states read from the store or from PM plugin state. If any selection-sensitive behavior reads from the store rather than PM, consider moving it into a PM plugin to avoid races between the two update cycles. The status bar and tab-switch scroll restoration are valid store consumers.
+
+### 17.3 Milkdown's role is ambiguous at this point — ✅ RESOLVED (Milkdown ejected)
+
+> **Status (2026-03-17):** Decision made and executed — **Option A: pure ProseMirror**. Milkdown has been fully ejected. Zero `@milkdown` imports remain in the editor feature. New core files replace Milkdown's responsibilities:
+>
+> - `schema.ts` — complete PM schema definition (replaces Milkdown presets)
+> - `markdown_pipeline.ts` — markdown-it + prosemirror-markdown (replaces remark)
+> - `prosemirror_adapter.ts` — direct EditorState/EditorView construction (replaces Editor.make())
+> - `lazy_editor_adapter.ts` — lazy-loading wrapper (renamed from lazy_milkdown_adapter.ts)
+>
+> Research and migration plan documented in `carbide/research/milkdown_role_assessment.md` and `carbide/implementation/milkdown_ejection.md`. Recent commits (`77393cb`, `d4ed0e8`, `65803b3`, `af7deba`, `71d0bcc`) fix post-ejection issues, indicating migration is complete and stabilizing.
+
+~~With 30+ raw PM plugins and `create_milkdown_editor_port` as the primary integration surface, Milkdown is functioning as an initialization harness — schema presets and markdown serialization — rather than as an active plugin framework. The codebase is already operating at the raw ProseMirror level for almost all extensions. `LARGE_DOC_CHAR_THRESHOLD` / `LARGE_DOC_LINE_THRESHOLD` in `milkdown_adapter.ts` suggest there are performance-sensitive paths where raw PM control already matters.~~
+
+~~This is not a problem today, but it becomes one when adding complex new block types: the choice of whether to build against Milkdown's plugin API or raw PM affects API surface, upgrade coupling, and how much of Milkdown's internals you need to understand.~~
+
+~~**Recommendation:** Make an explicit decision before the next complex block type (toggle, inline AI). Either: (a) commit to raw PM for all new extensions and treat Milkdown as a thin init layer only, or (b) verify Milkdown's plugin API can handle the required complexity without fighting it. Avoid mixing both approaches further.~~
+
+### 17.4 Type-dispatch cell editors for Bases — ❌ NOT IMPLEMENTED
+
+> **Status (2026-03-17):** Not implemented. `bases_table.svelte` renders all cell values as plain text (`row.properties[key]?.value ?? ""`). No per-field-type editor components exist. The table is read-only — clicking a row opens the note. No date picker, toggle, dropdown, or type-specific editors.
+
+Confirmed: `bases/ui/` contains `bases_panel.svelte` and `bases_table.svelte`. There are no per-field-type cell editor components. AppFlowy's pattern here is directly applicable: each field type (date, boolean, single-select, number, text) renders its own editor component rather than a generic input. A `CellEditor` component that switches on field type and renders the appropriate widget is pure UI work — no backend changes required.
+
+**Recommendation:** Before adding new Bases field types, introduce a `CellEditor` dispatch component. Date fields get a date picker; booleans get a toggle; select fields get a pill dropdown. This should be implemented alongside the Bases board/calendar views (section 2) since those views also require typed cell rendering.
+
+### 17.5 ViewTypeRegistry (confirmed missing) — ❌ NOT IMPLEMENTED
+
+> **Status (2026-03-17):** Still not implemented. View type selection uses ad-hoc `{#if}/{:else if}` conditional rendering in `note_editor.svelte` (lines 54-93) dispatching on `active_tab?.kind` (`"graph"`, `"document"`, `"note"`). Tab types are formally typed as a union in `tab/types/tab.ts`. Pragmatic for 3 view types but won't scale well past 5+.
+
+Carbide's different view types (editor, bases, canvas, graph) are wired via ad-hoc conditional rendering at the layout level — there is no self-registration pattern. A `ViewTypeRegistry` where each view type registers its renderer, toolbar contributions, and action handlers would scale better as Kanban and Calendar views are added.
+
+This is lower priority than 17.1 and 17.4 but should be in place before a third Bases view mode is implemented.
+
+### 17.6 What to explicitly not adopt from AppFlowy's frontend
+
+| AppFlowy pattern                 | Reason to skip                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| Flutter widget tree / BLoC state | Svelte 5 runes are equivalent and better suited to a webview context                    |
+| Custom block-ID delta editor     | ProseMirror's schema model is more compositional; replacing it would be a full rewrite  |
+| Dart `get_it` service locator    | Carbide's DI via store instantiation in `create_app_stores()` is cleaner for this scale |
+| Per-document collab adapter      | Single-user; no collaborative state to reconcile                                        |
+
+### Implementation priority (updated 2026-03-17)
+
+1. **`EditorExtension` contribution interface** — ❌ Still needed. Define interface, migrate 22+ existing plugins; prerequisite for toggle/inline-AI blocks.
+2. **Audit and reduce PM state in EditorStore** — ⚠️ Fields retained intentionally for status bar and tab-switch scroll. Audit floating toolbar consumers to confirm they read from PM plugin state, not the store.
+3. **`CellEditor` type-dispatch for Bases** — ❌ Still needed. Per-field-type editor components before new field types or board/calendar views.
+4. ~~**Milkdown vs raw PM decision**~~ — ✅ Done. Pure ProseMirror. Milkdown fully ejected.
+5. **ViewTypeRegistry** — ❌ Still needed before a third Bases view mode.
+
+# 3. Graph & Semantic Search — Current State and Next Steps
 
 > Findings from audit of `src/lib/features/graph/`, `src/lib/features/links/`, `src-tauri/src/features/graph/`, and `~/src/RAG/`.
 
@@ -125,12 +332,3 @@ When invoking the AI assistant, automatically retrieve the K most relevant notes
 
 **C3. Temporal graph / version-aware edges**
 Leverage the built-in Git history to show how the graph evolved over time — when links were added/removed, which notes grew together. This is unique to a Git-native app.
-
-### Recommended sequencing
-
-1. **A1 (full-vault graph)** + **A2 (multi-hop)** — foundational; unlocks the rest. Pure graph work, no ML needed.
-2. **B1 (sqlite-vec embeddings)** — infrastructure for all semantic features. Start with `all-MiniLM-L6-v2` via ONNX Runtime in Rust.
-3. **A3 (semantic edges)** + **B2 (related notes panel)** — first user-visible semantic features, built on B1.
-4. **B3 (semantic omnibar)** — quick win once B1 exists.
-5. **C1 (AI context)** — high value, depends on B1.
-6. **A4 (clustering)**, **C2 (link prediction)**, **C3 (temporal graph)** — polish and differentiation.

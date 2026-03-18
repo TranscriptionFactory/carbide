@@ -1,0 +1,224 @@
+# Atomic Save → Parse → Index Pipeline
+
+> **Status: ✅ IMPLEMENTED (2026-03-17)**
+>
+> Unify the note write and index paths into a single Rust IPC command that writes, parses, and indexes atomically — eliminating the stale-index window and redundant file re-reads.
+>
+> Commit: `37f579f` on `feat/atomic-save-parse-index`
+
+## Implementation notes
+
+- **Transaction wrapping:** `upsert_note_parsed` now wraps all SQL in `BEGIN IMMEDIATE` / `COMMIT` / `ROLLBACK`. Bulk callers (`rebuild_index`, `sync_index`) use `upsert_note_parsed_inner` (pub(crate), non-transactional) since they manage their own batch transactions.
+- **Writer thread integration:** Rather than calling search DB directly from the notes service (bypassing the writer thread's serialization), a new `DbCommand::UpsertNoteWithContent` variant passes the markdown through the channel. `handle_upsert_with_content` skips the `read_to_string` re-read but still stats the file for metadata. This preserves the existing concurrency guarantees.
+- **Frontend branching:** `write_existing_note` calls `write_and_index_note` in vault mode, falls back to `write_note` in browse mode (where search indexing is unavailable).
+- **Tests:** 4 existing note_service tests updated to mock `write_and_index_note` instead of `write_note` for vault-mode save paths. Both test adapters (mock + integration) implement the new port method.
+
+## Previous state
+
+Two separate IPC calls, sequentially from the frontend:
+
+```
+Frontend (note_service.ts:write_existing_note)
+  │
+  ├─ IPC 1: write_note(vault_id, note_id, markdown, expected_mtime)
+  │    → BufferManager.save_buffer() → atomic_write to disk
+  │    ← returns new_mtime
+  │
+  └─ IPC 2: index_upsert_note(vault_id, note_id)
+       → reads file from disk (re-reads what was just written)
+       → parse_note(markdown, source_path) → ParsedNote
+       → upsert_note_parsed(conn, note_path, parsed_note)
+         (7 SQL statements, NO transaction wrapper)
+       → store outlinks
+```
+
+### Problems
+
+1. **Stale-index window:** Between IPC 1 completing and IPC 2 finishing, the index is stale. External observers (watcher, search, links panel) see outdated data.
+2. **Redundant I/O:** `handle_upsert()` re-reads the file from disk immediately after `write_note()` just wrote it. The markdown content is already in memory on the Rust side (in the buffer manager).
+3. **No transaction on single upsert:** `upsert_note_parsed()` runs 7 SQL operations without `BEGIN...COMMIT`. A crash mid-sequence leaves the index inconsistent. Bulk operations (`rebuild_index`, `sync_index`) do use batch transactions — single-note upserts should too.
+4. **Two round-trips:** Two IPC calls where one suffices. Adds ~1-2ms of overhead per save on the IPC boundary.
+
+## Target state
+
+Single IPC call from the frontend:
+
+```
+Frontend (note_service.ts:write_existing_note)
+  │
+  └─ IPC: write_and_index_note(vault_id, note_id, markdown, expected_mtime)
+       → BufferManager.save_buffer() → atomic_write to disk
+       → parse_note(markdown, source_path)  ← uses in-memory markdown, no re-read
+       → BEGIN IMMEDIATE
+       →   upsert_note_parsed(conn, note_path, parsed_note)
+       →   store outlinks
+       → COMMIT
+       ← returns WriteAndIndexResult { new_mtime, ... }
+```
+
+## Changes
+
+### 1. Wrap `upsert_note_parsed` in a transaction
+
+**File:** `src-tauri/src/features/search/db.rs`
+
+Add `BEGIN IMMEDIATE` / `COMMIT` around the 7 SQL statements in `upsert_note_parsed()`. This is the smallest, safest change and should be done first — it fixes the consistency gap for all callers (single upsert, watcher-triggered re-index, etc.).
+
+```rust
+pub fn upsert_note_parsed(conn: &Connection, note_path: &str, parsed: &ParsedNote) -> Result<(), String> {
+    conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+    let result = upsert_note_parsed_inner(conn, note_path, parsed);
+    match result {
+        Ok(()) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            Err(e)
+        }
+    }
+}
+
+fn upsert_note_parsed_inner(conn: &Connection, note_path: &str, parsed: &ParsedNote) -> Result<(), String> {
+    // existing 7 SQL operations moved here
+}
+```
+
+Note: bulk callers (`rebuild_index`, `sync_index`) already wrap batches in their own transactions. Nested `BEGIN` inside an existing transaction will fail in SQLite. Two options:
+
+- Use `SAVEPOINT` / `RELEASE` instead of `BEGIN` / `COMMIT` inside `upsert_note_parsed` (works nested).
+- Have bulk callers call `upsert_note_parsed_inner` directly (skip per-row transaction when batch transaction is active).
+
+Recommend: expose both `upsert_note_parsed` (transactional, for single-note paths) and `upsert_note_parsed_inner` (non-transactional, for batch callers that manage their own transaction). The `_inner` function is `pub(crate)`.
+
+### 2. New Rust command: `write_and_index_note`
+
+**File:** `src-tauri/src/features/notes/service.rs`
+
+Add a new command that combines write + parse + index:
+
+```rust
+#[derive(Serialize, Deserialize, Type)]
+pub struct WriteAndIndexResult {
+    pub new_mtime: i64,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn write_and_index_note(
+    args: NoteWriteArgs,
+    app: AppHandle,
+    buffer_manager: State<'_, BufferManager>,
+) -> Result<WriteAndIndexResult, String> {
+    // 1. Validate mtime guard (same as write_note)
+    // 2. Write to disk via buffer_manager
+    let new_mtime = /* same write logic as write_note */;
+
+    // 3. Parse the markdown we already have in memory — no re-read
+    let parsed = markdown_doc::parse_note(&args.markdown, &note_path);
+
+    // 4. Enqueue index update (or inline it)
+    //    Option A: synchronous inline (blocks the IPC call, ~1-5ms)
+    //    Option B: enqueue to writer thread (non-blocking, but index is async)
+    //
+    //    Recommend Option A for single-note saves — parse+index is fast (<5ms)
+    //    and the caller needs to know it completed.
+    let conn = get_search_db_conn(&app, &args.vault_id)?;
+    search_db::upsert_note_parsed(&conn, &note_path, &parsed)?;
+    search_db::store_outlinks(&conn, &note_path, &parsed.links)?;
+
+    Ok(WriteAndIndexResult { new_mtime })
+}
+```
+
+**Cross-feature dependency note:** This command in `notes/service.rs` calls into `search/db.rs`. This is a new coupling. Two options:
+
+- Accept the coupling — `notes` depends on `search` for indexing. Pragmatic given they share the same SQLite DB.
+- Create a shared function in `shared/` that both features call. Over-engineering for now.
+
+Recommend: accept the coupling. The `notes` service already depends on `shared/buffer.rs` and `shared/markdown_doc.rs`. Adding `search/db.rs` as a dependency is consistent with "Rust is the integration point."
+
+### 3. Register the new command
+
+**File:** `src-tauri/src/tests/mod.rs` (specta command collection)
+
+Add `write_and_index_note` to the `collect_commands!` macro alongside the existing commands.
+
+**File:** `src-tauri/src/app/commands.rs` (or wherever Tauri commands are registered)
+
+Register the new command in the Tauri builder.
+
+### 4. Regenerate TypeScript bindings
+
+Run `cargo test` (or the specta export test) to regenerate `src/lib/generated/bindings.ts` with the new `writeAndIndexNote` function.
+
+### 5. Update the frontend adapter
+
+**File:** `src/lib/features/note/ports.ts`
+
+Add `write_and_index_note` to `NotesPort` interface (or create in the appropriate port — could be `NotesPort` since it's a note-write operation that happens to also index).
+
+**File:** `src/lib/features/note/adapters/notes_tauri_adapter.ts`
+
+Implement the adapter method calling `writeAndIndexNote` from the generated bindings.
+
+### 6. Update the frontend service
+
+**File:** `src/lib/features/note/application/note_service.ts`
+
+In `write_existing_note()` (around line 742-759):
+
+```diff
+- const new_mtime = await this.notes_port.write_note({ ... });
+- await this.run_index_update(vault_id, note_id);
++ const result = await this.notes_port.write_and_index_note({ ... });
++ const new_mtime = result.new_mtime;
+```
+
+Remove (or deprecate) the separate `run_index_update()` call from the save path.
+
+### 7. Keep `index_upsert_note` for other callers
+
+The existing `index_upsert_note` IPC command must remain for:
+
+- **Watcher-triggered re-indexing** — external file changes where Rust doesn't have the markdown in memory and needs to read from disk.
+- **Manual re-index** — user-triggered vault re-index.
+- **Open-note indexing** — when opening a note for the first time.
+
+No changes to these paths beyond the transaction wrapping in step 1.
+
+## Execution order
+
+| Step                       | Scope                                | Risk                                      | Effort  | Status |
+| -------------------------- | ------------------------------------ | ----------------------------------------- | ------- | ------ |
+| 1. Transaction wrapping    | `search/db.rs` only                  | Low — additive, all callers benefit       | ~30 min | ✅     |
+| 2. New Rust command        | `notes/service.rs` + registration    | Low — new command, doesn't break existing | ~1 hr   | ✅     |
+| 3. Regen bindings          | Automated                            | None                                      | ~5 min  | ✅     |
+| 4. Frontend adapter + port | `notes_tauri_adapter.ts`, `ports.ts` | Low — new method                          | ~30 min | ✅     |
+| 5. Frontend service update | `note_service.ts`                    | Medium — touches the save path            | ~30 min | ✅     |
+| 6. Tests                   | Unit + integration                   | Required                                  | ~1 hr   | ✅     |
+
+All steps complete.
+
+## Testing
+
+### Unit tests (Rust)
+
+- `upsert_note_parsed` rolls back on failure (inject a bad note_path or corrupt state).
+- `write_and_index_note` returns correct mtime and index is queryable immediately after.
+- `write_and_index_note` with mtime guard conflict returns error, does not write or index.
+
+### Unit tests (TypeScript)
+
+- `write_existing_note` calls the unified port method (mock adapter).
+- Verify the old two-call sequence is no longer used in the save path.
+
+### Integration
+
+- Write a note, immediately query the search index — verify the note appears without any delay or separate call.
+- External file modification triggers watcher → separate `index_upsert_note` still works.
+
+## What this does NOT change
+
+- Bulk indexing paths (`rebuild_index`, `sync_index`) — already use batch transactions, unchanged.
+- Watcher-triggered re-indexing — still uses `index_upsert_note` (reads from disk, correct behavior for external changes).
+- The `write_note` command — kept for backward compatibility and for callers that don't need indexing (if any exist). Can be deprecated later.
+- `parse_note()` interface — unchanged, called with the same args.
