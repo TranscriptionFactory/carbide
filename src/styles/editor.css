@@ -484,6 +484,7 @@ li[data-item-type="task"][data-checked="false"]::before {
   border-radius: var(--editor-code-block-radius) var(--editor-code-block-radius)
     0 0;
   min-height: 1.75rem;
+  user-select: none;
 }
 
 .code-block-wrapper .code-block-toolbar + pre {
@@ -681,20 +682,12 @@ li[data-item-type="task"][data-checked="false"]::before {
   background: color-mix(in oklch, var(--foreground) 8%, transparent);
   color: var(--muted-foreground);
   cursor: pointer;
-  opacity: 0.6;
-  transition:
-    opacity var(--duration-normal) var(--ease-default),
-    background var(--duration-fast) var(--ease-default);
-}
-
-.code-block-wrapper:hover .code-block-copy {
-  opacity: 0.8;
+  transition: background var(--duration-fast) var(--ease-default);
 }
 
 .code-block-wrapper .code-block-copy:hover {
   background: color-mix(in oklch, var(--foreground) 15%, transparent);
   color: var(--foreground);
-  opacity: 1;
 }
 
 .code-block-wrapper .code-block-copy--copied {
