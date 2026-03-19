@@ -13,6 +13,7 @@
     initial_markdown: string;
     initial_cursor_offset?: number;
     initial_scroll_fraction?: number;
+    show_line_numbers?: boolean;
     on_markdown_change: (markdown: string) => void;
     on_dirty_change: (is_dirty: boolean) => void;
     on_cursor_change: (info: CursorInfo) => void;
@@ -28,6 +29,7 @@
     initial_markdown,
     initial_cursor_offset = 0,
     initial_scroll_fraction = 0,
+    show_line_numbers = false,
     on_markdown_change,
     on_dirty_change,
     on_cursor_change,
@@ -46,6 +48,10 @@
   let ghost_raf: number | null = null;
   let store_timer: ReturnType<typeof setTimeout> | null = null;
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
+  let gutter_el: HTMLDivElement | undefined = $state();
+
+  const line_count = $derived(count_newlines(content));
+  const gutter_width_ch = $derived(Math.max(2, String(line_count).length));
 
   function count_newlines(s: string): number {
     let count = 1;
@@ -80,6 +86,16 @@
   $effect(() => {
     void content;
     sync_ghost();
+  });
+
+  $effect(() => {
+    if (!show_line_numbers || !gutter_el) return;
+    const count = line_count;
+    let text = "";
+    for (let i = 1; i <= count; i++) {
+      text += i + "\n";
+    }
+    gutter_el.textContent = text;
   });
 
   $effect.pre(() => {
@@ -337,6 +353,14 @@
 
 <div class="SourceEditor">
   <div class="SourceEditor__inner">
+    {#if show_line_numbers}
+      <div
+        bind:this={gutter_el}
+        class="SourceEditor__gutter"
+        style:width="{gutter_width_ch + 1}ch"
+        aria-hidden="true"
+      ></div>
+    {/if}
     <div class="SourceEditor__grow" style="tab-size: {TAB_SIZE}">
       <div
         bind:this={ghost_el}
@@ -375,6 +399,21 @@
     display: flex;
     word-wrap: break-word;
     overflow-wrap: break-word;
+  }
+
+  .SourceEditor__gutter {
+    flex-shrink: 0;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    white-space: pre;
+    text-align: right;
+    color: var(--muted-foreground);
+    opacity: 0.5;
+    user-select: none;
+    padding-right: 0.75ch;
+    border-right: 1px solid var(--border);
+    margin-right: 1ch;
   }
 
   .SourceEditor__grow {

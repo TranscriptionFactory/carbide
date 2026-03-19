@@ -10,6 +10,7 @@
     initial_markdown: string;
     initial_cursor_offset?: number;
     initial_scroll_fraction?: number;
+    show_line_numbers?: boolean;
     on_markdown_change: (markdown: string) => void;
     on_dirty_change: (is_dirty: boolean) => void;
     on_cursor_change: (info: CursorInfo) => void;
@@ -25,6 +26,7 @@
     initial_markdown,
     initial_cursor_offset,
     initial_scroll_fraction,
+    show_line_numbers,
     on_markdown_change,
     on_dirty_change,
     on_cursor_change,
@@ -41,6 +43,7 @@
     ...(initial_scroll_fraction === undefined
       ? {}
       : { initial_scroll_fraction }),
+    ...(show_line_numbers === undefined ? {} : { show_line_numbers }),
     on_markdown_change,
     on_dirty_change,
     on_cursor_change,

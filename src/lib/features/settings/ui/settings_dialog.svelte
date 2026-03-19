@@ -1272,6 +1272,24 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label"
+                    >Source Editor Line Numbers</span
+                  >
+                  <span class="SettingsDialog__description"
+                    >Show line numbers in the source editor gutter</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.source_editor_line_numbers}
+                    onCheckedChange={(v: boolean) =>
+                      update("source_editor_line_numbers", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Blockquote Padding</span>
                   <span class="SettingsDialog__description"
                     >Adjust padding inside blockquotes</span

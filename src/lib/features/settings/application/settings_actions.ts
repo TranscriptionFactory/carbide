@@ -30,6 +30,7 @@ const SETTINGS_COMPARE_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_blockquote_padding",
   "editor_blockquote_border_width",
   "editor_link_underline_style",
+  "source_editor_line_numbers",
   "terminal_shell_path",
   "terminal_font_size_px",
   "terminal_cursor_blink",

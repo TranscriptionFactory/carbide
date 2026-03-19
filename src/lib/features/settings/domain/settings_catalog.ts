@@ -225,6 +225,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "code", "block", "wrap", "scroll", "overflow"],
   },
   {
+    key: "source_editor_line_numbers",
+    label: "Source Editor Line Numbers",
+    description: "Show line numbers in the source editor gutter",
+    category: "Layout",
+    keywords: ["editor", "source", "line", "numbers", "gutter"],
+  },
+  {
     key: "editor_blockquote_padding",
     label: "Blockquote Padding",
     description: "Controls padding inside editor blockquotes",

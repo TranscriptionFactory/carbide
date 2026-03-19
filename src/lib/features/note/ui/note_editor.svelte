@@ -76,6 +76,7 @@
         initial_markdown={open_note.markdown}
         initial_cursor_offset={stores.editor.cursor_offset}
         initial_scroll_fraction={stores.editor.scroll_fraction}
+        show_line_numbers={stores.ui.editor_settings.source_editor_line_numbers}
         on_markdown_change={(md) =>
           stores.editor.set_markdown(open_note.meta.id, as_markdown_text(md))}
         on_dirty_change={(dirty) =>
