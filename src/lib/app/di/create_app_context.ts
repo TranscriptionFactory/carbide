@@ -49,6 +49,7 @@ import {
 } from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
+import { LintService, register_lint_actions } from "$lib/features/lint";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -310,6 +311,14 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
+  const lint_service = new LintService(
+    input.ports.lint,
+    stores.lint,
+    stores.vault,
+    stores.editor,
+    stores.op,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -402,6 +411,13 @@ export function create_app_context(input: {
 
   register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
 
+  register_lint_actions({
+    registry: action_registry,
+    lint_service,
+    lint_store: stores.lint,
+    ui_store: stores.ui,
+  });
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -433,6 +449,8 @@ export function create_app_context(input: {
     document_service,
     task_service,
     workspace_index_port: input.ports.index,
+    lint_store: stores.lint,
+    lint_service,
   });
 
   return {
@@ -448,6 +466,7 @@ export function create_app_context(input: {
       split_view_service.destroy();
       editor_service.unmount();
       void watcher_service.stop();
+      void lint_service.stop();
     },
   };
 }

@@ -368,6 +368,8 @@ export class UIStore {
 
   quick_capture_open = $state(false);
 
+  problems_panel_open = $state(false);
+
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
   context_rail_side = $state<"left" | "right">("right");

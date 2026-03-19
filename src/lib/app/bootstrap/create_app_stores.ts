@@ -18,6 +18,7 @@ import { TaskStore } from "$lib/features/task";
 import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
+import { LintStore } from "$lib/features/lint";
 
 export type AppStores = {
   vault: VaultStore;
@@ -41,6 +42,7 @@ export type AppStores = {
   plugin_settings: PluginSettingsStore;
   canvas: CanvasStore;
   tag: TagStore;
+  lint: LintStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -66,5 +68,6 @@ export function create_app_stores(): AppStores {
     plugin_settings: new PluginSettingsStore(),
     canvas: new CanvasStore(),
     tag: new TagStore(),
+    lint: new LintStore(),
   };
 }

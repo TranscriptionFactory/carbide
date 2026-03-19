@@ -29,6 +29,7 @@ import {
 } from "$lib/features/plugin";
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
+import { create_lint_tauri_adapter } from "$lib/features/lint";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -77,5 +78,6 @@ export function create_prod_ports(): Ports {
     plugin_settings,
     canvas: create_canvas_tauri_adapter(),
     tag: create_tag_tauri_adapter(),
+    lint: create_lint_tauri_adapter(),
   };
 }

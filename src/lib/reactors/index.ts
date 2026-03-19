@@ -31,6 +31,7 @@ import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
+import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -59,6 +60,7 @@ import type { TerminalService, TerminalStore } from "$lib/features/terminal";
 import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
+import type { LintStore, LintService } from "$lib/features/lint";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -91,6 +93,8 @@ export type ReactorContext = {
   document_service: DocumentService;
   task_service: TaskService;
   workspace_index_port: WorkspaceIndexPort;
+  lint_store: LintStore;
+  lint_service: LintService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -231,6 +235,13 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_store,
       context.ui_store,
       context.links_service,
+    ),
+    create_lint_reactor(
+      context.vault_store,
+      context.editor_store,
+      context.lint_store,
+      context.lint_service,
+      context.ui_store,
     ),
   ];
 
