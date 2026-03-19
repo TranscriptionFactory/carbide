@@ -70,6 +70,12 @@ export function create_test_ports(): Ports {
       load: () => Promise.resolve(),
       unload: () => Promise.resolve(),
     },
+    plugin_settings: {
+      read_settings: () => Promise.resolve({ plugins: {} }),
+      write_settings: () => Promise.resolve(),
+      approve_permission: () => Promise.resolve(),
+      deny_permission: () => Promise.resolve(),
+    },
     canvas: {
       read_file: () => Promise.resolve('{"nodes":[],"edges":[]}'),
       write_file: () => Promise.resolve(),

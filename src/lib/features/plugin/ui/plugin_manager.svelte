@@ -1,11 +1,20 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { RefreshCw, Settings, Trash2 } from "@lucide/svelte";
+  import { RefreshCw, Settings, ShieldAlert } from "@lucide/svelte";
+  import PluginPermissionDialog from "./plugin_permission_dialog.svelte";
 
   const { stores, services } = use_app_context();
 
   let is_discovering = $state(false);
+
+  interface PermissionDialogState {
+    plugin_id: string;
+    plugin_name: string;
+    permissions: string[];
+  }
+
+  let permission_dialog = $state<PermissionDialogState | null>(null);
 
   async function discover_plugins() {
     is_discovering = true;
@@ -16,7 +25,6 @@
     }
   }
 
-  // Initial discovery
   $effect(() => {
     if (stores.vault.vault) {
       void discover_plugins();
@@ -24,6 +32,20 @@
   });
 
   const plugin_list = $derived(Array.from(stores.plugin.plugins.values()));
+
+  function pending_permissions(plugin_id: string): string[] {
+    return stores.plugin_settings.get_pending_permissions(plugin_id);
+  }
+
+  function open_permissions(plugin_id: string, plugin_name: string) {
+    const permissions = pending_permissions(plugin_id);
+    if (permissions.length === 0) return;
+    permission_dialog = { plugin_id, plugin_name, permissions };
+  }
+
+  function close_permission_dialog() {
+    permission_dialog = null;
+  }
 </script>
 
 <div class="PluginManager">
@@ -52,6 +74,7 @@
     {:else}
       <div class="space-y-3">
         {#each plugin_list as plugin (plugin.manifest.id)}
+          {@const pending = pending_permissions(plugin.manifest.id)}
           <div class="flex flex-col p-3 border rounded-lg bg-card">
             <div class="flex items-start justify-between">
               <div>
@@ -61,6 +84,26 @@
                 </p>
               </div>
               <div class="flex items-center gap-1">
+                {#if pending.length > 0}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="w-8 h-8 relative"
+                    onclick={() =>
+                      open_permissions(
+                        plugin.manifest.id,
+                        plugin.manifest.name,
+                      )}
+                    title="Review pending permissions"
+                  >
+                    <ShieldAlert class="w-4 h-4 text-amber-500" />
+                    <span
+                      class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white"
+                    >
+                      {pending.length}
+                    </span>
+                  </Button>
+                {/if}
                 <Button variant="ghost" size="icon" class="w-8 h-8">
                   <Settings class="w-4 h-4" />
                 </Button>
@@ -90,6 +133,15 @@
     {/if}
   </div>
 </div>
+
+{#if permission_dialog}
+  <PluginPermissionDialog
+    plugin_id={permission_dialog.plugin_id}
+    plugin_name={permission_dialog.plugin_name}
+    permissions={permission_dialog.permissions}
+    on_close={close_permission_dialog}
+  />
+{/if}
 
 <style>
   .PluginManager {

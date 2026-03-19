@@ -1,6 +1,31 @@
 import type { CommandDefinition } from "$lib/features/search";
 import type { Component } from "svelte";
 
+export type ActivationEvent =
+  | "on_startup"
+  | `on_command:${string}`
+  | `on_file_open:${string}`
+  | "on_settings_open";
+
+export interface PluginSettingSchema {
+  key: string;
+  type: "string" | "number" | "boolean" | "select";
+  label: string;
+  description?: string;
+  default?: unknown;
+  options?: { label: string; value: string }[];
+}
+
+export interface PluginContributes {
+  settings?: PluginSettingSchema[];
+  ribbon_icons?: {
+    id: string;
+    icon: string;
+    tooltip: string;
+    command: string;
+  }[];
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -9,6 +34,37 @@ export interface PluginManifest {
   description: string;
   api_version: string;
   permissions: string[];
+  activation_events?: ActivationEvent[];
+  contributes?: PluginContributes;
+}
+
+export interface PluginSettingsData {
+  plugins: Record<string, PluginSettingsEntry>;
+}
+
+export interface PluginSettingsEntry {
+  permissions_granted: string[];
+  permissions_pending: string[];
+  settings: Record<string, unknown>;
+  content_hash: string | null;
+}
+
+export interface PluginSettingsPort {
+  read_settings(vault_path: string): Promise<PluginSettingsData>;
+  write_settings(
+    vault_path: string,
+    settings: PluginSettingsData,
+  ): Promise<void>;
+  approve_permission(
+    vault_path: string,
+    plugin_id: string,
+    permission: string,
+  ): Promise<void>;
+  deny_permission(
+    vault_path: string,
+    plugin_id: string,
+    permission: string,
+  ): Promise<void>;
 }
 
 export interface PluginInfo {
@@ -59,6 +115,23 @@ export interface StatusBarRegistryPort {
   unregister(id: string): void;
   getItems(): StatusBarItem[];
 }
+
+export interface RibbonIcon {
+  id: string;
+  icon: string;
+  tooltip: string;
+  command: string;
+}
+
+export type PluginEventType =
+  | "file-created"
+  | "file-modified"
+  | "file-deleted"
+  | "file-renamed"
+  | "active-file-changed"
+  | "editor-selection-changed"
+  | "vault-opened"
+  | "layout-changed";
 
 export interface PluginNotificationPort {
   notify_plugin_unstable(plugin_id: string, plugin_name: string): void;

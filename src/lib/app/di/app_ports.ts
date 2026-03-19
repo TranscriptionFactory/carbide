@@ -14,7 +14,7 @@ import type { AiPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
 import type { TaskPort } from "$lib/features/task";
-import type { PluginHostPort } from "$lib/features/plugin";
+import type { PluginHostPort, PluginSettingsPort } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 
@@ -39,6 +39,7 @@ export type Ports = {
   bases: BasesPort;
   task: TaskPort;
   plugin: PluginHostPort;
+  plugin_settings: PluginSettingsPort;
   canvas: CanvasPort;
   tag: TagPort;
 };

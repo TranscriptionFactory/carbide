@@ -4,17 +4,26 @@ import type {
   PluginNotificationPort,
   SidebarView,
   StatusBarItem,
+  RibbonIcon,
+  PluginEventType,
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
 import type { RpcRequest, RpcResponse } from "./plugin_rpc_handler";
 import { PluginRpcHandler } from "./plugin_rpc_handler";
 import { PluginErrorTracker } from "./plugin_error_tracker";
+import { error_message } from "$lib/shared/utils/error_message";
+import { PluginEventBus, type PluginEvent } from "./plugin_event_bus";
+import type { PluginSettingsService } from "./plugin_settings_service";
+import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
 
 export class PluginService {
   private rpc_handler: PluginRpcHandler | null = null;
   private error_tracker = new PluginErrorTracker();
   private notification_port: PluginNotificationPort | null = null;
+  private event_bus = new PluginEventBus();
+  private settings_service: PluginSettingsService | null = null;
+  private iframe_post_message_map = new Map<string, (msg: unknown) => void>();
 
   constructor(
     private store: PluginStore,
@@ -23,10 +32,65 @@ export class PluginService {
     notification_port?: PluginNotificationPort,
   ) {
     this.notification_port = notification_port ?? null;
+
+    this.event_bus.set_event_listener((plugin_id, event) => {
+      this.deliver_event(plugin_id, event);
+    });
   }
 
   initialize_rpc(context: { services: any; stores: any }) {
     this.rpc_handler = new PluginRpcHandler(context);
+    this.rpc_handler.set_event_bus(this.event_bus);
+    if (this.settings_service) {
+      this.rpc_handler.set_settings_service(this.settings_service);
+    }
+  }
+
+  set_settings_service(
+    settings_service: PluginSettingsService,
+    settings_store: PluginSettingsStore,
+  ) {
+    this.settings_service = settings_service;
+    if (this.rpc_handler) {
+      this.rpc_handler.set_settings_service(settings_service);
+    }
+    this.event_bus.set_permission_checker((plugin_id) => {
+      return settings_store.is_permission_granted(
+        plugin_id,
+        "events:subscribe",
+      );
+    });
+  }
+
+  get_event_bus(): PluginEventBus {
+    return this.event_bus;
+  }
+
+  register_iframe_messenger(
+    plugin_id: string,
+    post_message: (msg: unknown) => void,
+  ) {
+    this.iframe_post_message_map.set(plugin_id, post_message);
+  }
+
+  unregister_iframe_messenger(plugin_id: string) {
+    this.iframe_post_message_map.delete(plugin_id);
+  }
+
+  private deliver_event(plugin_id: string, event: PluginEvent) {
+    const post_message = this.iframe_post_message_map.get(plugin_id);
+    if (post_message) {
+      post_message({
+        type: "event",
+        event: event.type,
+        data: event.data,
+        timestamp: event.timestamp,
+      });
+    }
+  }
+
+  emit_plugin_event(type: PluginEventType, data?: unknown) {
+    this.event_bus.emit({ type, data, timestamp: Date.now() });
   }
 
   // Command registration
@@ -60,6 +124,15 @@ export class PluginService {
     this.store.unregister_sidebar_view(id);
   }
 
+  // Ribbon icon registration
+  register_ribbon_icon(icon: RibbonIcon) {
+    this.store.register_ribbon_icon(icon);
+  }
+
+  unregister_ribbon_icon(id: string) {
+    this.store.unregister_ribbon_icon(id);
+  }
+
   // Lifecycle
   async discover() {
     const vault_path = this.vault_store.vault?.path;
@@ -81,6 +154,14 @@ export class PluginService {
     return discovered;
   }
 
+  should_activate(plugin_id: string, event: string): boolean {
+    const plugin = this.store.plugins.get(plugin_id);
+    if (!plugin) return false;
+    const events = plugin.manifest.activation_events;
+    if (!events || events.length === 0) return event === "on_startup";
+    return events.includes(event as any);
+  }
+
   async load_plugin(id: string) {
     await this.host_port.load(id);
   }
@@ -88,27 +169,40 @@ export class PluginService {
   async unload_plugin(id: string) {
     await this.host_port.unload(id);
     this.error_tracker.reset(id);
+    this.event_bus.unsubscribe_all(id);
+    this.unregister_iframe_messenger(id);
+    this.clear_plugin_contributions(id);
+  }
 
+  private clear_plugin_contributions(id: string) {
     const prefix = `${id}:`;
-    const command_ids = this.store.commands
+    for (const cid of this.store.commands
       .filter((c) => c.id.startsWith(prefix))
-      .map((c) => c.id);
-    const status_bar_ids = this.store.status_bar_items
+      .map((c) => c.id)) {
+      this.store.unregister_command(cid);
+    }
+    for (const sid of this.store.status_bar_items
       .filter((i) => i.id.startsWith(prefix))
-      .map((i) => i.id);
-    const sidebar_ids = this.store.sidebar_views
+      .map((i) => i.id)) {
+      this.store.unregister_status_bar_item(sid);
+    }
+    for (const vid of this.store.sidebar_views
       .filter((v) => v.id.startsWith(prefix))
-      .map((v) => v.id);
-
-    command_ids.forEach((id) => this.unregister_command(id));
-    status_bar_ids.forEach((id) => this.unregister_status_bar_item(id));
-    sidebar_ids.forEach((id) => this.unregister_sidebar_view(id));
+      .map((v) => v.id)) {
+      this.store.unregister_sidebar_view(vid);
+    }
+    for (const rid of this.store.ribbon_icons
+      .filter((r) => r.id.startsWith(prefix))
+      .map((r) => r.id)) {
+      this.store.unregister_ribbon_icon(rid);
+    }
   }
 
   async enable_plugin(id: string) {
     const plugin = this.store.plugins.get(id);
     if (!plugin) return;
 
+    this.settings_service?.ensure_plugin_entry(id);
     this.store.plugins.set(id, { ...plugin, status: "loading" });
     try {
       await this.load_plugin(id);
@@ -121,7 +215,7 @@ export class PluginService {
       this.store.plugins.set(id, {
         ...plugin,
         status: "error",
-        error: e instanceof Error ? e.message : String(e),
+        error: error_message(e),
       });
     }
   }
@@ -137,7 +231,7 @@ export class PluginService {
       this.store.plugins.set(id, {
         ...plugin,
         status: "error",
-        error: e instanceof Error ? e.message : String(e),
+        error: error_message(e),
       });
     }
   }
@@ -147,22 +241,8 @@ export class PluginService {
     if (!plugin) return;
 
     this.store.plugins.set(id, { ...plugin, status: "error", error: reason });
-
-    const prefix = `${id}:`;
-    const command_ids = this.store.commands
-      .filter((c) => c.id.startsWith(prefix))
-      .map((c) => c.id);
-    const status_bar_ids = this.store.status_bar_items
-      .filter((i) => i.id.startsWith(prefix))
-      .map((i) => i.id);
-    const sidebar_ids = this.store.sidebar_views
-      .filter((v) => v.id.startsWith(prefix))
-      .map((v) => v.id);
-
-    command_ids.forEach((cid) => this.unregister_command(cid));
-    status_bar_ids.forEach((sid) => this.unregister_status_bar_item(sid));
-    sidebar_ids.forEach((vid) => this.unregister_sidebar_view(vid));
-
+    this.event_bus.unsubscribe_all(id);
+    this.clear_plugin_contributions(id);
     this.error_tracker.reset(id);
   }
 
@@ -196,5 +276,10 @@ export class PluginService {
     }
 
     return response;
+  }
+
+  destroy() {
+    this.event_bus.destroy();
+    this.iframe_post_message_map.clear();
   }
 }

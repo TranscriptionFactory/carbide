@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { PluginRpcHandler } from "$lib/features/plugin/application/plugin_rpc_handler";
 import type { PluginManifest } from "$lib/features/plugin/ports";
+import { PluginEventBus } from "$lib/features/plugin/application/plugin_event_bus";
+
+vi.mock("svelte-sonner", () => ({ toast: { info: vi.fn() } }));
+import { toast } from "svelte-sonner";
 
 function make_manifest(permissions: string[]): PluginManifest {
   return {
@@ -155,6 +159,178 @@ describe("PluginRpcHandler", () => {
 
       expect(response.error).toMatch(/Missing ui:panel permission/);
       expect(ctx.plugin.unregister_sidebar_view).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("ui.show_notice", () => {
+    it("dispatches a toast with the given message", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "5",
+        method: "ui.show_notice",
+        params: [{ message: "Hello from plugin", duration: 3000 }],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(vi.mocked(toast.info)).toHaveBeenCalledWith("Hello from plugin", {
+        duration: 3000,
+      });
+    });
+
+    it("uses default duration when not provided", async () => {
+      const manifest = make_manifest([]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "5",
+        method: "ui.show_notice",
+        params: [{ message: "Notice" }],
+      });
+
+      expect(vi.mocked(toast.info)).toHaveBeenCalledWith("Notice", {
+        duration: 4000,
+      });
+    });
+
+    it("returns error when message is missing", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "5",
+        method: "ui.show_notice",
+        params: [{}],
+      });
+
+      expect(response.error).toMatch(/Missing message parameter/);
+    });
+  });
+
+  describe("settings.*", () => {
+    function make_settings_service() {
+      return {
+        get_setting: vi.fn().mockResolvedValue("stored-value"),
+        set_setting: vi.fn().mockResolvedValue(undefined),
+        get_all_settings: vi
+          .fn()
+          .mockResolvedValue({ theme: "dark", count: 1 }),
+      };
+    }
+
+    it("settings.get returns a setting value without permission check", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s1",
+        method: "settings.get",
+        params: ["theme"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toBe("stored-value");
+      expect(svc.get_setting).toHaveBeenCalledWith(PLUGIN_ID, "theme");
+    });
+
+    it("settings.set writes a setting and returns success", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s2",
+        method: "settings.set",
+        params: ["theme", "light"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(svc.set_setting).toHaveBeenCalledWith(PLUGIN_ID, "theme", "light");
+    });
+
+    it("settings.get_all returns all settings for the plugin", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s3",
+        method: "settings.get_all",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ theme: "dark", count: 1 });
+      expect(svc.get_all_settings).toHaveBeenCalledWith(PLUGIN_ID);
+    });
+
+    it("settings.* errors when settings service not initialized", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s4",
+        method: "settings.get",
+        params: ["key"],
+      });
+
+      expect(response.error).toMatch(/Settings service not initialized/);
+    });
+  });
+
+  describe("events.*", () => {
+    let event_bus: PluginEventBus;
+
+    beforeEach(() => {
+      event_bus = new PluginEventBus();
+      handler.set_event_bus(event_bus);
+    });
+
+    it("events.on subscribes to an event type", async () => {
+      const manifest = make_manifest(["events:subscribe"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e1",
+        method: "events.on",
+        params: ["file-created", "cb-1"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(event_bus.get_subscription_count(PLUGIN_ID)).toBe(1);
+    });
+
+    it("events.off unsubscribes a callback", async () => {
+      const manifest = make_manifest(["events:subscribe"]);
+      event_bus.subscribe(PLUGIN_ID, "file-created", "cb-1");
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e2",
+        method: "events.off",
+        params: ["cb-1"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(event_bus.get_subscription_count(PLUGIN_ID)).toBe(0);
+    });
+
+    it("events.* throws without events:subscribe permission", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e3",
+        method: "events.on",
+        params: ["file-created", "cb-1"],
+      });
+
+      expect(response.error).toMatch(/Missing events:subscribe permission/);
+    });
+
+    it("events.* errors when event bus not initialized", async () => {
+      const fresh_handler = new PluginRpcHandler(ctx);
+      const manifest = make_manifest(["events:subscribe"]);
+      const response = await fresh_handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e4",
+        method: "events.on",
+        params: ["file-created", "cb-1"],
+      });
+
+      expect(response.error).toMatch(/Event bus not initialized/);
     });
   });
 });
