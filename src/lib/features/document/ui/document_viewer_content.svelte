@@ -31,11 +31,12 @@
       file_type={viewer_state.file_type}
     />
   {:else if viewer_state.file_type === "pdf" && asset_url}
-    {#key viewer_state.file_path}
+    {#key `${viewer_state.file_path}:${stores.ui.editor_settings.document_pdf_scroll_mode}`}
       <PdfViewer
         src={asset_url}
         initial_page={viewer_state.pdf_page}
         default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
+        scroll_mode={stores.ui.editor_settings.document_pdf_scroll_mode}
       />
     {/key}
   {:else if viewer_state.file_type === "image" && asset_url}

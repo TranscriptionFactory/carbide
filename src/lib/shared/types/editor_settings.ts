@@ -19,6 +19,7 @@ export type SettingsCategory =
 export type GitAutocommitMode = "off" | "on_save" | "interval";
 export type GitPullStrategy = "merge" | "rebase" | "ff_only";
 export type DocumentPdfZoomMode = "actual_size" | "fit_width";
+export type DocumentPdfScrollMode = "continuous" | "paginated";
 export type DocumentImageBackground = "checkerboard" | "light" | "dark";
 export type EditorSpacingDensity =
   | "extra_compact"
@@ -68,6 +69,7 @@ export type EditorSettings = {
   ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
   document_pdf_default_zoom: DocumentPdfZoomMode;
+  document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
   document_image_background: DocumentImageBackground;
   document_inactive_cache_limit: number;
@@ -119,6 +121,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
   document_pdf_default_zoom: "fit_width",
+  document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,
   document_image_background: "checkerboard",
   document_inactive_cache_limit: 3,
@@ -168,6 +171,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
   "document_pdf_default_zoom",
+  "document_pdf_scroll_mode",
   "document_code_wrap",
   "document_image_background",
   "document_inactive_cache_limit",

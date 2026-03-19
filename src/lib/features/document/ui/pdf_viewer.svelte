@@ -16,24 +16,34 @@
     PageText,
     SearchState,
   } from "$lib/features/document/domain/pdf_search";
-  import type { DocumentPdfZoomMode } from "$lib/shared/types/editor_settings";
+  import type {
+    DocumentPdfZoomMode,
+    DocumentPdfScrollMode,
+  } from "$lib/shared/types/editor_settings";
 
   interface Props {
     src: string;
     initial_page: number;
     default_zoom: DocumentPdfZoomMode;
+    scroll_mode: DocumentPdfScrollMode;
   }
 
-  let { src, initial_page, default_zoom }: Props = $props();
+  let { src, initial_page, default_zoom, scroll_mode }: Props = $props();
 
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
   type PDFJSModule = typeof import("pdfjs-dist");
 
   type PageInfo = { width: number; height: number };
 
+  const is_continuous = $derived(scroll_mode === "continuous");
+
   let scroll_container_el: HTMLDivElement | undefined = $state();
   let pages_container_el: HTMLDivElement | undefined = $state();
   let search_input_el: HTMLInputElement | undefined = $state();
+
+  let paginated_canvas_el: HTMLCanvasElement | undefined = $state();
+  let paginated_text_layer_el: HTMLDivElement | undefined = $state();
+  let paginated_rendering = false;
 
   let pdf_doc: PDFDocumentProxy | null = $state(null);
   let pdfjs_module = $state<PDFJSModule | null>(null);
@@ -249,11 +259,57 @@
     }
   }
 
+  async function render_paginated_page(page_num: number) {
+    if (!pdf_doc || !paginated_canvas_el || paginated_rendering) return;
+
+    paginated_rendering = true;
+    try {
+      const pdfjs = pdfjs_module ?? (await import("pdfjs-dist"));
+      pdfjs_module = pdfjs;
+      const page = await pdf_doc.getPage(page_num);
+      const dpr = window.devicePixelRatio || 1;
+      const viewport = page.getViewport({ scale: zoom_level * dpr });
+      const css_viewport = page.getViewport({ scale: zoom_level });
+
+      const ctx = paginated_canvas_el.getContext("2d");
+      if (!ctx) return;
+
+      paginated_canvas_el.width = viewport.width;
+      paginated_canvas_el.height = viewport.height;
+      paginated_canvas_el.style.width = `${css_viewport.width}px`;
+      paginated_canvas_el.style.height = `${css_viewport.height}px`;
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      if (paginated_text_layer_el) {
+        paginated_text_layer_el.innerHTML = "";
+        paginated_text_layer_el.style.width = `${css_viewport.width}px`;
+        paginated_text_layer_el.style.height = `${css_viewport.height}px`;
+
+        const tl = new pdfjs.TextLayer({
+          textContentSource: page.streamTextContent(),
+          container: paginated_text_layer_el,
+          viewport: css_viewport,
+        });
+
+        await tl.render();
+        apply_highlights_to_page(page_num, paginated_text_layer_el);
+      }
+    } finally {
+      paginated_rendering = false;
+    }
+  }
+
   function go_to_page(page_num: number) {
     const clamped = Math.max(1, Math.min(num_pages, page_num));
+    if (clamped === current_page && !is_continuous) return;
     current_page = clamped;
     page_input_value = String(clamped);
-    scroll_to_page(clamped);
+    if (is_continuous) {
+      scroll_to_page(clamped);
+    } else {
+      void render_paginated_page(clamped);
+    }
   }
 
   function prev_page() {
@@ -265,23 +321,27 @@
   }
 
   async function apply_zoom(new_zoom: number) {
-    if (!scroll_container_el) return;
-
-    const target_page_el = page_elements.get(current_page);
-    const scroll_ratio = target_page_el
-      ? (scroll_container_el.scrollTop - target_page_el.offsetTop) /
-        Math.max(1, target_page_el.offsetHeight)
-      : 0;
-
-    const pages_to_rerender = Array.from(rendered_pages);
-    rendered_pages = new Set();
     zoom_level = new_zoom;
 
-    await Promise.all(pages_to_rerender.map((p) => render_single_page(p)));
+    if (is_continuous) {
+      if (!scroll_container_el) return;
+      const target_page_el = page_elements.get(current_page);
+      const scroll_ratio = target_page_el
+        ? (scroll_container_el.scrollTop - target_page_el.offsetTop) /
+          Math.max(1, target_page_el.offsetHeight)
+        : 0;
 
-    if (target_page_el) {
-      scroll_container_el.scrollTop =
-        target_page_el.offsetTop + scroll_ratio * target_page_el.offsetHeight;
+      const pages_to_rerender = Array.from(rendered_pages);
+      rendered_pages = new Set();
+
+      await Promise.all(pages_to_rerender.map((p) => render_single_page(p)));
+
+      if (target_page_el) {
+        scroll_container_el.scrollTop =
+          target_page_el.offsetTop + scroll_ratio * target_page_el.offsetHeight;
+      }
+    } else {
+      void render_paginated_page(current_page);
     }
   }
 
@@ -294,10 +354,14 @@
   }
 
   async function fit_width() {
-    if (!pdf_doc || !scroll_container_el || page_infos.length === 0) return;
+    if (!pdf_doc || page_infos.length === 0) return;
     const info = page_infos[0];
     if (!info) return;
-    const new_zoom = (scroll_container_el.clientWidth - 32) / info.width;
+    const container = is_continuous
+      ? scroll_container_el
+      : paginated_canvas_el?.closest(".PdfViewer__scroll-container");
+    if (!container) return;
+    const new_zoom = ((container as HTMLElement).clientWidth - 32) / info.width;
     void apply_zoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, new_zoom)));
   }
 
@@ -398,10 +462,14 @@
   }
 
   function apply_highlights_all() {
-    for (const [page_num, text_layer_div] of page_text_layers) {
-      if (rendered_pages.has(page_num)) {
-        apply_highlights_to_page(page_num, text_layer_div);
+    if (is_continuous) {
+      for (const [page_num, text_layer_div] of page_text_layers) {
+        if (rendered_pages.has(page_num)) {
+          apply_highlights_to_page(page_num, text_layer_div);
+        }
       }
+    } else if (paginated_text_layer_el) {
+      apply_highlights_to_page(current_page, paginated_text_layer_el);
     }
   }
 
@@ -414,12 +482,23 @@
     const match = search_state.matches[search_state.current_index];
     if (!match) return;
 
-    const target_el = page_elements.get(match.page_num);
-    if (target_el) {
-      target_el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (is_continuous) {
+      const target_el = page_elements.get(match.page_num);
+      if (target_el) {
+        target_el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      apply_highlights_all();
+    } else {
+      if (match.page_num !== current_page) {
+        current_page = match.page_num;
+        page_input_value = String(match.page_num);
+        void render_paginated_page(match.page_num).then(() =>
+          apply_highlights_all(),
+        );
+      } else {
+        apply_highlights_all();
+      }
     }
-
-    apply_highlights_all();
   }
 
   function search_next() {
@@ -507,27 +586,36 @@
   });
 
   $effect(() => {
-    if (loading || !pdf_doc || page_infos.length === 0 || !pages_container_el) {
-      return;
-    }
+    if (loading || !pdf_doc || page_infos.length === 0) return;
+
+    if (is_continuous && !pages_container_el) return;
+    if (!is_continuous && !paginated_canvas_el) return;
 
     if (!applied_initial_zoom) {
       applied_initial_zoom = true;
-      if (default_zoom === "fit_width") {
-        untrack(
-          () =>
-            void fit_width().then(() => {
-              setup_observer();
-              const target = Math.max(1, initial_page);
-              setTimeout(() => scroll_to_page(target), 50);
-            }),
-        );
+      if (is_continuous) {
+        if (default_zoom === "fit_width") {
+          untrack(
+            () =>
+              void fit_width().then(() => {
+                setup_observer();
+                const target = Math.max(1, initial_page);
+                setTimeout(() => scroll_to_page(target), 50);
+              }),
+          );
+        } else {
+          untrack(() => {
+            setup_observer();
+            const target = Math.max(1, initial_page);
+            setTimeout(() => scroll_to_page(target), 50);
+          });
+        }
       } else {
-        untrack(() => {
-          setup_observer();
-          const target = Math.max(1, initial_page);
-          setTimeout(() => scroll_to_page(target), 50);
-        });
+        if (default_zoom === "fit_width") {
+          untrack(() => void fit_width());
+        } else {
+          untrack(() => void render_paginated_page(current_page));
+        }
       }
     }
   });
@@ -622,7 +710,7 @@
   <div
     bind:this={scroll_container_el}
     class="PdfViewer__scroll-container"
-    onscroll={handle_scroll}
+    onscroll={is_continuous ? handle_scroll : undefined}
   >
     {#if search_open}
       <div class="PdfViewer__search-bar" role="search">
@@ -682,7 +770,7 @@
       <div class="PdfViewer__state PdfViewer__state--error">
         <span class="PdfViewer__state-text">{error_msg}</span>
       </div>
-    {:else}
+    {:else if is_continuous}
       <div bind:this={pages_container_el} class="PdfViewer__pages-container">
         {#each page_infos as info, idx}
           {@const page_num = idx + 1}
@@ -702,6 +790,16 @@
             ></div>
           </div>
         {/each}
+      </div>
+    {:else}
+      <div class="PdfViewer__page-wrapper">
+        <canvas bind:this={paginated_canvas_el} class="PdfViewer__canvas"
+        ></canvas>
+        <div
+          bind:this={paginated_text_layer_el}
+          class="PdfViewer__text-layer"
+          aria-hidden="true"
+        ></div>
       </div>
     {/if}
   </div>

@@ -22,6 +22,7 @@
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
   import type {
     DocumentImageBackground,
+    DocumentPdfScrollMode,
     DocumentPdfZoomMode,
     EditorBlockquotePadding,
     EditorCodeBlockPadding,
@@ -227,6 +228,14 @@
   const pdf_zoom_options: { value: DocumentPdfZoomMode; label: string }[] = [
     { value: "actual_size", label: "Actual Size" },
     { value: "fit_width", label: "Fit Width" },
+  ];
+
+  const pdf_scroll_mode_options: {
+    value: DocumentPdfScrollMode;
+    label: string;
+  }[] = [
+    { value: "continuous", label: "Continuous" },
+    { value: "paginated", label: "Paginated" },
   ];
 
   const image_background_options: {
@@ -1910,6 +1919,56 @@
                   disabled={editor_settings.document_pdf_default_zoom ===
                     DEFAULT_EDITOR_SETTINGS.document_pdf_default_zoom}
                   title="Reset to default (Actual Size)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">PDF Scroll Mode</span>
+                <span class="SettingsDialog__description"
+                  >Continuous scrolling or single-page navigation</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.document_pdf_scroll_mode}
+                  onValueChange={(v: string | undefined) => {
+                    if (v)
+                      update(
+                        "document_pdf_scroll_mode",
+                        v as DocumentPdfScrollMode,
+                      );
+                  }}
+                >
+                  <Select.Trigger class="w-32">
+                    <span data-slot="select-value">
+                      {pdf_scroll_mode_options.find(
+                        (o) =>
+                          o.value === editor_settings.document_pdf_scroll_mode,
+                      )?.label ?? "Continuous"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each pdf_scroll_mode_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_pdf_scroll_mode",
+                      DEFAULT_EDITOR_SETTINGS.document_pdf_scroll_mode,
+                    )}
+                  disabled={editor_settings.document_pdf_scroll_mode ===
+                    DEFAULT_EDITOR_SETTINGS.document_pdf_scroll_mode}
+                  title="Reset to default (Continuous)"
                 >
                   <RotateCcw />
                 </button>

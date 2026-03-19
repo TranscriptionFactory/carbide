@@ -344,6 +344,21 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["pdf", "zoom", "fit width", "documents", "viewer"],
   },
   {
+    key: "document_pdf_scroll_mode",
+    label: "PDF Scroll Mode",
+    description: "Continuous scrolling or single-page navigation for PDFs",
+    category: "Documents",
+    keywords: [
+      "pdf",
+      "scroll",
+      "continuous",
+      "paginated",
+      "page",
+      "documents",
+      "viewer",
+    ],
+  },
+  {
     key: "document_code_wrap",
     label: "Wrap Code/Text Documents",
     description: "Wrap long lines in code and plain-text viewers",
