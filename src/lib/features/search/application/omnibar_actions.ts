@@ -39,6 +39,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   toggle_frontmatter: ACTION_IDS.editor_toggle_frontmatter,
   toggle_zen_mode: ACTION_IDS.ui_toggle_zen_mode,
   toggle_focus_mode: ACTION_IDS.ui_toggle_focus_mode,
+  toggle_line_numbers: ACTION_IDS.editor_toggle_line_numbers,
+  toggle_read_only_mode: ACTION_IDS.editor_toggle_read_only,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

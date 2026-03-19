@@ -907,6 +907,9 @@
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_mode)}
+        show_line_numbers={stores.ui.editor_settings.source_editor_line_numbers}
+        on_line_numbers_toggle={() =>
+          void action_registry.execute(ACTION_IDS.editor_toggle_line_numbers)}
       />
     {/if}
 

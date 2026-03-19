@@ -1,7 +1,7 @@
 import type { NoteDoc } from "$lib/shared/types/note";
 import type { MarkdownText, NoteId, NotePath } from "$lib/shared/types/ids";
 
-export type EditorMode = "visual" | "source" | "split";
+export type EditorMode = "visual" | "source" | "split" | "read_only";
 
 export type OpenNoteState = NoteDoc & {
   buffer_id: string;

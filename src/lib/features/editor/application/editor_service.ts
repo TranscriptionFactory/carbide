@@ -317,6 +317,10 @@ export class EditorService {
     return this.session?.has_frontmatter?.() ?? false;
   }
 
+  set_editable(editable: boolean) {
+    this.session?.set_editable?.(editable);
+  }
+
   private resolve_visual_selection(): EditorSelectionSnapshot | null {
     const text = this.session?.get_selected_text?.();
     if (!text || text.trim() === "") return null;

@@ -151,7 +151,7 @@ describe("apply_editor_appearance", () => {
 
     expect(properties.get("--editor-hr-background")).toBe("none");
     expect(properties.get("--editor-hr-border-top")).toBe(
-      "1px solid var(--editor-hr-gradient-mid)",
+      "var(--editor-hr-thickness, 1px) solid var(--editor-hr-gradient-mid)",
     );
     expect(properties.get("--editor-hr-opacity")).toBe("0.7");
   });
@@ -163,7 +163,7 @@ describe("apply_editor_appearance", () => {
     });
 
     expect(properties.get("--editor-hr-border-top")).toBe(
-      "1px dashed var(--editor-hr-gradient-mid)",
+      "var(--editor-hr-thickness, 1px) dashed var(--editor-hr-gradient-mid)",
     );
   });
 
@@ -175,6 +175,44 @@ describe("apply_editor_appearance", () => {
     );
     expect(properties.get("--editor-hr-border-top")).toBe("none");
     expect(properties.get("--editor-hr-opacity")).toBe("0.5");
+  });
+
+  it("applies divider thickness", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_thickness_px: 3,
+    });
+
+    expect(properties.get("--editor-hr-thickness")).toBe("3px");
+  });
+
+  it("applies divider spacing", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_spacing: "relaxed",
+    });
+
+    expect(properties.get("--editor-hr-spacing")).toBe(
+      "calc(var(--editor-spacing) * 3.5)",
+    );
+  });
+
+  it("applies custom divider color as hr-gradient-mid override", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_color: "#ff0000",
+    });
+
+    expect(properties.get("--editor-hr-gradient-mid")).toBe("#ff0000");
+  });
+
+  it("does not set hr-gradient-mid when divider color is empty", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_color: "",
+    });
+
+    expect(properties.has("--editor-hr-gradient-mid")).toBe(false);
   });
 
   it("applies table spacing density", () => {

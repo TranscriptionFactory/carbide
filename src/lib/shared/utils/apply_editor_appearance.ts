@@ -100,20 +100,31 @@ const divider_style_map: Record<
   },
   solid: {
     background: "none",
-    border_top: "1px solid var(--editor-hr-gradient-mid)",
+    border_top:
+      "var(--editor-hr-thickness, 1px) solid var(--editor-hr-gradient-mid)",
     opacity: "0.7",
   },
   dashed: {
     background: "none",
-    border_top: "1px dashed var(--editor-hr-gradient-mid)",
+    border_top:
+      "var(--editor-hr-thickness, 1px) dashed var(--editor-hr-gradient-mid)",
     opacity: "0.7",
   },
   dotted: {
     background: "none",
-    border_top: "1px dotted var(--editor-hr-gradient-mid)",
+    border_top:
+      "var(--editor-hr-thickness, 1px) dotted var(--editor-hr-gradient-mid)",
     opacity: "0.7",
   },
 };
+
+const divider_spacing_map = {
+  extra_compact: "calc(var(--editor-spacing) * 1.0)",
+  compact: "calc(var(--editor-spacing) * 1.5)",
+  normal: "calc(var(--editor-spacing) * 2.5)",
+  relaxed: "calc(var(--editor-spacing) * 3.5)",
+  spacious: "calc(var(--editor-spacing) * 4.5)",
+} as const;
 
 type HeadingMargins = { mt: string; mb: string };
 type HeadingLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
@@ -306,6 +317,14 @@ export function apply_editor_appearance(settings: EditorSettings): void {
     ["--editor-hr-background", divider.background],
     ["--editor-hr-border-top", divider.border_top],
     ["--editor-hr-opacity", divider.opacity],
+    [
+      "--editor-hr-thickness",
+      `${String(settings.editor_divider_thickness_px)}px`,
+    ],
+    [
+      "--editor-hr-spacing",
+      divider_spacing_map[settings.editor_divider_spacing],
+    ],
     ["--editor-h1-mt", headings.h1.mt],
     ["--editor-h1-mb", headings.h1.mb],
     ["--editor-h2-mt", headings.h2.mt],
@@ -322,6 +341,10 @@ export function apply_editor_appearance(settings: EditorSettings): void {
 
   if (settings.editor_selection_color.trim() !== "") {
     entries.push(["--editor-selection-bg", settings.editor_selection_color]);
+  }
+
+  if (settings.editor_divider_color.trim() !== "") {
+    entries.push(["--editor-hr-gradient-mid", settings.editor_divider_color]);
   }
 
   applied_property_keys = entries.map(([key]) => key);

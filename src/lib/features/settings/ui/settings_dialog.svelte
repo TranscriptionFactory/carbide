@@ -382,7 +382,7 @@
       handle_selector: ".SettingsDialog__drag-handle",
     });
     const resize_action = resizable_element(element, {
-      min_width: 480,
+      min_width: 550,
       min_height: 320,
       max_width: window.innerWidth - 40,
       max_height: window.innerHeight - 40,
@@ -1693,6 +1693,133 @@
                     disabled={editor_settings.editor_divider_style ===
                       DEFAULT_EDITOR_SETTINGS.editor_divider_style}
                     title="Reset to default (Gradient)"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Thickness</span>
+                  <span class="SettingsDialog__description"
+                    >Line thickness in pixels</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Slider
+                    type="single"
+                    value={editor_settings.editor_divider_thickness_px}
+                    onValueChange={(v: number | undefined) => {
+                      if (v !== undefined) {
+                        update("editor_divider_thickness_px", v);
+                      }
+                    }}
+                    min={1}
+                    max={5}
+                    step={1}
+                    class="w-24"
+                  />
+                  <span class="text-sm tabular-nums w-8"
+                    >{editor_settings.editor_divider_thickness_px}px</span
+                  >
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "editor_divider_thickness_px",
+                        DEFAULT_EDITOR_SETTINGS.editor_divider_thickness_px,
+                      )}
+                    disabled={editor_settings.editor_divider_thickness_px ===
+                      DEFAULT_EDITOR_SETTINGS.editor_divider_thickness_px}
+                    title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.editor_divider_thickness_px)}px)`}
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Color</span>
+                  <span class="SettingsDialog__description"
+                    >Custom color (leave empty for theme default)</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Input
+                    type="text"
+                    value={editor_settings.editor_divider_color}
+                    oninput={(
+                      e: Event & { currentTarget: HTMLInputElement },
+                    ) => {
+                      update("editor_divider_color", e.currentTarget.value);
+                    }}
+                    class="w-36"
+                    placeholder="e.g. #888"
+                  />
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "editor_divider_color",
+                        DEFAULT_EDITOR_SETTINGS.editor_divider_color,
+                      )}
+                    disabled={editor_settings.editor_divider_color ===
+                      DEFAULT_EDITOR_SETTINGS.editor_divider_color}
+                    title="Reset to theme default"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Spacing</span>
+                  <span class="SettingsDialog__description"
+                    >Vertical spacing above and below dividers</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.editor_divider_spacing}
+                    onValueChange={(v: string | undefined) => {
+                      if (v)
+                        update(
+                          "editor_divider_spacing",
+                          v as EditorSpacingDensity,
+                        );
+                    }}
+                  >
+                    <Select.Trigger class="w-28">
+                      <span data-slot="select-value">
+                        {density_options.find(
+                          (o) =>
+                            o.value === editor_settings.editor_divider_spacing,
+                        )?.label ?? "Normal"}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each density_options as opt (opt.value)}
+                        <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "editor_divider_spacing",
+                        DEFAULT_EDITOR_SETTINGS.editor_divider_spacing,
+                      )}
+                    disabled={editor_settings.editor_divider_spacing ===
+                      DEFAULT_EDITOR_SETTINGS.editor_divider_spacing}
+                    title="Reset to default (Normal)"
                   >
                     <RotateCcw />
                   </button>
