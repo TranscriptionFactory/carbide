@@ -102,30 +102,36 @@ pub fn resolve_sidecar_path(name: &str) -> Result<PathBuf, anyhow::Error> {
         .parent()
         .ok_or_else(|| anyhow::anyhow!("cannot determine executable directory"))?;
 
-    let with_triple = if cfg!(target_os = "windows") {
-        format!("{name}-{TARGET_TRIPLE}.exe")
+    let (with_triple, prod_name) = if cfg!(target_os = "windows") {
+        (format!("{name}-{TARGET_TRIPLE}.exe"), format!("{name}.exe"))
     } else {
-        format!("{name}-{TARGET_TRIPLE}")
+        (format!("{name}-{TARGET_TRIPLE}"), name.to_string())
     };
-    let dev_path = exe_dir.join(&with_triple);
-    if dev_path.exists() {
-        return Ok(dev_path);
-    }
 
-    let prod_name = if cfg!(target_os = "windows") {
-        format!("{name}.exe")
-    } else {
-        name.to_string()
-    };
+    // Production: next to the bundled executable
     let prod_path = exe_dir.join(&prod_name);
     if prod_path.exists() {
         return Ok(prod_path);
     }
 
+    // Dev: next to the cargo target binary (target/debug/binaries/...)
+    let dev_path = exe_dir.join(&with_triple);
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+
+    // Dev fallback: relative to the Cargo manifest (src-tauri/binaries/...)
+    const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
+    let source_path = PathBuf::from(MANIFEST_DIR).join(&with_triple);
+    if source_path.exists() {
+        return Ok(source_path);
+    }
+
     Err(anyhow::anyhow!(
-        "rumdl binary not found at {} or {}",
+        "rumdl binary not found at {}, {}, or {}",
+        prod_path.display(),
         dev_path.display(),
-        prod_path.display()
+        source_path.display()
     ))
 }
 
