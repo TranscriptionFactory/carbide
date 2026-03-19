@@ -38,11 +38,6 @@ const hr_rule = new InputRule(/^---$/, (state, _match, start, _end) => {
   return state.tr.replaceWith(block_start, block_end, [hr_node, para_node]);
 });
 
-const code_block_rule = textblockTypeInputRule(
-  /^```$/,
-  schema.nodes.code_block,
-);
-
 const task_list_rule = new InputRule(
   /^\s*-\s\[([ xX])\]\s$/,
   (state, match, start, _end) => {
@@ -69,7 +64,6 @@ export function create_block_input_rules_prose_plugin(): Plugin {
       ordered_list_rule,
       blockquote_rule,
       hr_rule,
-      code_block_rule,
       task_list_rule,
     ],
   });

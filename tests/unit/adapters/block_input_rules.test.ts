@@ -149,11 +149,9 @@ describe("horizontal rule input rule", () => {
 });
 
 describe("code block input rule", () => {
-  it("``` creates code block", () => {
+  it("``` no longer triggers from block input rules (moved to code_fence_language_plugin)", () => {
     const result = trigger_input_rule("``", "`");
-    expect(result).not.toBeNull();
-    const first = result!.doc.firstChild;
-    expect(first?.type.name).toBe("code_block");
+    expect(result).toBeNull();
   });
 });
 
@@ -192,7 +190,6 @@ describe("input rules regex patterns", () => {
   const ordered_re = /^(\d+)\.\s$/;
   const blockquote_re = /^>\s$/;
   const hr_re = /^---$/;
-  const code_block_re = /^```$/;
   const task_re = /^\s*-\s\[([ xX])\]\s$/;
 
   it("heading regex matches # through ######", () => {
@@ -227,12 +224,6 @@ describe("input rules regex patterns", () => {
     expect(hr_re.test("---")).toBe(true);
     expect(hr_re.test("----")).toBe(false);
     expect(hr_re.test("--")).toBe(false);
-  });
-
-  it("code block regex matches exactly ```", () => {
-    expect(code_block_re.test("```")).toBe(true);
-    expect(code_block_re.test("````")).toBe(false);
-    expect(code_block_re.test("``")).toBe(false);
   });
 
   it("task list regex matches - [ ] and - [x] and - [X]", () => {

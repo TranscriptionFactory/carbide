@@ -124,8 +124,8 @@ See [Plugin How-To](./docs/plugin_howto.md) for the full API.
 
 | Feature        | Description                                         |
 | -------------- | --------------------------------------------------- |
-| Themes         | Dark/light modes, custom JSON themes  |
-| Hotkeys        | Rebindable shortcuts                |
+| Themes         | Dark/light modes, custom JSON themes                |
+| Hotkeys        | Rebindable shortcuts                                |
 | Vault settings | Per-vault config for git, lint, formatting, plugins |
 
 ## Getting Started
