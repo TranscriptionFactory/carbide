@@ -692,7 +692,8 @@ export function create_prosemirror_editor_port(args?: {
         state,
         editable: () => true,
         clipboardTextSerializer: (slice) => {
-          return slice.content.textBetween(0, slice.content.size, "\n\n", "\n");
+          const wrap = schema.topNodeType.create(null, slice.content);
+          return serialize_markdown(wrap);
         },
       });
 

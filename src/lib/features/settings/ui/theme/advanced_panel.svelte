@@ -161,7 +161,7 @@
     </div>
 
     {#if json_view_mode === "annotated"}
-      <JsonAnnotatedView {theme} />
+      <JsonAnnotatedView {theme} {on_update} />
     {:else}
       <textarea
         class="AdvancedPanel__json"

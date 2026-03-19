@@ -38,6 +38,14 @@ enum VaultFsEvent {
         vault_id: String,
         asset_path: String,
     },
+    FolderCreated {
+        vault_id: String,
+        folder_path: String,
+    },
+    FolderRemoved {
+        vault_id: String,
+        folder_path: String,
+    },
 }
 
 fn rel_path(root: &Path, abs: &Path) -> Option<String> {
@@ -95,8 +103,17 @@ fn classify_event(
     vault_id: &str,
     rel_path: String,
     is_markdown: bool,
+    is_dir: bool,
 ) -> Option<VaultFsEvent> {
     match kind {
+        EventKind::Create(_) if is_dir => Some(VaultFsEvent::FolderCreated {
+            vault_id: vault_id.to_string(),
+            folder_path: rel_path,
+        }),
+        EventKind::Remove(_) if is_dir => Some(VaultFsEvent::FolderRemoved {
+            vault_id: vault_id.to_string(),
+            folder_path: rel_path,
+        }),
         EventKind::Create(_) if is_markdown => Some(VaultFsEvent::NoteAdded {
             vault_id: vault_id.to_string(),
             note_path: rel_path,
@@ -196,7 +213,10 @@ pub fn watch_vault(
                 let Some(rel) = rel_path(&root_canon, &abs) else {
                     continue;
                 };
-                let is_dir = abs.is_dir();
+                let is_dir = abs.is_dir()
+                    || (matches!(kind, EventKind::Remove(_))
+                        && !abs.exists()
+                        && abs.extension().is_none());
 
                 if is_ignore_config_path(&rel) {
                     if let Ok(next_matcher) = vault_ignore::load_vault_ignore_matcher(
@@ -215,7 +235,7 @@ pub fn watch_vault(
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";
 
-                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel, is_md) {
+                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel, is_md, is_dir) {
                     emit(&app_handle, vault_event);
                 }
             }

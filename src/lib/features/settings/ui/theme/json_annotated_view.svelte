@@ -3,9 +3,10 @@
 
   type Props = {
     theme: Theme;
+    on_update: (theme: Theme) => void;
   };
 
-  let { theme }: Props = $props();
+  let { theme, on_update }: Props = $props();
 
   const FIELD_DESCRIPTIONS: Record<string, string> = {
     id: "Unique identifier",
@@ -40,6 +41,8 @@
     auto_palette: "Auto-generate from accent",
   };
 
+  const READ_ONLY_FIELDS = new Set(["id", "is_builtin"]);
+
   function is_color_value(value: unknown): value is string {
     if (typeof value !== "string") return false;
     return /^(oklch|hsl|rgb|#[0-9a-f])/i.test(value.trim());
@@ -64,6 +67,17 @@
   );
 
   const override_entries = $derived(Object.entries(theme.token_overrides));
+
+  function update_field(key: string, value: unknown) {
+    on_update({ ...theme, [key]: value } as Theme);
+  }
+
+  function update_override(token: string, value: string) {
+    on_update({
+      ...theme,
+      token_overrides: { ...theme.token_overrides, [token]: value },
+    });
+  }
 </script>
 
 <div class="JsonAnnotatedView">
@@ -76,16 +90,57 @@
         {/if}
       </div>
       <div class="JsonAnnotatedView__value-cell">
-        {#if value === null}
-          <span class="JsonAnnotatedView__null">auto</span>
+        {#if READ_ONLY_FIELDS.has(key)}
+          <span class="JsonAnnotatedView__value">{String(value)}</span>
+        {:else if value === null}
+          <input
+            type="text"
+            class="JsonAnnotatedView__input"
+            value=""
+            placeholder="auto"
+            oninput={(e) => {
+              const v = (e.target as HTMLInputElement).value.trim();
+              update_field(key, v === "" ? null : v);
+            }}
+          />
         {:else if typeof value === "boolean"}
-          <span class="JsonAnnotatedView__bool">{String(value)}</span>
+          <button
+            type="button"
+            class="JsonAnnotatedView__bool-toggle"
+            class:JsonAnnotatedView__bool-toggle--on={value}
+            onclick={() => update_field(key, !value)}
+          >
+            {String(value)}
+          </button>
         {:else if is_color_value(value)}
           <span class="JsonAnnotatedView__swatch" style="background: {value};"
           ></span>
-          <span class="JsonAnnotatedView__value">{value}</span>
+          <input
+            type="text"
+            class="JsonAnnotatedView__input JsonAnnotatedView__input--color"
+            value={String(value)}
+            oninput={(e) =>
+              update_field(key, (e.target as HTMLInputElement).value)}
+          />
+        {:else if typeof value === "number"}
+          <input
+            type="number"
+            class="JsonAnnotatedView__input JsonAnnotatedView__input--number"
+            {value}
+            step="any"
+            oninput={(e) => {
+              const n = parseFloat((e.target as HTMLInputElement).value);
+              if (!isNaN(n)) update_field(key, n);
+            }}
+          />
         {:else}
-          <span class="JsonAnnotatedView__value">{String(value)}</span>
+          <input
+            type="text"
+            class="JsonAnnotatedView__input"
+            value={String(value)}
+            oninput={(e) =>
+              update_field(key, (e.target as HTMLInputElement).value)}
+          />
         {/if}
       </div>
     </div>
@@ -129,7 +184,13 @@
             <span class="JsonAnnotatedView__swatch" style="background: {value};"
             ></span>
           {/if}
-          <span class="JsonAnnotatedView__value">{value}</span>
+          <input
+            type="text"
+            class="JsonAnnotatedView__input JsonAnnotatedView__input--color"
+            value={String(value)}
+            oninput={(e) =>
+              update_override(token, (e.target as HTMLInputElement).value)}
+          />
         </div>
       </div>
     {/each}
@@ -226,14 +287,53 @@
     text-overflow: ellipsis;
   }
 
-  .JsonAnnotatedView__null {
+  .JsonAnnotatedView__input {
     font-family: var(--font-mono, ui-monospace, monospace);
-    color: var(--muted-foreground);
-    font-style: italic;
+    font-size: var(--text-xs);
+    color: var(--foreground);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
+    padding: 1px var(--space-1-5);
+    min-width: 0;
+    flex: 1 1 auto;
+    max-width: 100%;
   }
 
-  .JsonAnnotatedView__bool {
+  .JsonAnnotatedView__input:focus {
+    outline: 1px solid var(--ring);
+    outline-offset: 0;
+    background: color-mix(in oklch, var(--background) 80%, transparent);
+  }
+
+  .JsonAnnotatedView__input--color {
+    flex: 1 1 auto;
+  }
+
+  .JsonAnnotatedView__input--number {
+    max-width: 8rem;
+  }
+
+  .JsonAnnotatedView__bool-toggle {
     font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    background: color-mix(in oklch, var(--muted) 60%, transparent);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
+    padding: 1px var(--space-1-5);
+    cursor: pointer;
+    transition: all 80ms ease;
+  }
+
+  .JsonAnnotatedView__bool-toggle--on {
+    color: var(--foreground);
+    background: color-mix(in oklch, var(--primary) 15%, transparent);
+    border-color: var(--primary);
+  }
+
+  .JsonAnnotatedView__bool-toggle:hover {
+    border-color: var(--ring);
     color: var(--foreground);
   }
 

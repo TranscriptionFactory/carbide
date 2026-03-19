@@ -84,6 +84,10 @@ export function resolve_watcher_event_decision(
         return { action: "refresh_tree" };
       }
       return { action: "log_only", path: event.asset_path };
+    case "folder_created":
+      return { action: "refresh_tree" };
+    case "folder_removed":
+      return { action: "refresh_tree" };
   }
 }
 

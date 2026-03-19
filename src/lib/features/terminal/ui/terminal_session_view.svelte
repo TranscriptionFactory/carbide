@@ -68,11 +68,46 @@
   }
 
   function build_xterm_theme() {
+    const is_dark =
+      document.documentElement.getAttribute("data-color-scheme") === "dark";
     return {
-      background: resolve_css_color("--sidebar", "#1e1e2e"),
-      foreground: resolve_css_color("--foreground", "#cdd6f4"),
-      cursor: resolve_css_color("--primary", "#f5e0dc"),
-      selectionBackground: resolve_css_color("--accent", "#45475a"),
+      background: resolve_css_color(
+        "--sidebar",
+        is_dark ? "#1e1e2e" : "#f5f5f5",
+      ),
+      foreground: resolve_css_color(
+        "--foreground",
+        is_dark ? "#cdd6f4" : "#1e1e2e",
+      ),
+      cursor: resolve_css_color("--primary", is_dark ? "#f5e0dc" : "#333333"),
+      cursorAccent: resolve_css_color(
+        "--background",
+        is_dark ? "#1e1e2e" : "#f5f5f5",
+      ),
+      selectionBackground: resolve_css_color(
+        "--accent",
+        is_dark ? "#45475a" : "#d0d0d0",
+      ),
+      selectionForeground: resolve_css_color(
+        "--accent-foreground",
+        is_dark ? "#cdd6f4" : "#1e1e2e",
+      ),
+      black: is_dark ? "#45475a" : "#1e1e2e",
+      red: is_dark ? "#f38ba8" : "#d32f2f",
+      green: is_dark ? "#a6e3a1" : "#388e3c",
+      yellow: is_dark ? "#f9e2af" : "#f57f17",
+      blue: is_dark ? "#89b4fa" : "#1976d2",
+      magenta: is_dark ? "#f5c2e7" : "#7b1fa2",
+      cyan: is_dark ? "#94e2d5" : "#0097a7",
+      white: is_dark ? "#bac2de" : "#f5f5f5",
+      brightBlack: is_dark ? "#585b70" : "#616161",
+      brightRed: is_dark ? "#f38ba8" : "#f44336",
+      brightGreen: is_dark ? "#a6e3a1" : "#4caf50",
+      brightYellow: is_dark ? "#f9e2af" : "#ffeb3b",
+      brightBlue: is_dark ? "#89b4fa" : "#2196f3",
+      brightMagenta: is_dark ? "#f5c2e7" : "#e040fb",
+      brightCyan: is_dark ? "#94e2d5" : "#00bcd4",
+      brightWhite: is_dark ? "#a6adc8" : "#ffffff",
     };
   }
 
@@ -260,6 +295,7 @@
     terminal.options.fontSize = stores.ui.editor_settings.terminal_font_size_px;
     terminal.options.cursorBlink =
       stores.ui.editor_settings.terminal_cursor_blink;
+    void stores.ui.active_theme.color_scheme;
     terminal.options.theme = build_xterm_theme();
 
     if (!active) return;

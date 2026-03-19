@@ -32,6 +32,14 @@ function asset_event(asset_path: string): VaultFsEvent {
   return { type: "asset_changed", vault_id: VAULT_ID, asset_path };
 }
 
+function folder_created_event(folder_path: string): VaultFsEvent {
+  return { type: "folder_created", vault_id: VAULT_ID, folder_path };
+}
+
+function folder_removed_event(folder_path: string): VaultFsEvent {
+  return { type: "folder_removed", vault_id: VAULT_ID, folder_path };
+}
+
 function bg_tab(is_dirty: boolean): () => BackgroundTabInfo {
   return () => ({ is_dirty });
 }
@@ -237,6 +245,32 @@ describe("watcher_reactor", () => {
         asset_event(".vaultignore"),
         VAULT_ID,
         null,
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
+  });
+
+  describe("folder_created", () => {
+    it("triggers tree refresh", () => {
+      const decision = resolve_watcher_event_decision(
+        folder_created_event("notes/subfolder"),
+        VAULT_ID,
+        "notes/a.md",
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
+  });
+
+  describe("folder_removed", () => {
+    it("triggers tree refresh", () => {
+      const decision = resolve_watcher_event_decision(
+        folder_removed_event("notes/subfolder"),
+        VAULT_ID,
+        "notes/a.md",
         false,
         NO_BG_TAB,
       );

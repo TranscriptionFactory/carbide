@@ -19,4 +19,14 @@ export type VaultFsEvent =
       type: "asset_changed";
       vault_id: string;
       asset_path: string;
+    }
+  | {
+      type: "folder_created";
+      vault_id: string;
+      folder_path: string;
+    }
+  | {
+      type: "folder_removed";
+      vault_id: string;
+      folder_path: string;
     };
