@@ -147,6 +147,7 @@ export function create_notes_tauri_adapter(): NotesPort {
       folder_path: string,
       offset: number,
       limit: number,
+      show_hidden_files: boolean,
     ): Promise<FolderContents> {
       assert_tauri();
       const result = await commands.listFolderContents(
@@ -154,6 +155,7 @@ export function create_notes_tauri_adapter(): NotesPort {
         folder_path,
         offset,
         limit,
+        show_hidden_files,
       );
       const contents = unwrap_result(result);
       return {

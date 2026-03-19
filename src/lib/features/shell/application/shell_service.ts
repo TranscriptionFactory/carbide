@@ -22,4 +22,15 @@ export class ShellService {
       log.error("Open path failed", { error: error_message(error), path });
     }
   }
+
+  async reveal_in_file_manager(path: string): Promise<void> {
+    try {
+      await this.shell_port.reveal_in_file_manager(path);
+    } catch (error) {
+      log.error("Reveal in file manager failed", {
+        error: error_message(error),
+        path,
+      });
+    }
+  }
 }

@@ -437,7 +437,7 @@ export class VaultService {
     this.throw_if_stale(open_revision);
 
     const [root_contents, recent_vaults, pinned_vault_ids] = await Promise.all([
-      this.notes_port.list_folder_contents(vault.id, "", 0, PAGE_SIZE),
+      this.notes_port.list_folder_contents(vault.id, "", 0, PAGE_SIZE, false),
       this.vault_port.list_vaults(),
       this.load_pinned_vault_ids(),
     ]);

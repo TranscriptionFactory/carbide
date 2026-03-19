@@ -322,4 +322,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Show or hide the front matter properties panel",
     category: "editing",
   },
+  {
+    action_id: ACTION_IDS.folder_collapse_all,
+    key: "CmdOrCtrl+Shift+ArrowLeft",
+    phase: "capture",
+    label: "Collapse All Folders",
+    description: "Collapse all expanded folders in the file explorer",
+    category: "navigation",
+  },
 ];

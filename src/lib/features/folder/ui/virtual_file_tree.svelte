@@ -38,6 +38,8 @@
       | undefined;
     on_open_to_side?: ((path: string) => void) | undefined;
     on_open_in_new_window?: ((file_path: string) => void) | undefined;
+    on_reveal_in_finder?: ((path: string) => void) | undefined;
+    on_open_in_default_app?: ((path: string) => void) | undefined;
     on_retry_load: (path: string) => void;
     on_load_more: (folder_path: string) => void;
     on_retry_load_more: (folder_path: string) => void;
@@ -71,6 +73,8 @@
     on_toggle_star,
     on_open_to_side,
     on_open_in_new_window,
+    on_reveal_in_finder,
+    on_open_in_default_app,
     on_retry_load,
     on_load_more,
     on_retry_load_more,
@@ -476,6 +480,8 @@
             {on_request_create_folder}
             {on_open_to_side}
             {on_open_in_new_window}
+            {on_reveal_in_finder}
+            {on_open_in_default_app}
             on_toggle_star={on_toggle_star ? handle_toggle_star : undefined}
             selection_count={selected_items.length}
             {all_selected_starred}

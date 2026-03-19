@@ -70,6 +70,8 @@
     Copy,
     Columns2,
     AppWindow,
+    FolderOpen,
+    ExternalLink,
   } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
 
@@ -116,6 +118,8 @@
     all_selected_starred?: boolean;
     on_open_to_side?: ((path: string) => void) | undefined;
     on_open_in_new_window?: ((file_path: string) => void) | undefined;
+    on_reveal_in_finder?: ((path: string) => void) | undefined;
+    on_open_in_default_app?: ((path: string) => void) | undefined;
     on_retry_load: (path: string) => void;
     on_retry_load_more: (folder_path: string) => void;
   };
@@ -151,6 +155,8 @@
     all_selected_starred = false,
     on_open_to_side,
     on_open_in_new_window,
+    on_reveal_in_finder,
+    on_open_in_default_app,
     on_retry_load,
     on_retry_load_more,
   }: Props = $props();
@@ -425,31 +431,56 @@
     </ContextMenu.Portal>
   </ContextMenu.Root>
 {:else if node.file_meta}
-  {#if on_open_in_new_window || on_open_to_side}
-    <ContextMenu.Root>
-      <ContextMenu.Trigger class="w-full">
-        {@render row_content()}
-      </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content>
-          {#if on_open_to_side}
-            <ContextMenu.Item onSelect={() => on_open_to_side(node.path)}>
-              <Columns2 class="mr-2 h-4 w-4" />
-              <span>Open to Side</span>
-            </ContextMenu.Item>
-          {/if}
-          {#if on_open_in_new_window}
-            <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
-              <AppWindow class="mr-2 h-4 w-4" />
-              <span>Open in New Window</span>
-            </ContextMenu.Item>
-          {/if}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
-  {:else}
-    {@render row_content()}
-  {/if}
+  <ContextMenu.Root>
+    <ContextMenu.Trigger class="w-full">
+      {@render row_content()}
+    </ContextMenu.Trigger>
+    <ContextMenu.Portal>
+      <ContextMenu.Content>
+        {#if on_open_to_side}
+          <ContextMenu.Item onSelect={() => on_open_to_side(node.path)}>
+            <Columns2 class="mr-2 h-4 w-4" />
+            <span>Open to Side</span>
+          </ContextMenu.Item>
+        {/if}
+        {#if on_open_in_new_window}
+          <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
+            <AppWindow class="mr-2 h-4 w-4" />
+            <span>Open in New Window</span>
+          </ContextMenu.Item>
+        {/if}
+        {#if on_open_to_side || on_open_in_new_window}
+          <ContextMenu.Separator />
+        {/if}
+        <ContextMenu.Item
+          onSelect={async () => {
+            try {
+              await navigator.clipboard.writeText(node.path);
+              toast.success("Path copied");
+            } catch {
+              toast.error("Failed to copy path");
+            }
+          }}
+        >
+          <Copy class="mr-2 h-4 w-4" />
+          <span>Copy File Path</span>
+        </ContextMenu.Item>
+        {#if on_reveal_in_finder}
+          <ContextMenu.Separator />
+          <ContextMenu.Item onSelect={() => on_reveal_in_finder(node.path)}>
+            <FolderOpen class="mr-2 h-4 w-4" />
+            <span>Reveal in File Manager</span>
+          </ContextMenu.Item>
+        {/if}
+        {#if on_open_in_default_app}
+          <ContextMenu.Item onSelect={() => on_open_in_default_app(node.path)}>
+            <ExternalLink class="mr-2 h-4 w-4" />
+            <span>Open in Default App</span>
+          </ContextMenu.Item>
+        {/if}
+      </ContextMenu.Content>
+    </ContextMenu.Portal>
+  </ContextMenu.Root>
 {:else if node.note}
   <ContextMenu.Root>
     <ContextMenu.Trigger class="w-full">

@@ -545,10 +545,12 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         loading_more.add(folder_path);
         try {
           const generation = stores.vault.generation;
+          const show_hidden = stores.ui.editor_settings.show_hidden_files;
           const result = await services.folder.load_folder_page(
             folder_path,
             pagination.loaded_count,
             generation,
+            show_hidden,
           );
           if (result.status === "loaded") {
             set_pagination(input, folder_path, {

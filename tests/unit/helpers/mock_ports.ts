@@ -277,6 +277,7 @@ export function create_mock_notes_port(): NotesPort & {
       folder_path: string,
       offset: number,
       limit: number,
+      _show_hidden_files: boolean = false,
     ): Promise<FolderContents> {
       const all_notes = mock._mock_notes.get(vault_id) || [];
       const all_folders = mock._mock_folders.get(vault_id) || [];

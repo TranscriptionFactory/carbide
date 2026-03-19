@@ -1,6 +1,6 @@
 use crate::features::notes::service::{
-    folder_cache_key, get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path,
-    safe_vault_abs, safe_vault_abs_for_write, safe_vault_rename_target_abs, scan_folder_entries,
+    get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
+    safe_vault_abs_for_write, safe_vault_rename_target_abs, scan_folder_entries,
 };
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
@@ -92,7 +92,7 @@ fn scan_folder_entries_filters_and_sorts() {
     std::fs::write(root.join("readme.txt"), "ignored").expect("file should be created");
 
     let ignore_matcher = VaultIgnoreMatcher::default();
-    let entries = scan_folder_entries(&root, &root, &ignore_matcher).expect("scan should succeed");
+    let entries = scan_folder_entries(&root, &root, &ignore_matcher, false).expect("scan should succeed");
     let names: Vec<String> = entries.iter().map(|entry| entry.name.clone()).collect();
     let dirs_first = entries
         .iter()
@@ -121,18 +121,18 @@ fn folder_entries_cache_hit_and_invalidation() {
     let vault_id = format!("v{}", storage::now_ms());
     let folder_path = "";
     let ignore_matcher = VaultIgnoreMatcher::default();
-    let key = folder_cache_key(&vault_id, folder_path, ignore_matcher.cache_token());
-    let first = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+    let key = format!("{}:{}:{}:{}", vault_id, folder_path, ignore_matcher.cache_token(), false);
+    let first = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher, false)
         .expect("first scan should succeed");
     assert_eq!(first.len(), 1);
 
     std::fs::write(root.join("b.md"), "b").expect("second file should be created");
-    let second = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+    let second = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher, false)
         .expect("cache hit should succeed");
     assert_eq!(second.len(), 1);
 
     invalidate_folder_cache(&vault_id, folder_path);
-    let third = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher)
+    let third = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher, false)
         .expect("scan after invalidate should work");
     assert_eq!(third.len(), 2);
 

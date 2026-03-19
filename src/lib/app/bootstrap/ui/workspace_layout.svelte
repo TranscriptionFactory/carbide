@@ -495,6 +495,22 @@
                               ACTION_IDS.window_open_viewer,
                               file_path,
                             )}
+                          on_reveal_in_finder={(path: string) => {
+                            const vault_path = stores.vault.vault?.path;
+                            if (vault_path) {
+                              void services.shell.reveal_in_file_manager(
+                                `${vault_path}/${path}`,
+                              );
+                            }
+                          }}
+                          on_open_in_default_app={(path: string) => {
+                            const vault_path = stores.vault.vault?.path;
+                            if (vault_path) {
+                              void services.shell.open_path(
+                                `${vault_path}/${path}`,
+                              );
+                            }
+                          }}
                           on_retry_load={(path: string) =>
                             void action_registry.execute(
                               ACTION_IDS.folder_retry_load,
@@ -673,6 +689,22 @@
                             ACTION_IDS.window_open_viewer,
                             file_path,
                           )}
+                        on_reveal_in_finder={(path: string) => {
+                          const vault_path = stores.vault.vault?.path;
+                          if (vault_path) {
+                            void services.shell.reveal_in_file_manager(
+                              `${vault_path}/${path}`,
+                            );
+                          }
+                        }}
+                        on_open_in_default_app={(path: string) => {
+                          const vault_path = stores.vault.vault?.path;
+                          if (vault_path) {
+                            void services.shell.open_path(
+                              `${vault_path}/${path}`,
+                            );
+                          }
+                        }}
                         on_retry_load={(path: string) =>
                           void action_registry.execute(
                             ACTION_IDS.folder_retry_load,

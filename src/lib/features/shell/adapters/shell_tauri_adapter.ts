@@ -1,5 +1,5 @@
 import type { ShellPort } from "$lib/features/shell/ports";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 export function create_shell_tauri_adapter(): ShellPort {
   return {
@@ -8,6 +8,9 @@ export function create_shell_tauri_adapter(): ShellPort {
     },
     async open_path(path) {
       await openPath(path);
+    },
+    async reveal_in_file_manager(path) {
+      await revealItemInDir(path);
     },
   };
 }
