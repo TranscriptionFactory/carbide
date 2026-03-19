@@ -34,6 +34,7 @@ import { create_markdown_link_input_rule_prose_plugin } from "./markdown_link_in
 import { create_image_input_rule_prose_plugin } from "./image_input_rule_plugin";
 import { create_block_input_rules_prose_plugin } from "./block_input_rules_plugin";
 import { create_strikethrough_prose_plugin } from "./strikethrough_plugin";
+import { create_inline_mark_input_rules_prose_plugin } from "./inline_mark_input_rules_plugin";
 import { create_task_keymap_prose_plugin } from "./task_keymap_plugin";
 import { create_markdown_paste_prose_plugin } from "./markdown_paste_plugin";
 import { create_image_paste_prose_plugin } from "./image_paste_plugin";
@@ -458,11 +459,21 @@ export function create_prosemirror_editor_port(args?: {
       const plugins: Plugin[] = [];
 
       const strikethrough_mark_type = schema.marks.strikethrough;
+      const strong_mark_type = schema.marks.strong;
+      const em_mark_type = schema.marks.em;
+      const code_inline_mark_type = schema.marks.code_inline;
       plugins.push(
         keymap({
           "Mod-z": undo,
           "Mod-y": redo,
           "Mod-Shift-z": redo,
+          ...(strong_mark_type
+            ? { "Mod-b": toggleMark(strong_mark_type) }
+            : {}),
+          ...(em_mark_type ? { "Mod-i": toggleMark(em_mark_type) } : {}),
+          ...(code_inline_mark_type
+            ? { "Mod-e": toggleMark(code_inline_mark_type) }
+            : {}),
           ...(strikethrough_mark_type
             ? { "Mod-Shift-x": toggleMark(strikethrough_mark_type) }
             : {}),
@@ -528,6 +539,7 @@ export function create_prosemirror_editor_port(args?: {
       );
       plugins.push(create_block_input_rules_prose_plugin());
       plugins.push(create_strikethrough_prose_plugin());
+      plugins.push(create_inline_mark_input_rules_prose_plugin());
       plugins.push(
         create_editor_context_plugin_instance({
           note_path: current_note_path,

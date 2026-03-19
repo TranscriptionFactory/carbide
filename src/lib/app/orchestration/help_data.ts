@@ -12,7 +12,7 @@ export const EDITOR_SHORTCUTS: EditorShortcut[] = [
   { label: "Bold", key: "CmdOrCtrl+B" },
   { label: "Italic", key: "CmdOrCtrl+I" },
   { label: "Inline Code", key: "CmdOrCtrl+E" },
-  { label: "Strikethrough", key: "CmdOrCtrl+Alt+X" },
+  { label: "Strikethrough", key: "CmdOrCtrl+Shift+X" },
   { label: "Heading 1", key: "CmdOrCtrl+Alt+1" },
   { label: "Heading 2", key: "CmdOrCtrl+Alt+2" },
   { label: "Heading 3", key: "CmdOrCtrl+Alt+3" },
