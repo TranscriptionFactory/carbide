@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import * as Dialog from "$lib/components/ui/dialog";
   import { ShieldCheck, ShieldX } from "@lucide/svelte";
+  import { untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
   interface Props {
@@ -32,7 +33,7 @@
     return PERMISSION_LABELS[permission] ?? permission;
   }
 
-  let approved = new SvelteSet<string>(permissions);
+  let approved = new SvelteSet<string>(untrack(() => permissions));
 
   function toggle(permission: string) {
     if (approved.has(permission)) {

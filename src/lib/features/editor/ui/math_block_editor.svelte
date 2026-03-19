@@ -91,6 +91,7 @@
 <div class="math-block-container" class:math-block-container--editing={editing}>
   {#if editing}
     <div class="math-block-container__editor">
+      <!-- svelte-ignore a11y_autofocus -->
       <textarea
         class="math-block-container__textarea"
         value={latex_source}

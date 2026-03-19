@@ -33,7 +33,16 @@ function manual_chunks(id: string): string | undefined {
 export default defineConfig({
   plugins: [sveltekit(), tailwindcss()],
   build: {
+    chunkSizeWarningLimit: 3500,
     rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        if (
+          warning.code === "MISSING_GLOBAL_NAME" &&
+          warning.message.includes("d3-force")
+        )
+          return;
+        defaultHandler(warning);
+      },
       output: {
         manualChunks: manual_chunks,
       },
@@ -41,6 +50,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["d3-force"],
+  },
+  ssr: {
+    noExternal: ["d3-force"],
   },
   worker: {
     format: "iife",
