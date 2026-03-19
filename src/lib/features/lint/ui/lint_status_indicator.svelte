@@ -1,14 +1,26 @@
 <script lang="ts">
-  import { CircleAlert, TriangleAlert, CircleCheck } from "@lucide/svelte";
+  import {
+    CircleAlert,
+    TriangleAlert,
+    CircleCheck,
+    Paintbrush,
+  } from "@lucide/svelte";
 
   interface Props {
     error_count: number;
     warning_count: number;
     is_running: boolean;
     on_click: () => void;
+    on_format_click: () => void;
   }
 
-  let { error_count, warning_count, is_running, on_click }: Props = $props();
+  let {
+    error_count,
+    warning_count,
+    is_running,
+    on_click,
+    on_format_click,
+  }: Props = $props();
 
   const has_errors = $derived(error_count > 0);
   const has_warnings = $derived(warning_count > 0);
@@ -47,6 +59,15 @@
     {#if !has_issues}
       <CircleCheck class="LintIndicator__icon" />
     {/if}
+  </button>
+  <button
+    type="button"
+    class="LintIndicator LintIndicator--format"
+    onclick={on_format_click}
+    aria-label="Format file"
+    title="Format file"
+  >
+    <Paintbrush class="LintIndicator__icon" />
   </button>
 {/if}
 
@@ -99,6 +120,15 @@
 
   .LintIndicator--clean {
     opacity: 0.5;
+  }
+
+  .LintIndicator--format {
+    opacity: 0.5;
+  }
+
+  .LintIndicator--format:hover {
+    opacity: 1;
+    color: var(--interactive);
   }
 
   :global(.LintIndicator__icon) {

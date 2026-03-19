@@ -910,6 +910,8 @@
         lint_warning_count={stores.lint.warning_count}
         on_lint_click={() =>
           void action_registry.execute(ACTION_IDS.lint_toggle_problems)}
+        on_lint_format_click={() =>
+          void action_registry.execute(ACTION_IDS.lint_format_file)}
         editor_mode={stores.editor.editor_mode}
         {has_frontmatter}
         show_frontmatter={stores.editor.show_frontmatter}

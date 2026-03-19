@@ -36,6 +36,7 @@
     lint_error_count: number;
     lint_warning_count: number;
     on_lint_click: () => void;
+    on_lint_format_click: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -76,6 +77,7 @@
     lint_error_count,
     lint_warning_count,
     on_lint_click,
+    on_lint_format_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -183,6 +185,7 @@
         warning_count={lint_warning_count}
         is_running={lint_is_running}
         on_click={on_lint_click}
+        on_format_click={on_lint_format_click}
       />
     {/if}
   </div>
