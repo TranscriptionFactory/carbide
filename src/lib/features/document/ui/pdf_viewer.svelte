@@ -931,7 +931,6 @@
     left: 0;
     overflow: hidden;
     border-radius: var(--radius-md);
-    pointer-events: none;
   }
 
   .PdfViewer__text-layer :global(span) {
@@ -940,7 +939,10 @@
     white-space: pre;
     cursor: text;
     transform-origin: 0% 0%;
-    pointer-events: auto;
+  }
+
+  .PdfViewer__text-layer :global(span::selection) {
+    background-color: color-mix(in srgb, var(--ring) 40%, transparent);
   }
 
   .PdfViewer__text-layer :global(br) {
