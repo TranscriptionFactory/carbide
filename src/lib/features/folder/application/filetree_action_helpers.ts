@@ -207,7 +207,12 @@ export async function load_folder(
 
   set_load_state(input, path, "loading", null);
   const generation = input.stores.vault.generation;
-  const result = await input.services.folder.load_folder(path, generation);
+  const show_hidden = input.stores.ui.editor_settings.show_hidden_files;
+  const result = await input.services.folder.load_folder(
+    path,
+    generation,
+    show_hidden,
+  );
 
   if (result.status === "loaded") {
     set_load_state(input, path, "loaded", null);

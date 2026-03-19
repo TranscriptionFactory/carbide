@@ -78,6 +78,7 @@ export interface NotesPort {
     folder_path: string,
     offset: number,
     limit: number,
+    show_hidden_files: boolean,
   ): Promise<FolderContents>;
   get_folder_stats(
     vault_id: VaultId,

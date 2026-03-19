@@ -34,5 +34,5 @@ export function detect_file_type(filename: string): DocumentFileType | null {
   const dot_index = filename.lastIndexOf(".");
   if (dot_index === -1) return null;
   const ext = filename.slice(dot_index).toLowerCase();
-  return DOCUMENT_TYPE_MAP[ext] ?? null;
+  return DOCUMENT_TYPE_MAP[ext] ?? "text";
 }

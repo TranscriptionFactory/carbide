@@ -196,6 +196,7 @@ export class FolderService {
       path: string,
       contents: Awaited<ReturnType<NotesPort["list_folder_contents"]>>,
     ) => void,
+    show_hidden_files: boolean = false,
   ): Promise<FolderLoadResult> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) {
@@ -212,6 +213,7 @@ export class FolderService {
         path,
         offset,
         PAGE_SIZE,
+        show_hidden_files,
       );
 
       if (this.is_stale_generation(expected_generation)) {
@@ -461,6 +463,7 @@ export class FolderService {
   async load_folder(
     path: string,
     expected_generation: number,
+    show_hidden_files: boolean = false,
   ): Promise<FolderLoadResult> {
     return this.load_folder_slice(
       path,
@@ -469,6 +472,7 @@ export class FolderService {
       (folder_path, contents) => {
         this.notes_store.merge_folder_contents(folder_path, contents);
       },
+      show_hidden_files,
     );
   }
 
@@ -476,6 +480,7 @@ export class FolderService {
     path: string,
     offset: number,
     expected_generation: number,
+    show_hidden_files: boolean = false,
   ): Promise<FolderLoadResult> {
     return this.load_folder_slice(
       path,
@@ -484,6 +489,7 @@ export class FolderService {
       (folder_path, contents) => {
         this.notes_store.append_folder_page(folder_path, contents);
       },
+      show_hidden_files,
     );
   }
 

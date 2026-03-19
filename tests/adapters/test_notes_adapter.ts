@@ -177,6 +177,7 @@ export function create_test_notes_adapter(): NotesPort {
       folder_path: string,
       offset: number,
       limit: number,
+      _show_hidden_files: boolean = false,
     ): Promise<FolderContents> {
       const notes = await load_base_files();
       for (const [note_path, data] of user_notes.entries()) {

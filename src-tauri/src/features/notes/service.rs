@@ -15,15 +15,6 @@ use std::time::Instant;
 use tauri::{AppHandle, State};
 use walkdir::WalkDir;
 
-const VIEWABLE_EXTENSIONS: &[&str] = &[
-    "md", "pdf", "png", "jpg", "jpeg", "gif", "svg", "webp", "csv", "tsv", "py", "r", "rs", "ts",
-    "js", "json", "yaml", "yml", "toml", "sh", "txt", "log", "excalidraw", "canvas",
-];
-
-fn is_viewable_extension(ext: &str) -> bool {
-    VIEWABLE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
-}
-
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct NoteMeta {
     pub id: String,
@@ -688,10 +679,6 @@ fn folder_cache() -> &'static Mutex<HashMap<String, FolderCacheEntry>> {
     FOLDER_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-pub(crate) fn folder_cache_key(vault_id: &str, folder_path: &str, ignore_token: &str) -> String {
-    format!("{}:{}:{}", vault_id, folder_path, ignore_token)
-}
-
 fn purge_expired_folder_cache(cache: &mut HashMap<String, FolderCacheEntry>) {
     cache.retain(|_, entry| entry.cached_at.elapsed().as_secs() < FOLDER_CACHE_TTL_SECS);
 }
@@ -737,6 +724,7 @@ pub(crate) fn scan_folder_entries(
     root: &Path,
     target: &Path,
     ignore_matcher: &vault_ignore::VaultIgnoreMatcher,
+    show_hidden_files: bool,
 ) -> Result<Vec<FolderEntry>, String> {
     let mut items = Vec::new();
 
@@ -746,7 +734,7 @@ pub(crate) fn scan_folder_entries(
         if constants::is_excluded_folder(&name) {
             continue;
         }
-        if name.starts_with('.') {
+        if !show_hidden_files && name.starts_with('.') {
             continue;
         }
 
@@ -754,15 +742,6 @@ pub(crate) fn scan_folder_entries(
         let is_dir = file_type.is_dir();
         if ignore_matcher.is_ignored(root, &entry.path(), is_dir) {
             continue;
-        }
-        if !is_dir {
-            let ext = std::path::Path::new(&name)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
-            if !is_viewable_extension(ext) {
-                continue;
-            }
         }
 
         items.push(FolderEntry { name, is_dir });
@@ -786,6 +765,7 @@ pub(crate) fn get_or_scan_folder_entries(
     root: &Path,
     target: &Path,
     ignore_matcher: &vault_ignore::VaultIgnoreMatcher,
+    show_hidden_files: bool,
 ) -> Result<Arc<[FolderEntry]>, String> {
     {
         let mut cache = folder_cache().lock().map_err(|e| e.to_string())?;
@@ -796,7 +776,7 @@ pub(crate) fn get_or_scan_folder_entries(
         }
     }
 
-    let items = scan_folder_entries(root, target, ignore_matcher)?;
+    let items = scan_folder_entries(root, target, ignore_matcher, show_hidden_files)?;
     let items = Arc::<[FolderEntry]>::from(items);
     let now = Instant::now();
 
@@ -1281,6 +1261,7 @@ pub fn list_folder_contents(
     folder_path: String,
     offset: usize,
     limit: usize,
+    show_hidden_files: bool,
 ) -> Result<FolderContents, String> {
     log::debug!(
         "Listing folder contents vault_id={} folder_path={}",
@@ -1292,8 +1273,14 @@ pub fn list_folder_contents(
     ensure_directory(&target, "not a directory")?;
     let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
 
-    let key = folder_cache_key(&vault_id, &folder_path, ignore_matcher.cache_token());
-    let items = get_or_scan_folder_entries(&key, &root, &target, &ignore_matcher)?;
+    let key = format!(
+        "{}:{}:{}:{}",
+        vault_id,
+        folder_path,
+        ignore_matcher.cache_token(),
+        show_hidden_files
+    );
+    let items = get_or_scan_folder_entries(&key, &root, &target, &ignore_matcher, show_hidden_files)?;
     let total_count = items.len();
     let start = offset.min(total_count);
     let end = start.saturating_add(limit).min(total_count);
@@ -1376,14 +1363,7 @@ pub fn get_folder_stats(
         }
 
         if entry.file_type().is_file() {
-            let ext = entry
-                .path()
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
-            if is_viewable_extension(ext) {
-                note_count += 1;
-            }
+            note_count += 1;
             continue;
         }
 
