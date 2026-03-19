@@ -38,7 +38,8 @@ export function register_lint_actions(input: {
       if (!open_note) return;
 
       const current = open_note.markdown ?? "";
-      const edits = await lint_service.format_file(path, current);
+      const formatter = ui_store.editor_settings.lint_formatter;
+      const edits = await lint_service.format_file(path, current, formatter);
       if (edits.length === 0) return;
 
       const formatted = apply_lint_text_edits(current, edits);

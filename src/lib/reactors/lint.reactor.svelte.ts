@@ -107,6 +107,7 @@ export function create_lint_reactor(
       const open_note = editor_store.open_note;
       const is_running = lint_store.is_running;
       const format_on_save = ui_store.editor_settings.lint_format_on_save;
+      const formatter = ui_store.editor_settings.lint_formatter;
       const is_dirty = open_note?.is_dirty ?? false;
 
       const just_saved = was_dirty && !is_dirty;
@@ -123,7 +124,7 @@ export function create_lint_reactor(
       const note_id = open_note.meta.id as NoteId;
       const current = open_note.markdown ?? "";
 
-      void lint_service.format_file(path, current).then((edits) => {
+      void lint_service.format_file(path, current, formatter).then((edits) => {
         if (edits.length === 0) return;
         const formatted = apply_lint_text_edits(current, edits);
         if (formatted === current) return;

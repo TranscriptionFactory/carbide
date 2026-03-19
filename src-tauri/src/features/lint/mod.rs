@@ -120,6 +120,7 @@ pub async fn lint_format_file(
     vault_id: String,
     path: String,
     content: String,
+    formatter: String,
 ) -> Result<Vec<LintTextEdit>, String> {
     let (uri, vault_path) = {
         let sessions = state.inner.lock().await;
@@ -166,7 +167,7 @@ pub async fn lint_format_file(
             .collect(),
         serde_json::Value::Null | serde_json::Value::Array(_) => {
             log::debug!("LSP returned null/empty for formatting ({}), falling back to CLI", uri);
-            match cli::format_file_content(&vault_path, &content).await {
+            match cli::format_file_content(&vault_path, &content, &formatter).await {
                 Ok(formatted) if formatted != content => {
                     let line_count = content.lines().count().max(1);
                     let last_line_len = content.lines().last().map(|l| l.len()).unwrap_or(0);

@@ -96,13 +96,22 @@ export class LintService {
     }
   }
 
-  async format_file(path: string, content: string): Promise<LintTextEdit[]> {
+  async format_file(
+    path: string,
+    content: string,
+    formatter: string = "prettier",
+  ): Promise<LintTextEdit[]> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return [];
 
     this.op_store.start("lint.format_file", Date.now());
     try {
-      const edits = await this.port.format_file(vault_id, path, content);
+      const edits = await this.port.format_file(
+        vault_id,
+        path,
+        content,
+        formatter,
+      );
       this.op_store.succeed("lint.format_file");
       return edits;
     } catch (error) {

@@ -185,6 +185,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["lint", "format", "save", "auto", "markdown", "prettier"],
   },
   {
+    key: "lint_formatter",
+    label: "Formatter",
+    description:
+      "Which tool to use for markdown formatting. Prettier is recommended for most users",
+    category: "Misc",
+    keywords: ["lint", "formatter", "format", "prettier", "rumdl", "markdown"],
+  },
+  {
     key: "lint_rules_toml",
     label: "Rule Overrides (TOML)",
     description:
