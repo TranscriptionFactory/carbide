@@ -242,6 +242,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.lint_store,
       context.lint_service,
       context.ui_store,
+      context.note_service,
     ),
   ];
 

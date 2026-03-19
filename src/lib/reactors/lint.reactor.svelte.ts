@@ -3,6 +3,7 @@ import type { EditorStore } from "$lib/features/editor";
 import type { LintStore, LintService } from "$lib/features/lint";
 import { apply_lint_text_edits } from "$lib/features/lint";
 import type { UIStore } from "$lib/app";
+import type { NoteService } from "$lib/features/note";
 import type { NoteId } from "$lib/shared/types/ids";
 import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -12,6 +13,7 @@ export function create_lint_reactor(
   lint_store: LintStore,
   lint_service: LintService,
   ui_store: UIStore,
+  note_service: NoteService,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
@@ -98,6 +100,7 @@ export function create_lint_reactor(
     });
 
     let was_dirty = false;
+    let skip_next_format = false;
 
     $effect(() => {
       const open_note = editor_store.open_note;
@@ -110,6 +113,11 @@ export function create_lint_reactor(
 
       if (!just_saved || !is_running || !format_on_save || !open_note) return;
 
+      if (skip_next_format) {
+        skip_next_format = false;
+        return;
+      }
+
       const path = open_note.meta.path;
       const note_id = open_note.meta.id as NoteId;
       const current = open_note.markdown ?? "";
@@ -118,8 +126,13 @@ export function create_lint_reactor(
         if (edits.length === 0) return;
         const formatted = apply_lint_text_edits(current, edits);
         if (formatted === current) return;
+
+        skip_next_format = true;
         editor_store.set_markdown(note_id, as_markdown_text(formatted));
         editor_store.set_dirty(note_id, true);
+
+        void lint_service.notify_file_changed(path, formatted);
+        void note_service.save_note(null, true);
       });
     });
   });
