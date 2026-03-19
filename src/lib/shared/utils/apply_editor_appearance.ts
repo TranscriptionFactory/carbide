@@ -42,6 +42,29 @@ const code_block_radius_map = {
   soft: "calc(var(--radius) * 1)",
 } as const;
 
+const table_cell_padding_map = {
+  extra_compact: {
+    y: "calc(var(--editor-spacing) * 0.35)",
+    x: "calc(var(--editor-spacing) * 0.5)",
+  },
+  compact: {
+    y: "calc(var(--editor-spacing) * 0.5)",
+    x: "calc(var(--editor-spacing) * 0.65)",
+  },
+  normal: {
+    y: "calc(var(--editor-spacing) * 0.65)",
+    x: "calc(var(--editor-spacing) * 0.85)",
+  },
+  relaxed: {
+    y: "calc(var(--editor-spacing) * 0.85)",
+    x: "calc(var(--editor-spacing) * 1.05)",
+  },
+  spacious: {
+    y: "calc(var(--editor-spacing) * 1.05)",
+    x: "calc(var(--editor-spacing) * 1.25)",
+  },
+} as const;
+
 const blockquote_padding_map = {
   extra_compact: {
     y: "calc(var(--editor-spacing) * 0.4)",
@@ -237,6 +260,8 @@ export function apply_editor_appearance(settings: EditorSettings): void {
   const root = document.documentElement;
   const blockquote_padding =
     blockquote_padding_map[settings.editor_blockquote_padding];
+  const table_cell_padding =
+    table_cell_padding_map[settings.editor_table_spacing_density];
   const headings = heading_spacing_map[settings.editor_heading_spacing_density];
   const divider = divider_style_map[settings.editor_divider_style];
 
@@ -269,6 +294,8 @@ export function apply_editor_appearance(settings: EditorSettings): void {
       "--editor-code-block-white-space",
       settings.editor_code_block_wrap ? "pre-wrap" : "pre",
     ],
+    ["--editor-table-cell-padding-y", table_cell_padding.y],
+    ["--editor-table-cell-padding-x", table_cell_padding.x],
     ["--editor-blockquote-padding-y", blockquote_padding.y],
     ["--editor-blockquote-padding-x", blockquote_padding.x],
     [

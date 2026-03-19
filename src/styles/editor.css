@@ -680,7 +680,11 @@
 
 .ProseMirror th,
 .ProseMirror td {
-  padding: calc(var(--editor-spacing) * 0.65) calc(var(--editor-spacing) * 0.85);
+  padding: var(
+      --editor-table-cell-padding-y,
+      calc(var(--editor-spacing) * 0.65)
+    )
+    var(--editor-table-cell-padding-x, calc(var(--editor-spacing) * 0.85));
   border-bottom: 1px solid var(--editor-table-border);
   border-right: 1px solid var(--editor-table-border);
   text-align: left;

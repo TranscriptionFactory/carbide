@@ -177,6 +177,34 @@ describe("apply_editor_appearance", () => {
     expect(properties.get("--editor-hr-opacity")).toBe("0.5");
   });
 
+  it("applies table spacing density", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_table_spacing_density: "compact",
+    });
+
+    expect(properties.get("--editor-table-cell-padding-y")).toBe(
+      "calc(var(--editor-spacing) * 0.5)",
+    );
+    expect(properties.get("--editor-table-cell-padding-x")).toBe(
+      "calc(var(--editor-spacing) * 0.65)",
+    );
+  });
+
+  it("applies spacious table spacing density", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_table_spacing_density: "spacious",
+    });
+
+    expect(properties.get("--editor-table-cell-padding-y")).toBe(
+      "calc(var(--editor-spacing) * 1.05)",
+    );
+    expect(properties.get("--editor-table-cell-padding-x")).toBe(
+      "calc(var(--editor-spacing) * 1.25)",
+    );
+  });
+
   it("does not throw when document is undefined", () => {
     (globalThis as { document: Document | undefined }).document = undefined;
 

@@ -87,8 +87,7 @@
 
         switch (cmd) {
           case "test-insert": {
-            const prefix =
-              (await rpc.send("settings.get", "prefix")) ?? ">>>";
+            const prefix = (await rpc.send("settings.get", "prefix")) ?? ">>>";
             const selection = await rpc.send("editor.get_selection");
             const text = selection
               ? `${prefix} ${selection}`
@@ -173,7 +172,8 @@
           {
             id: "test-insert",
             label: "Tester: Insert with prefix",
-            description: "Wraps selection (or inserts placeholder) with configured prefix",
+            description:
+              "Wraps selection (or inserts placeholder) with configured prefix",
             keywords: ["test", "insert", "plugin"],
           },
           {

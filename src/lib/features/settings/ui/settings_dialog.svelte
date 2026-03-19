@@ -1248,6 +1248,57 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Table Spacing</span>
+                  <span class="SettingsDialog__description"
+                    >Adjust cell padding and density in tables</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.editor_table_spacing_density}
+                    onValueChange={(v: string | undefined) => {
+                      if (v)
+                        update(
+                          "editor_table_spacing_density",
+                          v as EditorSpacingDensity,
+                        );
+                    }}
+                  >
+                    <Select.Trigger class="w-28">
+                      <span data-slot="select-value">
+                        {density_options.find(
+                          (o) =>
+                            o.value ===
+                            editor_settings.editor_table_spacing_density,
+                        )?.label ?? "Normal"}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each density_options as opt (opt.value)}
+                        <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "editor_table_spacing_density",
+                        DEFAULT_EDITOR_SETTINGS.editor_table_spacing_density,
+                      )}
+                    disabled={editor_settings.editor_table_spacing_density ===
+                      DEFAULT_EDITOR_SETTINGS.editor_table_spacing_density}
+                    title="Reset to default (Normal)"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Selection Color</span>
                   <span class="SettingsDialog__description"
                     >Optional CSS color override for text selection</span

@@ -32,6 +32,7 @@ export type EditorDividerStyle = "gradient" | "solid" | "dashed" | "dotted";
 export type EditorCodeBlockPadding = EditorSpacingDensity;
 export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
 export type EditorBlockquotePadding = EditorSpacingDensity;
+export type EditorTableSpacingDensity = EditorSpacingDensity;
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
 export type LintFormatter = "prettier" | "rumdl";
@@ -56,6 +57,7 @@ export type EditorSettings = {
   editor_code_block_padding: EditorCodeBlockPadding;
   editor_code_block_radius: EditorCodeBlockRadius;
   editor_code_block_wrap: boolean;
+  editor_table_spacing_density: EditorTableSpacingDensity;
   editor_blockquote_padding: EditorBlockquotePadding;
   editor_blockquote_border_width: 2 | 3 | 4;
   editor_link_underline_style: EditorLinkUnderlineStyle;
@@ -112,6 +114,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_code_block_padding: "normal",
   editor_code_block_radius: "normal",
   editor_code_block_wrap: false,
+  editor_table_spacing_density: "normal",
   editor_blockquote_padding: "normal",
   editor_blockquote_border_width: 2,
   editor_link_underline_style: "solid",
@@ -166,6 +169,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_code_block_padding",
   "editor_code_block_radius",
   "editor_code_block_wrap",
+  "editor_table_spacing_density",
   "editor_blockquote_padding",
   "editor_blockquote_border_width",
   "editor_link_underline_style",

@@ -13,7 +13,10 @@ impl PluginService {
     pub fn discover(&self, vault_path: &Path) -> Result<Vec<PluginInfo>> {
         let plugins_dir = vault_path.join(".carbide").join("plugins");
 
+        log::info!("Plugin discovery: looking in {}", plugins_dir.display());
+
         if !plugins_dir.exists() {
+            log::info!("Plugin discovery: directory does not exist");
             return Ok(Vec::new());
         }
 

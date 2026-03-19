@@ -279,6 +279,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "source", "line", "numbers", "gutter"],
   },
   {
+    key: "editor_table_spacing_density",
+    label: "Table Spacing",
+    description: "Controls cell padding and density in editor tables",
+    category: "Layout",
+    keywords: ["editor", "table", "spacing", "density", "padding", "cell"],
+  },
+  {
     key: "editor_blockquote_padding",
     label: "Blockquote Padding",
     description: "Controls padding inside editor blockquotes",

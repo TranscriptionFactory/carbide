@@ -148,7 +148,9 @@ export class PluginService {
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) return [];
 
+    console.debug("[PluginService] discovering plugins at:", vault_path);
     const discovered = await this.host_port.discover(vault_path);
+    console.debug("[PluginService] discovered:", discovered.length, "plugins");
 
     for (const { manifest, path } of discovered) {
       if (!this.store.plugins.has(manifest.id)) {
