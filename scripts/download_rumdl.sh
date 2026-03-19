@@ -39,7 +39,7 @@ verify_hash() {
     local expected=""
 
     case "${TARGET}" in
-        aarch64-apple-darwin)   expected="PLACEHOLDER_HASH" ;;
+        aarch64-apple-darwin)   expected="71516cf0caf33033945188e46c28da054c32830e58eb3e83709c742b56bb229d" ;;
         x86_64-apple-darwin)    expected="PLACEHOLDER_HASH" ;;
         x86_64-unknown-linux-gnu)  expected="PLACEHOLDER_HASH" ;;
         aarch64-unknown-linux-gnu) expected="PLACEHOLDER_HASH" ;;
