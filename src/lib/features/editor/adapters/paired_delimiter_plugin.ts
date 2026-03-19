@@ -13,6 +13,8 @@ const CLOSING_DELIMITERS = new Set<string>(
   Array.from(OPENING_DELIMITERS.values()),
 );
 
+const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", "~"]);
+
 function can_handle_text_input(
   view: EditorView,
   from: number,
@@ -98,6 +100,10 @@ export function create_paired_delimiter_prose_plugin(): Plugin {
     props: {
       handleTextInput(view, from, to, text) {
         if (!can_handle_text_input(view, from, to)) return false;
+
+        if (SELF_PAIRING_DELIMITERS.has(text) && from !== to) {
+          return insert_delimiters(view, from, to, text, text);
+        }
 
         if (CLOSING_DELIMITERS.has(text) && from === to) {
           const { after } = surrounding_text(view, from);

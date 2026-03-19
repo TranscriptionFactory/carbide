@@ -148,6 +148,86 @@ describe("create_paired_delimiter_prose_plugin", () => {
     expect(view.state.selection.from).toBe(6);
   });
 
+  it("wraps selection with backtick delimiters", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("hello")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(
+      state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 6))),
+    );
+
+    expect(call_handle_text_input(plugin, view, 1, 6, "`")).toBe(true);
+    expect(
+      view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
+    ).toBe("`hello`");
+    expect(view.state.selection.from).toBe(7);
+  });
+
+  it("wraps selection with asterisk delimiters", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("world")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(
+      state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 6))),
+    );
+
+    expect(call_handle_text_input(plugin, view, 1, 6, "*")).toBe(true);
+    expect(
+      view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
+    ).toBe("*world*");
+    expect(view.state.selection.from).toBe(7);
+  });
+
+  it("wraps selection with tilde delimiters", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("strike")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(
+      state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 7))),
+    );
+
+    expect(call_handle_text_input(plugin, view, 1, 7, "~")).toBe(true);
+    expect(
+      view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
+    ).toBe("~strike~");
+    expect(view.state.selection.from).toBe(8);
+  });
+
+  it("does not wrap with formatting delimiters when no selection", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("text")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(state);
+
+    expect(call_handle_text_input(plugin, view, 1, 1, "`")).toBe(false);
+    expect(call_handle_text_input(plugin, view, 1, 1, "*")).toBe(false);
+    expect(call_handle_text_input(plugin, view, 1, 1, "~")).toBe(false);
+  });
+
   it("does not pair delimiters inside code blocks", () => {
     const schema = create_schema();
     const plugin = create_paired_delimiter_prose_plugin();
