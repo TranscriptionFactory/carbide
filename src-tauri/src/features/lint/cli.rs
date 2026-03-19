@@ -1,0 +1,148 @@
+use std::path::Path;
+use super::types::*;
+use super::lsp::resolve_sidecar_path;
+
+pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
+    let binary = resolve_sidecar_path("binaries/rumdl")?;
+    let output = tokio::process::Command::new(&binary)
+        .args(["check", ".", "--format", "json"])
+        .current_dir(vault_path)
+        .output()
+        .await?;
+
+    if output.stdout.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_check_output(&stdout, vault_path)
+}
+
+pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Error> {
+    let binary = resolve_sidecar_path("binaries/rumdl")?;
+    let output = tokio::process::Command::new(&binary)
+        .args(["fmt", "."])
+        .current_dir(vault_path)
+        .output()
+        .await?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let files: Vec<String> = stdout
+        .lines()
+        .chain(stderr.lines())
+        .filter(|line| !line.is_empty() && !line.starts_with("error"))
+        .filter_map(|line| {
+            line.strip_prefix("Formatted: ")
+                .or_else(|| line.strip_prefix("formatted "))
+                .map(|p| p.trim().to_string())
+                .or_else(|| {
+                    if line.ends_with(".md") {
+                        Some(line.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+        })
+        .collect();
+
+    Ok(files)
+}
+
+fn parse_check_output(stdout: &str, _vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(stdout) {
+        return parse_json_output(&parsed);
+    }
+
+    let mut file_map: std::collections::HashMap<String, Vec<LintDiagnostic>> = std::collections::HashMap::new();
+
+    for line in stdout.lines() {
+        if let Some(diag) = parse_check_line(line) {
+            file_map
+                .entry(diag.0)
+                .or_default()
+                .push(diag.1);
+        }
+    }
+
+    Ok(file_map
+        .into_iter()
+        .map(|(path, diagnostics)| FileDiagnostics { path, diagnostics })
+        .collect())
+}
+
+fn parse_json_output(value: &serde_json::Value) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
+    if let Some(files) = value.as_array() {
+        let result: Vec<FileDiagnostics> = files
+            .iter()
+            .filter_map(|f| {
+                let path = f["path"].as_str()?.to_string();
+                let diagnostics: Vec<LintDiagnostic> = f["diagnostics"]
+                    .as_array()?
+                    .iter()
+                    .filter_map(|d| {
+                        Some(LintDiagnostic {
+                            line: d["line"].as_u64()? as u32,
+                            column: d["column"].as_u64().unwrap_or(1) as u32,
+                            end_line: d["end_line"].as_u64().unwrap_or(d["line"].as_u64()?) as u32,
+                            end_column: d["end_column"].as_u64().unwrap_or(1) as u32,
+                            severity: match d["severity"].as_str() {
+                                Some("error") => LintSeverity::Error,
+                                Some("warning") => LintSeverity::Warning,
+                                Some("info") => LintSeverity::Info,
+                                _ => LintSeverity::Warning,
+                            },
+                            message: d["message"].as_str()?.to_string(),
+                            rule_id: d["rule"].as_str().map(String::from),
+                            fixable: d["fixable"].as_bool().unwrap_or(false),
+                        })
+                    })
+                    .collect();
+                Some(FileDiagnostics { path, diagnostics })
+            })
+            .collect();
+        return Ok(result);
+    }
+    Ok(Vec::new())
+}
+
+fn parse_check_line(line: &str) -> Option<(String, LintDiagnostic)> {
+    let parts: Vec<&str> = line.splitn(4, ':').collect();
+    if parts.len() < 3 {
+        return None;
+    }
+
+    let path = parts[0].trim().to_string();
+    let line_num = parts[1].trim().parse::<u32>().ok()?;
+
+    let (column, rest) = if parts.len() == 4 {
+        let col = parts[2].trim().parse::<u32>().unwrap_or(1);
+        (col, parts[3].trim())
+    } else {
+        (1, parts[2].trim())
+    };
+
+    let (rule_id, message) = if rest.starts_with("MD") || rest.starts_with("md") {
+        let mut split = rest.splitn(2, ' ');
+        let rule = split.next().unwrap_or("").to_string();
+        let msg = split.next().unwrap_or("").to_string();
+        (Some(rule), msg)
+    } else {
+        (None, rest.to_string())
+    };
+
+    Some((
+        path,
+        LintDiagnostic {
+            line: line_num,
+            column,
+            end_line: line_num,
+            end_column: column,
+            severity: LintSeverity::Warning,
+            message,
+            rule_id,
+            fixable: false,
+        },
+    ))
+}

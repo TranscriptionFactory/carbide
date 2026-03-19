@@ -1,6 +1,7 @@
 fn main() {
     ensure_default_icon();
     emit_icon_rerun();
+    println!("cargo:rustc-env=TARGET_TRIPLE={}", std::env::var("TARGET").unwrap());
     tauri_build::build()
 }
 

@@ -74,6 +74,7 @@ pub fn run() {
         .manage(shared::buffer::BufferManager::new())
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
+        .manage(features::lint::service::LintState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             // The first arg is the executable, subsequent args might be file paths
@@ -220,7 +221,17 @@ pub fn run() {
             features::canvas::extract_canvas_links,
             features::canvas::extract_canvas_text,
             features::canvas::rewrite_canvas_file_refs,
-            features::canvas::rewrite_canvas_refs_for_rename
+            features::canvas::rewrite_canvas_refs_for_rename,
+            features::lint::lint_start,
+            features::lint::lint_stop,
+            features::lint::lint_open_file,
+            features::lint::lint_update_file,
+            features::lint::lint_close_file,
+            features::lint::lint_format_file,
+            features::lint::lint_fix_all,
+            features::lint::lint_check_vault,
+            features::lint::lint_format_vault,
+            features::lint::lint_get_status,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
