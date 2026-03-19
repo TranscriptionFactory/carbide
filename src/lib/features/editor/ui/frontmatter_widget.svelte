@@ -170,9 +170,9 @@
 </script>
 
 <div
-  class="frontmatter-widget p-4 mb-4 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 group/fm"
+  class="frontmatter-widget px-3 py-2 mb-2 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 group/fm"
 >
-  <div class="flex items-center justify-between mb-4">
+  <div class="flex items-center justify-between mb-1.5">
     <h3
       class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2"
     >
@@ -186,7 +186,7 @@
     {/if}
   </div>
 
-  <div class="space-y-2">
+  <div class="space-y-1">
     {#each properties as prop, i}
       {@const prop_type = detect_type(prop.value)}
       <div class="flex items-center gap-2 group/row">
@@ -295,8 +295,8 @@
 <style>
   .frontmatter-widget {
     user-select: none;
-    margin-top: 1rem;
-    margin-bottom: 2rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
   }
   input {
     user-select: text;
