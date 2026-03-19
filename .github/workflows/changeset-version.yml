@@ -1,0 +1,34 @@
+name: Changeset Version
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  version:
+    if: github.event.commits[0].author.name != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Create Release Pull Request or Version
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm version
+          commit: "chore: release ${{ github.ref_name }}"
+          title: "chore: release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

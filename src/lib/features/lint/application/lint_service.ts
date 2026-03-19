@@ -39,7 +39,12 @@ export class LintService {
         this.handle_event(event);
       });
       try {
-        await this.port.start(vault_id, vault_path, user_overrides, browse_mode);
+        await this.port.start(
+          vault_id,
+          vault_path,
+          user_overrides,
+          browse_mode,
+        );
       } catch (error) {
         log.from_error("Failed to start lint", error);
       }
