@@ -51,7 +51,7 @@ export function register_ai_actions(
     }
 
     try {
-      const available = await ai_service.check_cli(config.command);
+      const available = await ai_service.check_availability(config);
       if (revision !== dialog_revision) return;
       if (
         !ai_store.dialog.open ||
@@ -123,7 +123,7 @@ export function register_ai_actions(
         const auto_provider = await resolve_auto_ai_backend({
           providers,
           check_availability: async (config) =>
-            await ai_service.check_cli(config.command),
+            await ai_service.check_availability(config),
         });
 
         if (auto_provider) {

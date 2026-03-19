@@ -112,7 +112,8 @@
     prompt.trim() === "" ||
       is_executing ||
       cli_status !== "available" ||
-      (provider_config?.args_template.kind === "ollama" &&
+      (provider_config?.transport.kind === "cli" &&
+        provider_config.transport.args.some((a) => a.includes("{model}")) &&
         !provider_config?.model?.trim()),
   );
   let selected_hunk_ids = $state<string[]>([]);

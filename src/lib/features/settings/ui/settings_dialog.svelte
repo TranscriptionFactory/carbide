@@ -38,7 +38,10 @@
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
   import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
-  import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+  import type {
+    AiProviderConfig,
+    AiTransport,
+  } from "$lib/shared/types/ai_provider_config";
   import type { Theme } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import { slide } from "svelte/transition";
@@ -148,19 +151,20 @@
     label: n >= 60 ? `${String(n / 60)} min` : `${String(n)} sec`,
   }));
 
-  const template_kind_options = [
-    { value: "claude", label: "Claude (prompt as arg)" },
-    { value: "codex", label: "Codex (stdin + temp file)" },
-    { value: "ollama", label: "Ollama (run model, stdin)" },
-    { value: "stdin", label: "Generic (stdin)" },
+  const transport_kind_options = [
+    { value: "cli", label: "CLI" },
+    { value: "api", label: "API" },
   ];
 
   let editing_provider_id = $state<string | null>(null);
   let new_provider = $state<{
     id: string;
     name: string;
+    transport_kind: "cli" | "api";
     command: string;
-    args_template_kind: string;
+    args: string;
+    base_url: string;
+    api_key_env: string;
     model: string;
   } | null>(null);
 
@@ -194,27 +198,50 @@
     }
   }
 
+  function provider_summary(p: AiProviderConfig): string {
+    if (p.transport.kind === "cli") {
+      const parts = [p.transport.command, ...p.transport.args];
+      return parts.join(" ");
+    }
+    return p.transport.base_url;
+  }
+
   function add_provider() {
-    if (
-      !new_provider ||
-      !new_provider.id.trim() ||
-      !new_provider.name.trim() ||
-      !new_provider.command.trim()
-    )
+    if (!new_provider || !new_provider.id.trim() || !new_provider.name.trim())
       return;
-    const kind = new_provider.args_template_kind;
-    const args_template =
-      kind === "args"
-        ? { kind: "args" as const, args: [] }
-        : { kind: kind as "claude" | "codex" | "ollama" | "stdin" };
     const trimmed_model = new_provider.model.trim();
-    const provider: AiProviderConfig = {
-      id: new_provider.id.trim(),
-      name: new_provider.name.trim(),
-      command: new_provider.command.trim(),
-      args_template,
-      ...(trimmed_model ? { model: trimmed_model } : {}),
-    };
+    let provider: AiProviderConfig;
+    if (new_provider.transport_kind === "api") {
+      if (!new_provider.base_url.trim()) return;
+      provider = {
+        id: new_provider.id.trim(),
+        name: new_provider.name.trim(),
+        transport: {
+          kind: "api",
+          base_url: new_provider.base_url.trim(),
+          ...(new_provider.api_key_env.trim()
+            ? { api_key_env: new_provider.api_key_env.trim() }
+            : {}),
+        },
+        ...(trimmed_model ? { model: trimmed_model } : {}),
+      };
+    } else {
+      if (!new_provider.command.trim()) return;
+      const args = new_provider.args
+        .trim()
+        .split(/\s+/)
+        .filter((a) => a.length > 0);
+      provider = {
+        id: new_provider.id.trim(),
+        name: new_provider.name.trim(),
+        transport: {
+          kind: "cli",
+          command: new_provider.command.trim(),
+          args,
+        },
+        ...(trimmed_model ? { model: trimmed_model } : {}),
+      };
+    }
     const providers = [...editor_settings.ai_providers, provider];
     update("ai_providers", providers);
     new_provider = null;
@@ -517,14 +544,16 @@
                   <div class="flex items-center justify-between gap-2">
                     <div class="min-w-0 flex-1">
                       <span class="text-sm font-medium">{provider.name}</span>
-                      <span class="ml-2 text-xs text-muted-foreground"
-                        >{provider.command}</span
-                      >
                       {#if provider.model}
                         <span class="ml-2 text-xs text-muted-foreground"
                           >({provider.model})</span
                         >
                       {/if}
+                      <div
+                        class="text-xs text-muted-foreground font-mono truncate"
+                      >
+                        {provider_summary(provider)}
+                      </div>
                     </div>
                     <div class="flex items-center gap-1">
                       <button
@@ -590,64 +619,114 @@
                             })}
                         />
                       </div>
-                      <div class="flex items-center gap-2">
-                        <span class="w-20 text-xs text-muted-foreground"
-                          >Command</span
-                        >
-                        <Input
-                          type="text"
-                          value={provider.command}
-                          class="flex-1"
-                          disabled={ai_settings_disabled}
-                          oninput={(
-                            e: Event & { currentTarget: HTMLInputElement },
-                          ) =>
-                            update_provider(provider.id, {
-                              command: e.currentTarget.value,
-                            })}
-                        />
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="w-20 text-xs text-muted-foreground"
-                          >Template</span
-                        >
-                        <Select.Root
-                          type="single"
-                          value={provider.args_template.kind}
-                          disabled={ai_settings_disabled}
-                          onValueChange={(v: string | undefined) => {
-                            if (!v) return;
-                            const tpl =
-                              v === "args"
-                                ? { kind: "args" as const, args: [] }
-                                : {
-                                    kind: v as
-                                      | "claude"
-                                      | "codex"
-                                      | "ollama"
-                                      | "stdin",
-                                  };
-                            update_provider(provider.id, {
-                              args_template: tpl,
-                            });
-                          }}
-                        >
-                          <Select.Trigger class="flex-1">
-                            <span data-slot="select-value"
-                              >{template_kind_options.find(
-                                (o) => o.value === provider.args_template.kind,
-                              )?.label ?? provider.args_template.kind}</span
-                            >
-                          </Select.Trigger>
-                          <Select.Content>
-                            {#each template_kind_options as opt (opt.value)}
-                              <Select.Item value={opt.value}
-                                >{opt.label}</Select.Item
-                              >
-                            {/each}
-                          </Select.Content>
-                        </Select.Root>
-                      </div>
+                      {#if provider.transport.kind === "cli"}
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Command</span
+                          >
+                          <Input
+                            type="text"
+                            value={provider.transport.command}
+                            class="flex-1"
+                            disabled={ai_settings_disabled}
+                            oninput={(
+                              e: Event & { currentTarget: HTMLInputElement },
+                            ) =>
+                              update_provider(provider.id, {
+                                transport: {
+                                  kind: "cli",
+                                  command: e.currentTarget.value,
+                                  args:
+                                    provider.transport.kind === "cli"
+                                      ? provider.transport.args
+                                      : [],
+                                },
+                              })}
+                          />
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Args</span
+                          >
+                          <Input
+                            type="text"
+                            value={provider.transport.args.join(" ")}
+                            class="flex-1 font-mono text-xs"
+                            placeholder="{'{' + 'model}'} or -p {'{' +
+                              'prompt}'}"
+                            disabled={ai_settings_disabled}
+                            oninput={(
+                              e: Event & { currentTarget: HTMLInputElement },
+                            ) => {
+                              const args = e.currentTarget.value
+                                .split(/\s+/)
+                                .filter((a) => a.length > 0);
+                              update_provider(provider.id, {
+                                transport: {
+                                  kind: "cli",
+                                  command:
+                                    provider.transport.kind === "cli"
+                                      ? provider.transport.command
+                                      : "",
+                                  args,
+                                },
+                              });
+                            }}
+                          />
+                        </div>
+                      {:else if provider.transport.kind === "api"}
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Base URL</span
+                          >
+                          <Input
+                            type="text"
+                            value={provider.transport.base_url}
+                            class="flex-1"
+                            disabled={ai_settings_disabled}
+                            oninput={(
+                              e: Event & { currentTarget: HTMLInputElement },
+                            ) => {
+                              const t: AiTransport = {
+                                kind: "api",
+                                base_url: e.currentTarget.value,
+                              };
+                              const key =
+                                provider.transport.kind === "api"
+                                  ? provider.transport.api_key_env
+                                  : undefined;
+                              if (key) t.api_key_env = key;
+                              update_provider(provider.id, { transport: t });
+                            }}
+                          />
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >API Key Env</span
+                          >
+                          <Input
+                            type="text"
+                            value={provider.transport.api_key_env ?? ""}
+                            class="flex-1"
+                            placeholder="e.g. OPENAI_API_KEY"
+                            disabled={ai_settings_disabled}
+                            oninput={(
+                              e: Event & { currentTarget: HTMLInputElement },
+                            ) => {
+                              const t: AiTransport = {
+                                kind: "api",
+                                base_url:
+                                  provider.transport.kind === "api"
+                                    ? provider.transport.base_url
+                                    : "",
+                              };
+                              const key = e.currentTarget.value;
+                              if (key) t.api_key_env = key;
+                              update_provider(provider.id, { transport: t });
+                            }}
+                          />
+                        </div>
+                      {/if}
                       <div class="flex items-center gap-2">
                         <span class="w-20 text-xs text-muted-foreground"
                           >Model</span
@@ -713,38 +792,26 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-20 text-xs text-muted-foreground"
-                      >Command</span
-                    >
-                    <Input
-                      type="text"
-                      bind:value={new_provider.command}
-                      class="flex-1"
-                      placeholder="lms"
-                      disabled={ai_settings_disabled}
-                    />
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="w-20 text-xs text-muted-foreground"
-                      >Template</span
+                      >Transport</span
                     >
                     <Select.Root
                       type="single"
-                      value={new_provider.args_template_kind}
+                      value={new_provider.transport_kind}
                       disabled={ai_settings_disabled}
                       onValueChange={(v: string | undefined) => {
                         if (v && new_provider)
-                          new_provider.args_template_kind = v;
+                          new_provider.transport_kind = v as "cli" | "api";
                       }}
                     >
                       <Select.Trigger class="flex-1">
                         <span data-slot="select-value"
-                          >{template_kind_options.find(
-                            (o) => o.value === new_provider!.args_template_kind,
-                          )?.label ?? new_provider!.args_template_kind}</span
+                          >{transport_kind_options.find(
+                            (o) => o.value === new_provider!.transport_kind,
+                          )?.label ?? new_provider!.transport_kind}</span
                         >
                       </Select.Trigger>
                       <Select.Content>
-                        {#each template_kind_options as opt (opt.value)}
+                        {#each transport_kind_options as opt (opt.value)}
                           <Select.Item value={opt.value}
                             >{opt.label}</Select.Item
                           >
@@ -752,6 +819,57 @@
                       </Select.Content>
                     </Select.Root>
                   </div>
+                  {#if new_provider.transport_kind === "cli"}
+                    <div class="flex items-center gap-2">
+                      <span class="w-20 text-xs text-muted-foreground"
+                        >Command</span
+                      >
+                      <Input
+                        type="text"
+                        bind:value={new_provider.command}
+                        class="flex-1"
+                        placeholder="lms"
+                        disabled={ai_settings_disabled}
+                      />
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-20 text-xs text-muted-foreground"
+                        >Args</span
+                      >
+                      <Input
+                        type="text"
+                        bind:value={new_provider.args}
+                        class="flex-1 font-mono text-xs"
+                        placeholder="chat {'{' + 'model}'}"
+                        disabled={ai_settings_disabled}
+                      />
+                    </div>
+                  {:else}
+                    <div class="flex items-center gap-2">
+                      <span class="w-20 text-xs text-muted-foreground"
+                        >Base URL</span
+                      >
+                      <Input
+                        type="text"
+                        bind:value={new_provider.base_url}
+                        class="flex-1"
+                        placeholder="https://api.openai.com/v1"
+                        disabled={ai_settings_disabled}
+                      />
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-20 text-xs text-muted-foreground"
+                        >API Key Env</span
+                      >
+                      <Input
+                        type="text"
+                        bind:value={new_provider.api_key_env}
+                        class="flex-1"
+                        placeholder="OPENAI_API_KEY"
+                        disabled={ai_settings_disabled}
+                      />
+                    </div>
+                  {/if}
                   <div class="flex items-center gap-2">
                     <span class="w-20 text-xs text-muted-foreground">Model</span
                     >
@@ -774,7 +892,9 @@
                       onclick={add_provider}
                       disabled={!new_provider.id.trim() ||
                         !new_provider.name.trim() ||
-                        !new_provider.command.trim()}>Add</Button
+                        (new_provider.transport_kind === "cli"
+                          ? !new_provider.command.trim()
+                          : !new_provider.base_url.trim())}>Add</Button
                     >
                   </div>
                 </div>
@@ -786,8 +906,11 @@
                     (new_provider = {
                       id: "",
                       name: "",
+                      transport_kind: "cli",
                       command: "",
-                      args_template_kind: "stdin",
+                      args: "",
+                      base_url: "",
+                      api_key_env: "",
                       model: "",
                     })}
                   disabled={ai_settings_disabled}

@@ -9,7 +9,9 @@ export { create_ai_tauri_adapter } from "$lib/features/ai/adapters/ai_tauri_adap
 export {
   BUILTIN_PROVIDER_PRESETS,
   type AiApplyTarget,
-  type AiArgsTemplate,
+  type AiTransport,
+  type AiCliTransport,
+  type AiApiTransport,
   type AiMode,
   type AiCliStatus,
   type AiDialogContext,
@@ -17,6 +19,7 @@ export {
   type AiPortExecuteRequest,
   type AiProviderConfig,
   type AiProviderId,
+  provider_command,
 } from "$lib/features/ai/domain/ai_types";
 export { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 export { default as AiEditDialog } from "$lib/features/ai/ui/ai_edit_dialog.svelte";

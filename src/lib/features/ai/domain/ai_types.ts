@@ -3,7 +3,9 @@ import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
 export type {
-  AiArgsTemplate,
+  AiTransport,
+  AiCliTransport,
+  AiApiTransport,
   AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
 export { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -59,4 +61,8 @@ export function find_provider(
   id: string,
 ): AiProviderConfig | undefined {
   return providers.find((p) => p.id === id);
+}
+
+export function provider_command(config: AiProviderConfig): string | null {
+  return config.transport.kind === "cli" ? config.transport.command : null;
 }

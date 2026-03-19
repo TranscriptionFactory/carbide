@@ -34,8 +34,12 @@ describe("preferred_ai_backend_order", () => {
       {
         id: "lms",
         name: "LM Studio",
-        command: "lms",
-        args_template: { kind: "stdin" },
+        transport: {
+          kind: "cli",
+          command: "lms",
+          args: ["chat", "{model}"],
+        },
+        model: "crow-4b-opus-4.6-distill-heretic_qwen3.5",
       },
       ...BUILTIN_PROVIDER_PRESETS,
     ];

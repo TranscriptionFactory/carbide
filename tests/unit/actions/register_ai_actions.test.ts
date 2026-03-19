@@ -71,7 +71,7 @@ function create_harness() {
     theme: {},
   };
   const ai_service = {
-    check_cli: vi.fn().mockResolvedValue(true),
+    check_availability: vi.fn().mockResolvedValue(true),
     execute: vi.fn(),
   };
 
@@ -103,7 +103,7 @@ describe("register_ai_actions", () => {
 
     expect(ai_store.dialog.open).toBe(false);
     expect(stores.ui.context_rail_open).toBe(false);
-    expect(ai_service.check_cli).not.toHaveBeenCalled();
+    expect(ai_service.check_availability).not.toHaveBeenCalled();
     expect(ai_service.execute).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalledWith(
       "AI Assistant is disabled in settings",
@@ -118,7 +118,9 @@ describe("register_ai_actions", () => {
     expect(stores.ui.context_rail_open).toBe(true);
     expect(stores.ui.context_rail_tab).toBe("ai");
     expect(ai_store.dialog.open).toBe(true);
-    expect(ai_service.check_cli).toHaveBeenCalledWith("claude");
+    expect(ai_service.check_availability).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "claude" }),
+    );
   });
 
   it("uses the configured default provider for new sessions", async () => {
@@ -128,12 +130,14 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     expect(ai_store.dialog.provider_id).toBe("codex");
-    expect(ai_service.check_cli).toHaveBeenCalledWith("codex");
+    expect(ai_service.check_availability).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "codex" }),
+    );
   });
 
   it("auto-selects the first available provider", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.check_cli = vi
+    ai_service.check_availability = vi
       .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
@@ -142,13 +146,19 @@ describe("register_ai_actions", () => {
 
     expect(ai_store.dialog.provider_id).toBe("codex");
     expect(ai_store.dialog.cli_status).toBe("available");
-    expect(ai_service.check_cli).toHaveBeenNthCalledWith(1, "claude");
-    expect(ai_service.check_cli).toHaveBeenNthCalledWith(2, "codex");
+    expect(ai_service.check_availability).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ id: "claude" }),
+    );
+    expect(ai_service.check_availability).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ id: "codex" }),
+    );
   });
 
   it("shows a generic setup error when auto-select cannot find any provider", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.check_cli = vi.fn().mockResolvedValue(false);
+    ai_service.check_availability = vi.fn().mockResolvedValue(false);
 
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
@@ -164,7 +174,9 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_update_provider, "ollama");
 
     expect(ai_store.dialog.provider_id).toBe("ollama");
-    expect(ai_service.check_cli).toHaveBeenCalledWith("ollama");
+    expect(ai_service.check_availability).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ollama" }),
+    );
   });
 
   it("updates the active scope when a selection is available", async () => {
@@ -253,7 +265,7 @@ describe("register_ai_actions", () => {
       output: "# Updated",
       error: null,
     });
-    expect(ai_service.check_cli).toHaveBeenCalledTimes(1);
+    expect(ai_service.check_availability).toHaveBeenCalledTimes(1);
   });
 
   it("resets the AI session and closes the AI panel", async () => {

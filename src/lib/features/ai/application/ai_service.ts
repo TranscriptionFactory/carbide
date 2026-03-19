@@ -7,6 +7,7 @@ import type {
   AiMode,
   AiProviderConfig,
 } from "$lib/features/ai/domain/ai_types";
+import { provider_command } from "$lib/features/ai/domain/ai_types";
 import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 
 const log = create_logger("ai_service");
@@ -17,7 +18,9 @@ export class AiService {
     private readonly vault_store: VaultStore,
   ) {}
 
-  async check_cli(command: string): Promise<boolean> {
+  async check_availability(config: AiProviderConfig): Promise<boolean> {
+    const command = provider_command(config);
+    if (!command) return true;
     return await this.ai_port.check_cli({ command });
   }
 
