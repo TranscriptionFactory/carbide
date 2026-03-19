@@ -292,4 +292,26 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     ],
     icon: "maximize",
   },
+  {
+    id: "toggle_line_numbers",
+    label: "Toggle Line Numbers",
+    description: "Show or hide line numbers in the editor",
+    keywords: ["line", "numbers", "gutter", "toggle"],
+    icon: "list-tree",
+  },
+  {
+    id: "toggle_read_only_mode",
+    label: "Toggle Read-only Mode",
+    description: "Toggle between editing and read-only view mode",
+    keywords: [
+      "read",
+      "only",
+      "view",
+      "mode",
+      "lock",
+      "preview",
+      "presentation",
+    ],
+    icon: "maximize",
+  },
 ];

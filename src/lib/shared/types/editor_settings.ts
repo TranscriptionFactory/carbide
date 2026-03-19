@@ -62,6 +62,9 @@ export type EditorSettings = {
   editor_blockquote_border_width: 2 | 3 | 4;
   editor_link_underline_style: EditorLinkUnderlineStyle;
   editor_divider_style: EditorDividerStyle;
+  editor_divider_thickness_px: number;
+  editor_divider_color: string;
+  editor_divider_spacing: EditorSpacingDensity;
   source_editor_line_numbers: boolean;
   terminal_shell_path: string;
   terminal_font_size_px: number;
@@ -119,6 +122,9 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_blockquote_border_width: 2,
   editor_link_underline_style: "solid",
   editor_divider_style: "solid",
+  editor_divider_thickness_px: 1,
+  editor_divider_color: "",
+  editor_divider_spacing: "normal",
   source_editor_line_numbers: false,
   terminal_shell_path: "/bin/zsh",
   terminal_font_size_px: 13,
@@ -174,6 +180,9 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_blockquote_border_width",
   "editor_link_underline_style",
   "editor_divider_style",
+  "editor_divider_thickness_px",
+  "editor_divider_color",
+  "editor_divider_spacing",
   "source_editor_line_numbers",
   "terminal_shell_path",
   "terminal_font_size_px",

@@ -301,7 +301,9 @@ export function register_app_actions(input: ActionRegistrationInput) {
     label: "Toggle Editor Mode",
     execute: () => {
       const editor_store = input.stores.editor;
-      if (editor_store.editor_mode === "visual") {
+      const current = editor_store.editor_mode;
+
+      if (current === "visual") {
         const md_offset = services.editor.get_cursor_markdown_offset();
         const flush_result = services.editor.flush();
         if (flush_result) {
@@ -316,17 +318,59 @@ export function register_app_actions(input: ActionRegistrationInput) {
             Math.min(md_offset, flush_result.markdown.length),
           );
         }
-      } else {
+      } else if (current === "source") {
         const open_note = editor_store.open_note;
         if (open_note) {
           const md_offset = editor_store.cursor_offset;
           services.editor.sync_visual_from_markdown(open_note.markdown);
+          services.editor.set_editable(false);
           if (md_offset > 0) {
             services.editor.set_cursor_from_markdown_offset(md_offset);
           }
         }
+      } else if (current === "read_only") {
+        services.editor.set_editable(true);
       }
+
       editor_store.toggle_editor_mode();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_toggle_read_only,
+    label: "Toggle Read-only Mode",
+    execute: () => {
+      const editor_store = input.stores.editor;
+      if (editor_store.editor_mode === "read_only") {
+        services.editor.set_editable(true);
+        editor_store.set_editor_mode("visual");
+      } else {
+        if (editor_store.editor_mode === "visual") {
+          services.editor.flush();
+        } else if (editor_store.editor_mode === "source") {
+          const open_note = editor_store.open_note;
+          if (open_note) {
+            services.editor.sync_visual_from_markdown(open_note.markdown);
+          }
+        }
+        services.editor.set_editable(false);
+        editor_store.set_editor_mode("read_only");
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_toggle_line_numbers,
+    label: "Toggle Line Numbers",
+    execute: async () => {
+      const current =
+        input.stores.ui.editor_settings.source_editor_line_numbers;
+      const updated = {
+        ...input.stores.ui.editor_settings,
+        source_editor_line_numbers: !current,
+      };
+      input.stores.ui.set_editor_settings(updated);
+      await services.settings.save_settings(updated);
     },
   });
 

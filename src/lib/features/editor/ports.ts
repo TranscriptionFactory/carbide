@@ -48,6 +48,7 @@ export type EditorSession = {
   has_frontmatter?: () => boolean;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
+  set_editable?: (editable: boolean) => void;
 };
 
 export type EditorEventHandlers = {

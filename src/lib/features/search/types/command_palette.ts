@@ -29,6 +29,8 @@ export type CommandId =
   | "open_plugins"
   | "toggle_zen_mode"
   | "toggle_focus_mode"
+  | "toggle_line_numbers"
+  | "toggle_read_only_mode"
   | (string & {});
 
 export type CommandIcon =

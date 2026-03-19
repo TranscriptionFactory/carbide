@@ -688,9 +688,11 @@ export function create_prosemirror_editor_port(args?: {
         plugins,
       });
 
+      let is_editable = true;
+
       view = new EditorView(root, {
         state,
-        editable: () => true,
+        editable: () => is_editable,
         clipboardTextSerializer: (slice) => {
           const wrap = schema.topNodeType.create(null, slice.content);
           return serialize_markdown(wrap);
@@ -1117,6 +1119,12 @@ export function create_prosemirror_editor_port(args?: {
             view.dispatch(view.state.tr.setSelection(selection));
           } catch (error: unknown) {
             log.error("Failed to restore cursor position", { error });
+          }
+        },
+        set_editable(editable: boolean) {
+          is_editable = editable;
+          if (view) {
+            view.setProps({ editable: () => is_editable });
           }
         },
       };

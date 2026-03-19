@@ -129,7 +129,13 @@ export class EditorStore {
   }
 
   toggle_editor_mode() {
-    this.editor_mode = this.editor_mode === "visual" ? "source" : "visual";
+    const cycle: Record<EditorMode, EditorMode> = {
+      visual: "source",
+      source: "read_only",
+      read_only: "visual",
+      split: "visual",
+    };
+    this.editor_mode = cycle[this.editor_mode];
   }
 
   set_cursor_offset(offset: number) {

@@ -48,6 +48,8 @@
     on_git_add_remote: () => void;
     on_sync_click: () => void;
     on_mode_toggle: () => void;
+    show_line_numbers: boolean;
+    on_line_numbers_toggle: () => void;
   }
 
   let {
@@ -89,6 +91,8 @@
     on_git_add_remote,
     on_sync_click,
     on_mode_toggle,
+    show_line_numbers,
+    on_line_numbers_toggle,
   }: Props = $props();
 
   const line = $derived(cursor_info?.line ?? null);
@@ -157,7 +161,21 @@
       onclick={on_mode_toggle}
       aria-label="Toggle editor mode"
     >
-      {editor_mode === "visual" ? "Visual" : "Source"}
+      {editor_mode === "visual"
+        ? "Visual"
+        : editor_mode === "source"
+          ? "Source"
+          : "Read-only"}
+    </button>
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="StatusBar__mode-toggle"
+      class:StatusBar__mode-toggle--dimmed={!show_line_numbers}
+      onclick={on_line_numbers_toggle}
+      aria-label="Toggle line numbers"
+    >
+      Ln#
     </button>
     {#if has_note && editor_mode === "visual"}
       <span class="StatusBar__separator" aria-hidden="true"></span>

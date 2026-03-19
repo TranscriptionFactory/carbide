@@ -69,7 +69,11 @@
       use:mount_editor={open_note}
       class="NoteEditor__content"
       class:frontmatter-hidden={!stores.editor.show_frontmatter}
-      class:NoteEditor__hidden={editor_mode !== "visual"}
+      class:NoteEditor__hidden={editor_mode !== "visual" &&
+        editor_mode !== "read_only"}
+      class:NoteEditor__read-only={editor_mode === "read_only"}
+      class:show-line-numbers={stores.ui.editor_settings
+        .source_editor_line_numbers}
     ></div>
     {#if editor_mode === "source"}
       {#key open_note.meta.id}
@@ -139,6 +143,11 @@
 
   .NoteEditor__hidden {
     display: none;
+  }
+
+  .NoteEditor__read-only {
+    opacity: 0.85;
+    cursor: default;
   }
 
   :global(.frontmatter-hidden [data-type="frontmatter"]) {
