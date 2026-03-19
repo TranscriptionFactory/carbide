@@ -23,6 +23,7 @@ import {
   apply_global_only_overrides,
   type EditorSettings,
 } from "$lib/shared/types/editor_settings";
+import { migrate_ai_settings } from "$lib/features/ai";
 import type {
   VaultChoosePathResult,
   VaultInitializeResult,
@@ -617,7 +618,8 @@ export class VaultService {
         stored as Record<string, unknown>,
       ) as Partial<EditorSettings>;
       const merged = { ...DEFAULT_EDITOR_SETTINGS, ...vault_only };
-      return apply_global_only_overrides(merged, get_global);
+      const settings = await apply_global_only_overrides(merged, get_global);
+      return this.apply_settings_migrations(settings);
     }
 
     const legacy =
@@ -632,10 +634,29 @@ export class VaultService {
         SETTINGS_KEY,
         vault_only,
       );
-      return apply_global_only_overrides(migrated, get_global);
+      const settings = await apply_global_only_overrides(migrated, get_global);
+      return this.apply_settings_migrations(settings);
     }
 
     return this.load_browse_editor_settings();
+  }
+
+  private async apply_settings_migrations(
+    settings: EditorSettings,
+  ): Promise<EditorSettings> {
+    const ai = migrate_ai_settings(
+      settings as unknown as Record<string, unknown>,
+    );
+    if (ai) {
+      settings.ai_providers = ai.ai_providers;
+      settings.ai_default_provider_id = ai.ai_default_provider_id;
+      await this.settings_port.set_setting("ai_providers", ai.ai_providers);
+      await this.settings_port.set_setting(
+        "ai_default_provider_id",
+        ai.ai_default_provider_id,
+      );
+    }
+    return settings;
   }
 
   private async load_browse_editor_settings(): Promise<EditorSettings> {
