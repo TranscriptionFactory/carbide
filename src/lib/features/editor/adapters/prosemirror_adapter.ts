@@ -77,9 +77,15 @@ import {
   create_outline_prose_plugin,
 } from "./outline_plugin";
 import { create_file_drop_prose_plugin } from "$lib/features/editor/domain/file_drop_plugin";
-import { create_excalidraw_embed_plugin } from "./excalidraw_embed_plugin";
+import {
+  create_excalidraw_embed_plugin,
+  excalidraw_embed_plugin_key,
+} from "./excalidraw_embed_plugin";
 import { create_excalidraw_embed_view_plugin } from "./excalidraw_embed_view_plugin";
-import { create_file_embed_plugin } from "./file_embed_plugin";
+import {
+  create_file_embed_plugin,
+  file_embed_plugin_key,
+} from "./file_embed_plugin";
 import { create_file_embed_view_plugin } from "./file_embed_view_plugin";
 import { create_code_fence_language_prose_plugin } from "./code_fence_language_plugin";
 import { create_details_view_prose_plugin } from "./details_view_plugin";
@@ -744,6 +750,11 @@ export function create_prosemirror_editor_port(args?: {
           action: "full_scan",
         });
         v.dispatch(full_scan_tr);
+
+        const embed_scan_tr = v.state.tr
+          .setMeta(excalidraw_embed_plugin_key, { action: "full_scan" })
+          .setMeta(file_embed_plugin_key, { action: "full_scan" });
+        v.dispatch(embed_scan_tr);
       }
 
       function dispatch_mark_clean(v: EditorView) {

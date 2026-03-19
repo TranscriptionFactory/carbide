@@ -1,6 +1,10 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import type { Node as ProseNode, NodeType } from "prosemirror-model";
+import {
+  collect_paragraph_text,
+  is_full_scan_meta,
+} from "./embed_plugin_utils";
 
 const AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "ogg", "flac"];
 const VIDEO_EXTENSIONS = ["mp4", "webm", "ogv", "mkv"];
@@ -13,14 +17,6 @@ const FILE_EMBED_REGEX = new RegExp(
 );
 
 export const file_embed_plugin_key = new PluginKey("file-embed-plugin");
-
-type EmbedMeta = { action: "full_scan" };
-
-function is_full_scan_action(value: unknown): value is EmbedMeta {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  return obj.action === "full_scan";
-}
 
 export function detect_embed_type(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
@@ -40,26 +36,6 @@ export function parse_embed_fragment(fragment: string): {
     page: params.has("page") ? Number(params.get("page")) : null,
     height: params.has("height") ? Number(params.get("height")) : null,
   };
-}
-
-function collect_paragraph_text(node: ProseNode): string | null {
-  let text = "";
-  let has_non_text = false;
-
-  node.descendants((child: ProseNode) => {
-    if (child.isText && child.text) {
-      text += child.text;
-      return true;
-    }
-    if (child.isInline) {
-      has_non_text = true;
-      return false;
-    }
-    return true;
-  });
-
-  if (has_non_text || text.length === 0) return null;
-  return text;
 }
 
 function replace_paragraph_with_embed(
@@ -98,8 +74,9 @@ export function create_file_embed_plugin(): Plugin {
   return new Plugin({
     key: file_embed_plugin_key,
     appendTransaction(transactions, _old_state, new_state) {
-      const force_full_scan = transactions.some((tr) =>
-        is_full_scan_action(tr.getMeta(file_embed_plugin_key)),
+      const force_full_scan = is_full_scan_meta(
+        file_embed_plugin_key,
+        transactions,
       );
 
       if (!force_full_scan && !transactions.some((tr) => tr.docChanged)) {

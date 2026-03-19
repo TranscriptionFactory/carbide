@@ -1,27 +1,21 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
+import { FileText, Music, Video, File, ExternalLink } from "lucide-static";
+import { create_logger } from "$lib/shared/utils/logger";
 
-const PDF_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
-
-const AUDIO_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
-
-const VIDEO_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
-
-const FILE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-
-const EXPAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+const log = create_logger("file_embed_view");
 
 function get_icon_for_type(file_type: string): string {
   switch (file_type) {
     case "pdf":
-      return PDF_ICON_SVG;
+      return FileText;
     case "audio":
-      return AUDIO_ICON_SVG;
+      return Music;
     case "video":
-      return VIDEO_ICON_SVG;
+      return Video;
     default:
-      return FILE_ICON_SVG;
+      return File;
   }
 }
 
@@ -32,6 +26,9 @@ export type FileEmbedCallbacks = {
 
 class FileEmbedView implements NodeView {
   dom: HTMLElement;
+  private _destroyed = false;
+  private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
+  private _iframe_el: HTMLIFrameElement | null = null;
 
   constructor(
     node: ProseNode,
@@ -50,22 +47,22 @@ class FileEmbedView implements NodeView {
     this.dom.setAttribute("data-file-type", file_type);
 
     const toolbar = document.createElement("div");
-    toolbar.className = "file-embed__toolbar";
+    toolbar.className = "file-embed-toolbar";
 
     const icon_el = document.createElement("span");
-    icon_el.className = "file-embed__icon";
+    icon_el.className = "file-embed-icon";
     icon_el.innerHTML = get_icon_for_type(file_type);
     toolbar.appendChild(icon_el);
 
     const name_el = document.createElement("span");
-    name_el.className = "file-embed__name";
+    name_el.className = "file-embed-name";
     name_el.textContent = filename;
     toolbar.appendChild(name_el);
 
     const expand_btn = document.createElement("button");
-    expand_btn.className = "file-embed__expand";
+    expand_btn.className = "file-embed-expand";
     expand_btn.title = "Open in tab";
-    expand_btn.innerHTML = EXPAND_ICON_SVG;
+    expand_btn.innerHTML = ExternalLink;
     expand_btn.addEventListener("click", (e) => {
       e.stopPropagation();
       callbacks.on_open_file(src);
@@ -75,12 +72,12 @@ class FileEmbedView implements NodeView {
     this.dom.appendChild(toolbar);
 
     const content = document.createElement("div");
-    content.className = "file-embed__content";
+    content.className = "file-embed-content";
     content.style.height = `${String(height)}px`;
 
     if (file_type === "pdf") {
       const placeholder = document.createElement("div");
-      placeholder.className = "file-embed__pdf-placeholder";
+      placeholder.className = "file-embed-pdf-placeholder";
       placeholder.textContent = "PDF preview";
 
       if (callbacks.resolve_asset_url) {
@@ -89,10 +86,16 @@ class FileEmbedView implements NodeView {
           this._render_pdf(content, result, node);
         } else {
           content.appendChild(placeholder);
-          void result.then((url) => {
-            placeholder.remove();
-            this._render_pdf(content, url, node);
-          });
+          void result
+            .then((url) => {
+              if (this._destroyed) return;
+              placeholder.remove();
+              this._render_pdf(content, url, node);
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to resolve PDF asset URL", { error });
+              placeholder.textContent = "Failed to load PDF";
+            });
         }
       } else {
         content.appendChild(placeholder);
@@ -100,19 +103,21 @@ class FileEmbedView implements NodeView {
     } else if (file_type === "audio") {
       const audio = document.createElement("audio");
       audio.controls = true;
-      audio.className = "file-embed__audio";
+      audio.className = "file-embed-audio";
+      this._media_el = audio;
       this._resolve_and_set_src(audio, src, callbacks);
       content.appendChild(audio);
       content.style.height = "auto";
     } else if (file_type === "video") {
       const video = document.createElement("video");
       video.controls = true;
-      video.className = "file-embed__video";
+      video.className = "file-embed-video";
+      this._media_el = video;
       this._resolve_and_set_src(video, src, callbacks);
       content.appendChild(video);
     } else {
       const unknown = document.createElement("div");
-      unknown.className = "file-embed__unknown";
+      unknown.className = "file-embed-unknown";
       unknown.textContent = `Cannot preview: ${filename}`;
       content.appendChild(unknown);
     }
@@ -126,12 +131,13 @@ class FileEmbedView implements NodeView {
     node: ProseNode,
   ): void {
     const iframe = document.createElement("iframe");
-    iframe.className = "file-embed__iframe";
+    iframe.className = "file-embed-iframe";
     const page = node.attrs["page"] as number | null;
     iframe.src = page != null ? `${url}#page=${String(page)}` : url;
     iframe.style.width = "100%";
     iframe.style.height = "100%";
     iframe.style.border = "none";
+    this._iframe_el = iframe;
     container.appendChild(iframe);
   }
 
@@ -145,9 +151,14 @@ class FileEmbedView implements NodeView {
       if (typeof result === "string") {
         el.src = result;
       } else {
-        void result.then((url) => {
-          el.src = url;
-        });
+        void result
+          .then((url) => {
+            if (this._destroyed) return;
+            el.src = url;
+          })
+          .catch((error: unknown) => {
+            log.error("Failed to resolve media asset URL", { error });
+          });
       }
     } else {
       el.src = src;
@@ -160,6 +171,18 @@ class FileEmbedView implements NodeView {
 
   ignoreMutation(): boolean {
     return true;
+  }
+
+  destroy(): void {
+    this._destroyed = true;
+    if (this._media_el) {
+      this._media_el.pause();
+      this._media_el.removeAttribute("src");
+      this._media_el.load();
+    }
+    if (this._iframe_el) {
+      this._iframe_el.src = "about:blank";
+    }
   }
 }
 
