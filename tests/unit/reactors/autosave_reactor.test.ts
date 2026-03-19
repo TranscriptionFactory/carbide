@@ -48,6 +48,7 @@ describe("autosave.reactor", () => {
       {
         save_note: vi.fn(),
       } as never,
+      { mark_conflict: vi.fn() } as never,
     );
 
     expect(typeof unmount).toBe("function");

@@ -115,6 +115,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       () => context.split_view_service.get_secondary_editor_store(),
       context.ui_store,
       context.note_service,
+      context.tab_service,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),

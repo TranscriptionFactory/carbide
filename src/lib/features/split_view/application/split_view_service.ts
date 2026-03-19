@@ -6,7 +6,7 @@ import type { OpStore } from "$lib/app";
 import type { SplitViewStore } from "$lib/features/split_view/state/split_view_store.svelte";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { create_logger } from "$lib/shared/utils/logger";
-import type { NotePath } from "$lib/shared/types/ids";
+import type { NotePath, NoteId } from "$lib/shared/types/ids";
 import type { ActivePane } from "$lib/features/split_view/state/split_view_store.svelte";
 
 const log = create_logger("split_view_service");
@@ -103,6 +103,22 @@ export class SplitViewService {
     return (
       (this.split_view_store.secondary_note?.meta.path as NotePath) ?? null
     );
+  }
+
+  is_same_note_in_both_panes(
+    primary_note_id: NoteId | null | undefined,
+  ): boolean {
+    if (!primary_note_id) return false;
+    const secondary_note = this.get_secondary_open_note();
+    if (!secondary_note) return false;
+    return secondary_note.meta.id === primary_note_id;
+  }
+
+  propagate_mtime_to_secondary(note_id: NoteId, new_mtime: number): void {
+    if (!this.secondary_store) return;
+    const secondary_note = this.secondary_store.open_note;
+    if (!secondary_note || secondary_note.meta.id !== note_id) return;
+    this.secondary_store.update_mtime(note_id, new_mtime);
   }
 
   async save_split_state(): Promise<void> {
