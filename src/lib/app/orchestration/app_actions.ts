@@ -311,6 +311,23 @@ export function register_app_actions(input: ActionRegistrationInput) {
               ? Math.min(scroll_top / (markdown_len * 0.5), 1)
               : 0,
           );
+          const cursor = editor_store.cursor;
+          if (cursor) {
+            const md = flush_result.markdown;
+            let offset = 0;
+            let line = 1;
+            while (line < cursor.line && offset < md.length) {
+              if (md.charCodeAt(offset) === 10) line++;
+              offset++;
+            }
+            offset += Math.max(0, cursor.column - 1);
+            editor_store.set_cursor_offset(Math.min(offset, md.length));
+          }
+        }
+      } else {
+        const open_note = editor_store.open_note;
+        if (open_note) {
+          services.editor.sync_visual_from_markdown(open_note.markdown);
         }
       }
       editor_store.toggle_editor_mode();
