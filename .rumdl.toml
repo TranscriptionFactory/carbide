@@ -1,0 +1,13 @@
+# Carbide default rumdl configuration
+# Rules tuned for GFM/Obsidian conventions
+
+# Disable rules that conflict with wiki-links and Obsidian patterns
+[MD033]
+enabled = false
+
+[MD041]
+enabled = false
+
+# Allow longer lines (common in notes)
+[MD013]
+line_length = 120

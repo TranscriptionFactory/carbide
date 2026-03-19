@@ -1,5 +1,4 @@
 {
-  "recent_notes": [],
   "starred_paths": [],
   "editor": {
     "attachment_folder": ".assets",
@@ -17,5 +16,6 @@
     "semantic_similarity_threshold": 0.5,
     "semantic_suggested_links_limit": 5,
     "show_hidden_files": true
-  }
+  },
+  "recent_notes": []
 }

@@ -5,7 +5,7 @@ export class PluginHostAdapter implements PluginHostPort {
   async discover(vault_path: string): Promise<DiscoveredPlugin[]> {
     try {
       return await invoke<DiscoveredPlugin[]>("plugin_discover", {
-        vault_path,
+        vaultPath: vault_path,
       });
     } catch (e) {
       console.error("Failed to discover plugins:", e);
@@ -14,10 +14,10 @@ export class PluginHostAdapter implements PluginHostPort {
   }
 
   async load(vault_path: string, id: string): Promise<void> {
-    await invoke("plugin_load", { vault_path, plugin_id: id });
+    await invoke("plugin_load", { vaultPath: vault_path, pluginId: id });
   }
 
   async unload(id: string): Promise<void> {
-    await invoke("plugin_unload", { plugin_id: id });
+    await invoke("plugin_unload", { pluginId: id });
   }
 }

@@ -25,7 +25,6 @@
 
   $effect(() => {
     const handle_message = (event: MessageEvent) => {
-      if (event.origin !== origin) return;
       if (event.source !== iframe_element?.contentWindow) return;
       on_message(event.data);
     };
@@ -38,7 +37,7 @@
   });
 
   export function post_message(message: unknown) {
-    iframe_element?.contentWindow?.postMessage(message, origin);
+    iframe_element?.contentWindow?.postMessage(message, "*");
   }
 
   export function get_iframe(): HTMLIFrameElement | null {

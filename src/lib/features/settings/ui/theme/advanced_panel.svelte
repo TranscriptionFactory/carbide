@@ -4,6 +4,7 @@
   import Upload from "@lucide/svelte/icons/upload";
   import type { Theme } from "$lib/shared/types/theme";
   import OverrideSummary from "./override_summary.svelte";
+  import JsonAnnotatedView from "./json_annotated_view.svelte";
 
   type Props = {
     theme: Theme;
@@ -22,6 +23,7 @@
   }: Props = $props();
 
   let active_tab: "overrides" | "json" = $state("overrides");
+  let json_view_mode: "annotated" | "raw" = $state("annotated");
   let json_text = $state("");
   let json_error = $state("");
   let file_input: HTMLInputElement | undefined = $state();
@@ -134,19 +136,47 @@
       />
     </div>
   {:else}
-    <textarea
-      class="AdvancedPanel__json"
-      bind:value={json_text}
-      rows={16}
-      {disabled}
-      spellcheck={false}
-    ></textarea>
-    {#if json_error}
-      <span class="AdvancedPanel__error">{json_error}</span>
-    {/if}
-    <div class="AdvancedPanel__json-actions">
-      <Button size="sm" onclick={apply_json} {disabled}>Apply JSON</Button>
+    <div class="AdvancedPanel__json-subtabs">
+      <button
+        type="button"
+        class="AdvancedPanel__json-subtab"
+        class:AdvancedPanel__json-subtab--active={json_view_mode ===
+          "annotated"}
+        onclick={() => {
+          json_view_mode = "annotated";
+        }}
+      >
+        Annotated
+      </button>
+      <button
+        type="button"
+        class="AdvancedPanel__json-subtab"
+        class:AdvancedPanel__json-subtab--active={json_view_mode === "raw"}
+        onclick={() => {
+          json_view_mode = "raw";
+        }}
+      >
+        Raw
+      </button>
     </div>
+
+    {#if json_view_mode === "annotated"}
+      <JsonAnnotatedView {theme} />
+    {:else}
+      <textarea
+        class="AdvancedPanel__json"
+        bind:value={json_text}
+        rows={16}
+        {disabled}
+        spellcheck={false}
+      ></textarea>
+      {#if json_error}
+        <span class="AdvancedPanel__error">{json_error}</span>
+      {/if}
+      <div class="AdvancedPanel__json-actions">
+        <Button size="sm" onclick={apply_json} {disabled}>Apply JSON</Button>
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -234,5 +264,40 @@
   .AdvancedPanel__json-actions {
     display: flex;
     justify-content: flex-end;
+  }
+
+  .AdvancedPanel__json-subtabs {
+    display: flex;
+    gap: 0;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 0.25rem);
+    overflow: hidden;
+  }
+
+  .AdvancedPanel__json-subtab {
+    padding: var(--space-1) var(--space-2-5);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 80ms ease;
+  }
+
+  .AdvancedPanel__json-subtab:last-child {
+    border-right: none;
+  }
+
+  .AdvancedPanel__json-subtab:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  .AdvancedPanel__json-subtab--active {
+    background: var(--muted);
+    color: var(--foreground);
   }
 </style>

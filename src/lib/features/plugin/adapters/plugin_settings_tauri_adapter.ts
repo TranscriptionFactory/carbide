@@ -3,14 +3,19 @@ import type { PluginSettingsPort, PluginSettingsData } from "../ports";
 
 export class PluginSettingsTauriAdapter implements PluginSettingsPort {
   async read_settings(vault_path: string): Promise<PluginSettingsData> {
-    return invoke<PluginSettingsData>("plugin_read_settings", { vault_path });
+    return invoke<PluginSettingsData>("plugin_read_settings", {
+      vaultPath: vault_path,
+    });
   }
 
   async write_settings(
     vault_path: string,
     settings: PluginSettingsData,
   ): Promise<void> {
-    return invoke("plugin_write_settings", { vault_path, settings });
+    return invoke("plugin_write_settings", {
+      vaultPath: vault_path,
+      settings,
+    });
   }
 
   async approve_permission(
@@ -19,8 +24,8 @@ export class PluginSettingsTauriAdapter implements PluginSettingsPort {
     permission: string,
   ): Promise<void> {
     return invoke("plugin_approve_permission", {
-      vault_path,
-      plugin_id,
+      vaultPath: vault_path,
+      pluginId: plugin_id,
       permission,
     });
   }
@@ -31,8 +36,8 @@ export class PluginSettingsTauriAdapter implements PluginSettingsPort {
     permission: string,
   ): Promise<void> {
     return invoke("plugin_deny_permission", {
-      vault_path,
-      plugin_id,
+      vaultPath: vault_path,
+      pluginId: plugin_id,
       permission,
     });
   }
