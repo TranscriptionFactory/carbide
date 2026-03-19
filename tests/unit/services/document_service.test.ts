@@ -13,11 +13,11 @@ describe("DocumentService", () => {
       resolve_asset_url: vi.fn((_: string, relative_path: string) => {
         return `asset://${relative_path}`;
       }),
-      read_file: vi.fn().mockResolvedValue(""),
+      read_file: vi.fn().mockResolvedValue("file content here"),
     };
   }
 
-  it("opens a managed buffer for text documents", async () => {
+  it("reads file content for text documents", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
     vault_store.vault = create_test_vault();
@@ -32,19 +32,60 @@ describe("DocumentService", () => {
 
     await service.open_document("tab-1", "docs/demo.txt", "text");
 
-    expect(document_port.open_buffer).toHaveBeenCalledWith(
-      "buf_tab-1",
+    expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "docs/demo.txt",
     );
     expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
-    expect(document_store.get_content_state("tab-1")?.buffer_id).toBe(
-      "buf_tab-1",
+    expect(document_store.get_content_state("tab-1")?.content).toBe(
+      "file content here",
     );
-    expect(document_store.get_content_state("tab-1")?.line_count).toBe(123);
   });
 
-  it("evicts inactive cached payloads while keeping metadata", async () => {
+  it("reads file content for code documents", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "scripts/demo.py", "code");
+
+    expect(document_port.read_file).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      "scripts/demo.py",
+    );
+    expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
+    expect(document_store.get_content_state("tab-1")?.content).toBe(
+      "file content here",
+    );
+  });
+
+  it("surfaces error message from string rejections", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    document_port.read_file.mockRejectedValue("file exceeds 5 MB limit");
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "big.bin", "text");
+
+    expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("error");
+    expect(document_store.get_viewer_state("tab-1")?.error_message).toBe(
+      "file exceeds 5 MB limit",
+    );
+  });
+
+  it("evicts inactive cached content while keeping metadata", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
     vault_store.vault = create_test_vault();
@@ -67,13 +108,12 @@ describe("DocumentService", () => {
     expect(document_store.get_viewer_state("tab-1")?.file_path).toBe(
       "docs/one.txt",
     );
-    expect(document_store.get_content_state("tab-2")?.buffer_id).toBe(
-      "buf_tab-2",
+    expect(document_store.get_content_state("tab-2")?.content).toBe(
+      "file content here",
     );
-    expect(document_port.close_buffer).toHaveBeenCalledWith("buf_tab-1");
   });
 
-  it("reuses cached ready buffers without reopening", async () => {
+  it("reuses cached ready content without re-reading", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
     vault_store.vault = create_test_vault();
@@ -87,10 +127,10 @@ describe("DocumentService", () => {
     await service.open_document("tab-1", "docs/demo.txt", "text");
     await service.ensure_content("tab-1");
 
-    expect(document_port.open_buffer).toHaveBeenCalledTimes(1);
+    expect(document_port.read_file).toHaveBeenCalledTimes(1);
   });
 
-  it("closes the managed buffer when the document is closed", async () => {
+  it("clears state when the document is closed", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
     vault_store.vault = create_test_vault();
@@ -104,7 +144,6 @@ describe("DocumentService", () => {
     await service.open_document("tab-1", "docs/demo.txt", "text");
     service.close_document("tab-1");
 
-    expect(document_port.close_buffer).toHaveBeenCalledWith("buf_tab-1");
     expect(document_store.get_content_state("tab-1")).toBeUndefined();
     expect(document_store.get_viewer_state("tab-1")).toBeUndefined();
   });

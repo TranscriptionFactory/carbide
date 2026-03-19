@@ -87,18 +87,14 @@ export class DocumentService {
       let next_state: DocumentContentState;
 
       if (needs_text_content(viewer_state.file_type)) {
-        // Use buffer for text/code
-        const buffer_id = `buf_${tab_id}`;
-        const line_count = await this.document_port.open_buffer(
-          buffer_id,
+        const content = await this.document_port.read_file(
           vault_id,
           viewer_state.file_path,
         );
         next_state = {
           ...loading_state,
           status: "ready",
-          buffer_id,
-          line_count,
+          content,
         };
       } else {
         next_state = {
@@ -118,7 +114,11 @@ export class DocumentService {
       this.document_store.set_load_status(tab_id, "ready");
     } catch (error) {
       const error_message =
-        error instanceof Error ? error.message : "Failed to load document";
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "Failed to load document";
       this.document_store.set_content_state(tab_id, {
         ...loading_state,
         status: "error",
