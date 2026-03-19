@@ -79,6 +79,8 @@ import {
 import { create_file_drop_prose_plugin } from "$lib/features/editor/domain/file_drop_plugin";
 import { create_excalidraw_embed_plugin } from "./excalidraw_embed_plugin";
 import { create_excalidraw_embed_view_plugin } from "./excalidraw_embed_view_plugin";
+import { create_code_fence_language_prose_plugin } from "./code_fence_language_plugin";
+import { create_details_view_prose_plugin } from "./details_view_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import { create_frontmatter_view_prose_plugin } from "./frontmatter_plugin";
@@ -504,6 +506,7 @@ export function create_prosemirror_editor_port(args?: {
       plugins.push(create_math_view_prose_plugin());
       plugins.push(create_math_inline_input_prose_plugin());
       plugins.push(create_math_block_input_rule_prose_plugin(schema));
+      plugins.push(create_details_view_prose_plugin());
       plugins.push(create_code_block_view_prose_plugin());
       plugins.push(create_table_toolbar_prose_plugin());
       plugins.push(create_image_toolbar_prose_plugin());
@@ -539,6 +542,7 @@ export function create_prosemirror_editor_port(args?: {
           },
         }),
       );
+      plugins.push(create_code_fence_language_prose_plugin());
       plugins.push(create_block_input_rules_prose_plugin());
       plugins.push(create_strikethrough_prose_plugin());
       plugins.push(create_inline_mark_input_rules_prose_plugin());

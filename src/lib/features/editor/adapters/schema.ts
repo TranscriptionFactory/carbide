@@ -309,6 +309,57 @@ const hardbreak: NodeSpec = {
   },
 };
 
+const details_block: NodeSpec = {
+  group: "block",
+  content: "details_summary details_content",
+  defining: true,
+  attrs: {
+    open: { default: false },
+  },
+  parseDOM: [
+    {
+      tag: "details",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return { open: dom.hasAttribute("open") };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "details",
+      {
+        ...(node.attrs["open"] ? { open: "" } : {}),
+        class: "details-block",
+      },
+      0,
+    ];
+  },
+};
+
+const details_summary: NodeSpec = {
+  content: "inline*",
+  defining: true,
+  isolating: true,
+  parseDOM: [{ tag: "summary" }],
+  toDOM() {
+    return ["summary", { class: "details-block__summary" }, 0];
+  },
+};
+
+const details_content: NodeSpec = {
+  content: "block+",
+  defining: true,
+  parseDOM: [{ tag: "div[data-details-content]" }],
+  toDOM() {
+    return [
+      "div",
+      { "data-details-content": "", class: "details-block__content" },
+      0,
+    ];
+  },
+};
+
 const frontmatter: NodeSpec = {
   group: "block",
   content: "text*",
@@ -596,6 +647,9 @@ export const schema = new Schema({
     bullet_list,
     ordered_list,
     list_item,
+    details_block,
+    details_summary,
+    details_content,
     excalidraw_embed,
     "image-block": image_block,
     image,
