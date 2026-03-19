@@ -161,8 +161,10 @@
 
       if (text_layer_div) {
         text_layer_div.innerHTML = "";
-        text_layer_div.style.width = `${css_viewport.width}px`;
-        text_layer_div.style.height = `${css_viewport.height}px`;
+        text_layer_div.style.setProperty(
+          "--scale-factor",
+          String(css_viewport.scale),
+        );
 
         const tl = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent(),
@@ -283,8 +285,10 @@
 
       if (paginated_text_layer_el) {
         paginated_text_layer_el.innerHTML = "";
-        paginated_text_layer_el.style.width = `${css_viewport.width}px`;
-        paginated_text_layer_el.style.height = `${css_viewport.height}px`;
+        paginated_text_layer_el.style.setProperty(
+          "--scale-factor",
+          String(css_viewport.scale),
+        );
 
         const tl = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent(),
