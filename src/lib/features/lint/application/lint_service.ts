@@ -161,9 +161,16 @@ export class LintService {
 
   private handle_event(event: LintEvent): void {
     switch (event.type) {
-      case "diagnostics_updated":
+      case "diagnostics_updated": {
+        const active = this.lint_store.active_file_path;
+        if (active && event.path !== active) {
+          log.warn(
+            `Diagnostic path mismatch: store="${event.path}" active="${active}"`,
+          );
+        }
         this.lint_store.set_diagnostics(event.path, event.diagnostics);
         break;
+      }
       case "status_changed":
         this.lint_store.set_status(event.status);
         break;
