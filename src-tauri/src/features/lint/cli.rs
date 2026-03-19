@@ -18,6 +18,25 @@ pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyh
     parse_check_output(&stdout, vault_path)
 }
 
+pub async fn format_file_content(vault_path: &Path, content: &str) -> Result<String, anyhow::Error> {
+    let binary = resolve_sidecar_path("binaries/rumdl")?;
+    let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
+
+    tokio::fs::write(&tmp_path, content).await?;
+
+    let output = tokio::process::Command::new(&binary)
+        .args(["fmt", tmp_path.to_str().unwrap_or("")])
+        .current_dir(vault_path)
+        .output()
+        .await;
+
+    let formatted = tokio::fs::read_to_string(&tmp_path).await;
+    let _ = tokio::fs::remove_file(&tmp_path).await;
+
+    output?;
+    Ok(formatted?)
+}
+
 pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
     let output = tokio::process::Command::new(&binary)

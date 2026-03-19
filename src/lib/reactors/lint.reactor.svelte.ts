@@ -122,7 +122,7 @@ export function create_lint_reactor(
       const note_id = open_note.meta.id as NoteId;
       const current = open_note.markdown ?? "";
 
-      void lint_service.format_file(path).then((edits) => {
+      void lint_service.format_file(path, current).then((edits) => {
         if (edits.length === 0) return;
         const formatted = apply_lint_text_edits(current, edits);
         if (formatted === current) return;

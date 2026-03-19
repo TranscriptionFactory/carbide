@@ -26,7 +26,11 @@ export interface LintPort {
     version: number,
   ): Promise<void>;
   close_file(vault_id: VaultId, path: string): Promise<void>;
-  format_file(vault_id: VaultId, path: string): Promise<LintTextEdit[]>;
+  format_file(
+    vault_id: VaultId,
+    path: string,
+    content: string,
+  ): Promise<LintTextEdit[]>;
   fix_all(vault_id: VaultId, path: string): Promise<string | null>;
   check_vault(vault_path: VaultPath): Promise<FileDiagnostics[]>;
   format_vault(vault_path: VaultPath): Promise<string[]>;

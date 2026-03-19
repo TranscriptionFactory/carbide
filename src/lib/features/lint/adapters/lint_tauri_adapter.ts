@@ -101,10 +101,12 @@ export function create_lint_tauri_adapter(): LintPort {
     async format_file(
       vault_id: VaultId,
       path: string,
+      content: string,
     ): Promise<LintTextEdit[]> {
       return await tauri_invoke<LintTextEdit[]>("lint_format_file", {
         vaultId: vault_id,
         path,
+        content,
       });
     },
     async fix_all(vault_id: VaultId, path: string): Promise<string | null> {

@@ -26,13 +26,13 @@ export function register_lint_actions(input: {
       const path = lint_store.active_file_path ?? "";
       if (!path) return;
 
-      const edits = await lint_service.format_file(path);
-      if (edits.length === 0) return;
-
       const open_note = editor_store.open_note;
       if (!open_note) return;
 
       const current = open_note.markdown ?? "";
+      const edits = await lint_service.format_file(path, current);
+      if (edits.length === 0) return;
+
       const formatted = apply_lint_text_edits(current, edits);
       if (formatted === current) return;
 

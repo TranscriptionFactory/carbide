@@ -119,26 +119,37 @@ pub async fn lint_format_file(
     state: State<'_, LintState>,
     vault_id: String,
     path: String,
+    content: String,
 ) -> Result<Vec<LintTextEdit>, String> {
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
-    let uri = resolve_uri(&session.vault_path, &path);
-    let params = serde_json::json!({
-        "textDocument": {
-            "uri": uri,
-        },
-        "options": {
-            "tabSize": 4,
-            "insertSpaces": true,
-        }
-    });
+    let (uri, vault_path) = {
+        let sessions = state.inner.lock().await;
+        let session = sessions
+            .get(&vault_id)
+            .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+        let uri = resolve_uri(&session.vault_path, &path);
+        let vault_path = session.vault_path.clone();
+        (uri, vault_path)
+    };
 
-    let result = session.client.send_request("textDocument/formatting", params).await?;
+    let lsp_result = {
+        let sessions = state.inner.lock().await;
+        let session = sessions
+            .get(&vault_id)
+            .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+        let params = serde_json::json!({
+            "textDocument": {
+                "uri": uri,
+            },
+            "options": {
+                "tabSize": 4,
+                "insertSpaces": true,
+            }
+        });
+        session.client.send_request("textDocument/formatting", params).await?
+    };
 
-    let edits: Vec<LintTextEdit> = match &result {
-        serde_json::Value::Array(arr) => arr
+    let edits: Vec<LintTextEdit> = match &lsp_result {
+        serde_json::Value::Array(arr) if !arr.is_empty() => arr
             .iter()
             .filter_map(|edit| {
                 let range = edit.get("range")?;
@@ -153,9 +164,26 @@ pub async fn lint_format_file(
                 })
             })
             .collect(),
-        serde_json::Value::Null => {
-            log::debug!("LSP returned null for formatting (unsupported for {})", uri);
-            Vec::new()
+        serde_json::Value::Null | serde_json::Value::Array(_) => {
+            log::debug!("LSP returned null/empty for formatting ({}), falling back to CLI", uri);
+            match cli::format_file_content(&vault_path, &content).await {
+                Ok(formatted) if formatted != content => {
+                    let line_count = content.lines().count().max(1);
+                    let last_line_len = content.lines().last().map(|l| l.len()).unwrap_or(0);
+                    vec![LintTextEdit {
+                        start_line: 1,
+                        start_column: 1,
+                        end_line: line_count as u32,
+                        end_column: last_line_len as u32 + 1,
+                        new_text: formatted,
+                    }]
+                }
+                Ok(_) => Vec::new(),
+                Err(e) => {
+                    log::warn!("CLI format fallback failed for {}: {}", path, e);
+                    Vec::new()
+                }
+            }
         }
         other => {
             log::warn!("Unexpected formatting response for {}: {:?}", uri, other);
