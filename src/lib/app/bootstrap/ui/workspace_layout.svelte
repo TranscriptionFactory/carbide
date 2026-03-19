@@ -737,7 +737,7 @@
                 <Sidebar.Rail />
               </Sidebar.Root>
             </Resizable.Pane>
-            <Resizable.Handle withHandle />
+            <Resizable.Handle />
           {/if}
           <Resizable.Pane order={2}>
             <Sidebar.Inset class="flex h-full min-h-0 flex-col">
@@ -827,7 +827,7 @@
                   </div>
                 </Resizable.Pane>
                 {#if bottom_panel_open}
-                  <Resizable.Handle withHandle />
+                  <Resizable.Handle />
                   <Resizable.Pane
                     defaultSize={30}
                     minSize={10}
@@ -841,7 +841,7 @@
             </Sidebar.Inset>
           </Resizable.Pane>
           {#if stores.ui.context_rail_open && !zen_mode}
-            <Resizable.Handle withHandle />
+            <Resizable.Handle />
             <Resizable.Pane
               defaultSize={20}
               minSize={12}
