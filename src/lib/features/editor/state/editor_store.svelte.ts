@@ -23,6 +23,8 @@ export class EditorStore {
     this.cursor = null;
     this.last_saved_at = open_note.meta.mtime_ms || null;
     this.selection = null;
+    this.cursor_offset = 0;
+    this.scroll_fraction = 0;
   }
 
   clear_open_note() {
