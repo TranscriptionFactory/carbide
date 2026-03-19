@@ -380,6 +380,7 @@ export function create_app_context(input: {
     ...base_action_input,
     terminal_store: stores.terminal,
     terminal_service,
+    ui_store: stores.ui,
   });
 
   register_document_actions({

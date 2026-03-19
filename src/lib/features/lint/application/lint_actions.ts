@@ -88,7 +88,15 @@ export function register_lint_actions(input: {
     label: "Toggle Problems Panel",
     shortcut: "CmdOrCtrl+Shift+M",
     execute: () => {
-      ui_store.problems_panel_open = !ui_store.problems_panel_open;
+      if (
+        ui_store.bottom_panel_open &&
+        ui_store.bottom_panel_tab === "problems"
+      ) {
+        ui_store.bottom_panel_open = false;
+        return;
+      }
+      ui_store.bottom_panel_tab = "problems";
+      ui_store.bottom_panel_open = true;
     },
   });
 
@@ -99,9 +107,8 @@ export function register_lint_actions(input: {
     when: () =>
       lint_store.is_running && lint_store.active_diagnostics.length > 0,
     execute: () => {
-      if (!ui_store.problems_panel_open) {
-        ui_store.problems_panel_open = true;
-      }
+      ui_store.bottom_panel_tab = "problems";
+      ui_store.bottom_panel_open = true;
     },
   });
 
@@ -112,9 +119,8 @@ export function register_lint_actions(input: {
     when: () =>
       lint_store.is_running && lint_store.active_diagnostics.length > 0,
     execute: () => {
-      if (!ui_store.problems_panel_open) {
-        ui_store.problems_panel_open = true;
-      }
+      ui_store.bottom_panel_tab = "problems";
+      ui_store.bottom_panel_open = true;
     },
   });
 }

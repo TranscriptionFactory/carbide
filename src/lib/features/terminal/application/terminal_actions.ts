@@ -6,14 +6,17 @@ import type {
 } from "$lib/features/terminal/application/terminal_service";
 import { resolve_terminal_session_target } from "$lib/features/terminal/domain/terminal_session_target";
 import type { TerminalStore } from "$lib/features/terminal/state/terminal_store.svelte";
+import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
 export function register_terminal_actions(
   input: ActionRegistrationInput & {
     terminal_store: TerminalStore;
     terminal_service: TerminalService;
+    ui_store: UIStore;
   },
 ) {
-  const { registry, terminal_store, terminal_service, stores } = input;
+  const { registry, terminal_store, terminal_service, stores, ui_store } =
+    input;
 
   function build_default_request(): TerminalSessionRequest {
     const target = resolve_terminal_session_target({
@@ -37,11 +40,17 @@ export function register_terminal_actions(
     id: ACTION_IDS.terminal_toggle,
     label: "Toggle Terminal",
     execute: () => {
-      if (terminal_store.panel_open) {
+      if (
+        ui_store.bottom_panel_open &&
+        ui_store.bottom_panel_tab === "terminal"
+      ) {
         terminal_service.close_all_sessions();
+        ui_store.bottom_panel_open = false;
         return;
       }
 
+      ui_store.bottom_panel_tab = "terminal";
+      ui_store.bottom_panel_open = true;
       terminal_store.open();
     },
   });
@@ -51,6 +60,9 @@ export function register_terminal_actions(
     label: "Close Terminal",
     execute: () => {
       terminal_service.close_all_sessions();
+      if (ui_store.bottom_panel_tab === "terminal") {
+        ui_store.bottom_panel_open = false;
+      }
     },
   });
 
@@ -79,6 +91,9 @@ export function register_terminal_actions(
       terminal_service.close_session(session_id as string);
       if (terminal_store.session_ids.length === 0) {
         terminal_store.close();
+        if (ui_store.bottom_panel_tab === "terminal") {
+          ui_store.bottom_panel_open = false;
+        }
       }
     },
   });

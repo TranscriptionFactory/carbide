@@ -11,8 +11,7 @@
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
   import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
-  import { TerminalPanel } from "$lib/features/terminal";
-  import { ProblemsPanel } from "$lib/features/lint";
+  import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
@@ -42,8 +41,7 @@
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
   const split_view_active = $derived(stores.split_view.active);
-  const terminal_open = $derived(stores.terminal.panel_open);
-  const problems_panel_open = $derived(stores.ui.problems_panel_open);
+  const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
   const zen_mode = $derived(stores.ui.zen_mode);
 
@@ -745,7 +743,7 @@
             <Sidebar.Inset class="flex h-full min-h-0 flex-col">
               <Resizable.PaneGroup direction="vertical" class="flex-1 min-h-0">
                 <Resizable.Pane
-                  defaultSize={terminal_open || problems_panel_open ? 70 : 100}
+                  defaultSize={bottom_panel_open ? 70 : 100}
                   minSize={20}
                   order={1}
                 >
@@ -828,7 +826,7 @@
                     </div>
                   </div>
                 </Resizable.Pane>
-                {#if terminal_open}
+                {#if bottom_panel_open}
                   <Resizable.Handle withHandle />
                   <Resizable.Pane
                     defaultSize={30}
@@ -836,18 +834,7 @@
                     maxSize={80}
                     order={2}
                   >
-                    <TerminalPanel />
-                  </Resizable.Pane>
-                {/if}
-                {#if problems_panel_open}
-                  <Resizable.Handle withHandle />
-                  <Resizable.Pane
-                    defaultSize={25}
-                    minSize={10}
-                    maxSize={60}
-                    order={3}
-                  >
-                    <ProblemsPanel />
+                    <BottomPanel />
                   </Resizable.Pane>
                 {/if}
               </Resizable.PaneGroup>
