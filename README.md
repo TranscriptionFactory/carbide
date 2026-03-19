@@ -1,4 +1,4 @@
-<img src="./assets/badger_icon_nobackground2.png" alt="Badgerly" width="150">
+<img src="./src-tauri/icons/Square310x310Logo.png" alt="Badgerly" width="235">
 
 [![Release](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml)
 
