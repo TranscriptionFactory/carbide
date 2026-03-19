@@ -471,6 +471,128 @@ export function create_code_block_view_prose_plugin(): Plugin {
             return true;
           }
 
+          if (event.key === "Tab") {
+            event.preventDefault();
+            const text = node.textContent;
+            const sel_from_offset = selection.from - code_block_start;
+            const sel_to_offset = selection.to - code_block_start;
+
+            const line_start_offsets: number[] = [0];
+            for (let i = 0; i < text.length; i++) {
+              if (text[i] === "\n") line_start_offsets.push(i + 1);
+            }
+
+            const find_line_index = (offset: number): number => {
+              let idx = 0;
+              for (let i = 0; i < line_start_offsets.length; i++) {
+                if ((line_start_offsets[i] as number) <= offset) idx = i;
+                else break;
+              }
+              return idx;
+            };
+
+            const from_line = find_line_index(sel_from_offset);
+            const raw_to_line = find_line_index(sel_to_offset);
+            const to_line =
+              sel_to_offset > sel_from_offset &&
+              sel_to_offset === (line_start_offsets[raw_to_line] as number)
+                ? raw_to_line - 1
+                : raw_to_line;
+            const is_multiline = from_line !== to_line;
+
+            if (event.shiftKey) {
+              if (is_multiline) {
+                let new_text = text;
+                let removed_total = 0;
+                const offsets = [...line_start_offsets] as number[];
+                for (let li = to_line; li >= from_line; li--) {
+                  const ls = offsets[li] as number;
+                  let spaces = 0;
+                  while (
+                    spaces < 2 &&
+                    ls + spaces < new_text.length &&
+                    new_text[ls + spaces] === " "
+                  ) {
+                    spaces++;
+                  }
+                  if (spaces > 0) {
+                    new_text =
+                      new_text.slice(0, ls) + new_text.slice(ls + spaces);
+                    removed_total += spaces;
+                  }
+                }
+                const tr = view.state.tr.replaceWith(
+                  code_block_start,
+                  code_block_end,
+                  schema.text(new_text),
+                );
+                const line_from_start = line_start_offsets[from_line] as number;
+                const spaces_on_from_line = Math.min(
+                  2,
+                  text.slice(line_from_start).match(/^ */)?.[0].length ?? 0,
+                );
+                const new_from = Math.max(
+                  code_block_start + line_from_start,
+                  code_block_start + sel_from_offset - spaces_on_from_line,
+                );
+                const new_to = Math.max(
+                  new_from,
+                  code_block_start + sel_to_offset - removed_total,
+                );
+                tr.setSelection(TextSelection.create(tr.doc, new_from, new_to));
+                view.dispatch(tr);
+              } else {
+                const ls = line_start_offsets[from_line] as number;
+                let spaces = 0;
+                while (
+                  spaces < 2 &&
+                  ls + spaces < text.length &&
+                  text[ls + spaces] === " "
+                ) {
+                  spaces++;
+                }
+                if (spaces === 0) return true;
+                const new_text = text.slice(0, ls) + text.slice(ls + spaces);
+                const tr = view.state.tr.replaceWith(
+                  code_block_start,
+                  code_block_end,
+                  schema.text(new_text),
+                );
+                const new_pos = Math.max(
+                  code_block_start + ls,
+                  code_block_start + sel_from_offset - spaces,
+                );
+                tr.setSelection(TextSelection.create(tr.doc, new_pos));
+                view.dispatch(tr);
+              }
+            } else {
+              if (is_multiline) {
+                let new_text = text;
+                let added_total = 0;
+                for (let li = to_line; li >= from_line; li--) {
+                  const ls = line_start_offsets[li] as number;
+                  new_text = new_text.slice(0, ls) + "  " + new_text.slice(ls);
+                  added_total += 2;
+                }
+                const tr = view.state.tr.replaceWith(
+                  code_block_start,
+                  code_block_end,
+                  schema.text(new_text),
+                );
+                const new_from = code_block_start + sel_from_offset + 2;
+                const new_to = code_block_start + sel_to_offset + added_total;
+                tr.setSelection(TextSelection.create(tr.doc, new_from, new_to));
+                view.dispatch(tr);
+              } else {
+                const insert_at = code_block_start + sel_from_offset;
+                const tr = view.state.tr.insertText("  ", insert_at);
+                tr.setSelection(TextSelection.create(tr.doc, insert_at + 2));
+                view.dispatch(tr);
+              }
+            }
+            return true;
+          }
+
           if (event.key === "ArrowDown" && selection.to === code_block_end) {
             event.preventDefault();
             const tr = view.state.tr;

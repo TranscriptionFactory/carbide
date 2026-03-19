@@ -9,7 +9,7 @@ import { Slice } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
 import { history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
-import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import {
   splitListItem,
   liftListItem,
@@ -33,6 +33,7 @@ import { dirty_state_plugin_key } from "./dirty_state_plugin";
 import { create_markdown_link_input_rule_prose_plugin } from "./markdown_link_input_rule";
 import { create_image_input_rule_prose_plugin } from "./image_input_rule_plugin";
 import { create_block_input_rules_prose_plugin } from "./block_input_rules_plugin";
+import { create_strikethrough_prose_plugin } from "./strikethrough_plugin";
 import { create_task_keymap_prose_plugin } from "./task_keymap_plugin";
 import { create_markdown_paste_prose_plugin } from "./markdown_paste_plugin";
 import { create_image_paste_prose_plugin } from "./image_paste_plugin";
@@ -456,11 +457,15 @@ export function create_prosemirror_editor_port(args?: {
 
       const plugins: Plugin[] = [];
 
+      const strikethrough_mark_type = schema.marks.strikethrough;
       plugins.push(
         keymap({
           "Mod-z": undo,
           "Mod-y": redo,
           "Mod-Shift-z": redo,
+          ...(strikethrough_mark_type
+            ? { "Mod-Shift-x": toggleMark(strikethrough_mark_type) }
+            : {}),
         }),
       );
       plugins.push((create_slash_command_prose_plugin as () => Plugin)());
@@ -522,6 +527,7 @@ export function create_prosemirror_editor_port(args?: {
         }),
       );
       plugins.push(create_block_input_rules_prose_plugin());
+      plugins.push(create_strikethrough_prose_plugin());
       plugins.push(
         create_editor_context_plugin_instance({
           note_path: current_note_path,

@@ -193,9 +193,10 @@ function create_virtual_element(view: EditorView): {
 
 function show_menu(menu: HTMLElement, view: EditorView): void {
   if (!menu.parentElement) document.body.appendChild(menu);
+  menu.dataset.show = "true";
   menu.style.display = "";
   menu.style.position = "fixed";
-  menu.style.zIndex = "100";
+  menu.style.zIndex = "9999";
   const virtual = create_virtual_element(view);
   void computePosition(virtual as unknown as Element, menu, {
     placement: "bottom-start",
@@ -207,6 +208,7 @@ function show_menu(menu: HTMLElement, view: EditorView): void {
 }
 
 function hide_menu(menu: HTMLElement): void {
+  menu.dataset.show = "false";
   menu.style.display = "none";
 }
 
