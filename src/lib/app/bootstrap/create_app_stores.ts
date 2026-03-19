@@ -15,9 +15,10 @@ import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases";
 import { TaskStore } from "$lib/features/task";
-import { PluginStore } from "$lib/features/plugin";
+import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
+import { LintStore } from "$lib/features/lint";
 
 export type AppStores = {
   vault: VaultStore;
@@ -38,8 +39,10 @@ export type AppStores = {
   bases: BasesStore;
   task: TaskStore;
   plugin: PluginStore;
+  plugin_settings: PluginSettingsStore;
   canvas: CanvasStore;
   tag: TagStore;
+  lint: LintStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -62,7 +65,9 @@ export function create_app_stores(): AppStores {
     bases: new BasesStore(),
     task: new TaskStore(),
     plugin: new PluginStore(),
+    plugin_settings: new PluginSettingsStore(),
     canvas: new CanvasStore(),
     tag: new TagStore(),
+    lint: new LintStore(),
   };
 }

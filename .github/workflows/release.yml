@@ -51,6 +51,8 @@ jobs:
 
       - run: pnpm install
 
+      - run: pnpm sidecar
+
       - uses: tauri-apps/tauri-action@v0.6.1
         with:
           tagName: ${{ github.ref_name }}

@@ -34,6 +34,7 @@ export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
 export type EditorBlockquotePadding = EditorSpacingDensity;
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
+export type LintFormatter = "prettier" | "rumdl";
 
 export type EditorSettings = {
   attachment_folder: string;
@@ -85,6 +86,10 @@ export type EditorSettings = {
   graph_force_charge_max_distance: number;
   outline_mode: OutlineMode;
   default_note_name_template: string;
+  lint_enabled: boolean;
+  lint_format_on_save: boolean;
+  lint_formatter: LintFormatter;
+  lint_rules_toml: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -137,6 +142,10 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
   default_note_name_template: "",
+  lint_enabled: true,
+  lint_format_on_save: false,
+  lint_formatter: "prettier",
+  lint_rules_toml: "",
 };
 
 export const SETTINGS_KEY = "editor" as const;

@@ -1,9 +1,13 @@
-import type { PluginInfo, StatusBarItem, SidebarView } from "../ports";
+import type {
+  PluginInfo,
+  StatusBarItem,
+  SidebarView,
+  RibbonIcon,
+} from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import { SvelteMap } from "svelte/reactivity";
 
 export class PluginStore {
-  // Plugin management state
   plugins = new SvelteMap<string, PluginInfo>();
 
   active_plugin_ids = $derived.by(() => {
@@ -12,12 +16,11 @@ export class PluginStore {
       .map(([id]) => id);
   });
 
-  // Host registries (Milestone 1)
   private _commands = new SvelteMap<string, CommandDefinition>();
   private _status_bar_items = new SvelteMap<string, StatusBarItem>();
   private _sidebar_views = new SvelteMap<string, SidebarView>();
+  private _ribbon_icons = new SvelteMap<string, RibbonIcon>();
 
-  // Commands registry
   get commands(): CommandDefinition[] {
     return Array.from(this._commands.values());
   }
@@ -30,7 +33,6 @@ export class PluginStore {
     this._commands.delete(id);
   }
 
-  // Status bar registry
   status_bar_items = $derived.by(() => {
     return Array.from(this._status_bar_items.values()).sort(
       (a, b) => a.priority - b.priority,
@@ -54,7 +56,6 @@ export class PluginStore {
     });
   }
 
-  // Sidebar registry
   get sidebar_views(): SidebarView[] {
     return Array.from(this._sidebar_views.values());
   }
@@ -67,10 +68,22 @@ export class PluginStore {
     this._sidebar_views.delete(id);
   }
 
-  // Utility to clear all (e.g., on vault switch or reset)
+  get ribbon_icons(): RibbonIcon[] {
+    return Array.from(this._ribbon_icons.values());
+  }
+
+  register_ribbon_icon(icon: RibbonIcon) {
+    this._ribbon_icons.set(icon.id, icon);
+  }
+
+  unregister_ribbon_icon(id: string) {
+    this._ribbon_icons.delete(id);
+  }
+
   reset_registries() {
     this._commands.clear();
     this._status_bar_items.clear();
     this._sidebar_views.clear();
+    this._ribbon_icons.clear();
   }
 }

@@ -42,9 +42,14 @@ import { AiService, register_ai_actions } from "$lib/features/ai";
 import { BasesService } from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService } from "$lib/features/task";
-import { PluginService, register_plugin_actions } from "$lib/features/plugin";
+import {
+  PluginService,
+  PluginSettingsService,
+  register_plugin_actions,
+} from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
+import { LintService, register_lint_actions } from "$lib/features/lint";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -66,10 +71,21 @@ export function create_app_context(input: {
     () => stores.vault.is_vault_mode,
   );
 
+  const plugin_settings_service = new PluginSettingsService(
+    stores.plugin_settings,
+    stores.vault,
+    input.ports.plugin_settings,
+  );
+
   const plugin_service = new PluginService(
     stores.plugin,
     stores.vault,
     input.ports.plugin,
+  );
+
+  plugin_service.set_settings_service(
+    plugin_settings_service,
+    stores.plugin_settings,
   );
 
   plugin_service.register_sidebar_view({
@@ -295,6 +311,14 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
+  const lint_service = new LintService(
+    input.ports.lint,
+    stores.lint,
+    stores.vault,
+    stores.editor,
+    stores.op,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -329,6 +353,7 @@ export function create_app_context(input: {
       bases: bases_service,
       task: task_service,
       plugin: plugin_service,
+      plugin_settings: plugin_settings_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -355,6 +380,7 @@ export function create_app_context(input: {
     ...base_action_input,
     terminal_store: stores.terminal,
     terminal_service,
+    ui_store: stores.ui,
   });
 
   register_document_actions({
@@ -385,6 +411,15 @@ export function create_app_context(input: {
   });
 
   register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
+
+  register_lint_actions({
+    registry: action_registry,
+    lint_service,
+    lint_store: stores.lint,
+    editor_store: stores.editor,
+    editor_service,
+    ui_store: stores.ui,
+  });
 
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
@@ -417,6 +452,8 @@ export function create_app_context(input: {
     document_service,
     task_service,
     workspace_index_port: input.ports.index,
+    lint_store: stores.lint,
+    lint_service,
   });
 
   return {
@@ -427,10 +464,12 @@ export function create_app_context(input: {
     terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
+      plugin_service.destroy();
       terminal_service.destroy();
       split_view_service.destroy();
       editor_service.unmount();
       void watcher_service.stop();
+      void lint_service.stop();
     },
   };
 }

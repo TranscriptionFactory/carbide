@@ -34,6 +34,7 @@ type SidebarView =
   | "tasks"
   | (string & {});
 type ContextRailTab = "links" | "outline" | "ai" | "graph" | "tasks";
+export type BottomPanelTab = "terminal" | "problems";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -367,6 +368,9 @@ export class UIStore {
   tab_drag_active = $state(false);
 
   quick_capture_open = $state(false);
+
+  bottom_panel_open = $state(false);
+  bottom_panel_tab = $state<BottomPanelTab>("terminal");
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");

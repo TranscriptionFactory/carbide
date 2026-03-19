@@ -32,22 +32,41 @@
             `${words} words (plugin)`,
           );
         } catch (e) {
-          console.error("Word Count plugin error:", e);
+          // Editor may not be open
         }
       }
 
-      // Register status bar item on load
-      rpc
-        .send("ui.add_statusbar_item", {
+      async function init() {
+        await rpc.send("ui.add_statusbar_item", {
           id: "word-count-item",
           priority: 100,
           initial_text: "0 words (plugin)",
-        })
-        .then(() => {
-          console.log("Word Count plugin registered status bar item");
-          // Poll for updates every 2 seconds
-          setInterval(updateWordCount, 2000);
         });
+
+        // Subscribe to editor events for reactive updates
+        await rpc.send("events.on", "active-file-changed", "on-file-change");
+
+        let last_event_time = 0;
+
+        // Listen for pushed events
+        window.addEventListener("message", (event) => {
+          if (event.data.type === "event") {
+            last_event_time = Date.now();
+            updateWordCount();
+          }
+        });
+
+        // Poll as fallback only when no recent events
+        const settings = await rpc.send("settings.get_all");
+        const interval = settings?.update_interval_ms ?? 2000;
+        setInterval(() => {
+          if (Date.now() - last_event_time > interval) updateWordCount();
+        }, interval);
+
+        updateWordCount();
+      }
+
+      init();
     </script>
   </body>
 </html>

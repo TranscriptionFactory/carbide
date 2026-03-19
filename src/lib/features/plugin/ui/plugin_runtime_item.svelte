@@ -13,6 +13,14 @@
   let iframe_host: { post_message: (msg: unknown) => void } | undefined =
     $state(undefined);
 
+  $effect(() => {
+    if (!iframe_host) return;
+    services.plugin.register_iframe_messenger(plugin_id, (msg) => {
+      iframe_host?.post_message(msg);
+    });
+    return () => services.plugin.unregister_iframe_messenger(plugin_id);
+  });
+
   function on_message(message: unknown) {
     void services.plugin
       .handle_rpc(plugin_id, message as any)

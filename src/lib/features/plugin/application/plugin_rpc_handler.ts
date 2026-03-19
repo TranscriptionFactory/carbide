@@ -1,8 +1,11 @@
 import type { AppContext } from "$lib/app/di/create_app_context";
-import type { PluginManifest } from "../ports";
+import type { PluginManifest, PluginEventType } from "../ports";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import PluginStatusBarItem from "../ui/plugin_status_bar_item.svelte";
 import PluginSidebarPanel from "../ui/plugin_sidebar_panel.svelte";
+import { toast } from "svelte-sonner";
+import type { PluginEventBus } from "./plugin_event_bus";
+import type { PluginSettingsService } from "./plugin_settings_service";
 
 export interface RpcRequest {
   id: string;
@@ -16,17 +19,24 @@ export interface RpcResponse {
   error?: string;
 }
 
-/**
- * Handles RPC requests from plugin iframes.
- * Enforces permissions and routes to appropriate services.
- */
 export class PluginRpcHandler {
+  private event_bus: PluginEventBus | null = null;
+  private settings_service: PluginSettingsService | null = null;
+
   constructor(
     private readonly context: {
       services: AppContext["services"];
       stores: AppContext["stores"];
     },
   ) {}
+
+  set_event_bus(event_bus: PluginEventBus) {
+    this.event_bus = event_bus;
+  }
+
+  set_settings_service(settings_service: PluginSettingsService) {
+    this.settings_service = settings_service;
+  }
 
   async handle_request(
     plugin_id: string,
@@ -69,6 +79,10 @@ export class PluginRpcHandler {
         return this.handle_commands(plugin_id, manifest, action, params);
       case "ui":
         return this.handle_ui(plugin_id, manifest, action, params);
+      case "settings":
+        return this.handle_settings(plugin_id, manifest, action, params);
+      case "events":
+        return this.handle_events(plugin_id, manifest, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -249,8 +263,97 @@ export class PluginRpcHandler {
         this.context.services.plugin.unregister_sidebar_view(remove_panel_id);
         return { success: true };
       }
+      case "show_notice": {
+        const { message, duration } = params[0] ?? {};
+        if (!message) throw new Error("Missing message parameter");
+        toast.info(message, { duration: duration ?? 4000 });
+        return { success: true };
+      }
+      case "add_ribbon_icon": {
+        if (!manifest.permissions.includes("ui:ribbon"))
+          throw new Error("Missing ui:ribbon permission");
+        const {
+          id: ribbon_id,
+          icon: ribbon_icon,
+          tooltip,
+          command: cmd_id,
+        } = params[0];
+        const namespaced_ribbon_id = `${plugin_id}:${ribbon_id}`;
+        this.context.services.plugin.register_ribbon_icon({
+          id: namespaced_ribbon_id,
+          icon: ribbon_icon,
+          tooltip,
+          command: `${plugin_id}:${cmd_id}`,
+        });
+        return { success: true };
+      }
+      case "remove_ribbon_icon": {
+        if (!manifest.permissions.includes("ui:ribbon"))
+          throw new Error("Missing ui:ribbon permission");
+        const remove_ribbon_id = `${plugin_id}:${params[0]}`;
+        this.context.services.plugin.unregister_ribbon_icon(remove_ribbon_id);
+        return { success: true };
+      }
       default:
         throw new Error(`Unknown ui action: ${action}`);
+    }
+  }
+
+  private async handle_settings(
+    plugin_id: string,
+    _manifest: PluginManifest,
+    action: string,
+    params: any[],
+  ): Promise<any> {
+    if (!this.settings_service) {
+      throw new Error("Settings service not initialized");
+    }
+
+    switch (action) {
+      case "get":
+        return this.settings_service.get_setting(plugin_id, params[0]);
+      case "set":
+        await this.settings_service.set_setting(
+          plugin_id,
+          params[0],
+          params[1],
+        );
+        return { success: true };
+      case "get_all":
+        return this.settings_service.get_all_settings(plugin_id);
+      default:
+        throw new Error(`Unknown settings action: ${action}`);
+    }
+  }
+
+  private async handle_events(
+    plugin_id: string,
+    manifest: PluginManifest,
+    action: string,
+    params: any[],
+  ): Promise<any> {
+    if (!manifest.permissions.includes("events:subscribe")) {
+      throw new Error("Missing events:subscribe permission");
+    }
+
+    if (!this.event_bus) {
+      throw new Error("Event bus not initialized");
+    }
+
+    switch (action) {
+      case "on": {
+        const event_type = params[0] as PluginEventType;
+        const callback_id = params[1] as string;
+        this.event_bus.subscribe(plugin_id, event_type, callback_id);
+        return { success: true };
+      }
+      case "off": {
+        const callback_id = params[0] as string;
+        this.event_bus.unsubscribe(plugin_id, callback_id);
+        return { success: true };
+      }
+      default:
+        throw new Error(`Unknown events action: ${action}`);
     }
   }
 }

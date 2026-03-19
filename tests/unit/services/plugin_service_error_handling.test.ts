@@ -31,11 +31,13 @@ function make_store(plugin_id = "plugin-a") {
   const commands: any[] = [];
   const status_bar_items: any[] = [];
   const sidebar_views: any[] = [];
+  const ribbon_icons: any[] = [];
   return {
     plugins,
     commands,
     status_bar_items,
     sidebar_views,
+    ribbon_icons,
     register_command: vi.fn(),
     unregister_command: vi.fn(),
     register_status_bar_item: vi.fn(),
@@ -43,6 +45,8 @@ function make_store(plugin_id = "plugin-a") {
     update_status_bar_item: vi.fn(),
     register_sidebar_view: vi.fn(),
     unregister_sidebar_view: vi.fn(),
+    register_ribbon_icon: vi.fn(),
+    unregister_ribbon_icon: vi.fn(),
   };
 }
 

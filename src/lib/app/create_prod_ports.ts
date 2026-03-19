@@ -23,9 +23,13 @@ import { create_ai_tauri_adapter } from "$lib/features/ai";
 import { create_graph_tauri_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_task_tauri_adapter } from "$lib/features/task";
-import { PluginHostAdapter } from "$lib/features/plugin";
+import {
+  PluginHostAdapter,
+  PluginSettingsTauriAdapter,
+} from "$lib/features/plugin";
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
+import { create_lint_tauri_adapter } from "$lib/features/lint";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -45,6 +49,7 @@ export function create_prod_ports(): Ports {
   const bases = create_bases_tauri_adapter();
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();
+  const plugin_settings = new PluginSettingsTauriAdapter();
 
   return {
     vault,
@@ -70,7 +75,9 @@ export function create_prod_ports(): Ports {
     bases,
     task,
     plugin,
+    plugin_settings,
     canvas: create_canvas_tauri_adapter(),
     tag: create_tag_tauri_adapter(),
+    lint: create_lint_tauri_adapter(),
   };
 }

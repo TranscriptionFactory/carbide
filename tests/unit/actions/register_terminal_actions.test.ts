@@ -34,12 +34,15 @@ function create_harness() {
     respawn_session: vi.fn(),
   };
 
+  const ui_store = new UIStore();
+
   register_terminal_actions({
     registry,
     terminal_store,
     terminal_service: terminal_service as never,
+    ui_store,
     stores: {
-      ui: new UIStore(),
+      ui: ui_store,
       vault: new VaultStore(),
       notes: new NotesStore(),
       editor: new EditorStore(),
@@ -64,37 +67,59 @@ function create_harness() {
     registry,
     terminal_store,
     terminal_service,
+    ui_store,
   };
 }
 
 describe("register_terminal_actions", () => {
   it("opens the terminal panel on toggle when closed", async () => {
-    const { registry, terminal_store, terminal_service } = create_harness();
+    const { registry, terminal_store, terminal_service, ui_store } =
+      create_harness();
 
     await registry.execute(ACTION_IDS.terminal_toggle);
 
+    expect(ui_store.bottom_panel_open).toBe(true);
+    expect(ui_store.bottom_panel_tab).toBe("terminal");
     expect(terminal_store.panel_open).toBe(true);
     expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
   });
 
-  it("closes all sessions on toggle when already open", async () => {
-    const { registry, terminal_store, terminal_service } = create_harness();
+  it("closes all sessions on toggle when already open on terminal tab", async () => {
+    const { registry, terminal_store, terminal_service, ui_store } =
+      create_harness();
+    ui_store.bottom_panel_open = true;
+    ui_store.bottom_panel_tab = "terminal";
     terminal_store.open();
 
     await registry.execute(ACTION_IDS.terminal_toggle);
 
     expect(terminal_service.close_all_sessions).toHaveBeenCalledTimes(1);
-    expect(terminal_store.panel_open).toBe(false);
+    expect(ui_store.bottom_panel_open).toBe(false);
+  });
+
+  it("switches to terminal tab when panel open on different tab", async () => {
+    const { registry, terminal_store, terminal_service, ui_store } =
+      create_harness();
+    ui_store.bottom_panel_open = true;
+    ui_store.bottom_panel_tab = "problems";
+
+    await registry.execute(ACTION_IDS.terminal_toggle);
+
+    expect(ui_store.bottom_panel_tab).toBe("terminal");
+    expect(ui_store.bottom_panel_open).toBe(true);
+    expect(terminal_store.panel_open).toBe(true);
+    expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
   });
 
   it("closes the terminal explicitly", async () => {
-    const { registry, terminal_store, terminal_service } = create_harness();
-    terminal_store.open();
+    const { registry, terminal_service, ui_store } = create_harness();
+    ui_store.bottom_panel_open = true;
+    ui_store.bottom_panel_tab = "terminal";
 
     await registry.execute(ACTION_IDS.terminal_close);
 
     expect(terminal_service.close_all_sessions).toHaveBeenCalledTimes(1);
-    expect(terminal_store.panel_open).toBe(false);
+    expect(ui_store.bottom_panel_open).toBe(false);
   });
 
   it("creates a new terminal session from an action payload", async () => {
@@ -160,8 +185,11 @@ describe("register_terminal_actions", () => {
   });
 
   it("closes the terminal panel when the last session is removed", async () => {
-    const { registry, terminal_store, terminal_service } = create_harness();
+    const { registry, terminal_store, terminal_service, ui_store } =
+      create_harness();
 
+    ui_store.bottom_panel_open = true;
+    ui_store.bottom_panel_tab = "terminal";
     terminal_store.open();
     terminal_store.ensure_session({
       id: "terminal:session:1",
@@ -183,6 +211,7 @@ describe("register_terminal_actions", () => {
       "terminal:session:1",
     );
     expect(terminal_store.panel_open).toBe(false);
+    expect(ui_store.bottom_panel_open).toBe(false);
     expect(terminal_store.session_ids).toEqual([]);
   });
 });

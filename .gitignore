@@ -19,3 +19,7 @@ devlog/
 .ralph/
 opencode.json
 .eslintcache
+
+# rumdl sidecar binaries (downloaded via scripts/download_rumdl.sh)
+src-tauri/binaries/rumdl*
+!src-tauri/binaries/.gitkeep

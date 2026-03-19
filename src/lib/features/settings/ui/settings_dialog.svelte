@@ -33,6 +33,7 @@
     EditorSettings,
     GitAutocommitMode,
     GitPullStrategy,
+    LintFormatter,
     OutlineMode,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
@@ -125,6 +126,11 @@
     { value: "merge", label: "Merge" },
     { value: "rebase", label: "Rebase" },
     { value: "ff_only", label: "Fast-forward only" },
+  ];
+
+  const lint_formatter_options: { value: LintFormatter; label: string }[] = [
+    { value: "prettier", label: "Prettier" },
+    { value: "rumdl", label: "rumdl" },
   ];
 
   const auto_fetch_interval_options = [0, 5, 15, 30, 60].map((n) => ({
@@ -2606,6 +2612,105 @@
                 }}
               />
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Enable Markdown Linting</span
+                >
+                <span class="SettingsDialog__description"
+                  >Run rumdl in the background to check markdown files for style
+                  and formatting issues</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.lint_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("lint_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Format on Save</span>
+                <span class="SettingsDialog__description"
+                  >Automatically format the current markdown file when saving</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.lint_format_on_save}
+                onCheckedChange={(v: boolean) => {
+                  update("lint_format_on_save", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Formatter</span>
+                <span class="SettingsDialog__description"
+                  >Which tool to use for markdown formatting</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.lint_formatter}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("lint_formatter", v as LintFormatter);
+                  }}
+                >
+                  <Select.Trigger class="w-32">
+                    <span data-slot="select-value">
+                      {lint_formatter_options.find(
+                        (o) => o.value === editor_settings.lint_formatter,
+                      )?.label ?? "Prettier"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each lint_formatter_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "lint_formatter",
+                      DEFAULT_EDITOR_SETTINGS.lint_formatter,
+                    )}
+                  disabled={editor_settings.lint_formatter ===
+                    DEFAULT_EDITOR_SETTINGS.lint_formatter}
+                  title="Reset to default (Prettier)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row SettingsDialog__row--column">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Rule Overrides (TOML)</span>
+                <span class="SettingsDialog__description"
+                  >Custom rumdl rule configuration in TOML format, merged with
+                  defaults</span
+                >
+              </div>
+              <textarea
+                class="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-y rounded-md border px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+                rows={4}
+                value={editor_settings.lint_rules_toml}
+                oninput={(
+                  e: Event & { currentTarget: HTMLTextAreaElement },
+                ) => {
+                  update("lint_rules_toml", e.currentTarget.value);
+                }}
+                placeholder={"MD013 = false\nMD040 = true"}
+              ></textarea>
+            </div>
           </div>
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>
@@ -2760,6 +2865,11 @@
 
   .SettingsDialog__row--top-aligned {
     align-items: flex-start;
+  }
+
+  .SettingsDialog__row--column {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .SettingsDialog__label {
