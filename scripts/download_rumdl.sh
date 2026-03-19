@@ -34,6 +34,14 @@ echo "Downloading ${DOWNLOAD_URL}..."
 curl -sSL -o "${TMPDIR}/${ARCHIVE}" "${DOWNLOAD_URL}"
 
 # SHA256 verification (pinned hashes for v0.1.54)
+sha256() {
+    if command -v shasum &>/dev/null; then
+        shasum -a 256 "$1" | cut -d' ' -f1
+    else
+        sha256sum "$1" | cut -d' ' -f1
+    fi
+}
+
 verify_hash() {
     local file="$1"
     local expected=""
@@ -48,7 +56,7 @@ verify_hash() {
 
     if [[ "${expected}" != "PLACEHOLDER_HASH" && -n "${expected}" ]]; then
         local actual
-        actual=$(shasum -a 256 "${file}" | cut -d' ' -f1)
+        actual=$(sha256 "${file}")
         if [[ "${actual}" != "${expected}" ]]; then
             echo "ERROR: SHA256 mismatch for ${TARGET}"
             echo "  expected: ${expected}"
@@ -59,7 +67,7 @@ verify_hash() {
     else
         echo "WARNING: No pinned hash for ${TARGET}, skipping verification."
         local actual
-        actual=$(shasum -a 256 "${file}" | cut -d' ' -f1)
+        actual=$(sha256 "${file}")
         echo "  SHA256: ${actual}  (pin this in download_rumdl.sh)"
     fi
 }
