@@ -209,6 +209,8 @@ pub fn run() {
             features::vault::service::resolve_file_to_vault,
             features::vault::service::refresh_note_count,
             features::plugin::plugin_discover,
+            features::plugin::plugin_load,
+            features::plugin::plugin_unload,
             features::plugin::plugin_read_settings,
             features::plugin::plugin_write_settings,
             features::plugin::plugin_approve_permission,

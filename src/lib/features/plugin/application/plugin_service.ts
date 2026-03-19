@@ -173,7 +173,9 @@ export class PluginService {
   }
 
   async load_plugin(id: string) {
-    await this.host_port.load(id);
+    const vault_path = this.vault_store.vault?.path;
+    if (!vault_path) throw new Error("No active vault");
+    await this.host_port.load(vault_path, id);
   }
 
   async unload_plugin(id: string) {
@@ -182,6 +184,29 @@ export class PluginService {
     this.event_bus.unsubscribe_all(id);
     this.unregister_iframe_messenger(id);
     this.clear_plugin_contributions(id);
+  }
+
+  async reload_plugin(id: string) {
+    const plugin = this.store.plugins.get(id);
+    if (!plugin) return;
+
+    this.store.plugins.set(id, { ...plugin, status: "loading" });
+    try {
+      await this.unload_plugin(id);
+      await this.load_plugin(id);
+      this.store.plugins.set(id, {
+        manifest: plugin.manifest,
+        path: plugin.path,
+        enabled: plugin.enabled,
+        status: "active",
+      });
+    } catch (e) {
+      this.store.plugins.set(id, {
+        ...plugin,
+        status: "error",
+        error: error_message(e),
+      });
+    }
   }
 
   private clear_plugin_contributions(id: string) {
@@ -207,6 +232,44 @@ export class PluginService {
       this.store.unregister_ribbon_icon(rid);
     }
     this.store.unregister_settings_tab(id);
+  }
+
+  async load_and_activate(id: string) {
+    const plugin = this.store.plugins.get(id);
+    if (!plugin || !plugin.enabled) return;
+
+    this.store.plugins.set(id, { ...plugin, status: "loading" });
+    try {
+      await this.load_plugin(id);
+      this.store.plugins.set(id, {
+        manifest: plugin.manifest,
+        path: plugin.path,
+        enabled: plugin.enabled,
+        status: "active",
+      });
+    } catch (e) {
+      this.store.plugins.set(id, {
+        ...plugin,
+        status: "error",
+        error: error_message(e),
+      });
+    }
+  }
+
+  async unload_then_idle(id: string) {
+    const plugin = this.store.plugins.get(id);
+    if (!plugin) return;
+
+    try {
+      await this.unload_plugin(id);
+      this.store.plugins.set(id, { ...plugin, status: "idle" });
+    } catch (e) {
+      this.store.plugins.set(id, {
+        ...plugin,
+        status: "error",
+        error: error_message(e),
+      });
+    }
   }
 
   async enable_plugin(id: string) {

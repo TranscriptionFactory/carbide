@@ -13,7 +13,11 @@ export class PluginHostAdapter implements PluginHostPort {
     }
   }
 
-  async load(_id: string): Promise<void> {}
+  async load(vault_path: string, id: string): Promise<void> {
+    await invoke("plugin_load", { vault_path, plugin_id: id });
+  }
 
-  async unload(_id: string): Promise<void> {}
+  async unload(id: string): Promise<void> {
+    await invoke("plugin_unload", { plugin_id: id });
+  }
 }

@@ -18,6 +18,23 @@ pub async fn plugin_discover(
 }
 
 #[command]
+pub async fn plugin_load(
+    vault_path: String,
+    plugin_id: String,
+    state: State<'_, PluginService>,
+) -> Result<PluginInfo, String> {
+    state
+        .validate_plugin(Path::new(&vault_path), &plugin_id)
+        .map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn plugin_unload(plugin_id: String) -> Result<(), String> {
+    log::info!("Plugin unloaded: {}", plugin_id);
+    Ok(())
+}
+
+#[command]
 pub async fn plugin_read_settings(vault_path: String) -> Result<PluginSettings, String> {
     settings::read_settings(Path::new(&vault_path))
 }

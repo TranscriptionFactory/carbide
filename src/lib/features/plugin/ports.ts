@@ -79,7 +79,7 @@ export type DiscoveredPlugin = Pick<PluginInfo, "manifest" | "path">;
 
 export interface PluginHostPort {
   discover(vault_path: string): Promise<DiscoveredPlugin[]>;
-  load(id: string): Promise<void>;
+  load(vault_path: string, id: string): Promise<void>;
   unload(id: string): Promise<void>;
 }
 

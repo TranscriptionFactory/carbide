@@ -1,12 +1,20 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { RefreshCw, Settings, ShieldAlert } from "@lucide/svelte";
+  import {
+    RefreshCw,
+    Settings,
+    ShieldAlert,
+    Play,
+    Square,
+    RotateCw,
+  } from "@lucide/svelte";
   import PluginPermissionDialog from "./plugin_permission_dialog.svelte";
 
   const { stores, services } = use_app_context();
 
   let is_discovering = $state(false);
+  let reloading_ids = $state(new Set<string>());
 
   interface PermissionDialogState {
     plugin_id: string;
@@ -46,6 +54,15 @@
   function close_permission_dialog() {
     permission_dialog = null;
   }
+
+  async function reload_plugin(id: string) {
+    reloading_ids = new Set([...reloading_ids, id]);
+    try {
+      await services.plugin.reload_plugin(id);
+    } finally {
+      reloading_ids = new Set([...reloading_ids].filter((x) => x !== id));
+    }
+  }
 </script>
 
 <div class="PluginManager">
@@ -75,6 +92,8 @@
       <div class="space-y-3">
         {#each plugin_list as plugin (plugin.manifest.id)}
           {@const pending = pending_permissions(plugin.manifest.id)}
+          {@const is_active = plugin.enabled && plugin.status === "active"}
+          {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
           <div class="flex flex-col p-3 border rounded-lg bg-card">
             <div class="flex items-start justify-between">
               <div>
@@ -102,6 +121,41 @@
                     >
                       {pending.length}
                     </span>
+                  </Button>
+                {/if}
+                {#if is_active}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="w-8 h-8"
+                    onclick={() => reload_plugin(plugin.manifest.id)}
+                    disabled={is_reloading}
+                    title="Reload plugin"
+                  >
+                    <RotateCw
+                      class="w-4 h-4 {is_reloading ? 'animate-spin' : ''}"
+                    />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="w-8 h-8"
+                    onclick={() =>
+                      services.plugin.unload_then_idle(plugin.manifest.id)}
+                    title="Unload plugin"
+                  >
+                    <Square class="w-3.5 h-3.5" />
+                  </Button>
+                {:else if plugin.enabled && plugin.status !== "loading"}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="w-8 h-8"
+                    onclick={() =>
+                      services.plugin.load_and_activate(plugin.manifest.id)}
+                    title="Load plugin"
+                  >
+                    <Play class="w-4 h-4" />
                   </Button>
                 {/if}
                 <Button variant="ghost" size="icon" class="w-8 h-8">

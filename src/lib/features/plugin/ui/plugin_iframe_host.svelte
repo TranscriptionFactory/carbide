@@ -41,6 +41,19 @@
     };
   });
 
+  $effect(() => {
+    if (!sandboxed_iframe) return;
+
+    const timer = setTimeout(() => {
+      post_message({ method: "lifecycle.activate", params: [] });
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      post_message({ method: "lifecycle.deactivate", params: [] });
+    };
+  });
+
   export function post_message(message: any) {
     sandboxed_iframe?.post_message(message);
   }
