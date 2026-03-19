@@ -221,6 +221,13 @@ export class EditorService {
     this.session?.mark_clean();
   }
 
+  sync_visual_from_markdown(markdown: string) {
+    if (!this.session) return;
+    const current = this.session.get_markdown();
+    if (current === markdown) return;
+    this.session.set_markdown(markdown);
+  }
+
   flush(): EditorFlushResult | null {
     if (!this.active_note) return null;
 

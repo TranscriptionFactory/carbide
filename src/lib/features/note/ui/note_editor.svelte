@@ -65,13 +65,13 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    {#if editor_mode === "visual"}
-      <div
-        use:mount_editor={open_note}
-        class="NoteEditor__content"
-        class:frontmatter-hidden={!stores.editor.show_frontmatter}
-      ></div>
-    {:else}
+    <div
+      use:mount_editor={open_note}
+      class="NoteEditor__content"
+      class:frontmatter-hidden={!stores.editor.show_frontmatter}
+      class:NoteEditor__hidden={editor_mode !== "visual"}
+    ></div>
+    {#if editor_mode === "source"}
       <SourceEditor
         initial_markdown={open_note.markdown}
         initial_cursor_offset={stores.editor.cursor_offset}
@@ -130,6 +130,10 @@
 
   .NoteEditor__content {
     width: 100%;
+  }
+
+  .NoteEditor__hidden {
+    display: none;
   }
 
   :global(.frontmatter-hidden [data-type="frontmatter"]) {
