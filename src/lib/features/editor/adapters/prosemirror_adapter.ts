@@ -500,7 +500,9 @@ export function create_prosemirror_editor_port(args?: {
               splitListItem(list_item_type),
               liftListItem(list_item_type),
             ),
-            Tab: sinkListItem(list_item_type),
+            Tab: chainCommands(sinkListItem(list_item_type), (state) => {
+              return !state.selection.empty;
+            }),
             "Shift-Tab": liftListItem(list_item_type),
           }),
         );
