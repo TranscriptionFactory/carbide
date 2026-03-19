@@ -417,6 +417,7 @@ export function create_app_context(input: {
     lint_service,
     lint_store: stores.lint,
     editor_store: stores.editor,
+    editor_service,
     ui_store: stores.ui,
   });
 

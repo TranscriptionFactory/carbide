@@ -4,7 +4,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { LintService } from "$lib/features/lint/application/lint_service";
 import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
-import type { EditorStore } from "$lib/features/editor";
+import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
 function create_mock_registry(): ActionRegistry & {
@@ -49,6 +49,9 @@ describe("register_lint_actions", () => {
       lint_service: {} as LintService,
       lint_store: create_mock_lint_store(),
       editor_store: {} as EditorStore,
+      editor_service: {
+        sync_visual_from_markdown: vi.fn(),
+      } as unknown as EditorService,
       ui_store: ui_store as any,
     });
   });

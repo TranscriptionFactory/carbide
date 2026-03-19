@@ -2,7 +2,7 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { LintService } from "$lib/features/lint/application/lint_service";
 import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
-import type { EditorStore } from "$lib/features/editor";
+import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { NoteId } from "$lib/shared/types/ids";
 import { as_markdown_text } from "$lib/shared/types/ids";
@@ -13,9 +13,17 @@ export function register_lint_actions(input: {
   lint_service: LintService;
   lint_store: LintStore;
   editor_store: EditorStore;
+  editor_service: EditorService;
   ui_store: UIStore;
 }): void {
-  const { registry, lint_service, lint_store, editor_store, ui_store } = input;
+  const {
+    registry,
+    lint_service,
+    lint_store,
+    editor_store,
+    editor_service,
+    ui_store,
+  } = input;
 
   registry.register({
     id: ACTION_IDS.lint_format_file,
@@ -40,6 +48,7 @@ export function register_lint_actions(input: {
         open_note.meta.id as NoteId,
         as_markdown_text(formatted),
       );
+      editor_service.sync_visual_from_markdown(formatted);
       editor_store.set_dirty(open_note.meta.id as NoteId, true);
     },
   });
@@ -71,6 +80,7 @@ export function register_lint_actions(input: {
         open_note.meta.id as NoteId,
         as_markdown_text(fixed),
       );
+      editor_service.sync_visual_from_markdown(fixed);
       editor_store.set_dirty(open_note.meta.id as NoteId, true);
     },
   });

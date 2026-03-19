@@ -1,5 +1,5 @@
 import type { VaultStore } from "$lib/features/vault";
-import type { EditorStore } from "$lib/features/editor";
+import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { LintStore, LintService } from "$lib/features/lint";
 import { apply_lint_text_edits } from "$lib/features/lint";
 import type { UIStore } from "$lib/app";
@@ -14,6 +14,7 @@ export function create_lint_reactor(
   lint_service: LintService,
   ui_store: UIStore,
   note_service: NoteService,
+  editor_service: EditorService,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
@@ -129,6 +130,7 @@ export function create_lint_reactor(
 
         skip_next_format = true;
         editor_store.set_markdown(note_id, as_markdown_text(formatted));
+        editor_service.sync_visual_from_markdown(formatted);
         editor_store.set_dirty(note_id, true);
 
         void lint_service.notify_file_changed(path, formatted);
