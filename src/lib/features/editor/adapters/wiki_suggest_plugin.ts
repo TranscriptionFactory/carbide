@@ -1,6 +1,13 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { computePosition, flip, shift, offset } from "@floating-ui/dom";
+import {
+  create_cursor_anchor,
+  position_suggest_dropdown,
+  scroll_selected_into_view,
+  attach_outside_dismiss,
+  mount_dropdown,
+  destroy_dropdown,
+} from "./suggest_dropdown_utils";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 import { parent_folder_path } from "$lib/shared/utils/path";
 
@@ -107,38 +114,6 @@ function render_items(
   }
 }
 
-function scroll_selected_item_into_view(
-  dropdown: HTMLElement,
-  selected_index: number,
-) {
-  const row = dropdown.children.item(selected_index);
-  if (!(row instanceof HTMLElement)) return;
-
-  const row_top = row.offsetTop;
-  const row_bottom = row_top + row.offsetHeight;
-  const view_top = dropdown.scrollTop;
-  const view_bottom = view_top + dropdown.clientHeight;
-
-  if (row_top < view_top) {
-    dropdown.scrollTop = row_top;
-    return;
-  }
-
-  if (row_bottom > view_bottom) {
-    dropdown.scrollTop = row_bottom - dropdown.clientHeight;
-  }
-}
-
-function position_dropdown(dropdown: HTMLElement, anchor_el: Element) {
-  void computePosition(anchor_el, dropdown, {
-    placement: "bottom-start",
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-  }).then(({ x, y }) => {
-    dropdown.style.left = `${String(x)}px`;
-    dropdown.style.top = `${String(y)}px`;
-  });
-}
-
 export function create_wiki_suggest_prose_plugin(
   config: WikiSuggestPluginConfig,
 ): Plugin<WikiSuggestState> {
@@ -148,8 +123,7 @@ export function create_wiki_suggest_prose_plugin(
   let suppress_next_activation = false;
   let dismissed_query: string | null = null;
   let dismissed_from: number | null = null;
-  let detach_outside_click: (() => void) | null = null;
-  let detach_focus_listener: (() => void) | null = null;
+  let detach_dismiss: (() => void) | null = null;
 
   function get_state(view: EditorView): WikiSuggestState {
     return wiki_suggest_plugin_key.getState(view.state) ?? EMPTY_STATE;
@@ -157,15 +131,10 @@ export function create_wiki_suggest_prose_plugin(
 
   function show_dropdown(view: EditorView) {
     if (!dropdown) return;
-    const { $from } = view.state.selection;
-    const coords = view.coordsAtPos($from.pos);
-    const anchor_el = {
-      getBoundingClientRect: () =>
-        new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top),
-    } as Element;
+    const anchor = create_cursor_anchor(view);
     dropdown.style.display = "block";
     is_visible = true;
-    position_dropdown(dropdown, anchor_el);
+    position_suggest_dropdown(dropdown, anchor);
   }
 
   function hide_dropdown() {
@@ -238,7 +207,7 @@ export function create_wiki_suggest_prose_plugin(
       accept(view, i);
     });
 
-    scroll_selected_item_into_view(dropdown, state.selected_index);
+    scroll_selected_into_view(dropdown, state.selected_index);
 
     if (!is_visible || state.active) {
       show_dropdown(view);
@@ -268,36 +237,10 @@ export function create_wiki_suggest_prose_plugin(
 
     view(editor_view) {
       dropdown = create_dropdown();
-      dropdown.style.display = "none";
-      dropdown.style.position = "fixed";
-      dropdown.style.zIndex = "9999";
-      document.body.appendChild(dropdown);
-
-      const on_document_mousedown = (event: MouseEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (dropdown?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
-        dismiss(editor_view, true);
-      };
-
-      const on_document_focusin = (event: FocusEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (dropdown?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
-        dismiss(editor_view, true);
-      };
-
-      document.addEventListener("mousedown", on_document_mousedown, true);
-      detach_outside_click = () => {
-        document.removeEventListener("mousedown", on_document_mousedown, true);
-      };
-
-      document.addEventListener("focusin", on_document_focusin, true);
-      detach_focus_listener = () => {
-        document.removeEventListener("focusin", on_document_focusin, true);
-      };
+      mount_dropdown(dropdown);
+      detach_dismiss = attach_outside_dismiss(dropdown, editor_view.dom, () =>
+        dismiss(editor_view, true),
+      );
 
       return {
         update(view) {
@@ -377,16 +320,12 @@ export function create_wiki_suggest_prose_plugin(
           sync_dropdown(view, get_state(view));
         },
         destroy() {
-          const el = dropdown;
+          destroy_dropdown(dropdown, detach_dismiss);
           dropdown = null;
-          el?.remove();
+          detach_dismiss = null;
           is_visible = false;
           if (debounce_timer) clearTimeout(debounce_timer);
           debounce_timer = null;
-          detach_outside_click?.();
-          detach_outside_click = null;
-          detach_focus_listener?.();
-          detach_focus_listener = null;
         },
       };
     },

@@ -4,8 +4,15 @@ import {
   TextSelection,
   type EditorState,
 } from "prosemirror-state";
-import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { EditorView } from "prosemirror-view";
+import {
+  create_cursor_anchor,
+  position_suggest_dropdown,
+  scroll_selected_into_view,
+  attach_outside_dismiss,
+  mount_dropdown,
+  destroy_dropdown,
+} from "./suggest_dropdown_utils";
 import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";
 
 export const slash_plugin_key = new PluginKey("slash-command");
@@ -460,55 +467,20 @@ function render_items(
   }
 }
 
-function scroll_selected_into_view(
-  menu: HTMLElement,
-  selected_index: number,
-): void {
-  const row = menu.children.item(selected_index);
-  if (!(row instanceof HTMLElement)) return;
-
-  const row_top = row.offsetTop;
-  const row_bottom = row_top + row.offsetHeight;
-  const view_top = menu.scrollTop;
-  const view_bottom = view_top + menu.clientHeight;
-
-  if (row_top < view_top) {
-    menu.scrollTop = row_top;
-    return;
-  }
-  if (row_bottom > view_bottom) {
-    menu.scrollTop = row_bottom - menu.clientHeight;
-  }
-}
-
-function position_menu(menu: HTMLElement, anchor_el: Element) {
-  void computePosition(anchor_el, menu, {
-    placement: "bottom-start",
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-  }).then(({ x, y }) => {
-    menu.style.left = `${String(x)}px`;
-    menu.style.top = `${String(y)}px`;
-  });
-}
-
 export function create_slash_command_prose_plugin(): Plugin {
   const all_commands = create_commands();
 
   let slash_state: SlashState = EMPTY_STATE;
   let menu: HTMLElement | null = null;
   let accept_fn: ((cmd: SlashCommand) => void) | null = null;
-  let detach_outside_click: (() => void) | null = null;
-  let detach_focus_listener: (() => void) | null = null;
+  let detach_dismiss: (() => void) | null = null;
 
   return new Plugin({
     key: slash_plugin_key,
 
     view(editor_view) {
       menu = create_menu_el();
-      menu.style.display = "none";
-      menu.style.position = "fixed";
-      menu.style.zIndex = "9999";
-      document.body.appendChild(menu);
+      mount_dropdown(menu);
 
       accept_fn = (cmd) => {
         const from = slash_state.from;
@@ -518,33 +490,10 @@ export function create_slash_command_prose_plugin(): Plugin {
         editor_view.focus();
       };
 
-      const on_document_mousedown = (event: MouseEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (menu?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
+      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, () => {
         slash_state = EMPTY_STATE;
         if (menu) menu.style.display = "none";
-      };
-
-      const on_document_focusin = (event: FocusEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (menu?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
-        slash_state = EMPTY_STATE;
-        if (menu) menu.style.display = "none";
-      };
-
-      document.addEventListener("mousedown", on_document_mousedown, true);
-      document.addEventListener("focusin", on_document_focusin, true);
-
-      detach_outside_click = () => {
-        document.removeEventListener("mousedown", on_document_mousedown, true);
-      };
-      detach_focus_listener = () => {
-        document.removeEventListener("focusin", on_document_focusin, true);
-      };
+      });
 
       return {
         update(view) {
@@ -580,32 +529,19 @@ export function create_slash_command_prose_plugin(): Plugin {
           if (menu) render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
 
           if (menu && filtered.length > 0) {
-            const { $from } = view.state.selection;
-            const coords = view.coordsAtPos($from.pos);
-            const anchor_el = {
-              getBoundingClientRect: () =>
-                new DOMRect(
-                  coords.left,
-                  coords.top,
-                  0,
-                  coords.bottom - coords.top,
-                ),
-            } as Element;
+            const anchor = create_cursor_anchor(view);
             menu.style.display = "block";
-            position_menu(menu, anchor_el);
+            position_suggest_dropdown(menu, anchor);
           } else if (menu) {
             menu.style.display = "none";
           }
         },
 
         destroy() {
-          menu?.remove();
+          destroy_dropdown(menu, detach_dismiss);
           menu = null;
+          detach_dismiss = null;
           accept_fn = null;
-          detach_outside_click?.();
-          detach_outside_click = null;
-          detach_focus_listener?.();
-          detach_focus_listener = null;
         },
       };
     },

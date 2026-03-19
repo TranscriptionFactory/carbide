@@ -1,7 +1,12 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { computePosition, flip, offset, shift } from "@floating-ui/dom";
+import {
+  create_cursor_anchor,
+  position_suggest_dropdown,
+  attach_outside_dismiss,
+  destroy_dropdown,
+} from "./suggest_dropdown_utils";
 
 export type DatePresetItem = {
   label: string;
@@ -174,37 +179,14 @@ function update_selected_class(
     children[next].classList.add("DateSuggestMenu__item--selected");
 }
 
-function create_virtual_element(view: EditorView): {
-  getBoundingClientRect(): DOMRect;
-} {
-  return {
-    getBoundingClientRect() {
-      const { from } = view.state.selection;
-      const coords = view.coordsAtPos(from);
-      return new DOMRect(
-        coords.left,
-        coords.top,
-        0,
-        coords.bottom - coords.top,
-      );
-    },
-  };
-}
-
 function show_menu(menu: HTMLElement, view: EditorView): void {
   if (!menu.parentElement) document.body.appendChild(menu);
   menu.dataset.show = "true";
   menu.style.display = "";
   menu.style.position = "fixed";
   menu.style.zIndex = "9999";
-  const virtual = create_virtual_element(view);
-  void computePosition(virtual as unknown as Element, menu, {
-    placement: "bottom-start",
-    middleware: [offset(6), flip(), shift()],
-  }).then(({ x, y }) => {
-    menu.style.left = `${String(x)}px`;
-    menu.style.top = `${String(y)}px`;
-  });
+  const anchor = create_cursor_anchor(view);
+  position_suggest_dropdown(menu, anchor);
 }
 
 function hide_menu(menu: HTMLElement): void {
@@ -216,8 +198,7 @@ export function create_date_suggest_prose_plugin(): Plugin {
   let suggest_state: DateSuggestState = EMPTY_STATE;
   let menu: HTMLElement | null = null;
   let accept_fn: ((item: DatePresetItem) => void) | null = null;
-  let detach_outside_click: (() => void) | null = null;
-  let detach_focus_listener: (() => void) | null = null;
+  let detach_dismiss: (() => void) | null = null;
   let cached_presets: DatePresetItem[] | null = null;
   let cached_date_key = "";
 
@@ -236,33 +217,10 @@ export function create_date_suggest_prose_plugin(): Plugin {
         editor_view.focus();
       };
 
-      const on_document_mousedown = (event: MouseEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (menu?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
+      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, () => {
         suggest_state = EMPTY_STATE;
         if (menu) hide_menu(menu);
-      };
-
-      const on_document_focusin = (event: FocusEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (menu?.contains(target)) return;
-        if (editor_view.dom.contains(target)) return;
-        suggest_state = EMPTY_STATE;
-        if (menu) hide_menu(menu);
-      };
-
-      document.addEventListener("mousedown", on_document_mousedown, true);
-      document.addEventListener("focusin", on_document_focusin, true);
-
-      detach_outside_click = () => {
-        document.removeEventListener("mousedown", on_document_mousedown, true);
-      };
-      detach_focus_listener = () => {
-        document.removeEventListener("focusin", on_document_focusin, true);
-      };
+      });
 
       return {
         update(view) {
@@ -309,13 +267,10 @@ export function create_date_suggest_prose_plugin(): Plugin {
         },
 
         destroy() {
-          menu?.remove();
+          destroy_dropdown(menu, detach_dismiss);
           menu = null;
+          detach_dismiss = null;
           accept_fn = null;
-          detach_outside_click?.();
-          detach_outside_click = null;
-          detach_focus_listener?.();
-          detach_focus_listener = null;
         },
       };
     },
