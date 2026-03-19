@@ -10,6 +10,11 @@ use types::*;
 use std::path::Path;
 use tauri::{AppHandle, State};
 
+fn resolve_uri(vault_path: &Path, rel_path: &str) -> String {
+    let abs = vault_path.join(rel_path);
+    format!("file://{}", abs.display())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn lint_start(
@@ -46,7 +51,11 @@ pub async fn lint_open_file(
     content: String,
     version: i32,
 ) -> Result<(), String> {
-    let uri = format!("file://{}", path);
+    let sessions = state.inner.lock().await;
+    let session = sessions
+        .get(&vault_id)
+        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let uri = resolve_uri(&session.vault_path, &path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
@@ -55,10 +64,6 @@ pub async fn lint_open_file(
             "text": content,
         }
     });
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
     session.client.send_notification("textDocument/didOpen", params).await
 }
 
@@ -71,7 +76,11 @@ pub async fn lint_update_file(
     content: String,
     version: i32,
 ) -> Result<(), String> {
-    let uri = format!("file://{}", path);
+    let sessions = state.inner.lock().await;
+    let session = sessions
+        .get(&vault_id)
+        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let uri = resolve_uri(&session.vault_path, &path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
@@ -81,10 +90,6 @@ pub async fn lint_update_file(
             "text": content,
         }]
     });
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
     session.client.send_notification("textDocument/didChange", params).await
 }
 
@@ -95,16 +100,16 @@ pub async fn lint_close_file(
     vault_id: String,
     path: String,
 ) -> Result<(), String> {
-    let uri = format!("file://{}", path);
+    let sessions = state.inner.lock().await;
+    let session = sessions
+        .get(&vault_id)
+        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let uri = resolve_uri(&session.vault_path, &path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
         }
     });
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
     session.client.send_notification("textDocument/didClose", params).await
 }
 
@@ -115,7 +120,11 @@ pub async fn lint_format_file(
     vault_id: String,
     path: String,
 ) -> Result<Vec<LintTextEdit>, String> {
-    let uri = format!("file://{}", path);
+    let sessions = state.inner.lock().await;
+    let session = sessions
+        .get(&vault_id)
+        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let uri = resolve_uri(&session.vault_path, &path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
@@ -125,11 +134,6 @@ pub async fn lint_format_file(
             "insertSpaces": true,
         }
     });
-
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
 
     let result = session.client.send_request("textDocument/formatting", params).await?;
 
@@ -162,7 +166,12 @@ pub async fn lint_fix_all(
     vault_id: String,
     path: String,
 ) -> Result<Option<String>, String> {
-    let uri = format!("file://{}", path);
+    let sessions = state.inner.lock().await;
+    let session = sessions
+        .get(&vault_id)
+        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let uri = resolve_uri(&session.vault_path, &path);
+    let abs_path = session.vault_path.join(&path);
 
     let params = serde_json::json!({
         "textDocument": {
@@ -177,11 +186,6 @@ pub async fn lint_fix_all(
             "only": ["quickfix"],
         }
     });
-
-    let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
 
     let result = session
         .client
@@ -221,8 +225,11 @@ pub async fn lint_fix_all(
             return Ok(None);
         }
 
-        let file_path = path;
-        let content = tokio::fs::read_to_string(&file_path)
+        // Need to drop sessions lock before async file read
+        let abs_path = abs_path.clone();
+        drop(sessions);
+
+        let content = tokio::fs::read_to_string(&abs_path)
             .await
             .map_err(|e| e.to_string())?;
 

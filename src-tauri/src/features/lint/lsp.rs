@@ -200,6 +200,7 @@ async fn lsp_run_loop(
         let pending_clone = pending.clone();
         let app_clone = app.clone();
         let vault_id_clone = vault_id.clone();
+        let vault_path_clone = vault_path.clone();
         let (reader_stop_tx, mut reader_stop_rx) = oneshot::channel::<()>();
 
         let reader_handle = tokio::spawn(async move {
@@ -214,6 +215,7 @@ async fn lsp_run_loop(
                                     &pending_clone,
                                     &app_clone,
                                     &vault_id_clone,
+                                    &vault_path_clone,
                                 ).await;
                             }
                             Ok(None) => break,
@@ -459,6 +461,7 @@ async fn handle_incoming_message(
     pending: &Arc<Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, String>>>>>,
     app: &AppHandle,
     vault_id: &str,
+    vault_path: &Path,
 ) {
     if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
         let mut pending = pending.lock().await;
@@ -478,7 +481,7 @@ async fn handle_incoming_message(
     match method {
         "textDocument/publishDiagnostics" => {
             if let Some(params) = message.get("params") {
-                handle_diagnostics(params, app, vault_id);
+                handle_diagnostics(params, app, vault_id, vault_path);
             }
         }
         _ => {
@@ -487,9 +490,14 @@ async fn handle_incoming_message(
     }
 }
 
-fn handle_diagnostics(params: &serde_json::Value, app: &AppHandle, vault_id: &str) {
+fn handle_diagnostics(params: &serde_json::Value, app: &AppHandle, vault_id: &str, vault_path: &Path) {
     let uri = params["uri"].as_str().unwrap_or("");
-    let path = uri.strip_prefix("file://").unwrap_or(uri);
+    let abs_path = uri.strip_prefix("file://").unwrap_or(uri);
+    let vault_prefix = vault_path.to_string_lossy();
+    let path = abs_path
+        .strip_prefix(vault_prefix.as_ref())
+        .unwrap_or(abs_path)
+        .trim_start_matches('/');
 
     let diagnostics: Vec<LintDiagnostic> = params["diagnostics"]
         .as_array()
