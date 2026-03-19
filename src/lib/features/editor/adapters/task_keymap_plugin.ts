@@ -1,4 +1,6 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { liftListItem } from "prosemirror-schema-list";
+import { schema } from "./schema";
 
 const task_keymap_plugin_key = new PluginKey("task-keymap");
 
@@ -10,6 +12,8 @@ function is_click_on_checkbox(li: HTMLElement, event: MouseEvent): boolean {
 }
 
 export function create_task_keymap_prose_plugin(): Plugin {
+  const lift_command = liftListItem(schema.nodes.list_item);
+
   return new Plugin({
     key: task_keymap_plugin_key,
     props: {
@@ -42,6 +46,10 @@ export function create_task_keymap_prose_plugin(): Plugin {
           });
           dispatch(tr);
           return true;
+        }
+
+        if ($pos.parent.content.size === 0) {
+          return lift_command(state, dispatch);
         }
 
         return false;
