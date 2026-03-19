@@ -828,7 +828,7 @@
                         type="text"
                         bind:value={new_provider.command}
                         class="flex-1"
-                        placeholder="lms"
+                        placeholder="/absolute/path/to/binary"
                         disabled={ai_settings_disabled}
                       />
                     </div>
