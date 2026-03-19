@@ -27,7 +27,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm version
+          version: pnpm run version
           commit: "chore: release ${{ github.ref_name }}"
           title: "chore: release"
         env:
