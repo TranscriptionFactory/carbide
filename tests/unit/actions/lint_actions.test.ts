@@ -7,7 +7,9 @@ import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
-function create_mock_registry(): ActionRegistry & { actions: Map<string, any> } {
+function create_mock_registry(): ActionRegistry & {
+  actions: Map<string, any>;
+} {
   const actions = new Map<string, any>();
   return {
     actions,
@@ -21,9 +23,7 @@ function create_mock_registry(): ActionRegistry & { actions: Map<string, any> } 
   } as any;
 }
 
-function create_mock_lint_store(
-  overrides: Partial<LintStore> = {},
-): LintStore {
+function create_mock_lint_store(overrides: Partial<LintStore> = {}): LintStore {
   return {
     is_running: false,
     active_diagnostics: [],

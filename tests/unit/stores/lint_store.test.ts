@@ -114,9 +114,7 @@ describe("LintStore", () => {
     store.set_diagnostics("a.md", [make_diagnostic({ message: "replaced" })]);
 
     expect(store.diagnostics_by_file.get("a.md")).toHaveLength(1);
-    expect(store.diagnostics_by_file.get("a.md")![0]!.message).toBe(
-      "replaced",
-    );
+    expect(store.diagnostics_by_file.get("a.md")![0]!.message).toBe("replaced");
   });
 
   it("tracks multiple files independently", () => {
