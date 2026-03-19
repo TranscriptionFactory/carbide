@@ -4,79 +4,114 @@
 
 # Badgerly
 
-A fast, local-first Markdown note-taking app built with [Tauri](https://tauri.app/) and [Svelte 5](https://svelte.dev/). Your notes are plain Markdown files in folders you control—no proprietary database, no cloud lock-in. If you ever stop using Badgerly, your notes stay exactly where they are.
+A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Your notes are plain Markdown files in folders you control—no proprietary database, no cloud lock-in.
 
 ## Why Badgerly
 
-Most note-taking apps force a trade-off: polished UX with cloud lock-in, or local-first with heavy Electron bloat and plugin fatigue. Badgerly gives you a native-speed desktop app with a rich editing experience out of the box—no plugin hunting required.
+Most note-taking apps force a trade-off: polished UX with cloud lock-in, or local-first with heavy Electron bloat and plugin fatigue. Badgerly gives you a native-speed desktop app with a rich editing experience, semantic search, and a knowledge graph—out of the box.
+
+## Tech Stack
+
+| Layer               | Technology                                                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shell**           | [Tauri 2](https://tauri.app/) with [tauri-specta](https://github.com/oscartbeaumont/tauri-specta) for end-to-end type-safe IPC                                                                                                      |
+| **Frontend**        | Svelte 5 (runes), SvelteKit, TypeScript, Tailwind CSS, shadcn-svelte                                                                                                                                                                |
+| **Editor**          | ProseMirror core with CodeMirror 6 code blocks, Shiki syntax highlighting, KaTeX math                                                                                                                                               |
+| **Backend**         | Rust (tokio async runtime), SQLite with FTS5, [fastembed](https://github.com/Anush008/fastembed-rs) (BGE-small) for vector embeddings                                                                                               |
+| **File management** | Atomic writes, `chardetng`/`encoding_rs` encoding detection, `ropey` rope buffers for large files, `blake3` content hashing, `notify` filesystem watcher — architecture ported from [Ferrite](https://github.com/jrmoulton/ferrite) |
+| **Git**             | `git2` (libgit2) on the backend, `isomorphic-git` on the frontend                                                                                                                                                                   |
+| **Canvas**          | [Excalidraw](https://excalidraw.com/) integration, [Mermaid](https://mermaid.js.org/) diagram rendering                                                                                                                             |
+| **Terminal**        | xterm.js + tauri-plugin-pty                                                                                                                                                                                                         |
+| **Search**          | SQLite FTS5 full-text, fastembed semantic, SkimMatcherV2 fuzzy matching                                                                                                                                                             |
+| **Visualization**   | D3-force graph layout, Pixi.js canvas rendering                                                                                                                                                                                     |
 
 ## Features
 
-### Vault Management
-
-- **Vault-based storage** — A vault is just a folder. Use git, sync clients, or VS Code alongside Badgerly without conflicts.
-- **Vault switcher** — Dropdown selector with pinned vaults and quick-switch (`Cmd+Shift+V`). Git branch and dirty state indicators per vault.
-- **macOS file associations** — Set Badgerly as default for `.md` files. Opening a file routes to the correct vault automatically.
-
 ### Editor
 
-- **WYSIWYG Markdown** — Live rendering via Milkdown/ProseMirror. Headings, tables, task lists, and code blocks with syntax highlighting.
-- **Wiki-links** — `[[note]]` linking with automatic backlink tracking. Navigate your knowledge base bidirectionally.
-- **Split view** — Two-pane editing (`Cmd+\`), independent editor instances, drag tabs to split.
-- **Outline panel** — Live heading hierarchy with click-to-scroll navigation and active tracking.
-- **Math/LaTeX** — Inline `$expr$` and block `$$expr$$` rendering with KaTeX.
-- **Slash commands** — Insert blocks, tables, code, and more with `/` triggers.
-- **Typographic substitution** — Auto-convert `-->` to `→`, `<->` to `↔`, and more.
-- **Date links** — `@` trigger for quick date-based wiki links (`[[YYYY-MM-DD]]`).
+- **WYSIWYG Markdown** — Live rendering via ProseMirror. Headings, tables, task lists, code blocks with syntax highlighting (Shiki), slash commands, and typographic substitution (`-->` → `→`)
+- **Wikilinks** — `[[note]]` linking with autocomplete, automatic backlink tracking, orphan detection, and link repair on rename
+- **Split view** — Two-pane editing (`Cmd+\`) with independent editors and draggable tabs
+- **Math/LaTeX** — Inline `$expr$` and block `$$expr$$` rendering via KaTeX
+- **Outline panel** — Live heading hierarchy with click-to-scroll and active tracking
+- **Date links** — `@` trigger for date-based wiki links (`[[YYYY-MM-DD]]`)
+
+### Graph & Semantic Search
+
+- **Knowledge graph** — Interactive D3-force visualization of note connections
+- **Semantic embeddings** — BGE-small-en (via fastembed) computes vector embeddings per note
+- **Similarity scoring** — KNN-based similarity with configurable thresholds surfaces related notes
+- **Suggested links** — Recommends new wikilink connections based on semantic proximity
+- Additional graph features (clustering, community detection) planned
+
+### Search & Discovery
+
+- **Omnibar** — Unified search for files, content, and commands (`Cmd+P` / `Cmd+O`)
+- **Full-text search** — SQLite FTS5 index with instant results
+- **Fuzzy matching** — SkimMatcherV2 (skim/fzf-style) for file and command lookup
+- **Tags panel** — Browse all tags with counts, click to filter
 
 ### Document Viewer
 
-- **PDF viewer** — Page navigation, zoom, scroll, and text search via pdfjs.
-- **Image viewer** — PNG, JPG, SVG, GIF, WebP with zoom/pan controls.
-- **Code viewer** — Syntax-highlighted read-only view for `.py`, `.rs`, `.json`, `.yaml`, and more.
-- **PDF export** — Export notes as PDF with `Cmd+Shift+E`.
+- **PDF viewer** — Page navigation, zoom, scroll, text search (pdfjs-dist)
+- **Image viewer** — PNG, JPG, SVG, GIF, WebP with zoom/pan
+- **Code viewer** — Syntax-highlighted read-only view for `.py`, `.rs`, `.json`, `.yaml`, and more
+- **PDF export** — Export notes as styled PDF (`Cmd+Shift+E`)
+
+### Markdown Linting & Formatting
+
+- **LSP-based linting** — Custom lint rules with per-vault configuration
+- **Auto-formatting** — Configurable formatters, vault-wide or per-file
+- **Lint status** — Real-time diagnostics in the editor
+
+### Tasks & Tags
+
+- **Task extraction** — Parses `- [ ]` items across your vault
+- **Multiple views** — Kanban board, schedule (date-based), and list views
+- **Quick capture** — Dialog for creating tasks without leaving your current note
+- **Tag management** — Frontmatter and inline tag extraction with counts and filtering
 
 ### Git Integration
 
-- **Local version control** — Auto-commit on save, status bar with branch and dirty state.
-- **Remote operations** — Push, pull, fetch with progress indicators. SSH auth uses your existing Git configuration.
-- **Version history** — Paginated commit log with note-scoped history.
-
-### Search
-
-- **Omnibar** — One search bar for everything. Full-text search (SQLite FTS5) and quick file navigation (`Cmd+P` / `Cmd+O`).
-- **Tags panel** — Browse all tags with counts, click to filter notes.
-
-### Metadata & Bases
-
-- **Visual frontmatter** — Interactive key-value grid for YAML properties. Type-aware editors for booleans, numbers, dates, and strings.
-- **Bases** — Query notes by properties and tags with filters, sorts, and multiple view modes.
+- **Auto-commit** — Configurable commit-on-save strategy
+- **Status bar** — Branch name, dirty state, push/pull indicators
+- **Remote operations** — Push, pull, fetch with progress. SSH auth uses your existing Git config
+- **Version history** — Paginated commit log, note-scoped history, diff viewing, commit restoration
 
 ### Terminal
 
-- **Embedded PTY** — Toggle terminal panel with `Cmd+Shift+\``. Defaults to vault root directory.
+- **Embedded PTY** — Full terminal via xterm.js (`Cmd+Shift+\``). Defaults to vault root
+
+### Canvas & Diagrams
+
+- **Excalidraw** — Create and edit `.excalidraw` drawings with theme-aware backgrounds
+- **Mermaid** — Render flowcharts, sequence diagrams, Gantt charts, and more inline in notes
 
 ### AI Assistant
 
-- **Multi-backend support** — Claude, Codex, and Ollama CLI integration.
-- **Diff-first review** — AI suggestions shown as diffs with partial apply.
-- **Conversation panel** — Persistent chat history in the context rail.
-
-### Canvas
-
-- **Excalidraw support** — Create and edit `.excalidraw` drawings with theme-aware backgrounds.
-- **Canvas naming** — Dialog on create, bi-directional sync with main app.
+- **Multi-backend** — Claude, Codex, Ollama — configure via CLI or API
+- **Diff-first review** — AI suggestions rendered as diffs with partial apply
+- **Conversation panel** — Persistent chat history in the context rail
+- **Selection-aware** — Highlight text to scope AI suggestions
 
 ### Plugin System
 
-- **Sandboxed plugins** — Each plugin runs in an isolated iframe with permission-controlled RPC.
-- **Manifest-based** — Declare capabilities in `manifest.json`. Auto-disable on repeated failures.
-- **Demo plugins** — Hello World (command palette), Word Count (status bar).
+- **Sandboxed execution** — Each plugin runs in an isolated iframe with permission-controlled RPC
+- **Manifest-based** — Declare capabilities in `manifest.json`; auto-disables on repeated failures
+- **Extension points** — Commands, status bar items, sidebar panels, settings tabs, ribbon icons, event subscriptions
+- **RPC namespaces** — `vault`, `editor`, `commands`, `ui`, `metadata`, `events`, `settings`
+- **Credential proxying** — Secure API key handling without exposing secrets to plugin code
 
-### Theming & Customization
+### Metadata & Bases
 
-- **Custom hotkeys** — Rebindable shortcuts for every action.
-- **Dark & light modes** — System-aware or manual toggle.
+- **Visual frontmatter** — Interactive YAML property editor with type-aware inputs
+- **Bases** — Query notes by properties and tags with filters, sorts, and multiple view modes
+
+### Customization
+
+- **Themes** — Dark and light modes with system-aware toggle; custom theme editing via JSON
+- **Hotkeys** — Rebindable shortcuts for every action
+- **Vault-scoped settings** — Per-vault configuration for git, lint, formatting, and plugins
 
 ## Getting Started
 
@@ -84,7 +119,7 @@ Most note-taking apps force a trade-off: polished UX with cloud lock-in, or loca
 
 - [Node.js 20+](https://nodejs.org/) and [pnpm](https://pnpm.io/)
 - [Rust toolchain](https://rustup.rs/)
-- Platform-specific build tools (see [Tauri's prerequisites](https://tauri.app/start/prerequisites/))
+- Platform-specific build tools (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
 
 ### Installation
 
@@ -93,7 +128,7 @@ pnpm install
 pnpm tauri dev
 ```
 
-To build a production installer:
+Production build:
 
 ```bash
 pnpm tauri build
@@ -104,8 +139,6 @@ pnpm tauri build
 Badgerly uses a Ports and Adapters (Hexagonal) architecture with strict layering. See [architecture.md](./docs/architecture.md) for the decision tree and rules.
 
 ### Validation
-
-Before submitting a PR, run:
 
 ```bash
 pnpm check      # Svelte/TypeScript type checking
@@ -121,7 +154,7 @@ pnpm format     # Prettier
 
 ## Acknowledgments
 
-Badgerly is a fork of [Otterly](https://github.com/TranscriptionFactory/otterly). Thank you to the Otterly project for providing the foundation this project builds on.
+Badgerly is a fork of [Otterly](https://github.com/TranscriptionFactory/otterly). File management architecture draws from [Ferrite](https://github.com/jrmoulton/ferrite).
 
 ## License
 
