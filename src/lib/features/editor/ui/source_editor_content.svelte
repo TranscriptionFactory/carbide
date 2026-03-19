@@ -103,11 +103,13 @@
 
   $effect.pre(() => {
     if (!view) return;
+    const store_markdown =
+      stores.editor.open_note?.markdown ?? initial_markdown;
     const current_content = untrack(() => get_content());
     const next_state = sync_source_editor_markdown({
       content: current_content,
       applied_markdown: last_applied_markdown,
-      next_markdown: initial_markdown,
+      next_markdown: store_markdown,
     });
 
     if (next_state.content === current_content) {
