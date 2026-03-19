@@ -84,7 +84,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   },
   {
     action_id: ACTION_IDS.ui_toggle_outline_panel,
-    key: "CmdOrCtrl+Shift+O",
+    key: "CmdOrCtrl+Shift+F",
     phase: "capture",
     label: "Toggle Outline Panel",
     description: "Show or hide the document outline",
@@ -100,7 +100,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   },
   {
     action_id: ACTION_IDS.omnibar_open_all_vaults,
-    key: "CmdOrCtrl+Shift+F",
+    key: "CmdOrCtrl+Shift+O",
     phase: "capture",
     label: "Search All Vaults",
     description: "Search notes across all vaults",

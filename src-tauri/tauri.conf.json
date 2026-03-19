@@ -72,7 +72,7 @@
         "height": 820,
         "resizable": true,
         "dragDropEnabled": false,
-        "zoomHotkeysEnabled": true
+        "zoomHotkeysEnabled": false
       }
     ],
     "security": {

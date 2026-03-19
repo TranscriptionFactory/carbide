@@ -42,6 +42,15 @@ function next_template_title(base: string, open_titles: string[]): string {
   return `${base}-${String(n)}`;
 }
 
+function format_date_iso(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function build_initial_frontmatter(title: string, now_ms: number): string {
+  const date = format_date_iso(now_ms);
+  return `---\ntitle: "${title}"\ndate_created: ${date}\n---\n\n`;
+}
+
 export function create_untitled_open_note(args: {
   open_titles: string[];
   now_ms: number;
@@ -54,6 +63,7 @@ export function create_untitled_open_note(args: {
     ? next_template_title(formatted, args.open_titles)
     : next_untitled_title(args.open_titles);
   const draft_path = create_draft_path(args.now_ms, title);
+  const frontmatter = build_initial_frontmatter(title, args.now_ms);
 
   return {
     meta: {
@@ -64,7 +74,7 @@ export function create_untitled_open_note(args: {
       mtime_ms: args.now_ms,
       size_bytes: 0,
     },
-    markdown: as_markdown_text(""),
+    markdown: as_markdown_text(frontmatter),
     buffer_id: `untitled:${String(args.now_ms)}:${title}`,
     is_dirty: true,
   };

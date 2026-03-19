@@ -13,7 +13,11 @@ describe("create_untitled_open_note", () => {
     expect(result.meta.path).toBe("draft:1000:Untitled-1" as NotePath);
     expect(result.meta.title).toBe("Untitled-1");
     expect(result.is_dirty).toBe(true);
-    expect(result.markdown).toBe(as_markdown_text(""));
+    expect(result.markdown).toBe(
+      as_markdown_text(
+        '---\ntitle: "Untitled-1"\ndate_created: 1970-01-01\n---\n\n',
+      ),
+    );
   });
 
   test("creates Untitled-2 when Untitled-1 is open", () => {
