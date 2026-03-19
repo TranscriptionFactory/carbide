@@ -9,6 +9,7 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../../src-tauri/excalidraw-dist"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1900,
     rollupOptions: {
       input: resolve(__dirname, "index.html"),
     },
