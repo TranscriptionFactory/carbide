@@ -4,11 +4,21 @@
 
 # Badgerly
 
-A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Your notes are plain Markdown files in folders you control—no proprietary database, no cloud lock-in.
+A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Your notes are plain Markdown files in folders you control—no proprietary formats, no cloud dependency, no vendor lock-in.
 
-## Why Badgerly
+## Philosophy
 
-Most note-taking apps force a trade-off: polished UX with cloud lock-in, or local-first with heavy Electron bloat and plugin fatigue. Badgerly gives you a native-speed desktop app with a rich editing experience, semantic search, and a knowledge graph—out of the box.
+**Your data, your storage.** Notes live as standard Markdown files on disk. Badgerly never locks content behind a proprietary format or opaque database. You can edit the same files in any text editor, sync them with any tool, and leave Badgerly without losing anything.
+
+**Local-first, always.** Everything runs on your machine. Full-text search, semantic embeddings, wikilink resolution, graph visualization—all computed locally. No account required, no telemetry, no network dependency.
+
+**Native speed, not Electron weight.** Tauri's Rust backend and the system webview deliver a desktop app that starts fast and stays responsive. No bundled Chromium, no hundred-megabyte runtime, no sluggish editing on large files.
+
+**Rich editing, out of the box.** WYSIWYG Markdown with live preview, wikilinks with backlink tracking, embedded PDFs and images, KaTeX math, Mermaid diagrams, Excalidraw canvas, split-pane editing, integrated terminal, Git version control, and semantic similarity search—all included, no plugin fatigue.
+
+**Extensible, securely.** A sandboxed plugin system runs extensions in isolated iframes with permission-gated RPC. Plugins can contribute commands, status bar items, sidebar panels, and respond to vault events—but cannot access your data without explicit consent.
+
+**Built for tinkerers.** Integrated terminal, Git operations with push/pull/fetch, per-vault configuration, vault-level markdown linting with rumdl, and an AI assistant that proposes diffs rather than rewriting your notes wholesale. The tooling you expect, integrated into your writing environment.
 
 ## Tech Stack
 
