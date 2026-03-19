@@ -97,6 +97,21 @@ describe("EditorStore", () => {
     expect(store.last_saved_at).toBeNull();
   });
 
+  it("resets cursor_offset and scroll_fraction on set_open_note", () => {
+    const store = new EditorStore();
+    const note1 = create_test_note("docs/note1", "note1");
+    const note2 = create_test_note("docs/note2", "note2");
+
+    store.set_open_note(create_open_note_state(note1));
+    store.set_cursor_offset(42);
+    store.set_scroll_fraction(0.75);
+
+    store.set_open_note(create_open_note_state(note2));
+
+    expect(store.cursor_offset).toBe(0);
+    expect(store.scroll_fraction).toBe(0);
+  });
+
   it("tracks and clears selection for the open note", () => {
     const store = new EditorStore();
     const note = create_test_note("docs/note", "note");

@@ -39,6 +39,20 @@
     )?.key ?? null,
   );
 
+  const source_cursor_offset = $derived.by(() => {
+    const stored = stores.editor.cursor_offset;
+    const cursor = stores.editor.cursor;
+    if (!cursor || !open_note) return stored;
+    const text = open_note.markdown;
+    let offset = 0;
+    for (let i = 1; i < cursor.line; i++) {
+      const nl = text.indexOf("\n", offset);
+      if (nl === -1) break;
+      offset = nl + 1;
+    }
+    return Math.min(offset + cursor.column - 1, text.length);
+  });
+
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
     void action_registry.execute(ACTION_IDS.app_editor_mount, node, note);
 
@@ -72,25 +86,29 @@
       class:NoteEditor__hidden={editor_mode !== "visual"}
     ></div>
     {#if editor_mode === "source"}
-      <SourceEditor
-        initial_markdown={open_note.markdown}
-        initial_cursor_offset={stores.editor.cursor_offset}
-        initial_scroll_fraction={stores.editor.scroll_fraction}
-        show_line_numbers={stores.ui.editor_settings.source_editor_line_numbers}
-        on_markdown_change={(md) =>
-          stores.editor.set_markdown(open_note.meta.id, as_markdown_text(md))}
-        on_dirty_change={(dirty) =>
-          stores.editor.set_dirty(open_note.meta.id, dirty)}
-        on_cursor_change={(cursor) =>
-          stores.editor.set_cursor(open_note.meta.id, cursor)}
-        on_selection_change={(selection) =>
-          stores.editor.set_selection(open_note.meta.id, selection)}
-        on_outline_change={(headings) => stores.outline?.set_headings(headings)}
-        on_destroy={(state) => {
-          stores.editor.set_cursor_offset(state.cursor_offset);
-          stores.editor.set_scroll_fraction(state.scroll_fraction);
-        }}
-      />
+      {#key open_note.meta.id}
+        <SourceEditor
+          initial_markdown={open_note.markdown}
+          initial_cursor_offset={source_cursor_offset}
+          initial_scroll_fraction={stores.editor.scroll_fraction}
+          show_line_numbers={stores.ui.editor_settings
+            .source_editor_line_numbers}
+          on_markdown_change={(md) =>
+            stores.editor.set_markdown(open_note.meta.id, as_markdown_text(md))}
+          on_dirty_change={(dirty) =>
+            stores.editor.set_dirty(open_note.meta.id, dirty)}
+          on_cursor_change={(cursor) =>
+            stores.editor.set_cursor(open_note.meta.id, cursor)}
+          on_selection_change={(selection) =>
+            stores.editor.set_selection(open_note.meta.id, selection)}
+          on_outline_change={(headings) =>
+            stores.outline?.set_headings(headings)}
+          on_destroy={(state) => {
+            stores.editor.set_cursor_offset(state.cursor_offset);
+            stores.editor.set_scroll_fraction(state.scroll_fraction);
+          }}
+        />
+      {/key}
     {/if}
   {:else}
     <div class="NoteEditor__empty">

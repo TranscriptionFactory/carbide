@@ -35,6 +35,7 @@ import { create_image_input_rule_prose_plugin } from "./image_input_rule_plugin"
 import { create_block_input_rules_prose_plugin } from "./block_input_rules_plugin";
 import { create_strikethrough_prose_plugin } from "./strikethrough_plugin";
 import { create_task_keymap_prose_plugin } from "./task_keymap_plugin";
+import { create_heading_keymap_prose_plugin } from "./heading_keymap_plugin";
 import { create_markdown_paste_prose_plugin } from "./markdown_paste_plugin";
 import { create_image_paste_prose_plugin } from "./image_paste_plugin";
 import {
@@ -514,6 +515,7 @@ export function create_prosemirror_editor_port(args?: {
           }),
         );
       }
+      plugins.push(create_heading_keymap_prose_plugin());
       plugins.push(create_task_keymap_prose_plugin());
       plugins.push(create_image_input_rule_prose_plugin());
       plugins.push(create_excalidraw_embed_plugin());
