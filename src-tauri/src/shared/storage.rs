@@ -188,7 +188,7 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     };
 
     let vault_root = std::path::Path::new(&vault_path);
-    let plugin_dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
+    let plugin_dir = vault_root.join(".badgerly").join("plugins").join(plugin_id);
 
     let canonical_plugin_dir = match plugin_dir.canonicalize() {
         Ok(p) => p,

@@ -19,7 +19,7 @@ fn mk_temp_dir() -> PathBuf {
 }
 
 fn make_plugin_dir(vault_root: &std::path::Path, plugin_id: &str) -> PathBuf {
-    let dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
+    let dir = vault_root.join(".badgerly").join("plugins").join(plugin_id);
     std::fs::create_dir_all(&dir).expect("plugin dir should be created");
     dir
 }

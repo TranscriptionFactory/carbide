@@ -11,7 +11,7 @@ impl PluginService {
     }
 
     pub fn discover(&self, vault_path: &Path) -> Result<Vec<PluginInfo>> {
-        let plugins_dir = vault_path.join(".carbide").join("plugins");
+        let plugins_dir = vault_path.join(".badgerly").join("plugins");
 
         log::info!("Plugin discovery: looking in {}", plugins_dir.display());
 
@@ -41,7 +41,7 @@ impl PluginService {
 
     pub fn validate_plugin(&self, vault_path: &Path, plugin_id: &str) -> Result<PluginInfo> {
         let plugin_dir = vault_path
-            .join(".carbide")
+            .join(".badgerly")
             .join("plugins")
             .join(plugin_id);
 

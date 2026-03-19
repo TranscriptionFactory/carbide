@@ -52,7 +52,7 @@ describe("PluginService", () => {
     const discovered: DiscoveredPlugin[] = [
       {
         manifest: make_manifest({ id: "my-plugin", name: "My Plugin" }),
-        path: "/vault/.carbide/plugins/my-plugin",
+        path: "/vault/.badgerly/plugins/my-plugin",
       },
     ];
     vi.mocked(host.discover).mockResolvedValueOnce(discovered);
@@ -67,7 +67,7 @@ describe("PluginService", () => {
     const { service, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: false,
       status: "idle",
     });
@@ -82,7 +82,7 @@ describe("PluginService", () => {
     const { service, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -97,7 +97,7 @@ describe("PluginService", () => {
     const { service, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -114,7 +114,7 @@ describe("PluginService", () => {
     const manifest = make_manifest({ permissions: ["fs:read"] });
     store.plugins.set("p1", {
       manifest,
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -175,7 +175,7 @@ describe("PluginService", () => {
     const { service, host, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -198,7 +198,7 @@ describe("PluginService", () => {
     const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -214,7 +214,7 @@ describe("PluginService", () => {
     const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });
@@ -230,7 +230,7 @@ describe("PluginService", () => {
     const { service, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "idle",
     });
@@ -244,7 +244,7 @@ describe("PluginService", () => {
     const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: false,
       status: "idle",
     });
@@ -259,7 +259,7 @@ describe("PluginService", () => {
     const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
-      path: "/vault/.carbide/plugins/p1",
+      path: "/vault/.badgerly/plugins/p1",
       enabled: true,
       status: "active",
     });

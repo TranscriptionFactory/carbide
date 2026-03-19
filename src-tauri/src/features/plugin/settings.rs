@@ -29,7 +29,7 @@ impl Default for PluginSettingsEntry {
 }
 
 fn settings_path(vault_path: &Path) -> PathBuf {
-    vault_path.join(".carbide").join("plugin_settings.json")
+    vault_path.join(".badgerly").join("plugin_settings.json")
 }
 
 pub fn read_settings(vault_path: &Path) -> Result<PluginSettings, String> {
