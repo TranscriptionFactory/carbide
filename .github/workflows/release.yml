@@ -31,9 +31,21 @@ jobs:
 
   release:
     needs: signing_preflight
-    runs-on: macos-latest
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +56,20 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -53,11 +79,12 @@ jobs:
 
       - run: pnpm sidecar
 
-      - uses: tauri-apps/tauri-action@v0.6.1
+      - uses: tauri-apps/tauri-action@v0.6.2
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Badgerly ${{ github.ref_name }}"
           includeUpdaterJson: true
+          args: ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
