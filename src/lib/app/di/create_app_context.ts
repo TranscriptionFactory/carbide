@@ -415,6 +415,7 @@ export function create_app_context(input: {
     registry: action_registry,
     lint_service,
     lint_store: stores.lint,
+    editor_store: stores.editor,
     ui_store: stores.ui,
   });
 

@@ -6,8 +6,12 @@
   } from "$lib/shared/types/editor";
   import type { OutlineHeading } from "$lib/features/outline";
   import { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
-  import { insert_markdown_hard_break } from "$lib/features/editor/domain/markdown_line_breaks";
   import { sync_source_editor_markdown } from "$lib/features/editor/domain/source_editor_sync";
+  import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+
+  import type { EditorView } from "@codemirror/view";
+  import type { LintDiagnostic } from "$lib/features/lint";
 
   interface Props {
     initial_markdown: string;
@@ -29,7 +33,7 @@
     initial_markdown,
     initial_cursor_offset = 0,
     initial_scroll_fraction = 0,
-    show_line_numbers = false,
+    show_line_numbers = true,
     on_markdown_change,
     on_dirty_change,
     on_cursor_change,
@@ -38,110 +42,57 @@
     on_destroy,
   }: Props = $props();
 
-  const TAB_SIZE = 4;
+  const { stores, action_registry } = use_app_context();
 
-  let content = $state("");
+  let editor_root: HTMLDivElement | undefined = $state();
+  let view: EditorView | undefined;
   let last_applied_markdown: string | null = null;
-  let textarea_el: HTMLTextAreaElement | undefined = $state();
-  let ghost_el: HTMLDivElement | undefined = $state();
-
-  let ghost_raf: number | null = null;
   let store_timer: ReturnType<typeof setTimeout> | null = null;
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
-  let gutter_el: HTMLDivElement | undefined = $state();
+  let destroyed = false;
 
-  const line_count = $derived(count_newlines(content));
-  const gutter_width_ch = $derived(Math.max(2, String(line_count).length));
-
-  function count_newlines(s: string): number {
-    let count = 1;
-    let idx = -1;
-    while ((idx = s.indexOf("\n", idx + 1)) !== -1) count++;
-    return count;
+  function get_content(): string {
+    return view?.state.doc.toString() ?? "";
   }
 
   function compute_cursor_info(): CursorInfo {
-    if (!textarea_el) {
+    if (!view) {
       return { line: 1, column: 1, total_lines: 1, total_words: 0 };
     }
-    const pos = textarea_el.selectionStart;
-    const before = content.substring(0, pos);
-    const line = count_newlines(before);
-    const last_newline = before.lastIndexOf("\n");
-    const column = pos - last_newline;
-    const total_lines = count_newlines(content);
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    const total_lines = view.state.doc.lines;
+    const content = view.state.doc.toString();
     const total_words = content.trim() ? content.trim().split(/\s+/).length : 0;
-    return { line, column, total_lines, total_words };
+    return {
+      line: line.number,
+      column: pos - line.from + 1,
+      total_lines,
+      total_words,
+    };
   }
 
-  function sync_ghost() {
-    if (!ghost_el) return;
-    if (ghost_raf !== null) return;
-    ghost_raf = requestAnimationFrame(() => {
-      if (ghost_el) ghost_el.textContent = content + "\n";
-      ghost_raf = null;
-    });
-  }
-
-  $effect(() => {
-    void content;
-    sync_ghost();
-  });
-
-  $effect(() => {
-    if (!show_line_numbers || !gutter_el) return;
-    const count = line_count;
-    let text = "";
-    for (let i = 1; i <= count; i++) {
-      text += i + "\n";
-    }
-    gutter_el.textContent = text;
-  });
-
-  $effect.pre(() => {
-    const current_content = untrack(() => content);
-    const next_state = sync_source_editor_markdown({
-      content: current_content,
-      applied_markdown: last_applied_markdown,
-      next_markdown: initial_markdown,
-    });
-    const content_changed = next_state.content !== current_content;
-    const applied_markdown_changed =
-      next_state.applied_markdown !== last_applied_markdown;
-
-    if (!content_changed && !applied_markdown_changed) return;
-
-    content = next_state.content;
-    last_applied_markdown = next_state.applied_markdown;
-
-    if (!content_changed) return;
-    on_selection_change?.(compute_selection_snapshot());
-    if (on_outline_change) {
-      on_outline_change(extract_headings_from_markdown(next_state.content));
-    }
-  });
-
-  function handle_input() {
-    queue_store_sync();
-    update_cursor_state();
-    queue_outline_sync();
+  function compute_selection_snapshot(): EditorSelectionSnapshot | null {
+    if (!view) return null;
+    const { from, to } = view.state.selection.main;
+    if (from === to) return null;
+    return {
+      text: view.state.sliceDoc(from, to),
+      start: from,
+      end: to,
+    };
   }
 
   function queue_store_sync() {
     if (store_timer !== null) clearTimeout(store_timer);
     store_timer = setTimeout(() => {
       on_dirty_change(true);
-      on_markdown_change(content);
+      on_markdown_change(get_content());
       store_timer = null;
     }, 50);
   }
 
-  function update_cursor_state() {
-    on_cursor_change(compute_cursor_info());
-    on_selection_change?.(compute_selection_snapshot());
-  }
-
-  function queue_outline_sync() {
+  function queue_outline_sync(content: string) {
     if (!on_outline_change) return;
     clearTimeout(outline_timer);
     const cb = on_outline_change;
@@ -150,314 +101,243 @@
     }, 300);
   }
 
-  function handle_keydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && event.shiftKey) {
-      event.preventDefault();
-      const textarea = event.target as HTMLTextAreaElement;
-      const next_state = insert_markdown_hard_break({
-        markdown: content,
-        start: textarea.selectionStart,
-        end: textarea.selectionEnd,
-      });
-      content = next_state.markdown;
-      requestAnimationFrame(() => {
-        textarea.selectionStart = next_state.cursor_offset;
-        textarea.selectionEnd = next_state.cursor_offset;
-        update_cursor_state();
-      });
-      queue_store_sync();
-      queue_outline_sync();
+  $effect.pre(() => {
+    if (!view) return;
+    const current_content = untrack(() => get_content());
+    const next_state = sync_source_editor_markdown({
+      content: current_content,
+      applied_markdown: last_applied_markdown,
+      next_markdown: initial_markdown,
+    });
+
+    if (next_state.content === current_content) {
+      last_applied_markdown = next_state.applied_markdown;
       return;
     }
 
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const textarea = event.target as HTMLTextAreaElement;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const spaces = " ".repeat(TAB_SIZE);
-      content = content.substring(0, start) + spaces + content.substring(end);
-      requestAnimationFrame(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + TAB_SIZE;
-        update_cursor_state();
-      });
-      queue_store_sync();
-      queue_outline_sync();
-    }
-  }
+    last_applied_markdown = next_state.applied_markdown;
+    const doc = view.state.doc;
+    view.dispatch({
+      changes: { from: 0, to: doc.length, insert: next_state.content },
+    });
 
-  function handle_select() {
-    on_cursor_change(compute_cursor_info());
     on_selection_change?.(compute_selection_snapshot());
-  }
+    if (on_outline_change) {
+      on_outline_change(extract_headings_from_markdown(next_state.content));
+    }
+  });
 
-  function compute_selection_snapshot(): EditorSelectionSnapshot | null {
-    if (!textarea_el) return null;
-    const start = textarea_el.selectionStart;
-    const end = textarea_el.selectionEnd;
-    if (start === end) return null;
-    return {
-      text: content.slice(start, end),
-      start,
-      end,
-    };
-  }
+  let prev_diagnostics: LintDiagnostic[] = [];
+
+  $effect(() => {
+    if (!view) return;
+    const diagnostics = stores.lint.active_diagnostics;
+    if (diagnostics === prev_diagnostics) return;
+    prev_diagnostics = diagnostics;
+
+    import("$lib/features/lint/editor/cm_lint_source").then(
+      ({ update_cm_diagnostics }) => {
+        if (!view || destroyed) return;
+        update_cm_diagnostics(view, diagnostics, () => {
+          void action_registry.execute(ACTION_IDS.lint_fix_all);
+        });
+      },
+    );
+  });
 
   onMount(() => {
-    if (ghost_el) ghost_el.textContent = content + "\n";
+    let canceled = false;
+    destroyed = false;
 
-    if (on_outline_change) {
-      on_outline_change(extract_headings_from_markdown(content));
-    }
+    const init = async () => {
+      const [
+        { EditorView: EV, basicSetup },
+        { EditorState },
+        { markdown, markdownLanguage },
+        { languages },
+        lint_ext,
+        cm_view_mod,
+        cm_state_mod,
+      ] = await Promise.all([
+        import("codemirror"),
+        import("@codemirror/state"),
+        import("@codemirror/lang-markdown"),
+        import("@codemirror/language-data"),
+        import("$lib/features/lint/editor/cm_lint_source"),
+        import("@codemirror/view"),
+        import("@codemirror/state"),
+      ]);
 
-    if (textarea_el) {
-      const clamped = Math.min(initial_cursor_offset, content.length);
-      textarea_el.selectionStart = clamped;
-      textarea_el.selectionEnd = clamped;
-      textarea_el.focus({ preventScroll: true });
+      if (canceled || !editor_root) return;
 
-      const outer = textarea_el.closest(".SourceEditor") as HTMLElement | null;
-      if (initial_cursor_offset === 0 && initial_scroll_fraction === 0) {
-        if (outer) outer.scrollTop = 0;
-      } else if (outer) {
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      let theme_ext: typeof import("@codemirror/theme-one-dark") | null = null;
+      if (dark) {
+        theme_ext = await import("@codemirror/theme-one-dark");
+        if (canceled) return;
+      }
+
+      const update_listener = cm_view_mod.EditorView.updateListener.of(
+        (update) => {
+          if (update.docChanged) {
+            queue_store_sync();
+            queue_outline_sync(update.state.doc.toString());
+          }
+          if (update.selectionSet || update.docChanged) {
+            on_cursor_change(compute_cursor_info());
+            on_selection_change?.(compute_selection_snapshot());
+          }
+        },
+      );
+
+      const extensions = [
+        basicSetup,
+        markdown({ base: markdownLanguage, codeLanguages: languages }),
+        ...lint_ext.create_lint_extensions(),
+        update_listener,
+        EV.lineWrapping,
+        EV.theme({
+          "&": {
+            height: "100%",
+            fontSize: "var(--text-sm, 13px)",
+          },
+          "&.cm-focused": {
+            outline: "none",
+          },
+          ".cm-scroller": {
+            overflow: "auto",
+            fontFamily:
+              '"SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace',
+            padding: "2rem clamp(1rem, 4%, 3rem)",
+          },
+          ".cm-content": {
+            maxWidth: "48rem",
+            margin: "0 auto",
+            caretColor: "var(--foreground)",
+          },
+          ".cm-gutters": {
+            backgroundColor: "transparent",
+            borderRight: "1px solid var(--border)",
+            color: "var(--muted-foreground)",
+            opacity: "0.5",
+          },
+          ".cm-activeLineGutter": {
+            backgroundColor: "transparent",
+            opacity: "1",
+          },
+          ".cm-activeLine": {
+            backgroundColor:
+              "color-mix(in oklch, var(--muted) 30%, transparent)",
+          },
+          ".cm-selectionBackground": {
+            backgroundColor:
+              "color-mix(in oklch, var(--primary) 20%, transparent) !important",
+          },
+          ".cm-cursor": {
+            borderLeftColor: "var(--foreground)",
+          },
+          ".cm-lint-marker-error": {
+            content: "'!'",
+          },
+          ".cm-lint-marker-warning": {
+            content: "'!'",
+          },
+        }),
+      ];
+
+      if (!show_line_numbers) {
+        extensions.push(
+          EV.theme({
+            ".cm-gutters": { display: "none" },
+          }),
+        );
+      }
+
+      if (theme_ext) {
+        extensions.push(theme_ext.oneDark);
+      }
+
+      last_applied_markdown = initial_markdown;
+
+      view = new EV({
+        doc: initial_markdown,
+        extensions,
+        parent: editor_root,
+      });
+
+      if (initial_cursor_offset > 0) {
+        const clamped = Math.min(initial_cursor_offset, view.state.doc.length);
+        view.dispatch({
+          selection: { anchor: clamped },
+          scrollIntoView: false,
+        });
+      }
+
+      if (initial_scroll_fraction > 0) {
         requestAnimationFrame(() => {
-          const max_scroll = outer.scrollHeight - outer.clientHeight;
+          if (!view) return;
+          const scroller = editor_root?.querySelector(".cm-scroller");
+          if (!scroller) return;
+          const max_scroll = scroller.scrollHeight - scroller.clientHeight;
           if (max_scroll > 0) {
-            outer.scrollTop = Math.round(initial_scroll_fraction * max_scroll);
+            scroller.scrollTop = Math.round(
+              initial_scroll_fraction * max_scroll,
+            );
           }
         });
       }
-    }
-    on_selection_change?.(compute_selection_snapshot());
+
+      view.focus();
+      on_cursor_change(compute_cursor_info());
+      on_selection_change?.(compute_selection_snapshot());
+
+      if (on_outline_change) {
+        on_outline_change(extract_headings_from_markdown(initial_markdown));
+      }
+    };
+
+    void init();
+
+    return () => {
+      canceled = true;
+    };
   });
 
   onDestroy(() => {
+    destroyed = true;
     let cursor_offset = 0;
     let scroll_fraction = 0;
 
-    if (textarea_el) {
-      cursor_offset = textarea_el.selectionStart;
-      const outer = textarea_el.closest(".SourceEditor") as HTMLElement | null;
-      if (outer && outer.scrollHeight > outer.clientHeight) {
-        const max_scroll = outer.scrollHeight - outer.clientHeight;
-        scroll_fraction = max_scroll > 0 ? outer.scrollTop / max_scroll : 0;
+    if (view) {
+      cursor_offset = view.state.selection.main.head;
+      const scroller = editor_root?.querySelector(".cm-scroller");
+      if (scroller && scroller.scrollHeight > scroller.clientHeight) {
+        const max_scroll = scroller.scrollHeight - scroller.clientHeight;
+        scroll_fraction = max_scroll > 0 ? scroller.scrollTop / max_scroll : 0;
       }
     }
 
     if (store_timer !== null) {
       clearTimeout(store_timer);
-      on_markdown_change(content);
+      on_markdown_change(get_content());
     }
 
     on_destroy?.({ cursor_offset, scroll_fraction });
 
-    if (ghost_raf !== null) cancelAnimationFrame(ghost_raf);
-    if (outline_timer) clearTimeout(outline_timer);
+    clearTimeout(outline_timer);
+    view?.destroy();
+    view = undefined;
   });
-
-  interface MatchPos {
-    from: number;
-    to: number;
-  }
-
-  let search_matches: MatchPos[] = [];
-  let search_index = -1;
-
-  export function searchText(text: string, cs: boolean): number {
-    search_matches = [];
-    search_index = -1;
-    if (!text) return 0;
-    const haystack = cs ? content : content.toLowerCase();
-    const needle = cs ? text : text.toLowerCase();
-    let idx = 0;
-    while ((idx = haystack.indexOf(needle, idx)) !== -1) {
-      search_matches.push({ from: idx, to: idx + needle.length });
-      idx += needle.length;
-    }
-    if (search_matches.length > 0) {
-      search_index = 0;
-      select_match(0);
-    }
-    return search_matches.length;
-  }
-
-  export function searchFindNext(): { current: number; total: number } {
-    if (search_matches.length === 0) return { current: 0, total: 0 };
-    search_index = (search_index + 1) % search_matches.length;
-    select_match(search_index);
-    return { current: search_index + 1, total: search_matches.length };
-  }
-
-  export function searchFindPrev(): { current: number; total: number } {
-    if (search_matches.length === 0) return { current: 0, total: 0 };
-    search_index =
-      (search_index - 1 + search_matches.length) % search_matches.length;
-    select_match(search_index);
-    return { current: search_index + 1, total: search_matches.length };
-  }
-
-  export function searchReplaceCurrent(replace_with: string) {
-    if (search_index < 0 || search_index >= search_matches.length) return;
-    const match = search_matches[search_index];
-    if (!match) return;
-    content =
-      content.substring(0, match.from) +
-      replace_with +
-      content.substring(match.to);
-    on_dirty_change(true);
-    on_markdown_change(content);
-  }
-
-  export function searchReplaceAll(
-    search_str: string,
-    replace_with: string,
-    cs: boolean,
-  ): number {
-    if (!search_str) return 0;
-    if (search_matches.length === 0) searchText(search_str, cs);
-    if (search_matches.length === 0) return 0;
-    const count = search_matches.length;
-    for (let i = search_matches.length - 1; i >= 0; i--) {
-      const m = search_matches[i];
-      if (!m) continue;
-      content =
-        content.substring(0, m.from) + replace_with + content.substring(m.to);
-    }
-    on_dirty_change(true);
-    on_markdown_change(content);
-    clearSearch();
-    return count;
-  }
-
-  export function clearSearch() {
-    search_matches = [];
-    search_index = -1;
-  }
-
-  function select_match(idx: number) {
-    if (!textarea_el || idx < 0 || idx >= search_matches.length) return;
-    const match = search_matches[idx];
-    if (!match) return;
-    textarea_el.focus();
-    textarea_el.setSelectionRange(match.from, match.to);
-    const lines_before = content.substring(0, match.from).split("\n").length;
-    const line_height =
-      parseFloat(getComputedStyle(textarea_el).lineHeight) || 24;
-    const scroll_target = (lines_before - 3) * line_height;
-    const outer = textarea_el.closest(".SourceEditor") as HTMLElement | null;
-    if (outer) {
-      outer.scrollTop = Math.max(0, scroll_target);
-    }
-  }
 </script>
 
-<div class="SourceEditor">
-  <div class="SourceEditor__inner">
-    {#if show_line_numbers}
-      <div
-        bind:this={gutter_el}
-        class="SourceEditor__gutter"
-        style:width="{gutter_width_ch + 1}ch"
-        aria-hidden="true"
-      ></div>
-    {/if}
-    <div class="SourceEditor__grow" style="tab-size: {TAB_SIZE}">
-      <div
-        bind:this={ghost_el}
-        class="SourceEditor__ghost"
-        aria-hidden="true"
-      ></div>
-      <textarea
-        bind:this={textarea_el}
-        class="SourceEditor__textarea"
-        bind:value={content}
-        oninput={handle_input}
-        onkeydown={handle_keydown}
-        onselect={handle_select}
-        onclick={handle_select}
-        spellcheck="true"
-      ></textarea>
-    </div>
-  </div>
-</div>
+<div class="SourceEditor" bind:this={editor_root}></div>
 
 <style>
   .SourceEditor {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    min-width: 0;
-    padding: 2rem clamp(1rem, 4%, 3rem);
-    background: transparent;
-  }
-
-  .SourceEditor__inner {
-    width: 100%;
-    max-width: 48rem;
-    margin: 0 auto;
-    min-height: 100%;
-    display: flex;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  .SourceEditor__gutter {
-    flex-shrink: 0;
-    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
-    font-size: var(--text-sm);
-    line-height: 1.6;
-    white-space: pre;
-    text-align: right;
-    color: var(--muted-foreground);
-    opacity: 0.5;
-    user-select: none;
-    padding-right: 0.75ch;
-    border-right: 1px solid var(--border);
-    margin-right: 1ch;
-  }
-
-  .SourceEditor__grow {
-    flex: 1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    min-width: 0;
     overflow: hidden;
-  }
-
-  .SourceEditor__ghost,
-  .SourceEditor__textarea {
-    grid-area: 1 / 1;
-    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
-    font-size: var(--text-sm);
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    padding: 0;
-    border: none;
-    margin: 0;
-  }
-
-  .SourceEditor__ghost {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .SourceEditor__textarea {
-    width: 100%;
-    resize: none;
-    outline: none;
+    min-width: 0;
     background: transparent;
-    color: var(--foreground);
-    overflow: hidden;
-  }
-
-  .SourceEditor__textarea::selection {
-    background: var(--editor-selection-bg);
-    color: var(--foreground);
-  }
-
-  .SourceEditor__textarea::placeholder {
-    color: var(--muted-foreground);
+    height: 100%;
   }
 </style>
