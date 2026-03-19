@@ -77,7 +77,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: badgerly-asset: badgerly-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: badgerly-plugin:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost badgerly-asset:; frame-src badgerly-plugin: badgerly-excalidraw:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: badgerly-asset: badgerly-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: badgerly-plugin:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost badgerly-asset:; frame-src badgerly-plugin: badgerly-excalidraw: badgerly-asset:"
     }
   }
 }

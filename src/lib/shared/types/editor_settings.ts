@@ -70,6 +70,8 @@ export type EditorSettings = {
   terminal_font_size_px: number;
   terminal_cursor_blink: boolean;
   terminal_follow_active_vault: boolean;
+  terminal_background_color: string;
+  terminal_foreground_color: string;
   ai_enabled: boolean;
   ai_providers: AiProviderConfig[];
   ai_default_provider_id: string;
@@ -130,6 +132,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   terminal_font_size_px: 13,
   terminal_cursor_blink: true,
   terminal_follow_active_vault: false,
+  terminal_background_color: "",
+  terminal_foreground_color: "",
   ai_enabled: true,
   ai_providers: BUILTIN_PROVIDER_PRESETS,
   ai_default_provider_id: "auto",
@@ -188,6 +192,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "terminal_font_size_px",
   "terminal_cursor_blink",
   "terminal_follow_active_vault",
+  "terminal_background_color",
+  "terminal_foreground_color",
   "ai_enabled",
   "ai_providers",
   "ai_default_provider_id",

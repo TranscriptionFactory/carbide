@@ -2503,6 +2503,74 @@
                 }}
               />
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Background Color</span>
+                <span class="SettingsDialog__description"
+                  >Custom terminal background color (empty = theme default)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  value={editor_settings.terminal_background_color}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("terminal_background_color", e.currentTarget.value);
+                  }}
+                  class="w-36"
+                  placeholder="e.g. #1e1e2e"
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_background_color",
+                      DEFAULT_EDITOR_SETTINGS.terminal_background_color,
+                    )}
+                  disabled={editor_settings.terminal_background_color ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_background_color}
+                  title="Reset to theme default"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Font Color</span>
+                <span class="SettingsDialog__description"
+                  >Custom terminal text color (empty = theme default)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  value={editor_settings.terminal_foreground_color}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("terminal_foreground_color", e.currentTarget.value);
+                  }}
+                  class="w-36"
+                  placeholder="e.g. #cdd6f4"
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_foreground_color",
+                      DEFAULT_EDITOR_SETTINGS.terminal_foreground_color,
+                    )}
+                  disabled={editor_settings.terminal_foreground_color ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_foreground_color}
+                  title="Reset to theme default"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
           </div>
         {:else if active_category === "graph"}
           <h2 class="SettingsDialog__content-header">Graph</h2>

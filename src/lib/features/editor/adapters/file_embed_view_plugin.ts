@@ -1,7 +1,14 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
-import { FileText, Music, Video, File, ExternalLink } from "lucide-static";
+import {
+  FileText,
+  Music,
+  Video,
+  File,
+  ExternalLink,
+  ChevronRight,
+} from "lucide-static";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("file_embed_view");
@@ -27,6 +34,7 @@ export type FileEmbedCallbacks = {
 class FileEmbedView implements NodeView {
   dom: HTMLElement;
   private _destroyed = false;
+  private _collapsed = false;
   private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
   private _iframe_el: HTMLIFrameElement | null = null;
 
@@ -58,6 +66,19 @@ class FileEmbedView implements NodeView {
     name_el.className = "file-embed-name";
     name_el.textContent = filename;
     toolbar.appendChild(name_el);
+
+    const collapse_btn = document.createElement("button");
+    collapse_btn.className = "file-embed-collapse";
+    collapse_btn.title = "Toggle preview";
+    collapse_btn.innerHTML = ChevronRight;
+    collapse_btn.dataset["expanded"] = "true";
+    collapse_btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this._collapsed = !this._collapsed;
+      collapse_btn.dataset["expanded"] = String(!this._collapsed);
+      content.style.display = this._collapsed ? "none" : "";
+    });
+    toolbar.appendChild(collapse_btn);
 
     const expand_btn = document.createElement("button");
     expand_btn.className = "file-embed-expand";

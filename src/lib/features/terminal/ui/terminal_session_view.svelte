@@ -71,14 +71,12 @@
     const is_dark =
       document.documentElement.getAttribute("data-color-scheme") === "dark";
     return {
-      background: resolve_css_color(
-        "--sidebar",
-        is_dark ? "#1e1e2e" : "#f5f5f5",
-      ),
-      foreground: resolve_css_color(
-        "--foreground",
-        is_dark ? "#cdd6f4" : "#1e1e2e",
-      ),
+      background:
+        stores.ui.editor_settings.terminal_background_color ||
+        resolve_css_color("--sidebar", is_dark ? "#1e1e2e" : "#f5f5f5"),
+      foreground:
+        stores.ui.editor_settings.terminal_foreground_color ||
+        resolve_css_color("--foreground", is_dark ? "#cdd6f4" : "#1e1e2e"),
       cursor: resolve_css_color("--primary", is_dark ? "#f5e0dc" : "#333333"),
       cursorAccent: resolve_css_color(
         "--background",

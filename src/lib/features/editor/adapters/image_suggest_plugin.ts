@@ -351,10 +351,26 @@ export function create_image_suggest_prose_plugin(
           return true;
         }
 
-        if (event.key === "Enter" || event.key === "Tab") {
+        if (event.key === "Enter") {
           event.preventDefault();
           event.stopPropagation();
           accept(view, state.selected_index);
+          return true;
+        }
+
+        if (event.key === "Tab") {
+          event.preventDefault();
+          event.stopPropagation();
+          const direction = event.shiftKey ? -1 : 1;
+          const count = state.items.length;
+          const next = (state.selected_index + direction + count) % count;
+          view.dispatch(
+            view.state.tr.setMeta(image_suggest_plugin_key, {
+              ...state,
+              selected_index: next,
+            }),
+          );
+          sync_dropdown(view, { ...state, selected_index: next });
           return true;
         }
 

@@ -1703,6 +1703,34 @@
   white-space: nowrap;
 }
 
+.file-embed-collapse {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  border-radius: var(--radius);
+  transition:
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.file-embed-collapse:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.file-embed-collapse svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.file-embed-collapse[data-expanded="true"] {
+  transform: rotate(90deg);
+}
+
 .file-embed-expand {
   display: flex;
   align-items: center;
