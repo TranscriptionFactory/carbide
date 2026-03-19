@@ -137,7 +137,7 @@ pub async fn lint_format_file(
 
     let result = session.client.send_request("textDocument/formatting", params).await?;
 
-    let edits: Vec<LintTextEdit> = match result {
+    let edits: Vec<LintTextEdit> = match &result {
         serde_json::Value::Array(arr) => arr
             .iter()
             .filter_map(|edit| {
@@ -153,9 +153,17 @@ pub async fn lint_format_file(
                 })
             })
             .collect(),
-        _ => Vec::new(),
+        serde_json::Value::Null => {
+            log::debug!("LSP returned null for formatting (unsupported for {})", uri);
+            Vec::new()
+        }
+        other => {
+            log::warn!("Unexpected formatting response for {}: {:?}", uri, other);
+            Vec::new()
+        }
     };
 
+    log::debug!("Format {} → {} edits", path, edits.len());
     Ok(edits)
 }
 
