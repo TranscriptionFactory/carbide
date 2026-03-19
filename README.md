@@ -101,6 +101,7 @@ Most note-taking apps force a trade-off: polished UX with cloud lock-in, or loca
 - **Extension points** — Commands, status bar items, sidebar panels, settings tabs, ribbon icons, event subscriptions
 - **RPC namespaces** — `vault`, `editor`, `commands`, `ui`, `metadata`, `events`, `settings`
 - **Credential proxying** — Secure API key handling without exposing secrets to plugin code
+- See the [Plugin How-To](./docs/plugin_howto.md) for the full API reference and getting started guide
 
 ### Metadata & Bases
 
