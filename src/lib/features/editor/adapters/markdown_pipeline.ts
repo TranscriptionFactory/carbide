@@ -348,6 +348,17 @@ const serializer = new MarkdownSerializer(
       state.write(`![[${node.attrs["src"] as string}]]`);
       state.closeBlock(node);
     },
+    file_embed(state, node) {
+      const src = node.attrs["src"] as string;
+      const params: string[] = [];
+      if (node.attrs["page"] != null)
+        params.push(`page=${String(node.attrs["page"])}`);
+      if ((node.attrs["height"] as number) !== 400)
+        params.push(`height=${String(node.attrs["height"])}`);
+      const fragment = params.length > 0 ? `#${params.join("&")}` : "";
+      state.write(`![[${src}${fragment}]]`);
+      state.closeBlock(node);
+    },
     "image-block": function image_block_serializer(state, node) {
       const alt = state.esc(
         (node.attrs["alt"] as string) ||

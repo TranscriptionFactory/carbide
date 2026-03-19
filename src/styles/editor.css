@@ -1660,3 +1660,97 @@
   font-family: var(--font-mono, monospace);
   font-size: 0.875rem;
 }
+
+/* ============================================
+   FILE EMBED COMPONENT (PDF, Audio, Video)
+   ============================================ */
+
+.file-embed {
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  overflow: hidden;
+  user-select: none;
+}
+
+.file-embed__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+}
+
+.file-embed__icon {
+  display: flex;
+  align-items: center;
+  color: var(--muted-foreground);
+}
+
+.file-embed__icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.file-embed__name {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-embed__expand {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.file-embed__expand:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.file-embed__expand svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.file-embed__content {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-embed__iframe {
+  display: block;
+}
+
+.file-embed__audio {
+  width: 100%;
+  padding: 0.75rem;
+}
+
+.file-embed__video {
+  width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.file-embed__pdf-placeholder,
+.file-embed__unknown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}

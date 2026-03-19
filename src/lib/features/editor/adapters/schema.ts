@@ -360,6 +360,50 @@ const details_content: NodeSpec = {
   },
 };
 
+const file_embed: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+  marks: "",
+  attrs: {
+    src: { default: "" },
+    page: { default: null },
+    height: { default: 400 },
+    file_type: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: 'div[data-type="file-embed"]',
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          src: dom.getAttribute("data-src") ?? "",
+          page: dom.getAttribute("data-page")
+            ? Number(dom.getAttribute("data-page"))
+            : null,
+          height: Number(dom.getAttribute("data-height") || 400),
+          file_type: dom.getAttribute("data-file-type") ?? "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "div",
+      {
+        "data-type": "file-embed",
+        "data-src": node.attrs["src"] as string,
+        ...(node.attrs["page"] != null
+          ? { "data-page": String(node.attrs["page"]) }
+          : {}),
+        "data-height": String(node.attrs["height"]),
+        "data-file-type": node.attrs["file_type"] as string,
+      },
+    ];
+  },
+};
+
 const frontmatter: NodeSpec = {
   group: "block",
   content: "text*",
@@ -651,6 +695,7 @@ export const schema = new Schema({
     details_summary,
     details_content,
     excalidraw_embed,
+    file_embed,
     "image-block": image_block,
     image,
     hardbreak,

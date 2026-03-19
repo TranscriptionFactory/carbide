@@ -79,6 +79,8 @@ import {
 import { create_file_drop_prose_plugin } from "$lib/features/editor/domain/file_drop_plugin";
 import { create_excalidraw_embed_plugin } from "./excalidraw_embed_plugin";
 import { create_excalidraw_embed_view_plugin } from "./excalidraw_embed_view_plugin";
+import { create_file_embed_plugin } from "./file_embed_plugin";
+import { create_file_embed_view_plugin } from "./file_embed_view_plugin";
 import { create_code_fence_language_prose_plugin } from "./code_fence_language_plugin";
 import { create_details_view_prose_plugin } from "./details_view_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
@@ -540,6 +542,30 @@ export function create_prosemirror_editor_port(args?: {
               on_internal_link_click(path, current_note_path, "wiki");
             }
           },
+        }),
+      );
+      plugins.push(create_file_embed_plugin());
+      plugins.push(
+        create_file_embed_view_plugin({
+          on_open_file: (path) => {
+            if (on_internal_link_click) {
+              on_internal_link_click(path, current_note_path, "wiki");
+            }
+          },
+          resolve_asset_url: resolve_asset_url_for_vault
+            ? (src) => {
+                const vault_id = current_vault_id;
+                if (!vault_id) return src;
+                const vault_relative = resolve_relative_asset_path(
+                  current_note_path,
+                  decodeURIComponent(src),
+                );
+                return resolve_asset_url_for_vault(
+                  vault_id,
+                  as_asset_path(vault_relative),
+                );
+              }
+            : undefined,
         }),
       );
       plugins.push(create_code_fence_language_prose_plugin());
