@@ -11,6 +11,7 @@ export interface LintPort {
     vault_id: VaultId,
     vault_path: VaultPath,
     user_overrides: string,
+    browse_mode: boolean,
   ): Promise<void>;
   stop(vault_id: VaultId): Promise<void>;
   open_file(

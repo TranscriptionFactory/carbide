@@ -4,8 +4,13 @@ use super::lsp::resolve_sidecar_path;
 
 pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
-    let output = tokio::process::Command::new(&binary)
-        .args(["check", ".", "--format", "json"])
+    let config = super::config::config_path(vault_path);
+    let mut cmd = tokio::process::Command::new(&binary);
+    cmd.args(["check", ".", "--format", "json"]);
+    if config.exists() {
+        cmd.args(["--config", &config.to_string_lossy()]);
+    }
+    let output = cmd
         .current_dir(vault_path)
         .output()
         .await?;
@@ -20,12 +25,17 @@ pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyh
 
 pub async fn format_file_with_rumdl(vault_path: &Path, content: &str) -> Result<String, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
+    let config = super::config::config_path(vault_path);
     let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
 
     tokio::fs::write(&tmp_path, content).await?;
 
-    let output = tokio::process::Command::new(&binary)
-        .args(["fmt", tmp_path.to_str().unwrap_or("")])
+    let mut cmd = tokio::process::Command::new(&binary);
+    cmd.args(["fmt", tmp_path.to_str().unwrap_or("")]);
+    if config.exists() {
+        cmd.args(["--config", &config.to_string_lossy()]);
+    }
+    let output = cmd
         .current_dir(vault_path)
         .output()
         .await;
@@ -67,8 +77,13 @@ pub async fn format_file_content(vault_path: &Path, content: &str, formatter: &s
 
 pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
-    let output = tokio::process::Command::new(&binary)
-        .args(["fmt", "."])
+    let config = super::config::config_path(vault_path);
+    let mut cmd = tokio::process::Command::new(&binary);
+    cmd.args(["fmt", "."]);
+    if config.exists() {
+        cmd.args(["--config", &config.to_string_lossy()]);
+    }
+    let output = cmd
         .current_dir(vault_path)
         .output()
         .await?;

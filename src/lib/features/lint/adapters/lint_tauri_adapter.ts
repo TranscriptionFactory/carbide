@@ -56,11 +56,13 @@ export function create_lint_tauri_adapter(): LintPort {
       vault_id: VaultId,
       vault_path: VaultPath,
       user_overrides: string,
+      browse_mode: boolean,
     ): Promise<void> {
       await tauri_invoke<undefined>("lint_start", {
         vaultId: vault_id,
         vaultPath: vault_path,
         userOverrides: user_overrides,
+        browseMode: browse_mode,
       });
     },
     async stop(vault_id: VaultId): Promise<void> {

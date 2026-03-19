@@ -30,8 +30,14 @@ export function create_lint_reactor(
         return;
       }
 
-      const user_overrides = ui_store.editor_settings.lint_rules_toml;
-      void lint_service.start(vault.id, vault.path, user_overrides);
+      const user_overrides =
+        vault.mode === "browse" ? "" : ui_store.editor_settings.lint_rules_toml;
+      void lint_service.start(
+        vault.id,
+        vault.path,
+        user_overrides,
+        vault.mode === "browse",
+      );
 
       return () => {
         void lint_service.stop();

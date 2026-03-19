@@ -24,3 +24,4 @@ opencode.json
 src-tauri/binaries/rumdl*
 !src-tauri/binaries/.gitkeep
 .shiftlog/
+.rumdl.toml

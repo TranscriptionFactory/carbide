@@ -23,6 +23,7 @@ impl LintState {
         &self,
         vault_id: &str,
         vault_path: PathBuf,
+        browse_mode: bool,
         app: AppHandle,
     ) -> Result<(), String> {
         self.stop_session(vault_id).await?;
@@ -30,6 +31,7 @@ impl LintState {
         let client = LspClient::start(
             vault_id.to_string(),
             vault_path.clone(),
+            browse_mode,
             app,
         )
         .await

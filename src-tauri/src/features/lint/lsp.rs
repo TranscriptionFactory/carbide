@@ -34,6 +34,7 @@ impl LspClient {
     pub async fn start(
         vault_id: String,
         vault_path: PathBuf,
+        browse_mode: bool,
         app: AppHandle,
     ) -> Result<Self, anyhow::Error> {
         let binary_path = resolve_sidecar_path("binaries/rumdl")?;
@@ -44,6 +45,7 @@ impl LspClient {
             binary_path,
             vault_id,
             vault_path,
+            browse_mode,
             app,
             request_rx,
             stop_rx,
@@ -139,6 +141,7 @@ async fn lsp_run_loop(
     binary_path: PathBuf,
     vault_id: String,
     vault_path: PathBuf,
+    browse_mode: bool,
     app: AppHandle,
     mut request_rx: mpsc::Receiver<LspOutgoing>,
     mut stop_rx: oneshot::Receiver<()>,
@@ -148,7 +151,7 @@ async fn lsp_run_loop(
     loop {
         emit_status(&app, &vault_id, LintStatus::Starting);
 
-        let spawn_result = spawn_lsp_process(&binary_path, &vault_path).await;
+        let spawn_result = spawn_lsp_process(&binary_path, &vault_path, browse_mode).await;
         let mut child = match spawn_result {
             Ok(c) => c,
             Err(e) => {
@@ -307,9 +310,19 @@ fn emit_status(app: &AppHandle, vault_id: &str, status: LintStatus) {
     });
 }
 
-async fn spawn_lsp_process(binary_path: &Path, vault_path: &Path) -> Result<Child, anyhow::Error> {
+async fn spawn_lsp_process(binary_path: &Path, vault_path: &Path, browse_mode: bool) -> Result<Child, anyhow::Error> {
+    let mut args = vec!["server".to_string()];
+    if browse_mode {
+        args.push("--no-config".to_string());
+    } else {
+        let config = super::config::config_path(vault_path);
+        if config.exists() {
+            args.push("--config".to_string());
+            args.push(config.to_string_lossy().into_owned());
+        }
+    }
     let child = Command::new(binary_path)
-        .args(["server"])
+        .args(&args)
         .current_dir(vault_path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

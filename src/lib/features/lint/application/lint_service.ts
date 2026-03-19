@@ -31,6 +31,7 @@ export class LintService {
     vault_id: VaultId,
     vault_path: VaultPath,
     user_overrides: string = "",
+    browse_mode: boolean = false,
   ): Promise<void> {
     await this.run_lifecycle(async () => {
       this.teardown();
@@ -38,7 +39,7 @@ export class LintService {
         this.handle_event(event);
       });
       try {
-        await this.port.start(vault_id, vault_path, user_overrides);
+        await this.port.start(vault_id, vault_path, user_overrides, browse_mode);
       } catch (error) {
         log.from_error("Failed to start lint", error);
       }
