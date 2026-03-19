@@ -29,8 +29,10 @@
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
   type PDFJSModule = typeof import("pdfjs-dist");
 
-  let canvas_el: HTMLCanvasElement | undefined = $state();
-  let text_layer_el: HTMLDivElement | undefined = $state();
+  type PageInfo = { width: number; height: number };
+
+  let scroll_container_el: HTMLDivElement | undefined = $state();
+  let pages_container_el: HTMLDivElement | undefined = $state();
   let search_input_el: HTMLInputElement | undefined = $state();
 
   let pdf_doc: PDFDocumentProxy | null = $state(null);
@@ -41,7 +43,15 @@
   let loading = $state(true);
   let error_msg = $state<string | null>(null);
   let page_input_value = $state("1");
-  let rendering = false;
+  let page_infos: PageInfo[] = $state([]);
+
+  let page_elements: Map<number, HTMLDivElement> = new Map();
+  let page_canvases: Map<number, HTMLCanvasElement> = new Map();
+  let page_text_layers: Map<number, HTMLDivElement> = new Map();
+  let rendered_pages: Set<number> = new Set();
+  let rendering_pages: Set<number> = new Set();
+
+  let observer: IntersectionObserver | null = null;
 
   let search_open = $state(false);
   let search_query = $state("");
@@ -53,7 +63,9 @@
   });
   let text_loading = $state(false);
   let search_generation = $state(0);
+
   let applied_initial_zoom = false;
+  let scroll_ticking = false;
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4.0;
@@ -70,6 +82,17 @@
     search_state = { query: "", matches: [], current_index: 0 };
     search_generation += 1;
     applied_initial_zoom = false;
+    page_infos = [];
+    page_elements = new Map();
+    page_canvases = new Map();
+    page_text_layers = new Map();
+    rendered_pages = new Set();
+    rendering_pages = new Set();
+
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
 
     try {
       const pdfjs = await import("pdfjs-dist");
@@ -85,6 +108,14 @@
       const doc = await pdfjs.getDocument({ data }).promise;
       pdf_doc = doc;
       num_pages = doc.numPages;
+
+      const infos: PageInfo[] = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const vp = page.getViewport({ scale: 1.0 });
+        infos.push({ width: vp.width, height: vp.height });
+      }
+      page_infos = infos;
       loading = false;
     } catch (err) {
       loading = false;
@@ -92,60 +123,14 @@
     }
   }
 
-  async function ensure_page_text(page_num: number): Promise<PageText | null> {
-    const cached = pages_text_by_page.get(page_num);
-    if (cached) {
-      return cached;
-    }
-    if (!pdf_doc) {
-      return null;
-    }
+  async function render_single_page(page_num: number) {
+    if (!pdf_doc || rendering_pages.has(page_num)) return;
 
-    const page = await pdf_doc.getPage(page_num);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    const page_text = { page_num, text };
-    pages_text_by_page = new Map(pages_text_by_page).set(page_num, page_text);
-    return page_text;
-  }
+    const canvas = page_canvases.get(page_num);
+    const text_layer_div = page_text_layers.get(page_num);
+    if (!canvas) return;
 
-  async function run_search(query: string) {
-    if (!pdf_doc || !query) {
-      text_loading = false;
-      search_state = { query, matches: [], current_index: 0 };
-      apply_highlights(current_page);
-      return;
-    }
-
-    const generation = ++search_generation;
-    text_loading = true;
-    const results: PageText[] = [];
-
-    for (let i = 1; i <= pdf_doc.numPages; i++) {
-      const page_text = await ensure_page_text(i);
-      if (generation !== search_generation) {
-        return;
-      }
-      if (page_text) {
-        results.push(page_text);
-      }
-    }
-
-    if (generation !== search_generation) {
-      return;
-    }
-
-    text_loading = false;
-    search_state = make_search_state(results, query);
-    navigate_to_current_match();
-  }
-
-  async function render_page(page_num: number) {
-    if (!pdf_doc || !canvas_el || rendering) return;
-
-    rendering = true;
+    rendering_pages.add(page_num);
     try {
       const pdfjs = pdfjs_module ?? (await import("pdfjs-dist"));
       pdfjs_module = pdfjs;
@@ -154,86 +139,121 @@
       const viewport = page.getViewport({ scale: zoom_level * dpr });
       const css_viewport = page.getViewport({ scale: zoom_level });
 
-      const ctx = canvas_el.getContext("2d");
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      canvas_el.width = viewport.width;
-      canvas_el.height = viewport.height;
-      canvas_el.style.width = `${css_viewport.width}px`;
-      canvas_el.style.height = `${css_viewport.height}px`;
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${css_viewport.width}px`;
+      canvas.style.height = `${css_viewport.height}px`;
 
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      if (text_layer_el) {
-        text_layer_el.innerHTML = "";
-        text_layer_el.style.width = `${css_viewport.width}px`;
-        text_layer_el.style.height = `${css_viewport.height}px`;
+      if (text_layer_div) {
+        text_layer_div.innerHTML = "";
+        text_layer_div.style.width = `${css_viewport.width}px`;
+        text_layer_div.style.height = `${css_viewport.height}px`;
 
-        const text_layer = new pdfjs.TextLayer({
+        const tl = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent(),
-          container: text_layer_el,
+          container: text_layer_div,
           viewport: css_viewport,
         });
 
-        await text_layer.render();
-        apply_highlights(page_num);
+        await tl.render();
+        apply_highlights_to_page(page_num, text_layer_div);
       }
+
+      rendered_pages.add(page_num);
     } finally {
-      rendering = false;
+      rendering_pages.delete(page_num);
     }
   }
 
-  function apply_highlights(page_num: number) {
-    if (!text_layer_el) return;
+  function clear_page(page_num: number) {
+    const canvas = page_canvases.get(page_num);
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+    const text_layer_div = page_text_layers.get(page_num);
+    if (text_layer_div) text_layer_div.innerHTML = "";
+    rendered_pages.delete(page_num);
+  }
 
-    const spans = text_layer_el.querySelectorAll("span");
-    spans.forEach((span) => {
-      span.classList.remove(
-        "PdfViewer__highlight",
-        "PdfViewer__highlight--current",
-      );
-    });
+  function setup_observer() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    if (!scroll_container_el) return;
 
-    if (!search_query || search_state.matches.length === 0) return;
-
-    const page_matches = search_state.matches.map((m, idx) => ({
-      ...m,
-      global_idx: idx,
-    }));
-
-    if (!pages_text_by_page.has(page_num)) return;
-
-    let char_count = 0;
-    spans.forEach((span) => {
-      const span_text = span.textContent ?? "";
-      const span_start = char_count;
-      const span_end = char_count + span_text.length;
-
-      page_matches.forEach(
-        ({ page_num: m_page, text_offset, length, global_idx }) => {
-          if (m_page !== page_num) return;
-          const match_end = text_offset + length;
-
-          if (text_offset < span_end && match_end > span_start) {
-            if (global_idx === search_state.current_index) {
-              span.classList.add("PdfViewer__highlight--current");
-            } else {
-              span.classList.add("PdfViewer__highlight");
-            }
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const page_num = Number((entry.target as HTMLElement).dataset.page);
+          if (entry.isIntersecting) {
+            void render_single_page(page_num);
+          } else {
+            clear_page(page_num);
           }
-        },
-      );
+        }
+      },
+      { root: scroll_container_el, rootMargin: "200%" },
+    );
 
-      char_count += span_text.length + 1;
+    for (const [, el] of page_elements) {
+      observer.observe(el);
+    }
+  }
+
+  function update_current_page_from_scroll() {
+    if (!scroll_container_el || page_infos.length === 0) return;
+
+    const container_mid =
+      scroll_container_el.scrollTop + scroll_container_el.clientHeight / 2;
+
+    let best_page = 1;
+    let best_distance = Infinity;
+
+    for (const [page_num, el] of page_elements) {
+      const el_mid = el.offsetTop + el.offsetHeight / 2;
+      const distance = Math.abs(el_mid - container_mid);
+      if (distance < best_distance) {
+        best_distance = distance;
+        best_page = page_num;
+      }
+    }
+
+    if (best_page !== current_page) {
+      current_page = best_page;
+      page_input_value = String(best_page);
+    }
+  }
+
+  function handle_scroll() {
+    if (scroll_ticking) return;
+    scroll_ticking = true;
+    requestAnimationFrame(() => {
+      update_current_page_from_scroll();
+      scroll_ticking = false;
     });
+  }
+
+  function scroll_to_page(page_num: number) {
+    const el = page_elements.get(page_num);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   function go_to_page(page_num: number) {
     const clamped = Math.max(1, Math.min(num_pages, page_num));
-    if (clamped === current_page) return;
     current_page = clamped;
     page_input_value = String(clamped);
-    void render_page(clamped);
+    scroll_to_page(clamped);
   }
 
   function prev_page() {
@@ -244,25 +264,41 @@
     go_to_page(current_page + 1);
   }
 
+  async function apply_zoom(new_zoom: number) {
+    if (!scroll_container_el) return;
+
+    const target_page_el = page_elements.get(current_page);
+    const scroll_ratio = target_page_el
+      ? (scroll_container_el.scrollTop - target_page_el.offsetTop) /
+        Math.max(1, target_page_el.offsetHeight)
+      : 0;
+
+    const pages_to_rerender = Array.from(rendered_pages);
+    rendered_pages = new Set();
+    zoom_level = new_zoom;
+
+    await Promise.all(pages_to_rerender.map((p) => render_single_page(p)));
+
+    if (target_page_el) {
+      scroll_container_el.scrollTop =
+        target_page_el.offsetTop + scroll_ratio * target_page_el.offsetHeight;
+    }
+  }
+
   function zoom_in() {
-    zoom_level = Math.min(MAX_ZOOM, zoom_level + ZOOM_STEP);
-    void render_page(current_page);
+    void apply_zoom(Math.min(MAX_ZOOM, zoom_level + ZOOM_STEP));
   }
 
   function zoom_out() {
-    zoom_level = Math.max(MIN_ZOOM, zoom_level - ZOOM_STEP);
-    void render_page(current_page);
+    void apply_zoom(Math.max(MIN_ZOOM, zoom_level - ZOOM_STEP));
   }
 
   async function fit_width() {
-    if (!pdf_doc || !canvas_el) return;
-    const scroll_container = canvas_el.closest(".PdfViewer__canvas-container");
-    if (!scroll_container) return;
-    const container = scroll_container as HTMLElement;
-    const page = await pdf_doc.getPage(current_page);
-    const viewport = page.getViewport({ scale: 1.0 });
-    zoom_level = container.clientWidth / viewport.width;
-    void render_page(current_page);
+    if (!pdf_doc || !scroll_container_el || page_infos.length === 0) return;
+    const info = page_infos[0];
+    if (!info) return;
+    const new_zoom = (scroll_container_el.clientWidth - 32) / info.width;
+    void apply_zoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, new_zoom)));
   }
 
   function handle_page_input_change(e: Event) {
@@ -282,6 +318,120 @@
     if (e.key === "Enter") handle_page_input_commit();
   }
 
+  async function ensure_page_text(page_num: number): Promise<PageText | null> {
+    const cached = pages_text_by_page.get(page_num);
+    if (cached) return cached;
+    if (!pdf_doc) return null;
+
+    const page = await pdf_doc.getPage(page_num);
+    const content = await page.getTextContent();
+    const text = content.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ");
+    const page_text = { page_num, text };
+    pages_text_by_page = new Map(pages_text_by_page).set(page_num, page_text);
+    return page_text;
+  }
+
+  async function run_search(query: string) {
+    if (!pdf_doc || !query) {
+      text_loading = false;
+      search_state = { query, matches: [], current_index: 0 };
+      apply_highlights_all();
+      return;
+    }
+
+    const generation = ++search_generation;
+    text_loading = true;
+    const results: PageText[] = [];
+
+    for (let i = 1; i <= pdf_doc.numPages; i++) {
+      const page_text = await ensure_page_text(i);
+      if (generation !== search_generation) return;
+      if (page_text) results.push(page_text);
+    }
+
+    if (generation !== search_generation) return;
+
+    text_loading = false;
+    search_state = make_search_state(results, query);
+    navigate_to_current_match();
+  }
+
+  function apply_highlights_to_page(
+    page_num: number,
+    text_layer_div: HTMLDivElement,
+  ) {
+    const spans = text_layer_div.querySelectorAll("span");
+    spans.forEach((span) => {
+      span.classList.remove(
+        "PdfViewer__highlight",
+        "PdfViewer__highlight--current",
+      );
+    });
+
+    if (!search_query || search_state.matches.length === 0) return;
+    if (!pages_text_by_page.has(page_num)) return;
+
+    let char_count = 0;
+    spans.forEach((span) => {
+      const span_text = span.textContent ?? "";
+      const span_start = char_count;
+      const span_end = char_count + span_text.length;
+
+      search_state.matches.forEach(
+        ({ page_num: m_page, text_offset, length }, global_idx) => {
+          if (m_page !== page_num) return;
+          const match_end = text_offset + length;
+          if (text_offset < span_end && match_end > span_start) {
+            if (global_idx === search_state.current_index) {
+              span.classList.add("PdfViewer__highlight--current");
+            } else {
+              span.classList.add("PdfViewer__highlight");
+            }
+          }
+        },
+      );
+
+      char_count += span_text.length + 1;
+    });
+  }
+
+  function apply_highlights_all() {
+    for (const [page_num, text_layer_div] of page_text_layers) {
+      if (rendered_pages.has(page_num)) {
+        apply_highlights_to_page(page_num, text_layer_div);
+      }
+    }
+  }
+
+  function navigate_to_current_match() {
+    if (search_state.matches.length === 0) {
+      apply_highlights_all();
+      return;
+    }
+
+    const match = search_state.matches[search_state.current_index];
+    if (!match) return;
+
+    const target_el = page_elements.get(match.page_num);
+    if (target_el) {
+      target_el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    apply_highlights_all();
+  }
+
+  function search_next() {
+    search_state = navigate_match(search_state, "next");
+    navigate_to_current_match();
+  }
+
+  function search_prev() {
+    search_state = navigate_match(search_state, "prev");
+    navigate_to_current_match();
+  }
+
   function open_search() {
     search_open = true;
     setTimeout(() => search_input_el?.focus(), 0);
@@ -293,7 +443,7 @@
     search_query = "";
     search_state = { query: "", matches: [], current_index: 0 };
     text_loading = false;
-    apply_highlights(current_page);
+    apply_highlights_all();
   }
 
   function handle_search_input(e: Event) {
@@ -314,40 +464,41 @@
     }
   }
 
-  function search_next() {
-    search_state = navigate_match(search_state, "next");
-    navigate_to_current_match();
-  }
-
-  function search_prev() {
-    search_state = navigate_match(search_state, "prev");
-    navigate_to_current_match();
-  }
-
-  function navigate_to_current_match() {
-    if (search_state.matches.length === 0) {
-      apply_highlights(current_page);
-      return;
-    }
-
-    const match = search_state.matches[search_state.current_index];
-    if (!match) return;
-    if (match.page_num !== current_page) {
-      current_page = match.page_num;
-      page_input_value = String(match.page_num);
-      void render_page(match.page_num).then(() =>
-        apply_highlights(match.page_num),
-      );
-    } else {
-      apply_highlights(current_page);
-    }
-  }
-
   function handle_viewer_keydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === "f") {
       e.preventDefault();
       open_search();
     }
+  }
+
+  function register_page_wrapper(el: HTMLDivElement, page_num: number) {
+    page_elements.set(page_num, el);
+    el.dataset.page = String(page_num);
+    if (observer) observer.observe(el);
+    return {
+      destroy() {
+        page_elements.delete(page_num);
+        if (observer) observer.unobserve(el);
+      },
+    };
+  }
+
+  function register_canvas(el: HTMLCanvasElement, page_num: number) {
+    page_canvases.set(page_num, el);
+    return {
+      destroy() {
+        page_canvases.delete(page_num);
+      },
+    };
+  }
+
+  function register_text_layer(el: HTMLDivElement, page_num: number) {
+    page_text_layers.set(page_num, el);
+    return {
+      destroy() {
+        page_text_layers.delete(page_num);
+      },
+    };
   }
 
   $effect(() => {
@@ -356,23 +507,34 @@
   });
 
   $effect(() => {
-    if (loading || !pdf_doc || !canvas_el) return;
-    const page = current_page;
+    if (loading || !pdf_doc || page_infos.length === 0 || !pages_container_el) {
+      return;
+    }
 
     if (!applied_initial_zoom) {
       applied_initial_zoom = true;
       if (default_zoom === "fit_width") {
-        untrack(() => void fit_width());
-        return;
+        untrack(
+          () =>
+            void fit_width().then(() => {
+              setup_observer();
+              const target = Math.max(1, initial_page);
+              setTimeout(() => scroll_to_page(target), 50);
+            }),
+        );
+      } else {
+        untrack(() => {
+          setup_observer();
+          const target = Math.max(1, initial_page);
+          setTimeout(() => scroll_to_page(target), 50);
+        });
       }
-      zoom_level = 1.0;
     }
-
-    untrack(() => void render_page(page));
   });
 
   onMount(() => {
     return () => {
+      observer?.disconnect();
       pdf_doc?.destroy();
     };
   });
@@ -457,7 +619,11 @@
     </div>
   </div>
 
-  <div class="PdfViewer__canvas-container">
+  <div
+    bind:this={scroll_container_el}
+    class="PdfViewer__scroll-container"
+    onscroll={handle_scroll}
+  >
     {#if search_open}
       <div class="PdfViewer__search-bar" role="search">
         <SearchIcon size={14} class="PdfViewer__search-icon" />
@@ -517,13 +683,25 @@
         <span class="PdfViewer__state-text">{error_msg}</span>
       </div>
     {:else}
-      <div class="PdfViewer__page-wrapper">
-        <canvas bind:this={canvas_el} class="PdfViewer__canvas"></canvas>
-        <div
-          bind:this={text_layer_el}
-          class="PdfViewer__text-layer"
-          aria-hidden="true"
-        ></div>
+      <div bind:this={pages_container_el} class="PdfViewer__pages-container">
+        {#each page_infos as info, idx}
+          {@const page_num = idx + 1}
+          {@const css_width = info.width * zoom_level}
+          {@const css_height = info.height * zoom_level}
+          <div
+            class="PdfViewer__page-wrapper"
+            style="width: {css_width}px; height: {css_height}px;"
+            use:register_page_wrapper={page_num}
+          >
+            <canvas class="PdfViewer__canvas" use:register_canvas={page_num}
+            ></canvas>
+            <div
+              class="PdfViewer__text-layer"
+              aria-hidden="true"
+              use:register_text_layer={page_num}
+            ></div>
+          </div>
+        {/each}
       </div>
     {/if}
   </div>
@@ -617,15 +795,22 @@
     text-align: center;
   }
 
-  .PdfViewer__canvas-container {
+  .PdfViewer__scroll-container {
     flex: 1;
     overflow: auto;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
     padding: var(--space-4);
     background-color: var(--muted);
     position: relative;
+  }
+
+  .PdfViewer__pages-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
   }
 
   .PdfViewer__page-wrapper {
@@ -633,6 +818,8 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-md);
     line-height: 1;
+    background-color: white;
+    flex-shrink: 0;
   }
 
   .PdfViewer__canvas {
@@ -692,9 +879,8 @@
   }
 
   .PdfViewer__search-bar {
-    position: absolute;
-    top: var(--space-3);
-    right: var(--space-3);
+    position: sticky;
+    top: 0;
     z-index: 10;
     display: flex;
     align-items: center;
@@ -704,6 +890,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    align-self: flex-end;
+    margin-bottom: var(--space-2);
   }
 
   .PdfViewer__search-input {
