@@ -7,7 +7,11 @@ import type {
 } from "$lib/features/lint/types/lint";
 
 export interface LintPort {
-  start(vault_id: VaultId, vault_path: VaultPath): Promise<void>;
+  start(
+    vault_id: VaultId,
+    vault_path: VaultPath,
+    user_overrides: string,
+  ): Promise<void>;
   stop(vault_id: VaultId): Promise<void>;
   open_file(
     vault_id: VaultId,

@@ -162,6 +162,45 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["vault", "dashboard", "overview", "open", "startup", "switch"],
   },
   {
+    key: "lint_enabled",
+    label: "Enable Markdown Linting",
+    description:
+      "Run rumdl in the background to check markdown files for style and formatting issues",
+    category: "Misc",
+    keywords: [
+      "lint",
+      "markdown",
+      "rumdl",
+      "check",
+      "style",
+      "format",
+      "diagnostics",
+    ],
+  },
+  {
+    key: "lint_format_on_save",
+    label: "Format on Save",
+    description: "Automatically format the current markdown file when saving",
+    category: "Misc",
+    keywords: ["lint", "format", "save", "auto", "markdown", "prettier"],
+  },
+  {
+    key: "lint_rules_toml",
+    label: "Rule Overrides (TOML)",
+    description:
+      "Custom rumdl rule configuration in TOML format, merged with defaults. Example: MD013 = false",
+    category: "Misc",
+    keywords: [
+      "lint",
+      "rules",
+      "toml",
+      "config",
+      "rumdl",
+      "override",
+      "custom",
+    ],
+  },
+  {
     key: "max_open_tabs",
     label: "Max Open Tabs",
     description: "Maximum number of tabs that can be open at once",

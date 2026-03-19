@@ -87,6 +87,7 @@ export type EditorSettings = {
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
+  lint_rules_toml: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -141,6 +142,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
+  lint_rules_toml: "",
 };
 
 export const SETTINGS_KEY = "editor" as const;

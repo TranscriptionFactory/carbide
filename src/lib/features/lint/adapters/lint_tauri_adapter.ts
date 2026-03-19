@@ -52,10 +52,15 @@ function subscribe_lint_events(
 
 export function create_lint_tauri_adapter(): LintPort {
   return {
-    async start(vault_id: VaultId, vault_path: VaultPath): Promise<void> {
+    async start(
+      vault_id: VaultId,
+      vault_path: VaultPath,
+      user_overrides: string,
+    ): Promise<void> {
       await tauri_invoke<undefined>("lint_start", {
         vaultId: vault_id,
         vaultPath: vault_path,
+        userOverrides: user_overrides,
       });
     },
     async stop(vault_id: VaultId): Promise<void> {

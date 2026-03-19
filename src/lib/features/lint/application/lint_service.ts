@@ -27,14 +27,18 @@ export class LintService {
     private readonly op_store: OpStore,
   ) {}
 
-  async start(vault_id: VaultId, vault_path: VaultPath): Promise<void> {
+  async start(
+    vault_id: VaultId,
+    vault_path: VaultPath,
+    user_overrides: string = "",
+  ): Promise<void> {
     await this.run_lifecycle(async () => {
       this.teardown();
       this.event_unsubscribe = this.port.subscribe_events((event) => {
         this.handle_event(event);
       });
       try {
-        await this.port.start(vault_id, vault_path);
+        await this.port.start(vault_id, vault_path, user_overrides);
       } catch (error) {
         log.from_error("Failed to start lint", error);
       }

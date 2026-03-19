@@ -17,9 +17,14 @@ pub async fn lint_start(
     state: State<'_, LintState>,
     vault_id: String,
     vault_path: String,
+    user_overrides: String,
 ) -> Result<(), String> {
     let vault = std::path::PathBuf::from(&vault_path);
-    config::write_default_config(&vault).map_err(|e| e.to_string())?;
+    if user_overrides.is_empty() {
+        config::write_default_config(&vault).map_err(|e| e.to_string())?;
+    } else {
+        config::write_merged_config(&vault, &user_overrides).map_err(|e| e.to_string())?;
+    }
     state.start_session(&vault_id, vault, app).await
 }
 
