@@ -255,6 +255,8 @@ export const ACTION_IDS = {
   lint_fix_all: "lint.fix_all",
   lint_check_vault: "lint.check_vault",
   lint_toggle_problems: "lint.toggle_problems",
+  lint_next_diagnostic: "lint.next_diagnostic",
+  lint_prev_diagnostic: "lint.prev_diagnostic",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

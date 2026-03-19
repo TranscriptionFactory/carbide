@@ -2,6 +2,7 @@
   import { Info, FolderOpen, RefreshCw } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
+  import { LintStatusIndicator } from "$lib/features/lint";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
@@ -31,6 +32,10 @@
     has_frontmatter: boolean;
     show_frontmatter: boolean;
     on_frontmatter_toggle: () => void;
+    lint_is_running: boolean;
+    lint_error_count: number;
+    lint_warning_count: number;
+    on_lint_click: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -67,6 +72,10 @@
     has_frontmatter,
     show_frontmatter,
     on_frontmatter_toggle,
+    lint_is_running,
+    lint_error_count,
+    lint_warning_count,
+    on_lint_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -166,6 +175,15 @@
     {#if saved_label}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <span class="StatusBar__item StatusBar__item--saved">{saved_label}</span>
+    {/if}
+    {#if lint_is_running}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <LintStatusIndicator
+        error_count={lint_error_count}
+        warning_count={lint_warning_count}
+        is_running={lint_is_running}
+        on_click={on_lint_click}
+      />
     {/if}
   </div>
   <div class="StatusBar__section">

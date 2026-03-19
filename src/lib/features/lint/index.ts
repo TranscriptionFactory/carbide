@@ -17,3 +17,5 @@ export type {
   LintEvent,
   FileDiagnostics,
 } from "$lib/features/lint/types/lint";
+export { default as LintStatusIndicator } from "$lib/features/lint/ui/lint_status_indicator.svelte";
+export { default as ProblemsPanel } from "$lib/features/lint/ui/problems_panel.svelte";

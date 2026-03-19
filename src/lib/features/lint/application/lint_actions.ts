@@ -91,4 +91,30 @@ export function register_lint_actions(input: {
       ui_store.problems_panel_open = !ui_store.problems_panel_open;
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.lint_next_diagnostic,
+    label: "Next Diagnostic",
+    shortcut: "F8",
+    when: () =>
+      lint_store.is_running && lint_store.active_diagnostics.length > 0,
+    execute: () => {
+      if (!ui_store.problems_panel_open) {
+        ui_store.problems_panel_open = true;
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.lint_prev_diagnostic,
+    label: "Previous Diagnostic",
+    shortcut: "Shift+F8",
+    when: () =>
+      lint_store.is_running && lint_store.active_diagnostics.length > 0,
+    execute: () => {
+      if (!ui_store.problems_panel_open) {
+        ui_store.problems_panel_open = true;
+      }
+    },
+  });
 }
