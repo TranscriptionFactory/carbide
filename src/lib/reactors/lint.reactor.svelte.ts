@@ -1,8 +1,10 @@
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
-import type { LintStore } from "$lib/features/lint";
-import type { LintService } from "$lib/features/lint";
+import type { LintStore, LintService } from "$lib/features/lint";
+import { apply_lint_text_edits } from "$lib/features/lint";
 import type { UIStore } from "$lib/app";
+import type { NoteId } from "$lib/shared/types/ids";
+import { as_markdown_text } from "$lib/shared/types/ids";
 
 export function create_lint_reactor(
   vault_store: VaultStore,
@@ -93,6 +95,32 @@ export function create_lint_reactor(
           debounce_timer = null;
         }
       };
+    });
+
+    let was_dirty = false;
+
+    $effect(() => {
+      const open_note = editor_store.open_note;
+      const is_running = lint_store.is_running;
+      const format_on_save = ui_store.editor_settings.lint_format_on_save;
+      const is_dirty = open_note?.is_dirty ?? false;
+
+      const just_saved = was_dirty && !is_dirty;
+      was_dirty = is_dirty;
+
+      if (!just_saved || !is_running || !format_on_save || !open_note) return;
+
+      const path = open_note.meta.path;
+      const note_id = open_note.meta.id as NoteId;
+      const current = open_note.markdown ?? "";
+
+      void lint_service.format_file(path).then((edits) => {
+        if (edits.length === 0) return;
+        const formatted = apply_lint_text_edits(current, edits);
+        if (formatted === current) return;
+        editor_store.set_markdown(note_id, as_markdown_text(formatted));
+        editor_store.set_dirty(note_id, true);
+      });
     });
   });
 }
