@@ -44,24 +44,24 @@ const code_block_radius_map = {
 
 const table_cell_padding_map = {
   extra_compact: {
-    y: "calc(var(--editor-spacing) * 0.35)",
-    x: "calc(var(--editor-spacing) * 0.5)",
+    y: "calc(var(--editor-spacing) * 0.1)",
+    x: "calc(var(--editor-spacing) * 0.25)",
   },
   compact: {
-    y: "calc(var(--editor-spacing) * 0.5)",
-    x: "calc(var(--editor-spacing) * 0.65)",
+    y: "calc(var(--editor-spacing) * 0.2)",
+    x: "calc(var(--editor-spacing) * 0.4)",
   },
   normal: {
-    y: "calc(var(--editor-spacing) * 0.65)",
-    x: "calc(var(--editor-spacing) * 0.85)",
+    y: "calc(var(--editor-spacing) * 0.35)",
+    x: "calc(var(--editor-spacing) * 0.6)",
   },
   relaxed: {
-    y: "calc(var(--editor-spacing) * 0.85)",
-    x: "calc(var(--editor-spacing) * 1.05)",
+    y: "calc(var(--editor-spacing) * 0.55)",
+    x: "calc(var(--editor-spacing) * 0.8)",
   },
   spacious: {
-    y: "calc(var(--editor-spacing) * 1.05)",
-    x: "calc(var(--editor-spacing) * 1.25)",
+    y: "calc(var(--editor-spacing) * 0.75)",
+    x: "calc(var(--editor-spacing) * 1.0)",
   },
 } as const;
 
