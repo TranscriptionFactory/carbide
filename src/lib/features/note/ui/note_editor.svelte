@@ -39,20 +39,6 @@
     )?.key ?? null,
   );
 
-  const source_cursor_offset = $derived.by(() => {
-    const stored = stores.editor.cursor_offset;
-    const cursor = stores.editor.cursor;
-    if (!cursor || !open_note) return stored;
-    const text = open_note.markdown;
-    let offset = 0;
-    for (let i = 1; i < cursor.line; i++) {
-      const nl = text.indexOf("\n", offset);
-      if (nl === -1) break;
-      offset = nl + 1;
-    }
-    return Math.min(offset + cursor.column - 1, text.length);
-  });
-
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
     void action_registry.execute(ACTION_IDS.app_editor_mount, node, note);
 
@@ -89,7 +75,7 @@
       {#key open_note.meta.id}
         <SourceEditor
           initial_markdown={open_note.markdown}
-          initial_cursor_offset={source_cursor_offset}
+          initial_cursor_offset={stores.editor.cursor_offset}
           initial_scroll_fraction={stores.editor.scroll_fraction}
           show_line_numbers={stores.ui.editor_settings
             .source_editor_line_numbers}

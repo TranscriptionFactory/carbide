@@ -302,6 +302,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
     execute: () => {
       const editor_store = input.stores.editor;
       if (editor_store.editor_mode === "visual") {
+        const md_offset = services.editor.get_cursor_markdown_offset();
         const flush_result = services.editor.flush();
         if (flush_result) {
           const scroll_top = services.editor.get_scroll_top();
@@ -311,23 +312,18 @@ export function register_app_actions(input: ActionRegistrationInput) {
               ? Math.min(scroll_top / (markdown_len * 0.5), 1)
               : 0,
           );
-          const cursor = editor_store.cursor;
-          if (cursor) {
-            const md = flush_result.markdown;
-            let offset = 0;
-            let line = 1;
-            while (line < cursor.line && offset < md.length) {
-              if (md.charCodeAt(offset) === 10) line++;
-              offset++;
-            }
-            offset += Math.max(0, cursor.column - 1);
-            editor_store.set_cursor_offset(Math.min(offset, md.length));
-          }
+          editor_store.set_cursor_offset(
+            Math.min(md_offset, flush_result.markdown.length),
+          );
         }
       } else {
         const open_note = editor_store.open_note;
         if (open_note) {
+          const md_offset = editor_store.cursor_offset;
           services.editor.sync_visual_from_markdown(open_note.markdown);
+          if (md_offset > 0) {
+            services.editor.set_cursor_from_markdown_offset(md_offset);
+          }
         }
       }
       editor_store.toggle_editor_mode();

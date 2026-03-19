@@ -105,6 +105,10 @@ import {
   normalize_markdown_line_breaks,
   prepare_markdown_line_breaks_for_visual_editor,
 } from "$lib/features/editor/domain/markdown_line_breaks";
+import {
+  prose_cursor_to_md_offset,
+  md_offset_to_prose_pos,
+} from "$lib/features/editor/adapters/cursor_offset_mapper";
 import { count_words } from "$lib/shared/utils/count_words";
 import { create_logger } from "$lib/shared/utils/logger";
 import { ImageOff, LoaderCircle } from "lucide-static";
@@ -1089,6 +1093,30 @@ export function create_prosemirror_editor_port(args?: {
           const tr = s.tr.insert(0, fm_node);
           view.dispatch(tr.scrollIntoView());
           return true;
+        },
+        get_cursor_markdown_offset() {
+          if (!view) return 0;
+          const { from } = view.state.selection;
+          return prose_cursor_to_md_offset(
+            view.state.doc,
+            from,
+            current_markdown,
+          );
+        },
+        set_cursor_from_markdown_offset(offset: number) {
+          if (!view) return;
+          const pos = md_offset_to_prose_pos(
+            view.state.doc,
+            offset,
+            current_markdown,
+          );
+          const clamped = Math.min(pos, view.state.doc.content.size);
+          try {
+            const selection = TextSelection.create(view.state.doc, clamped);
+            view.dispatch(view.state.tr.setSelection(selection));
+          } catch (error: unknown) {
+            log.error("Failed to restore cursor position", { error });
+          }
         },
       };
 
