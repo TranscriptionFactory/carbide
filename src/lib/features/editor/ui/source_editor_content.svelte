@@ -46,6 +46,7 @@
 
   let editor_root: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined;
+  let view_mounted = $state(false);
   let last_applied_markdown: string | null = null;
   let store_timer: ReturnType<typeof setTimeout> | null = null;
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
@@ -102,7 +103,7 @@
   }
 
   $effect.pre(() => {
-    if (!view) return;
+    if (!view_mounted || !view) return;
     const store_markdown =
       stores.editor.open_note?.markdown ?? initial_markdown;
     const current_content = untrack(() => get_content());
@@ -132,7 +133,7 @@
   let prev_diagnostics: LintDiagnostic[] = [];
 
   $effect(() => {
-    if (!view) return;
+    if (!view_mounted || !view) return;
     const diagnostics = stores.lint.active_diagnostics;
     if (diagnostics === prev_diagnostics) return;
     prev_diagnostics = diagnostics;
@@ -266,6 +267,7 @@
         extensions,
         parent: editor_root,
       });
+      view_mounted = true;
 
       if (initial_cursor_offset > 0) {
         const clamped = Math.min(initial_cursor_offset, view.state.doc.length);
@@ -307,6 +309,7 @@
 
   onDestroy(() => {
     destroyed = true;
+    view_mounted = false;
     let cursor_offset = 0;
     let scroll_fraction = 0;
 
