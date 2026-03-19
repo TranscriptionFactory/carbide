@@ -46,6 +46,8 @@ export type EditorSession = {
   scroll_to_position?: (pos: number) => void;
   insert_frontmatter?: () => boolean;
   has_frontmatter?: () => boolean;
+  get_cursor_markdown_offset?: () => number;
+  set_cursor_from_markdown_offset?: (offset: number) => void;
 };
 
 export type EditorEventHandlers = {

@@ -291,6 +291,14 @@ export class EditorService {
     return this.session?.get_markdown() ?? "";
   }
 
+  get_cursor_markdown_offset(): number {
+    return this.session?.get_cursor_markdown_offset?.() ?? 0;
+  }
+
+  set_cursor_from_markdown_offset(offset: number) {
+    this.session?.set_cursor_from_markdown_offset?.(offset);
+  }
+
   scroll_to_position(pos: number) {
     this.session?.scroll_to_position?.(pos);
   }
