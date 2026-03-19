@@ -5,6 +5,7 @@ import type {
   SidebarView,
   StatusBarItem,
   RibbonIcon,
+  PluginSettingsTab,
   PluginEventType,
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
@@ -133,6 +134,15 @@ export class PluginService {
     this.store.unregister_ribbon_icon(id);
   }
 
+  // Settings tab registration
+  register_settings_tab(tab: PluginSettingsTab) {
+    this.store.register_settings_tab(tab);
+  }
+
+  unregister_settings_tab(plugin_id: string) {
+    this.store.unregister_settings_tab(plugin_id);
+  }
+
   // Lifecycle
   async discover() {
     const vault_path = this.vault_store.vault?.path;
@@ -196,6 +206,7 @@ export class PluginService {
       .map((r) => r.id)) {
       this.store.unregister_ribbon_icon(rid);
     }
+    this.store.unregister_settings_tab(id);
   }
 
   async enable_plugin(id: string) {

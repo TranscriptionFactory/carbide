@@ -32,12 +32,14 @@ function make_store(plugin_id = "plugin-a") {
   const status_bar_items: any[] = [];
   const sidebar_views: any[] = [];
   const ribbon_icons: any[] = [];
+  const settings_tabs: any[] = [];
   return {
     plugins,
     commands,
     status_bar_items,
     sidebar_views,
     ribbon_icons,
+    settings_tabs,
     register_command: vi.fn(),
     unregister_command: vi.fn(),
     register_status_bar_item: vi.fn(),
@@ -47,6 +49,8 @@ function make_store(plugin_id = "plugin-a") {
     unregister_sidebar_view: vi.fn(),
     register_ribbon_icon: vi.fn(),
     unregister_ribbon_icon: vi.fn(),
+    register_settings_tab: vi.fn(),
+    unregister_settings_tab: vi.fn(),
   };
 }
 

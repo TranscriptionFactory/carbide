@@ -1,5 +1,9 @@
 import type { AppContext } from "$lib/app/di/create_app_context";
-import type { PluginManifest, PluginEventType } from "../ports";
+import type {
+  PluginManifest,
+  PluginEventType,
+  PluginSettingsTab,
+} from "../ports";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import PluginStatusBarItem from "../ui/plugin_status_bar_item.svelte";
 import PluginSidebarPanel from "../ui/plugin_sidebar_panel.svelte";
@@ -301,7 +305,7 @@ export class PluginRpcHandler {
 
   private async handle_settings(
     plugin_id: string,
-    _manifest: PluginManifest,
+    manifest: PluginManifest,
     action: string,
     params: any[],
   ): Promise<any> {
@@ -321,6 +325,19 @@ export class PluginRpcHandler {
         return { success: true };
       case "get_all":
         return this.settings_service.get_all_settings(plugin_id);
+      case "register_tab": {
+        if (!manifest.permissions.includes("settings:register_tab")) {
+          throw new Error("Missing settings:register_tab permission");
+        }
+        const { label, icon } = params[0] ?? {};
+        const tab: PluginSettingsTab = {
+          plugin_id,
+          label: label ?? manifest.name,
+          icon,
+        };
+        this.context.services.plugin.register_settings_tab(tab);
+        return { success: true };
+      }
       default:
         throw new Error(`Unknown settings action: ${action}`);
     }

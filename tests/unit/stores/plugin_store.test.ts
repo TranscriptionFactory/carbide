@@ -76,4 +76,29 @@ describe("PluginStore", () => {
   it("should not fail when updating non-existent status bar item", () => {
     store.update_status_bar_item("nonexistent", { text: "noop" });
   });
+
+  it("should register and unregister settings tabs", () => {
+    const tab = { plugin_id: "my-plugin", label: "My Settings" };
+
+    store.register_settings_tab(tab);
+    expect(store.settings_tabs).toContainEqual(tab);
+
+    store.unregister_settings_tab("my-plugin");
+    expect(store.settings_tabs).not.toContainEqual(tab);
+  });
+
+  it("should key settings tabs by plugin_id (one tab per plugin)", () => {
+    store.register_settings_tab({ plugin_id: "p1", label: "First" });
+    store.register_settings_tab({ plugin_id: "p1", label: "Second" });
+
+    expect(store.settings_tabs).toHaveLength(1);
+    expect(store.settings_tabs[0]?.label).toBe("Second");
+  });
+
+  it("should clear settings tabs on reset", () => {
+    store.register_settings_tab({ plugin_id: "p1", label: "Tab" });
+
+    store.reset_registries();
+    expect(store.settings_tabs).toHaveLength(0);
+  });
 });

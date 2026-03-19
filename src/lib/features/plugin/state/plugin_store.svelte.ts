@@ -3,6 +3,7 @@ import type {
   StatusBarItem,
   SidebarView,
   RibbonIcon,
+  PluginSettingsTab,
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import { SvelteMap } from "svelte/reactivity";
@@ -20,6 +21,7 @@ export class PluginStore {
   private _status_bar_items = new SvelteMap<string, StatusBarItem>();
   private _sidebar_views = new SvelteMap<string, SidebarView>();
   private _ribbon_icons = new SvelteMap<string, RibbonIcon>();
+  private _settings_tabs = new SvelteMap<string, PluginSettingsTab>();
 
   get commands(): CommandDefinition[] {
     return Array.from(this._commands.values());
@@ -80,10 +82,23 @@ export class PluginStore {
     this._ribbon_icons.delete(id);
   }
 
+  get settings_tabs(): PluginSettingsTab[] {
+    return Array.from(this._settings_tabs.values());
+  }
+
+  register_settings_tab(tab: PluginSettingsTab) {
+    this._settings_tabs.set(tab.plugin_id, tab);
+  }
+
+  unregister_settings_tab(plugin_id: string) {
+    this._settings_tabs.delete(plugin_id);
+  }
+
   reset_registries() {
     this._commands.clear();
     this._status_bar_items.clear();
     this._sidebar_views.clear();
     this._ribbon_icons.clear();
+    this._settings_tabs.clear();
   }
 }

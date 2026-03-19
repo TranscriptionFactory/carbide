@@ -1,6 +1,7 @@
 pub mod service;
 pub mod settings;
 pub mod types;
+pub mod watcher;
 
 use std::path::Path;
 use tauri::{command, State};

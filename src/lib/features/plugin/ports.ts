@@ -123,6 +123,12 @@ export interface RibbonIcon {
   command: string;
 }
 
+export interface PluginSettingsTab {
+  plugin_id: string;
+  label: string;
+  icon?: string;
+}
+
 export type PluginEventType =
   | "file-created"
   | "file-modified"

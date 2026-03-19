@@ -25,6 +25,7 @@ function make_context() {
     unregister_status_bar_item: vi.fn(),
     register_sidebar_view: vi.fn(),
     unregister_sidebar_view: vi.fn(),
+    register_settings_tab: vi.fn(),
   };
 
   return {
@@ -271,6 +272,62 @@ describe("PluginRpcHandler", () => {
       });
 
       expect(response.error).toMatch(/Settings service not initialized/);
+    });
+
+    it("settings.register_tab registers a settings tab with given label", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest(["settings:register_tab"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s5",
+        method: "settings.register_tab",
+        params: [{ label: "My Settings" }],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(ctx.plugin.register_settings_tab).toHaveBeenCalledWith({
+        plugin_id: PLUGIN_ID,
+        label: "My Settings",
+        icon: undefined,
+      });
+    });
+
+    it("settings.register_tab falls back to manifest name when label not provided", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest(["settings:register_tab"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s6",
+        method: "settings.register_tab",
+        params: [{}],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(ctx.plugin.register_settings_tab).toHaveBeenCalledWith({
+        plugin_id: PLUGIN_ID,
+        label: manifest.name,
+        icon: undefined,
+      });
+    });
+
+    it("settings.register_tab throws without settings:register_tab permission", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as any);
+
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s7",
+        method: "settings.register_tab",
+        params: [{ label: "My Settings" }],
+      });
+
+      expect(response.error).toMatch(
+        /Missing settings:register_tab permission/,
+      );
+      expect(ctx.plugin.register_settings_tab).not.toHaveBeenCalled();
     });
   });
 

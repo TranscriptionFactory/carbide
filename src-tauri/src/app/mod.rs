@@ -71,6 +71,7 @@ pub fn run() {
         .manage(features::search::service::SearchDbState::default())
         .manage(features::search::embeddings::EmbeddingServiceState::default())
         .manage(features::plugin::service::PluginService::new())
+        .manage(features::plugin::watcher::PluginWatcherState::default())
         .manage(shared::buffer::BufferManager::new())
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
@@ -212,6 +213,8 @@ pub fn run() {
             features::plugin::plugin_write_settings,
             features::plugin::plugin_approve_permission,
             features::plugin::plugin_deny_permission,
+            features::plugin::watcher::watch_plugins,
+            features::plugin::watcher::unwatch_plugins,
             shared::buffer::open_buffer,
             shared::buffer::update_buffer,
             shared::buffer::save_buffer,
