@@ -7,6 +7,7 @@ import { MarkdownParser, MarkdownSerializer } from "prosemirror-markdown";
 import type { MarkdownSerializerState, ParseSpec } from "prosemirror-markdown";
 import type { Node as PmNode, Mark, Schema, NodeType } from "prosemirror-model";
 import { schema } from "./schema";
+import { details_markdown_it_plugin } from "./details_markdown_it_plugin";
 
 type ParseStateInternal = {
   openNode(
@@ -29,6 +30,7 @@ const md = new MarkdownIt({
   typographer: false,
 })
   .enable(["table", "strikethrough"])
+  .use(details_markdown_it_plugin)
   .use(texmathPlugin as PluginSimple)
   .use(
     frontmatterPlugin as PluginWithOptions<(fm: string) => void>,
@@ -99,6 +101,15 @@ const parser_tokens: Record<string, ParseSpec> = {
     },
     noCloseToken: true,
   },
+
+  details: {
+    block: "details_block",
+    getAttrs(token) {
+      return { open: token.attrGet("open") !== null };
+    },
+  },
+  details_summary: { block: "details_summary" },
+  details_content: { block: "details_content" },
 
   front_matter: { ignore: true, noCloseToken: true },
   table: { block: "table" },
@@ -320,6 +331,19 @@ const serializer = new MarkdownSerializer(
       }
       state.renderContent(node);
     },
+    details_block(state, node) {
+      const open_attr = node.attrs["open"] ? " open" : "";
+      state.write(`<details${open_attr}>\n`);
+      state.write("<summary>");
+      state.renderInline(node.child(0));
+      state.write("</summary>\n");
+      state.write("\n");
+      state.renderContent(node.child(1));
+      state.write("</details>");
+      state.closeBlock(node);
+    },
+    details_summary() {},
+    details_content() {},
     excalidraw_embed(state, node) {
       state.write(`![[${node.attrs["src"] as string}]]`);
       state.closeBlock(node);

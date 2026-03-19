@@ -538,6 +538,42 @@
   color: var(--interactive);
 }
 
+/* ── Code fence language autocomplete ── */
+
+.CodeFenceLangPicker {
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: calc(var(--radius) * 0.5);
+  border: 1px solid var(--border);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1) 0;
+}
+
+.CodeFenceLangPicker__item {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.CodeFenceLangPicker__item:hover {
+  background: var(--muted);
+}
+
+.CodeFenceLangPicker__item--selected {
+  background: var(--interactive-bg);
+  color: var(--interactive);
+}
+
 /* ── Mermaid preview ── */
 
 .mermaid-preview {
@@ -766,6 +802,84 @@
 .excalidraw-embed-label {
   font-size: 0.875rem;
   color: var(--foreground);
+}
+
+/* ============================================
+   COLLAPSIBLE SECTIONS (details/summary)
+   ============================================ */
+
+.details-block {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-top: calc(var(--editor-spacing) * 0.5);
+  margin-bottom: calc(var(--editor-spacing) * 0.75);
+  border-left: 2px solid var(--border);
+  border-radius: 0 0 0 2px;
+}
+
+.details-block__toggle {
+  position: absolute;
+  left: 0.125rem;
+  top: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--radius) * 0.35);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
+  transform: rotate(90deg);
+}
+
+.details-block__toggle:hover {
+  background: color-mix(in oklch, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+
+.details-block__toggle svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.details-block[data-open="false"] .details-block__toggle {
+  transform: rotate(0deg);
+}
+
+.details-block summary {
+  font-weight: 500;
+  color: var(--editor-heading-color);
+  cursor: text;
+  display: block;
+  list-style: none;
+  line-height: 1.6;
+}
+
+.details-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-block[data-open="false"] [data-details-content] {
+  display: none;
+}
+
+.details-block [data-details-content] {
+  margin-top: calc(var(--editor-spacing) * 0.25);
+}
+
+.details-block [data-details-content] > :first-child {
+  margin-top: 0;
+}
+
+.details-block [data-details-content] > :last-child {
+  margin-bottom: 0;
 }
 
 /* ============================================

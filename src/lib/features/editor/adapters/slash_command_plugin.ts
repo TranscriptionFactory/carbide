@@ -261,6 +261,31 @@ function make_divider_insert() {
   };
 }
 
+function make_collapsible_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const details = state.schema.nodes["details_block"];
+    const summary = state.schema.nodes["details_summary"];
+    const content = state.schema.nodes["details_content"];
+    const para = state.schema.nodes["paragraph"];
+    if (!details || !summary || !content || !para) return;
+
+    const $pos = state.doc.resolve(from);
+    const start = $pos.before();
+
+    const tr = state.tr.replaceWith(start, $pos.after(), [
+      details.create({ open: true }, [
+        summary.create(null, state.schema.text("Details")),
+        content.create(null, para.create()),
+      ]),
+      para.create(),
+    ]);
+    const sel = TextSelection.findFrom(tr.doc.resolve(start + 1), 1);
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 function make_frontmatter_insert() {
   return (view: EditorView, from: number) => {
     const { state } = view;
@@ -399,6 +424,21 @@ export function create_commands(): SlashCommand[] {
       icon: "∑",
       keywords: ["math", "latex", "equation", "formula", "block", "katex"],
       insert: make_math_block_insert(),
+    },
+    {
+      id: "collapsible",
+      label: "Collapsible Section",
+      description: "Foldable details/summary block",
+      icon: "▸",
+      keywords: [
+        "collapse",
+        "fold",
+        "details",
+        "summary",
+        "toggle",
+        "accordion",
+      ],
+      insert: make_collapsible_insert(),
     },
     {
       id: "frontmatter",
