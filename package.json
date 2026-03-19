@@ -26,8 +26,7 @@
     "test:watch": "vitest",
     "sidecar": "bash scripts/download_rumdl.sh",
     "tauri": "tauri",
-    "version": "changeset version && node scripts/sync-versions.mjs && pnpm install",
-    "postversion": "git push --follow-tags"
+    "version": "changeset version && node scripts/sync-versions.mjs && pnpm install"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
