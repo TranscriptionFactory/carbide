@@ -205,8 +205,8 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
             }
             NodeValue::Text(ref text) => {
                 let in_heading = node
-                    .ancestors()
-                    .any(|a| matches!(a.data.borrow().value, NodeValue::Heading(_)));
+                    .parent()
+                    .is_some_and(|p| matches!(p.data.borrow().value, NodeValue::Heading(_)));
                 if !in_heading {
                     let line = data.sourcepos.start.line + fm_line_offset;
                     for cap in INLINE_TAG_RE.captures_iter(text) {
@@ -237,9 +237,12 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
 
     let tasks = tasks_service::extract_tasks(source_path, body);
 
-    let all_lines: Vec<&str> = markdown.lines().collect();
-    let total_lines = all_lines.len();
-    let sections = compute_sections(&headings, total_lines, &all_lines);
+    let sections = if headings.is_empty() {
+        Vec::new()
+    } else {
+        let all_lines: Vec<&str> = markdown.lines().collect();
+        compute_sections(&headings, all_lines.len(), &all_lines)
+    };
 
     ParsedNote {
         frontmatter: fm,

@@ -391,22 +391,12 @@ fn is_iso_date(s: &str) -> bool {
     }
 }
 
-fn flatten_yaml_value<'a>(
+fn flatten_yaml_value(
     prefix: &str,
-    value: &'a serde_yml::Value,
-    out: &mut Vec<(String, String, &'a str)>,
+    value: &serde_yml::Value,
+    out: &mut Vec<(String, String, &'static str)>,
 ) {
     match value {
-        serde_yml::Value::String(s) => {
-            let t = if is_iso_date(s) { "date" } else { "string" };
-            out.push((prefix.to_string(), s.clone(), t));
-        }
-        serde_yml::Value::Number(n) => {
-            out.push((prefix.to_string(), n.to_string(), "number"));
-        }
-        serde_yml::Value::Bool(b) => {
-            out.push((prefix.to_string(), b.to_string(), "boolean"));
-        }
         serde_yml::Value::Sequence(seq) => {
             for item in seq {
                 let (val_str, val_type) = scalar_to_string(item);
@@ -422,17 +412,14 @@ fn flatten_yaml_value<'a>(
             }
         }
         serde_yml::Value::Null => {}
-        _ => {
-            out.push((
-                prefix.to_string(),
-                serde_json::to_string(value).unwrap_or_default(),
-                "json",
-            ));
+        scalar => {
+            let (val_str, val_type) = scalar_to_string(scalar);
+            out.push((prefix.to_string(), val_str, val_type));
         }
     }
 }
 
-fn scalar_to_string(value: &serde_yml::Value) -> (String, &str) {
+fn scalar_to_string(value: &serde_yml::Value) -> (String, &'static str) {
     match value {
         serde_yml::Value::String(s) => {
             let t = if is_iso_date(s) { "date" } else { "string" };
@@ -494,7 +481,7 @@ pub(crate) fn upsert_note_parsed_inner(
     )
     .map_err(|e| e.to_string())?;
 
-    let mut flat_props: Vec<(String, String, &str)> = Vec::new();
+    let mut flat_props: Vec<(String, String, &'static str)> = Vec::new();
     for (key, value) in &parsed.frontmatter.properties {
         flatten_yaml_value(key, value, &mut flat_props);
     }
@@ -675,9 +662,15 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
         .map_err(|e| e.to_string())?;
     let result = conn
         .execute(
-            "DELETE FROM notes_fts WHERE path LIKE ?1 ESCAPE '\\'",
+            "DELETE FROM notes WHERE path LIKE ?1 ESCAPE '\\'",
             params![like_pattern],
         )
+        .and_then(|_| {
+            conn.execute(
+                "DELETE FROM notes_fts WHERE path LIKE ?1 ESCAPE '\\'",
+                params![like_pattern],
+            )
+        })
         .and_then(|_| {
             conn.execute(
                 "DELETE FROM outlinks WHERE source_path LIKE ?1 ESCAPE '\\'",

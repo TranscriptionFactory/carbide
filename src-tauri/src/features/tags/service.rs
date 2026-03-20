@@ -41,7 +41,7 @@ pub fn tags_list_all(app: AppHandle, vault_id: String) -> Result<Vec<TagInfo>, S
     with_read_conn(&app, &vault_id, |conn| {
         let mut stmt = conn
             .prepare(
-                "SELECT tag, COUNT(*) as cnt FROM note_inline_tags GROUP BY tag ORDER BY cnt DESC, tag ASC",
+                "SELECT tag, COUNT(DISTINCT path) as cnt FROM note_inline_tags GROUP BY tag ORDER BY cnt DESC, tag ASC",
             )
             .map_err(|e| e.to_string())?;
         let rows = stmt
@@ -67,9 +67,9 @@ pub fn tags_list_all_unified(
         let mut stmt = conn
             .prepare(
                 "SELECT tag,
-                        SUM(CASE WHEN source = 'frontmatter' THEN 1 ELSE 0 END) as fm,
-                        SUM(CASE WHEN source = 'inline' THEN 1 ELSE 0 END) as inl,
-                        COUNT(*) as total
+                        COUNT(DISTINCT CASE WHEN source = 'frontmatter' THEN path END) as fm,
+                        COUNT(DISTINCT CASE WHEN source = 'inline' THEN path END) as inl,
+                        COUNT(DISTINCT path) as total
                  FROM note_inline_tags
                  GROUP BY tag
                  ORDER BY total DESC, tag ASC",
