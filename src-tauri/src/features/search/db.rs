@@ -2498,6 +2498,135 @@ mod tests {
             .expect("priority");
         assert_eq!(priority.2, 1);
     }
+
+    #[test]
+    fn upsert_writes_inline_tags() {
+        let conn = open_mem_db();
+        let meta = note("tags/test.md", "Test");
+        let body =
+            "---\ntags: [rust]\n---\n# Heading\n\nSome #inline text with #project/carbide tag.";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT tag, source, line FROM note_inline_tags WHERE path = ?1 ORDER BY tag, source",
+            )
+            .expect("prepare");
+        let rows: Vec<(String, String, i64)> = stmt
+            .query_map(params!["tags/test.md"], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        let fm_tags: Vec<_> = rows.iter().filter(|(_, s, _)| s == "frontmatter").collect();
+        assert_eq!(fm_tags.len(), 1);
+        assert_eq!(fm_tags[0].0, "rust");
+        assert_eq!(fm_tags[0].2, 0);
+
+        let inline_tags: Vec<_> = rows.iter().filter(|(_, s, _)| s == "inline").collect();
+        assert_eq!(inline_tags.len(), 2);
+        assert!(inline_tags.iter().any(|(t, _, _)| t == "inline"));
+        assert!(inline_tags.iter().any(|(t, _, _)| t == "project/carbide"));
+    }
+
+    #[test]
+    fn upsert_writes_sections() {
+        let conn = open_mem_db();
+        let meta = note("sec/test.md", "Test");
+        let body = "# Introduction\n\nSome intro text.\n\n## Details\n\nMore details here.";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT heading_id, level, title, start_line, end_line FROM note_sections WHERE path = ?1 ORDER BY start_line",
+            )
+            .expect("prepare");
+        let rows: Vec<(String, i64, String, i64, i64)> = stmt
+            .query_map(params!["sec/test.md"], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].2, "Introduction");
+        assert_eq!(rows[0].1, 1);
+        assert!(rows[0].3 < rows[1].3);
+        assert_eq!(rows[1].2, "Details");
+        assert_eq!(rows[1].1, 2);
+    }
+
+    #[test]
+    fn upsert_writes_code_blocks() {
+        let conn = open_mem_db();
+        let meta = note("code/test.md", "Test");
+        let body = "# Code\n\n```rust\nfn main() {}\n```\n\n```python\nprint('hi')\n```";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT language, length FROM note_code_blocks WHERE path = ?1 ORDER BY line")
+            .expect("prepare");
+        let rows: Vec<(Option<String>, i64)> = stmt
+            .query_map(params!["code/test.md"], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].0.as_deref(), Some("rust"));
+        assert_eq!(rows[1].0.as_deref(), Some("python"));
+    }
+
+    #[test]
+    fn nested_property_flattening() {
+        let conn = open_mem_db();
+        let meta = note("flat/nested.md", "Nested");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\nproject:\n  name: Carbide\n  status: active\n---\nbody",
+        )
+        .expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT key, value FROM note_properties WHERE path = ?1 ORDER BY key")
+            .expect("prepare");
+        let rows: Vec<(String, String)> = stmt
+            .query_map(params!["flat/nested.md"], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert!(rows
+            .iter()
+            .any(|(k, v)| k == "project.name" && v == "Carbide"));
+        assert!(rows
+            .iter()
+            .any(|(k, v)| k == "project.status" && v == "active"));
+    }
+
+    #[test]
+    fn remove_note_cleans_all_new_tables() {
+        let conn = open_mem_db();
+        let meta = note("rm/test.md", "Test");
+        let body =
+            "---\ntags: [a]\nstatus: draft\n---\n# Heading\n\n#inline tag\n\n```rust\ncode\n```";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        assert!(count_rows(&conn, "note_inline_tags", "rm/test.md") > 0);
+        assert!(count_rows(&conn, "note_sections", "rm/test.md") > 0);
+        assert!(count_rows(&conn, "note_code_blocks", "rm/test.md") > 0);
+
+        remove_note(&conn, "rm/test.md").expect("remove");
+
+        assert_eq!(count_rows(&conn, "note_inline_tags", "rm/test.md"), 0);
+        assert_eq!(count_rows(&conn, "note_sections", "rm/test.md"), 0);
+        assert_eq!(count_rows(&conn, "note_code_blocks", "rm/test.md"), 0);
+        assert_eq!(count_rows(&conn, "note_properties", "rm/test.md"), 0);
+    }
 }
 
 pub fn get_orphan_outlinks(conn: &Connection, path: &str) -> Result<Vec<OrphanLink>, String> {

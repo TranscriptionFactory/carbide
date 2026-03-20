@@ -567,6 +567,11 @@ fn run_index_op(
 
     match result {
         Ok(res) => {
+            if res.indexed > 0 {
+                if let Err(e) = search_db::rebuild_property_registry(conn) {
+                    log::warn!("{label}: property registry rebuild failed: {e}");
+                }
+            }
             let elapsed_ms = start.elapsed().as_millis() as u64;
             let _ = app_handle.emit(
                 "index_progress",
