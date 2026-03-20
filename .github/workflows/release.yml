@@ -29,8 +29,46 @@ jobs:
           pnpm tauri signer sign "$tmp_file" >/dev/null
           rm -f "$tmp_file" "$tmp_file.sig"
 
+  generate-bindings:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: ${{ github.event_name == 'push' }}
+
+      - run: pnpm install
+
+      - name: Generate TypeScript bindings
+        run: pnpm codegen
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts-bindings
+          path: src/lib/generated/bindings.ts
+
   release:
-    needs: signing_preflight
+    needs: [signing_preflight, generate-bindings]
     permissions:
       contents: write
     strategy:
@@ -86,6 +124,12 @@ jobs:
             *x86_64-apple-darwin*)  TARGET="x86_64-apple-darwin" ;;
           esac
           pnpm sidecar $TARGET
+
+      - name: Download TypeScript bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: ts-bindings
+          path: src/lib/generated
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
