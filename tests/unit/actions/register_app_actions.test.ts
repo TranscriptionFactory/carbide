@@ -84,6 +84,7 @@ function create_harness(options: HarnessOptions = {}) {
         status: "ready",
         has_vault: false,
         editor_settings: null,
+        root_total_count: 0,
       }),
       resolve_file_to_vault: vi.fn().mockResolvedValue(null),
       change_vault_by_path: vi.fn().mockResolvedValue({ status: "ok" }),
@@ -198,13 +199,14 @@ describe("register_app_actions", () => {
           ...stores.ui.editor_settings,
           show_vault_dashboard_on_open: true,
         },
+        root_total_count: 0,
       };
     });
 
     await registry.execute(ACTION_IDS.app_mounted);
 
     expect(stores.ui.startup).toEqual({ status: "idle", error: null });
-    expect(execute_folder_refresh_tree).toHaveBeenCalledTimes(1);
+    expect(execute_folder_refresh_tree).not.toHaveBeenCalled();
     expect(execute_git_check_repo).toHaveBeenCalledTimes(1);
     expect(execute_open_vault_dashboard).toHaveBeenCalledTimes(1);
     expect(services.hotkey.merge_config).toHaveBeenCalledWith(
@@ -230,12 +232,13 @@ describe("register_app_actions", () => {
         status: "ready" as const,
         has_vault: true,
         editor_settings: { ...stores.ui.editor_settings },
+        root_total_count: 0,
       };
     });
 
     await registry.execute(ACTION_IDS.app_mounted);
 
-    expect(workspace_reconcile).toHaveBeenCalledWith({ refresh_tree: true });
+    expect(workspace_reconcile).not.toHaveBeenCalled();
     expect(execute_folder_refresh_tree).not.toHaveBeenCalled();
   });
 

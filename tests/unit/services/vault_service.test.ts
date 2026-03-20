@@ -90,6 +90,7 @@ describe("VaultService", () => {
       rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     };
 
     const settings_port = {
@@ -185,6 +186,7 @@ describe("VaultService", () => {
       rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     };
 
     const settings_port = {
@@ -260,6 +262,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue(null),
@@ -307,6 +310,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -391,6 +395,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -474,6 +479,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue([vault_b.id]),
@@ -555,6 +561,7 @@ describe("VaultService", () => {
       rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     };
 
     const settings_port = {
@@ -617,6 +624,7 @@ describe("VaultService", () => {
       rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     };
 
     const service = new VaultService(
@@ -680,6 +688,7 @@ describe("VaultService", () => {
       rename_note_path: vi.fn(),
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     };
 
     const service = new VaultService(
@@ -755,6 +764,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -823,6 +833,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -898,6 +909,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -964,6 +976,7 @@ describe("VaultService", () => {
         rename_note_path: vi.fn(),
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+        subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
