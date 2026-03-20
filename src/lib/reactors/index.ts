@@ -32,6 +32,7 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
+import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -246,6 +247,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.editor_service,
     ),
+    create_update_check_reactor(),
   ];
 
   return () => {

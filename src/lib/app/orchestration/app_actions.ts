@@ -238,29 +238,68 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
   set_startup_idle(input);
 }
 
+async function check_for_update_silently() {
+  if (!is_tauri) return null;
+  try {
+    const { check } = await import("@tauri-apps/plugin-updater");
+    return await check();
+  } catch {
+    return null;
+  }
+}
+
+async function download_and_install(
+  update: NonNullable<Awaited<ReturnType<typeof check_for_update_silently>>>,
+) {
+  const loading_id = toast.loading(`Downloading update v${update.version}...`);
+  try {
+    await update.downloadAndInstall();
+    toast.dismiss(loading_id);
+    toast.success("Update installed — restart Badgerly to apply");
+  } catch (error) {
+    toast.dismiss(loading_id);
+    toast.error("Update failed");
+    log.error("Update download failed", { error: String(error) });
+  }
+}
+
+export async function run_auto_update_check(
+  is_version_skipped: (version: string) => boolean,
+  skip_version: (version: string) => void,
+) {
+  const update = await check_for_update_silently();
+  if (!update) return;
+  if (is_version_skipped(update.version)) return;
+
+  toast.info(`Badgerly v${update.version} is available`, {
+    duration: 30_000,
+    action: {
+      label: "Update",
+      onClick: () => void download_and_install(update),
+    },
+    cancel: {
+      label: "Skip",
+      onClick: () => skip_version(update.version),
+    },
+  });
+}
+
 async function execute_app_check_for_updates() {
   if (!is_tauri) {
     toast.info("Updates are only available in the desktop app");
     return;
   }
 
-  const { check } = await import("@tauri-apps/plugin-updater");
   const loading_toast_id = toast.loading("Checking for updates...");
 
   try {
-    const update = await check();
+    const update = await check_for_update_silently();
     toast.dismiss(loading_toast_id);
     if (!update) {
       toast.success("Badgerly is up to date");
       return;
     }
-
-    toast.loading(`Downloading update v${update.version}...`, {
-      id: loading_toast_id,
-    });
-    await update.downloadAndInstall();
-    toast.dismiss(loading_toast_id);
-    toast.success("Update installed — restart Badgerly to apply");
+    await download_and_install(update);
   } catch (error) {
     toast.dismiss(loading_toast_id);
     toast.error("Failed to check for updates");
