@@ -373,19 +373,48 @@ export function create_wiki_suggest_prose_plugin(
           return true;
         }
 
-        if (event.key === "Tab") {
+        if (event.key === "Tab" && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
-          const direction = event.shiftKey ? -1 : 1;
-          const count = state.items.length;
-          const next = (state.selected_index + direction + count) % count;
-          view.dispatch(
-            view.state.tr.setMeta(wiki_suggest_plugin_key, {
-              ...state,
-              selected_index: next,
-            }),
+
+          if (state.items.length === 1) {
+            accept(view, 0);
+            return true;
+          }
+
+          const paths = state.items.map((item) =>
+            format_wiki_display(item.path).toLowerCase(),
           );
-          sync_dropdown(view, { ...state, selected_index: next });
+          const query_lower = state.query.toLowerCase();
+          let prefix = paths[0] ?? "";
+          for (let i = 1; i < paths.length; i++) {
+            const p = paths[i] ?? "";
+            let j = 0;
+            while (j < prefix.length && j < p.length && prefix[j] === p[j]) j++;
+            prefix = prefix.slice(0, j);
+          }
+
+          if (prefix.length > query_lower.length) {
+            const original_paths = state.items.map((item) =>
+              format_wiki_display(item.path),
+            );
+            const completion = (original_paths[0] ?? "").slice(
+              0,
+              prefix.length,
+            );
+            const insert_from = state.from + 2;
+            const insert_to = view.state.selection.from;
+            const tr = view.state.tr.replaceWith(
+              insert_from,
+              insert_to,
+              view.state.schema.text(completion),
+            );
+            tr.setSelection(
+              TextSelection.create(tr.doc, insert_from + completion.length),
+            );
+            view.dispatch(tr);
+          }
+
           return true;
         }
 

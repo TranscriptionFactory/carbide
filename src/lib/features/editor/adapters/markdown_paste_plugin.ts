@@ -34,8 +34,16 @@ export function create_markdown_paste_prose_plugin(
           return false;
         }
 
+        const is_single_textblock =
+          doc.content.childCount === 1 &&
+          doc.content.firstChild !== null &&
+          doc.content.firstChild.isTextblock;
+        const open_depth = is_single_textblock ? 1 : 0;
+
         view.dispatch(
-          view.state.tr.replaceSelection(new Slice(doc.content, 0, 0)),
+          view.state.tr.replaceSelection(
+            new Slice(doc.content, open_depth, open_depth),
+          ),
         );
         return true;
       },

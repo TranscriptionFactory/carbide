@@ -358,19 +358,21 @@ export function create_image_suggest_prose_plugin(
           return true;
         }
 
-        if (event.key === "Tab") {
+        if (event.key === "Tab" && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
-          const direction = event.shiftKey ? -1 : 1;
-          const count = state.items.length;
-          const next = (state.selected_index + direction + count) % count;
-          view.dispatch(
-            view.state.tr.setMeta(image_suggest_plugin_key, {
-              ...state,
-              selected_index: next,
-            }),
-          );
-          sync_dropdown(view, { ...state, selected_index: next });
+          if (state.items.length === 1) {
+            accept(view, 0);
+          } else {
+            const next = (state.selected_index + 1) % state.items.length;
+            view.dispatch(
+              view.state.tr.setMeta(image_suggest_plugin_key, {
+                ...state,
+                selected_index: next,
+              }),
+            );
+            sync_dropdown(view, { ...state, selected_index: next });
+          }
           return true;
         }
 
