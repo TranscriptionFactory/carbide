@@ -156,6 +156,7 @@ export function create_wiki_link_converter_prose_plugin(input: {
 
             const start = match.index;
             const end = start + full_match.length;
+            if (start > 0 && combined[start - 1] === "!") continue;
             if (contains_protected_mark(segments, start, end)) continue;
             matches.push({
               full_match,
@@ -207,6 +208,8 @@ export function create_wiki_link_converter_prose_plugin(input: {
         const match_start_index = window_start + match.index;
         const match_end_index = match_start_index + full_match.length;
         if (anchor < match_end_index) return;
+        if (match_start_index > 0 && combined[match_start_index - 1] === "!")
+          return;
         if (
           contains_protected_mark(segments, match_start_index, match_end_index)
         )
