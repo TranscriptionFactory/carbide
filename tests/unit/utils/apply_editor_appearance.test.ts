@@ -167,17 +167,17 @@ describe("apply_editor_appearance", () => {
     );
   });
 
-  it("applies gradient divider style by default", () => {
+  it("applies gradient divider style", () => {
     apply_editor_appearance({
       ...DEFAULT_EDITOR_SETTINGS,
       editor_divider_style: "gradient",
     });
 
-    expect(properties.get("--editor-hr-background")).toBe("none");
-    expect(properties.get("--editor-hr-border-top")).toBe(
-      "var(--editor-hr-thickness, 1px) solid var(--editor-hr-gradient-mid)",
+    expect(properties.get("--editor-hr-background")).toBe(
+      "linear-gradient(90deg, var(--editor-hr-gradient-start), var(--editor-hr-gradient-mid) 50%, var(--editor-hr-gradient-end))",
     );
-    expect(properties.get("--editor-hr-opacity")).toBe("0.7");
+    expect(properties.get("--editor-hr-border-top")).toBe("none");
+    expect(properties.get("--editor-hr-opacity")).toBe("0.5");
   });
 
   it("applies divider thickness", () => {
