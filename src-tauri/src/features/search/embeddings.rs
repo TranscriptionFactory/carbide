@@ -1,34 +1,146 @@
-use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
+use candle_core::{Device, Tensor};
+use candle_nn::VarBuilder;
+use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
+
+const MODEL_ID: &str = "BAAI/bge-small-en-v1.5";
 
 pub struct EmbeddingService {
-    model: TextEmbedding,
+    model: BertModel,
+    tokenizer: Tokenizer,
+    device: Device,
 }
 
 impl EmbeddingService {
     pub fn new(cache_dir: PathBuf) -> Result<Self, String> {
-        let options = InitOptions::new(EmbeddingModel::BGESmallENV15)
+        let device = Device::Cpu;
+
+        let api = ApiBuilder::new()
             .with_cache_dir(cache_dir)
-            .with_show_download_progress(false);
-        let model = TextEmbedding::try_new(options).map_err(|e| e.to_string())?;
-        Ok(Self { model })
+            .with_progress(false)
+            .build()
+            .map_err(|e| format!("HF API init failed: {e}"))?;
+        let repo = api.model(MODEL_ID.to_string());
+
+        let config_path = repo
+            .get("config.json")
+            .map_err(|e| format!("config download: {e}"))?;
+        let weights_path = repo
+            .get("model.safetensors")
+            .map_err(|e| format!("weights download: {e}"))?;
+        let tokenizer_path = repo
+            .get("tokenizer.json")
+            .map_err(|e| format!("tokenizer download: {e}"))?;
+
+        let config: Config = serde_json::from_str(
+            &std::fs::read_to_string(&config_path).map_err(|e| format!("read config: {e}"))?,
+        )
+        .map_err(|e| format!("parse config: {e}"))?;
+
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&[weights_path], DTYPE, &device)
+                .map_err(|e| format!("load weights: {e}"))?
+        };
+
+        let model = BertModel::load(vb, &config).map_err(|e| format!("load model: {e}"))?;
+
+        let tokenizer =
+            Tokenizer::from_file(&tokenizer_path).map_err(|e| format!("load tokenizer: {e}"))?;
+
+        Ok(Self {
+            model,
+            tokenizer,
+            device,
+        })
     }
 
     pub fn embed_one(&self, text: &str) -> Result<Vec<f32>, String> {
-        let mut results = self
-            .model
-            .embed(vec![text], None)
-            .map_err(|e| e.to_string())?;
+        let mut results = self.embed_batch(&[text])?;
         results
             .pop()
-            .ok_or_else(|| "embedding returned no results".to_string())
+            .ok_or_else(|| "no embedding result".to_string())
     }
 
     pub fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-        self.model
-            .embed(texts.to_vec(), Some(50))
-            .map_err(|e| e.to_string())
+        if texts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut tokenizer = self.tokenizer.clone();
+        tokenizer
+            .with_padding(Some(PaddingParams {
+                strategy: PaddingStrategy::BatchLongest,
+                ..Default::default()
+            }))
+            .with_truncation(None)
+            .map_err(|e| format!("tokenizer config: {e}"))?;
+
+        let encodings = tokenizer
+            .encode_batch(texts.to_vec(), true)
+            .map_err(|e| format!("tokenize: {e}"))?;
+
+        let token_ids: Vec<Vec<u32>> = encodings.iter().map(|e| e.get_ids().to_vec()).collect();
+        let attention_masks: Vec<Vec<u32>> = encodings
+            .iter()
+            .map(|e| e.get_attention_mask().to_vec())
+            .collect();
+        let type_ids: Vec<Vec<u32>> = encodings
+            .iter()
+            .map(|e| e.get_type_ids().to_vec())
+            .collect();
+
+        let batch_size = texts.len();
+
+        let token_ids = Tensor::new(token_ids, &self.device).map_err(|e| e.to_string())?;
+        let attention_mask =
+            Tensor::new(attention_masks, &self.device).map_err(|e| e.to_string())?;
+        let type_ids = Tensor::new(type_ids, &self.device).map_err(|e| e.to_string())?;
+
+        let hidden = self
+            .model
+            .forward(&token_ids, &type_ids, Some(&attention_mask))
+            .map_err(|e| format!("forward: {e}"))?;
+
+        // Mean pooling: mask-weighted average over sequence dimension
+        let mask_f = attention_mask
+            .to_dtype(DTYPE)
+            .map_err(|e| e.to_string())?
+            .unsqueeze(2)
+            .map_err(|e| e.to_string())?;
+
+        let sum_mask = mask_f.sum(1).map_err(|e| e.to_string())?;
+        let pooled = hidden
+            .broadcast_mul(&mask_f)
+            .map_err(|e| e.to_string())?
+            .sum(1)
+            .map_err(|e| e.to_string())?
+            .broadcast_div(&sum_mask)
+            .map_err(|e| e.to_string())?;
+
+        // L2 normalize
+        let norm = pooled
+            .sqr()
+            .map_err(|e| e.to_string())?
+            .sum_keepdim(1)
+            .map_err(|e| e.to_string())?
+            .sqrt()
+            .map_err(|e| e.to_string())?;
+        let normalized = pooled.broadcast_div(&norm).map_err(|e| e.to_string())?;
+
+        let vecs: Vec<Vec<f32>> = (0..batch_size)
+            .map(|i| {
+                normalized
+                    .get(i)
+                    .map_err(|e| e.to_string())?
+                    .to_vec1::<f32>()
+                    .map_err(|e| e.to_string())
+            })
+            .collect::<Result<_, _>>()?;
+
+        Ok(vecs)
     }
 }
 

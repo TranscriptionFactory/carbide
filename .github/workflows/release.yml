@@ -77,7 +77,14 @@ jobs:
 
       - run: pnpm install
 
-      - run: pnpm sidecar
+      - name: Download sidecar binary
+        run: |
+          TARGET=""
+          case "${{ matrix.args }}" in
+            *aarch64-apple-darwin*) TARGET="aarch64-apple-darwin" ;;
+            *x86_64-apple-darwin*)  TARGET="x86_64-apple-darwin" ;;
+          esac
+          pnpm sidecar $TARGET
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
