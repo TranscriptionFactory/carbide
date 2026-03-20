@@ -16,7 +16,7 @@ export class EditorStore {
   cursor_offset = $state(0);
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
-  show_frontmatter = $state(true);
+  show_frontmatter = $state(false);
 
   set_open_note(open_note: OpenNoteState) {
     this.open_note = open_note;
@@ -162,6 +162,6 @@ export class EditorStore {
     this.cursor_offset = 0;
     this.scroll_fraction = 0;
     this.selection = null;
-    this.show_frontmatter = true;
+    this.show_frontmatter = false;
   }
 }
