@@ -3124,8 +3124,8 @@
 
 <style>
   :global(.SettingsDialog) {
-    max-width: 52rem;
-    width: 52rem;
+    max-width: 60rem;
+    width: 55rem;
     height: 80vh;
     max-height: 80vh;
     display: flex;

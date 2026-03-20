@@ -51,7 +51,7 @@
   const COLLAPSE_THRESHOLD = 5;
 
   const initial_expanded = $derived(
-    Object.keys(theme.token_overrides).length <= COLLAPSE_THRESHOLD,
+    Object.keys(theme.token_overrides).length > 0,
   );
   let token_overrides_user_toggled: boolean | null = $state(null);
   const token_overrides_expanded = $derived(

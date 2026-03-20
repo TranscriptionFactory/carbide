@@ -39,7 +39,13 @@
 
   let new_theme_name = $state("");
   let show_create = $state(false);
-  let show_advanced = $state(false);
+  let show_advanced_user: boolean | null = $state(null);
+  const has_overrides = $derived(
+    Object.keys(active_theme.token_overrides).length > 0,
+  );
+  const show_advanced = $derived(
+    show_advanced_user !== null ? show_advanced_user : has_overrides,
+  );
 
   let popover_role = $state<string | null>(null);
   let popover_anchor = $state<HTMLElement | null>(null);
@@ -386,7 +392,7 @@
         type="button"
         class="ThemeSettings__advanced-toggle"
         onclick={() => {
-          show_advanced = !show_advanced;
+          show_advanced_user = !show_advanced;
         }}
       >
         <ChevronDown

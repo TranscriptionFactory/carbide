@@ -34,6 +34,10 @@ describe("format_wiki_display", () => {
       "my notes/todo list",
     );
   });
+
+  it("preserves non-.md extensions", () => {
+    expect(format_wiki_display("docs/report.pdf")).toBe("docs/report.pdf");
+  });
 });
 
 describe("format_markdown_link", () => {

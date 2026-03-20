@@ -570,13 +570,9 @@ export function create_prosemirror_editor_port(args?: {
             ? (src) => {
                 const vault_id = current_vault_id;
                 if (!vault_id) return src;
-                const vault_relative = resolve_relative_asset_path(
-                  current_note_path,
-                  decodeURIComponent(src),
-                );
                 return resolve_asset_url_for_vault(
                   vault_id,
-                  as_asset_path(vault_relative),
+                  as_asset_path(decodeURIComponent(src)),
                 );
               }
             : undefined,

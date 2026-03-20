@@ -8,13 +8,20 @@ import {
 
 const AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "ogg", "flac"];
 const VIDEO_EXTENSIONS = ["mp4", "webm", "ogv", "mkv"];
-const ALL_EMBED_EXTENSIONS = ["pdf", ...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS];
+const IMAGE_EXTENSIONS = [
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "svg",
+  "webp",
+  "bmp",
+  "ico",
+  "avif",
+];
+const EXCLUDED_EXTENSIONS = ["md", "canvas", "excalidraw"];
 
-const EXTENSION_PATTERN = ALL_EMBED_EXTENSIONS.join("|");
-const FILE_EMBED_REGEX = new RegExp(
-  `^!\\[\\[([^\\]\\n]+\\.(?:${EXTENSION_PATTERN}))(#[^\\]]*)?\\]\\]$`,
-  "i",
-);
+const FILE_EMBED_REGEX = /^!\[\[([^\]\n]+\.[a-zA-Z0-9]+)(#[^\]]*)?]]$/;
 
 export const file_embed_plugin_key = new PluginKey("file-embed-plugin");
 
@@ -23,7 +30,8 @@ export function detect_embed_type(filename: string): string {
   if (ext === "pdf") return "pdf";
   if (AUDIO_EXTENSIONS.includes(ext)) return "audio";
   if (VIDEO_EXTENSIONS.includes(ext)) return "video";
-  return "unknown";
+  if (IMAGE_EXTENSIONS.includes(ext)) return "image";
+  return "text";
 }
 
 export function parse_embed_fragment(fragment: string): {
@@ -107,6 +115,8 @@ export function create_file_embed_plugin(): Plugin {
           if (!match || !match[1]) continue;
 
           const src = match[1];
+          const ext = src.split(".").pop()?.toLowerCase() ?? "";
+          if (EXCLUDED_EXTENSIONS.includes(ext)) continue;
           const fragment = match[2] ?? "";
           const file_type = detect_embed_type(src);
           const parsed = parse_embed_fragment(fragment);
@@ -134,6 +144,9 @@ export function create_file_embed_plugin(): Plugin {
 
       const match = FILE_EMBED_REGEX.exec(text);
       if (!match || !match[1]) return null;
+
+      const matched_ext = match[1].split(".").pop()?.toLowerCase() ?? "";
+      if (EXCLUDED_EXTENSIONS.includes(matched_ext)) return null;
 
       return replace_paragraph_with_embed(
         new_state,

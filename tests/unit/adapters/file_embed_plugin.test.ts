@@ -9,6 +9,10 @@ import {
   parse_embed_fragment,
 } from "$lib/features/editor/adapters/file_embed_plugin";
 
+// Re-export regex for testing via module augmentation workaround — test the
+// public surface through detect_embed_type and serialization round-trips.
+const FILE_EMBED_REGEX = /^!\[\[([^\]\n]+\.[a-zA-Z0-9]+)(#[^\]]*)?]]$/;
+
 describe("detect_embed_type", () => {
   it("detects pdf", () => {
     expect(detect_embed_type("report.pdf")).toBe("pdf");
@@ -30,9 +34,25 @@ describe("detect_embed_type", () => {
     expect(detect_embed_type("film.mkv")).toBe("video");
   });
 
-  it("returns unknown for unrecognized extensions", () => {
-    expect(detect_embed_type("file.txt")).toBe("unknown");
-    expect(detect_embed_type("doc.docx")).toBe("unknown");
+  it("detects image formats", () => {
+    expect(detect_embed_type("photo.png")).toBe("image");
+    expect(detect_embed_type("photo.jpg")).toBe("image");
+    expect(detect_embed_type("photo.jpeg")).toBe("image");
+    expect(detect_embed_type("anim.gif")).toBe("image");
+    expect(detect_embed_type("icon.svg")).toBe("image");
+    expect(detect_embed_type("img.webp")).toBe("image");
+    expect(detect_embed_type("img.bmp")).toBe("image");
+    expect(detect_embed_type("img.ico")).toBe("image");
+    expect(detect_embed_type("img.avif")).toBe("image");
+  });
+
+  it("returns text for unrecognized extensions", () => {
+    expect(detect_embed_type("file.txt")).toBe("text");
+    expect(detect_embed_type("script.js")).toBe("text");
+    expect(detect_embed_type("script.py")).toBe("text");
+    expect(detect_embed_type("source.rs")).toBe("text");
+    expect(detect_embed_type("data.csv")).toBe("text");
+    expect(detect_embed_type("doc.docx")).toBe("text");
   });
 });
 
@@ -170,5 +190,58 @@ describe("file_embed does not conflict with excalidraw_embed", () => {
     ]);
     const md = serialize_markdown(doc);
     expect(md.trim()).toBe("![[drawing.excalidraw]]");
+  });
+});
+
+describe("FILE_EMBED_REGEX matches generic file extensions", () => {
+  it("matches image files", () => {
+    expect(FILE_EMBED_REGEX.test("![[photo.png]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[photo.jpg]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[icon.svg]]")).toBe(true);
+  });
+
+  it("matches text/code files", () => {
+    expect(FILE_EMBED_REGEX.test("![[script.py]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[data.csv]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[source.rs]]")).toBe(true);
+  });
+
+  it("matches files with fragment", () => {
+    expect(FILE_EMBED_REGEX.test("![[script.py#height=300]]")).toBe(true);
+  });
+
+  it("regex matches excluded extensions (guard is in the plugin, not the regex)", () => {
+    expect(FILE_EMBED_REGEX.test("![[note.md]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[drawing.canvas]]")).toBe(true);
+    expect(FILE_EMBED_REGEX.test("![[sketch.excalidraw]]")).toBe(true);
+  });
+
+  it("does NOT match files without an extension", () => {
+    expect(FILE_EMBED_REGEX.test("![[Makefile]]")).toBe(false);
+    expect(FILE_EMBED_REGEX.test("![[README]]")).toBe(false);
+  });
+});
+
+describe("file_embed serialization for new types", () => {
+  it("serializes image embed", () => {
+    const doc = schema.node("doc", null, [
+      schema.nodes["file_embed"]!.create({
+        src: "photo.png",
+        file_type: "image",
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md.trim()).toBe("![[photo.png]]");
+  });
+
+  it("serializes text embed", () => {
+    const doc = schema.node("doc", null, [
+      schema.nodes["file_embed"]!.create({
+        src: "script.py",
+        file_type: "text",
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md.trim()).toBe("![[script.py]]");
   });
 });

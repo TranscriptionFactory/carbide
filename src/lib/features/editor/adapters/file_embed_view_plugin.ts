@@ -6,6 +6,8 @@ import {
   Music,
   Video,
   File,
+  Image,
+  Code,
   ExternalLink,
   ChevronRight,
 } from "lucide-static";
@@ -21,6 +23,10 @@ function get_icon_for_type(file_type: string): string {
       return Music;
     case "video":
       return Video;
+    case "image":
+      return Image;
+    case "text":
+      return Code;
     default:
       return File;
   }
@@ -137,6 +143,68 @@ class FileEmbedView implements NodeView {
       this._media_el = video;
       this._resolve_and_set_src(video, src, callbacks);
       content.appendChild(video);
+    } else if (file_type === "image") {
+      const img = document.createElement("img");
+      img.className = "file-embed-image";
+      img.alt = filename;
+      if (callbacks.resolve_asset_url) {
+        const result = callbacks.resolve_asset_url(src);
+        if (typeof result === "string") {
+          img.src = result;
+        } else {
+          void result
+            .then((url) => {
+              if (!this._destroyed) img.src = url;
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to resolve image asset URL", { error });
+            });
+        }
+      } else {
+        img.src = src;
+      }
+      content.appendChild(img);
+      content.style.height = "auto";
+    } else if (file_type === "text") {
+      const pre = document.createElement("pre");
+      pre.className = "file-embed-text";
+      const code_el = document.createElement("code");
+      pre.appendChild(code_el);
+      content.appendChild(pre);
+
+      if (callbacks.resolve_asset_url) {
+        const result = callbacks.resolve_asset_url(src);
+        const load_text = (url: string) => {
+          void fetch(url)
+            .then((r) =>
+              r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)),
+            )
+            .then((text) => {
+              if (!this._destroyed) {
+                code_el.textContent = text;
+              }
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to load text file", { error });
+              if (!this._destroyed) {
+                code_el.textContent = "Failed to load file";
+              }
+            });
+        };
+        if (typeof result === "string") {
+          load_text(result);
+        } else {
+          void result
+            .then((url) => {
+              if (!this._destroyed) load_text(url);
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to resolve text asset URL", { error });
+            });
+        }
+      } else {
+        code_el.textContent = "Preview unavailable";
+      }
     } else {
       const unknown = document.createElement("div");
       unknown.className = "file-embed-unknown";

@@ -170,13 +170,13 @@
 </script>
 
 <div
-  class="frontmatter-widget px-3 py-2 mb-2 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 group/fm"
+  class="frontmatter-widget px-2 py-0.5 mb-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-900/50 group/fm"
 >
-  <div class="flex items-center justify-between mb-1.5">
+  <div class="flex items-center justify-between mb-0.5">
     <h3
-      class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2"
+      class="text-[9px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5"
     >
-      <Tag size={12} />
+      <Tag size={10} />
       Properties
     </h3>
     {#if parse_error}
@@ -186,7 +186,7 @@
     {/if}
   </div>
 
-  <div class="space-y-1">
+  <div class="space-y-0">
     {#each properties as prop, i}
       {@const prop_type = detect_type(prop.value)}
       <div class="flex items-center gap-2 group/row">
@@ -246,7 +246,7 @@
     {/each}
 
     {#if tags.length > 0 || properties.length === 0}
-      <div class="flex flex-wrap gap-1.5 pt-2">
+      <div class="flex flex-wrap gap-1 pt-0.5">
         {#each tags as tag, i}
           <span
             class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300"
@@ -285,7 +285,7 @@
 
     <button
       onclick={add_property}
-      class="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1 pt-2 transition-colors"
+      class="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1 pt-0.5 transition-colors"
     >
       <Plus size={12} />
       Add property
@@ -296,8 +296,8 @@
 <style>
   .frontmatter-widget {
     user-select: none;
-    margin-top: 0.5rem;
-    margin-bottom: 1rem;
+    margin-top: 0.125rem;
+    margin-bottom: 0.25rem;
   }
   input {
     user-select: text;

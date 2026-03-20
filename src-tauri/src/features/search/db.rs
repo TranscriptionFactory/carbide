@@ -77,10 +77,6 @@ pub(crate) fn list_indexable_files(
         })
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-        .filter(|e| {
-            let ext = e.path().extension().and_then(|x| x.to_str());
-            matches!(ext, Some("md") | Some("canvas") | Some("excalidraw"))
-        })
         .map(|e| e.path().to_path_buf())
         .collect();
     files.sort();
@@ -113,7 +109,15 @@ fn extract_indexable_body(abs: &Path, raw: &str) -> String {
 pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
     let rel = abs.strip_prefix(vault_root).map_err(|e| e.to_string())?;
     let rel = storage::normalize_relative_path(rel);
-    let name = file_stem_string(abs);
+    let ext = abs.extension().and_then(|x| x.to_str()).unwrap_or("");
+    let name = if ext == "md" {
+        file_stem_string(abs)
+    } else {
+        abs.file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string()
+    };
     let (mtime_ms, size_bytes) = notes_service::file_meta(abs)?;
     Ok(IndexNoteMeta {
         id: rel.clone(),
@@ -727,13 +731,7 @@ pub fn rebuild_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = match std::fs::read_to_string(abs) {
-                Ok(s) => s,
-                Err(e) => {
-                    log::warn!("skip {}: {}", abs.display(), e);
-                    continue;
-                }
-            };
+            let raw = std::fs::read_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
@@ -767,12 +765,15 @@ fn index_single_file(
         let targets = crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
             .unwrap_or_default();
         pending_links.push((meta.path.clone(), targets));
-    } else {
+    } else if abs.extension().and_then(|x| x.to_str()) == Some("md") {
         let parsed = markdown_doc::parse_note(raw, &meta.path);
         meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
         upsert_note_parsed_inner(conn, meta, raw, &parsed)?;
         let targets = parsed.links.all_internal_targets();
         pending_links.push((meta.path.clone(), targets));
+    } else {
+        upsert_note_inner(conn, meta, "")?;
+        pending_links.push((meta.path.clone(), vec![]));
     }
     Ok(())
 }
@@ -849,13 +850,7 @@ pub fn sync_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = match std::fs::read_to_string(abs) {
-                Ok(s) => s,
-                Err(e) => {
-                    log::warn!("skip {}: {}", abs.display(), e);
-                    continue;
-                }
-            };
+            let raw = std::fs::read_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
