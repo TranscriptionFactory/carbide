@@ -7,12 +7,9 @@ import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
-function create_mock_registry(): ActionRegistry & {
-  actions: Map<string, any>;
-} {
+function create_mock_registry() {
   const actions = new Map<string, any>();
-  return {
-    actions,
+  const registry = {
     register(action: any) {
       actions.set(action.id, action);
     },
@@ -20,7 +17,8 @@ function create_mock_registry(): ActionRegistry & {
     get_all: vi.fn(),
     get: vi.fn(),
     unregister: vi.fn(),
-  } as any;
+  } as unknown as ActionRegistry;
+  return { registry, actions };
 }
 
 function create_mock_lint_store(overrides: Partial<LintStore> = {}): LintStore {
@@ -35,17 +33,18 @@ function create_mock_lint_store(overrides: Partial<LintStore> = {}): LintStore {
 }
 
 describe("register_lint_actions", () => {
-  let registry: ReturnType<typeof create_mock_registry>;
+  let actions: Map<string, any>;
   let ui_store: {
     bottom_panel_open: boolean;
     bottom_panel_tab: string;
   };
 
   beforeEach(() => {
-    registry = create_mock_registry();
+    const mock = create_mock_registry();
+    actions = mock.actions;
     ui_store = { bottom_panel_open: false, bottom_panel_tab: "terminal" };
     register_lint_actions({
-      registry,
+      registry: mock.registry,
       lint_service: {} as LintService,
       lint_store: create_mock_lint_store(),
       editor_store: {} as EditorStore,
@@ -57,17 +56,17 @@ describe("register_lint_actions", () => {
   });
 
   it("registers all expected lint actions", () => {
-    expect(registry.actions.has(ACTION_IDS.lint_format_file)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_format_vault)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_fix_all)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_check_vault)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_toggle_problems)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_next_diagnostic)).toBe(true);
-    expect(registry.actions.has(ACTION_IDS.lint_prev_diagnostic)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_format_file)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_format_vault)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_fix_all)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_check_vault)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_toggle_problems)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_next_diagnostic)).toBe(true);
+    expect(actions.has(ACTION_IDS.lint_prev_diagnostic)).toBe(true);
   });
 
   it("toggle_problems opens bottom panel to problems tab", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_toggle_problems);
+    const action = actions.get(ACTION_IDS.lint_toggle_problems);
 
     action.execute();
     expect(ui_store.bottom_panel_open).toBe(true);
@@ -75,7 +74,7 @@ describe("register_lint_actions", () => {
   });
 
   it("toggle_problems closes panel when already on problems tab", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_toggle_problems);
+    const action = actions.get(ACTION_IDS.lint_toggle_problems);
 
     ui_store.bottom_panel_open = true;
     ui_store.bottom_panel_tab = "problems";
@@ -85,7 +84,7 @@ describe("register_lint_actions", () => {
   });
 
   it("toggle_problems switches tab when panel open on different tab", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_toggle_problems);
+    const action = actions.get(ACTION_IDS.lint_toggle_problems);
 
     ui_store.bottom_panel_open = true;
     ui_store.bottom_panel_tab = "terminal";
@@ -96,7 +95,7 @@ describe("register_lint_actions", () => {
   });
 
   it("next_diagnostic opens problems tab", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_next_diagnostic);
+    const action = actions.get(ACTION_IDS.lint_next_diagnostic);
 
     action.execute();
     expect(ui_store.bottom_panel_open).toBe(true);
@@ -104,7 +103,7 @@ describe("register_lint_actions", () => {
   });
 
   it("prev_diagnostic opens problems tab", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_prev_diagnostic);
+    const action = actions.get(ACTION_IDS.lint_prev_diagnostic);
 
     action.execute();
     expect(ui_store.bottom_panel_open).toBe(true);
@@ -112,17 +111,17 @@ describe("register_lint_actions", () => {
   });
 
   it("next_diagnostic has F8 shortcut", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_next_diagnostic);
+    const action = actions.get(ACTION_IDS.lint_next_diagnostic);
     expect(action.shortcut).toBe("F8");
   });
 
   it("prev_diagnostic has Shift+F8 shortcut", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_prev_diagnostic);
+    const action = actions.get(ACTION_IDS.lint_prev_diagnostic);
     expect(action.shortcut).toBe("Shift+F8");
   });
 
   it("toggle_problems has CmdOrCtrl+Shift+M shortcut", () => {
-    const action = registry.actions.get(ACTION_IDS.lint_toggle_problems);
+    const action = actions.get(ACTION_IDS.lint_toggle_problems);
     expect(action.shortcut).toBe("CmdOrCtrl+Shift+M");
   });
 });
