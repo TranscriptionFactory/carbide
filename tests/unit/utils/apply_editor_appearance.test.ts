@@ -168,7 +168,10 @@ describe("apply_editor_appearance", () => {
   });
 
   it("applies gradient divider style by default", () => {
-    apply_editor_appearance(DEFAULT_EDITOR_SETTINGS);
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_style: "gradient",
+    });
 
     expect(properties.get("--editor-hr-background")).toContain(
       "linear-gradient",
@@ -222,10 +225,10 @@ describe("apply_editor_appearance", () => {
     });
 
     expect(properties.get("--editor-table-cell-padding-y")).toBe(
-      "calc(var(--editor-spacing) * 0.5)",
+      "calc(var(--editor-spacing) * 0.12)",
     );
     expect(properties.get("--editor-table-cell-padding-x")).toBe(
-      "calc(var(--editor-spacing) * 0.65)",
+      "calc(var(--editor-spacing) * 0.3)",
     );
   });
 
@@ -236,10 +239,10 @@ describe("apply_editor_appearance", () => {
     });
 
     expect(properties.get("--editor-table-cell-padding-y")).toBe(
-      "calc(var(--editor-spacing) * 1.05)",
+      "calc(var(--editor-spacing) * 0.6)",
     );
     expect(properties.get("--editor-table-cell-padding-x")).toBe(
-      "calc(var(--editor-spacing) * 1.25)",
+      "calc(var(--editor-spacing) * 0.85)",
     );
   });
 

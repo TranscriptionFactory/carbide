@@ -2984,12 +2984,22 @@ pub fn query_bases(
                 filter.value.clone()
             };
 
-            where_clauses.push(format!(
-                "path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
-                params.len() + 1,
-                op,
-                params.len() + 2
-            ));
+            let numeric_ops = matches!(filter.operator.as_str(), "gt" | "lt" | "gte" | "lte");
+            if numeric_ops {
+                where_clauses.push(format!(
+                    "path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
+                    params.len() + 1,
+                    op,
+                    params.len() + 2
+                ));
+            } else {
+                where_clauses.push(format!(
+                    "path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
+                    params.len() + 1,
+                    op,
+                    params.len() + 2
+                ));
+            }
             params.push(Box::new(filter.property.clone()));
             params.push(Box::new(val));
         }

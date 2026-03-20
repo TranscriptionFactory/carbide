@@ -206,8 +206,9 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
 #[test]
 fn sync_progress_advances_when_some_files_are_unreadable() {
     let tmp = TempDir::new().expect("temp dir should be created");
+    let db_tmp = TempDir::new().expect("db temp dir should be created");
     let root = tmp.path();
-    let conn = open_search_db_at_path(&root.join("test.db")).expect("db should open");
+    let conn = open_search_db_at_path(&db_tmp.path().join("test.db")).expect("db should open");
 
     write_md(root, "ok.md", "# ok");
     fs::write(root.join("bad.md"), [0xff, 0xfe, 0xfd]).expect("bad file should be written");

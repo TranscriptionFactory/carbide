@@ -60,7 +60,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   },
   {
     action_id: ACTION_IDS.ui_toggle_focus_mode,
-    key: "CmdOrCtrl+Shift+Enter",
+    key: "CmdOrCtrl+Alt+Enter",
     phase: "capture",
     label: "Toggle Focus Mode",
     description: "Hide all panels and enter distraction-free writing mode",
