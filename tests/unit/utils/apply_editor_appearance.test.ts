@@ -167,8 +167,11 @@ describe("apply_editor_appearance", () => {
     );
   });
 
-  it("applies solid divider style by default", () => {
-    apply_editor_appearance(DEFAULT_EDITOR_SETTINGS);
+  it("applies gradient divider style by default", () => {
+    apply_editor_appearance({
+      ...DEFAULT_EDITOR_SETTINGS,
+      editor_divider_style: "gradient",
+    });
 
     expect(properties.get("--editor-hr-background")).toBe("none");
     expect(properties.get("--editor-hr-border-top")).toBe(
