@@ -78,6 +78,7 @@ jobs:
       - run: pnpm install
 
       - name: Download sidecar binary
+        shell: bash
         run: |
           TARGET=""
           case "${{ matrix.args }}" in
