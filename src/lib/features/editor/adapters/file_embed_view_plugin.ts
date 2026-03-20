@@ -36,7 +36,7 @@ class FileEmbedView implements NodeView {
   private _destroyed = false;
   private _collapsed = false;
   private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
-  private _iframe_el: HTMLIFrameElement | null = null;
+  private _pdf_doc: { destroy(): void } | null = null;
 
   constructor(
     node: ProseNode,
@@ -99,19 +99,19 @@ class FileEmbedView implements NodeView {
     if (file_type === "pdf") {
       const placeholder = document.createElement("div");
       placeholder.className = "file-embed-pdf-placeholder";
-      placeholder.textContent = "PDF preview";
+      placeholder.textContent = "Loading PDF…";
 
       if (callbacks.resolve_asset_url) {
         const result = callbacks.resolve_asset_url(src);
         if (typeof result === "string") {
-          this._render_pdf(content, result, node);
+          content.appendChild(placeholder);
+          void this._render_pdf_canvas(content, placeholder, result, node);
         } else {
           content.appendChild(placeholder);
           void result
             .then((url) => {
               if (this._destroyed) return;
-              placeholder.remove();
-              this._render_pdf(content, url, node);
+              void this._render_pdf_canvas(content, placeholder, url, node);
             })
             .catch((error: unknown) => {
               log.error("Failed to resolve PDF asset URL", { error });
@@ -119,6 +119,7 @@ class FileEmbedView implements NodeView {
             });
         }
       } else {
+        placeholder.textContent = "PDF preview unavailable";
         content.appendChild(placeholder);
       }
     } else if (file_type === "audio") {
@@ -146,20 +147,79 @@ class FileEmbedView implements NodeView {
     this.dom.appendChild(content);
   }
 
-  private _render_pdf(
+  private async _render_pdf_canvas(
     container: HTMLElement,
+    placeholder: HTMLElement,
     url: string,
     node: ProseNode,
-  ): void {
-    const iframe = document.createElement("iframe");
-    iframe.className = "file-embed-iframe";
-    const page = node.attrs["page"] as number | null;
-    iframe.src = page != null ? `${url}#page=${String(page)}` : url;
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-    this._iframe_el = iframe;
-    container.appendChild(iframe);
+  ): Promise<void> {
+    try {
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.mjs",
+        import.meta.url,
+      ).toString();
+
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
+      const data = new Uint8Array(await resp.arrayBuffer());
+
+      if (this._destroyed) return;
+
+      const doc = await pdfjs.getDocument({ data }).promise;
+      this._pdf_doc = doc;
+
+      if (this._destroyed) {
+        doc.destroy();
+        return;
+      }
+
+      const target_page = (node.attrs["page"] as number | null) ?? 1;
+      const page = await doc.getPage(
+        Math.max(1, Math.min(doc.numPages, target_page)),
+      );
+
+      if (this._destroyed) return;
+
+      const container_width = container.clientWidth || 600;
+      const base_viewport = page.getViewport({ scale: 1.0 });
+      const scale = container_width / base_viewport.width;
+      const dpr = window.devicePixelRatio || 1;
+      const viewport = page.getViewport({ scale: scale * dpr });
+      const css_viewport = page.getViewport({ scale });
+
+      const scroll_wrapper = document.createElement("div");
+      scroll_wrapper.className = "file-embed-pdf-scroll";
+      scroll_wrapper.style.overflow = "auto";
+      scroll_wrapper.style.height = "100%";
+
+      const canvas = document.createElement("canvas");
+      canvas.className = "file-embed-canvas";
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${String(css_viewport.width)}px`;
+      canvas.style.height = `${String(css_viewport.height)}px`;
+      canvas.style.display = "block";
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        placeholder.textContent = "Canvas not available";
+        return;
+      }
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      if (this._destroyed) return;
+
+      placeholder.remove();
+      scroll_wrapper.appendChild(canvas);
+      container.appendChild(scroll_wrapper);
+    } catch (error: unknown) {
+      log.error("Failed to render PDF", { error });
+      if (!this._destroyed) {
+        placeholder.textContent = "Failed to load PDF";
+      }
+    }
   }
 
   private _resolve_and_set_src(
@@ -201,8 +261,8 @@ class FileEmbedView implements NodeView {
       this._media_el.removeAttribute("src");
       this._media_el.load();
     }
-    if (this._iframe_el) {
-      this._iframe_el.src = "about:blank";
+    if (this._pdf_doc) {
+      this._pdf_doc.destroy();
     }
   }
 }

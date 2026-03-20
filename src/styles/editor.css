@@ -1758,8 +1758,10 @@
   overflow: hidden;
 }
 
-.file-embed-iframe {
+.file-embed-canvas {
   display: block;
+  background: white;
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
 .file-embed-audio {
