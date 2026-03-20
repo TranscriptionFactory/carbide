@@ -1,3 +1,4 @@
+use crate::features::search::db as search_db;
 use crate::shared::buffer::BufferManager;
 use crate::shared::constants;
 use crate::shared::io_utils;
@@ -231,9 +232,15 @@ pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64), String> {
     Ok((mtime, size))
 }
 
-fn build_note_meta(root: &Path, rel_path: &str) -> Result<NoteMeta, String> {
+fn build_note_meta(
+    root: &Path,
+    rel_path: &str,
+    cached_titles: Option<&std::collections::HashMap<String, String>>,
+) -> Result<NoteMeta, String> {
     let abs = safe_vault_abs(root, rel_path)?;
-    let title = extract_title(&abs);
+    let title = cached_titles
+        .and_then(|m| m.get(rel_path).cloned())
+        .unwrap_or_else(|| extract_title(&abs));
     let (mtime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
@@ -277,7 +284,7 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
 
         let rel = p.strip_prefix(&root).map_err(|e| e.to_string())?;
         let rel = storage::normalize_relative_path(rel);
-        out.push(build_note_meta(&root, &rel)?);
+        out.push(build_note_meta(&root, &rel, None)?);
     }
 
     out.sort_by(|a, b| a.path.cmp(&b.path));
@@ -303,7 +310,7 @@ pub fn read_note(
     let root = storage::vault_path(&app, &vault_id)?;
 
     Ok(NoteDoc {
-        meta: build_note_meta(&root, &note_id)?,
+        meta: build_note_meta(&root, &note_id, None)?,
         markdown,
     })
 }
@@ -448,7 +455,7 @@ pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, Str
         })?;
     file.write_all(args.initial_markdown.as_bytes())
         .map_err(|e| e.to_string())?;
-    let note = build_note_meta(&root, &args.note_path)?;
+    let note = build_note_meta(&root, &args.note_path, None)?;
     invalidate_note_parent_folder_cache(&args.vault_id, &note.path);
     Ok(note)
 }
@@ -1290,6 +1297,22 @@ pub fn list_folder_contents(
     let mut files = Vec::new();
     let mut subfolders = Vec::new();
 
+    let md_paths: Vec<String> = items[start..end]
+        .iter()
+        .filter(|e| !e.is_dir && e.name.ends_with(".md"))
+        .map(|e| {
+            if folder_path.is_empty() {
+                e.name.clone()
+            } else {
+                format!("{}/{}", folder_path, e.name)
+            }
+        })
+        .collect();
+
+    let cached_titles = search_db::open_search_db(&app, &vault_id)
+        .and_then(|conn| search_db::get_cached_titles(&conn, &md_paths))
+        .ok();
+
     for entry in &items[start..end] {
         let rel = if folder_path.is_empty() {
             entry.name.clone()
@@ -1300,7 +1323,7 @@ pub fn list_folder_contents(
         if entry.is_dir {
             subfolders.push(rel);
         } else if entry.name.ends_with(".md") {
-            notes.push(build_note_meta(&root, &rel)?);
+            notes.push(build_note_meta(&root, &rel, cached_titles.as_ref())?);
         } else {
             let abs = root.join(&rel);
             let (mtime_ms, size_bytes) = file_meta(&abs)?;

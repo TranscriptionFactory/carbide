@@ -12,7 +12,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use specta::Type;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager};
@@ -57,17 +57,33 @@ pub fn extract_local_links_snapshot(markdown: &str, source_path: &str) -> LocalL
     link_parser::extract_local_links_snapshot(markdown, source_path)
 }
 
-pub(crate) fn list_indexable_files(
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct VaultScanStats {
+    pub note_count: usize,
+    pub folder_count: usize,
+}
+
+pub struct VaultScanResult {
+    pub indexable_files: Vec<PathBuf>,
+    pub stats: VaultScanStats,
+}
+
+pub fn scan_vault(
     app: Option<&tauri::AppHandle>,
     vault_id: &str,
     root: &Path,
-) -> Result<Vec<PathBuf>, String> {
+) -> Result<VaultScanResult, String> {
     let ignore_matcher = if let Some(app) = app {
         vault_ignore::load_vault_ignore_matcher(app, vault_id, root)?
     } else {
         vault_ignore::VaultIgnoreMatcher::default()
     };
-    let mut files: Vec<PathBuf> = WalkDir::new(root)
+
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut note_count: usize = 0;
+    let mut folder_count: usize = 0;
+
+    for entry in WalkDir::new(root)
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
@@ -76,11 +92,42 @@ pub(crate) fn list_indexable_files(
                 && !ignore_matcher.is_ignored(root, e.path(), e.file_type().is_dir())
         })
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .map(|e| e.path().to_path_buf())
-        .collect();
+    {
+        if entry.path() == root {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy();
+        let is_hidden = name.starts_with('.');
+
+        if entry.file_type().is_dir() {
+            if !is_hidden {
+                folder_count += 1;
+            }
+        } else if entry.file_type().is_file() {
+            files.push(entry.path().to_path_buf());
+            if !is_hidden {
+                note_count += 1;
+            }
+        }
+    }
+
     files.sort();
-    Ok(files)
+    Ok(VaultScanResult {
+        indexable_files: files,
+        stats: VaultScanStats {
+            note_count,
+            folder_count,
+        },
+    })
+}
+
+pub(crate) fn list_indexable_files(
+    app: Option<&tauri::AppHandle>,
+    vault_id: &str,
+    root: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    Ok(scan_vault(app, vault_id, root)?.indexable_files)
 }
 
 fn file_stem_string(abs: &Path) -> String {
@@ -758,6 +805,7 @@ pub fn list_note_paths_by_prefix(conn: &Connection, prefix: &str) -> Result<Vec<
 pub struct IndexResult {
     pub total: usize,
     pub indexed: usize,
+    pub vault_stats: Option<VaultScanStats>,
 }
 
 pub struct SyncPlan {
@@ -765,6 +813,38 @@ pub struct SyncPlan {
     pub modified: Vec<PathBuf>,
     pub removed: Vec<String>,
     pub unchanged: usize,
+}
+
+pub fn get_cached_titles(
+    conn: &Connection,
+    paths: &[String],
+) -> Result<HashMap<String, String>, String> {
+    if paths.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let placeholders: Vec<&str> = paths.iter().map(|_| "?").collect();
+    let sql = format!(
+        "SELECT path, title FROM notes WHERE path IN ({})",
+        placeholders.join(",")
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+
+    let params: Vec<&dyn rusqlite::types::ToSql> =
+        paths.iter().map(|p| p as &dyn rusqlite::types::ToSql).collect();
+
+    let rows = stmt
+        .query_map(params.as_slice(), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut map = HashMap::with_capacity(paths.len());
+    for row in rows {
+        let (path, title) = row.map_err(|e| e.to_string())?;
+        map.insert(path, title);
+    }
+    Ok(map)
 }
 
 pub fn get_manifest(conn: &Connection) -> Result<BTreeMap<String, (i64, i64)>, String> {
@@ -919,7 +999,11 @@ pub fn rebuild_index(
         yield_fn();
     }
 
-    Ok(IndexResult { total, indexed })
+    Ok(IndexResult {
+        total,
+        indexed,
+        vault_stats: None,
+    })
 }
 
 fn index_single_file(
@@ -958,7 +1042,9 @@ pub fn sync_index(
     yield_fn: &mut dyn FnMut(),
 ) -> Result<IndexResult, String> {
     let manifest = get_manifest(conn).unwrap_or_default();
-    let disk_files = list_indexable_files(app, vault_id, vault_root)?;
+    let scan = scan_vault(app, vault_id, vault_root)?;
+    let vault_stats = Some(scan.stats);
+    let disk_files = scan.indexable_files;
     let plan = compute_sync_plan(vault_root, &manifest, &disk_files);
 
     let change_count = plan.added.len() + plan.modified.len() + plan.removed.len();
@@ -972,6 +1058,7 @@ pub fn sync_index(
         return Ok(IndexResult {
             total: plan.unchanged,
             indexed: 0,
+            vault_stats,
         });
     }
 
@@ -993,6 +1080,7 @@ pub fn sync_index(
                 return Ok(IndexResult {
                     total: total + plan.unchanged,
                     indexed,
+                    vault_stats,
                 });
             }
             conn.execute_batch("BEGIN IMMEDIATE")
@@ -1045,6 +1133,7 @@ pub fn sync_index(
     Ok(IndexResult {
         total: total + plan.unchanged,
         indexed,
+        vault_stats,
     })
 }
 

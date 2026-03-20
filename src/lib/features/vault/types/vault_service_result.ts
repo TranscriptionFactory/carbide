@@ -6,6 +6,7 @@ export type VaultInitializeResult =
       status: "ready";
       has_vault: boolean;
       editor_settings: EditorSettings | null;
+      root_total_count: number;
     }
   | {
       status: "error";

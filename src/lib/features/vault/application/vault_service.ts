@@ -79,6 +79,7 @@ export class VaultService {
   ) {}
 
   private index_progress_unsubscribe: (() => void) | null = null;
+  private scan_stats_unsubscribe: (() => void) | null = null;
   private active_open_revision = 0;
 
   private get_active_vault_id(): VaultId | null {
@@ -113,6 +114,7 @@ export class VaultService {
 
     try {
       let editor_settings: EditorSettings | null = null;
+      let root_total_count = 0;
 
       const has_vault = this.vault_store.vault !== null;
 
@@ -127,6 +129,7 @@ export class VaultService {
           open_revision,
         );
         editor_settings = result.editor_settings;
+        root_total_count = result.root_total_count;
       } else {
         const [recent_vaults, pinned_vault_ids] = await Promise.all([
           this.vault_port.list_vaults(),
@@ -149,6 +152,7 @@ export class VaultService {
         status: "ready",
         has_vault: this.vault_store.vault !== null,
         editor_settings,
+        root_total_count,
       };
     } catch (error) {
       const message = this.fail_operation(
@@ -418,10 +422,9 @@ export class VaultService {
     this.apply_open_vault_snapshot(vault, snapshot);
 
     if (vault.mode === "vault") {
-      this.trigger_dashboard_stats_refresh(vault.id, open_revision);
+      this.subscribe_vault_scan_stats_events(vault.id, open_revision);
       this.subscribe_open_vault_index_progress(vault.id, open_revision);
       this.trigger_background_index_sync(vault.id, open_revision);
-      this.trigger_background_note_count_refresh(vault.id, open_revision);
     }
 
     return {
@@ -554,6 +557,24 @@ export class VaultService {
         error: message,
       };
     }
+  }
+
+  private subscribe_vault_scan_stats_events(
+    vault_id: VaultId,
+    open_revision: number,
+  ) {
+    this.scan_stats_unsubscribe = this.index_port.subscribe_vault_scan_stats(
+      (event) => {
+        if (!this.is_current_open_revision(open_revision)) return;
+        if (event.vault_id !== vault_id) return;
+
+        this.notes_store.set_dashboard_stats({
+          note_count: event.note_count,
+          folder_count: event.folder_count,
+        });
+        this.vault_store.update_note_count(event.note_count);
+      },
+    );
   }
 
   private subscribe_open_vault_index_progress(
@@ -793,6 +814,8 @@ export class VaultService {
   private clear_open_runtime_subscriptions(): void {
     this.index_progress_unsubscribe?.();
     this.index_progress_unsubscribe = null;
+    this.scan_stats_unsubscribe?.();
+    this.scan_stats_unsubscribe = null;
   }
 
   private is_current_open_revision(revision: number): boolean {

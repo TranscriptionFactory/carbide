@@ -2,7 +2,10 @@ use crate::features::vault_settings::service::get_vault_setting_value;
 use crate::shared::storage;
 use glob::Pattern;
 use serde_json::Value;
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::Instant;
 
 const VAULT_IGNORE_FILE: &str = ".vaultignore";
 const GIT_IGNORE_FILE: &str = ".gitignore";
@@ -67,7 +70,57 @@ impl VaultIgnoreMatcher {
     }
 }
 
+struct CachedMatcher {
+    matcher: VaultIgnoreMatcher,
+    created_at: Instant,
+}
+
+static MATCHER_CACHE: Mutex<Option<HashMap<PathBuf, CachedMatcher>>> = Mutex::new(None);
+
+const MATCHER_CACHE_TTL_SECS: u64 = 5;
+
 pub fn load_vault_ignore_matcher(
+    app: &tauri::AppHandle,
+    vault_id: &str,
+    root: &Path,
+) -> Result<VaultIgnoreMatcher, String> {
+    let key = root.to_path_buf();
+
+    if let Ok(guard) = MATCHER_CACHE.lock() {
+        if let Some(cache) = guard.as_ref() {
+            if let Some(entry) = cache.get(&key) {
+                if entry.created_at.elapsed().as_secs() < MATCHER_CACHE_TTL_SECS {
+                    return Ok(entry.matcher.clone());
+                }
+            }
+        }
+    }
+
+    let matcher = build_vault_ignore_matcher(app, vault_id, root)?;
+
+    if let Ok(mut guard) = MATCHER_CACHE.lock() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+        cache.insert(
+            key,
+            CachedMatcher {
+                matcher: matcher.clone(),
+                created_at: Instant::now(),
+            },
+        );
+    }
+
+    Ok(matcher)
+}
+
+pub fn invalidate_vault_ignore_cache(root: &Path) {
+    if let Ok(mut guard) = MATCHER_CACHE.lock() {
+        if let Some(cache) = guard.as_mut() {
+            cache.remove(root);
+        }
+    }
+}
+
+fn build_vault_ignore_matcher(
     app: &tauri::AppHandle,
     vault_id: &str,
     root: &Path,

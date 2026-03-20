@@ -572,6 +572,13 @@ fn run_index_op(
                     log::warn!("{label}: property registry rebuild failed: {e}");
                 }
             }
+            if let Some(stats) = &res.vault_stats {
+                let _ = app_handle.emit("vault_scan_stats", serde_json::json!({
+                    "vault_id": vid,
+                    "note_count": stats.note_count,
+                    "folder_count": stats.folder_count,
+                }));
+            }
             let elapsed_ms = start.elapsed().as_millis() as u64;
             let _ = app_handle.emit(
                 "index_progress",

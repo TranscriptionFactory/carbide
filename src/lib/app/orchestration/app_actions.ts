@@ -4,11 +4,12 @@ import type { OpenNoteState } from "$lib/shared/types/editor";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { as_note_path, as_vault_path } from "$lib/shared/types/ids";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
+import { set_load_state, set_pagination } from "$lib/features/folder";
+import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "svelte-sonner";
 import { create_logger } from "$lib/shared/utils/logger";
-import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";
 
 const log = create_logger("app_actions");
 
@@ -126,14 +127,13 @@ async function mount_ready_vault_state(
     result.editor_settings ?? { ...DEFAULT_EDITOR_SETTINGS },
   );
 
-  await reconcile_workspace(
-    input.registry,
-    { refresh_tree: true },
-    {
-      workspace_reconcile: input.workspace_reconcile,
-      is_vault_mode: input.stores.vault.is_vault_mode,
-    },
-  );
+  set_load_state(input, "", "loaded", null);
+  set_pagination(input, "", {
+    loaded_count: Math.min(PAGE_SIZE, result.root_total_count),
+    total_count: result.root_total_count,
+    load_state: "idle",
+    error_message: null,
+  });
 
   if (input.stores.vault.is_vault_mode) {
     await input.registry.execute(ACTION_IDS.git_check_repo);
