@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "codegen": "cd src-tauri && cargo test specta_export::export_bindings -- --nocapture",
+    "codegen": "node -e \"if(process.env.CI){console.log('Skipping codegen on CI')}else{require('child_process').execSync('cd src-tauri && cargo test specta_export::export_bindings -- --nocapture',{stdio:'inherit',shell:true})}\"",
     "build:excalidraw": "vite build --config src/excalidraw/vite.config.ts",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
