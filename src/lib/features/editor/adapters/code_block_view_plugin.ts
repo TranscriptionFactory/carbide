@@ -618,6 +618,37 @@ export function create_code_block_view_prose_plugin(): Plugin {
           return false;
         },
       },
+      handleDoubleClickOn(view, pos, node) {
+        if (node.type.name !== "code_block") return false;
+
+        const $pos = view.state.doc.resolve(pos);
+        const inside_pos =
+          $pos.parent.type.name === "code_block" ? pos : pos + 1;
+        const $inside = view.state.doc.resolve(inside_pos);
+        if ($inside.parent.type.name !== "code_block") return false;
+
+        const block_start = $inside.start($inside.depth);
+        const text = $inside.parent.textContent;
+        const offset = inside_pos - block_start;
+
+        const WORD_RE = /\w+/g;
+        let match: RegExpExecArray | null;
+        while ((match = WORD_RE.exec(text)) !== null) {
+          const word_start = match.index;
+          const word_end = word_start + match[0].length;
+          if (offset >= word_start && offset <= word_end) {
+            const from = block_start + word_start;
+            const to = block_start + word_end;
+            const tr = view.state.tr.setSelection(
+              TextSelection.create(view.state.doc, from, to),
+            );
+            view.dispatch(tr);
+            return true;
+          }
+        }
+
+        return false;
+      },
     },
   });
 }

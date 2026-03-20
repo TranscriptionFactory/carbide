@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
+import type { Node as ProseNode } from "prosemirror-model";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
 
@@ -326,6 +327,104 @@ describe("CodeBlockView", () => {
 
       expect(view.state.doc.childCount).toBe(3);
       expect(view.state.doc.child(1)?.type.name).toBe("paragraph");
+
+      view.destroy();
+    });
+  });
+
+  describe("double-click word selection", () => {
+    function call_handle_double_click(
+      plugin: ReturnType<typeof create_code_block_view_prose_plugin>,
+      view: EditorView,
+      pos: number,
+      node: ProseNode,
+    ): boolean {
+      const handler = plugin.props.handleDoubleClickOn;
+      if (!handler) throw new Error("Expected handleDoubleClickOn");
+      return (
+        handler as (view: EditorView, pos: number, node: ProseNode) => boolean
+      )(view, pos, node);
+    }
+
+    it("selects word under cursor on double-click inside code block", () => {
+      const code = "const x = 1;";
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        code,
+      );
+      container = c;
+
+      const plugin = create_code_block_view_prose_plugin();
+      const code_block_node = view.state.doc.child(0);
+      // block_start = 1 (after doc open token), offset 3 lands inside "const"
+      const pos = 1 + 3;
+
+      const result = call_handle_double_click(
+        plugin,
+        view,
+        pos,
+        code_block_node,
+      );
+
+      expect(result).toBe(true);
+      const { from, to } = view.state.selection;
+      // "const" starts at offset 0, so from = block_start + 0 = 1, to = 1 + 5 = 6
+      expect(from).toBe(1);
+      expect(to).toBe(6);
+
+      view.destroy();
+    });
+
+    it("selects word at end of line", () => {
+      const code = "hello world";
+      const { view, container: c } = create_editor_with_code_block("", code);
+      container = c;
+
+      const plugin = create_code_block_view_prose_plugin();
+      const code_block_node = view.state.doc.child(0);
+      // "world" starts at offset 6; click at offset 8 (inside "world")
+      const pos = 1 + 8;
+
+      const result = call_handle_double_click(
+        plugin,
+        view,
+        pos,
+        code_block_node,
+      );
+
+      expect(result).toBe(true);
+      const { from, to } = view.state.selection;
+      // "world" at offsets 6–11, block_start = 1
+      expect(from).toBe(1 + 6);
+      expect(to).toBe(1 + 11);
+
+      view.destroy();
+    });
+
+    it("returns false for non-code-block nodes", () => {
+      const para_text = "hello";
+      const para = schema.nodes.paragraph.create(null, schema.text(para_text));
+      const doc = schema.nodes.doc.create(null, [para]);
+
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const plugin = create_code_block_view_prose_plugin();
+      const state = EditorState.create({ doc, plugins: [plugin] });
+
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          const new_state = view.state.apply(tr);
+          view.updateState(new_state);
+        },
+      });
+
+      const para_node = view.state.doc.child(0);
+      const result = call_handle_double_click(plugin, view, 1, para_node);
+
+      expect(result).toBe(false);
 
       view.destroy();
     });

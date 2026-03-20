@@ -490,6 +490,56 @@ export function create_prosemirror_editor_port(args?: {
           ...(code_inline_mark_type
             ? { "Mod-e": toggleMark(code_inline_mark_type) }
             : {}),
+          "Mod-Shift-e": (state, dispatch) => {
+            const { $from, $to } = state.selection;
+            const code_block_type = schema.nodes.code_block;
+
+            if ($from.parent.type.name === "code_block") {
+              if (!dispatch) return true;
+              const pos = $from.before($from.depth);
+              const node = state.doc.nodeAt(pos);
+              if (!node) return false;
+              const text = node.textContent;
+              const lines = text.split("\n");
+              const paragraphs = lines.map((line) =>
+                schema.nodes.paragraph.create(
+                  null,
+                  line ? schema.text(line) : undefined,
+                ),
+              );
+              const tr = state.tr.replaceWith(
+                pos,
+                pos + node.nodeSize,
+                paragraphs,
+              );
+              dispatch(tr.scrollIntoView());
+              return true;
+            }
+
+            if (!dispatch) return true;
+            const range_start = $from.before($from.depth);
+            const range_end = $to.after($to.depth);
+            const text = state.doc.textBetween(
+              range_start,
+              range_end,
+              "\n",
+              "\n",
+            );
+            const code_block = code_block_type.create(
+              { language: "" },
+              text ? schema.text(text) : undefined,
+            );
+            const tr = state.tr.replaceWith(range_start, range_end, code_block);
+            tr.setSelection(
+              TextSelection.create(
+                tr.doc,
+                range_start + 1,
+                range_start + 1 + text.length,
+              ),
+            );
+            dispatch(tr.scrollIntoView());
+            return true;
+          },
           ...(strikethrough_mark_type
             ? { "Mod-Shift-x": toggleMark(strikethrough_mark_type) }
             : {}),
@@ -692,6 +742,17 @@ export function create_prosemirror_editor_port(args?: {
         state,
         editable: () => is_editable,
         clipboardTextSerializer: (slice) => {
+          let all_code = true;
+          slice.content.forEach((node) => {
+            if (node.type.name !== "code_block") all_code = false;
+          });
+          if (all_code && slice.content.childCount > 0) {
+            const parts: string[] = [];
+            slice.content.forEach((node) => {
+              parts.push(node.textContent);
+            });
+            return parts.join("\n");
+          }
           const wrap = schema.topNodeType.create(null, slice.content);
           return serialize_markdown(wrap);
         },

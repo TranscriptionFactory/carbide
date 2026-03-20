@@ -94,11 +94,50 @@ function insert_wiki_delimiters(
   return true;
 }
 
+function wrap_selection_in_code_block(
+  view: EditorView,
+  from: number,
+  to: number,
+): boolean {
+  const { state } = view;
+  const text = state.doc.textBetween(from, to, "\n", "\n");
+  const code_block_type = state.schema.nodes["code_block"];
+  if (!code_block_type) return false;
+
+  const $from = state.doc.resolve(from);
+  const $to = state.doc.resolve(to);
+  const range_start = $from.before($from.depth);
+  const range_end = $to.after($to.depth);
+
+  const code_block = code_block_type.create(
+    { language: "" },
+    text ? state.schema.text(text) : undefined,
+  );
+  const tr = state.tr.replaceWith(range_start, range_end, code_block);
+  tr.setSelection(
+    TextSelection.create(
+      tr.doc,
+      range_start + 1,
+      range_start + 1 + text.length,
+    ),
+  );
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
 export function create_paired_delimiter_prose_plugin(): Plugin {
   return new Plugin({
     key: paired_delimiter_plugin_key,
     props: {
       handleTextInput(view, from, to, text) {
+        if (text === "`" && from !== to) {
+          const $from = view.state.doc.resolve(from);
+          const $to = view.state.doc.resolve(to);
+          if ($from.parent !== $to.parent) {
+            return wrap_selection_in_code_block(view, from, to);
+          }
+        }
+
         if (!can_handle_text_input(view, from, to)) return false;
 
         if (SELF_PAIRING_DELIMITERS.has(text) && from !== to) {

@@ -228,6 +228,63 @@ describe("create_paired_delimiter_prose_plugin", () => {
     expect(call_handle_text_input(plugin, view, 1, 1, "~")).toBe(false);
   });
 
+  it("converts multi-block selection to code block when typing backtick", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("line one")]),
+        schema.node("paragraph", null, [schema.text("line two")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(
+      state.apply(
+        state.tr.setSelection(
+          TextSelection.create(
+            state.doc,
+            1,
+            1 + "line one".length + 1 + 1 + "line two".length,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      call_handle_text_input(
+        plugin,
+        view,
+        view.state.selection.from,
+        view.state.selection.to,
+        "`",
+      ),
+    ).toBe(true);
+    expect(view.state.doc.firstChild?.type.name).toBe("code_block");
+    expect(view.state.doc.firstChild?.textContent).toBe("line one\nline two");
+  });
+
+  it("still wraps single-line selection with inline backticks", () => {
+    const schema = create_schema();
+    const plugin = create_paired_delimiter_prose_plugin();
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("hello world")]),
+      ]),
+      plugins: [plugin],
+    });
+    const view = create_view(
+      state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 6))),
+    );
+
+    expect(call_handle_text_input(plugin, view, 1, 6, "`")).toBe(true);
+    expect(view.state.doc.firstChild?.type.name).toBe("paragraph");
+    expect(
+      view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
+    ).toBe("`hello` world");
+  });
+
   it("does not pair delimiters inside code blocks", () => {
     const schema = create_schema();
     const plugin = create_paired_delimiter_prose_plugin();
