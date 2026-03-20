@@ -32,6 +32,7 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
+import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -245,6 +246,12 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.note_service,
       context.editor_service,
+    ),
+    create_split_view_content_sync_reactor(
+      context.editor_store,
+      context.editor_service,
+      context.split_view_service,
+      context.split_view_store,
     ),
   ];
 

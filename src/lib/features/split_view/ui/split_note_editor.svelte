@@ -101,6 +101,8 @@
     padding: var(--space-1) var(--space-2);
     border-bottom: 1px solid var(--border);
     min-height: calc(var(--space-8) + var(--space-1));
+    position: relative;
+    z-index: 1;
   }
 
   .SplitNoteEditor__title {
@@ -116,6 +118,8 @@
     flex: 1;
     overflow-y: auto;
     width: 100%;
+    position: relative;
+    z-index: 0;
   }
 
   .SplitNoteEditor__preview {
