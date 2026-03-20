@@ -1,16 +1,44 @@
-use crate::shared::frontmatter::{self, Frontmatter};
-use crate::shared::link_parser::{self, ExternalLink};
 use crate::features::tasks::service as tasks_service;
 use crate::features::tasks::types::Task;
+use crate::shared::frontmatter::{self, Frontmatter};
+use crate::shared::link_parser::{self, ExternalLink};
 use comrak::nodes::NodeValue;
 use comrak::{parse_document, Arena, Options};
+use regex::Regex;
 use serde::Serialize;
+use std::sync::LazyLock;
+
+static INLINE_TAG_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:^|\s)#([\w][\w/-]*)").unwrap());
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Heading {
     pub level: u8,
     pub text: String,
     pub line: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct InlineTag {
+    pub tag: String,
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Section {
+    pub heading_id: String,
+    pub level: u8,
+    pub title: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub word_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CodeBlockMeta {
+    pub line: usize,
+    pub language: Option<String>,
+    pub length: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -39,6 +67,65 @@ pub struct ParsedNote {
     pub char_count: i64,
     pub heading_count: i64,
     pub reading_time_secs: i64,
+    pub inline_tags: Vec<InlineTag>,
+    pub sections: Vec<Section>,
+    pub code_blocks: Vec<CodeBlockMeta>,
+}
+
+fn slugify(text: &str) -> String {
+    text.chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else if c == ' ' || c == '-' || c == '_' {
+                '-'
+            } else {
+                '\0'
+            }
+        })
+        .filter(|&c| c != '\0')
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn compute_sections(headings: &[Heading], total_lines: usize, all_lines: &[&str]) -> Vec<Section> {
+    if headings.is_empty() {
+        return Vec::new();
+    }
+
+    headings
+        .iter()
+        .enumerate()
+        .map(|(i, h)| {
+            let end_line = headings[i + 1..]
+                .iter()
+                .find(|next| next.level <= h.level)
+                .map(|next| next.line - 1)
+                .unwrap_or(total_lines);
+
+            let start_idx = h.line.saturating_sub(1);
+            let end_idx = end_line.min(all_lines.len());
+            let wc: i64 = (start_idx..end_idx)
+                .map(|li| {
+                    all_lines
+                        .get(li)
+                        .map_or(0, |l| l.split_whitespace().count())
+                })
+                .sum::<usize>() as i64;
+
+            Section {
+                heading_id: slugify(&h.text),
+                level: h.level,
+                title: h.text.clone(),
+                start_line: h.line,
+                end_line,
+                word_count: wc,
+            }
+        })
+        .collect()
 }
 
 pub fn markdown_options() -> Options<'static> {
@@ -76,6 +163,8 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
     let mut headings = Vec::new();
     let mut links = NoteLinks::default();
     let mut title: Option<String> = None;
+    let mut inline_tags = Vec::new();
+    let mut code_blocks = Vec::new();
 
     for node in root.descendants() {
         let data = node.data.borrow();
@@ -109,12 +198,35 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
             }
             NodeValue::WikiLink(link) => {
                 if !link_parser::is_embedded_wikilink(node) {
-                    if let Some(target) =
-                        link_parser::parse_wikilink_node(link, source_path)
-                    {
+                    if let Some(target) = link_parser::parse_wikilink_node(link, source_path) {
                         links.wiki_targets.push(target);
                     }
                 }
+            }
+            NodeValue::Text(ref text) => {
+                let in_heading = node
+                    .ancestors()
+                    .any(|a| matches!(a.data.borrow().value, NodeValue::Heading(_)));
+                if !in_heading {
+                    let line = data.sourcepos.start.line + fm_line_offset;
+                    for cap in INLINE_TAG_RE.captures_iter(text) {
+                        inline_tags.push(InlineTag {
+                            tag: cap[1].to_string(),
+                            line,
+                        });
+                    }
+                }
+            }
+            NodeValue::CodeBlock(cb) => {
+                let lang = cb.info.trim().split_whitespace().next().map(String::from);
+                let lang = lang.filter(|l| !l.is_empty());
+                let line = data.sourcepos.start.line + fm_line_offset;
+                let length = data.sourcepos.end.line - data.sourcepos.start.line + 1;
+                code_blocks.push(CodeBlockMeta {
+                    line,
+                    language: lang,
+                    length,
+                });
             }
             _ => {}
         }
@@ -124,6 +236,10 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
     let reading_time_secs = (word_count as f64 / 238.0 * 60.0) as i64;
 
     let tasks = tasks_service::extract_tasks(source_path, body);
+
+    let all_lines: Vec<&str> = markdown.lines().collect();
+    let total_lines = all_lines.len();
+    let sections = compute_sections(&headings, total_lines, &all_lines);
 
     ParsedNote {
         frontmatter: fm,
@@ -135,6 +251,9 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
         char_count,
         heading_count,
         reading_time_secs,
+        inline_tags,
+        sections,
+        code_blocks,
     }
 }
 
@@ -194,7 +313,10 @@ mod tests {
         let md = "See [[Other Note]] and [[folder/Deep Note]].";
         let parsed = parse_note(md, "notes/test.md");
 
-        assert!(parsed.links.wiki_targets.contains(&"Other Note.md".to_string()));
+        assert!(parsed
+            .links
+            .wiki_targets
+            .contains(&"Other Note.md".to_string()));
         assert!(parsed
             .links
             .wiki_targets
@@ -264,5 +386,104 @@ mod tests {
         let all = parsed.links.all_internal_targets();
         assert!(all.contains(&"wiki.md".to_string()));
         assert!(all.contains(&"notes/other.md".to_string()));
+    }
+
+    #[test]
+    fn inline_tags_extracted_from_body() {
+        let md = "Some text #status/active and #project/carbide here.";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.inline_tags.len(), 2);
+        assert_eq!(parsed.inline_tags[0].tag, "status/active");
+        assert_eq!(parsed.inline_tags[1].tag, "project/carbide");
+    }
+
+    #[test]
+    fn inline_tags_not_extracted_from_headings() {
+        let md = "# Heading with #tag\n\nBody #real-tag here.";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.inline_tags.len(), 1);
+        assert_eq!(parsed.inline_tags[0].tag, "real-tag");
+    }
+
+    #[test]
+    fn inline_tags_not_extracted_from_code_blocks() {
+        let md = "Text #visible\n\n```\n#not-a-tag\n```\n\nMore #also-visible.";
+        let parsed = parse_note(md, "test.md");
+
+        let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
+        assert!(tags.contains(&"visible"));
+        assert!(tags.contains(&"also-visible"));
+        assert!(!tags.contains(&"not-a-tag"));
+    }
+
+    #[test]
+    fn inline_tags_require_word_boundary() {
+        let md = "email@#notag and foo#bar should not match, but #real should.";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.inline_tags.len(), 1);
+        assert_eq!(parsed.inline_tags[0].tag, "real");
+    }
+
+    #[test]
+    fn inline_tags_hierarchical() {
+        let md = "#top-level and #nested/sub/deep";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.inline_tags.len(), 2);
+        assert_eq!(parsed.inline_tags[0].tag, "top-level");
+        assert_eq!(parsed.inline_tags[1].tag, "nested/sub/deep");
+    }
+
+    #[test]
+    fn sections_computed_from_headings() {
+        let md = "# H1\nSome text\n## H2a\nMore text here\n## H2b\nFinal text";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.sections.len(), 3);
+        assert_eq!(parsed.sections[0].heading_id, "h1");
+        assert_eq!(parsed.sections[0].level, 1);
+        assert_eq!(parsed.sections[0].end_line, 6);
+        assert_eq!(parsed.sections[1].heading_id, "h2a");
+        assert_eq!(parsed.sections[1].level, 2);
+        assert_eq!(parsed.sections[1].start_line, 3);
+        assert_eq!(parsed.sections[1].end_line, 4);
+        assert_eq!(parsed.sections[2].heading_id, "h2b");
+    }
+
+    #[test]
+    fn sections_empty_when_no_headings() {
+        let md = "Just body text, no headings.";
+        let parsed = parse_note(md, "test.md");
+        assert!(parsed.sections.is_empty());
+    }
+
+    #[test]
+    fn code_blocks_extracted() {
+        let md = "# Title\n\n```rust\nfn main() {}\n```\n\n```mermaid\ngraph TD\n  A --> B\n```";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.code_blocks.len(), 2);
+        assert_eq!(parsed.code_blocks[0].language, Some("rust".to_string()));
+        assert_eq!(parsed.code_blocks[1].language, Some("mermaid".to_string()));
+    }
+
+    #[test]
+    fn code_blocks_no_language() {
+        let md = "```\nplain code\n```";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.code_blocks.len(), 1);
+        assert_eq!(parsed.code_blocks[0].language, None);
+    }
+
+    #[test]
+    fn slugify_basic() {
+        assert_eq!(slugify("Hello World"), "hello-world");
+        assert_eq!(slugify("My  Title!!"), "my-title");
+        assert_eq!(slugify("kebab-case"), "kebab-case");
+        assert_eq!(slugify("with_underscores"), "with-underscores");
     }
 }

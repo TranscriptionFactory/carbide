@@ -108,9 +108,13 @@ mod specta_export {
                 // Watcher commands (2)
                 crate::features::watcher::service::watch_vault,
                 crate::features::watcher::service::unwatch_vault,
-                // Tags commands (2)
+                // Tags commands (6)
                 crate::features::tags::service::tags_list_all,
+                crate::features::tags::service::tags_list_all_unified,
                 crate::features::tags::service::tags_get_notes_for_tag,
+                crate::features::tags::service::notes_with_code_language,
+                crate::features::tags::service::property_registry_list,
+                crate::features::tags::service::section_get_range,
                 // AI commands (2)
                 crate::features::ai::service::ai_check_cli,
                 crate::features::ai::service::ai_execute_cli,

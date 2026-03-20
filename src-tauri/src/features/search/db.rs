@@ -170,6 +170,24 @@ fn tasks_schema_needs_migration(conn: &Connection) -> bool {
     }
 }
 
+fn tags_schema_needs_migration(conn: &Connection) -> bool {
+    let has_old = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_tags'",
+            [],
+            |_| Ok(()),
+        )
+        .is_ok();
+    let has_new = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_inline_tags'",
+            [],
+            |_| Ok(()),
+        )
+        .is_ok();
+    has_old && !has_new
+}
+
 fn init_schema(conn: &Connection) -> Result<(), String> {
     if fts_schema_needs_migration(conn) {
         conn.execute_batch(
@@ -182,6 +200,11 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 
     if tasks_schema_needs_migration(conn) {
         conn.execute("DROP TABLE IF EXISTS tasks", [])
+            .map_err(|e| e.to_string())?;
+    }
+
+    if tags_schema_needs_migration(conn) {
+        conn.execute("DROP TABLE IF EXISTS note_tags", [])
             .map_err(|e| e.to_string())?;
     }
 
@@ -210,19 +233,54 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             path TEXT NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
-            type TEXT NOT NULL,
-            PRIMARY KEY (path, key)
+            type TEXT NOT NULL
         );
 
+        CREATE INDEX IF NOT EXISTS idx_note_properties_path ON note_properties(path);
         CREATE INDEX IF NOT EXISTS idx_note_properties_key ON note_properties(key);
 
-        CREATE TABLE IF NOT EXISTS note_tags (
+        CREATE TABLE IF NOT EXISTS note_inline_tags (
             path TEXT NOT NULL,
             tag TEXT NOT NULL,
-            PRIMARY KEY (path, tag)
+            line INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            PRIMARY KEY (path, tag, line),
+            FOREIGN KEY (path) REFERENCES notes(path) ON DELETE CASCADE
         );
 
-        CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag);
+        CREATE INDEX IF NOT EXISTS idx_inline_tags_tag ON note_inline_tags(tag);
+        CREATE INDEX IF NOT EXISTS idx_inline_tags_source ON note_inline_tags(source);
+
+        CREATE TABLE IF NOT EXISTS note_sections (
+            path TEXT NOT NULL,
+            heading_id TEXT NOT NULL,
+            level INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            start_line INTEGER NOT NULL,
+            end_line INTEGER NOT NULL,
+            word_count INTEGER NOT NULL,
+            PRIMARY KEY (path, heading_id),
+            FOREIGN KEY (path) REFERENCES notes(path) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_note_sections_path ON note_sections(path);
+
+        CREATE TABLE IF NOT EXISTS note_code_blocks (
+            path TEXT NOT NULL,
+            line INTEGER NOT NULL,
+            language TEXT,
+            length INTEGER NOT NULL,
+            PRIMARY KEY (path, line),
+            FOREIGN KEY (path) REFERENCES notes(path) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_note_code_blocks_lang ON note_code_blocks(language);
+
+        CREATE TABLE IF NOT EXISTS property_registry (
+            key TEXT PRIMARY KEY,
+            inferred_type TEXT NOT NULL,
+            note_count INTEGER NOT NULL
+        );
 
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
@@ -274,6 +332,10 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "last_indexed_at INTEGER DEFAULT 0",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
+    }
+
+    for col in &["section_heading TEXT", "target_anchor TEXT"] {
+        let _ = conn.execute_batch(&format!("ALTER TABLE note_links ADD COLUMN {col}"));
     }
 
     Ok(())
@@ -329,6 +391,59 @@ fn is_iso_date(s: &str) -> bool {
     }
 }
 
+fn flatten_yaml_value<'a>(
+    prefix: &str,
+    value: &'a serde_yml::Value,
+    out: &mut Vec<(String, String, &'a str)>,
+) {
+    match value {
+        serde_yml::Value::String(s) => {
+            let t = if is_iso_date(s) { "date" } else { "string" };
+            out.push((prefix.to_string(), s.clone(), t));
+        }
+        serde_yml::Value::Number(n) => {
+            out.push((prefix.to_string(), n.to_string(), "number"));
+        }
+        serde_yml::Value::Bool(b) => {
+            out.push((prefix.to_string(), b.to_string(), "boolean"));
+        }
+        serde_yml::Value::Sequence(seq) => {
+            for item in seq {
+                let (val_str, val_type) = scalar_to_string(item);
+                out.push((prefix.to_string(), val_str, val_type));
+            }
+        }
+        serde_yml::Value::Mapping(map) => {
+            for (k, v) in map {
+                if let Some(key_str) = k.as_str() {
+                    let nested_key = format!("{prefix}.{key_str}");
+                    flatten_yaml_value(&nested_key, v, out);
+                }
+            }
+        }
+        serde_yml::Value::Null => {}
+        _ => {
+            out.push((
+                prefix.to_string(),
+                serde_json::to_string(value).unwrap_or_default(),
+                "json",
+            ));
+        }
+    }
+}
+
+fn scalar_to_string(value: &serde_yml::Value) -> (String, &str) {
+    match value {
+        serde_yml::Value::String(s) => {
+            let t = if is_iso_date(s) { "date" } else { "string" };
+            (s.clone(), t)
+        }
+        serde_yml::Value::Number(n) => (n.to_string(), "number"),
+        serde_yml::Value::Bool(b) => (b.to_string(), "boolean"),
+        _ => (serde_json::to_string(value).unwrap_or_default(), "json"),
+    }
+}
+
 pub fn upsert_note_parsed(
     conn: &Connection,
     meta: &IndexNoteMeta,
@@ -379,30 +494,64 @@ pub(crate) fn upsert_note_parsed_inner(
     )
     .map_err(|e| e.to_string())?;
 
+    let mut flat_props: Vec<(String, String, &str)> = Vec::new();
     for (key, value) in &parsed.frontmatter.properties {
-        let (val_str, val_type) = match value {
-            serde_yml::Value::String(s) => {
-                let t = if is_iso_date(s) { "date" } else { "string" };
-                (s.clone(), t)
-            }
-            serde_yml::Value::Number(n) => (n.to_string(), "number"),
-            serde_yml::Value::Bool(b) => (b.to_string(), "boolean"),
-            _ => (serde_json::to_string(&value).unwrap_or_default(), "json"),
-        };
+        flatten_yaml_value(key, value, &mut flat_props);
+    }
+    for (key, val_str, val_type) in &flat_props {
         conn.execute(
-            "REPLACE INTO note_properties (path, key, value, type) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO note_properties (path, key, value, type) VALUES (?1, ?2, ?3, ?4)",
             params![meta.path, key, val_str, val_type],
         )
         .map_err(|e| e.to_string())?;
     }
 
-    conn.execute("DELETE FROM note_tags WHERE path = ?1", params![meta.path])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_inline_tags WHERE path = ?1",
+        params![meta.path],
+    )
+    .map_err(|e| e.to_string())?;
 
     for tag in &parsed.frontmatter.tags {
         conn.execute(
-            "REPLACE INTO note_tags (path, tag) VALUES (?1, ?2)",
+            "REPLACE INTO note_inline_tags (path, tag, line, source) VALUES (?1, ?2, 0, 'frontmatter')",
             params![meta.path, tag],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    for it in &parsed.inline_tags {
+        conn.execute(
+            "REPLACE INTO note_inline_tags (path, tag, line, source) VALUES (?1, ?2, ?3, 'inline')",
+            params![meta.path, it.tag, it.line],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute(
+        "DELETE FROM note_sections WHERE path = ?1",
+        params![meta.path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for sec in &parsed.sections {
+        conn.execute(
+            "REPLACE INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![meta.path, sec.heading_id, sec.level, sec.title, sec.start_line, sec.end_line, sec.word_count],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute(
+        "DELETE FROM note_code_blocks WHERE path = ?1",
+        params![meta.path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for cb in &parsed.code_blocks {
+        conn.execute(
+            "REPLACE INTO note_code_blocks (path, line, language, length) VALUES (?1, ?2, ?3, ?4)",
+            params![meta.path, cb.line, cb.language, cb.length],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -475,8 +624,18 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM note_properties WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_tags WHERE path = ?1", params![path])
+    conn.execute(
+        "DELETE FROM note_inline_tags WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_sections WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_code_blocks WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM tasks WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     conn.execute(
@@ -533,7 +692,19 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
         })
         .and_then(|_| {
             conn.execute(
-                "DELETE FROM note_tags WHERE path LIKE ?1 ESCAPE '\\'",
+                "DELETE FROM note_inline_tags WHERE path LIKE ?1 ESCAPE '\\'",
+                params![like_pattern],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "DELETE FROM note_sections WHERE path LIKE ?1 ESCAPE '\\'",
+                params![like_pattern],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "DELETE FROM note_code_blocks WHERE path LIKE ?1 ESCAPE '\\'",
                 params![like_pattern],
             )
         })
@@ -713,6 +884,12 @@ pub fn rebuild_index(
     conn.execute("DELETE FROM note_headings", [])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM note_links", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_inline_tags", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_sections", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_code_blocks", [])
         .map_err(|e| e.to_string())?;
 
     let paths = list_indexable_files(app, vault_id, vault_root)?;
@@ -1196,7 +1373,11 @@ pub fn fuzzy_suggest(
         }
     }
 
-    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     scored.truncate(limit);
     Ok(scored)
 }
@@ -1509,7 +1690,7 @@ mod tests {
 
         let tag_count: usize = conn
             .query_row(
-                "SELECT COUNT(*) FROM note_tags WHERE path = ?1",
+                "SELECT COUNT(*) FROM note_inline_tags WHERE path = ?1",
                 params!["notes/a.md"],
                 |r| r.get(0),
             )
@@ -1554,7 +1735,7 @@ mod tests {
 
         let tag_count: usize = conn
             .query_row(
-                "SELECT COUNT(*) FROM note_tags WHERE path = ?1",
+                "SELECT COUNT(*) FROM note_inline_tags WHERE path = ?1",
                 params!["notes/b.md"],
                 |r| r.get(0),
             )
@@ -1563,7 +1744,7 @@ mod tests {
 
         let tag: String = conn
             .query_row(
-                "SELECT tag FROM note_tags WHERE path = ?1",
+                "SELECT DISTINCT tag FROM note_inline_tags WHERE path = ?1",
                 params!["notes/b.md"],
                 |r| r.get(0),
             )
@@ -1580,7 +1761,7 @@ mod tests {
         remove_note(&conn, "notes/c.md").expect("remove");
 
         assert_eq!(count_rows(&conn, "note_properties", "notes/c.md"), 0);
-        assert_eq!(count_rows(&conn, "note_tags", "notes/c.md"), 0);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "notes/c.md"), 0);
         let note_count: usize = conn
             .query_row(
                 "SELECT COUNT(*) FROM notes WHERE path = ?1",
@@ -1605,9 +1786,9 @@ mod tests {
         rename_note_path(&conn, "old/note.md", "new/note.md").expect("rename");
 
         assert_eq!(count_rows(&conn, "note_properties", "old/note.md"), 0);
-        assert_eq!(count_rows(&conn, "note_tags", "old/note.md"), 0);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "old/note.md"), 0);
         assert_eq!(count_rows(&conn, "note_properties", "new/note.md"), 1);
-        assert_eq!(count_rows(&conn, "note_tags", "new/note.md"), 1);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "new/note.md"), 1);
     }
 
     #[test]
@@ -1621,11 +1802,11 @@ mod tests {
         rename_folder_paths(&conn, "folder", "archive").expect("rename");
 
         assert_eq!(count_rows(&conn, "note_properties", "folder/a.md"), 0);
-        assert_eq!(count_rows(&conn, "note_tags", "folder/a.md"), 0);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "folder/a.md"), 0);
         assert_eq!(count_rows(&conn, "note_properties", "archive/a.md"), 1);
-        assert_eq!(count_rows(&conn, "note_tags", "archive/a.md"), 1);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "archive/a.md"), 1);
         assert_eq!(count_rows(&conn, "note_properties", "archive/b.md"), 1);
-        assert_eq!(count_rows(&conn, "note_tags", "archive/b.md"), 1);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "archive/b.md"), 1);
     }
 
     #[test]
@@ -1701,19 +1882,19 @@ mod tests {
     }
 
     #[test]
-    fn property_type_json_for_nested() {
+    fn property_type_nested_flattened() {
         let conn = open_mem_db();
         let meta = note("t/json.md", "T");
         upsert_note(&conn, &meta, "---\nmeta:\n  a: 1\n---\nbody").expect("upsert");
 
         let typ: String = conn
             .query_row(
-                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'meta'",
+                "SELECT type FROM note_properties WHERE path = ?1 AND key = 'meta.a'",
                 params!["t/json.md"],
                 |r| r.get(0),
             )
             .expect("type");
-        assert_eq!(typ, "json");
+        assert_eq!(typ, "number");
     }
 
     #[test]
@@ -1977,7 +2158,7 @@ mod tests {
         upsert_note(&conn, &meta, "Just plain body text.").expect("upsert");
 
         assert_eq!(count_rows(&conn, "note_properties", "q/plain.md"), 0);
-        assert_eq!(count_rows(&conn, "note_tags", "q/plain.md"), 0);
+        assert_eq!(count_rows(&conn, "note_inline_tags", "q/plain.md"), 0);
     }
 
     #[test]
@@ -2073,6 +2254,257 @@ mod tests {
         let tags = get_note_tags(&conn, "nonexistent.md").expect("tags");
         assert!(tags.is_empty());
     }
+
+    #[test]
+    fn upsert_stores_inline_tags() {
+        let conn = open_mem_db();
+        let meta = note("tags/inline.md", "Inline");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\ntags: [fm]\n---\nBody #inline-tag and #other",
+        )
+        .expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT tag, line, source FROM note_inline_tags WHERE path = ?1 ORDER BY tag")
+            .expect("prepare");
+        let rows: Vec<(String, i64, String)> = stmt
+            .query_map(params!["tags/inline.md"], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 3);
+        let fm_tag = rows.iter().find(|(t, _, _)| t == "fm").expect("fm tag");
+        assert_eq!(fm_tag.2, "frontmatter");
+        let inline = rows
+            .iter()
+            .find(|(t, _, _)| t == "inline-tag")
+            .expect("inline tag");
+        assert_eq!(inline.2, "inline");
+    }
+
+    #[test]
+    fn upsert_stores_sections() {
+        let conn = open_mem_db();
+        let meta = note("sec/a.md", "A");
+        upsert_note(
+            &conn,
+            &meta,
+            "# Title\nIntro text\n## Section Two\nMore text",
+        )
+        .expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT heading_id, level, title, start_line, end_line FROM note_sections WHERE path = ?1 ORDER BY start_line")
+            .expect("prepare");
+        let rows: Vec<(String, i64, String, i64, i64)> = stmt
+            .query_map(params!["sec/a.md"], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].0, "title");
+        assert_eq!(rows[0].1, 1);
+        assert_eq!(rows[1].0, "section-two");
+        assert_eq!(rows[1].1, 2);
+    }
+
+    #[test]
+    fn upsert_stores_code_blocks() {
+        let conn = open_mem_db();
+        let meta = note("code/a.md", "A");
+        upsert_note(
+            &conn,
+            &meta,
+            "# Title\n\n```rust\nfn main() {}\n```\n\n```\nplain\n```",
+        )
+        .expect("upsert");
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT line, language, length FROM note_code_blocks WHERE path = ?1 ORDER BY line",
+            )
+            .expect("prepare");
+        let rows: Vec<(i64, Option<String>, i64)> = stmt
+            .query_map(params!["code/a.md"], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].1, Some("rust".to_string()));
+        assert_eq!(rows[1].1, None);
+    }
+
+    #[test]
+    fn remove_note_clears_new_tables() {
+        let conn = open_mem_db();
+        let meta = note("rm/a.md", "A");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\ntags: [x]\n---\n# H1\n\n```rust\ncode\n```\n\n#inline",
+        )
+        .expect("upsert");
+
+        remove_note(&conn, "rm/a.md").expect("remove");
+
+        let tag_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_inline_tags WHERE path = ?1",
+                params!["rm/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        let sec_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_sections WHERE path = ?1",
+                params!["rm/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        let cb_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_code_blocks WHERE path = ?1",
+                params!["rm/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+
+        assert_eq!(tag_count, 0);
+        assert_eq!(sec_count, 0);
+        assert_eq!(cb_count, 0);
+    }
+
+    #[test]
+    fn rename_note_path_updates_new_tables() {
+        let conn = open_mem_db();
+        let meta = note("old/a.md", "A");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\ntags: [x]\n---\n# H1\n\n```rust\ncode\n```",
+        )
+        .expect("upsert");
+
+        rename_note_path(&conn, "old/a.md", "new/a.md").expect("rename");
+
+        let old_tags: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_inline_tags WHERE path = ?1",
+                params!["old/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        let new_tags: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_inline_tags WHERE path = ?1",
+                params!["new/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(old_tags, 0);
+        assert!(new_tags > 0);
+
+        let new_secs: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_sections WHERE path = ?1",
+                params!["new/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert!(new_secs > 0);
+
+        let new_cbs: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_code_blocks WHERE path = ?1",
+                params!["new/a.md"],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert!(new_cbs > 0);
+    }
+
+    #[test]
+    fn property_flattening_nested_yaml() {
+        let conn = open_mem_db();
+        let meta = note("flat/a.md", "A");
+        upsert_note(
+            &conn,
+            &meta,
+            "---\nproject:\n  name: Carbide\n  status: active\n---\nbody",
+        )
+        .expect("upsert");
+
+        let props = get_note_properties(&conn, "flat/a.md").expect("props");
+        assert_eq!(props["project.name"].0, "Carbide");
+        assert_eq!(props["project.status"].0, "active");
+    }
+
+    #[test]
+    fn property_flattening_arrays() {
+        let conn = open_mem_db();
+        let meta = note("flat/arr.md", "Arr");
+        upsert_note(&conn, &meta, "---\naliases: [carbide, the-app]\n---\nbody").expect("upsert");
+
+        let mut stmt = conn
+            .prepare("SELECT value FROM note_properties WHERE path = ?1 AND key = 'aliases' ORDER BY value")
+            .expect("prepare");
+        let values: Vec<String> = stmt
+            .query_map(params!["flat/arr.md"], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(values, vec!["carbide", "the-app"]);
+    }
+
+    #[test]
+    fn rebuild_property_registry_aggregates() {
+        let conn = open_mem_db();
+        upsert_note(
+            &conn,
+            &note("reg/a.md", "A"),
+            "---\nstatus: draft\n---\nbody",
+        )
+        .expect("a");
+        upsert_note(
+            &conn,
+            &note("reg/b.md", "B"),
+            "---\nstatus: active\npriority: 1\n---\nbody",
+        )
+        .expect("b");
+
+        rebuild_property_registry(&conn).expect("rebuild");
+
+        let mut stmt = conn
+            .prepare("SELECT key, inferred_type, note_count FROM property_registry ORDER BY key")
+            .expect("prepare");
+        let rows: Vec<(String, String, i64)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows.len(), 2);
+        let status = rows.iter().find(|(k, _, _)| k == "status").expect("status");
+        assert_eq!(status.1, "string");
+        assert_eq!(status.2, 2);
+        let priority = rows
+            .iter()
+            .find(|(k, _, _)| k == "priority")
+            .expect("priority");
+        assert_eq!(priority.2, 1);
+    }
 }
 
 pub fn get_orphan_outlinks(conn: &Connection, path: &str) -> Result<Vec<OrphanLink>, String> {
@@ -2119,7 +2551,7 @@ pub fn rename_folder_paths(
         return Ok(0);
     }
 
-    conn.execute_batch("BEGIN IMMEDIATE")
+    conn.execute_batch("PRAGMA defer_foreign_keys = ON; BEGIN IMMEDIATE")
         .map_err(|e| e.to_string())?;
 
     let result = conn.execute_batch(
@@ -2160,7 +2592,17 @@ pub fn rename_folder_paths(
         params![new_prefix, old_len, like_pattern],
     ))
     .and_then(|_| conn.execute(
-        "UPDATE note_tags SET path = ?1 || substr(path, ?2 + 1)
+        "UPDATE note_inline_tags SET path = ?1 || substr(path, ?2 + 1)
+         WHERE path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, like_pattern],
+    ))
+    .and_then(|_| conn.execute(
+        "UPDATE note_sections SET path = ?1 || substr(path, ?2 + 1)
+         WHERE path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, like_pattern],
+    ))
+    .and_then(|_| conn.execute(
+        "UPDATE note_code_blocks SET path = ?1 || substr(path, ?2 + 1)
          WHERE path LIKE ?3 ESCAPE '\\'",
         params![new_prefix, old_len, like_pattern],
     ))
@@ -2197,7 +2639,7 @@ pub fn rename_folder_paths(
 }
 
 pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Result<(), String> {
-    conn.execute_batch("BEGIN IMMEDIATE")
+    conn.execute_batch("PRAGMA defer_foreign_keys = ON; BEGIN IMMEDIATE")
         .map_err(|e| e.to_string())?;
 
     let result = conn
@@ -2225,7 +2667,19 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
         })
         .and_then(|_| {
             conn.execute(
-                "UPDATE note_tags SET path = ?1 WHERE path = ?2",
+                "UPDATE note_inline_tags SET path = ?1 WHERE path = ?2",
+                params![new_path, old_path],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "UPDATE note_sections SET path = ?1 WHERE path = ?2",
+                params![new_path, old_path],
+            )
+        })
+        .and_then(|_| {
+            conn.execute(
+                "UPDATE note_code_blocks SET path = ?1 WHERE path = ?2",
                 params![new_path, old_path],
             )
         })
@@ -2257,6 +2711,23 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
             Err(e)
         }
     }
+}
+
+pub fn rebuild_property_registry(conn: &Connection) -> Result<(), String> {
+    conn.execute("DELETE FROM property_registry", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO property_registry (key, inferred_type, note_count)
+         SELECT key,
+                (SELECT type FROM note_properties np2 WHERE np2.key = np.key
+                 GROUP BY type ORDER BY COUNT(*) DESC LIMIT 1) AS inferred_type,
+                COUNT(DISTINCT path) AS note_count
+         FROM note_properties np
+         GROUP BY key",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
@@ -2296,7 +2767,7 @@ pub fn get_note_properties(
 
 pub fn get_note_tags(conn: &Connection, path: &str) -> Result<Vec<String>, String> {
     let mut stmt = conn
-        .prepare("SELECT tag FROM note_tags WHERE path = ?1 ORDER BY tag")
+        .prepare("SELECT DISTINCT tag FROM note_inline_tags WHERE path = ?1 ORDER BY tag")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![path], |row| row.get(0))
@@ -2352,7 +2823,7 @@ pub fn query_bases(
     for filter in &query.filters {
         if filter.property == "tag" || filter.property == "tags" {
             where_clauses.push(format!(
-                "path IN (SELECT path FROM note_tags WHERE tag = ?{})",
+                "path IN (SELECT path FROM note_inline_tags WHERE tag = ?{})",
                 params.len() + 1
             ));
             params.push(Box::new(filter.value.clone()));
@@ -2473,7 +2944,7 @@ pub fn query_bases(
         }
 
         let mut tag_stmt = conn
-            .prepare("SELECT tag FROM note_tags WHERE path = ?1")
+            .prepare("SELECT DISTINCT tag FROM note_inline_tags WHERE path = ?1")
             .map_err(|e| e.to_string())?;
         let tag_rows = tag_stmt
             .query_map(params![note.path], |row| row.get::<_, String>(0))
