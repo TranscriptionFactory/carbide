@@ -59,6 +59,12 @@ jobs:
 
       - run: pnpm install
 
+      - name: Stub external binary for build
+        run: |
+          target=$(rustc -vV | awk '/^host:/ { print $2 }')
+          touch "src-tauri/binaries/rumdl-${target}"
+          chmod +x "src-tauri/binaries/rumdl-${target}"
+
       - name: Generate TypeScript bindings
         run: cd src-tauri && cargo test specta_export::export_bindings -- --nocapture
 
