@@ -161,6 +161,8 @@ pub fn run() {
             features::tags::service::tags_get_notes_for_tag,
             features::tags::service::notes_with_code_language,
             features::tags::service::property_registry_list,
+            features::tags::service::notes_with_tag_in_section,
+            features::tags::service::notes_by_property_filter,
             features::tags::service::section_get_range,
             features::tasks::tasks_query,
             features::tasks::tasks_get_for_note,

@@ -1,6 +1,6 @@
 use crate::features::search::service::with_read_conn;
 use rusqlite::params;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::AppHandle;
 
@@ -159,6 +159,129 @@ pub fn property_registry_list(
                     note_count: row.get(2)?,
                 })
             })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct PropertyFilter {
+    pub key: String,
+    pub op: String,
+    pub value: String,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn notes_with_tag_in_section(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+    heading_id: String,
+) -> Result<Vec<String>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT t.path
+                 FROM note_inline_tags t
+                 JOIN note_sections s ON s.path = t.path
+                 WHERE t.tag = ?1
+                   AND s.heading_id = ?2
+                   AND t.line BETWEEN s.start_line AND s.end_line
+                 ORDER BY t.path ASC",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![tag, heading_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn notes_by_property_filter(
+    app: AppHandle,
+    vault_id: String,
+    filters: Vec<PropertyFilter>,
+) -> Result<Vec<String>, String> {
+    if filters.is_empty() {
+        return Err("at least one filter required".to_string());
+    }
+
+    with_read_conn(&app, &vault_id, |conn| {
+        let mut conditions = Vec::new();
+        let mut bind_values: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let mut param_idx = 1;
+
+        for f in &filters {
+            let cond = match f.op.as_str() {
+                "=" | "eq" => {
+                    let c = format!(
+                        "path IN (SELECT path FROM note_properties WHERE key = ?{} AND value = ?{})",
+                        param_idx,
+                        param_idx + 1
+                    );
+                    bind_values.push(Box::new(f.key.clone()));
+                    bind_values.push(Box::new(f.value.clone()));
+                    param_idx += 2;
+                    c
+                }
+                "!=" | "neq" => {
+                    let c = format!(
+                        "path NOT IN (SELECT path FROM note_properties WHERE key = ?{} AND value = ?{})",
+                        param_idx,
+                        param_idx + 1
+                    );
+                    bind_values.push(Box::new(f.key.clone()));
+                    bind_values.push(Box::new(f.value.clone()));
+                    param_idx += 2;
+                    c
+                }
+                "like" => {
+                    let c = format!(
+                        "path IN (SELECT path FROM note_properties WHERE key = ?{} AND value LIKE ?{})",
+                        param_idx,
+                        param_idx + 1
+                    );
+                    bind_values.push(Box::new(f.key.clone()));
+                    bind_values.push(Box::new(f.value.clone()));
+                    param_idx += 2;
+                    c
+                }
+                "exists" => {
+                    let c = format!(
+                        "path IN (SELECT path FROM note_properties WHERE key = ?{})",
+                        param_idx
+                    );
+                    bind_values.push(Box::new(f.key.clone()));
+                    param_idx += 1;
+                    c
+                }
+                "not_exists" => {
+                    let c = format!(
+                        "path NOT IN (SELECT path FROM note_properties WHERE key = ?{})",
+                        param_idx
+                    );
+                    bind_values.push(Box::new(f.key.clone()));
+                    param_idx += 1;
+                    c
+                }
+                other => return Err(format!("unsupported filter op: {other}")),
+            };
+            conditions.push(cond);
+        }
+
+        let sql = format!(
+            "SELECT DISTINCT path FROM notes WHERE {} ORDER BY path ASC",
+            conditions.join(" AND ")
+        );
+
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(&bind_values), |row| row.get(0))
             .map_err(|e| e.to_string())?;
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())
