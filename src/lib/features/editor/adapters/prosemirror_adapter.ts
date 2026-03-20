@@ -753,15 +753,15 @@ export function create_prosemirror_editor_port(args?: {
       }
 
       function dispatch_full_scan(v: EditorView) {
-        const full_scan_tr = v.state.tr.setMeta(wiki_link_plugin_key, {
-          action: "full_scan",
-        });
-        v.dispatch(full_scan_tr);
-
         const embed_scan_tr = v.state.tr
           .setMeta(excalidraw_embed_plugin_key, { action: "full_scan" })
           .setMeta(file_embed_plugin_key, { action: "full_scan" });
         v.dispatch(embed_scan_tr);
+
+        const full_scan_tr = v.state.tr.setMeta(wiki_link_plugin_key, {
+          action: "full_scan",
+        });
+        v.dispatch(full_scan_tr);
       }
 
       function dispatch_mark_clean(v: EditorView) {
