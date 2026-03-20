@@ -13,6 +13,7 @@ export function create_test_workspace_index_adapter(): WorkspaceIndexPort {
     remove_notes_by_prefix: () => Promise.resolve(),
     rename_folder_paths: () => Promise.resolve(),
     subscribe_index_progress: () => () => {},
+    subscribe_vault_scan_stats: () => () => {},
     subscribe_embedding_progress: () => () => {},
     embed_sync: () => Promise.resolve(),
   };

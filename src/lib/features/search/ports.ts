@@ -128,6 +128,13 @@ export interface WorkspaceIndexPort {
   subscribe_index_progress(
     callback: (event: IndexProgressEvent) => void,
   ): () => void;
+  subscribe_vault_scan_stats(
+    callback: (event: {
+      vault_id: string;
+      note_count: number;
+      folder_count: number;
+    }) => void,
+  ): () => void;
   subscribe_embedding_progress(
     callback: (event: EmbeddingProgressEvent) => void,
   ): () => void;

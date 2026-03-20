@@ -30,6 +30,30 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
     listeners?: Set<(event: EmbeddingProgressEvent) => void>;
   } = {};
 
+  type VaultScanStatsEvent = {
+    vault_id: string;
+    note_count: number;
+    folder_count: number;
+  };
+  const scan_stats_listeners = new Set<(event: VaultScanStatsEvent) => void>();
+  let scan_stats_listener_ready: Promise<void> | null = null;
+
+  async function ensure_scan_stats_listener(): Promise<void> {
+    if (scan_stats_listener_ready) {
+      await scan_stats_listener_ready;
+      return;
+    }
+
+    scan_stats_listener_ready = listen<VaultScanStatsEvent>(
+      "vault_scan_stats",
+      (event) => {
+        for (const listener of scan_stats_listeners) {
+          listener(event.payload);
+        }
+      },
+    ).then(() => {});
+  }
+
   function remove_waiter(vault_id: string, waiter: RunWaiter): void {
     const queue = run_waiters_by_vault.get(vault_id);
     if (!queue) {
@@ -292,6 +316,13 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
       progress_listeners.add(callback);
       return () => {
         progress_listeners.delete(callback);
+      };
+    },
+    subscribe_vault_scan_stats(callback: (event: VaultScanStatsEvent) => void) {
+      void ensure_scan_stats_listener();
+      scan_stats_listeners.add(callback);
+      return () => {
+        scan_stats_listeners.delete(callback);
       };
     },
 
