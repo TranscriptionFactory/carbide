@@ -5,11 +5,11 @@ export type { ActivePane } from "$lib/features/split_view/state/split_view_store
 export { default as SplitNoteEditor } from "$lib/features/split_view/ui/split_note_editor.svelte";
 export { default as SplitDropZone } from "$lib/features/split_view/ui/split_drop_zone.svelte";
 export {
-  resolve_content_sync_direction,
+  resolve_active_pane_sync,
   normalize_for_comparison,
 } from "$lib/features/split_view/domain/content_sync";
 export type {
   SyncDirection,
   SyncResult,
-  ContentSyncInput,
+  ActivePaneSyncInput,
 } from "$lib/features/split_view/domain/content_sync";
