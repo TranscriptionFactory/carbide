@@ -65,6 +65,12 @@ jobs:
           touch "src-tauri/binaries/rumdl-${target}"
           chmod +x "src-tauri/binaries/rumdl-${target}"
 
+      - name: Stub excalidraw-dist for build
+        run: |
+          mkdir -p src-tauri/excalidraw-dist/assets
+          touch src-tauri/excalidraw-dist/index.html
+          touch src-tauri/excalidraw-dist/assets/.gitkeep
+
       - name: Generate TypeScript bindings
         run: cd src-tauri && cargo test specta_export::export_bindings -- --nocapture
 
