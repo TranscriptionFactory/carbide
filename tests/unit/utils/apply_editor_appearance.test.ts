@@ -167,14 +167,14 @@ describe("apply_editor_appearance", () => {
     );
   });
 
-  it("applies gradient divider style by default", () => {
+  it("applies solid divider style by default", () => {
     apply_editor_appearance(DEFAULT_EDITOR_SETTINGS);
 
-    expect(properties.get("--editor-hr-background")).toContain(
-      "linear-gradient",
+    expect(properties.get("--editor-hr-background")).toBe("none");
+    expect(properties.get("--editor-hr-border-top")).toBe(
+      "var(--editor-hr-thickness, 1px) solid var(--editor-hr-gradient-mid)",
     );
-    expect(properties.get("--editor-hr-border-top")).toBe("none");
-    expect(properties.get("--editor-hr-opacity")).toBe("0.5");
+    expect(properties.get("--editor-hr-opacity")).toBe("0.7");
   });
 
   it("applies divider thickness", () => {
@@ -222,10 +222,10 @@ describe("apply_editor_appearance", () => {
     });
 
     expect(properties.get("--editor-table-cell-padding-y")).toBe(
-      "calc(var(--editor-spacing) * 0.5)",
+      "calc(var(--editor-spacing) * 0.12)",
     );
     expect(properties.get("--editor-table-cell-padding-x")).toBe(
-      "calc(var(--editor-spacing) * 0.65)",
+      "calc(var(--editor-spacing) * 0.3)",
     );
   });
 
@@ -236,10 +236,10 @@ describe("apply_editor_appearance", () => {
     });
 
     expect(properties.get("--editor-table-cell-padding-y")).toBe(
-      "calc(var(--editor-spacing) * 1.05)",
+      "calc(var(--editor-spacing) * 0.6)",
     );
     expect(properties.get("--editor-table-cell-padding-x")).toBe(
-      "calc(var(--editor-spacing) * 1.25)",
+      "calc(var(--editor-spacing) * 0.85)",
     );
   });
 

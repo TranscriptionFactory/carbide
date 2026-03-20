@@ -72,13 +72,13 @@ describe("CodeBlockView", () => {
       );
       container = c;
 
-      const wrapper = get_code_block_wrapper(container!);
+      const wrapper = get_code_block_wrapper(c);
       expect(wrapper).not.toBeNull();
 
-      const preview = get_mermaid_preview(container!);
+      const preview = get_mermaid_preview(c);
       expect(preview).not.toBeNull();
 
-      const toggle_btn = get_mermaid_toggle_btn(container!);
+      const toggle_btn = get_mermaid_toggle_btn(c);
       expect(toggle_btn).not.toBeNull();
       expect(toggle_btn?.textContent).toBe("Edit");
 
@@ -92,10 +92,10 @@ describe("CodeBlockView", () => {
       );
       container = c;
 
-      const preview = get_mermaid_preview(container!);
+      const preview = get_mermaid_preview(c);
       expect(preview).toBeNull();
 
-      const toggle_btn = get_mermaid_toggle_btn(container!);
+      const toggle_btn = get_mermaid_toggle_btn(c);
       expect(toggle_btn).toBeNull();
 
       view.destroy();
@@ -108,15 +108,15 @@ describe("CodeBlockView", () => {
       );
       container = c;
 
-      expect(get_mermaid_preview(container!)).toBeNull();
+      expect(get_mermaid_preview(c)).toBeNull();
 
       const tr = view.state.tr.setNodeMarkup(0, undefined, {
         language: "mermaid",
       });
       view.dispatch(tr);
 
-      expect(get_mermaid_preview(container!)).not.toBeNull();
-      expect(get_mermaid_toggle_btn(container!)).not.toBeNull();
+      expect(get_mermaid_preview(c)).not.toBeNull();
+      expect(get_mermaid_toggle_btn(c)).not.toBeNull();
 
       view.destroy();
     });
@@ -128,15 +128,15 @@ describe("CodeBlockView", () => {
       );
       container = c;
 
-      expect(get_mermaid_preview(container!)).not.toBeNull();
+      expect(get_mermaid_preview(c)).not.toBeNull();
 
       const tr = view.state.tr.setNodeMarkup(0, undefined, {
         language: "javascript",
       });
       view.dispatch(tr);
 
-      expect(get_mermaid_preview(container!)).toBeNull();
-      expect(get_mermaid_toggle_btn(container!)).toBeNull();
+      expect(get_mermaid_preview(c)).toBeNull();
+      expect(get_mermaid_toggle_btn(c)).toBeNull();
 
       view.destroy();
     });
