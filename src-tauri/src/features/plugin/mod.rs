@@ -3,18 +3,20 @@ pub mod settings;
 pub mod types;
 pub mod watcher;
 
+use crate::features::plugin::service::PluginService;
+use crate::features::plugin::settings::PluginSettings;
+use crate::features::plugin::types::PluginInfo;
 use std::path::Path;
 use tauri::{command, State};
-use crate::features::plugin::service::PluginService;
-use crate::features::plugin::types::PluginInfo;
-use crate::features::plugin::settings::PluginSettings;
 
 #[command]
 pub async fn plugin_discover(
     vault_path: String,
     state: State<'_, PluginService>,
 ) -> Result<Vec<PluginInfo>, String> {
-    state.discover(Path::new(&vault_path)).map_err(|e| e.to_string())
+    state
+        .discover(Path::new(&vault_path))
+        .map_err(|e| e.to_string())
 }
 
 #[command]

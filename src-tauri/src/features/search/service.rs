@@ -747,9 +747,7 @@ fn handle_embed_batch(
                 _ => {
                     // Binary/unreadable files: embed the file path so they
                     // participate in name-based semantic similarity.
-                    let name = abs.file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or(path);
+                    let name = abs.file_name().and_then(|n| n.to_str()).unwrap_or(path);
                     name.to_string()
                 }
             };

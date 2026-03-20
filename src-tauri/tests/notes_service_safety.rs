@@ -92,7 +92,8 @@ fn scan_folder_entries_filters_and_sorts() {
     std::fs::write(root.join("readme.txt"), "ignored").expect("file should be created");
 
     let ignore_matcher = VaultIgnoreMatcher::default();
-    let entries = scan_folder_entries(&root, &root, &ignore_matcher, false).expect("scan should succeed");
+    let entries =
+        scan_folder_entries(&root, &root, &ignore_matcher, false).expect("scan should succeed");
     let names: Vec<String> = entries.iter().map(|entry| entry.name.clone()).collect();
     let dirs_first = entries
         .iter()
@@ -121,7 +122,13 @@ fn folder_entries_cache_hit_and_invalidation() {
     let vault_id = format!("v{}", storage::now_ms());
     let folder_path = "";
     let ignore_matcher = VaultIgnoreMatcher::default();
-    let key = format!("{}:{}:{}:{}", vault_id, folder_path, ignore_matcher.cache_token(), false);
+    let key = format!(
+        "{}:{}:{}:{}",
+        vault_id,
+        folder_path,
+        ignore_matcher.cache_token(),
+        false
+    );
     let first = get_or_scan_folder_entries(&key, &root, &root, &ignore_matcher, false)
         .expect("first scan should succeed");
     assert_eq!(first.len(), 1);

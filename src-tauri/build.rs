@@ -1,7 +1,10 @@
 fn main() {
     ensure_default_icon();
     emit_icon_rerun();
-    println!("cargo:rustc-env=TARGET_TRIPLE={}", std::env::var("TARGET").unwrap());
+    println!(
+        "cargo:rustc-env=TARGET_TRIPLE={}",
+        std::env::var("TARGET").unwrap()
+    );
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-env=CARGO_MANIFEST_DIR={}", manifest_dir);
     tauri_build::build()

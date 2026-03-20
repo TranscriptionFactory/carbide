@@ -1280,7 +1280,8 @@ pub fn list_folder_contents(
         ignore_matcher.cache_token(),
         show_hidden_files
     );
-    let items = get_or_scan_folder_entries(&key, &root, &target, &ignore_matcher, show_hidden_files)?;
+    let items =
+        get_or_scan_folder_entries(&key, &root, &target, &ignore_matcher, show_hidden_files)?;
     let total_count = items.len();
     let start = offset.min(total_count);
     let end = start.saturating_add(limit).min(total_count);

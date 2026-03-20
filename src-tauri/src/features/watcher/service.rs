@@ -235,7 +235,8 @@ pub fn watch_vault(
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";
 
-                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel, is_md, is_dir) {
+                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel, is_md, is_dir)
+                {
                     emit(&app_handle, vault_event);
                 }
             }

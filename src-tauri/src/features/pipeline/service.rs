@@ -213,7 +213,9 @@ pub async fn execute_pipeline(
 
             if let Some(mut stdin) = stdin_handle {
                 if let Err(e) = stdin.write_all(stdin_input.as_bytes()) {
-                    let _ = child_for_task.lock().map(|mut g| g.as_mut().map(|p| p.kill()));
+                    let _ = child_for_task
+                        .lock()
+                        .map(|mut g| g.as_mut().map(|p| p.kill()));
                     return PipelineResult {
                         success: false,
                         output: String::new(),
@@ -302,5 +304,13 @@ pub async fn pipeline_execute(
     current_dir: String,
     timeout_seconds: Option<u64>,
 ) -> Result<PipelineResult, String> {
-    execute_pipeline(command, args, stdin_input, current_dir, timeout_seconds, None).await
+    execute_pipeline(
+        command,
+        args,
+        stdin_input,
+        current_dir,
+        timeout_seconds,
+        None,
+    )
+    .await
 }

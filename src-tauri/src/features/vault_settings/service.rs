@@ -14,7 +14,10 @@ fn vault_settings_dir(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String
     Ok(PathBuf::from(&vault_path).join(constants::APP_DIR))
 }
 
-fn vault_settings_path_for_read(app: &AppHandle, vault_id: &str) -> Result<Option<PathBuf>, String> {
+fn vault_settings_path_for_read(
+    app: &AppHandle,
+    vault_id: &str,
+) -> Result<Option<PathBuf>, String> {
     let settings_dir = vault_settings_dir(app, vault_id)?;
     if !settings_dir.is_dir() {
         return Ok(None);
@@ -79,7 +82,10 @@ pub(crate) fn parse_settings(bytes: &[u8], label: &str) -> Result<HashMap<String
         .and_then(|result| result.map_err(|e| e.to_string()))?;
 
     if stream.next().is_some() {
-        log::warn!("{} settings contained trailing content; ignoring trailing bytes", label);
+        log::warn!(
+            "{} settings contained trailing content; ignoring trailing bytes",
+            label
+        );
     }
 
     let settings = first
@@ -152,7 +158,10 @@ pub async fn set_vault_setting(
 ) -> Result<(), String> {
     log::debug!("Setting vault setting vault_id={} key={}", vault_id, key);
     if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
-        log::debug!("Skipping vault setting write in browse mode vault_id={}", vault_id);
+        log::debug!(
+            "Skipping vault setting write in browse mode vault_id={}",
+            vault_id
+        );
         return Ok(());
     }
     let mut settings = load_vault_settings(&app, &vault_id)?;
@@ -181,7 +190,10 @@ pub async fn set_local_setting(
 ) -> Result<(), String> {
     log::debug!("Setting local setting vault_id={} key={}", vault_id, key);
     if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
-        log::debug!("Skipping local setting write in browse mode vault_id={}", vault_id);
+        log::debug!(
+            "Skipping local setting write in browse mode vault_id={}",
+            vault_id
+        );
         return Ok(());
     }
     let mut settings = load_local_settings(&app, &vault_id)?;

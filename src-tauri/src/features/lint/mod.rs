@@ -33,15 +33,14 @@ pub async fn lint_start(
             config::write_merged_config(&vault, &user_overrides).map_err(|e| e.to_string())?;
         }
     }
-    state.start_session(&vault_id, vault, browse_mode, app).await
+    state
+        .start_session(&vault_id, vault, browse_mode, app)
+        .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn lint_stop(
-    state: State<'_, LintState>,
-    vault_id: String,
-) -> Result<(), String> {
+pub async fn lint_stop(state: State<'_, LintState>, vault_id: String) -> Result<(), String> {
     state.stop_session(&vault_id).await
 }
 
@@ -67,7 +66,10 @@ pub async fn lint_open_file(
             "text": content,
         }
     });
-    session.client.send_notification("textDocument/didOpen", params).await
+    session
+        .client
+        .send_notification("textDocument/didOpen", params)
+        .await
 }
 
 #[tauri::command]
@@ -93,7 +95,10 @@ pub async fn lint_update_file(
             "text": content,
         }]
     });
-    session.client.send_notification("textDocument/didChange", params).await
+    session
+        .client
+        .send_notification("textDocument/didChange", params)
+        .await
 }
 
 #[tauri::command]
@@ -113,7 +118,10 @@ pub async fn lint_close_file(
             "uri": uri,
         }
     });
-    session.client.send_notification("textDocument/didClose", params).await
+    session
+        .client
+        .send_notification("textDocument/didClose", params)
+        .await
 }
 
 #[tauri::command]
@@ -149,7 +157,10 @@ pub async fn lint_format_file(
                 "insertSpaces": true,
             }
         });
-        session.client.send_request("textDocument/formatting", params).await?
+        session
+            .client
+            .send_request("textDocument/formatting", params)
+            .await?
     };
 
     let edits: Vec<LintTextEdit> = match &lsp_result {
@@ -169,7 +180,10 @@ pub async fn lint_format_file(
             })
             .collect(),
         serde_json::Value::Null | serde_json::Value::Array(_) => {
-            log::debug!("LSP returned null/empty for formatting ({}), falling back to CLI", uri);
+            log::debug!(
+                "LSP returned null/empty for formatting ({}), falling back to CLI",
+                uri
+            );
             match cli::format_file_content(&vault_path, &content, &formatter).await {
                 Ok(formatted) if formatted != content => {
                     let line_count = content.lines().count().max(1);

@@ -43,11 +43,8 @@ pub fn upsert_embedding(conn: &Connection, path: &str, embedding: &[f32]) -> Res
 }
 
 pub fn remove_embedding(conn: &Connection, path: &str) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM note_embeddings WHERE path = ?1",
-        params![path],
-    )
-    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_embeddings WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

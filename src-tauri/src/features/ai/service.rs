@@ -25,10 +25,7 @@ impl From<pipeline::PipelineResult> for AiExecutionResult {
 #[serde(tag = "kind")]
 pub enum AiTransport {
     #[serde(rename = "cli")]
-    Cli {
-        command: String,
-        args: Vec<String>,
-    },
+    Cli { command: String, args: Vec<String> },
     #[serde(rename = "api")]
     Api {
         base_url: String,
@@ -152,14 +149,11 @@ pub async fn ai_execute_cli(
                 None
             };
             let output_path = output_dir.as_ref().map(|d| d.path().join("ai-output.txt"));
-            let output_file_str = output_path.as_ref().map(|p| p.to_string_lossy().to_string());
+            let output_file_str = output_path
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
 
-            let final_args = substitute_args(
-                args,
-                &prompt,
-                model,
-                output_file_str.as_deref(),
-            );
+            let final_args = substitute_args(args, &prompt, model, output_file_str.as_deref());
 
             let stdin_input = if prompt_via_stdin {
                 Some(prompt.clone())
@@ -188,8 +182,6 @@ pub async fn ai_execute_cli(
 
             Ok(ai_res)
         }
-        AiTransport::Api { .. } => {
-            Err("API-based providers are not yet supported".to_string())
-        }
+        AiTransport::Api { .. } => Err("API-based providers are not yet supported".to_string()),
     }
 }

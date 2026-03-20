@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tauri::AppHandle;
+use tokio::sync::Mutex;
 
 use super::lsp::LspClient;
 use super::types::*;
@@ -28,14 +28,9 @@ impl LintState {
     ) -> Result<(), String> {
         self.stop_session(vault_id).await?;
 
-        let client = LspClient::start(
-            vault_id.to_string(),
-            vault_path.clone(),
-            browse_mode,
-            app,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+        let client = LspClient::start(vault_id.to_string(), vault_path.clone(), browse_mode, app)
+            .await
+            .map_err(|e| e.to_string())?;
 
         let session = VaultLintSession {
             client,
@@ -43,7 +38,10 @@ impl LintState {
             status: LintStatus::Running,
         };
 
-        self.inner.lock().await.insert(vault_id.to_string(), session);
+        self.inner
+            .lock()
+            .await
+            .insert(vault_id.to_string(), session);
         Ok(())
     }
 

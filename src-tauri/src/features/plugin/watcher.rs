@@ -29,14 +29,19 @@ fn is_watched_file(name: &str) -> bool {
 
 fn extract_plugin_id(path: &Path, plugins_root: &Path) -> Option<String> {
     let rel = path.strip_prefix(plugins_root).ok()?;
-    rel.components().next().map(|c| c.as_os_str().to_string_lossy().into_owned())
+    rel.components()
+        .next()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
 }
 
 fn with_runtime_lock<T>(
     state: &State<'_, PluginWatcherState>,
     update: impl FnOnce(&mut Option<PluginWatcherRuntime>) -> T,
 ) -> Result<T, String> {
-    let mut guard = state.inner.lock().map_err(|_| "plugin watcher lock poisoned")?;
+    let mut guard = state
+        .inner
+        .lock()
+        .map_err(|_| "plugin watcher lock poisoned")?;
     Ok(update(&mut guard))
 }
 
@@ -128,10 +133,7 @@ pub fn watch_plugins(
                     Err(_) => path.to_path_buf(),
                 };
 
-                let file_name = abs
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or_default();
+                let file_name = abs.file_name().and_then(|n| n.to_str()).unwrap_or_default();
 
                 if !is_watched_file(file_name) {
                     continue;

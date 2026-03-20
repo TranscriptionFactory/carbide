@@ -1,8 +1,8 @@
 pub mod ai;
-pub mod canvas;
 pub mod bases;
-pub mod graph;
+pub mod canvas;
 pub mod git;
+pub mod graph;
 pub mod lint;
 pub mod notes;
 pub mod pipeline;

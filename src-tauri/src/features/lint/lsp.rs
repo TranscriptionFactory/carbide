@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
-use tauri::{AppHandle, Emitter};
 
 use super::types::*;
 
@@ -58,7 +58,11 @@ impl LspClient {
         })
     }
 
-    pub async fn send_notification(&self, method: &str, params: serde_json::Value) -> Result<(), String> {
+    pub async fn send_notification(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<(), String> {
         self.request_tx
             .send(LspOutgoing::Notification {
                 method: method.to_string(),
@@ -156,7 +160,13 @@ async fn lsp_run_loop(
             Ok(c) => c,
             Err(e) => {
                 log::error!("Failed to spawn rumdl: {}", e);
-                emit_status(&app, &vault_id, LintStatus::Error { message: e.to_string() });
+                emit_status(
+                    &app,
+                    &vault_id,
+                    LintStatus::Error {
+                        message: e.to_string(),
+                    },
+                );
                 return;
             }
         };
@@ -178,15 +188,26 @@ async fn lsp_run_loop(
         });
 
         let mut next_id: i64 = 1;
-        let init_result = lsp_initialize(&stdin, &mut stdout_reader, &mut next_id, &vault_path).await;
+        let init_result =
+            lsp_initialize(&stdin, &mut stdout_reader, &mut next_id, &vault_path).await;
         if let Err(e) = init_result {
             log::error!("LSP initialization failed: {}", e);
             let _ = child.kill().await;
-            emit_status(&app, &vault_id, LintStatus::Error { message: e.to_string() });
+            emit_status(
+                &app,
+                &vault_id,
+                LintStatus::Error {
+                    message: e.to_string(),
+                },
+            );
 
             if restart_count < MAX_RESTART_COUNT {
                 let delay = RESTART_DELAYS_MS[restart_count as usize];
-                log::info!("Restarting rumdl in {}ms (attempt {})", delay, restart_count + 1);
+                log::info!(
+                    "Restarting rumdl in {}ms (attempt {})",
+                    delay,
+                    restart_count + 1
+                );
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
                 restart_count += 1;
                 continue;
@@ -287,30 +308,52 @@ async fn lsp_run_loop(
 
         if restart_count < MAX_RESTART_COUNT {
             let delay = RESTART_DELAYS_MS[restart_count as usize];
-            log::info!("rumdl crashed, restarting in {}ms (attempt {})", delay, restart_count + 1);
-            emit_status(&app, &vault_id, LintStatus::Error {
-                message: format!("Process crashed, restarting (attempt {})", restart_count + 1),
-            });
+            log::info!(
+                "rumdl crashed, restarting in {}ms (attempt {})",
+                delay,
+                restart_count + 1
+            );
+            emit_status(
+                &app,
+                &vault_id,
+                LintStatus::Error {
+                    message: format!(
+                        "Process crashed, restarting (attempt {})",
+                        restart_count + 1
+                    ),
+                },
+            );
             tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             restart_count += 1;
         } else {
             log::error!("rumdl exceeded max restart attempts");
-            emit_status(&app, &vault_id, LintStatus::Error {
-                message: "Process crashed repeatedly, giving up".to_string(),
-            });
+            emit_status(
+                &app,
+                &vault_id,
+                LintStatus::Error {
+                    message: "Process crashed repeatedly, giving up".to_string(),
+                },
+            );
             return;
         }
     }
 }
 
 fn emit_status(app: &AppHandle, vault_id: &str, status: LintStatus) {
-    let _ = app.emit("lint_event", LintEvent::StatusChanged {
-        vault_id: vault_id.to_string(),
-        status,
-    });
+    let _ = app.emit(
+        "lint_event",
+        LintEvent::StatusChanged {
+            vault_id: vault_id.to_string(),
+            status,
+        },
+    );
 }
 
-async fn spawn_lsp_process(binary_path: &Path, vault_path: &Path, browse_mode: bool) -> Result<Child, anyhow::Error> {
+async fn spawn_lsp_process(
+    binary_path: &Path,
+    vault_path: &Path,
+    browse_mode: bool,
+) -> Result<Child, anyhow::Error> {
     let mut args = vec!["server".to_string()];
     if browse_mode {
         args.push("--no-config".to_string());
@@ -371,7 +414,8 @@ async fn lsp_initialize(
 
     write_lsp_request(stdin, id, "initialize", params).await?;
 
-    let response = read_lsp_message(stdout).await?
+    let response = read_lsp_message(stdout)
+        .await?
         .ok_or_else(|| anyhow::anyhow!("LSP server closed during initialization"))?;
 
     if response.get("error").is_some() {
@@ -459,8 +503,8 @@ async fn read_lsp_message(
         }
     }
 
-    let content_length = content_length
-        .ok_or_else(|| anyhow::anyhow!("Missing Content-Length header"))?;
+    let content_length =
+        content_length.ok_or_else(|| anyhow::anyhow!("Missing Content-Length header"))?;
 
     let mut body = vec![0u8; content_length];
     reader.read_exact(&mut body).await?;
@@ -483,7 +527,10 @@ async fn handle_incoming_message(
                 let msg = error["message"].as_str().unwrap_or("unknown error");
                 let _ = tx.send(Err(msg.to_string()));
             } else {
-                let result = message.get("result").cloned().unwrap_or(serde_json::Value::Null);
+                let result = message
+                    .get("result")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
                 let _ = tx.send(Ok(result));
             }
         }
@@ -526,19 +573,29 @@ fn uri_to_relative_path(uri: &str, vault_path: &Path) -> String {
     }
 
     if let Ok(canon_abs) = abs.canonicalize() {
-        if let Some(rel) = canon_abs.strip_prefix(vault_path).ok()
-            .map(|r| r.to_string_lossy().into_owned()) {
+        if let Some(rel) = canon_abs
+            .strip_prefix(vault_path)
+            .ok()
+            .map(|r| r.to_string_lossy().into_owned())
+        {
             return rel;
         }
         if let Ok(canon_vault) = vault_path.canonicalize() {
-            if let Some(rel) = canon_abs.strip_prefix(&canon_vault).ok()
-                .map(|r| r.to_string_lossy().into_owned()) {
+            if let Some(rel) = canon_abs
+                .strip_prefix(&canon_vault)
+                .ok()
+                .map(|r| r.to_string_lossy().into_owned())
+            {
                 return rel;
             }
         }
     }
 
-    log::warn!("Could not relativize diagnostic URI: {} against vault {:?}", uri, vault_path);
+    log::warn!(
+        "Could not relativize diagnostic URI: {} against vault {:?}",
+        uri,
+        vault_path
+    );
     decoded
 }
 
@@ -569,7 +626,12 @@ fn hex_val(b: u8) -> Option<u8> {
     }
 }
 
-fn handle_diagnostics(params: &serde_json::Value, app: &AppHandle, vault_id: &str, vault_path: &Path) {
+fn handle_diagnostics(
+    params: &serde_json::Value,
+    app: &AppHandle,
+    vault_id: &str,
+    vault_path: &Path,
+) {
     let uri = params["uri"].as_str().unwrap_or("");
     let path = uri_to_relative_path(uri, vault_path);
 
@@ -590,10 +652,13 @@ fn handle_diagnostics(params: &serde_json::Value, app: &AppHandle, vault_id: &st
                     };
 
                     let code = d.get("code").and_then(|c| {
-                        c.as_str().map(String::from).or_else(|| c.as_u64().map(|n| n.to_string()))
+                        c.as_str()
+                            .map(String::from)
+                            .or_else(|| c.as_u64().map(|n| n.to_string()))
                     });
 
-                    let fixable = d.get("data")
+                    let fixable = d
+                        .get("data")
                         .and_then(|data| data.get("fixable"))
                         .and_then(|f| f.as_bool())
                         .unwrap_or(false);

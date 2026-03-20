@@ -168,9 +168,7 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .id("git_fetch")
         .accelerator("CmdOrCtrl+Alt+Shift+F")
         .build(app)?;
-    let git_sync = MenuItemBuilder::new("Sync")
-        .id("git_sync")
-        .build(app)?;
+    let git_sync = MenuItemBuilder::new("Sync").id("git_sync").build(app)?;
     let git_init = MenuItemBuilder::new("Initialize Repository")
         .id("git_init")
         .build(app)?;

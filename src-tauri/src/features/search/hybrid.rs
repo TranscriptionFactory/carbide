@@ -1,6 +1,6 @@
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::EmbeddingService;
-use crate::features::search::model::{HybridSearchHit, HitSource, SearchHit, SearchScope};
+use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit, SearchScope};
 use crate::features::search::vector_db;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -44,7 +44,9 @@ fn rrf_merge(
 
     for (rank, (path, _distance)) in vector_hits.iter().enumerate() {
         let rrf_score = 1.0 / (K + rank as f64 + 1.0);
-        let entry = scores.entry(path.clone()).or_insert((0.0, HitSource::Vector));
+        let entry = scores
+            .entry(path.clone())
+            .or_insert((0.0, HitSource::Vector));
         if entry.1 == HitSource::Fts {
             entry.1 = HitSource::Both;
         }
@@ -88,7 +90,11 @@ fn rrf_merge(
         })
         .collect();
 
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(limit);
     results
 }

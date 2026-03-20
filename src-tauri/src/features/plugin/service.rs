@@ -1,7 +1,7 @@
-use std::path::Path;
+use crate::features::plugin::types::{PluginInfo, PluginManifest};
+use anyhow::{Context, Result};
 use std::fs;
-use crate::features::plugin::types::{PluginManifest, PluginInfo};
-use anyhow::{Result, Context};
+use std::path::Path;
 
 pub struct PluginService;
 
@@ -40,18 +40,16 @@ impl PluginService {
     }
 
     pub fn validate_plugin(&self, vault_path: &Path, plugin_id: &str) -> Result<PluginInfo> {
-        let plugin_dir = vault_path
-            .join(".badgerly")
-            .join("plugins")
-            .join(plugin_id);
+        let plugin_dir = vault_path.join(".badgerly").join("plugins").join(plugin_id);
 
         if !plugin_dir.exists() {
             anyhow::bail!("Plugin directory not found: {}", plugin_dir.display());
         }
 
-        let manifest = self
-            .load_manifest(&plugin_dir)
-            .context(format!("Failed to load manifest for plugin '{}'", plugin_id))?;
+        let manifest = self.load_manifest(&plugin_dir).context(format!(
+            "Failed to load manifest for plugin '{}'",
+            plugin_id
+        ))?;
 
         Ok(PluginInfo {
             manifest,
@@ -65,7 +63,11 @@ impl PluginService {
         match serde_json::from_str::<PluginManifest>(&content) {
             Ok(manifest) => Some(manifest),
             Err(e) => {
-                log::warn!("Failed to parse plugin manifest at {}: {}", manifest_path.display(), e);
+                log::warn!(
+                    "Failed to parse plugin manifest at {}: {}",
+                    manifest_path.display(),
+                    e
+                );
                 None
             }
         }

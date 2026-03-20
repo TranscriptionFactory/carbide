@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::fs;
-use serde::{Deserialize, Serialize};
 use crate::shared::io_utils;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PluginSettings {
@@ -53,10 +53,7 @@ pub fn approve_permission(
     permission: &str,
 ) -> Result<(), String> {
     let mut settings = read_settings(vault_path)?;
-    let entry = settings
-        .plugins
-        .entry(plugin_id.to_string())
-        .or_default();
+    let entry = settings.plugins.entry(plugin_id.to_string()).or_default();
 
     entry.permissions_pending.retain(|p| p != permission);
     if !entry.permissions_granted.contains(&permission.to_string()) {
@@ -66,16 +63,9 @@ pub fn approve_permission(
     write_settings(vault_path, &settings)
 }
 
-pub fn deny_permission(
-    vault_path: &Path,
-    plugin_id: &str,
-    permission: &str,
-) -> Result<(), String> {
+pub fn deny_permission(vault_path: &Path, plugin_id: &str, permission: &str) -> Result<(), String> {
     let mut settings = read_settings(vault_path)?;
-    let entry = settings
-        .plugins
-        .entry(plugin_id.to_string())
-        .or_default();
+    let entry = settings.plugins.entry(plugin_id.to_string()).or_default();
 
     entry.permissions_pending.retain(|p| p != permission);
 

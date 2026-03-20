@@ -1,6 +1,6 @@
-use std::path::Path;
-use super::types::*;
 use super::lsp::resolve_sidecar_path;
+use super::types::*;
+use std::path::Path;
 
 pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
@@ -10,10 +10,7 @@ pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyh
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
     }
-    let output = cmd
-        .current_dir(vault_path)
-        .output()
-        .await?;
+    let output = cmd.current_dir(vault_path).output().await?;
 
     if output.stdout.is_empty() {
         return Ok(Vec::new());
@@ -23,7 +20,10 @@ pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyh
     parse_check_output(&stdout, vault_path)
 }
 
-pub async fn format_file_with_rumdl(vault_path: &Path, content: &str) -> Result<String, anyhow::Error> {
+pub async fn format_file_with_rumdl(
+    vault_path: &Path,
+    content: &str,
+) -> Result<String, anyhow::Error> {
     let binary = resolve_sidecar_path("binaries/rumdl")?;
     let config = super::config::config_path(vault_path);
     let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
@@ -35,10 +35,7 @@ pub async fn format_file_with_rumdl(vault_path: &Path, content: &str) -> Result<
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
     }
-    let output = cmd
-        .current_dir(vault_path)
-        .output()
-        .await;
+    let output = cmd.current_dir(vault_path).output().await;
 
     let formatted = tokio::fs::read_to_string(&tmp_path).await;
     let _ = tokio::fs::remove_file(&tmp_path).await;
@@ -47,12 +44,21 @@ pub async fn format_file_with_rumdl(vault_path: &Path, content: &str) -> Result<
     Ok(formatted?)
 }
 
-pub async fn format_file_with_prettier(vault_path: &Path, content: &str) -> Result<String, anyhow::Error> {
+pub async fn format_file_with_prettier(
+    vault_path: &Path,
+    content: &str,
+) -> Result<String, anyhow::Error> {
     let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
     tokio::fs::write(&tmp_path, content).await?;
 
     let output = tokio::process::Command::new("npx")
-        .args(["prettier", "--write", "--parser", "markdown", tmp_path.to_str().unwrap_or("")])
+        .args([
+            "prettier",
+            "--write",
+            "--parser",
+            "markdown",
+            tmp_path.to_str().unwrap_or(""),
+        ])
         .current_dir(vault_path)
         .output()
         .await;
@@ -68,7 +74,11 @@ pub async fn format_file_with_prettier(vault_path: &Path, content: &str) -> Resu
     Ok(formatted?)
 }
 
-pub async fn format_file_content(vault_path: &Path, content: &str, formatter: &str) -> Result<String, anyhow::Error> {
+pub async fn format_file_content(
+    vault_path: &Path,
+    content: &str,
+    formatter: &str,
+) -> Result<String, anyhow::Error> {
     match formatter {
         "prettier" => format_file_with_prettier(vault_path, content).await,
         _ => format_file_with_rumdl(vault_path, content).await,
@@ -83,10 +93,7 @@ pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Erro
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
     }
-    let output = cmd
-        .current_dir(vault_path)
-        .output()
-        .await?;
+    let output = cmd.current_dir(vault_path).output().await?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -112,19 +119,20 @@ pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Erro
     Ok(files)
 }
 
-fn parse_check_output(stdout: &str, _vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
+fn parse_check_output(
+    stdout: &str,
+    _vault_path: &Path,
+) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(stdout) {
         return parse_json_output(&parsed);
     }
 
-    let mut file_map: std::collections::HashMap<String, Vec<LintDiagnostic>> = std::collections::HashMap::new();
+    let mut file_map: std::collections::HashMap<String, Vec<LintDiagnostic>> =
+        std::collections::HashMap::new();
 
     for line in stdout.lines() {
         if let Some(diag) = parse_check_line(line) {
-            file_map
-                .entry(diag.0)
-                .or_default()
-                .push(diag.1);
+            file_map.entry(diag.0).or_default().push(diag.1);
         }
     }
 
