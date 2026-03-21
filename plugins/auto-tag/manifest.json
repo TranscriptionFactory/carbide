@@ -10,8 +10,7 @@
     "editor:modify",
     "fs:read",
     "commands:register",
-    "events:subscribe",
-    "ui:statusbar"
+    "events:subscribe"
   ],
   "activation_events": ["on_startup"],
   "contributes": {

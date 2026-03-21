@@ -6,6 +6,7 @@ import {
   split_frontmatter,
   is_in_heading,
   is_in_code_fence,
+  strip_protected_spans,
   apply_tags,
   auto_tag,
 } from "../../../plugins/auto-tag/auto_tag.js";
@@ -142,18 +143,44 @@ describe("is_in_heading", () => {
 });
 
 describe("is_in_code_fence", () => {
-  it("detects lines inside code fences", () => {
+  it("detects lines inside backtick fences", () => {
     const lines = ["text", "```", "code here", "```", "after"];
     expect(is_in_code_fence(lines, 0)).toBe(false);
     expect(is_in_code_fence(lines, 2)).toBe(true);
     expect(is_in_code_fence(lines, 4)).toBe(false);
   });
 
-  it("handles nested/multiple fences", () => {
+  it("detects lines inside tilde fences", () => {
+    const lines = ["text", "~~~", "code here", "~~~", "after"];
+    expect(is_in_code_fence(lines, 0)).toBe(false);
+    expect(is_in_code_fence(lines, 2)).toBe(true);
+    expect(is_in_code_fence(lines, 4)).toBe(false);
+  });
+
+  it("handles multiple fences", () => {
     const lines = ["```", "a", "```", "b", "```", "c", "```"];
     expect(is_in_code_fence(lines, 1)).toBe(true);
     expect(is_in_code_fence(lines, 3)).toBe(false);
     expect(is_in_code_fence(lines, 5)).toBe(true);
+  });
+});
+
+describe("strip_protected_spans", () => {
+  it("masks inline code spans", () => {
+    const result = strip_protected_spans("see `todo` here");
+    expect(result).not.toContain("todo");
+    expect(result.length).toBe("see `todo` here".length);
+  });
+
+  it("masks link URLs but preserves link text", () => {
+    const result = strip_protected_spans("[todo](review.md)");
+    expect(result).toContain("todo");
+    expect(result).not.toContain("review.md");
+    expect(result.length).toBe("[todo](review.md)".length);
+  });
+
+  it("preserves plain text", () => {
+    expect(strip_protected_spans("plain todo text")).toBe("plain todo text");
   });
 });
 
@@ -180,11 +207,30 @@ describe("apply_tags", () => {
     );
   });
 
-  it("skips words inside code fences", () => {
+  it("skips words inside backtick code fences", () => {
     const body = "before todo\n```\ntodo in code\n```\nafter todo";
     expect(apply_tags(body, ["todo"])).toBe(
       "before #todo\n```\ntodo in code\n```\nafter #todo",
     );
+  });
+
+  it("skips words inside tilde code fences", () => {
+    const body = "before todo\n~~~\ntodo in code\n~~~\nafter todo";
+    expect(apply_tags(body, ["todo"])).toBe(
+      "before #todo\n~~~\ntodo in code\n~~~\nafter #todo",
+    );
+  });
+
+  it("skips words inside inline code spans", () => {
+    expect(apply_tags("see `todo` here", ["todo"])).toBe("see `todo` here");
+  });
+
+  it("skips words inside link URLs", () => {
+    expect(apply_tags("[see](todo.md)", ["todo"])).toBe("[see](todo.md)");
+  });
+
+  it("does not tag words inside link brackets", () => {
+    expect(apply_tags("[todo](url.md)", ["todo"])).toBe("[todo](url.md)");
   });
 
   it("handles multiple tags", () => {
@@ -249,5 +295,13 @@ describe("auto_tag", () => {
     const md = "just a todo note";
     const toml = '[allow]\ntags = ["todo"]\n[deny]\ntags = []';
     expect(auto_tag(md, toml)).toBe("just a #todo note");
+  });
+
+  it("is idempotent", () => {
+    const md = "todo and #fixme here";
+    const toml = '[allow]\ntags = ["todo", "fixme"]\n[deny]\ntags = []';
+    const first = auto_tag(md, toml);
+    const second = auto_tag(first, toml);
+    expect(second).toBe(first);
   });
 });

@@ -1,5 +1,3 @@
-/** Core auto-tag logic: TOML parsing, tag detection, and text replacement. */
-
 export function parse_toml_string_array(toml, section, key) {
   const section_re = new RegExp(`^\\[${section}\\]`, "m");
   const section_match = section_re.exec(toml);
@@ -57,9 +55,19 @@ export function is_in_heading(line) {
 export function is_in_code_fence(lines, line_index) {
   let in_fence = false;
   for (let i = 0; i < line_index; i++) {
-    if (/^```/.test(lines[i].trimStart())) in_fence = !in_fence;
+    if (/^(```|~~~)/.test(lines[i].trimStart())) in_fence = !in_fence;
   }
   return in_fence;
+}
+
+export function strip_protected_spans(line) {
+  return line
+    .replace(/`[^`]*`/g, (m) => "\0".repeat(m.length))
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, (m, text) => {
+      const before = m.indexOf(text);
+      const after = m.length - before - text.length;
+      return "\0".repeat(before) + text + "\0".repeat(after);
+    });
 }
 
 export function apply_tags(body, tags) {
@@ -73,14 +81,30 @@ export function apply_tags(body, tags) {
 
   const lines = body.split("\n");
   const result = [];
+  let in_fence = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (is_in_heading(line) || is_in_code_fence(lines, i)) {
+    if (/^(```|~~~)/.test(line.trimStart())) in_fence = !in_fence;
+
+    if (is_in_heading(line) || in_fence) {
       result.push(line);
       continue;
     }
-    result.push(line.replace(pattern, "#$1"));
+
+    const masked = strip_protected_spans(line);
+    let tagged = line;
+    const replacements = [];
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(masked)) !== null) {
+      replacements.push(match.index);
+    }
+    for (let j = replacements.length - 1; j >= 0; j--) {
+      const idx = replacements[j];
+      tagged = tagged.slice(0, idx) + "#" + tagged.slice(idx);
+    }
+    result.push(tagged);
   }
 
   return result.join("\n");
