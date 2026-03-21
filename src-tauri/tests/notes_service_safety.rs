@@ -1,9 +1,9 @@
+#[cfg(unix)]
+use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::notes::service::{
     get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
     safe_vault_rename_target_abs, scan_folder_entries,
 };
-#[cfg(unix)]
-use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
 use std::path::PathBuf;

@@ -355,7 +355,9 @@ pub fn note_get_metadata(
 ) -> Result<NoteMetadata, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let mut prop_stmt = conn
-            .prepare("SELECT key, value, type FROM note_properties WHERE path = ?1 ORDER BY key ASC")
+            .prepare(
+                "SELECT key, value, type FROM note_properties WHERE path = ?1 ORDER BY key ASC",
+            )
             .map_err(|e| e.to_string())?;
         let properties = prop_stmt
             .query_map(params![path], |row| {

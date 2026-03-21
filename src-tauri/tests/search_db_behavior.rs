@@ -452,7 +452,8 @@ fn upsert_note_populates_target_anchor_and_section_heading() {
         mtime_ms: 100,
         size_bytes: 200,
     };
-    let md = "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
+    let md =
+        "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
     upsert_note(&conn, &meta, md).expect("upsert");
 
     let rows: Vec<(String, Option<String>, Option<String>, String)> = conn

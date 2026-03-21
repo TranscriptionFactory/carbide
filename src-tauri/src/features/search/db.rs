@@ -840,8 +840,10 @@ pub fn get_cached_titles(
     );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
 
-    let params: Vec<&dyn rusqlite::types::ToSql> =
-        paths.iter().map(|p| p as &dyn rusqlite::types::ToSql).collect();
+    let params: Vec<&dyn rusqlite::types::ToSql> = paths
+        .iter()
+        .map(|p| p as &dyn rusqlite::types::ToSql)
+        .collect();
 
     let rows = stmt
         .query_map(params.as_slice(), |row| {

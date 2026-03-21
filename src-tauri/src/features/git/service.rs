@@ -487,7 +487,11 @@ fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String>
 
     diff.print(DiffFormat::Patch, |delta, hunk, line| {
         if delta.flags().is_binary() {
-            if hunks.is_empty() || hunks.last().map(|h| h.header != "[Binary file]").unwrap_or(true)
+            if hunks.is_empty()
+                || hunks
+                    .last()
+                    .map(|h| h.header != "[Binary file]")
+                    .unwrap_or(true)
             {
                 hunks.push(GitDiffHunk {
                     header: "[Binary file]".to_string(),
