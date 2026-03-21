@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { SttStore } from "$lib/features/stt";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   create_open_note_state,
@@ -38,6 +39,7 @@ function create_vault_actions_harness() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    stt: new SttStore(),
   };
 
   const services = {

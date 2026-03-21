@@ -540,4 +540,120 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "distance",
     ],
   },
+  {
+    key: "stt_enabled",
+    label: "Enable Speech-to-Text",
+    description: "Enable voice dictation and audio transcription",
+    category: "Speech",
+    keywords: [
+      "stt",
+      "speech",
+      "voice",
+      "dictation",
+      "transcription",
+      "microphone",
+      "whisper",
+    ],
+  },
+  {
+    key: "stt_model_id",
+    label: "Active Model",
+    description: "Speech recognition model used for transcription",
+    category: "Speech",
+    keywords: ["stt", "model", "whisper", "moonshine", "parakeet", "speech"],
+  },
+  {
+    key: "stt_language",
+    label: "Language",
+    description:
+      "Language for transcription. Use 'auto' for automatic detection",
+    category: "Speech",
+    keywords: ["stt", "language", "locale", "auto", "detect", "speech"],
+  },
+  {
+    key: "stt_vad_threshold",
+    label: "VAD Sensitivity",
+    description:
+      "Voice activity detection threshold (0.0–1.0). Lower values detect softer speech",
+    category: "Speech",
+    keywords: [
+      "stt",
+      "vad",
+      "voice",
+      "activity",
+      "detection",
+      "sensitivity",
+      "threshold",
+    ],
+  },
+  {
+    key: "stt_filter_filler_words",
+    label: "Filter Filler Words",
+    description:
+      "Remove filler words like 'uh', 'um', 'like' from transcriptions",
+    category: "Speech",
+    keywords: [
+      "stt",
+      "filler",
+      "words",
+      "filter",
+      "um",
+      "uh",
+      "like",
+      "cleanup",
+    ],
+  },
+  {
+    key: "stt_custom_words",
+    label: "Custom Words",
+    description:
+      "Words to fuzzy-match and correct in transcriptions (one per line)",
+    category: "Speech",
+    keywords: [
+      "stt",
+      "custom",
+      "words",
+      "vocabulary",
+      "correction",
+      "spelling",
+    ],
+  },
+  {
+    key: "stt_idle_unload_minutes",
+    label: "Idle Unload",
+    description:
+      "Minutes of inactivity before unloading the model from memory (0 = never)",
+    category: "Speech",
+    keywords: ["stt", "idle", "unload", "memory", "timeout", "minutes"],
+  },
+  {
+    key: "stt_insert_mode",
+    label: "Insert Mode",
+    description: "Where to insert transcribed text relative to the cursor",
+    category: "Speech",
+    keywords: ["stt", "insert", "mode", "cursor", "line", "block", "position"],
+  },
+  {
+    key: "stt_streaming_enabled",
+    label: "Streaming",
+    description:
+      "Show partial transcription results in real-time (streaming models only)",
+    category: "Speech",
+    keywords: ["stt", "streaming", "realtime", "partial", "live"],
+  },
+  {
+    key: "stt_ai_cleanup_enabled",
+    label: "AI Cleanup",
+    description:
+      "Post-process transcriptions with AI to fix grammar and formatting",
+    category: "Speech",
+    keywords: ["stt", "ai", "cleanup", "grammar", "formatting", "post-process"],
+  },
+  {
+    key: "stt_ai_cleanup_prompt",
+    label: "AI Cleanup Prompt",
+    description: "System prompt used for AI post-processing of transcriptions",
+    category: "Speech",
+    keywords: ["stt", "ai", "cleanup", "prompt", "system", "instruction"],
+  },
 ];

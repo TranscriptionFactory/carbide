@@ -345,6 +345,7 @@ export function create_app_context(input: {
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
+      stt: stores.stt,
     },
     services: {
       vault: vault_service,

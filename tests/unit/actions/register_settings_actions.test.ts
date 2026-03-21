@@ -7,6 +7,7 @@ import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { register_settings_actions } from "$lib/features/settings";
+import { SttStore } from "$lib/features/stt";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   DEFAULT_EDITOR_SETTINGS,
@@ -22,6 +23,7 @@ function create_harness(
     op: new OpStore(),
     git: new GitStore(),
     vault: new VaultStore(),
+    stt: new SttStore(),
   };
 
   const services = {

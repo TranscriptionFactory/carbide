@@ -53,6 +53,16 @@ const SETTINGS_COMPARE_KEYS: readonly (keyof EditorSettings)[] = [
   "semantic_graph_max_vault_size",
   "semantic_omnibar_fallback_enabled",
   "semantic_omnibar_min_words",
+  "stt_enabled",
+  "stt_model_id",
+  "stt_language",
+  "stt_vad_threshold",
+  "stt_filter_filler_words",
+  "stt_idle_unload_minutes",
+  "stt_insert_mode",
+  "stt_streaming_enabled",
+  "stt_ai_cleanup_enabled",
+  "stt_ai_cleanup_prompt",
 ] as const;
 
 export function register_settings_actions(input: ActionRegistrationInput) {
@@ -69,6 +79,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   function editor_settings_equal(a: EditorSettings, b: EditorSettings) {
     return (
       arrays_equal(a.ignored_folders, b.ignored_folders) &&
+      arrays_equal(a.stt_custom_words, b.stt_custom_words) &&
       SETTINGS_COMPARE_KEYS.every((key) => a[key] === b[key])
     );
   }
@@ -246,6 +257,19 @@ export function register_settings_actions(input: ActionRegistrationInput) {
 
       if (result.status === "success") {
         stores.ui.set_editor_settings(settings);
+        stores.stt.update_config({
+          enabled: settings.stt_enabled,
+          model_id: settings.stt_model_id,
+          language: settings.stt_language,
+          vad_threshold: settings.stt_vad_threshold,
+          filter_filler_words: settings.stt_filter_filler_words,
+          custom_words: settings.stt_custom_words,
+          idle_unload_minutes: settings.stt_idle_unload_minutes,
+          insert_mode: settings.stt_insert_mode,
+          streaming_enabled: settings.stt_streaming_enabled,
+          ai_cleanup_enabled: settings.stt_ai_cleanup_enabled,
+          ai_cleanup_prompt: settings.stt_ai_cleanup_prompt,
+        });
         stores.ui.settings_dialog = {
           ...stores.ui.settings_dialog,
           persisted_settings: settings,

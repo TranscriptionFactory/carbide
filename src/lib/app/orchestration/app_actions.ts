@@ -123,9 +123,21 @@ async function mount_ready_vault_state(
   }
 
   input.stores.ui.reset_for_new_vault();
-  input.stores.ui.set_editor_settings(
-    result.editor_settings ?? { ...DEFAULT_EDITOR_SETTINGS },
-  );
+  const es = result.editor_settings ?? { ...DEFAULT_EDITOR_SETTINGS };
+  input.stores.ui.set_editor_settings(es);
+  input.stores.stt.update_config({
+    enabled: es.stt_enabled,
+    model_id: es.stt_model_id,
+    language: es.stt_language,
+    vad_threshold: es.stt_vad_threshold,
+    filter_filler_words: es.stt_filter_filler_words,
+    custom_words: es.stt_custom_words,
+    idle_unload_minutes: es.stt_idle_unload_minutes,
+    insert_mode: es.stt_insert_mode,
+    streaming_enabled: es.stt_streaming_enabled,
+    ai_cleanup_enabled: es.stt_ai_cleanup_enabled,
+    ai_cleanup_prompt: es.stt_ai_cleanup_prompt,
+  });
 
   set_load_state(input, "", "loaded", null);
   set_pagination(input, "", {

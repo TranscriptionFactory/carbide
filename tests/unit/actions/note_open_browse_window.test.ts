@@ -16,6 +16,7 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { SttStore } from "$lib/features/stt";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import {
   as_markdown_text,
@@ -86,6 +87,7 @@ function create_harness() {
     task: new TaskStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    stt: new SttStore(),
   };
 
   stores.ui.set_editor_settings({ ...DEFAULT_EDITOR_SETTINGS });

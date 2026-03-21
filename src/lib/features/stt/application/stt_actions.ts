@@ -82,7 +82,7 @@ export function register_stt_actions(input: {
     id: ACTION_IDS.stt_open_settings,
     label: "Speech-to-Text Settings",
     execute: async () => {
-      await registry.execute(ACTION_IDS.settings_open);
+      await registry.execute(ACTION_IDS.settings_open, "speech");
     },
   });
 }

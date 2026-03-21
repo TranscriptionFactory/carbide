@@ -3,6 +3,8 @@ import {
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
 
+export type SttInsertMode = "cursor" | "new_line" | "new_block";
+
 export type SettingsCategory =
   | "theme"
   | "ai"
@@ -13,6 +15,7 @@ export type SettingsCategory =
   | "terminal"
   | "graph"
   | "semantic"
+  | "speech"
   | "misc"
   | "hotkeys";
 
@@ -104,6 +107,17 @@ export type EditorSettings = {
   lint_format_on_save: boolean;
   lint_formatter: LintFormatter;
   lint_rules_toml: string;
+  stt_enabled: boolean;
+  stt_model_id: string;
+  stt_language: string;
+  stt_vad_threshold: number;
+  stt_filter_filler_words: boolean;
+  stt_custom_words: string[];
+  stt_idle_unload_minutes: number;
+  stt_insert_mode: SttInsertMode;
+  stt_streaming_enabled: boolean;
+  stt_ai_cleanup_enabled: boolean;
+  stt_ai_cleanup_prompt: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -167,6 +181,18 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_format_on_save: false,
   lint_formatter: "prettier",
   lint_rules_toml: "",
+  stt_enabled: false,
+  stt_model_id: "moonshine-base",
+  stt_language: "auto",
+  stt_vad_threshold: 0.3,
+  stt_filter_filler_words: true,
+  stt_custom_words: [],
+  stt_idle_unload_minutes: 5,
+  stt_insert_mode: "cursor",
+  stt_streaming_enabled: true,
+  stt_ai_cleanup_enabled: false,
+  stt_ai_cleanup_prompt:
+    "Clean up this dictated text. Fix grammar, remove filler words, maintain the speaker's intent and tone.",
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -217,6 +243,17 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_charge_max_distance",
   "outline_mode",
   "file_tree_style",
+  "stt_enabled",
+  "stt_model_id",
+  "stt_language",
+  "stt_vad_threshold",
+  "stt_filter_filler_words",
+  "stt_custom_words",
+  "stt_idle_unload_minutes",
+  "stt_insert_mode",
+  "stt_streaming_enabled",
+  "stt_ai_cleanup_enabled",
+  "stt_ai_cleanup_prompt",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

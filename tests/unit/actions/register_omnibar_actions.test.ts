@@ -16,6 +16,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { SttStore } from "$lib/features/stt";
 import {
   as_note_path,
   as_vault_id,
@@ -39,6 +40,7 @@ function create_omnibar_actions_harness() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    stt: new SttStore(),
   };
   const execute_vault_select = vi.fn((vault_id: unknown) => {
     stores.vault.set_vault(

@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { SttStore } from "$lib/features/stt";
 
 function create_ui_stores() {
   return {
@@ -31,6 +32,7 @@ function create_ui_stores() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    stt: new SttStore(),
   };
 }
 

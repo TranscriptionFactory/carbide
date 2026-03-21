@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { SttStore } from "$lib/features/stt";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
 
@@ -49,6 +50,7 @@ function create_harness() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    stt: new SttStore(),
   };
 
   const services = {
