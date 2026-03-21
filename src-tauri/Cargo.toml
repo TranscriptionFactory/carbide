@@ -53,6 +53,15 @@ candle-transformers = { version = "0.9", default-features = false }
 hf-hub = { version = "0.5", features = ["tokio"] }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
+
+# STT dependencies (Phase 1: audio pipeline)
+cpal = "0.16.0"
+rubato = "0.16.2"
+rustfft = "6.4.0"
+hound = "3.5.1"
+vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
+strsim = "0.11.0"
+natural = "0.5.0"
 specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
