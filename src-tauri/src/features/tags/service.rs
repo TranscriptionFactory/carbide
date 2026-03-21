@@ -326,6 +326,67 @@ pub fn notes_by_property_filter(
     })
 }
 
+#[derive(Debug, Serialize, Type)]
+pub struct NoteProperty {
+    pub key: String,
+    pub value: String,
+    #[serde(rename = "type")]
+    pub prop_type: String,
+}
+
+#[derive(Debug, Serialize, Type)]
+pub struct NoteTag {
+    pub tag: String,
+    pub source: String,
+}
+
+#[derive(Debug, Serialize, Type)]
+pub struct NoteMetadata {
+    pub properties: Vec<NoteProperty>,
+    pub tags: Vec<NoteTag>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn note_get_metadata(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<NoteMetadata, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        let mut prop_stmt = conn
+            .prepare("SELECT key, value, type FROM note_properties WHERE path = ?1 ORDER BY key ASC")
+            .map_err(|e| e.to_string())?;
+        let properties = prop_stmt
+            .query_map(params![path], |row| {
+                Ok(NoteProperty {
+                    key: row.get(0)?,
+                    value: row.get(1)?,
+                    prop_type: row.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        let mut tag_stmt = conn
+            .prepare("SELECT tag, source FROM note_inline_tags WHERE path = ?1 ORDER BY tag ASC")
+            .map_err(|e| e.to_string())?;
+        let tags = tag_stmt
+            .query_map(params![path], |row| {
+                Ok(NoteTag {
+                    tag: row.get(0)?,
+                    source: row.get(1)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        Ok(NoteMetadata { properties, tags })
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn section_get_range(

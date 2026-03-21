@@ -3,6 +3,7 @@
   import { AiAssistantPanel } from "$lib/features/ai";
   import LinksPanel from "$lib/features/links/ui/links_panel.svelte";
   import { OutlinePanel } from "$lib/features/outline";
+  import { MetadataPanel } from "$lib/features/metadata";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
 
   const { stores, action_registry } = use_app_context();
@@ -11,6 +12,7 @@
     { id: "links" as const, label: "Links" },
     { id: "outline" as const, label: "Outline" },
     { id: "ai" as const, label: "AI" },
+    { id: "metadata" as const, label: "Meta" },
   ];
 
   async function select_tab(tab_id: (typeof tabs)[number]["id"]) {
@@ -52,6 +54,8 @@
       <OutlinePanel />
     {:else if stores.ui.context_rail_tab === "ai"}
       <AiAssistantPanel />
+    {:else if stores.ui.context_rail_tab === "metadata"}
+      <MetadataPanel />
     {/if}
   </div>
 </div>

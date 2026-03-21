@@ -33,6 +33,7 @@ import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_m
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
+import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -63,6 +64,7 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
+import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -97,6 +99,8 @@ export type ReactorContext = {
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
+  metadata_store: MetadataStore;
+  metadata_service: MetadataService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -253,6 +257,12 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_service,
       context.split_view_service,
       context.split_view_store,
+    ),
+    create_metadata_sync_reactor(
+      context.editor_store,
+      context.ui_store,
+      context.metadata_store,
+      context.metadata_service,
     ),
   ];
 

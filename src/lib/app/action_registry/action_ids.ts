@@ -256,6 +256,9 @@ export const ACTION_IDS = {
   tags_select_prefix: "tags.select_prefix",
   tags_toggle_expanded: "tags.toggle_expanded",
 
+  metadata_refresh: "metadata.refresh",
+  metadata_toggle_panel: "metadata.toggle_panel",
+
   lint_format_file: "lint.format_file",
   lint_format_vault: "lint.format_vault",
   lint_fix_all: "lint.fix_all",

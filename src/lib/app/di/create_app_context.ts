@@ -50,6 +50,10 @@ import {
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
+import {
+  MetadataService,
+  register_metadata_actions,
+} from "$lib/features/metadata";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -321,6 +325,12 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
+  const metadata_service = new MetadataService(
+    input.ports.metadata,
+    stores.metadata,
+    stores.vault,
+  );
+
   const lint_service = new LintService(
     input.ports.lint,
     stores.lint,
@@ -421,6 +431,7 @@ export function create_app_context(input: {
   });
 
   register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
+  register_metadata_actions(action_registry, metadata_service, stores.ui);
 
   register_lint_actions({
     registry: action_registry,
@@ -464,6 +475,8 @@ export function create_app_context(input: {
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
+    metadata_store: stores.metadata,
+    metadata_service,
   });
 
   return {

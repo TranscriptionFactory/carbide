@@ -101,5 +101,8 @@ export function create_test_ports(): Ports {
       get_status: () => Promise.resolve("stopped" as const),
       subscribe_events: () => () => {},
     },
+    metadata: {
+      get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
+    },
   };
 }
