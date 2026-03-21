@@ -6,7 +6,7 @@ use crate::shared::constants;
 use crate::shared::markdown_doc::ParsedNote;
 use crate::shared::storage;
 use crate::shared::vault_ignore;
-use crate::shared::{link_parser, markdown_doc};
+use crate::shared::{io_utils, link_parser, markdown_doc};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::{params, Connection};
@@ -981,7 +981,7 @@ pub fn rebuild_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = std::fs::read_to_string(abs).unwrap_or_default();
+            let raw = io_utils::read_file_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
@@ -1108,7 +1108,7 @@ pub fn sync_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = std::fs::read_to_string(abs).unwrap_or_default();
+            let raw = io_utils::read_file_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
