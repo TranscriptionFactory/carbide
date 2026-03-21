@@ -88,7 +88,11 @@ describe("PluginStore", () => {
   });
 
   it("should register and unregister settings tabs", () => {
-    const tab = { plugin_id: "my-plugin", label: "My Settings" };
+    const tab = {
+      plugin_id: "my-plugin",
+      label: "My Settings",
+      settings_schema: [],
+    };
 
     store.register_settings_tab(tab);
     expect(store.settings_tabs).toContainEqual(tab);
@@ -98,15 +102,27 @@ describe("PluginStore", () => {
   });
 
   it("should key settings tabs by plugin_id (one tab per plugin)", () => {
-    store.register_settings_tab({ plugin_id: "p1", label: "First" });
-    store.register_settings_tab({ plugin_id: "p1", label: "Second" });
+    store.register_settings_tab({
+      plugin_id: "p1",
+      label: "First",
+      settings_schema: [],
+    });
+    store.register_settings_tab({
+      plugin_id: "p1",
+      label: "Second",
+      settings_schema: [],
+    });
 
     expect(store.settings_tabs).toHaveLength(1);
     expect(store.settings_tabs[0]?.label).toBe("Second");
   });
 
   it("should clear settings tabs on reset", () => {
-    store.register_settings_tab({ plugin_id: "p1", label: "Tab" });
+    store.register_settings_tab({
+      plugin_id: "p1",
+      label: "Tab",
+      settings_schema: [],
+    });
 
     store.reset_registries();
     expect(store.settings_tabs).toHaveLength(0);

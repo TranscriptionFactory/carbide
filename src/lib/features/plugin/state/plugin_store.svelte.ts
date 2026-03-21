@@ -49,7 +49,7 @@ export class PluginStore {
     this._status_bar_items.delete(id);
   }
 
-  update_status_bar_item(id: string, props: Record<string, any>) {
+  update_status_bar_item(id: string, props: Record<string, unknown>) {
     const item = this._status_bar_items.get(id);
     if (!item) return;
     this._status_bar_items.set(id, {
@@ -84,6 +84,10 @@ export class PluginStore {
 
   get settings_tabs(): PluginSettingsTab[] {
     return Array.from(this._settings_tabs.values());
+  }
+
+  get_settings_tab(plugin_id: string): PluginSettingsTab | undefined {
+    return this._settings_tabs.get(plugin_id);
   }
 
   register_settings_tab(tab: PluginSettingsTab) {

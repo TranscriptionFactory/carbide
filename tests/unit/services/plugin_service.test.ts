@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { PluginService } from "$lib/features/plugin/application/plugin_service";
 import { PluginSettingsService } from "$lib/features/plugin/application/plugin_settings_service";
+import { merge_plugin_settings_schema } from "$lib/features/plugin/application/plugin_settings_schema";
 import { PluginStore } from "$lib/features/plugin/state/plugin_store.svelte";
 import { PluginSettingsStore } from "$lib/features/plugin/state/plugin_settings_store.svelte";
 import type {
@@ -423,6 +424,85 @@ describe("PluginService", () => {
     expect(store.plugins.get("startup")?.status).toBe("active");
     expect(store.plugins.get("settings-only")?.status).toBe("idle");
     expect(store.plugins.get("disabled")?.status).toBe("idle");
+  });
+
+  it("merge_plugin_settings_schema appends runtime settings without overriding manifest keys", () => {
+    expect(
+      merge_plugin_settings_schema(
+        [
+          {
+            key: "folder",
+            type: "string",
+            label: "Folder",
+            default: "daily/",
+          },
+        ],
+        [
+          {
+            key: "folder",
+            type: "string",
+            label: "Runtime Folder",
+            default: "runtime/",
+          },
+          {
+            key: "show_reading_time",
+            type: "boolean",
+            label: "Show reading time",
+            default: true,
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        key: "folder",
+        type: "string",
+        label: "Folder",
+        default: "daily/",
+      },
+      {
+        key: "show_reading_time",
+        type: "boolean",
+        label: "Show reading time",
+        default: true,
+      },
+    ]);
+  });
+
+  it("can_open_settings returns true for enabled on_settings_open plugins", () => {
+    const { service, store } = create_harness();
+    store.plugins.set("settings-only", {
+      manifest: make_manifest({
+        id: "settings-only",
+        name: "Settings Only",
+        permissions: ["settings:register"],
+        activation_events: ["on_settings_open"],
+      }),
+      path: "/vault/.carbide/plugins/settings-only",
+      enabled: true,
+      status: "idle",
+    });
+
+    expect(service.can_open_settings("settings-only")).toBe(true);
+  });
+
+  it("ensure_settings_ready activates enabled on_settings_open plugins", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("settings-only", {
+      manifest: make_manifest({
+        id: "settings-only",
+        name: "Settings Only",
+        permissions: ["settings:register"],
+        activation_events: ["on_settings_open"],
+      }),
+      path: "/vault/.carbide/plugins/settings-only",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.ensure_settings_ready("settings-only");
+
+    expect(host.load).toHaveBeenCalledWith("/test/vault", "settings-only");
+    expect(store.plugins.get("settings-only")?.status).toBe("active");
   });
 
   it("load_and_activate skips disabled plugins", async () => {

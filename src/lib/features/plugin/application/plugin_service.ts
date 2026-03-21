@@ -23,6 +23,7 @@ import { PluginEventBus, type PluginEvent } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
 import { create_logger } from "$lib/shared/utils/logger";
+import { merge_plugin_settings_schema } from "./plugin_settings_schema";
 
 const log = create_logger("plugin_service");
 
@@ -149,6 +150,48 @@ export class PluginService {
 
   unregister_settings_tab(plugin_id: string) {
     this.store.unregister_settings_tab(plugin_id);
+  }
+
+  get_effective_settings_schema(plugin_id: string) {
+    const plugin = this.store.plugins.get(plugin_id);
+    if (!plugin) {
+      return [];
+    }
+
+    return merge_plugin_settings_schema(
+      plugin.manifest.contributes?.settings,
+      this.store.get_settings_tab(plugin_id)?.settings_schema,
+    );
+  }
+
+  can_open_settings(plugin_id: string) {
+    const plugin = this.store.plugins.get(plugin_id);
+    if (!plugin) {
+      return false;
+    }
+
+    if (this.get_effective_settings_schema(plugin_id).length > 0) {
+      return true;
+    }
+
+    return (
+      plugin.enabled &&
+      plugin.manifest.permissions.includes("settings:register") &&
+      this.should_activate(plugin_id, "on_settings_open")
+    );
+  }
+
+  async ensure_settings_ready(plugin_id: string) {
+    const plugin = this.store.plugins.get(plugin_id);
+    if (!plugin || !plugin.enabled || plugin.status !== "idle") {
+      return;
+    }
+
+    if (!this.should_activate(plugin_id, "on_settings_open")) {
+      return;
+    }
+
+    await this.load_and_activate(plugin_id);
   }
 
   // Lifecycle

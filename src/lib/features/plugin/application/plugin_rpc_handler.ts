@@ -2,6 +2,7 @@ import type { CommandDefinition } from "$lib/features/search";
 import type {
   PluginManifest,
   PluginEventType,
+  PluginSettingSchema,
   PluginSettingsTab,
 } from "../ports";
 import { Blocks, LayoutDashboard } from "@lucide/svelte";
@@ -73,6 +74,7 @@ type PluginRibbonIconInput = {
 type PluginSettingsTabInput = {
   label?: string | undefined;
   icon?: string | undefined;
+  settings_schema: PluginSettingSchema[];
 };
 
 export type PluginRpcContext = {
@@ -214,14 +216,130 @@ function read_ribbon_icon_input(input: unknown): PluginRibbonIconInput {
 
 function read_settings_tab_input(input: unknown): PluginSettingsTabInput {
   if (input === undefined) {
-    return {};
+    return { settings_schema: [] };
   }
 
   const record = read_record(input, "settings tab");
   return {
     label: read_optional_string(record.label),
     icon: read_optional_string(record.icon),
+    settings_schema: [
+      ...read_settings_tab_settings(record),
+      ...read_settings_tab_properties(record),
+    ],
   };
+}
+
+function read_setting_type(
+  value: unknown,
+  label: string,
+): PluginSettingSchema["type"] {
+  if (
+    value === "string" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "select"
+  ) {
+    return value;
+  }
+
+  throw new Error(`Invalid ${label}`);
+}
+
+function read_setting_options(
+  value: unknown,
+  label: string,
+): { label: string; value: string }[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid ${label}`);
+  }
+
+  return value.map((option, index) => {
+    const option_label = `${label}[${String(index)}]`;
+
+    if (typeof option === "string") {
+      return {
+        label: option,
+        value: option,
+      };
+    }
+
+    const record = read_record(option, option_label);
+    const option_value = read_string(record.value, `${option_label}.value`);
+
+    return {
+      label: read_optional_string(record.label) ?? option_value,
+      value: option_value,
+    };
+  });
+}
+
+function read_setting_schema(
+  key: string,
+  input: unknown,
+  label: string,
+): PluginSettingSchema {
+  const record = read_record(input, label);
+  const schema: PluginSettingSchema = {
+    key,
+    type: read_setting_type(record.type, `${label}.type`),
+    label: read_optional_string(record.label) ?? key,
+  };
+
+  const description = read_optional_string(record.description);
+  if (description !== undefined) {
+    schema.description = description;
+  }
+
+  if ("default" in record) {
+    schema.default = record.default;
+  }
+
+  const options = read_setting_options(record.options, `${label}.options`);
+  if (options !== undefined) {
+    schema.options = options;
+  }
+
+  return schema;
+}
+
+function read_settings_tab_settings(record: RpcRecord): PluginSettingSchema[] {
+  const settings = record.settings;
+  if (settings === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(settings)) {
+    throw new Error("Invalid settings tab settings");
+  }
+
+  return settings.map((entry, index) => {
+    const schema_label = `settings tab settings[${String(index)}]`;
+    const schema_record = read_record(entry, schema_label);
+    return read_setting_schema(
+      read_string(schema_record.key, `${schema_label}.key`),
+      schema_record,
+      schema_label,
+    );
+  });
+}
+
+function read_settings_tab_properties(
+  record: RpcRecord,
+): PluginSettingSchema[] {
+  const properties = record.properties;
+  if (properties === undefined) {
+    return [];
+  }
+
+  const properties_record = read_record(properties, "settings tab properties");
+  return Object.entries(properties_record).map(([key, value]) =>
+    read_setting_schema(key, value, `settings tab properties.${key}`),
+  );
 }
 
 function resolve_sidebar_icon(icon_name: string | undefined): typeof Blocks {
@@ -554,10 +672,13 @@ export class PluginRpcHandler {
         if (!manifest.permissions.includes("settings:register")) {
           throw new Error("Missing settings:register permission");
         }
-        const { label, icon } = read_settings_tab_input(params[0]);
+        const { label, icon, settings_schema } = read_settings_tab_input(
+          params[0],
+        );
         const tab: PluginSettingsTab = {
           plugin_id,
           label: label ?? manifest.name,
+          settings_schema,
         };
         if (icon !== undefined) {
           tab.icon = icon;

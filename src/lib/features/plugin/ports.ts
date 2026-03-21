@@ -111,7 +111,10 @@ type PluginSidebarView = {
   id: string;
   label: string;
   icon: Component<IconProps>;
-  panel: Component<{ plugin_id?: string | undefined; label?: string | undefined }>;
+  panel: Component<{
+    plugin_id?: string | undefined;
+    label?: string | undefined;
+  }>;
   panel_props?: {
     plugin_id?: string | undefined;
     label?: string | undefined;
@@ -149,6 +152,7 @@ export interface PluginSettingsTab {
   plugin_id: string;
   label: string;
   icon?: string;
+  settings_schema: PluginSettingSchema[];
 }
 
 export type PluginEventType =

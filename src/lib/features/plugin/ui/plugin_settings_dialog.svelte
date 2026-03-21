@@ -161,81 +161,89 @@
     </Dialog.Header>
 
     <div class="space-y-3 py-2">
-      {#each settings_schema as schema (schema.key)}
-        <div class="rounded-md border bg-muted/20 p-3">
-          <div
-            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div class="space-y-1">
-              <label
-                class="text-sm font-medium text-foreground"
-                for={field_id(schema.key)}
-              >
-                {schema.label}
-              </label>
-              {#if schema.description}
-                <p class="text-xs text-muted-foreground">
-                  {schema.description}
-                </p>
-              {/if}
-            </div>
-
-            <div class="sm:w-64">
-              {#if schema.type === "boolean"}
-                <div class="flex justify-end pt-1">
-                  <Switch.Root
-                    checked={Boolean(current_value(schema))}
-                    aria-label={schema.label}
-                    onCheckedChange={(checked: boolean) =>
-                      update_boolean_setting(schema, checked)}
-                  />
-                </div>
-              {:else if schema.type === "select" && schema.options}
-                <Select.Root
-                  type="single"
-                  value={text_value(schema)}
-                  onValueChange={(value: string | undefined) =>
-                    update_select_setting(schema, value)}
+      {#if settings_schema.length === 0}
+        <div class="rounded-md border border-dashed bg-muted/20 p-4">
+          <p class="text-sm text-muted-foreground">
+            This plugin has not registered any settings yet.
+          </p>
+        </div>
+      {:else}
+        {#each settings_schema as schema (schema.key)}
+          <div class="rounded-md border bg-muted/20 p-3">
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div class="space-y-1">
+                <label
+                  class="text-sm font-medium text-foreground"
+                  for={field_id(schema.key)}
                 >
-                  <Select.Trigger id={field_id(schema.key)} class="w-full">
-                    <span data-slot="select-value">
-                      {selected_option_label(schema)}
-                    </span>
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each schema.options as option (option.value)}
-                      <Select.Item value={option.value}
-                        >{option.label}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              {:else}
-                <Input
-                  id={field_id(schema.key)}
-                  name={schema.key}
-                  type={schema.type === "number" ? "number" : "text"}
-                  value={text_value(schema)}
-                  oninput={(event) => {
-                    const value = (event.currentTarget as HTMLInputElement)
-                      .value;
-                    if (schema.type === "number") {
-                      update_number_draft(schema, value);
-                      return;
-                    }
-                    update_text_setting(schema, value);
-                  }}
-                  onblur={() => {
-                    if (schema.type === "number") {
-                      commit_number_setting(schema);
-                    }
-                  }}
-                />
-              {/if}
+                  {schema.label}
+                </label>
+                {#if schema.description}
+                  <p class="text-xs text-muted-foreground">
+                    {schema.description}
+                  </p>
+                {/if}
+              </div>
+
+              <div class="sm:w-64">
+                {#if schema.type === "boolean"}
+                  <div class="flex justify-end pt-1">
+                    <Switch.Root
+                      checked={Boolean(current_value(schema))}
+                      aria-label={schema.label}
+                      onCheckedChange={(checked: boolean) =>
+                        update_boolean_setting(schema, checked)}
+                    />
+                  </div>
+                {:else if schema.type === "select" && schema.options}
+                  <Select.Root
+                    type="single"
+                    value={text_value(schema)}
+                    onValueChange={(value: string | undefined) =>
+                      update_select_setting(schema, value)}
+                  >
+                    <Select.Trigger id={field_id(schema.key)} class="w-full">
+                      <span data-slot="select-value">
+                        {selected_option_label(schema)}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each schema.options as option (option.value)}
+                        <Select.Item value={option.value}
+                          >{option.label}</Select.Item
+                        >
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                {:else}
+                  <Input
+                    id={field_id(schema.key)}
+                    name={schema.key}
+                    type={schema.type === "number" ? "number" : "text"}
+                    value={text_value(schema)}
+                    oninput={(event) => {
+                      const value = (event.currentTarget as HTMLInputElement)
+                        .value;
+                      if (schema.type === "number") {
+                        update_number_draft(schema, value);
+                        return;
+                      }
+                      update_text_setting(schema, value);
+                    }}
+                    onblur={() => {
+                      if (schema.type === "number") {
+                        commit_number_setting(schema);
+                      }
+                    }}
+                  />
+                {/if}
+              </div>
             </div>
           </div>
-        </div>
-      {/each}
+        {/each}
+      {/if}
     </div>
 
     <Dialog.Footer>

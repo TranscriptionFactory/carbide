@@ -46,11 +46,8 @@
     return stores.plugin_settings.get_pending_permissions(plugin_id);
   }
 
-  function has_static_settings(plugin_id: string): boolean {
-    return (
-      (stores.plugin.plugins.get(plugin_id)?.manifest.contributes?.settings
-        ?.length ?? 0) > 0
-    );
+  function can_open_settings(plugin_id: string): boolean {
+    return services.plugin.can_open_settings(plugin_id);
   }
 
   function open_permissions(plugin_id: string, plugin_name: string) {
@@ -63,9 +60,10 @@
     permission_dialog = null;
   }
 
-  function open_settings(plugin_id: string) {
-    if (!has_static_settings(plugin_id)) return;
+  async function open_settings(plugin_id: string) {
+    if (!can_open_settings(plugin_id)) return;
     settings_dialog_plugin_id = plugin_id;
+    await services.plugin.ensure_settings_ready(plugin_id);
   }
 
   function close_settings_dialog() {
@@ -111,7 +109,7 @@
           {@const pending = pending_permissions(plugin.manifest.id)}
           {@const is_active = plugin.enabled && plugin.status === "active"}
           {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
-          {@const has_settings = has_static_settings(plugin.manifest.id)}
+          {@const has_settings = can_open_settings(plugin.manifest.id)}
           <div class="flex flex-col p-3 border rounded-lg bg-card">
             <div class="flex items-start justify-between">
               <div>
@@ -229,8 +227,9 @@
     plugin_id={settings_dialog_plugin.manifest.id}
     plugin_name={settings_dialog_plugin.manifest.name}
     plugin_version={settings_dialog_plugin.manifest.version}
-    settings_schema={settings_dialog_plugin.manifest.contributes?.settings ??
-      []}
+    settings_schema={services.plugin.get_effective_settings_schema(
+      settings_dialog_plugin.manifest.id,
+    )}
     on_close={close_settings_dialog}
   />
 {/if}

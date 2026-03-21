@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { PluginRpcHandler } from "$lib/features/plugin/application/plugin_rpc_handler";
-import type { PluginManifest } from "$lib/features/plugin/ports";
+import type { PluginRpcContext } from "$lib/features/plugin/application/plugin_rpc_handler";
+import type { PluginSettingsService } from "$lib/features/plugin/application/plugin_settings_service";
+import type { PluginManifest, SidebarView } from "$lib/features/plugin/ports";
 import { PluginEventBus } from "$lib/features/plugin/application/plugin_event_bus";
 
 vi.mock("svelte-sonner", () => ({ toast: { info: vi.fn() } }));
@@ -25,12 +27,33 @@ function make_context() {
     unregister_status_bar_item: vi.fn(),
     register_sidebar_view: vi.fn(),
     unregister_sidebar_view: vi.fn(),
+    register_ribbon_icon: vi.fn(),
+    unregister_ribbon_icon: vi.fn(),
     register_settings_tab: vi.fn(),
   };
 
+  const context: PluginRpcContext = {
+    services: {
+      note: {
+        read_note: vi.fn(),
+        create_note: vi.fn(),
+        write_note: vi.fn(),
+        delete_note: vi.fn(),
+      },
+      editor: {
+        apply_ai_output: vi.fn(),
+        get_ai_context: vi.fn(),
+      },
+      plugin,
+    },
+    stores: {
+      notes: { notes: [] },
+      editor: { open_note: null },
+    },
+  };
+
   return {
-    services: { plugin } as any,
-    stores: {} as any,
+    context,
     plugin,
   };
 }
@@ -43,7 +66,7 @@ describe("PluginRpcHandler", () => {
 
   beforeEach(() => {
     ctx = make_context();
-    handler = new PluginRpcHandler(ctx);
+    handler = new PluginRpcHandler(ctx.context);
   });
 
   describe("commands.remove", () => {
@@ -87,7 +110,9 @@ describe("PluginRpcHandler", () => {
       expect(response.error).toBeUndefined();
       expect(response.result).toEqual({ success: true });
       expect(ctx.plugin.register_sidebar_view).toHaveBeenCalledOnce();
-      const call = ctx.plugin.register_sidebar_view.mock.calls[0]?.[0];
+      const call = ctx.plugin.register_sidebar_view.mock.calls[0]?.[0] as
+        | SidebarView
+        | undefined;
       expect(call?.id).toBe(`${PLUGIN_ID}:my-panel`);
       expect(call?.label).toBe("My Panel");
     });
@@ -217,7 +242,7 @@ describe("PluginRpcHandler", () => {
 
     it("settings.get returns a setting value without permission check", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -233,7 +258,7 @@ describe("PluginRpcHandler", () => {
 
     it("settings.set writes a setting and returns success", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -249,7 +274,7 @@ describe("PluginRpcHandler", () => {
 
     it("settings.get_all returns all settings for the plugin", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -276,7 +301,7 @@ describe("PluginRpcHandler", () => {
 
     it("settings.register_tab registers a settings tab with given label", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -291,12 +316,13 @@ describe("PluginRpcHandler", () => {
         plugin_id: PLUGIN_ID,
         label: "My Settings",
         icon: undefined,
+        settings_schema: [],
       });
     });
 
     it("settings.register_tab falls back to manifest name when label not provided", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -310,12 +336,62 @@ describe("PluginRpcHandler", () => {
         plugin_id: PLUGIN_ID,
         label: manifest.name,
         icon: undefined,
+        settings_schema: [],
+      });
+    });
+
+    it("settings.register_tab keeps runtime schema from declarative properties", async () => {
+      const svc = make_settings_service();
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
+
+      const manifest = make_manifest(["settings:register"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s6b",
+        method: "settings.register_tab",
+        params: [
+          {
+            label: "Dynamic Settings",
+            properties: {
+              folder: {
+                type: "string",
+                label: "Folder",
+                default: "daily/",
+              },
+              show_reading_time: {
+                type: "boolean",
+                label: "Show reading time",
+                default: true,
+              },
+            },
+          },
+        ],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(ctx.plugin.register_settings_tab).toHaveBeenCalledWith({
+        plugin_id: PLUGIN_ID,
+        label: "Dynamic Settings",
+        icon: undefined,
+        settings_schema: [
+          {
+            key: "folder",
+            type: "string",
+            label: "Folder",
+            default: "daily/",
+          },
+          {
+            key: "show_reading_time",
+            type: "boolean",
+            label: "Show reading time",
+            default: true,
+          },
+        ],
       });
     });
 
     it("settings.register_tab throws without settings:register permission", async () => {
       const svc = make_settings_service();
-      handler.set_settings_service(svc as any);
+      handler.set_settings_service(svc as unknown as PluginSettingsService);
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -377,7 +453,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("events.* errors when event bus not initialized", async () => {
-      const fresh_handler = new PluginRpcHandler(ctx);
+      const fresh_handler = new PluginRpcHandler(ctx.context);
       const manifest = make_manifest(["events:subscribe"]);
       const response = await fresh_handler.handle_request(PLUGIN_ID, manifest, {
         id: "e4",
