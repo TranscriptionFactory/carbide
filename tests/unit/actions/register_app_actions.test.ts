@@ -102,6 +102,9 @@ function create_harness(options: HarnessOptions = {}) {
       load_themes: vi.fn().mockResolvedValue({
         user_themes: [],
         active_theme_id: "theme-light",
+        color_scheme_preference: "light",
+        system_light_theme_id: "theme-light",
+        system_dark_theme_id: "theme-dark",
       }),
     },
     editor: {
