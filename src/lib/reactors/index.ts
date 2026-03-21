@@ -35,6 +35,7 @@ import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
+import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -65,6 +66,7 @@ import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
+import type { PluginService } from "$lib/features/plugin";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -96,6 +98,7 @@ export type ReactorContext = {
   split_view_service: SplitViewService;
   document_service: DocumentService;
   task_service: TaskService;
+  plugin_service: PluginService;
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
@@ -263,6 +266,10 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.metadata_store,
       context.metadata_service,
+    ),
+    create_plugin_lifecycle_reactor(
+      context.vault_store,
+      context.plugin_service,
     ),
   ];
 

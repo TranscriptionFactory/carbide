@@ -10,6 +10,7 @@
     RotateCw,
   } from "@lucide/svelte";
   import PluginPermissionDialog from "./plugin_permission_dialog.svelte";
+  import PluginSettingsDialog from "./plugin_settings_dialog.svelte";
 
   const { stores, services } = use_app_context();
 
@@ -23,6 +24,7 @@
   }
 
   let permission_dialog = $state<PermissionDialogState | null>(null);
+  let settings_dialog_plugin_id = $state<string | null>(null);
 
   async function discover_plugins() {
     is_discovering = true;
@@ -33,16 +35,22 @@
     }
   }
 
-  $effect(() => {
-    if (stores.vault.vault) {
-      void discover_plugins();
-    }
-  });
-
   const plugin_list = $derived(Array.from(stores.plugin.plugins.values()));
+  const settings_dialog_plugin = $derived(
+    settings_dialog_plugin_id
+      ? (stores.plugin.plugins.get(settings_dialog_plugin_id) ?? null)
+      : null,
+  );
 
   function pending_permissions(plugin_id: string): string[] {
     return stores.plugin_settings.get_pending_permissions(plugin_id);
+  }
+
+  function has_static_settings(plugin_id: string): boolean {
+    return (
+      (stores.plugin.plugins.get(plugin_id)?.manifest.contributes?.settings
+        ?.length ?? 0) > 0
+    );
   }
 
   function open_permissions(plugin_id: string, plugin_name: string) {
@@ -53,6 +61,15 @@
 
   function close_permission_dialog() {
     permission_dialog = null;
+  }
+
+  function open_settings(plugin_id: string) {
+    if (!has_static_settings(plugin_id)) return;
+    settings_dialog_plugin_id = plugin_id;
+  }
+
+  function close_settings_dialog() {
+    settings_dialog_plugin_id = null;
   }
 
   async function reload_plugin(id: string) {
@@ -94,6 +111,7 @@
           {@const pending = pending_permissions(plugin.manifest.id)}
           {@const is_active = plugin.enabled && plugin.status === "active"}
           {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
+          {@const has_settings = has_static_settings(plugin.manifest.id)}
           <div class="flex flex-col p-3 border rounded-lg bg-card">
             <div class="flex items-start justify-between">
               <div>
@@ -158,9 +176,18 @@
                     <Play class="w-4 h-4" />
                   </Button>
                 {/if}
-                <Button variant="ghost" size="icon" class="w-8 h-8">
-                  <Settings class="w-4 h-4" />
-                </Button>
+                {#if has_settings}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="w-8 h-8"
+                    onclick={() => open_settings(plugin.manifest.id)}
+                    title="Open plugin settings"
+                    aria-label={`Open plugin settings for ${plugin.manifest.name}`}
+                  >
+                    <Settings class="w-4 h-4" />
+                  </Button>
+                {/if}
                 <Button
                   variant={plugin.enabled ? "default" : "outline"}
                   size="sm"
@@ -194,6 +221,17 @@
     plugin_name={permission_dialog.plugin_name}
     permissions={permission_dialog.permissions}
     on_close={close_permission_dialog}
+  />
+{/if}
+
+{#if settings_dialog_plugin}
+  <PluginSettingsDialog
+    plugin_id={settings_dialog_plugin.manifest.id}
+    plugin_name={settings_dialog_plugin.manifest.name}
+    plugin_version={settings_dialog_plugin.manifest.version}
+    settings_schema={settings_dialog_plugin.manifest.contributes?.settings ??
+      []}
+    on_close={close_settings_dialog}
   />
 {/if}
 

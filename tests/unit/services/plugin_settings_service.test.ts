@@ -9,6 +9,7 @@ import type {
   PluginSettingsPort,
 } from "$lib/features/plugin/ports";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 
 function make_mock_port(): PluginSettingsPort {
   return {
@@ -60,8 +61,6 @@ function make_harness(with_vault = true) {
     store,
     vault_store,
     port,
-    read_settings: port.read_settings,
-    write_settings: port.write_settings,
     service,
   };
 }
@@ -77,8 +76,8 @@ describe("PluginSettingsService", () => {
 
   describe("load", () => {
     it("reads from port and populates store", async () => {
-      const { service, store, read_settings } = make_harness();
-      vi.mocked(read_settings).mockResolvedValueOnce({
+      const { service, store, port } = make_harness();
+      vi.mocked(port.read_settings).mockResolvedValueOnce({
         schema_version: 1,
         plugins: {
           "plugin-a": make_entry({
@@ -91,20 +90,50 @@ describe("PluginSettingsService", () => {
 
       await service.load();
 
-      expect(read_settings).toHaveBeenCalledWith("/test/vault");
+      expect(port.read_settings).toHaveBeenCalledWith("/test/vault");
       expect(store.get_entry("plugin-a")?.settings.theme).toBe("dark");
     });
 
     it("is a no-op when vault_path is undefined", async () => {
-      const { service, read_settings } = make_harness(false);
+      const { service, port } = make_harness(false);
       await service.load();
-      expect(read_settings).not.toHaveBeenCalled();
+      expect(port.read_settings).not.toHaveBeenCalled();
+    });
+
+    it("ignores stale load results after the active vault changes", async () => {
+      const { service, store, port, vault_store } = make_harness();
+      let resolve_settings: ((value: PluginSettingsData) => void) | undefined;
+      vi.mocked(port.read_settings).mockReturnValueOnce(
+        new Promise<PluginSettingsData>((resolve) => {
+          resolve_settings = resolve;
+        }),
+      );
+
+      const load_promise = service.load();
+      vault_store.set_vault({
+        ...create_test_vault(),
+        id: as_vault_id("vault-2"),
+        path: as_vault_path("/test/vault-2"),
+      });
+      resolve_settings?.({
+        schema_version: 1,
+        plugins: {
+          "plugin-a": make_entry({
+            version: "1.0.0",
+            settings: { theme: "dark" },
+          }),
+        },
+      });
+
+      await load_promise;
+
+      expect(store.get_entry("plugin-a")).toBeUndefined();
     });
   });
 
   describe("save", () => {
     it("writes current store state to port", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry(
         "plugin-a",
         make_entry({
@@ -115,7 +144,7 @@ describe("PluginSettingsService", () => {
 
       await service.save();
 
-      expect(write_settings).toHaveBeenCalledWith("/test/vault", {
+      expect(port.write_settings).toHaveBeenCalledWith("/test/vault", {
         schema_version: 1,
         plugins: {
           "plugin-a": make_entry({
@@ -127,9 +156,9 @@ describe("PluginSettingsService", () => {
     });
 
     it("is a no-op when vault_path is undefined", async () => {
-      const { service, write_settings } = make_harness(false);
+      const { service, port } = make_harness(false);
       await service.save();
-      expect(write_settings).not.toHaveBeenCalled();
+      expect(port.write_settings).not.toHaveBeenCalled();
     });
   });
 
@@ -157,28 +186,39 @@ describe("PluginSettingsService", () => {
     });
 
     it("set_setting debounces save", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry("plugin-a", make_entry({ version: "1.0.0" }));
 
       await service.set_setting("plugin-a", "a", 1);
       await service.set_setting("plugin-a", "b", 2);
 
-      expect(write_settings).not.toHaveBeenCalled();
+      expect(port.write_settings).not.toHaveBeenCalled();
 
       await vi.advanceTimersByTimeAsync(300);
 
-      expect(write_settings).toHaveBeenCalledOnce();
+      expect(port.write_settings).toHaveBeenCalledOnce();
     });
 
     it("flush forces pending save", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry("plugin-a", make_entry({ version: "1.0.0" }));
 
       await service.set_setting("plugin-a", "x", 42);
-      expect(write_settings).not.toHaveBeenCalled();
+      expect(port.write_settings).not.toHaveBeenCalled();
 
       await service.flush();
-      expect(write_settings).toHaveBeenCalledOnce();
+      expect(port.write_settings).toHaveBeenCalledOnce();
+    });
+
+    it("clear cancels a pending debounced save", async () => {
+      const { service, store, port } = make_harness();
+      store.set_entry("plugin-a", make_entry({ version: "1.0.0" }));
+
+      await service.set_setting("plugin-a", "theme", "light");
+      service.clear();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(port.write_settings).not.toHaveBeenCalled();
     });
 
     it("get_all_settings returns all settings for a plugin", async () => {
@@ -284,7 +324,7 @@ describe("PluginSettingsService", () => {
 
   describe("set_enabled", () => {
     it("updates the enabled flag and persists it", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry(
         "plugin-a",
         make_entry({
@@ -295,13 +335,13 @@ describe("PluginSettingsService", () => {
       await service.set_enabled("plugin-a", true);
 
       expect(store.get_entry("plugin-a")?.enabled).toBe(true);
-      expect(write_settings).toHaveBeenCalledOnce();
+      expect(port.write_settings).toHaveBeenCalledOnce();
     });
   });
 
   describe("approve_permission", () => {
     it("moves permission from pending to granted and saves", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry(
         "plugin-a",
         make_entry({
@@ -315,7 +355,7 @@ describe("PluginSettingsService", () => {
       const entry = store.get_entry("plugin-a");
       expect(entry?.permissions_granted).toContain("fs:read");
       expect(entry?.permissions_pending).not.toContain("fs:read");
-      expect(write_settings).toHaveBeenCalledOnce();
+      expect(port.write_settings).toHaveBeenCalledOnce();
     });
 
     it("does not duplicate an already-granted permission", async () => {
@@ -338,15 +378,15 @@ describe("PluginSettingsService", () => {
     });
 
     it("is a no-op when vault_path is undefined", async () => {
-      const { service, write_settings } = make_harness(false);
+      const { service, port } = make_harness(false);
       await service.approve_permission("plugin-a", "fs:read");
-      expect(write_settings).not.toHaveBeenCalled();
+      expect(port.write_settings).not.toHaveBeenCalled();
     });
   });
 
   describe("deny_permission", () => {
     it("removes permission from pending list and saves", async () => {
-      const { service, store, write_settings } = make_harness();
+      const { service, store, port } = make_harness();
       store.set_entry(
         "plugin-a",
         make_entry({
@@ -360,7 +400,7 @@ describe("PluginSettingsService", () => {
       expect(store.get_entry("plugin-a")?.permissions_pending).not.toContain(
         "fs:write",
       );
-      expect(write_settings).toHaveBeenCalledOnce();
+      expect(port.write_settings).toHaveBeenCalledOnce();
     });
 
     it("does not add permission to granted list", async () => {
@@ -379,9 +419,9 @@ describe("PluginSettingsService", () => {
     });
 
     it("is a no-op when vault_path is undefined", async () => {
-      const { service, write_settings } = make_harness(false);
+      const { service, port } = make_harness(false);
       await service.deny_permission("plugin-a", "fs:write");
-      expect(write_settings).not.toHaveBeenCalled();
+      expect(port.write_settings).not.toHaveBeenCalled();
     });
   });
 });

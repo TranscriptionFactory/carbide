@@ -1,4 +1,5 @@
 import type { CommandDefinition } from "$lib/features/search";
+import type { IconProps } from "@lucide/svelte";
 import type { Component } from "svelte";
 
 export type ActivationEvent =
@@ -54,17 +55,20 @@ export interface PluginSettingsEntry {
 }
 
 export interface PluginSettingsPort {
-  read_settings(vault_path: string): Promise<PluginSettingsData>;
+  read_settings(this: void, vault_path: string): Promise<PluginSettingsData>;
   write_settings(
+    this: void,
     vault_path: string,
     settings: PluginSettingsData,
   ): Promise<void>;
   approve_permission(
+    this: void,
     vault_path: string,
     plugin_id: string,
     permission: string,
   ): Promise<void>;
   deny_permission(
+    this: void,
     vault_path: string,
     plugin_id: string,
     permission: string,
@@ -82,25 +86,39 @@ export interface PluginInfo {
 export type DiscoveredPlugin = Pick<PluginInfo, "manifest" | "path">;
 
 export interface PluginHostPort {
-  discover(vault_path: string): Promise<DiscoveredPlugin[]>;
-  load(vault_path: string, id: string): Promise<void>;
-  unload(id: string): Promise<void>;
+  discover(this: void, vault_path: string): Promise<DiscoveredPlugin[]>;
+  load(this: void, vault_path: string, id: string): Promise<void>;
+  unload(this: void, id: string): Promise<void>;
 }
 
 // Registry types for host contributions
 export interface StatusBarItem {
   id: string;
   priority: number;
-  component: Component<any>;
-  props?: Record<string, any>;
+  component: Component<{ id: string; text: string }>;
+  props: { id: string; text: string };
 }
 
-export interface SidebarView {
+type StaticSidebarView = {
   id: string;
   label: string;
-  icon: Component<any>;
-  panel: Component<any>;
-}
+  icon: Component<IconProps>;
+  panel: Component<Record<string, never>>;
+  panel_props?: undefined;
+};
+
+type PluginSidebarView = {
+  id: string;
+  label: string;
+  icon: Component<IconProps>;
+  panel: Component<{ plugin_id?: string | undefined; label?: string | undefined }>;
+  panel_props?: {
+    plugin_id?: string | undefined;
+    label?: string | undefined;
+  };
+};
+
+export type SidebarView = StaticSidebarView | PluginSidebarView;
 
 export interface SidebarRegistryPort {
   register(view: SidebarView): void;

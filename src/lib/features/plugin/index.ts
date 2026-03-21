@@ -7,6 +7,7 @@ export * from "./application/plugin_actions";
 export * from "./ports";
 export { default as PluginIframeHost } from "./ui/plugin_iframe_host.svelte";
 export { default as PluginManager } from "./ui/plugin_manager.svelte";
+export { default as PluginSettingsDialog } from "./ui/plugin_settings_dialog.svelte";
 export { default as PluginRuntimeContainer } from "./ui/plugin_runtime_container.svelte";
 export { PluginHostAdapter } from "./adapters/plugin_host_adapter";
 export { PluginSettingsTauriAdapter } from "./adapters/plugin_settings_tauri_adapter";

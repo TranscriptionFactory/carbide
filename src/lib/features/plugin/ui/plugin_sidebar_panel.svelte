@@ -1,9 +1,9 @@
 <script lang="ts">
   interface Props {
-    plugin_id: string;
-    label: string;
+    plugin_id?: string | undefined;
+    label?: string | undefined;
   }
-  let { plugin_id, label }: Props = $props();
+  let { plugin_id = "", label = "Plugin Panel" }: Props = $props();
 </script>
 
 <div class="flex flex-col h-full">

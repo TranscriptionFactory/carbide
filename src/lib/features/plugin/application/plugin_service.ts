@@ -1,5 +1,6 @@
 import type { PluginStore } from "../state/plugin_store.svelte";
 import type {
+  ActivationEvent,
   PluginHostPort,
   PluginNotificationPort,
   SidebarView,
@@ -10,13 +11,20 @@ import type {
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
-import type { RpcRequest, RpcResponse } from "./plugin_rpc_handler";
+import type {
+  PluginRpcContext,
+  RpcRequest,
+  RpcResponse,
+} from "./plugin_rpc_handler";
 import { PluginRpcHandler } from "./plugin_rpc_handler";
 import { PluginErrorTracker } from "./plugin_error_tracker";
 import { error_message } from "$lib/shared/utils/error_message";
 import { PluginEventBus, type PluginEvent } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("plugin_service");
 
 export class PluginService {
   private rpc_handler: PluginRpcHandler | null = null;
@@ -39,7 +47,7 @@ export class PluginService {
     });
   }
 
-  initialize_rpc(context: { services: any; stores: any }) {
+  initialize_rpc(context: PluginRpcContext) {
     this.rpc_handler = new PluginRpcHandler(context);
     this.rpc_handler.set_event_bus(this.event_bus);
     if (this.settings_service) {
@@ -112,7 +120,7 @@ export class PluginService {
     this.store.unregister_status_bar_item(id);
   }
 
-  update_status_bar_item(id: string, props: Record<string, any>) {
+  update_status_bar_item(id: string, props: Record<string, unknown>) {
     this.store.update_status_bar_item(id, props);
   }
 
@@ -148,9 +156,13 @@ export class PluginService {
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) return [];
 
-    console.debug("[PluginService] discovering plugins at:", vault_path);
+    log.debug("Discovering plugins", { vault_path });
     const discovered = await this.host_port.discover(vault_path);
-    console.debug("[PluginService] discovered:", discovered.length, "plugins");
+    if (this.vault_store.vault?.path !== vault_path) {
+      return [];
+    }
+
+    log.debug("Discovered plugins", { count: discovered.length });
 
     let settings_changed = false;
 
@@ -183,12 +195,33 @@ export class PluginService {
     return discovered;
   }
 
-  should_activate(plugin_id: string, event: string): boolean {
+  should_activate(plugin_id: string, event: ActivationEvent): boolean {
     const plugin = this.store.plugins.get(plugin_id);
     if (!plugin) return false;
     const events = plugin.manifest.activation_events;
     if (!events || events.length === 0) return event === "on_startup";
-    return events.includes(event as any);
+    return events.includes(event);
+  }
+
+  async activate_matching(event: ActivationEvent) {
+    const plugin_ids = Array.from(this.store.plugins.values())
+      .filter(
+        (plugin) =>
+          plugin.enabled &&
+          plugin.status === "idle" &&
+          this.should_activate(plugin.manifest.id, event),
+      )
+      .map((plugin) => plugin.manifest.id);
+
+    for (const plugin_id of plugin_ids) {
+      await this.load_and_activate(plugin_id);
+    }
+  }
+
+  async initialize_active_vault() {
+    await this.settings_service?.load();
+    await this.discover();
+    await this.activate_matching("on_startup");
   }
 
   async load_plugin(id: string) {
@@ -207,12 +240,16 @@ export class PluginService {
 
   async reload_plugin(id: string) {
     const plugin = this.store.plugins.get(id);
-    if (!plugin) return;
+    const vault_path = this.vault_store.vault?.path;
+    if (!plugin || !vault_path) return;
 
     this.store.plugins.set(id, { ...plugin, status: "loading" });
     try {
       await this.unload_plugin(id);
       await this.load_plugin(id);
+      if (this.vault_store.vault?.path !== vault_path) {
+        return;
+      }
       this.store.plugins.set(id, {
         manifest: plugin.manifest,
         path: plugin.path,
@@ -255,11 +292,15 @@ export class PluginService {
 
   async load_and_activate(id: string) {
     const plugin = this.store.plugins.get(id);
-    if (!plugin || !plugin.enabled) return;
+    const vault_path = this.vault_store.vault?.path;
+    if (!plugin || !plugin.enabled || !vault_path) return;
 
     this.store.plugins.set(id, { ...plugin, status: "loading" });
     try {
       await this.load_plugin(id);
+      if (this.vault_store.vault?.path !== vault_path) {
+        return;
+      }
       this.store.plugins.set(id, {
         manifest: plugin.manifest,
         path: plugin.path,
@@ -273,6 +314,27 @@ export class PluginService {
         error: error_message(e),
       });
     }
+  }
+
+  async clear_vault_state() {
+    for (const plugin of this.store.plugins.values()) {
+      if (plugin.status === "idle") {
+        continue;
+      }
+
+      try {
+        await this.unload_plugin(plugin.manifest.id);
+      } catch (error) {
+        log.from_error("Failed to unload plugin during vault cleanup", error);
+      }
+    }
+
+    this.store.plugins.clear();
+  }
+
+  async clear_active_vault() {
+    this.settings_service?.clear();
+    await this.clear_vault_state();
   }
 
   async unload_then_idle(id: string) {
@@ -331,7 +393,7 @@ export class PluginService {
     }
   }
 
-  async mark_plugin_crashed(id: string, reason: string) {
+  mark_plugin_crashed(id: string, reason: string) {
     const plugin = this.store.plugins.get(id);
     if (!plugin) return;
 

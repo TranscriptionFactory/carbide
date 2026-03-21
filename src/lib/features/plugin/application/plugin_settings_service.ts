@@ -69,6 +69,7 @@ export class PluginSettingsService {
     if (!vault_path) return;
 
     const data = await this.port.read_settings(vault_path);
+    if (this.vault_path !== vault_path) return;
     this.store.load_from_data(data.plugins);
   }
 
@@ -103,21 +104,26 @@ export class PluginSettingsService {
     }
   }
 
-  async get_setting(plugin_id: string, key: string): Promise<unknown> {
-    return this.store.get_setting(plugin_id, key);
+  clear(): void {
+    if (this.save_timer) {
+      clearTimeout(this.save_timer);
+      this.save_timer = null;
+    }
+    this.store.clear();
   }
 
-  async set_setting(
-    plugin_id: string,
-    key: string,
-    value: unknown,
-  ): Promise<void> {
+  get_setting(plugin_id: string, key: string): Promise<unknown> {
+    return Promise.resolve(this.store.get_setting(plugin_id, key));
+  }
+
+  set_setting(plugin_id: string, key: string, value: unknown): Promise<void> {
     this.store.set_setting(plugin_id, key, value);
     this.schedule_save();
+    return Promise.resolve();
   }
 
-  async get_all_settings(plugin_id: string): Promise<Record<string, unknown>> {
-    return this.store.get_entry(plugin_id)?.settings ?? {};
+  get_all_settings(plugin_id: string): Promise<Record<string, unknown>> {
+    return Promise.resolve(this.store.get_entry(plugin_id)?.settings ?? {});
   }
 
   sync_manifest_entry(

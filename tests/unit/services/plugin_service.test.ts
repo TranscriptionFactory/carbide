@@ -65,11 +65,7 @@ function create_harness() {
     settings_store,
     vault_store,
     host,
-    discover_plugins: host.discover,
-    load_plugin: host.load,
-    unload_plugin: host.unload,
     settings_port,
-    write_settings: settings_port.write_settings,
     settings_service,
     service,
   };
@@ -83,14 +79,14 @@ describe("PluginService", () => {
   });
 
   it("discover populates store from host results", async () => {
-    const { service, store, discover_plugins } = create_harness();
+    const { service, store, host } = create_harness();
     const discovered: DiscoveredPlugin[] = [
       {
         manifest: make_manifest({ id: "my-plugin", name: "My Plugin" }),
         path: "/vault/.carbide/plugins/my-plugin",
       },
     ];
-    vi.mocked(discover_plugins).mockResolvedValueOnce(discovered);
+    vi.mocked(host.discover).mockResolvedValueOnce(discovered);
 
     await service.discover();
 
@@ -99,8 +95,7 @@ describe("PluginService", () => {
   });
 
   it("discover merges persisted enabled state from plugin settings", async () => {
-    const { service, store, settings_store, discover_plugins } =
-      create_harness();
+    const { service, store, settings_store, host } = create_harness();
     settings_store.set_entry("my-plugin", {
       enabled: true,
       version: "0.9.0",
@@ -111,7 +106,7 @@ describe("PluginService", () => {
       content_hash: null,
     });
 
-    vi.mocked(discover_plugins).mockResolvedValueOnce([
+    vi.mocked(host.discover).mockResolvedValueOnce([
       {
         manifest: make_manifest({
           id: "my-plugin",
@@ -138,9 +133,8 @@ describe("PluginService", () => {
   });
 
   it("discover hydrates manifest defaults into plugin settings and persists them", async () => {
-    const { service, settings_store, write_settings, discover_plugins } =
-      create_harness();
-    vi.mocked(discover_plugins).mockResolvedValueOnce([
+    const { service, settings_store, settings_port, host } = create_harness();
+    vi.mocked(host.discover).mockResolvedValueOnce([
       {
         manifest: make_manifest({
           id: "auto-tag",
@@ -172,11 +166,11 @@ describe("PluginService", () => {
       settings: { auto_tag_on_save: false },
       content_hash: null,
     });
-    expect(write_settings).toHaveBeenCalledOnce();
+    expect(settings_port.write_settings).toHaveBeenCalledOnce();
   });
 
   it("enable_plugin sets status to active and persists enabled state", async () => {
-    const { service, store, settings_store, write_settings } = create_harness();
+    const { service, store, settings_store, settings_port } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest({ permissions: ["editor:read"] }),
       path: "/vault/.carbide/plugins/p1",
@@ -189,11 +183,11 @@ describe("PluginService", () => {
     expect(store.plugins.get("p1")?.enabled).toBe(true);
     expect(store.plugins.get("p1")?.status).toBe("active");
     expect(settings_store.get_entry("p1")?.enabled).toBe(true);
-    expect(write_settings).toHaveBeenCalledOnce();
+    expect(settings_port.write_settings).toHaveBeenCalledOnce();
   });
 
   it("disable_plugin sets status to idle and persists disabled state", async () => {
-    const { service, store, settings_store, write_settings } = create_harness();
+    const { service, store, settings_store, settings_port } = create_harness();
     settings_store.set_entry("p1", {
       enabled: true,
       version: "1.0.0",
@@ -215,7 +209,7 @@ describe("PluginService", () => {
     expect(store.plugins.get("p1")?.enabled).toBe(false);
     expect(store.plugins.get("p1")?.status).toBe("idle");
     expect(settings_store.get_entry("p1")?.enabled).toBe(false);
-    expect(write_settings).toHaveBeenCalledOnce();
+    expect(settings_port.write_settings).toHaveBeenCalledOnce();
   });
 
   it("handle_rpc returns error when rpc_handler not initialized", async () => {
@@ -249,7 +243,25 @@ describe("PluginService", () => {
         .fn()
         .mockResolvedValue({ id: "r1", result: ["note.md"] }),
     };
-    service.initialize_rpc({ services: {}, stores: {} });
+    service.initialize_rpc({
+      services: {
+        note: {
+          read_note: vi.fn(),
+          create_note: vi.fn(),
+          write_note: vi.fn(),
+          delete_note: vi.fn(),
+        },
+        editor: {
+          apply_ai_output: vi.fn(),
+          get_ai_context: vi.fn(),
+        },
+        plugin: service,
+      },
+      stores: {
+        notes: { notes: [] },
+        editor: { open_note: null },
+      },
+    });
     const service_with_private = service as unknown as {
       rpc_handler: typeof mock_handler;
     };
@@ -291,7 +303,7 @@ describe("PluginService", () => {
   });
 
   it("load calls backend with vault_path and plugin_id", async () => {
-    const { service, load_plugin, vault_store } = create_harness();
+    const { service, host, vault_store } = create_harness();
     const vault = vault_store.vault;
     if (!vault) {
       throw new Error("Expected test vault");
@@ -299,11 +311,11 @@ describe("PluginService", () => {
 
     await service.load_plugin("test-plugin");
 
-    expect(load_plugin).toHaveBeenCalledWith(vault.path, "test-plugin");
+    expect(host.load).toHaveBeenCalledWith(vault.path, "test-plugin");
   });
 
   it("unload calls backend with plugin_id", async () => {
-    const { service, unload_plugin, store } = create_harness();
+    const { service, host, store } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
       path: "/vault/.carbide/plugins/p1",
@@ -313,7 +325,7 @@ describe("PluginService", () => {
 
     await service.unload_plugin("p1");
 
-    expect(unload_plugin).toHaveBeenCalledWith("p1");
+    expect(host.unload).toHaveBeenCalledWith("p1");
   });
 
   it("load_plugin throws when no active vault", async () => {
@@ -326,7 +338,7 @@ describe("PluginService", () => {
   });
 
   it("reload_plugin unloads then reloads plugin", async () => {
-    const { service, store, load_plugin, unload_plugin } = create_harness();
+    const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
       path: "/vault/.carbide/plugins/p1",
@@ -336,20 +348,20 @@ describe("PluginService", () => {
 
     await service.reload_plugin("p1");
 
-    expect(unload_plugin).toHaveBeenCalledWith("p1");
-    expect(load_plugin).toHaveBeenCalled();
+    expect(host.unload).toHaveBeenCalledWith("p1");
+    expect(host.load).toHaveBeenCalled();
     expect(store.plugins.get("p1")?.status).toBe("active");
   });
 
   it("reload_plugin sets error status on failure", async () => {
-    const { service, store, load_plugin } = create_harness();
+    const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
       path: "/vault/.carbide/plugins/p1",
       enabled: true,
       status: "active",
     });
-    vi.mocked(load_plugin).mockRejectedValueOnce(new Error("manifest invalid"));
+    vi.mocked(host.load).mockRejectedValueOnce(new Error("manifest invalid"));
 
     await service.reload_plugin("p1");
 
@@ -371,8 +383,50 @@ describe("PluginService", () => {
     expect(store.plugins.get("p1")?.status).toBe("active");
   });
 
+  it("activate_matching loads enabled startup plugins only", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("startup", {
+      manifest: make_manifest({
+        id: "startup",
+        name: "Startup",
+        activation_events: ["on_startup"],
+      }),
+      path: "/vault/.carbide/plugins/startup",
+      enabled: true,
+      status: "idle",
+    });
+    store.plugins.set("settings-only", {
+      manifest: make_manifest({
+        id: "settings-only",
+        name: "Settings Only",
+        activation_events: ["on_settings_open"],
+      }),
+      path: "/vault/.carbide/plugins/settings-only",
+      enabled: true,
+      status: "idle",
+    });
+    store.plugins.set("disabled", {
+      manifest: make_manifest({
+        id: "disabled",
+        name: "Disabled",
+        activation_events: ["on_startup"],
+      }),
+      path: "/vault/.carbide/plugins/disabled",
+      enabled: false,
+      status: "idle",
+    });
+
+    await service.activate_matching("on_startup");
+
+    expect(host.load).toHaveBeenCalledTimes(1);
+    expect(host.load).toHaveBeenCalledWith("/test/vault", "startup");
+    expect(store.plugins.get("startup")?.status).toBe("active");
+    expect(store.plugins.get("settings-only")?.status).toBe("idle");
+    expect(store.plugins.get("disabled")?.status).toBe("idle");
+  });
+
   it("load_and_activate skips disabled plugins", async () => {
-    const { service, store, load_plugin } = create_harness();
+    const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
       path: "/vault/.carbide/plugins/p1",
@@ -382,12 +436,12 @@ describe("PluginService", () => {
 
     await service.load_and_activate("p1");
 
-    expect(load_plugin).not.toHaveBeenCalled();
+    expect(host.load).not.toHaveBeenCalled();
     expect(store.plugins.get("p1")?.status).toBe("idle");
   });
 
   it("unload_then_idle transitions active plugin to idle", async () => {
-    const { service, store, unload_plugin } = create_harness();
+    const { service, store, host } = create_harness();
     store.plugins.set("p1", {
       manifest: make_manifest(),
       path: "/vault/.carbide/plugins/p1",
@@ -397,8 +451,37 @@ describe("PluginService", () => {
 
     await service.unload_then_idle("p1");
 
-    expect(unload_plugin).toHaveBeenCalledWith("p1");
+    expect(host.unload).toHaveBeenCalledWith("p1");
     expect(store.plugins.get("p1")?.status).toBe("idle");
     expect(store.plugins.get("p1")?.enabled).toBe(true);
+  });
+
+  it("clear_vault_state unloads non-idle plugins and clears discovered plugins", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("active", {
+      manifest: make_manifest({ id: "active", name: "Active" }),
+      path: "/vault/.carbide/plugins/active",
+      enabled: true,
+      status: "active",
+    });
+    store.plugins.set("error", {
+      manifest: make_manifest({ id: "error", name: "Error" }),
+      path: "/vault/.carbide/plugins/error",
+      enabled: true,
+      status: "error",
+    });
+    store.plugins.set("idle", {
+      manifest: make_manifest({ id: "idle", name: "Idle" }),
+      path: "/vault/.carbide/plugins/idle",
+      enabled: false,
+      status: "idle",
+    });
+
+    await service.clear_vault_state();
+
+    expect(host.unload).toHaveBeenCalledTimes(2);
+    expect(host.unload).toHaveBeenNthCalledWith(1, "active");
+    expect(host.unload).toHaveBeenNthCalledWith(2, "error");
+    expect(store.plugins.size).toBe(0);
   });
 });

@@ -59,6 +59,7 @@ import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
 import { Blocks, PencilRuler } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
+import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -383,8 +384,49 @@ export function create_app_context(input: {
   register_links_actions(action_registry, editor_service);
 
   plugin_service.initialize_rpc({
-    services: base_action_input.services,
-    stores: base_action_input.stores,
+    services: {
+      note: {
+        async read_note(note_path) {
+          const vault = stores.vault.vault;
+          if (!vault) throw new Error("No active vault");
+          return input.ports.notes.read_note(vault.id, as_note_path(note_path));
+        },
+        async create_note(note_path, markdown) {
+          const vault = stores.vault.vault;
+          if (!vault) throw new Error("No active vault");
+          const note = await input.ports.notes.create_note(
+            vault.id,
+            as_note_path(note_path),
+            as_markdown_text(markdown),
+          );
+          stores.notes.add_note(note);
+          await input.ports.index.upsert_note(vault.id, note.path);
+          return note;
+        },
+        async write_note(note_path, markdown) {
+          const vault = stores.vault.vault;
+          if (!vault) throw new Error("No active vault");
+          return input.ports.notes.write_and_index_note(
+            vault.id,
+            as_note_path(note_path),
+            as_markdown_text(markdown),
+          );
+        },
+        async delete_note(note_path) {
+          const note = stores.notes.notes.find(
+            (entry) => entry.path === note_path,
+          );
+          if (!note) throw new Error("Note not found");
+          return note_service.delete_note(note);
+        },
+      },
+      editor: editor_service,
+      plugin: plugin_service,
+    },
+    stores: {
+      notes: stores.notes,
+      editor: stores.editor,
+    },
   });
 
   register_plugin_actions(base_action_input, plugin_service);
@@ -472,6 +514,7 @@ export function create_app_context(input: {
     split_view_service,
     document_service,
     task_service,
+    plugin_service,
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,

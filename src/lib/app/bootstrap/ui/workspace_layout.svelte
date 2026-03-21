@@ -600,7 +600,11 @@
                     {#if is_vault_mode && stores.ui.sidebar_view === view.id}
                       <Sidebar.Group class="h-full">
                         <Sidebar.GroupContent class="h-full">
-                          <view.panel />
+                          {#if view.panel_props}
+                            <view.panel {...view.panel_props} />
+                          {:else}
+                            <view.panel />
+                          {/if}
                         </Sidebar.GroupContent>
                       </Sidebar.Group>
                     {/if}

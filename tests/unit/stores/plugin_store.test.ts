@@ -1,6 +1,30 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PluginStore } from "$lib/features/plugin/state/plugin_store.svelte";
+import type { PluginManifest, StatusBarItem } from "$lib/features/plugin";
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
+import PluginStatusBarItem from "$lib/features/plugin/ui/plugin_status_bar_item.svelte";
+
+function make_command(id: string, icon: string): CommandDefinition {
+  return {
+    id: id as CommandDefinition["id"],
+    label: "Test Command",
+    description: "Test",
+    keywords: [],
+    icon: icon as CommandDefinition["icon"],
+  };
+}
+
+function make_manifest(id: string): PluginManifest {
+  return {
+    id,
+    name: id,
+    version: "1.0.0",
+    author: "Test",
+    description: "Test plugin",
+    api_version: "1.0.0",
+    permissions: [],
+  };
+}
 
 describe("PluginStore", () => {
   let store: PluginStore;
@@ -10,13 +34,7 @@ describe("PluginStore", () => {
   });
 
   it("should register and unregister commands", () => {
-    const cmd: CommandDefinition = {
-      id: "test:cmd" as any,
-      label: "Test Command",
-      description: "Test",
-      keywords: [],
-      icon: "sparkles" as any,
-    };
+    const cmd = make_command("test:cmd", "sparkles");
 
     store.register_command(cmd);
     expect(store.commands).toContain(cmd);
@@ -26,13 +44,7 @@ describe("PluginStore", () => {
   });
 
   it("should reset registries", () => {
-    store.register_command({
-      id: "test:cmd" as any,
-      label: "Test",
-      description: "",
-      keywords: [],
-      icon: "settings" as any,
-    });
+    store.register_command(make_command("test:cmd", "settings"));
 
     store.reset_registries();
     expect(store.commands).toHaveLength(0);
@@ -40,14 +52,14 @@ describe("PluginStore", () => {
 
   it("should track active plugin ids", () => {
     store.plugins.set("p1", {
-      manifest: { id: "p1" } as any,
+      manifest: make_manifest("p1"),
       path: "/plugins/p1",
       enabled: true,
       status: "active",
     });
 
     store.plugins.set("p2", {
-      manifest: { id: "p2" } as any,
+      manifest: make_manifest("p2"),
       path: "/plugins/p2",
       enabled: false,
       status: "idle",
@@ -57,20 +69,18 @@ describe("PluginStore", () => {
   });
 
   it("should update status bar item props reactively", () => {
-    const item = {
+    const item: StatusBarItem = {
       id: "test:bar",
       priority: 1,
-      component: {} as any,
-      props: { text: "hello" },
+      component: PluginStatusBarItem,
+      props: { id: "test:bar", text: "hello" },
     };
     store.register_status_bar_item(item);
 
     store.update_status_bar_item("test:bar", { text: "world" });
 
-    const updated = store.status_bar_items.find(
-      (i: any) => i.id === "test:bar",
-    );
-    expect(updated?.props).toEqual({ text: "world" });
+    const updated = store.status_bar_items.find((i) => i.id === "test:bar");
+    expect(updated?.props).toEqual({ id: "test:bar", text: "world" });
   });
 
   it("should not fail when updating non-existent status bar item", () => {
