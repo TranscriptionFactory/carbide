@@ -465,6 +465,7 @@ fn handle_upsert(
 
     search_db::upsert_note_parsed(conn, &meta, &markdown, &parsed)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
+    let _ = vector_db::remove_embedding(conn, note_id);
 
     let targets = parsed.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
@@ -490,6 +491,7 @@ fn handle_upsert_with_content(
 
     search_db::upsert_note_parsed(conn, &meta, markdown, &parsed)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
+    let _ = vector_db::remove_embedding(conn, note_id);
 
     let targets = parsed.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
