@@ -74,10 +74,17 @@ function parse_stored_themes(raw: unknown): Theme[] {
 }
 
 function migrate_theme(theme: Theme): Theme {
-  if (typeof theme.auto_palette !== "boolean") {
-    return { ...theme, auto_palette: false };
+  let migrated = theme;
+  if (typeof migrated.auto_palette !== "boolean") {
+    migrated = { ...migrated, auto_palette: false };
   }
-  return theme;
+  if (!migrated.shiki_theme_light) {
+    migrated = { ...migrated, shiki_theme_light: "github-light" };
+  }
+  if (!migrated.shiki_theme_dark) {
+    migrated = { ...migrated, shiki_theme_dark: "github-dark" };
+  }
+  return migrated;
 }
 
 function is_theme_record(entry: unknown): entry is Theme {
