@@ -1,3 +1,4 @@
+use crate::features::vault_settings::service::parse_settings;
 use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,7 +32,8 @@ pub fn load_settings(app: &AppHandle) -> Result<SettingsStore, String> {
         return Ok(SettingsStore::default());
     };
 
-    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+    let settings = parse_settings(&bytes, "Global")?;
+    Ok(SettingsStore { settings })
 }
 
 pub fn save_settings(app: &AppHandle, store: &SettingsStore) -> Result<(), String> {
