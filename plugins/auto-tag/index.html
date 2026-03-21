@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Auto-Tag Plugin</title>
+  </head>
+  <body>
+    <script type="module">
+      import { auto_tag } from "./auto_tag.js";
+
+      const CONFIG_PATH = ".badgerly/plugins/auto-tag/config.toml";
+
+      const rpc = {
+        _pending: new Map(),
+        send(method, ...params) {
+          const id = crypto.randomUUID();
+          window.parent.postMessage({ id, method, params }, "*");
+          return new Promise((resolve, reject) => {
+            this._pending.set(id, { resolve, reject });
+          });
+        },
+        _handle(event) {
+          const { id, result, error } = event.data;
+          if (!id || !this._pending.has(id)) return;
+          const { resolve, reject } = this._pending.get(id);
+          this._pending.delete(id);
+          if (error) reject(new Error(error));
+          else resolve(result);
+        },
+      };
+
+      window.addEventListener("message", (e) => rpc._handle(e));
+
+      async function load_config() {
+        try {
+          return await rpc.send("vault.read", CONFIG_PATH);
+        } catch {
+          return null;
+        }
+      }
+
+      async function run_auto_tag() {
+        const config_toml = await load_config();
+        if (!config_toml) {
+          await rpc.send("ui.show_notice", {
+            message: "Auto-Tag: config.toml not found",
+          });
+          return;
+        }
+
+        const markdown = await rpc.send("editor.get_value");
+        if (!markdown) return;
+
+        const result = auto_tag(markdown, config_toml);
+        if (result !== markdown) {
+          await rpc.send("editor.set_value", result);
+          await rpc.send("ui.show_notice", {
+            message: "Auto-Tag: tags applied",
+          });
+        } else {
+          await rpc.send("ui.show_notice", {
+            message: "Auto-Tag: no changes needed",
+          });
+        }
+      }
+
+      async function run_auto_tag_on_path(path) {
+        const config_toml = await load_config();
+        if (!config_toml) return;
+
+        const content = await rpc.send("vault.read", path);
+        if (!content) return;
+
+        const result = auto_tag(content, config_toml);
+        if (result !== content) {
+          await rpc.send("vault.modify", path, result);
+        }
+      }
+
+      window.addEventListener("message", async (event) => {
+        if (event.data.method === "lifecycle.activate") {
+          await rpc.send("commands.register", {
+            id: "run",
+            label: "Auto-tag current note",
+            icon: "hash",
+          });
+
+          await rpc.send("events.on", "file-modified", "auto-tag-on-save");
+        }
+
+        if (event.data.method === "command.execute") {
+          const cmd = event.data.params?.[0];
+          if (cmd === "auto-tag:run") {
+            await run_auto_tag();
+          }
+        }
+
+        if (
+          event.data.type === "event" &&
+          event.data.event === "file-modified"
+        ) {
+          const enabled = await rpc.send("settings.get", "auto_tag_on_save");
+          if (enabled) {
+            const path = event.data.data?.path;
+            if (path && path.endsWith(".md")) {
+              await run_auto_tag_on_path(path);
+            }
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
