@@ -437,6 +437,7 @@
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VirtualFileTree
+                          tree_style={stores.ui.editor_settings.file_tree_style}
                           nodes={starred_nodes}
                           selected_path={stores.ui.selected_folder_path}
                           revealed_note_path={stores.ui
@@ -614,6 +615,7 @@
                   >
                     <Sidebar.GroupContent class="h-full">
                       <VirtualFileTree
+                        tree_style={stores.ui.editor_settings.file_tree_style}
                         nodes={flat_nodes}
                         selected_path={stores.ui.selected_folder_path}
                         revealed_note_path={stores.ui

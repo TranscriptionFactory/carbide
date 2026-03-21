@@ -3,10 +3,12 @@
   import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
   import type { FlatTreeNode, MoveItem } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
+  import type { FileTreeStyle } from "$lib/shared/types/editor_settings";
   import FileTreeRow from "$lib/features/folder/ui/file_tree_row.svelte";
   import { fuzzy_score } from "$lib/shared/utils/fuzzy_score";
 
   type Props = {
+    tree_style?: FileTreeStyle;
     nodes: FlatTreeNode[];
     selected_path: string;
     revealed_note_path: string;
@@ -51,6 +53,7 @@
   };
 
   let {
+    tree_style = "default",
     nodes,
     selected_path,
     revealed_note_path,
@@ -81,7 +84,7 @@
     on_move_items,
   }: Props = $props();
 
-  const ROW_HEIGHT = 30;
+  const ROW_HEIGHT = $derived(tree_style === "airy_minimal" ? 28 : 30);
   const OVERSCAN = 5;
 
   let scroll_container: HTMLDivElement | null = $state(null);
@@ -423,6 +426,7 @@
 <div
   bind:this={scroll_container}
   class="virtual-file-tree h-full w-full overflow-auto"
+  data-tree-style={tree_style}
   role="tree"
   tabindex="0"
   aria-label="File tree"

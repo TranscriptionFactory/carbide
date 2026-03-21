@@ -35,6 +35,7 @@ export type EditorBlockquotePadding = EditorSpacingDensity;
 export type EditorTableSpacingDensity = EditorSpacingDensity;
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
+export type FileTreeStyle = "default" | "airy_minimal";
 export type LintFormatter = "prettier" | "rumdl";
 
 export type EditorSettings = {
@@ -92,6 +93,7 @@ export type EditorSettings = {
   graph_force_collision_radius: number;
   graph_force_charge_max_distance: number;
   outline_mode: OutlineMode;
+  file_tree_style: FileTreeStyle;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -154,6 +156,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
+  file_tree_style: "airy_minimal",
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
@@ -208,6 +211,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_collision_radius",
   "graph_force_charge_max_distance",
   "outline_mode",
+  "file_tree_style",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
