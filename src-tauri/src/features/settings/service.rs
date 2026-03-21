@@ -32,7 +32,17 @@ pub fn load_settings(app: &AppHandle) -> Result<SettingsStore, String> {
         return Ok(SettingsStore::default());
     };
 
-    let settings = parse_settings(&bytes, "Global")?;
+    let parsed = parse_settings(&bytes, "Global")?;
+
+    // The file is stored as {"settings": {...}}, so unwrap the inner map.
+    // Fall back to treating the parsed map as flat settings for resilience.
+    let settings = match parsed.get("settings") {
+        Some(Value::Object(inner)) => inner
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+        _ => parsed,
+    };
     Ok(SettingsStore { settings })
 }
 
