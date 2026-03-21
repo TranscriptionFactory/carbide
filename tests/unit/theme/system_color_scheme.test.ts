@@ -26,28 +26,22 @@ function create_user_theme(
 
 describe("find_paired_theme_id", () => {
   it("finds the light pair of a builtin dark theme", () => {
-    const result = find_paired_theme_id(
-      "nordic-dark",
-      [...BUILTIN_THEMES],
-    );
+    const result = find_paired_theme_id("nordic-dark", [...BUILTIN_THEMES]);
     expect(result).toBe("nordic-light");
   });
 
   it("finds the dark pair of a builtin light theme", () => {
-    const result = find_paired_theme_id(
-      "nordic-light",
-      [...BUILTIN_THEMES],
-    );
+    const result = find_paired_theme_id("nordic-light", [...BUILTIN_THEMES]);
     expect(result).toBe("nordic-dark");
   });
 
   it("pairs paper themes correctly", () => {
-    expect(
-      find_paired_theme_id("paper-dark", [...BUILTIN_THEMES]),
-    ).toBe("paper-light");
-    expect(
-      find_paired_theme_id("paper-light", [...BUILTIN_THEMES]),
-    ).toBe("paper-dark");
+    expect(find_paired_theme_id("paper-dark", [...BUILTIN_THEMES])).toBe(
+      "paper-light",
+    );
+    expect(find_paired_theme_id("paper-light", [...BUILTIN_THEMES])).toBe(
+      "paper-dark",
+    );
   });
 
   it("pairs user themes by name convention", () => {
@@ -69,6 +63,8 @@ describe("find_paired_theme_id", () => {
   });
 
   it("returns null for a nonexistent theme ID", () => {
-    expect(find_paired_theme_id("does-not-exist", [...BUILTIN_THEMES])).toBeNull();
+    expect(
+      find_paired_theme_id("does-not-exist", [...BUILTIN_THEMES]),
+    ).toBeNull();
   });
 });
