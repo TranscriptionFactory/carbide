@@ -84,7 +84,14 @@
     on_move_items,
   }: Props = $props();
 
-  const ROW_HEIGHT = $derived(tree_style === "airy_minimal" ? 28 : 30);
+  const TREE_STYLE_ROW_HEIGHTS: Record<FileTreeStyle, number> = {
+    default: 30,
+    airy_minimal: 28,
+    compact: 22,
+    macos_finder: 24,
+    refined: 26,
+  };
+  const ROW_HEIGHT = $derived(TREE_STYLE_ROW_HEIGHTS[tree_style] ?? 30);
   const OVERSCAN = 5;
 
   let scroll_container: HTMLDivElement | null = $state(null);
@@ -525,6 +532,21 @@
     font-size: var(--text-xs);
     color: var(--sidebar-foreground);
     opacity: 0.5;
+  }
+
+  :global(.virtual-file-tree[data-tree-style="compact"]) {
+    --size-tree-row: 1.375rem;
+    --size-tree-indent: 0.75rem;
+  }
+
+  :global(.virtual-file-tree[data-tree-style="macos_finder"]) {
+    --size-tree-row: 1.5rem;
+    --size-tree-indent: 1rem;
+  }
+
+  :global(.virtual-file-tree[data-tree-style="refined"]) {
+    --size-tree-row: 1.625rem;
+    --size-tree-indent: 0.875rem;
   }
 
   .DragGhost {

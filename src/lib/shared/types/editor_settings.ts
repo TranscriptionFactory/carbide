@@ -35,7 +35,12 @@ export type EditorBlockquotePadding = EditorSpacingDensity;
 export type EditorTableSpacingDensity = EditorSpacingDensity;
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
-export type FileTreeStyle = "default" | "airy_minimal";
+export type FileTreeStyle =
+  | "default"
+  | "airy_minimal"
+  | "compact"
+  | "macos_finder"
+  | "refined";
 export type LintFormatter = "prettier" | "rumdl";
 
 export type EditorSettings = {

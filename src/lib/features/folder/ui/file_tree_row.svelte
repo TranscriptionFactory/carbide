@@ -829,4 +829,200 @@
     .TreeRow__toggle:hover:not(:disabled) {
     color: var(--sidebar-foreground);
   }
+
+  /* ── Variant: compact ── */
+
+  :global([data-tree-style="compact"]) .TreeRow {
+    border-radius: 0;
+    color: var(--sidebar-foreground);
+    font-size: var(--text-xs);
+    transition: none;
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 70%,
+      transparent
+    );
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow--selected {
+    background-color: var(--sidebar-accent);
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow--selected:hover {
+    background-color: var(--sidebar-accent);
+  }
+
+  :global([data-tree-style="compact"])
+    .TreeRow--multi-selected:not(.TreeRow--selected) {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow--load-more:hover {
+    background-color: transparent;
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow--folder .TreeRow__label {
+    font-weight: 400;
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow__label--file {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow__toggle {
+    transition: none;
+  }
+
+  :global([data-tree-style="compact"]) .TreeRow__toggle:hover:not(:disabled) {
+    color: var(--sidebar-foreground);
+  }
+
+  /* ── Variant: macos_finder ── */
+
+  :global([data-tree-style="macos_finder"]) .TreeRow {
+    border-radius: 9999px;
+    margin-inline: var(--space-1);
+    width: calc(100% - var(--space-1) * 2);
+    color: var(--sidebar-foreground);
+    transition: background-color var(--duration-fast) var(--ease-default);
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 65%,
+      transparent
+    );
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow--selected {
+    background-color: var(--interactive);
+    color: var(--primary-foreground);
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow--selected:hover {
+    background-color: var(--interactive-hover);
+    color: var(--primary-foreground);
+  }
+
+  :global([data-tree-style="macos_finder"])
+    .TreeRow--multi-selected:not(.TreeRow--selected) {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow--load-more:hover {
+    background-color: transparent;
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow--folder .TreeRow__label {
+    font-weight: 500;
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow__label--file {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="macos_finder"])
+    .TreeRow--selected
+    .TreeRow__label--file {
+    color: var(--primary-foreground);
+  }
+
+  :global([data-tree-style="macos_finder"]) .TreeRow__toggle {
+    transition: none;
+  }
+
+  :global([data-tree-style="macos_finder"])
+    .TreeRow__toggle:hover:not(:disabled) {
+    color: var(--sidebar-foreground);
+  }
+
+  :global([data-tree-style="macos_finder"])
+    .TreeRow--selected
+    .TreeRow__toggle {
+    color: var(--primary-foreground);
+  }
+
+  /* ── Variant: refined ── */
+
+  :global([data-tree-style="refined"]) .TreeRow {
+    border-radius: var(--radius-sm);
+    color: var(--sidebar-foreground);
+    transition:
+      background-color 80ms var(--ease-default),
+      color 80ms var(--ease-default);
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(
+      var(--size-tree-base-padding) + var(--size-icon-md) / 2
+    );
+    width: calc(var(--tree-depth) * var(--size-tree-indent));
+    pointer-events: none;
+    background-image: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--border-subtle) 50%, transparent) 0,
+      color-mix(in oklch, var(--border-subtle) 50%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: var(--size-tree-indent) 100%;
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 55%,
+      transparent
+    );
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow--selected {
+    background-color: color-mix(in oklch, var(--muted) 70%, transparent);
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow--selected:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 60%,
+      transparent
+    );
+  }
+
+  :global([data-tree-style="refined"])
+    .TreeRow--multi-selected:not(.TreeRow--selected) {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow--load-more:hover {
+    background-color: transparent;
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow--folder .TreeRow__label {
+    font-weight: 500;
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow__label--file {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow__toggle {
+    transition: background-color 80ms var(--ease-default);
+  }
+
+  :global([data-tree-style="refined"]) .TreeRow__toggle:hover:not(:disabled) {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent-foreground) 8%,
+      transparent
+    );
+  }
 </style>

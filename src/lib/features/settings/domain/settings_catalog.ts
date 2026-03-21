@@ -212,7 +212,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "file_tree_style",
     label: "File Tree Style",
     description:
-      "Visual style for the file explorer sidebar. 'default' uses highlighted rows, 'airy_minimal' uses text-only hover with accent borders",
+      "Visual style for the file explorer sidebar: default, airy_minimal, compact, macos_finder, or refined",
     category: "Layout",
     keywords: [
       "file",
@@ -222,6 +222,11 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "style",
       "minimal",
       "airy",
+      "compact",
+      "finder",
+      "macos",
+      "refined",
+      "vscode",
       "appearance",
     ],
   },
