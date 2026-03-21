@@ -152,15 +152,32 @@ export class PluginService {
     const discovered = await this.host_port.discover(vault_path);
     console.debug("[PluginService] discovered:", discovered.length, "plugins");
 
+    let settings_changed = false;
+
     for (const { manifest, path } of discovered) {
-      if (!this.store.plugins.has(manifest.id)) {
-        this.store.plugins.set(manifest.id, {
-          manifest,
-          path,
-          enabled: false,
-          status: "idle",
-        });
-      }
+      const sync_result = this.settings_service?.sync_manifest_entry(
+        manifest,
+        "local",
+      );
+
+      settings_changed = settings_changed || (sync_result?.changed ?? false);
+
+      const existing = this.store.plugins.get(manifest.id);
+      const status = existing?.status ?? "idle";
+
+      this.store.plugins.set(manifest.id, {
+        manifest,
+        path,
+        enabled: sync_result?.entry.enabled ?? existing?.enabled ?? false,
+        status,
+        ...(status === "error" && existing?.error
+          ? { error: existing.error }
+          : {}),
+      });
+    }
+
+    if (settings_changed) {
+      await this.settings_service?.save();
     }
 
     return discovered;
@@ -278,10 +295,11 @@ export class PluginService {
     const plugin = this.store.plugins.get(id);
     if (!plugin) return;
 
-    this.settings_service?.ensure_plugin_entry(id);
+    this.settings_service?.sync_manifest_entry(plugin.manifest, "local");
     this.store.plugins.set(id, { ...plugin, status: "loading" });
     try {
       await this.load_plugin(id);
+      await this.settings_service?.set_enabled(id, true);
       this.store.plugins.set(id, {
         ...plugin,
         enabled: true,
@@ -302,6 +320,7 @@ export class PluginService {
 
     try {
       await this.unload_plugin(id);
+      await this.settings_service?.set_enabled(id, false);
       this.store.plugins.set(id, { ...plugin, enabled: false, status: "idle" });
     } catch (e) {
       this.store.plugins.set(id, {

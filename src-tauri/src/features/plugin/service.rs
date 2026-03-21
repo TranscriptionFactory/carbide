@@ -1,7 +1,7 @@
 use crate::features::plugin::types::{PluginInfo, PluginManifest};
 use anyhow::{Context, Result};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct PluginService;
 
@@ -11,7 +11,7 @@ impl PluginService {
     }
 
     pub fn discover(&self, vault_path: &Path) -> Result<Vec<PluginInfo>> {
-        let plugins_dir = vault_path.join(".badgerly").join("plugins");
+        let plugins_dir = plugins_dir(vault_path);
 
         log::info!("Plugin discovery: looking in {}", plugins_dir.display());
 
@@ -40,7 +40,7 @@ impl PluginService {
     }
 
     pub fn validate_plugin(&self, vault_path: &Path, plugin_id: &str) -> Result<PluginInfo> {
-        let plugin_dir = vault_path.join(".badgerly").join("plugins").join(plugin_id);
+        let plugin_dir = plugins_dir(vault_path).join(plugin_id);
 
         if !plugin_dir.exists() {
             anyhow::bail!("Plugin directory not found: {}", plugin_dir.display());
@@ -72,4 +72,8 @@ impl PluginService {
             }
         }
     }
+}
+
+fn plugins_dir(vault_path: &Path) -> PathBuf {
+    vault_path.join(".carbide").join("plugins")
 }

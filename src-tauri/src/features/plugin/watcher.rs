@@ -72,7 +72,7 @@ pub fn watch_plugins(
     log::info!("Watching plugins vault_path={}", vault_path);
     stop_active_runtime(&state)?;
 
-    let plugins_root = Path::new(&vault_path).join(".badgerly").join("plugins");
+    let plugins_root = Path::new(&vault_path).join(".carbide").join("plugins");
     let plugins_root_canon = plugins_root
         .canonicalize()
         .map_err(|e| format!("plugins dir not found: {e}"))?;

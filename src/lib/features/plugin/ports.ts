@@ -39,10 +39,14 @@ export interface PluginManifest {
 }
 
 export interface PluginSettingsData {
+  schema_version: number;
   plugins: Record<string, PluginSettingsEntry>;
 }
 
 export interface PluginSettingsEntry {
+  enabled: boolean;
+  version: string;
+  source: string;
   permissions_granted: string[];
   permissions_pending: string[];
   settings: Record<string, unknown>;
