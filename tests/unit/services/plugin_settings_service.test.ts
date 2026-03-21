@@ -163,6 +163,20 @@ describe("PluginSettingsService", () => {
   });
 
   describe("get_setting / set_setting", () => {
+    it("is_permission_granted reads granted permissions from the store", () => {
+      const { service, store } = make_harness();
+      store.set_entry(
+        "plugin-a",
+        make_entry({
+          version: "1.0.0",
+          permissions_granted: ["fs:read"],
+        }),
+      );
+
+      expect(service.is_permission_granted("plugin-a", "fs:read")).toBe(true);
+      expect(service.is_permission_granted("plugin-a", "fs:write")).toBe(false);
+    });
+
     it("get_setting delegates to store", async () => {
       const { service, store } = make_harness();
       store.set_entry(

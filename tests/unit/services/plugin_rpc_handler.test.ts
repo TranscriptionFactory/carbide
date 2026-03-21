@@ -19,6 +19,12 @@ function make_manifest(permissions: string[]): PluginManifest {
 }
 
 function make_context() {
+  const read_note = vi.fn();
+  const create_note = vi.fn();
+  const write_note = vi.fn();
+  const delete_note = vi.fn();
+  const apply_ai_output = vi.fn();
+  const get_ai_context = vi.fn();
   const plugin = {
     register_command: vi.fn(),
     unregister_command: vi.fn(),
@@ -35,14 +41,14 @@ function make_context() {
   const context: PluginRpcContext = {
     services: {
       note: {
-        read_note: vi.fn(),
-        create_note: vi.fn(),
-        write_note: vi.fn(),
-        delete_note: vi.fn(),
+        read_note,
+        create_note,
+        write_note,
+        delete_note,
       },
       editor: {
-        apply_ai_output: vi.fn(),
-        get_ai_context: vi.fn(),
+        apply_ai_output,
+        get_ai_context,
       },
       plugin,
     },
@@ -55,6 +61,23 @@ function make_context() {
   return {
     context,
     plugin,
+    read_note,
+    create_note,
+    write_note,
+    delete_note,
+    apply_ai_output,
+    get_ai_context,
+  };
+}
+
+function make_settings_service(granted_permissions: string[] = []) {
+  return {
+    get_setting: vi.fn().mockResolvedValue("stored-value"),
+    set_setting: vi.fn().mockResolvedValue(undefined),
+    get_all_settings: vi.fn().mockResolvedValue({ theme: "dark", count: 1 }),
+    is_permission_granted: vi.fn((_plugin_id: string, permission: string) =>
+      granted_permissions.includes(permission),
+    ),
   };
 }
 
@@ -69,8 +92,97 @@ describe("PluginRpcHandler", () => {
     handler = new PluginRpcHandler(ctx.context);
   });
 
+  function grant_permissions(...permissions: string[]) {
+    const svc = make_settings_service(permissions);
+    handler.set_settings_service(svc as unknown as PluginSettingsService);
+    return svc;
+  }
+
+  describe("vault.*", () => {
+    it("reads notes when fs:read is granted", async () => {
+      const svc = grant_permissions("fs:read");
+      ctx.read_note.mockResolvedValueOnce({
+        markdown: "# Test",
+      });
+
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v1",
+        method: "vault.read",
+        params: ["notes/test.md"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(svc.is_permission_granted).toHaveBeenCalledWith(
+        PLUGIN_ID,
+        "fs:read",
+      );
+      expect(ctx.read_note).toHaveBeenCalled();
+    });
+
+    it("blocks vault access when fs permission is requested but not granted", async () => {
+      grant_permissions();
+
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v2",
+        method: "vault.list",
+        params: [],
+      });
+
+      expect(response.error).toMatch(
+        /Missing one of required permissions: fs:read, fs:write/,
+      );
+    });
+
+    it("blocks vault writes when only fs:read is granted", async () => {
+      grant_permissions("fs:read");
+
+      const manifest = make_manifest(["fs:read", "fs:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v3",
+        method: "vault.create",
+        params: ["notes/test.md", "# Test"],
+      });
+
+      expect(response.error).toMatch(/Missing fs:write permission/);
+    });
+  });
+
+  describe("editor.*", () => {
+    it("returns editor content when editor:read is granted", async () => {
+      grant_permissions("editor:read");
+      ctx.context.stores.editor.open_note = { markdown: "# Active" };
+
+      const manifest = make_manifest(["editor:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "ed1",
+        method: "editor.get_value",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toBe("# Active");
+    });
+
+    it("blocks editor writes when editor:modify is not granted", async () => {
+      grant_permissions("editor:read");
+      ctx.context.stores.editor.open_note = { markdown: "# Active" };
+
+      const manifest = make_manifest(["editor:read", "editor:modify"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "ed2",
+        method: "editor.set_value",
+        params: ["# Updated"],
+      });
+
+      expect(response.error).toMatch(/Missing editor:modify permission/);
+    });
+  });
+
   describe("commands.remove", () => {
     it("removes a previously registered command", async () => {
+      grant_permissions("commands:register");
       const manifest = make_manifest(["commands:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "1",
@@ -85,8 +197,9 @@ describe("PluginRpcHandler", () => {
       );
     });
 
-    it("throws when missing commands:register permission", async () => {
-      const manifest = make_manifest([]);
+    it("throws when commands:register is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["commands:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "1",
         method: "commands.remove",
@@ -100,6 +213,7 @@ describe("PluginRpcHandler", () => {
 
   describe("ui.add_sidebar_panel", () => {
     it("registers a sidebar view with namespaced id", async () => {
+      grant_permissions("ui:panel");
       const manifest = make_manifest(["ui:panel"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "2",
@@ -117,8 +231,9 @@ describe("PluginRpcHandler", () => {
       expect(call?.label).toBe("My Panel");
     });
 
-    it("throws when missing ui:panel permission", async () => {
-      const manifest = make_manifest([]);
+    it("throws when ui:panel is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["ui:panel"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "2",
         method: "ui.add_sidebar_panel",
@@ -132,6 +247,7 @@ describe("PluginRpcHandler", () => {
 
   describe("ui.remove_statusbar_item", () => {
     it("unregisters a status bar item", async () => {
+      grant_permissions("ui:statusbar");
       const manifest = make_manifest(["ui:statusbar"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "3",
@@ -146,8 +262,9 @@ describe("PluginRpcHandler", () => {
       );
     });
 
-    it("throws when missing ui:statusbar permission", async () => {
-      const manifest = make_manifest([]);
+    it("throws when ui:statusbar is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["ui:statusbar"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "3",
         method: "ui.remove_statusbar_item",
@@ -161,6 +278,7 @@ describe("PluginRpcHandler", () => {
 
   describe("ui.remove_sidebar_panel", () => {
     it("unregisters a sidebar view", async () => {
+      grant_permissions("ui:panel");
       const manifest = make_manifest(["ui:panel"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "4",
@@ -175,8 +293,9 @@ describe("PluginRpcHandler", () => {
       );
     });
 
-    it("throws when missing ui:panel permission", async () => {
-      const manifest = make_manifest([]);
+    it("throws when ui:panel is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["ui:panel"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "4",
         method: "ui.remove_sidebar_panel",
@@ -230,19 +349,8 @@ describe("PluginRpcHandler", () => {
   });
 
   describe("settings.*", () => {
-    function make_settings_service() {
-      return {
-        get_setting: vi.fn().mockResolvedValue("stored-value"),
-        set_setting: vi.fn().mockResolvedValue(undefined),
-        get_all_settings: vi
-          .fn()
-          .mockResolvedValue({ theme: "dark", count: 1 }),
-      };
-    }
-
     it("settings.get returns a setting value without permission check", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      const svc = grant_permissions();
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -257,8 +365,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("settings.set writes a setting and returns success", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      const svc = grant_permissions();
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -273,8 +380,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("settings.get_all returns all settings for the plugin", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      const svc = grant_permissions();
 
       const manifest = make_manifest([]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -300,8 +406,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("settings.register_tab registers a settings tab with given label", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      grant_permissions("settings:register");
 
       const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -321,8 +426,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("settings.register_tab falls back to manifest name when label not provided", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      grant_permissions("settings:register");
 
       const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -341,8 +445,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("settings.register_tab keeps runtime schema from declarative properties", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
+      grant_permissions("settings:register");
 
       const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -389,11 +492,9 @@ describe("PluginRpcHandler", () => {
       });
     });
 
-    it("settings.register_tab throws without settings:register permission", async () => {
-      const svc = make_settings_service();
-      handler.set_settings_service(svc as unknown as PluginSettingsService);
-
-      const manifest = make_manifest([]);
+    it("settings.register_tab throws when settings:register is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "s7",
         method: "settings.register_tab",
@@ -414,6 +515,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("events.on subscribes to an event type", async () => {
+      grant_permissions("events:subscribe");
       const manifest = make_manifest(["events:subscribe"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "e1",
@@ -427,6 +529,7 @@ describe("PluginRpcHandler", () => {
     });
 
     it("events.off unsubscribes a callback", async () => {
+      grant_permissions("events:subscribe");
       const manifest = make_manifest(["events:subscribe"]);
       event_bus.subscribe(PLUGIN_ID, "file-created", "cb-1");
 
@@ -441,8 +544,9 @@ describe("PluginRpcHandler", () => {
       expect(event_bus.get_subscription_count(PLUGIN_ID)).toBe(0);
     });
 
-    it("events.* throws without events:subscribe permission", async () => {
-      const manifest = make_manifest([]);
+    it("events.* throws when events:subscribe is requested but not granted", async () => {
+      grant_permissions();
+      const manifest = make_manifest(["events:subscribe"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "e3",
         method: "events.on",
@@ -454,6 +558,10 @@ describe("PluginRpcHandler", () => {
 
     it("events.* errors when event bus not initialized", async () => {
       const fresh_handler = new PluginRpcHandler(ctx.context);
+      const svc = make_settings_service(["events:subscribe"]);
+      fresh_handler.set_settings_service(
+        svc as unknown as PluginSettingsService,
+      );
       const manifest = make_manifest(["events:subscribe"]);
       const response = await fresh_handler.handle_request(PLUGIN_ID, manifest, {
         id: "e4",

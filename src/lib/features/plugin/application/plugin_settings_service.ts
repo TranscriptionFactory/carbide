@@ -116,6 +116,10 @@ export class PluginSettingsService {
     return Promise.resolve(this.store.get_setting(plugin_id, key));
   }
 
+  is_permission_granted(plugin_id: string, permission: string): boolean {
+    return this.store.is_permission_granted(plugin_id, permission);
+  }
+
   set_setting(plugin_id: string, key: string, value: unknown): Promise<void> {
     this.store.set_setting(plugin_id, key, value);
     this.schedule_save();

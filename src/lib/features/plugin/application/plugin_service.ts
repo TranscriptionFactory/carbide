@@ -176,7 +176,11 @@ export class PluginService {
 
     return (
       plugin.enabled &&
-      plugin.manifest.permissions.includes("settings:register") &&
+      (this.settings_service?.is_permission_granted(
+        plugin_id,
+        "settings:register",
+      ) ??
+        false) &&
       this.should_activate(plugin_id, "on_settings_open")
     );
   }
@@ -184,6 +188,15 @@ export class PluginService {
   async ensure_settings_ready(plugin_id: string) {
     const plugin = this.store.plugins.get(plugin_id);
     if (!plugin || !plugin.enabled || plugin.status !== "idle") {
+      return;
+    }
+
+    if (
+      !this.settings_service?.is_permission_granted(
+        plugin_id,
+        "settings:register",
+      )
+    ) {
       return;
     }
 

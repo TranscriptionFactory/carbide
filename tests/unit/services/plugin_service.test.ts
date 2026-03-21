@@ -468,8 +468,17 @@ describe("PluginService", () => {
     ]);
   });
 
-  it("can_open_settings returns true for enabled on_settings_open plugins", () => {
-    const { service, store } = create_harness();
+  it("can_open_settings returns true for enabled on_settings_open plugins with granted settings permission", () => {
+    const { service, store, settings_store } = create_harness();
+    settings_store.set_entry("settings-only", {
+      enabled: true,
+      version: "1.0.0",
+      source: "local",
+      permissions_granted: ["settings:register"],
+      permissions_pending: [],
+      settings: {},
+      content_hash: null,
+    });
     store.plugins.set("settings-only", {
       manifest: make_manifest({
         id: "settings-only",
@@ -485,8 +494,43 @@ describe("PluginService", () => {
     expect(service.can_open_settings("settings-only")).toBe(true);
   });
 
-  it("ensure_settings_ready activates enabled on_settings_open plugins", async () => {
-    const { service, store, host } = create_harness();
+  it("can_open_settings returns false for runtime-only settings when settings permission is pending", () => {
+    const { service, store, settings_store } = create_harness();
+    settings_store.set_entry("settings-only", {
+      enabled: true,
+      version: "1.0.0",
+      source: "local",
+      permissions_granted: [],
+      permissions_pending: ["settings:register"],
+      settings: {},
+      content_hash: null,
+    });
+    store.plugins.set("settings-only", {
+      manifest: make_manifest({
+        id: "settings-only",
+        name: "Settings Only",
+        permissions: ["settings:register"],
+        activation_events: ["on_settings_open"],
+      }),
+      path: "/vault/.carbide/plugins/settings-only",
+      enabled: true,
+      status: "idle",
+    });
+
+    expect(service.can_open_settings("settings-only")).toBe(false);
+  });
+
+  it("ensure_settings_ready activates enabled on_settings_open plugins when settings permission is granted", async () => {
+    const { service, store, host, settings_store } = create_harness();
+    settings_store.set_entry("settings-only", {
+      enabled: true,
+      version: "1.0.0",
+      source: "local",
+      permissions_granted: ["settings:register"],
+      permissions_pending: [],
+      settings: {},
+      content_hash: null,
+    });
     store.plugins.set("settings-only", {
       manifest: make_manifest({
         id: "settings-only",
@@ -503,6 +547,35 @@ describe("PluginService", () => {
 
     expect(host.load).toHaveBeenCalledWith("/test/vault", "settings-only");
     expect(store.plugins.get("settings-only")?.status).toBe("active");
+  });
+
+  it("ensure_settings_ready skips activation when settings permission is pending", async () => {
+    const { service, store, host, settings_store } = create_harness();
+    settings_store.set_entry("settings-only", {
+      enabled: true,
+      version: "1.0.0",
+      source: "local",
+      permissions_granted: [],
+      permissions_pending: ["settings:register"],
+      settings: {},
+      content_hash: null,
+    });
+    store.plugins.set("settings-only", {
+      manifest: make_manifest({
+        id: "settings-only",
+        name: "Settings Only",
+        permissions: ["settings:register"],
+        activation_events: ["on_settings_open"],
+      }),
+      path: "/vault/.carbide/plugins/settings-only",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.ensure_settings_ready("settings-only");
+
+    expect(host.load).not.toHaveBeenCalled();
+    expect(store.plugins.get("settings-only")?.status).toBe("idle");
   });
 
   it("load_and_activate skips disabled plugins", async () => {

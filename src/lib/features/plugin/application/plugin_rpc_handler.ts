@@ -370,6 +370,36 @@ export class PluginRpcHandler {
     this.settings_service = settings_service;
   }
 
+  private is_permission_granted(
+    plugin_id: string,
+    permission: string,
+  ): boolean {
+    return (
+      this.settings_service?.is_permission_granted(plugin_id, permission) ??
+      false
+    );
+  }
+
+  private require_permission(plugin_id: string, permission: string) {
+    if (!this.is_permission_granted(plugin_id, permission)) {
+      throw new Error(`Missing ${permission} permission`);
+    }
+  }
+
+  private require_any_permission(plugin_id: string, permissions: string[]) {
+    if (
+      permissions.some((permission) =>
+        this.is_permission_granted(plugin_id, permission),
+      )
+    ) {
+      return;
+    }
+
+    throw new Error(
+      `Missing one of required permissions: ${permissions.join(", ")}`,
+    );
+  }
+
   async handle_request(
     plugin_id: string,
     manifest: PluginManifest,
@@ -404,33 +434,24 @@ export class PluginRpcHandler {
 
     switch (namespace) {
       case "vault":
-        return this.handle_vault(manifest, action, params);
+        return this.handle_vault(plugin_id, action, params);
       case "editor":
-        return this.handle_editor(manifest, action, params);
+        return this.handle_editor(plugin_id, action, params);
       case "commands":
-        return this.handle_commands(plugin_id, manifest, action, params);
+        return this.handle_commands(plugin_id, action, params);
       case "ui":
-        return this.handle_ui(plugin_id, manifest, action, params);
+        return this.handle_ui(plugin_id, action, params);
       case "settings":
         return this.handle_settings(plugin_id, manifest, action, params);
       case "events":
-        return this.handle_events(plugin_id, manifest, action, params);
+        return this.handle_events(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
   }
 
-  private handle_vault(
-    manifest: PluginManifest,
-    action: string,
-    params: RpcParams,
-  ) {
-    if (
-      !manifest.permissions.includes("fs:read") &&
-      !manifest.permissions.includes("fs:write")
-    ) {
-      throw new Error("Missing vault permissions (fs:read or fs:write)");
-    }
+  private handle_vault(plugin_id: string, action: string, params: RpcParams) {
+    this.require_any_permission(plugin_id, ["fs:read", "fs:write"]);
 
     switch (action) {
       case "read":
@@ -438,22 +459,19 @@ export class PluginRpcHandler {
           as_note_path(read_param_string(params, 0, "note path")),
         );
       case "create":
-        if (!manifest.permissions.includes("fs:write"))
-          throw new Error("Missing fs:write permission");
+        this.require_permission(plugin_id, "fs:write");
         return this.context.services.note.create_note(
           as_note_path(read_param_string(params, 0, "note path")),
           as_markdown_text(read_string(params[1] ?? "", "markdown")),
         );
       case "modify":
-        if (!manifest.permissions.includes("fs:write"))
-          throw new Error("Missing fs:write permission");
+        this.require_permission(plugin_id, "fs:write");
         return this.context.services.note.write_note(
           as_note_path(read_param_string(params, 0, "note path")),
           as_markdown_text(read_param_string(params, 1, "markdown")),
         );
       case "delete":
-        if (!manifest.permissions.includes("fs:write"))
-          throw new Error("Missing fs:write permission");
+        this.require_permission(plugin_id, "fs:write");
         return this.context.services.note.delete_note(
           read_param_string(params, 0, "note path"),
         );
@@ -464,19 +482,8 @@ export class PluginRpcHandler {
     }
   }
 
-  private handle_editor(
-    manifest: PluginManifest,
-    action: string,
-    params: RpcParams,
-  ) {
-    if (
-      !manifest.permissions.includes("editor:read") &&
-      !manifest.permissions.includes("editor:modify")
-    ) {
-      throw new Error(
-        "Missing editor permissions (editor:read or editor:modify)",
-      );
-    }
+  private handle_editor(plugin_id: string, action: string, params: RpcParams) {
+    this.require_any_permission(plugin_id, ["editor:read", "editor:modify"]);
 
     const open_note = this.context.stores.editor.open_note;
     if (!open_note) throw new Error("No active editor");
@@ -485,8 +492,7 @@ export class PluginRpcHandler {
       case "get_value":
         return open_note.markdown;
       case "set_value": {
-        if (!manifest.permissions.includes("editor:modify"))
-          throw new Error("Missing editor:modify permission");
+        this.require_permission(plugin_id, "editor:modify");
         this.context.services.editor.apply_ai_output(
           "full_note",
           read_param_string(params, 0, "editor text"),
@@ -499,8 +505,7 @@ export class PluginRpcHandler {
         return ctx?.selection?.text ?? "";
       }
       case "replace_selection": {
-        if (!manifest.permissions.includes("editor:modify"))
-          throw new Error("Missing editor:modify permission");
+        this.require_permission(plugin_id, "editor:modify");
         const snapshot =
           this.context.services.editor.get_ai_context()?.selection;
         this.context.services.editor.apply_ai_output(
@@ -517,13 +522,10 @@ export class PluginRpcHandler {
 
   private handle_commands(
     plugin_id: string,
-    manifest: PluginManifest,
     action: string,
     params: RpcParams,
   ) {
-    if (!manifest.permissions.includes("commands:register")) {
-      throw new Error("Missing commands:register permission");
-    }
+    this.require_permission(plugin_id, "commands:register");
 
     switch (action) {
       case "register": {
@@ -542,16 +544,10 @@ export class PluginRpcHandler {
     }
   }
 
-  private handle_ui(
-    plugin_id: string,
-    manifest: PluginManifest,
-    action: string,
-    params: RpcParams,
-  ) {
+  private handle_ui(plugin_id: string, action: string, params: RpcParams) {
     switch (action) {
       case "add_statusbar_item": {
-        if (!manifest.permissions.includes("ui:statusbar"))
-          throw new Error("Missing ui:statusbar permission");
+        this.require_permission(plugin_id, "ui:statusbar");
         const { id, priority, initial_text } = read_status_bar_item_input(
           params[0],
         );
@@ -565,8 +561,7 @@ export class PluginRpcHandler {
         return { success: true };
       }
       case "update_statusbar_item": {
-        if (!manifest.permissions.includes("ui:statusbar"))
-          throw new Error("Missing ui:statusbar permission");
+        this.require_permission(plugin_id, "ui:statusbar");
         const target_id = `${plugin_id}:${read_param_string(params, 0, "status bar item id")}`;
         this.context.services.plugin.update_status_bar_item(target_id, {
           text: read_param_string(params, 1, "status bar text"),
@@ -574,15 +569,13 @@ export class PluginRpcHandler {
         return { success: true };
       }
       case "remove_statusbar_item": {
-        if (!manifest.permissions.includes("ui:statusbar"))
-          throw new Error("Missing ui:statusbar permission");
+        this.require_permission(plugin_id, "ui:statusbar");
         const remove_id = `${plugin_id}:${read_param_string(params, 0, "status bar item id")}`;
         this.context.services.plugin.unregister_status_bar_item(remove_id);
         return { success: true };
       }
       case "add_sidebar_panel": {
-        if (!manifest.permissions.includes("ui:panel"))
-          throw new Error("Missing ui:panel permission");
+        this.require_permission(plugin_id, "ui:panel");
         const {
           id: panel_id,
           label,
@@ -602,8 +595,7 @@ export class PluginRpcHandler {
         return { success: true };
       }
       case "remove_sidebar_panel": {
-        if (!manifest.permissions.includes("ui:panel"))
-          throw new Error("Missing ui:panel permission");
+        this.require_permission(plugin_id, "ui:panel");
         const remove_panel_id = `${plugin_id}:${read_param_string(params, 0, "sidebar panel id")}`;
         this.context.services.plugin.unregister_sidebar_view(remove_panel_id);
         return { success: true };
@@ -614,8 +606,7 @@ export class PluginRpcHandler {
         return { success: true };
       }
       case "add_ribbon_icon": {
-        if (!manifest.permissions.includes("ui:ribbon"))
-          throw new Error("Missing ui:ribbon permission");
+        this.require_permission(plugin_id, "ui:ribbon");
         const {
           id: ribbon_id,
           icon: ribbon_icon,
@@ -632,8 +623,7 @@ export class PluginRpcHandler {
         return { success: true };
       }
       case "remove_ribbon_icon": {
-        if (!manifest.permissions.includes("ui:ribbon"))
-          throw new Error("Missing ui:ribbon permission");
+        this.require_permission(plugin_id, "ui:ribbon");
         const remove_ribbon_id = `${plugin_id}:${read_param_string(params, 0, "ribbon icon id")}`;
         this.context.services.plugin.unregister_ribbon_icon(remove_ribbon_id);
         return { success: true };
@@ -669,9 +659,7 @@ export class PluginRpcHandler {
       case "get_all":
         return this.settings_service.get_all_settings(plugin_id);
       case "register_tab": {
-        if (!manifest.permissions.includes("settings:register")) {
-          throw new Error("Missing settings:register permission");
-        }
+        this.require_permission(plugin_id, "settings:register");
         const { label, icon, settings_schema } = read_settings_tab_input(
           params[0],
         );
@@ -691,15 +679,8 @@ export class PluginRpcHandler {
     }
   }
 
-  private handle_events(
-    plugin_id: string,
-    manifest: PluginManifest,
-    action: string,
-    params: RpcParams,
-  ) {
-    if (!manifest.permissions.includes("events:subscribe")) {
-      throw new Error("Missing events:subscribe permission");
-    }
+  private handle_events(plugin_id: string, action: string, params: RpcParams) {
+    this.require_permission(plugin_id, "events:subscribe");
 
     if (!this.event_bus) {
       throw new Error("Event bus not initialized");
