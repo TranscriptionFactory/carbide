@@ -367,7 +367,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
         if (open_note) {
           const md_offset = editor_store.cursor_offset;
           services.editor.sync_visual_from_markdown(open_note.markdown);
-          services.editor.set_editable(false);
+          services.editor.set_editable(true);
           if (md_offset > 0) {
             services.editor.set_cursor_from_markdown_offset(md_offset);
           }
