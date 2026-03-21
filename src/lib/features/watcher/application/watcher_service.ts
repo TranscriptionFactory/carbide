@@ -16,8 +16,21 @@ export class WatcherService {
   private handlers = new Set<(event: VaultFsEvent) => void>();
   private suppressed = new Map<string, number>();
   private lifecycle = Promise.resolve();
+  private _tree_refresh_suppressed = false;
 
   constructor(private readonly port: WatcherPort) {}
+
+  suppress_tree_refresh(): void {
+    this._tree_refresh_suppressed = true;
+  }
+
+  resume_tree_refresh(): void {
+    this._tree_refresh_suppressed = false;
+  }
+
+  get is_tree_refresh_suppressed(): boolean {
+    return this._tree_refresh_suppressed;
+  }
 
   suppress_next(path: string): void {
     const key = suppressed_path_key(path);

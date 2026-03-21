@@ -162,6 +162,8 @@ export function create_app_context(input: {
     now_ms,
   );
 
+  const watcher_service = new WatcherService(input.ports.watcher);
+
   const link_repair_service = new LinkRepairService(
     input.ports.notes,
     input.ports.search,
@@ -172,9 +174,10 @@ export function create_app_context(input: {
     (path) => {
       editor_service.close_buffer(path);
     },
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
-
-  const watcher_service = new WatcherService(input.ports.watcher);
 
   const folder_service = new FolderService(
     input.ports.notes,
@@ -186,6 +189,7 @@ export function create_app_context(input: {
     stores.op,
     now_ms,
     link_repair_service,
+    watcher_service,
   );
 
   const shell_service = new ShellService(input.ports.shell);

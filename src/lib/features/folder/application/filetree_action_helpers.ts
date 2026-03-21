@@ -33,6 +33,19 @@ export function clear_folder_filetree_state(
   input.stores.ui.filetree = cloned;
 }
 
+export function batch_clear_folder_filetree_state(
+  input: ActionRegistrationInput,
+  folder_paths: Iterable<string>,
+) {
+  const cloned = clone_filetree(input.stores.ui.filetree);
+  for (const folder_path of folder_paths) {
+    cloned.load_states.delete(folder_path);
+    cloned.error_messages.delete(folder_path);
+    cloned.pagination.delete(folder_path);
+  }
+  input.stores.ui.filetree = cloned;
+}
+
 export function should_load_folder(
   state: FolderLoadState | undefined,
 ): boolean {

@@ -2,6 +2,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
+  batch_clear_folder_filetree_state,
   clear_folder_filetree_state,
   load_folder,
   remove_expanded_paths,
@@ -191,6 +192,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     stores.vault.bump_generation();
     close_move_conflict_dialog();
 
+    const paths_to_clear = new Set<string>();
     for (const move_result of result.results) {
       const item = items.find((entry) => entry.path === move_result.path);
       if (!item || !move_result.success) {
@@ -205,14 +207,15 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       );
 
       if (item.is_folder) {
-        clear_folder_filetree_state(input, move_result.path);
-        clear_folder_filetree_state(input, move_result.new_path);
+        paths_to_clear.add(move_result.path);
+        paths_to_clear.add(move_result.new_path);
       }
-      clear_folder_filetree_state(input, parent_folder_path(move_result.path));
-      clear_folder_filetree_state(
-        input,
-        parent_folder_path(move_result.new_path),
-      );
+      paths_to_clear.add(parent_folder_path(move_result.path));
+      paths_to_clear.add(parent_folder_path(move_result.new_path));
+    }
+
+    if (paths_to_clear.size > 0) {
+      batch_clear_folder_filetree_state(input, paths_to_clear);
     }
 
     stores.ui.clear_selected_items();

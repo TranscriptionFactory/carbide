@@ -33,6 +33,7 @@ export class LinkRepairService {
     private readonly tab_store: TabStore,
     private readonly now_ms: () => number,
     private readonly close_editor_buffer: (path: NotePath) => void = () => {},
+    private readonly on_file_written: (path: string) => void = () => {},
   ) {}
 
   private async collect_external_source_paths(
@@ -101,6 +102,7 @@ export class LinkRepairService {
       return;
     }
 
+    this.on_file_written(String(note_path));
     await this.notes_port.write_note(vault_id, note_path, rewritten_markdown);
     await this.index_port.upsert_note(vault_id, note_path);
   }
@@ -120,6 +122,7 @@ export class LinkRepairService {
       rewritten_markdown,
     } = input;
 
+    this.on_file_written(String(note_path));
     await this.notes_port.write_note(vault_id, note_path, rewritten_markdown);
     await this.index_port.upsert_note(vault_id, note_path);
     this.tab_store.invalidate_cache_by_path(note_path);

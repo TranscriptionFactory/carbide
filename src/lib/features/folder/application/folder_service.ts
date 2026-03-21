@@ -35,6 +35,10 @@ export class FolderService {
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
+    private readonly watcher_service?: {
+      suppress_tree_refresh(): void;
+      resume_tree_refresh(): void;
+    } | null,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -146,19 +150,10 @@ export class FolderService {
     return path_map;
   }
 
-  private async apply_move_result(
-    vault_id: VaultId,
-    item: MoveItem,
-    result: MoveItemResult,
-  ): Promise<void> {
+  private apply_move_result_sync(item: MoveItem, result: MoveItemResult): void {
     if (item.is_folder) {
       this.apply_folder_rename(result.path, result.new_path);
       this.tab_store.update_tab_path_prefix(
-        `${result.path}/`,
-        `${result.new_path}/`,
-      );
-      await this.index_port.rename_folder_paths(
-        vault_id,
         `${result.path}/`,
         `${result.new_path}/`,
       );
@@ -181,6 +176,24 @@ export class FolderService {
     }
 
     this.tab_store.update_tab_path(old_note_path, new_note_path);
+  }
+
+  private async apply_move_result_index(
+    vault_id: VaultId,
+    item: MoveItem,
+    result: MoveItemResult,
+  ): Promise<void> {
+    if (item.is_folder) {
+      await this.index_port.rename_folder_paths(
+        vault_id,
+        `${result.path}/`,
+        `${result.new_path}/`,
+      );
+      return;
+    }
+
+    const old_note_path = as_note_path(result.path);
+    const new_note_path = as_note_path(result.new_path);
     await this.index_port.rename_note_path(
       vault_id,
       old_note_path,
@@ -365,6 +378,7 @@ export class FolderService {
 
     this.start_operation("folder.rename");
 
+    this.watcher_service?.suppress_tree_refresh();
     try {
       const path_map = this.build_note_path_map_for_prefix_move(
         `${folder_path}/`,
@@ -391,6 +405,8 @@ export class FolderService {
         status: "failed",
         error: message,
       };
+    } finally {
+      this.watcher_service?.resume_tree_refresh();
     }
   }
 
@@ -406,6 +422,7 @@ export class FolderService {
 
     this.start_operation("folder.move");
 
+    this.watcher_service?.suppress_tree_refresh();
     try {
       const results = await this.notes_port.move_items(
         vault_id,
@@ -421,16 +438,17 @@ export class FolderService {
 
       await this.run_link_repair(vault_id, path_map);
 
+      const index_promises: Promise<void>[] = [];
       for (const result of results) {
-        if (!result.success) {
-          continue;
-        }
+        if (!result.success) continue;
         const item = items_by_path.get(result.path);
-        if (!item) {
-          continue;
-        }
-        await this.apply_move_result(vault_id, item, result);
+        if (!item) continue;
+        this.apply_move_result_sync(item, result);
+        index_promises.push(
+          this.apply_move_result_index(vault_id, item, result),
+        );
       }
+      await Promise.all(index_promises);
 
       this.succeed_operation("folder.move");
       return { status: "success", results };
@@ -445,6 +463,8 @@ export class FolderService {
         status: "failed",
         error: message,
       };
+    } finally {
+      this.watcher_service?.resume_tree_refresh();
     }
   }
 

@@ -160,16 +160,24 @@ export function create_watcher_reactor(
           tab_service.invalidate_cache(decision.note_path);
           break;
         case "refresh_tree":
-          debounced_tree_refresh();
+          if (watcher_service.is_tree_refresh_suppressed) {
+            log.info("Tree refresh suppressed during move operation");
+          } else {
+            debounced_tree_refresh();
+          }
           break;
         case "clear_and_refresh":
           note_service.clear_open_note();
           tab_service.remove_tab(decision.note_path);
-          debounced_tree_refresh();
+          if (!watcher_service.is_tree_refresh_suppressed) {
+            debounced_tree_refresh();
+          }
           break;
         case "remove_background_tab_and_refresh":
           tab_service.remove_tab(decision.note_path);
-          debounced_tree_refresh();
+          if (!watcher_service.is_tree_refresh_suppressed) {
+            debounced_tree_refresh();
+          }
           break;
         case "log_only":
           log.info("Asset changed externally", { path: decision.path });
