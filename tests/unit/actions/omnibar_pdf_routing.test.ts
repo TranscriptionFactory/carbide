@@ -84,7 +84,7 @@ function make_note_item(path: string): OmnibarItem {
       size_bytes: 0,
     },
     score: 1,
-    snippet: null,
+    snippet: undefined,
   };
 }
 
@@ -99,8 +99,6 @@ function make_recent_note_item(path: string): OmnibarItem {
       mtime_ms: 0,
       size_bytes: 0,
     },
-    score: 1,
-    snippet: null,
   };
 }
 
