@@ -13,7 +13,7 @@ const CLOSING_DELIMITERS = new Set<string>(
   Array.from(OPENING_DELIMITERS.values()),
 );
 
-const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", "~"]);
+const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", "~", '"', "'", "="]);
 
 function can_handle_text_input(
   view: EditorView,

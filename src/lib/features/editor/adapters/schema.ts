@@ -679,6 +679,14 @@ const strikethrough: MarkSpec = {
   },
 };
 
+const highlight: MarkSpec = {
+  inclusive: false,
+  parseDOM: [{ tag: "mark" }],
+  toDOM() {
+    return ["mark", 0];
+  },
+};
+
 export const schema = new Schema({
   nodes: {
     doc,
@@ -714,5 +722,6 @@ export const schema = new Schema({
     code_inline,
     link,
     strikethrough,
+    highlight,
   },
 });

@@ -49,6 +49,9 @@ export type Theme = {
   highlight_bg: string | null;
   highlight_text_color: string | null;
 
+  shiki_theme_light: string;
+  shiki_theme_dark: string;
+
   token_overrides: Record<string, string>;
   auto_palette: boolean;
 };
@@ -81,6 +84,8 @@ const SHARED_DEFAULTS: Omit<
   inline_code_text_color: null,
   highlight_bg: null,
   highlight_text_color: null,
+  shiki_theme_light: "github-light",
+  shiki_theme_dark: "github-dark",
   token_overrides: {},
   auto_palette: true,
 };
@@ -832,6 +837,27 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_LINEAR_LIGHT,
   BUILTIN_LINEAR_DARK,
 ];
+
+export const AVAILABLE_SHIKI_THEMES = {
+  light: [
+    "github-light",
+    "one-light",
+    "catppuccin-latte",
+    "rose-pine-dawn",
+    "min-light",
+    "slack-ochin",
+  ],
+  dark: [
+    "github-dark",
+    "one-dark-pro",
+    "catppuccin-mocha",
+    "dracula",
+    "nord",
+    "rose-pine",
+    "tokyo-night",
+    "slack-dark",
+  ],
+} as const;
 
 export const DEFAULT_THEME_ID = "nordic-dark";
 

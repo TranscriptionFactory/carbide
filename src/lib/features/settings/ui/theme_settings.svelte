@@ -5,7 +5,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Copy from "@lucide/svelte/icons/copy";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import type { Theme } from "$lib/shared/types/theme";
+  import { type Theme, AVAILABLE_SHIKI_THEMES } from "$lib/shared/types/theme";
   import ThemeGallery from "./theme/theme_gallery.svelte";
   import AccentPicker from "./theme/accent_picker.svelte";
   import TypographyPresets from "./theme/typography_presets.svelte";
@@ -160,6 +160,15 @@
     { value: "borderless", label: "Borderless" },
     { value: "filled", label: "Filled" },
   ];
+
+  const shiki_light_options = AVAILABLE_SHIKI_THEMES.light.map((v) => ({
+    value: v,
+    label: v,
+  }));
+  const shiki_dark_options = AVAILABLE_SHIKI_THEMES.dark.map((v) => ({
+    value: v,
+    label: v,
+  }));
 
   function update_select<K extends keyof Theme>(
     key: K,
@@ -381,6 +390,51 @@
           </Select.Trigger>
           <Select.Content>
             {#each code_block_style_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <!-- Code Theme -->
+      <div class="ThemeSettings__row">
+        <span class="ThemeSettings__label">Code Theme (Light)</span>
+        <Select.Root
+          type="single"
+          value={active_theme.shiki_theme_light}
+          onValueChange={(v: string | undefined) =>
+            update_select("shiki_theme_light", v)}
+          disabled={locked}
+        >
+          <Select.Trigger class="w-36">
+            <span data-slot="select-value">
+              {active_theme.shiki_theme_light}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each shiki_light_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <div class="ThemeSettings__row">
+        <span class="ThemeSettings__label">Code Theme (Dark)</span>
+        <Select.Root
+          type="single"
+          value={active_theme.shiki_theme_dark}
+          onValueChange={(v: string | undefined) =>
+            update_select("shiki_theme_dark", v)}
+          disabled={locked}
+        >
+          <Select.Trigger class="w-36">
+            <span data-slot="select-value">
+              {active_theme.shiki_theme_dark}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each shiki_dark_options as option (option.value)}
               <Select.Item value={option.value}>{option.label}</Select.Item>
             {/each}
           </Select.Content>

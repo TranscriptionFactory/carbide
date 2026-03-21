@@ -1,6 +1,6 @@
 import { type NodeView, type EditorView } from "prosemirror-view";
 import { type Node as ProseNode } from "prosemirror-model";
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { mount, unmount } from "svelte";
 import FrontmatterWidget from "../ui/frontmatter_widget.svelte";
 
@@ -47,6 +47,30 @@ class FrontmatterNodeView implements NodeView {
   }
 }
 
+function escape_frontmatter(view: EditorView): boolean {
+  const { state } = view;
+  const { doc } = state;
+  if (doc.firstChild?.type.name !== "frontmatter") return false;
+
+  const fm_end = doc.firstChild.nodeSize;
+  const has_content_after = doc.childCount > 1;
+
+  if (has_content_after) {
+    const tr = state.tr.setSelection(TextSelection.create(doc, fm_end + 1));
+    view.dispatch(tr.scrollIntoView());
+  } else {
+    const para_type = state.schema.nodes["paragraph"];
+    if (!para_type) return false;
+    const tr = state.tr.insert(fm_end, para_type.create());
+    view.dispatch(
+      tr
+        .setSelection(TextSelection.create(tr.doc, fm_end + 1))
+        .scrollIntoView(),
+    );
+  }
+  return true;
+}
+
 export function create_frontmatter_view_prose_plugin(): Plugin {
   return new Plugin({
     key: new PluginKey("frontmatter-view"),
@@ -54,6 +78,18 @@ export function create_frontmatter_view_prose_plugin(): Plugin {
       nodeViews: {
         frontmatter: (node, view, get_pos) =>
           new FrontmatterNodeView(node, view, get_pos),
+      },
+      handleKeyDown(view, event) {
+        if (event.key !== "ArrowDown" && event.key !== "Enter") return false;
+        const { state } = view;
+        const fm = state.doc.firstChild;
+        if (!fm || fm.type.name !== "frontmatter") return false;
+
+        const sel_end = state.selection.to;
+        const fm_end = fm.nodeSize;
+        if (sel_end > fm_end) return false;
+
+        return escape_frontmatter(view);
       },
     },
   });

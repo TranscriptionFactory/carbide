@@ -124,6 +124,12 @@ export function apply_theme(
   root.setAttribute("data-color-scheme", theme.color_scheme);
   root.style.setProperty("color-scheme", theme.color_scheme);
 
+  const shiki_theme =
+    theme.color_scheme === "dark"
+      ? theme.shiki_theme_dark
+      : theme.shiki_theme_light;
+  root.setAttribute("data-shiki-theme", shiki_theme);
+
   const resolved = apply_auto_palette(theme);
   const entries = build_token_entries(resolved);
   applied_property_keys = entries.map(([k]) => k);

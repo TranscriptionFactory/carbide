@@ -24,6 +24,36 @@ type SerializerStateInternal = {
 
 let captured_frontmatter = "";
 
+function highlight_markdown_it_plugin(mdi: MarkdownIt) {
+  mdi.inline.ruler.before("strikethrough", "mark", (state, silent) => {
+    const src = state.src;
+    const start = state.pos;
+    if (src.charCodeAt(start) !== 0x3d || src.charCodeAt(start + 1) !== 0x3d)
+      return false;
+
+    if (silent) return true;
+
+    let end = start + 2;
+    while (end + 1 < state.posMax) {
+      if (src.charCodeAt(end) === 0x3d && src.charCodeAt(end + 1) === 0x3d) {
+        const token_open = state.push("mark_open", "mark", 1);
+        token_open.markup = "==";
+
+        const token_text = state.push("text", "", 0);
+        token_text.content = src.slice(start + 2, end);
+
+        const token_close = state.push("mark_close", "mark", -1);
+        token_close.markup = "==";
+
+        state.pos = end + 2;
+        return true;
+      }
+      end++;
+    }
+    return false;
+  });
+}
+
 const md = new MarkdownIt({
   html: false,
   linkify: false,
@@ -32,6 +62,7 @@ const md = new MarkdownIt({
   .enable(["table", "strikethrough"])
   .use(details_markdown_it_plugin)
   .use(texmathPlugin as PluginSimple)
+  .use(highlight_markdown_it_plugin)
   .use(
     frontmatterPlugin as PluginWithOptions<(fm: string) => void>,
     (fm: string) => {
@@ -147,6 +178,7 @@ const parser_tokens: Record<string, ParseSpec> = {
   em: { mark: "em" },
   strong: { mark: "strong" },
   s: { mark: "strikethrough" },
+  mark: { mark: "highlight" },
   code_inline: { mark: "code_inline", noCloseToken: true },
   link: {
     mark: "link",
@@ -498,6 +530,12 @@ const serializer = new MarkdownSerializer(
       mixable: true,
       expelEnclosingWhitespace: true,
     },
+    highlight: {
+      open: "==",
+      close: "==",
+      mixable: true,
+      expelEnclosingWhitespace: true,
+    },
   },
   {
     hardBreakNodeName: "hardbreak",
@@ -518,8 +556,15 @@ export function parse_markdown(markdown: string): PmNode {
       null,
       captured_frontmatter ? schema.text(captured_frontmatter) : undefined,
     );
-    const new_content = [fm_node];
+    const new_content: PmNode[] = [fm_node];
     doc.forEach((child) => new_content.push(child));
+
+    const has_body_content = new_content.length > 1;
+    if (!has_body_content) {
+      const para_type = schema.nodes["paragraph"];
+      if (para_type) new_content.push(para_type.create());
+    }
+
     return doc_type.create(null, new_content);
   }
 

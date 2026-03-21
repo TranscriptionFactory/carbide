@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::sync::LazyLock;
 
 static INLINE_TAG_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?:^|\s)#([\w][\w/-]*)").unwrap());
+    LazyLock::new(|| Regex::new(r"(?:^|\s)#([a-zA-Z_][\w/-]*)").unwrap());
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Heading {
@@ -438,6 +438,28 @@ mod tests {
         assert_eq!(parsed.inline_tags.len(), 2);
         assert_eq!(parsed.inline_tags[0].tag, "top-level");
         assert_eq!(parsed.inline_tags[1].tag, "nested/sub/deep");
+    }
+
+    #[test]
+    fn inline_tags_reject_numeric_only() {
+        let md = "Step #2 and item #123 should not match, but #v2 and #_internal should.";
+        let parsed = parse_note(md, "test.md");
+
+        let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
+        assert!(!tags.contains(&"2"));
+        assert!(!tags.contains(&"123"));
+        assert!(tags.contains(&"v2"));
+        assert!(tags.contains(&"_internal"));
+    }
+
+    #[test]
+    fn inline_tags_reject_digit_leading() {
+        let md = "Plan #2024-roadmap should not match, but #roadmap-2024 should.";
+        let parsed = parse_note(md, "test.md");
+
+        let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
+        assert!(!tags.contains(&"2024-roadmap"));
+        assert!(tags.contains(&"roadmap-2024"));
     }
 
     #[test]

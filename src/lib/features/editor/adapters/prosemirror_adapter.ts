@@ -1152,7 +1152,20 @@ export function create_prosemirror_editor_port(args?: {
           const fm_type = s.schema.nodes["frontmatter"];
           if (!fm_type) return false;
           const fm_node = fm_type.create(null);
-          const tr = s.tr.insert(0, fm_node);
+          let tr = s.tr.insert(0, fm_node);
+
+          const has_body = s.doc.childCount > 0;
+          if (!has_body) {
+            const para_type = s.schema.nodes["paragraph"];
+            if (para_type) {
+              const para = para_type.create();
+              tr = tr.insert(tr.doc.content.size, para);
+              tr = tr.setSelection(
+                TextSelection.create(tr.doc, tr.doc.content.size - 1),
+              );
+            }
+          }
+
           view.dispatch(tr.scrollIntoView());
           return true;
         },

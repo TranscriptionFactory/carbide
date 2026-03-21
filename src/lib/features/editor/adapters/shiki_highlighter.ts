@@ -71,8 +71,23 @@ const BUNDLED_LANGS = [
   langYaml,
 ];
 
-export const LIGHT_THEME = "github-light";
-export const DARK_THEME = "github-dark";
+export const DEFAULT_LIGHT_THEME = "github-light";
+export const DEFAULT_DARK_THEME = "github-dark";
+
+const THEME_IMPORTS: Record<string, () => Promise<{ default: unknown }>> = {
+  "one-light": () => import("shiki/dist/themes/one-light.mjs"),
+  "catppuccin-latte": () => import("shiki/dist/themes/catppuccin-latte.mjs"),
+  "rose-pine-dawn": () => import("shiki/dist/themes/rose-pine-dawn.mjs"),
+  "min-light": () => import("shiki/dist/themes/min-light.mjs"),
+  "slack-ochin": () => import("shiki/dist/themes/slack-ochin.mjs"),
+  "one-dark-pro": () => import("shiki/dist/themes/one-dark-pro.mjs"),
+  "catppuccin-mocha": () => import("shiki/dist/themes/catppuccin-mocha.mjs"),
+  dracula: () => import("shiki/dist/themes/dracula.mjs"),
+  nord: () => import("shiki/dist/themes/nord.mjs"),
+  "rose-pine": () => import("shiki/dist/themes/rose-pine.mjs"),
+  "tokyo-night": () => import("shiki/dist/themes/tokyo-night.mjs"),
+  "slack-dark": () => import("shiki/dist/themes/slack-dark.mjs"),
+};
 
 const LANG_ALIASES: Record<string, string> = {
   js: "javascript",
@@ -125,6 +140,29 @@ export function resolve_language(
 }
 
 export function resolve_theme(): string {
-  const scheme = document.documentElement.getAttribute("data-color-scheme");
-  return scheme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const root = document.documentElement;
+  const explicit = root.getAttribute("data-shiki-theme");
+  if (explicit) return explicit;
+  const scheme = root.getAttribute("data-color-scheme");
+  return scheme === "dark" ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME;
+}
+
+const _loaded_themes = new Set<string>(["github-light", "github-dark"]);
+
+export async function load_shiki_theme(name: string): Promise<boolean> {
+  if (_loaded_themes.has(name)) return true;
+  const loader = THEME_IMPORTS[name];
+  if (!loader) return false;
+  const highlighter = get_highlighter();
+  if (!highlighter) return false;
+  try {
+    const mod = await loader();
+    await highlighter.loadTheme(
+      mod.default as Parameters<typeof highlighter.loadTheme>[0],
+    );
+    _loaded_themes.add(name);
+    return true;
+  } catch {
+    return false;
+  }
 }

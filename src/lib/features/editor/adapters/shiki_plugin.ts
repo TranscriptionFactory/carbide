@@ -6,6 +6,7 @@ import {
   get_highlighter_sync,
   resolve_language,
   resolve_theme,
+  load_shiki_theme,
 } from "./shiki_highlighter";
 
 export const shiki_plugin_key = new PluginKey<ShikiPluginState>(
@@ -167,16 +168,19 @@ export function create_shiki_prose_plugin(): Plugin {
         const new_theme = resolve_theme();
         const current = shiki_plugin_key.getState(editor_view.state);
         if (current && current.theme !== new_theme) {
-          const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
-            theme: new_theme,
+          void load_shiki_theme(new_theme).then((loaded) => {
+            if (!loaded) return;
+            const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
+              theme: new_theme,
+            });
+            editor_view.dispatch(tr);
           });
-          editor_view.dispatch(tr);
         }
       });
 
       theme_observer.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ["data-color-scheme"],
+        attributeFilter: ["data-color-scheme", "data-shiki-theme"],
       });
 
       return {
