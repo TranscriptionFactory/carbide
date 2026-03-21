@@ -2,6 +2,8 @@
 .serena
 .cursor/
 .claude/
+.gemini/
+.claude/
 .vscode/
 .codex/**
 .env
