@@ -1,5 +1,6 @@
-.serena/**
-.cursor/**
+.serena/
+.serena
+.cursor/
 .claude/
 .vscode/
 .codex/**
