@@ -179,6 +179,9 @@ describe("register_theme_actions", () => {
       }),
     ]);
     expect(theme_service.save_active_theme_id).toHaveBeenCalledWith(theme.id);
+    expect(theme_service.save_color_scheme_preference).toHaveBeenCalledWith(
+      ui.color_scheme_preference,
+    );
     expect(ui.theme_has_draft).toBe(false);
   });
 });

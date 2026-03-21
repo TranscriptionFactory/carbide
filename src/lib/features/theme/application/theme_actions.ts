@@ -15,17 +15,15 @@ export function register_theme_actions(input: ActionRegistrationInput) {
   let persisted_active_theme_id: string | null = null;
 
   async function persist_themes() {
-    await Promise.all([
-      services.theme.save_user_themes(stores.ui.user_themes),
-      services.theme.save_active_theme_id(stores.ui.active_theme_id),
-      services.theme.save_color_scheme_preference(
-        stores.ui.color_scheme_preference,
-      ),
-      services.theme.save_system_theme_ids(
-        stores.ui.system_light_theme_id,
-        stores.ui.system_dark_theme_id,
-      ),
-    ]);
+    await services.theme.save_user_themes(stores.ui.user_themes);
+    await services.theme.save_active_theme_id(stores.ui.active_theme_id);
+    await services.theme.save_color_scheme_preference(
+      stores.ui.color_scheme_preference,
+    );
+    await services.theme.save_system_theme_ids(
+      stores.ui.system_light_theme_id,
+      stores.ui.system_dark_theme_id,
+    );
   }
 
   function clone_theme(theme: Theme): Theme {

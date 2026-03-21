@@ -116,10 +116,8 @@ export class ThemeService {
     dark_id: string,
   ): Promise<void> {
     try {
-      await Promise.all([
-        this.settings_port.set_setting(SYSTEM_LIGHT_THEME_KEY, light_id),
-        this.settings_port.set_setting(SYSTEM_DARK_THEME_KEY, dark_id),
-      ]);
+      await this.settings_port.set_setting(SYSTEM_LIGHT_THEME_KEY, light_id);
+      await this.settings_port.set_setting(SYSTEM_DARK_THEME_KEY, dark_id);
     } catch (error) {
       log.error("Save system theme IDs failed", {
         error: error_message(error),

@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 use tauri::{AppHandle, Manager};
+
+static SETTINGS_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SettingsStore {
@@ -62,6 +65,7 @@ pub async fn get_setting(key: String, app: AppHandle) -> Result<Option<Value>, S
 #[tauri::command]
 pub async fn set_setting(key: String, value: Value, app: AppHandle) -> Result<(), String> {
     log::debug!("Setting key={}", key);
+    let _guard = SETTINGS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut store = load_settings(&app)?;
     store.settings.insert(key, value);
     save_settings(&app, &store)?;
