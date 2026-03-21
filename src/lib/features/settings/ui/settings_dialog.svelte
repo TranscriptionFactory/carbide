@@ -34,6 +34,7 @@
     GitAutocommitMode,
     GitPullStrategy,
     LintFormatter,
+    FileTreeStyle,
     OutlineMode,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
@@ -1100,6 +1101,41 @@
                 <Select.Content>
                   <Select.Item value="rail">Sidebar</Select.Item>
                   <Select.Item value="floating">Floating</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div>
+                <span class="SettingsDialog__label">File Tree Style</span>
+                <span class="SettingsDialog__description"
+                  >Visual style for the sidebar file explorer</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.file_tree_style}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("file_tree_style", v as FileTreeStyle);
+                }}
+              >
+                <Select.Trigger class="w-40">
+                  <span data-slot="select-value"
+                    >{{
+                      default: "Default",
+                      airy_minimal: "Airy Minimal",
+                      compact: "Compact",
+                      macos_finder: "macOS Finder",
+                      refined: "Refined",
+                    }[editor_settings.file_tree_style]}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="default">Default</Select.Item>
+                  <Select.Item value="airy_minimal">Airy Minimal</Select.Item>
+                  <Select.Item value="compact">Compact</Select.Item>
+                  <Select.Item value="macos_finder">macOS Finder</Select.Item>
+                  <Select.Item value="refined">Refined</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>
