@@ -571,6 +571,8 @@
 {/if}
 
 <style>
+  /* ── Base (shared across all variants) ── */
+
   .TreeRow {
     position: relative;
     display: flex;
@@ -583,53 +585,13 @@
         var(--size-tree-indent)
     );
     padding-inline-end: var(--space-2);
-    border-radius: var(--radius-md);
     font-size: var(--text-sm);
-    color: var(--sidebar-foreground);
     cursor: pointer;
-    transition:
-      background-color var(--duration-fast) var(--ease-default),
-      color var(--duration-fast) var(--ease-default);
-  }
-
-  .TreeRow::before {
-    content: "";
-    position: absolute;
-    inset-block: 0;
-    inset-inline-start: calc(
-      var(--size-tree-base-padding) + var(--size-icon-md) / 2
-    );
-    width: calc(var(--tree-depth) * var(--size-tree-indent));
-    pointer-events: none;
-    background-image: linear-gradient(
-      to right,
-      var(--border-subtle) 0,
-      var(--border-subtle) 1px,
-      transparent 1px
-    );
-    background-size: var(--size-tree-indent) 100%;
-  }
-
-  .TreeRow:hover {
-    background-color: var(--sidebar-accent);
   }
 
   .TreeRow:focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: -2px;
-  }
-
-  .TreeRow--selected {
-    background-color: var(--muted);
-  }
-
-  .TreeRow--multi-selected:not(.TreeRow--selected) {
-    background-color: var(--interactive-bg);
-    color: var(--interactive);
-  }
-
-  .TreeRow--selected:hover {
-    background-color: var(--sidebar-accent);
   }
 
   .TreeRow--drag-source {
@@ -652,10 +614,6 @@
     color: var(--muted-foreground);
   }
 
-  .TreeRow--load-more:hover {
-    background-color: transparent;
-  }
-
   .TreeRow__toggle {
     display: flex;
     align-items: center;
@@ -665,15 +623,6 @@
     flex-shrink: 0;
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
-    transition: background-color var(--duration-fast) var(--ease-default);
-  }
-
-  .TreeRow__toggle:hover:not(:disabled) {
-    background-color: color-mix(
-      in oklch,
-      var(--sidebar-accent-foreground) 10%,
-      transparent
-    );
   }
 
   .TreeRow__toggle:focus-visible {
@@ -694,16 +643,8 @@
     white-space: nowrap;
   }
 
-  .TreeRow--folder .TreeRow__label {
-    font-weight: 500;
-  }
-
   .TreeRow__label--muted {
     font-size: var(--text-xs);
-    color: var(--muted-foreground);
-  }
-
-  .TreeRow__label--file {
     color: var(--muted-foreground);
   }
 
@@ -768,5 +709,124 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* ── Variant: default ── */
+
+  :global([data-tree-style="default"]) .TreeRow {
+    border-radius: var(--radius-md);
+    color: var(--sidebar-foreground);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(
+      var(--size-tree-base-padding) + var(--size-icon-md) / 2
+    );
+    width: calc(var(--tree-depth) * var(--size-tree-indent));
+    pointer-events: none;
+    background-image: linear-gradient(
+      to right,
+      var(--border-subtle) 0,
+      var(--border-subtle) 1px,
+      transparent 1px
+    );
+    background-size: var(--size-tree-indent) 100%;
+  }
+
+  :global([data-tree-style="default"]) .TreeRow:hover {
+    background-color: var(--sidebar-accent);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow--selected {
+    background-color: var(--muted);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow--selected:hover {
+    background-color: var(--sidebar-accent);
+  }
+
+  :global([data-tree-style="default"])
+    .TreeRow--multi-selected:not(.TreeRow--selected) {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow--load-more:hover {
+    background-color: transparent;
+  }
+
+  :global([data-tree-style="default"]) .TreeRow--folder .TreeRow__label {
+    font-weight: 500;
+  }
+
+  :global([data-tree-style="default"]) .TreeRow__label--file {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow__toggle {
+    transition: background-color var(--duration-fast) var(--ease-default);
+  }
+
+  :global([data-tree-style="default"]) .TreeRow__toggle:hover:not(:disabled) {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent-foreground) 10%,
+      transparent
+    );
+  }
+
+  /* ── Variant: airy_minimal ── */
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow {
+    border-radius: 0;
+    height: 1.75rem;
+    color: var(--muted-foreground);
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow:hover {
+    color: var(--sidebar-foreground);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow--selected {
+    color: var(--sidebar-foreground);
+    box-shadow: inset 2px 0 0 0 var(--interactive);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow--selected:hover {
+    color: var(--sidebar-foreground);
+  }
+
+  :global([data-tree-style="airy_minimal"])
+    .TreeRow--multi-selected:not(.TreeRow--selected) {
+    color: var(--interactive);
+    box-shadow: inset 2px 0 0 0 var(--interactive-muted);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow--load-more:hover {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow--folder .TreeRow__label {
+    font-weight: 400;
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow__label--file {
+    color: var(--muted-foreground);
+  }
+
+  :global([data-tree-style="airy_minimal"]) .TreeRow__toggle {
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  :global([data-tree-style="airy_minimal"])
+    .TreeRow__toggle:hover:not(:disabled) {
+    color: var(--sidebar-foreground);
   }
 </style>

@@ -209,6 +209,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "file_tree_style",
+    label: "File Tree Style",
+    description:
+      "Visual style for the file explorer sidebar. 'default' uses highlighted rows, 'airy_minimal' uses text-only hover with accent borders",
+    category: "Layout",
+    keywords: [
+      "file",
+      "tree",
+      "explorer",
+      "sidebar",
+      "style",
+      "minimal",
+      "airy",
+      "appearance",
+    ],
+  },
+  {
     key: "max_open_tabs",
     label: "Max Open Tabs",
     description: "Maximum number of tabs that can be open at once",
