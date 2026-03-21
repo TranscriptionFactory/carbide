@@ -496,6 +496,14 @@ pub fn upsert_note_parsed(
     }
 }
 
+fn find_section_for_line(sections: &[markdown_doc::Section], line: usize) -> Option<String> {
+    sections
+        .iter()
+        .filter(|s| s.start_line <= line && line <= s.end_line)
+        .max_by_key(|s| s.level)
+        .map(|s| s.title.clone())
+}
+
 pub(crate) fn upsert_note_parsed_inner(
     conn: &Connection,
     meta: &IndexNoteMeta,
@@ -612,18 +620,20 @@ pub(crate) fn upsert_note_parsed_inner(
     )
     .map_err(|e| e.to_string())?;
 
-    for target in &parsed.links.wiki_targets {
+    for link in &parsed.links.wiki_targets {
+        let section = find_section_for_line(&parsed.sections, link.line);
         conn.execute(
-            "INSERT INTO note_links (source_path, target_path, link_text, link_type) VALUES (?1, ?2, NULL, 'wiki')",
-            params![meta.path, target],
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type, target_anchor, section_heading) VALUES (?1, ?2, NULL, 'wiki', ?3, ?4)",
+            params![meta.path, link.target_path, link.anchor, section],
         )
         .map_err(|e| e.to_string())?;
     }
 
-    for target in &parsed.links.markdown_targets {
+    for link in &parsed.links.markdown_targets {
+        let section = find_section_for_line(&parsed.sections, link.line);
         conn.execute(
-            "INSERT INTO note_links (source_path, target_path, link_text, link_type) VALUES (?1, ?2, NULL, 'markdown')",
-            params![meta.path, target],
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type, target_anchor, section_heading) VALUES (?1, ?2, NULL, 'markdown', ?3, ?4)",
+            params![meta.path, link.target_path, link.anchor, section],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -2715,6 +2725,42 @@ mod tests {
         assert_eq!(count_rows(&conn, "note_sections", "rm/test.md"), 0);
         assert_eq!(count_rows(&conn, "note_code_blocks", "rm/test.md"), 0);
         assert_eq!(count_rows(&conn, "note_properties", "rm/test.md"), 0);
+    }
+
+    #[test]
+    fn tag_prefix_query_matches_exact_and_descendants() {
+        let conn = open_mem_db();
+
+        let meta1 = note("a.md", "A");
+        let body1 = "---\ntags: [status]\n---\nContent";
+        upsert_note(&conn, &meta1, body1).expect("upsert");
+
+        let meta2 = note("b.md", "B");
+        let body2 = "Some #status/active text.";
+        upsert_note(&conn, &meta2, body2).expect("upsert");
+
+        let meta3 = note("c.md", "C");
+        let body3 = "Has #status/done tag.";
+        upsert_note(&conn, &meta3, body3).expect("upsert");
+
+        let meta4 = note("d.md", "D");
+        let body4 = "Unrelated #other tag.";
+        upsert_note(&conn, &meta4, body4).expect("upsert");
+
+        let tag = "status";
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) ORDER BY path ASC",
+            )
+            .expect("prepare");
+        let rows: Vec<String> = stmt
+            .query_map(params![tag, format!("{tag}/%")], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows, vec!["a.md", "b.md", "c.md"]);
+        assert!(!rows.contains(&"d.md".to_string()));
     }
 }
 
