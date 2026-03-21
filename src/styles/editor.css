@@ -8,6 +8,7 @@
   --editor-line-height: 1.85;
   --editor-max-width: min(85ch, 90%);
   --editor-spacing: 1.5rem;
+  --editor-source-bg: var(--background);
   --editor-heading-color: var(--foreground);
   --editor-heading-weight: 500;
   --editor-bold-weight: 600;

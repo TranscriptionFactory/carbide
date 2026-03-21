@@ -7,6 +7,11 @@
   import type { OutlineHeading } from "$lib/features/outline";
   import { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
   import { sync_source_editor_markdown } from "$lib/features/editor/domain/source_editor_sync";
+  import {
+    build_source_editor_background_theme_spec,
+    build_source_editor_base_theme_spec,
+    build_source_editor_hide_gutters_theme_spec,
+  } from "$lib/features/editor/ui/source_editor_theme";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
@@ -199,66 +204,20 @@
         ...lint_ext.create_lint_extensions(),
         update_listener,
         EV.lineWrapping,
-        EV.theme({
-          "&": {
-            height: "100%",
-            fontSize: "var(--text-sm, 13px)",
-          },
-          "&.cm-focused": {
-            outline: "none",
-          },
-          ".cm-scroller": {
-            overflow: "auto",
-            fontFamily:
-              '"SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace',
-            padding: "2rem clamp(1rem, 4%, 3rem)",
-          },
-          ".cm-content": {
-            maxWidth: "48rem",
-            margin: "0 auto",
-            caretColor: "var(--foreground)",
-          },
-          ".cm-gutters": {
-            backgroundColor: "transparent",
-            borderRight: "1px solid var(--border)",
-            color: "var(--muted-foreground)",
-            opacity: "0.5",
-          },
-          ".cm-activeLineGutter": {
-            backgroundColor: "transparent",
-            opacity: "1",
-          },
-          ".cm-activeLine": {
-            backgroundColor:
-              "color-mix(in oklch, var(--muted) 30%, transparent)",
-          },
-          ".cm-selectionBackground": {
-            backgroundColor:
-              "color-mix(in oklch, var(--primary) 20%, transparent) !important",
-          },
-          ".cm-cursor": {
-            borderLeftColor: "var(--foreground)",
-          },
-          ".cm-lint-marker-error": {
-            content: "'!'",
-          },
-          ".cm-lint-marker-warning": {
-            content: "'!'",
-          },
-        }),
+        EV.theme(build_source_editor_base_theme_spec()),
       ];
 
       if (!show_line_numbers) {
         extensions.push(
-          EV.theme({
-            ".cm-gutters": { display: "none" },
-          }),
+          EV.theme(build_source_editor_hide_gutters_theme_spec()),
         );
       }
 
       if (theme_ext) {
         extensions.push(theme_ext.oneDark);
       }
+
+      extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
       last_applied_markdown = initial_markdown;
 
