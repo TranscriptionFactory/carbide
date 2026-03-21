@@ -17,7 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Serialize, Type)]
@@ -147,11 +148,53 @@ struct VaultWorker {
     write_tx: mpsc::Sender<DbCommand>,
     read_conn: Mutex<Connection>,
     cancel: Arc<AtomicBool>,
+    join_handle: Option<JoinHandle<()>>,
 }
 
 #[derive(Default)]
 pub struct SearchDbState {
     workers: Mutex<HashMap<String, VaultWorker>>,
+}
+
+impl Drop for SearchDbState {
+    fn drop(&mut self) {
+        let mut map = match self.workers.lock() {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!("SearchDbState::drop: lock poisoned: {e}");
+                return;
+            }
+        };
+        for (_vid, mut worker) in map.drain() {
+            shutdown_worker(&mut worker);
+        }
+    }
+}
+
+fn shutdown_worker(worker: &mut VaultWorker) {
+    worker.cancel.store(true, Ordering::Relaxed);
+    let _ = worker.write_tx.send(DbCommand::Shutdown);
+    if let Some(handle) = worker.join_handle.take() {
+        let (done_tx, done_rx) = mpsc::sync_channel::<()>(1);
+        std::thread::spawn(move || {
+            let _ = handle.join();
+            let _ = done_tx.send(());
+        });
+        if done_rx.recv_timeout(Duration::from_secs(5)).is_err() {
+            log::warn!("shutdown_worker: timed out joining worker thread");
+        }
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
+    let state = app.state::<SearchDbState>();
+    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
+    if let Some(mut worker) = map.remove(&vault_id) {
+        shutdown_worker(&mut worker);
+    }
+    Ok(())
 }
 
 fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
@@ -171,7 +214,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
 
     let app_for_writer = app.clone();
     let vid_for_writer = vault_id.to_string();
-    std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || {
         writer_thread_loop(app_for_writer, vid_for_writer, rx, &write_root);
     });
 
@@ -179,6 +222,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
         write_tx: tx,
         read_conn: Mutex::new(read_conn),
         cancel: Arc::new(AtomicBool::new(false)),
+        join_handle: Some(handle),
     };
     map.insert(vault_id.to_string(), worker);
     Ok(())
@@ -772,7 +816,7 @@ fn handle_embed_batch(
         }
 
         let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-        match model.embed_batch(&text_refs) {
+        match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
             Ok(embeddings) => {
                 for (path, embedding) in paths.iter().zip(embeddings.iter()) {
                     if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
@@ -780,6 +824,10 @@ fn handle_embed_batch(
                     }
                 }
                 embedded += embeddings.len();
+            }
+            Err(e) if e.contains("cancelled") => {
+                log::info!("embed_batch: cancelled");
+                break;
             }
             Err(e) => {
                 log::warn!("embed_batch: batch embedding failed: {e}");

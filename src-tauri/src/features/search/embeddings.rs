@@ -3,6 +3,7 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
 use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
 
@@ -58,13 +59,17 @@ impl EmbeddingService {
     }
 
     pub fn embed_one(&self, text: &str) -> Result<Vec<f32>, String> {
-        let mut results = self.embed_batch(&[text])?;
+        let mut results = self.embed_batch(&[text], None)?;
         results
             .pop()
             .ok_or_else(|| "no embedding result".to_string())
     }
 
-    pub fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+    pub fn embed_batch(
+        &self,
+        texts: &[&str],
+        cancel: Option<&AtomicBool>,
+    ) -> Result<Vec<Vec<f32>>, String> {
         if texts.is_empty() {
             return Ok(vec![]);
         }
@@ -81,6 +86,10 @@ impl EmbeddingService {
         let encodings = tokenizer
             .encode_batch(texts.to_vec(), true)
             .map_err(|e| format!("tokenize: {e}"))?;
+
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            return Err("embedding cancelled".to_string());
+        }
 
         let token_ids: Vec<Vec<u32>> = encodings.iter().map(|e| e.get_ids().to_vec()).collect();
         let attention_masks: Vec<Vec<u32>> = encodings
@@ -103,6 +112,10 @@ impl EmbeddingService {
             .model
             .forward(&token_ids, &type_ids, Some(&attention_mask))
             .map_err(|e| format!("forward: {e}"))?;
+
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            return Err("embedding cancelled".to_string());
+        }
 
         // Mean pooling: mask-weighted average over sequence dimension
         let mask_f = attention_mask
@@ -129,6 +142,10 @@ impl EmbeddingService {
             .sqrt()
             .map_err(|e| e.to_string())?;
         let normalized = pooled.broadcast_div(&norm).map_err(|e| e.to_string())?;
+
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            return Err("embedding cancelled".to_string());
+        }
 
         let vecs: Vec<Vec<f32>> = (0..batch_size)
             .map(|i| {

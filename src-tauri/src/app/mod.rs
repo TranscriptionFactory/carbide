@@ -151,6 +151,7 @@ pub fn run() {
             features::search::service::get_embedding_status,
             features::search::service::rebuild_embeddings,
             features::search::service::embed_sync,
+            features::search::service::shutdown_search_worker,
             features::search::service::get_note_stats,
             features::bases::service::bases_list_properties,
             features::bases::service::bases_query,

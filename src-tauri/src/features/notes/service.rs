@@ -7,8 +7,8 @@ use crate::shared::vault_ignore;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::{HashMap, HashSet};
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write as IoWrite};
+use std::fs::File;
+use std::io::Read;
 use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -442,19 +442,10 @@ pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, Str
     let abs = safe_vault_abs_for_write(&root, &args.note_path)?;
     let dir = abs.parent().ok_or("invalid note path")?;
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&abs)
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::AlreadyExists {
-                "note already exists".to_string()
-            } else {
-                e.to_string()
-            }
-        })?;
-    file.write_all(args.initial_markdown.as_bytes())
-        .map_err(|e| e.to_string())?;
+    if abs.exists() {
+        return Err("note already exists".to_string());
+    }
+    io_utils::atomic_write(&abs, args.initial_markdown.as_bytes())?;
     let note = build_note_meta(&root, &args.note_path, None)?;
     invalidate_note_parent_folder_cache(&args.vault_id, &note.path);
     Ok(note)

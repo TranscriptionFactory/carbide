@@ -333,6 +333,12 @@ fn collect_git_log(
 ) -> Result<Vec<GitCommit>, String> {
     let repo = open_repo(vault_path)?;
 
+    match repo.head() {
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => return Ok(vec![]),
+        Err(e) => return Err(format!("failed to read HEAD: {}", e)),
+        Ok(_) => {}
+    }
+
     let mut revwalk = repo
         .revwalk()
         .map_err(|e| format!("failed to create revwalk: {}", e))?;
@@ -390,6 +396,7 @@ fn commit_touches_file(repo: &Repository, commit: &git2::Commit, path: &str) -> 
         return tree.get_path(Path::new(path)).is_ok();
     }
 
+    let mut all_parents_differ = true;
     for i in 0..commit.parent_count() {
         let parent = match commit.parent(i) {
             Ok(p) => p,
@@ -409,12 +416,13 @@ fn commit_touches_file(repo: &Repository, commit: &git2::Commit, path: &str) -> 
                 Err(_) => continue,
             };
 
-        if diff.stats().map(|s| s.files_changed()).unwrap_or(0) > 0 {
-            return true;
+        if diff.stats().map(|s| s.files_changed()).unwrap_or(0) == 0 {
+            all_parents_differ = false;
+            break;
         }
     }
 
-    false
+    all_parents_differ
 }
 
 fn to_git_commit(commit: git2::Commit<'_>) -> GitCommit {
@@ -477,7 +485,18 @@ fn abbreviated_hash(hash: &str) -> &str {
 fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String> {
     let mut hunks: Vec<GitDiffHunk> = Vec::new();
 
-    diff.print(DiffFormat::Patch, |_delta, hunk, line| {
+    diff.print(DiffFormat::Patch, |delta, hunk, line| {
+        if delta.flags().is_binary() {
+            if hunks.is_empty() || hunks.last().map(|h| h.header != "[Binary file]").unwrap_or(true)
+            {
+                hunks.push(GitDiffHunk {
+                    header: "[Binary file]".to_string(),
+                    lines: Vec::new(),
+                });
+            }
+            return true;
+        }
+
         if let Some(hunk_header) = hunk {
             let header = String::from_utf8_lossy(hunk_header.header()).to_string();
             if hunks.last().map(|h| h.header != header).unwrap_or(true) {
@@ -560,6 +579,9 @@ pub fn git_show_file_at_commit(
         .find_blob(entry.id())
         .map_err(|e| format!("failed to read blob: {}", e))?;
 
+    if blob.is_binary() {
+        return Err("binary file cannot be displayed".to_string());
+    }
     String::from_utf8(blob.content().to_vec())
         .map_err(|e| format!("file is not valid utf-8: {}", e))
 }

@@ -66,6 +66,7 @@ mod specta_export {
                 crate::features::search::service::get_embedding_status,
                 crate::features::search::service::rebuild_embeddings,
                 crate::features::search::service::embed_sync,
+                crate::features::search::service::shutdown_search_worker,
                 crate::features::search::service::get_note_stats,
                 // Git commands (15)
                 crate::features::git::service::git_has_repo,
