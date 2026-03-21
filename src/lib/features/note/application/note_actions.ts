@@ -727,6 +727,24 @@ export function register_note_actions(input: ActionRegistrationInput) {
     });
 
     registry.register({
+      id: ACTION_IDS.note_update_save_folder,
+      label: "Update Save Note Folder",
+      execute: (folder: unknown) => {
+        const folder_str = String(folder ?? "");
+        stores.ui.save_note_dialog.folder_path = folder_str;
+        const current_path = stores.ui.save_note_dialog.new_path;
+        const filename = current_path
+          ? filename_from_path(String(current_path))
+          : "Untitled.md";
+        stores.ui.save_note_dialog.new_path = build_full_path(
+          folder_str,
+          filename,
+        );
+        stores.ui.save_note_dialog.show_overwrite_confirm = false;
+      },
+    });
+
+    registry.register({
       id: ACTION_IDS.note_confirm_save,
       label: "Confirm Save Note",
       execute: async () => {

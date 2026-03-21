@@ -30,6 +30,7 @@ export const ACTION_IDS = {
   note_retry_rename: "note.retry_rename",
   note_request_save: "note.request_save",
   note_update_save_path: "note.update_save_path",
+  note_update_save_folder: "note.update_save_folder",
   note_confirm_save: "note.confirm_save",
   note_confirm_save_overwrite: "note.confirm_save_overwrite",
   note_retry_save: "note.retry_save",

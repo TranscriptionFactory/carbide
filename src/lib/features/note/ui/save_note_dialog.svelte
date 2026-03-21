@@ -2,6 +2,7 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
   import type { NotePath } from "$lib/shared/types/ids";
   import { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";
   import { tick } from "svelte";
@@ -10,11 +11,13 @@
     open: boolean;
     new_path: NotePath | null;
     folder_path: string;
+    folder_paths: string[];
     is_saving: boolean;
     is_checking: boolean;
     show_overwrite_confirm: boolean;
     error: string | null;
     on_update_path: (path: NotePath) => void;
+    on_update_folder: (folder: string) => void;
     on_confirm: () => void;
     on_confirm_overwrite: () => void;
     on_retry: () => void;
@@ -25,11 +28,13 @@
     open,
     new_path,
     folder_path,
+    folder_paths,
     is_saving,
     is_checking,
     show_overwrite_confirm,
     error,
     on_update_path,
+    on_update_folder,
     on_confirm,
     on_confirm_overwrite,
     on_retry,
@@ -102,9 +107,16 @@
 
     {#if !error && !show_overwrite_confirm}
       <div class="space-y-4">
-        {#if folder_path}
-          <p class="text-sm text-muted-foreground">Location: {folder_path}/</p>
-        {/if}
+        <div>
+          <span class="text-sm text-muted-foreground">Location</span>
+          <FolderSuggestInput
+            value={folder_path}
+            {folder_paths}
+            on_change={on_update_folder}
+            disabled={is_busy}
+            placeholder="(vault root)"
+          />
+        </div>
         <div class="flex items-center">
           <Input
             bind:ref={input_el}

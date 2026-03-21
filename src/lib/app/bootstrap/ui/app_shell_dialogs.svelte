@@ -291,12 +291,15 @@
   open={stores.ui.save_note_dialog.open}
   new_path={stores.ui.save_note_dialog.new_path}
   folder_path={stores.ui.save_note_dialog.folder_path}
+  folder_paths={stores.notes.folder_paths}
   is_saving={stores.op.is_pending("note.save")}
   is_checking={stores.ui.save_note_dialog.is_checking_existence}
   show_overwrite_confirm={stores.ui.save_note_dialog.show_overwrite_confirm}
   error={save_note_error}
   on_update_path={(path: string) =>
     void action_registry.execute(ACTION_IDS.note_update_save_path, path)}
+  on_update_folder={(folder: string) =>
+    void action_registry.execute(ACTION_IDS.note_update_save_folder, folder)}
   on_confirm={() => void action_registry.execute(ACTION_IDS.note_confirm_save)}
   on_confirm_overwrite={() =>
     void action_registry.execute(ACTION_IDS.note_confirm_save_overwrite)}
