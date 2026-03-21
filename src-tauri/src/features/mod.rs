@@ -9,6 +9,7 @@ pub mod pipeline;
 pub mod plugin;
 pub mod search;
 pub mod settings;
+pub mod stt;
 pub mod tags;
 pub mod tasks;
 pub mod vault;

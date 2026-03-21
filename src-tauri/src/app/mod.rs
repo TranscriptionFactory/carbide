@@ -76,6 +76,7 @@ pub fn run() {
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
+        .manage(features::stt::SttAudioState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             // The first arg is the executable, subsequent args might be file paths
@@ -244,6 +245,11 @@ pub fn run() {
             features::lint::lint_check_vault,
             features::lint::lint_format_vault,
             features::lint::lint_get_status,
+            features::stt::stt_start_recording,
+            features::stt::stt_stop_recording,
+            features::stt::stt_cancel_recording,
+            features::stt::stt_list_audio_devices,
+            features::stt::stt_get_recording_state,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
