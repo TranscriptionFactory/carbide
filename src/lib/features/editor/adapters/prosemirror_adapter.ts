@@ -93,7 +93,6 @@ import { create_details_view_prose_plugin } from "./details_view_plugin";
 import { create_details_keymap_prose_plugin } from "./details_keymap_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
 import { init_highlighter } from "./shiki_highlighter";
-import { create_frontmatter_view_prose_plugin } from "./frontmatter_plugin";
 import {
   create_math_view_prose_plugin,
   create_math_inline_input_prose_plugin,
@@ -570,7 +569,6 @@ export function create_prosemirror_editor_port(args?: {
       plugins.push(dropCursor());
       plugins.push(gapCursor());
 
-      plugins.push(create_frontmatter_view_prose_plugin());
       plugins.push(create_math_view_prose_plugin());
       plugins.push(create_math_inline_input_prose_plugin());
       plugins.push(create_math_block_input_rule_prose_plugin(schema));
@@ -1148,34 +1146,6 @@ export function create_prosemirror_editor_port(args?: {
               });
             }
           });
-        },
-        has_frontmatter() {
-          if (!view) return false;
-          return view.state.doc.firstChild?.type.name === "frontmatter";
-        },
-        insert_frontmatter() {
-          if (!view) return false;
-          const { state: s } = view;
-          if (s.doc.firstChild?.type.name === "frontmatter") return false;
-          const fm_type = s.schema.nodes["frontmatter"];
-          if (!fm_type) return false;
-          const fm_node = fm_type.create(null);
-          let tr = s.tr.insert(0, fm_node);
-
-          const has_body = s.doc.childCount > 0;
-          if (!has_body) {
-            const para_type = s.schema.nodes["paragraph"];
-            if (para_type) {
-              const para = para_type.create();
-              tr = tr.insert(tr.doc.content.size, para);
-              tr = tr.setSelection(
-                TextSelection.create(tr.doc, tr.doc.content.size - 1),
-              );
-            }
-          }
-
-          view.dispatch(tr.scrollIntoView());
-          return true;
         },
         get_cursor_markdown_offset() {
           if (!view) return 0;

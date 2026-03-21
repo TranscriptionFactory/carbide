@@ -315,14 +315,6 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
-    action_id: ACTION_IDS.editor_toggle_frontmatter,
-    key: "CmdOrCtrl+P",
-    phase: "capture",
-    label: "Toggle Properties",
-    description: "Show or hide the front matter properties panel",
-    category: "editing",
-  },
-  {
     action_id: ACTION_IDS.folder_collapse_all,
     key: "CmdOrCtrl+Shift+ArrowLeft",
     phase: "capture",

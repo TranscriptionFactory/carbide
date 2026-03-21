@@ -419,27 +419,6 @@ export function register_app_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
-    id: ACTION_IDS.editor_insert_frontmatter,
-    label: "Insert Frontmatter",
-    execute: () => {
-      services.editor.insert_frontmatter();
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.editor_toggle_frontmatter,
-    label: "Toggle Properties",
-    execute: () => {
-      if (!services.editor.has_frontmatter()) {
-        services.editor.insert_frontmatter();
-        input.stores.editor.set_frontmatter_visibility(true);
-        return;
-      }
-      input.stores.editor.toggle_frontmatter_visibility();
-    },
-  });
-
-  registry.register({
     id: ACTION_IDS.app_check_for_updates,
     label: "Check for Updates",
     execute: async () => execute_app_check_for_updates(),

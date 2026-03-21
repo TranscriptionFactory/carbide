@@ -68,7 +68,6 @@
     <div
       use:mount_editor={open_note}
       class="NoteEditor__content"
-      class:frontmatter-hidden={!stores.editor.show_frontmatter}
       class:NoteEditor__hidden={editor_mode !== "visual" &&
         editor_mode !== "read_only"}
       class:NoteEditor__read-only={editor_mode === "read_only"}
@@ -148,10 +147,6 @@
   .NoteEditor__read-only {
     opacity: 0.85;
     cursor: default;
-  }
-
-  :global(.frontmatter-hidden [data-type="frontmatter"]) {
-    display: none;
   }
 
   .NoteEditor__empty {
