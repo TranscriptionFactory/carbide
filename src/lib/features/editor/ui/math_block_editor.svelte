@@ -16,6 +16,7 @@
   let editing = $state(false);
   let latex_source = $state("");
   let preview_html = $state("");
+  let render_error = $state(false);
   let debounce_timer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
@@ -24,15 +25,21 @@
       latex_source = current_value;
     }
     render_preview(current_value);
+    if (render_error) {
+      editing = true;
+    }
   });
 
   function render_preview(source: string) {
     try {
-      preview_html = katex.renderToString(source || "\\text{empty}", {
+      const html = katex.renderToString(source || "\\text{empty}", {
         displayMode: true,
         throwOnError: false,
       });
+      render_error = html.includes("katex-error");
+      preview_html = html;
     } catch {
+      render_error = true;
       preview_html = `<span class="math-block-error">${source}</span>`;
     }
   }
@@ -91,6 +98,11 @@
 <div class="math-block-container" class:math-block-container--editing={editing}>
   {#if editing}
     <div class="math-block-container__editor">
+      {#if render_error}
+        <div class="math-block-container__error-banner">
+          LaTeX render failed — edit the source below to fix.
+        </div>
+      {/if}
       <!-- svelte-ignore a11y_autofocus -->
       <textarea
         class="math-block-container__textarea"
@@ -257,5 +269,13 @@
     font-size: 0.7rem;
     color: var(--muted-foreground);
     margin-left: auto;
+  }
+
+  .math-block-container__error-banner {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.8rem;
+    color: var(--destructive-foreground, #fff);
+    background: var(--destructive, #b91c1c);
+    border-radius: calc(var(--radius, 0.375rem) * 0.5);
   }
 </style>

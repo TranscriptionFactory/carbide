@@ -85,9 +85,9 @@
   }
 
   function queue_store_sync() {
+    on_dirty_change(true);
     if (store_timer !== null) clearTimeout(store_timer);
     store_timer = setTimeout(() => {
-      on_dirty_change(true);
       on_markdown_change(get_content());
       store_timer = null;
     }, 50);
@@ -279,15 +279,17 @@
 
       if (initial_scroll_fraction > 0) {
         requestAnimationFrame(() => {
-          if (!view) return;
-          const scroller = editor_root?.querySelector(".cm-scroller");
-          if (!scroller) return;
-          const max_scroll = scroller.scrollHeight - scroller.clientHeight;
-          if (max_scroll > 0) {
-            scroller.scrollTop = Math.round(
-              initial_scroll_fraction * max_scroll,
-            );
-          }
+          requestAnimationFrame(() => {
+            if (!view) return;
+            const scroller = editor_root?.querySelector(".cm-scroller");
+            if (!scroller) return;
+            const max_scroll = scroller.scrollHeight - scroller.clientHeight;
+            if (max_scroll > 0) {
+              scroller.scrollTop = Math.round(
+                initial_scroll_fraction * max_scroll,
+              );
+            }
+          });
         });
       }
 
@@ -298,6 +300,8 @@
       if (on_outline_change) {
         on_outline_change(extract_headings_from_markdown(initial_markdown));
       }
+
+      stores.editor.set_source_content_getter(get_content);
     };
 
     void init();
@@ -308,6 +312,7 @@
   });
 
   onDestroy(() => {
+    stores.editor.clear_source_content_getter();
     destroyed = true;
     view_mounted = false;
     let cursor_offset = 0;

@@ -307,6 +307,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
+    action_id: ACTION_IDS.editor_toggle_read_only,
+    key: "CmdOrCtrl+Shift+/",
+    phase: "capture",
+    label: "Toggle Read Only",
+    description: "Lock or unlock the editor for read-only viewing",
+    category: "editing",
+  },
+  {
     action_id: ACTION_IDS.editor_toggle_frontmatter,
     key: "CmdOrCtrl+P",
     phase: "capture",

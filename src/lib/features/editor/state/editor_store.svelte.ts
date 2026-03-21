@@ -17,6 +17,15 @@ export class EditorStore {
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
   show_frontmatter = $state(false);
+  source_content_getter: (() => string) | null = null;
+
+  set_source_content_getter(fn: () => string) {
+    this.source_content_getter = fn;
+  }
+
+  clear_source_content_getter() {
+    this.source_content_getter = null;
+  }
 
   set_open_note(open_note: OpenNoteState) {
     this.open_note = open_note;

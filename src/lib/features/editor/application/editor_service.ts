@@ -237,6 +237,15 @@ export class EditorService {
         this.active_note.meta.id,
         as_markdown_text(markdown),
       );
+    } else if (
+      this.editor_store.editor_mode === "source" &&
+      this.editor_store.source_content_getter !== null
+    ) {
+      const markdown = this.editor_store.source_content_getter();
+      this.editor_store.set_markdown(
+        this.active_note.meta.id,
+        as_markdown_text(markdown),
+      );
     }
 
     const open_note = this.editor_store.open_note;
@@ -263,7 +272,9 @@ export class EditorService {
     const container = this.host_root?.parentElement;
     if (!container || value <= 0) return;
     requestAnimationFrame(() => {
-      container.scrollTop = value;
+      requestAnimationFrame(() => {
+        container.scrollTop = value;
+      });
     });
   }
 

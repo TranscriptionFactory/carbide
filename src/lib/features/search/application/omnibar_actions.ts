@@ -5,6 +5,7 @@ import type { CommandId } from "$lib/features/search/types/command_palette";
 import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
+import { detect_file_type } from "$lib/features/document";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
@@ -216,10 +217,16 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
     case "note":
     case "recent_note":
       close_omnibar(input);
-      await registry.execute(ACTION_IDS.note_open, {
-        note_path: item.note.id,
-        cleanup_if_missing: true,
-      });
+      if (detect_file_type(item.note.id)) {
+        await registry.execute(ACTION_IDS.document_open, {
+          file_path: item.note.id,
+        });
+      } else {
+        await registry.execute(ACTION_IDS.note_open, {
+          note_path: item.note.id,
+          cleanup_if_missing: true,
+        });
+      }
       break;
     case "cross_vault_note":
       if (

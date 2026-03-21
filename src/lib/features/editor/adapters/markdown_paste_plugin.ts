@@ -1,6 +1,25 @@
 import { Plugin } from "prosemirror-state";
 import { Slice } from "prosemirror-model";
+import type { Node } from "prosemirror-model";
 import { pick_paste_mode } from "./markdown_paste_utils";
+
+function is_list_node(node: Node): boolean {
+  return node.type.name === "bullet_list" || node.type.name === "ordered_list";
+}
+
+function is_single_flat_list_item(content: Slice["content"]): boolean {
+  if (content.childCount !== 1) return false;
+  const list = content.firstChild;
+  if (list === null || !is_list_node(list)) return false;
+  if (list.childCount !== 1) return false;
+  const item = list.firstChild;
+  if (item === null || item.type.name !== "list_item") return false;
+  let has_nested_list = false;
+  item.content.forEach((child) => {
+    if (is_list_node(child)) has_nested_list = true;
+  });
+  return !has_nested_list;
+}
 
 export function create_markdown_paste_prose_plugin(
   parse_fn: (markdown: string) => { content: Slice["content"] },
@@ -38,7 +57,15 @@ export function create_markdown_paste_prose_plugin(
           doc.content.childCount === 1 &&
           doc.content.firstChild !== null &&
           doc.content.firstChild.isTextblock;
-        const open_depth = is_single_textblock ? 1 : 0;
+
+        let open_depth: number;
+        if (is_single_textblock) {
+          open_depth = 1;
+        } else if (is_single_flat_list_item(doc.content)) {
+          open_depth = 2;
+        } else {
+          open_depth = 0;
+        }
 
         view.dispatch(
           view.state.tr.replaceSelection(

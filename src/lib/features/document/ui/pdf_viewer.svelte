@@ -902,7 +902,7 @@
     overflow: auto;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     padding: var(--space-4);
     background-color: var(--muted);
     position: relative;
@@ -913,6 +913,7 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
+    margin: 0 auto;
   }
 
   .PdfViewer__page-wrapper {
