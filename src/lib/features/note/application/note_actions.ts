@@ -16,6 +16,7 @@ import {
   close_save_dialog,
   filename_from_path,
   parse_note_open_input,
+  save_and_insert_file,
   save_and_insert_image,
 } from "$lib/features/note/application/note_action_helpers";
 import { is_draft_note_path } from "$lib/features/note/domain/ensure_open_note";
@@ -483,6 +484,25 @@ export function register_note_actions(input: ActionRegistrationInput) {
         }
 
         await save_and_insert_image(
+          input,
+          payload.note_id,
+          payload.note_path,
+          payload.image,
+        );
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.note_insert_dropped_file,
+      label: "Insert Dropped File",
+      when: when_vault_open,
+      execute: async (request: unknown) => {
+        const payload = parse_image_paste_request(request);
+        if (!payload) return;
+        const open_note = stores.editor.open_note;
+        if (!open_note || open_note.meta.id !== payload.note_id) return;
+
+        await save_and_insert_file(
           input,
           payload.note_id,
           payload.note_path,

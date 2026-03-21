@@ -3,6 +3,7 @@ import { editor_context_plugin_key } from "$lib/features/editor/adapters/editor_
 import { detect_file_type } from "$lib/features/document";
 import { to_markdown_asset_target } from "$lib/features/note";
 import { as_note_path, as_asset_path } from "$lib/shared/types/ids";
+import type { PastedImagePayload } from "$lib/shared/types/editor";
 
 const FILE_DROP_PLUGIN_KEY = new PluginKey("file-drop");
 
@@ -38,7 +39,9 @@ export function build_file_link(
   return `[${filename}](${target})`;
 }
 
-export function create_file_drop_prose_plugin(): Plugin {
+export function create_file_drop_prose_plugin(
+  on_external_file_drop?: (payload: PastedImagePayload) => void,
+): Plugin {
   return new Plugin({
     key: FILE_DROP_PLUGIN_KEY,
     props: {
@@ -50,7 +53,29 @@ export function create_file_drop_prose_plugin(): Plugin {
         if (!dt) return false;
 
         const count_str = dt.getData("application/x-badgerly-filetree-count");
-        if (!count_str) return false;
+
+        if (!count_str) {
+          if (!on_external_file_drop || dt.files.length === 0) return false;
+
+          const files = Array.from(dt.files).filter(
+            (f) => f.name && f.size > 0,
+          );
+          if (files.length === 0) return false;
+
+          event.preventDefault();
+
+          for (const file of files) {
+            void file.arrayBuffer().then((buffer) => {
+              on_external_file_drop({
+                bytes: new Uint8Array(buffer),
+                mime_type: file.type || "application/octet-stream",
+                file_name: file.name,
+              });
+            });
+          }
+
+          return true;
+        }
 
         const paths_raw = dt.getData("text/plain");
         if (!paths_raw) return false;

@@ -26,6 +26,7 @@ import {
 import type {
   CursorInfo,
   EditorSelectionSnapshot,
+  PastedImagePayload,
 } from "$lib/shared/types/editor";
 import { create_link_tooltip_prose_plugin } from "./link_tooltip_plugin";
 import { create_dirty_state_prose_plugin } from "./dirty_state_plugin";
@@ -439,6 +440,7 @@ export function create_prosemirror_editor_port(args?: {
         on_internal_link_click,
         on_external_link_click,
         on_image_paste_requested,
+        on_file_drop_requested,
         on_wiki_suggest_query,
         on_image_suggest_query,
         on_outline_change,
@@ -676,7 +678,13 @@ export function create_prosemirror_editor_port(args?: {
       );
 
       plugins.push(create_markdown_paste_prose_plugin(parse_markdown));
-      plugins.push((create_file_drop_prose_plugin as () => Plugin)());
+      plugins.push(
+        (
+          create_file_drop_prose_plugin as (
+            cb?: (payload: PastedImagePayload) => void,
+          ) => Plugin
+        )(on_file_drop_requested),
+      );
 
       if (on_internal_link_click) {
         plugins.push(

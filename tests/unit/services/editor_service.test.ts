@@ -97,6 +97,7 @@ function create_setup(
     on_internal_link_click: vi.fn(),
     on_external_link_click: vi.fn(),
     on_image_paste_requested: vi.fn(),
+    on_file_drop_requested: vi.fn(),
   };
 
   const service = new EditorService(

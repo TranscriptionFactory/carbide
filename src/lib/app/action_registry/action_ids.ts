@@ -14,6 +14,7 @@ export const ACTION_IDS = {
   note_open: "note.open",
   note_open_wiki_link: "note.open_wiki_link",
   note_insert_pasted_image: "note.insert_pasted_image",
+  note_insert_dropped_file: "note.insert_dropped_file",
   note_request_image_paste: "note.request_image_paste",
   note_update_image_paste_filename: "note.update_image_paste_filename",
   note_confirm_image_paste: "note.confirm_image_paste",
