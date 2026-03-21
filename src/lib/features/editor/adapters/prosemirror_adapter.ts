@@ -549,6 +549,7 @@ export function create_prosemirror_editor_port(args?: {
       );
       plugins.push((create_slash_command_prose_plugin as () => Plugin)());
       plugins.push((create_date_suggest_prose_plugin as () => Plugin)());
+      plugins.push(create_code_fence_language_prose_plugin());
       const list_item_type = schema.nodes["list_item"];
       if (list_item_type) {
         plugins.push(
@@ -630,7 +631,6 @@ export function create_prosemirror_editor_port(args?: {
             : undefined,
         }),
       );
-      plugins.push(create_code_fence_language_prose_plugin());
       plugins.push(create_block_input_rules_prose_plugin());
       plugins.push(create_strikethrough_prose_plugin());
       plugins.push(create_inline_mark_input_rules_prose_plugin());
