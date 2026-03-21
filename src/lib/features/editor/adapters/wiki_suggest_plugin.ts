@@ -10,6 +10,7 @@ import {
 } from "./suggest_dropdown_utils";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 import { parent_folder_path } from "$lib/shared/utils/path";
+import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
 
 export const wiki_suggest_plugin_key = new PluginKey<WikiSuggestState>(
   "wiki-suggest",
@@ -386,13 +387,7 @@ export function create_wiki_suggest_prose_plugin(
             format_wiki_display(item.path).toLowerCase(),
           );
           const query_lower = state.query.toLowerCase();
-          let prefix = paths[0] ?? "";
-          for (let i = 1; i < paths.length; i++) {
-            const p = paths[i] ?? "";
-            let j = 0;
-            while (j < prefix.length && j < p.length && prefix[j] === p[j]) j++;
-            prefix = prefix.slice(0, j);
-          }
+          const prefix = longest_common_prefix(paths);
 
           if (prefix.length > query_lower.length) {
             const original_paths = state.items.map((item) =>

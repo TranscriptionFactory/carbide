@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
+  import {
+    filter_folder_paths,
+    normalize_folder_query,
+  } from "$lib/shared/utils/filter_folder_paths";
+
   type Props = {
     value: string;
     folder_paths: string[];
@@ -23,32 +29,13 @@
     query = value;
   });
 
-  const filtered = $derived.by(() => {
-    const q = query.toLowerCase().replace(/\/$/, "");
-    const candidates = ["", ...folder_paths];
-    if (q === "" || q === "/") return candidates.slice(0, 10);
-    return candidates
-      .filter((p) => p.toLowerCase().startsWith(q))
-      .slice(0, 10);
-  });
+  const filtered = $derived(filter_folder_paths(query, folder_paths));
 
   function commit(path: string) {
     query = path;
     on_change(path);
     show_dropdown = false;
     selected_index = 0;
-  }
-
-  function longest_common_prefix(paths: string[]): string {
-    if (paths.length === 0) return "";
-    let prefix = paths[0] ?? "";
-    for (let i = 1; i < paths.length; i++) {
-      const p = paths[i] ?? "";
-      let j = 0;
-      while (j < prefix.length && j < p.length && prefix[j] === p[j]) j++;
-      prefix = prefix.slice(0, j);
-    }
-    return prefix;
   }
 
   function on_keydown(e: KeyboardEvent) {
@@ -74,7 +61,7 @@
       }
       const lc_paths = filtered.map((p) => p.toLowerCase());
       const prefix_lc = longest_common_prefix(lc_paths);
-      const q_lc = query.toLowerCase().replace(/\/$/, "");
+      const q_lc = normalize_folder_query(query);
       if (prefix_lc.length > q_lc.length) {
         const completion = (filtered[0] ?? "").slice(0, prefix_lc.length);
         query = completion;

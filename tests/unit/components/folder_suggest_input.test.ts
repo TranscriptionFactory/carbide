@@ -1,27 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
+import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
 
-function longest_common_prefix(paths: string[]): string {
-  if (paths.length === 0) return "";
-  let prefix = paths[0] ?? "";
-  for (let i = 1; i < paths.length; i++) {
-    const p = paths[i] ?? "";
-    let j = 0;
-    while (j < prefix.length && j < p.length && prefix[j] === p[j]) j++;
-    prefix = prefix.slice(0, j);
-  }
-  return prefix;
-}
-
-function filter_folders(query: string, folder_paths: string[]): string[] {
-  const q = query.toLowerCase().replace(/\/$/, "");
-  const candidates = ["", ...folder_paths];
-  if (q === "" || q === "/") return candidates.slice(0, 10);
-  return candidates
-    .filter((p) => p.toLowerCase().startsWith(q))
-    .slice(0, 10);
-}
-
-describe("folder suggest filtering", () => {
+describe("filter_folder_paths", () => {
   const folders = [
     "archive",
     "docs",
@@ -35,7 +16,7 @@ describe("folder suggest filtering", () => {
   ];
 
   it("returns root + all top-level folders for empty query", () => {
-    const result = filter_folders("", folders);
+    const result = filter_folder_paths("", folders);
     expect(result[0]).toBe("");
     expect(result).toContain("archive");
     expect(result).toContain("docs");
@@ -43,38 +24,38 @@ describe("folder suggest filtering", () => {
   });
 
   it("filters by prefix", () => {
-    const result = filter_folders("doc", folders);
+    const result = filter_folder_paths("doc", folders);
     expect(result).toEqual(["docs", "docs/api", "docs/guides"]);
   });
 
   it("filters case-insensitively", () => {
-    const result = filter_folders("DOC", folders);
+    const result = filter_folder_paths("DOC", folders);
     expect(result).toEqual(["docs", "docs/api", "docs/guides"]);
   });
 
   it("matches deep paths", () => {
-    const result = filter_folders("notes/d", folders);
+    const result = filter_folder_paths("notes/d", folders);
     expect(result).toEqual(["notes/daily", "notes/daily/2024"]);
   });
 
   it("strips trailing slash from query", () => {
-    const result = filter_folders("docs/", folders);
+    const result = filter_folder_paths("docs/", folders);
     expect(result).toEqual(["docs", "docs/api", "docs/guides"]);
   });
 
   it("limits to 10 results", () => {
     const many = Array.from({ length: 20 }, (_, i) => `f${i}`);
-    const result = filter_folders("", many);
+    const result = filter_folder_paths("", many);
     expect(result.length).toBe(10);
   });
 
   it("returns empty for no matches", () => {
-    const result = filter_folders("nonexistent", folders);
+    const result = filter_folder_paths("nonexistent", folders);
     expect(result).toEqual([]);
   });
 });
 
-describe("longest common prefix", () => {
+describe("longest_common_prefix", () => {
   it("returns empty for empty array", () => {
     expect(longest_common_prefix([])).toBe("");
   });
@@ -96,8 +77,8 @@ describe("longest common prefix", () => {
   });
 
   it("handles nested paths", () => {
-    expect(
-      longest_common_prefix(["notes/daily", "notes/daily/2024"]),
-    ).toBe("notes/daily");
+    expect(longest_common_prefix(["notes/daily", "notes/daily/2024"])).toBe(
+      "notes/daily",
+    );
   });
 });
