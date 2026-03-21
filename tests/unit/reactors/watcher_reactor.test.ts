@@ -362,4 +362,67 @@ describe("watcher_reactor", () => {
 
     unmount();
   });
+
+  describe("tree refresh suppression", () => {
+    it("folder_created resolves to refresh_tree", () => {
+      const decision = resolve_watcher_event_decision(
+        folder_created_event("notes/new-folder"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
+
+    it("folder_removed resolves to refresh_tree", () => {
+      const decision = resolve_watcher_event_decision(
+        folder_removed_event("notes/old-folder"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
+
+    it("note_added resolves to refresh_tree", () => {
+      const decision = resolve_watcher_event_decision(
+        added_event("notes/new.md"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({ action: "refresh_tree" });
+    });
+
+    it("note_removed on open note resolves to clear_and_refresh", () => {
+      const decision = resolve_watcher_event_decision(
+        removed_event("notes/a.md"),
+        VAULT_ID,
+        "notes/a.md",
+        false,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({
+        action: "clear_and_refresh",
+        note_path: as_note_path("notes/a.md"),
+      });
+    });
+
+    it("note_removed on background tab resolves to remove_background_tab_and_refresh", () => {
+      const decision = resolve_watcher_event_decision(
+        removed_event("notes/b.md"),
+        VAULT_ID,
+        "notes/a.md",
+        false,
+        bg_tab(false),
+      );
+      expect(decision).toEqual({
+        action: "remove_background_tab_and_refresh",
+        note_path: as_note_path("notes/b.md"),
+      });
+    });
+  });
 });

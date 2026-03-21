@@ -299,6 +299,184 @@ describe("LinkRepairService", () => {
     expect(editor_store.open_note?.buffer_id).toContain(":repair-links:");
   });
 
+  it("calls on_file_written with note path before write for closed notes", async () => {
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const notes_port = create_mock_notes_port();
+    const index_port = create_mock_index_port();
+    const on_file_written = vi.fn();
+    const write_order: string[] = [];
+
+    notes_port.read_note = vi
+      .fn()
+      .mockImplementation((_vid: unknown, note_id: NoteId) => {
+        if (String(note_id) === SOURCE_PATH) {
+          return Promise.resolve({
+            meta: SOURCE_NOTE,
+            markdown: as_markdown_text("See [Old](old.md)"),
+          });
+        }
+        return Promise.resolve({
+          meta: { ...SOURCE_NOTE, id: note_id, path: as_note_path(note_id) },
+          markdown: as_markdown_text("# Content"),
+        });
+      });
+
+    notes_port.write_note = vi
+      .fn()
+      .mockImplementation((..._args: unknown[]) => {
+        write_order.push("write");
+        return Promise.resolve();
+      });
+
+    on_file_written.mockImplementation(() => {
+      write_order.push("on_file_written");
+    });
+
+    const search_port = create_mock_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue(BACKLINKS_SNAPSHOT),
+      rewrite_note_links: rewrite_always_changed(),
+    });
+
+    const service = new LinkRepairService(
+      notes_port,
+      search_port,
+      index_port,
+      editor_store,
+      tab_store,
+      () => 1,
+      () => {},
+      on_file_written,
+    );
+
+    await service.repair_links(VAULT_ID, RENAME_MAP);
+
+    expect(on_file_written).toHaveBeenCalledWith(SOURCE_PATH);
+    expect(write_order.indexOf("on_file_written")).toBeLessThan(
+      write_order.indexOf("write"),
+    );
+  });
+
+  it("calls on_file_written with note path before write for open non-dirty notes", async () => {
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const notes_port = create_mock_notes_port();
+    const index_port = create_mock_index_port();
+    const on_file_written = vi.fn();
+    const write_order: string[] = [];
+
+    editor_store.set_open_note({
+      meta: SOURCE_NOTE,
+      markdown: as_markdown_text("See [Old](old.md)"),
+      buffer_id: "source-buffer",
+      is_dirty: false,
+    });
+
+    notes_port.write_note = vi
+      .fn()
+      .mockImplementation((..._args: unknown[]) => {
+        write_order.push("write");
+        return Promise.resolve();
+      });
+
+    on_file_written.mockImplementation(() => {
+      write_order.push("on_file_written");
+    });
+
+    const search_port = create_mock_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue(BACKLINKS_SNAPSHOT),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation(
+          (
+            markdown: string,
+            old_source: string,
+            new_source: string,
+            _map: Record<string, string>,
+          ) => {
+            if (old_source === new_source) {
+              return Promise.resolve({
+                markdown: "See [Old](new.md)",
+                changed: true,
+              });
+            }
+            return Promise.resolve({ markdown, changed: false });
+          },
+        ),
+    });
+
+    const service = new LinkRepairService(
+      notes_port,
+      search_port,
+      index_port,
+      editor_store,
+      tab_store,
+      () => 1,
+      () => {},
+      on_file_written,
+    );
+
+    await service.repair_links(VAULT_ID, RENAME_MAP);
+
+    expect(on_file_written).toHaveBeenCalledWith(SOURCE_PATH);
+    expect(write_order.indexOf("on_file_written")).toBeLessThan(
+      write_order.indexOf("write"),
+    );
+  });
+
+  it("does not call on_file_written when open note is dirty", async () => {
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const notes_port = create_mock_notes_port();
+    const index_port = create_mock_index_port();
+    const on_file_written = vi.fn();
+
+    editor_store.set_open_note({
+      meta: SOURCE_NOTE,
+      markdown: as_markdown_text("See [Old](old.md)"),
+      buffer_id: "source-buffer",
+      is_dirty: true,
+    });
+
+    const search_port = create_mock_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue(BACKLINKS_SNAPSHOT),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation(
+          (
+            markdown: string,
+            old_source: string,
+            new_source: string,
+            _map: Record<string, string>,
+          ) => {
+            if (old_source === new_source) {
+              return Promise.resolve({
+                markdown: "See [Old](new.md)",
+                changed: true,
+              });
+            }
+            return Promise.resolve({ markdown, changed: false });
+          },
+        ),
+    });
+
+    const service = new LinkRepairService(
+      notes_port,
+      search_port,
+      index_port,
+      editor_store,
+      tab_store,
+      () => 1,
+      () => {},
+      on_file_written,
+    );
+
+    await service.repair_links(VAULT_ID, RENAME_MAP);
+
+    expect(on_file_written).not.toHaveBeenCalled();
+    expect(notes_port._calls.write_note).toEqual([]);
+  });
+
   it("skips when path map is empty", async () => {
     const editor_store = new EditorStore();
     const tab_store = new TabStore();

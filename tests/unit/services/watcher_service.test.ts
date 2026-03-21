@@ -153,6 +153,29 @@ describe("WatcherService", () => {
     expect(handler_2).toHaveBeenCalledOnce();
   });
 
+  it("suppress_tree_refresh sets is_tree_refresh_suppressed to true", () => {
+    const { service } = setup();
+
+    service.suppress_tree_refresh();
+
+    expect(service.is_tree_refresh_suppressed).toBe(true);
+  });
+
+  it("resume_tree_refresh sets is_tree_refresh_suppressed to false", () => {
+    const { service } = setup();
+
+    service.suppress_tree_refresh();
+    service.resume_tree_refresh();
+
+    expect(service.is_tree_refresh_suppressed).toBe(false);
+  });
+
+  it("is_tree_refresh_suppressed is false by default", () => {
+    const { service } = setup();
+
+    expect(service.is_tree_refresh_suppressed).toBe(false);
+  });
+
   it("unsubscribe removes handler", async () => {
     const { port, service } = setup();
     const handler = vi.fn();
