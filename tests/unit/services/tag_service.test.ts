@@ -14,6 +14,7 @@ function make_port(overrides: Partial<TagPort> = {}): TagPort {
   return {
     list_all_tags: vi.fn().mockResolvedValue([]),
     get_notes_for_tag: vi.fn().mockResolvedValue([]),
+    get_notes_for_tag_prefix: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }

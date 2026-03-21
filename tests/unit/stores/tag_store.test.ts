@@ -14,9 +14,11 @@ describe("TagStore", () => {
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
     expect(store.selected_tag).toBeNull();
+    expect(store.selected_is_prefix).toBe(false);
     expect(store.notes_for_tag).toEqual([]);
     expect(store.notes_loading).toBe(false);
     expect(store.search_query).toBe("");
+    expect(store.expanded_tags).toEqual(new Set());
   });
 
   it("set_tags updates tags array", () => {
@@ -53,12 +55,22 @@ describe("TagStore", () => {
     expect(store.error).toBeNull();
   });
 
-  it("select_tag sets selected_tag", () => {
+  it("select_tag sets selected_tag and is_prefix", () => {
     const store = new TagStore();
 
     store.select_tag("rust");
 
     expect(store.selected_tag).toBe("rust");
+    expect(store.selected_is_prefix).toBe(false);
+  });
+
+  it("select_tag with is_prefix flag", () => {
+    const store = new TagStore();
+
+    store.select_tag("status", true);
+
+    expect(store.selected_tag).toBe("status");
+    expect(store.selected_is_prefix).toBe(true);
   });
 
   it("select_tag null deselects", () => {
@@ -94,35 +106,14 @@ describe("TagStore", () => {
     expect(store.search_query).toBe("svel");
   });
 
-  it("filtered_tags returns all tags when search_query is empty", () => {
+  it("toggle_expanded adds and removes tags", () => {
     const store = new TagStore();
-    store.set_tags([make_tag("rust", 5), make_tag("svelte", 3)]);
 
-    expect(store.filtered_tags).toHaveLength(2);
-  });
+    store.toggle_expanded("status");
+    expect(store.is_expanded("status")).toBe(true);
 
-  it("filtered_tags filters by search_query case-insensitively", () => {
-    const store = new TagStore();
-    store.set_tags([
-      make_tag("rust", 5),
-      make_tag("svelte", 3),
-      make_tag("RUST-async", 1),
-    ]);
-
-    store.set_search_query("RUST");
-
-    expect(store.filtered_tags).toHaveLength(2);
-    expect(store.filtered_tags.map((t) => t.tag)).toContain("rust");
-    expect(store.filtered_tags.map((t) => t.tag)).toContain("RUST-async");
-  });
-
-  it("filtered_tags returns empty when no match", () => {
-    const store = new TagStore();
-    store.set_tags([make_tag("rust", 5), make_tag("svelte", 3)]);
-
-    store.set_search_query("python");
-
-    expect(store.filtered_tags).toHaveLength(0);
+    store.toggle_expanded("status");
+    expect(store.is_expanded("status")).toBe(false);
   });
 
   it("reset restores all state to defaults", () => {
@@ -130,10 +121,11 @@ describe("TagStore", () => {
     store.set_tags([make_tag("rust", 5)]);
     store.set_loading(true);
     store.set_error("err");
-    store.select_tag("rust");
+    store.select_tag("rust", true);
     store.set_notes_for_tag(["notes/a.md"]);
     store.set_notes_loading(true);
     store.set_search_query("ru");
+    store.toggle_expanded("rust");
 
     store.reset();
 
@@ -141,8 +133,10 @@ describe("TagStore", () => {
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
     expect(store.selected_tag).toBeNull();
+    expect(store.selected_is_prefix).toBe(false);
     expect(store.notes_for_tag).toEqual([]);
     expect(store.notes_loading).toBe(false);
     expect(store.search_query).toBe("");
+    expect(store.expanded_tags).toEqual(new Set());
   });
 });

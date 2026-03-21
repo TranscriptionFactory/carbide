@@ -5,15 +5,11 @@ export class TagStore {
   loading = $state(false);
   error = $state<string | null>(null);
   selected_tag = $state<string | null>(null);
+  selected_is_prefix = $state(false);
   notes_for_tag = $state<string[]>([]);
   notes_loading = $state(false);
   search_query = $state("");
-
-  get filtered_tags(): TagInfo[] {
-    if (!this.search_query) return this.tags;
-    const q = this.search_query.toLowerCase();
-    return this.tags.filter((t) => t.tag.toLowerCase().includes(q));
-  }
+  expanded_tags = $state<Set<string>>(new Set());
 
   set_tags(tags: TagInfo[]) {
     this.tags = tags;
@@ -27,8 +23,9 @@ export class TagStore {
     this.error = error;
   }
 
-  select_tag(tag: string | null) {
+  select_tag(tag: string | null, is_prefix = false) {
     this.selected_tag = tag;
+    this.selected_is_prefix = is_prefix;
   }
 
   set_notes_for_tag(notes: string[]) {
@@ -43,13 +40,29 @@ export class TagStore {
     this.search_query = query;
   }
 
+  toggle_expanded(tag: string) {
+    const next = new Set(this.expanded_tags);
+    if (next.has(tag)) {
+      next.delete(tag);
+    } else {
+      next.add(tag);
+    }
+    this.expanded_tags = next;
+  }
+
+  is_expanded(tag: string): boolean {
+    return this.expanded_tags.has(tag);
+  }
+
   reset() {
     this.tags = [];
     this.loading = false;
     this.error = null;
     this.selected_tag = null;
+    this.selected_is_prefix = false;
     this.notes_for_tag = [];
     this.notes_loading = false;
     this.search_query = "";
+    this.expanded_tags = new Set();
   }
 }

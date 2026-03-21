@@ -32,6 +32,28 @@ export function register_tag_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.tags_select_prefix,
+    label: "Select Tag (with descendants)",
+    execute: async (tag: unknown) => {
+      if (tag === null || tag === undefined) {
+        tag_service.deselect_tag();
+        return;
+      }
+      if (typeof tag !== "string") return;
+      await tag_service.select_tag_prefix(tag);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.tags_toggle_expanded,
+    label: "Toggle Tag Expanded",
+    execute: (tag: unknown) => {
+      if (typeof tag !== "string") return;
+      tag_store.toggle_expanded(tag);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.tags_open_note,
     label: "Open Note from Tags",
     execute: async (note_path: unknown) => {

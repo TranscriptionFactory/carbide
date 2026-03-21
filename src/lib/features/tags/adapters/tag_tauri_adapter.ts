@@ -10,4 +10,11 @@ export class TagTauriAdapter implements TagPort {
   async get_notes_for_tag(vaultId: string, tag: string): Promise<string[]> {
     return invoke<string[]>("tags_get_notes_for_tag", { vaultId, tag });
   }
+
+  async get_notes_for_tag_prefix(
+    vaultId: string,
+    tag: string,
+  ): Promise<string[]> {
+    return invoke<string[]>("tags_get_notes_for_tag_prefix", { vaultId, tag });
+  }
 }
