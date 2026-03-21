@@ -9,37 +9,18 @@
   import { Input } from "$lib/components/ui/input";
   import { ACTION_IDS } from "$lib/app";
   import TagTreeNode from "./tag_tree_node.svelte";
-  import { build_tag_tree } from "../domain/build_tag_tree";
-  import type { TagTreeNode as TagTreeNodeType } from "../types";
+  import { build_tag_tree, filter_tag_tree } from "../domain/build_tag_tree";
 
   const { stores, action_registry } = use_app_context();
   const tag_store = stores.tag;
 
   let tag_tree = $derived(build_tag_tree(tag_store.tags));
 
-  let filtered_tree: TagTreeNodeType[] = $derived.by(() => {
-    if (!tag_store.search_query) return tag_tree;
-    const q = tag_store.search_query.toLowerCase();
-    return filter_tree(tag_tree, q);
-  });
-
-  function filter_tree(
-    nodes: TagTreeNodeType[],
-    query: string,
-  ): TagTreeNodeType[] {
-    const result: TagTreeNodeType[] = [];
-    for (const node of nodes) {
-      const children = filter_tree(node.children, query);
-      if (
-        node.segment.toLowerCase().includes(query) ||
-        node.full_tag.toLowerCase().includes(query) ||
-        children.length > 0
-      ) {
-        result.push({ ...node, children });
-      }
-    }
-    return result;
-  }
+  let filtered_tree = $derived(
+    tag_store.search_query
+      ? filter_tag_tree(tag_tree, tag_store.search_query)
+      : tag_tree,
+  );
 
   onMount(() => {
     void action_registry.execute(ACTION_IDS.tags_refresh);

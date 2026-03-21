@@ -31,31 +31,30 @@ export class TagService {
   }
 
   async select_tag(tag: string) {
-    const vault = this.vault_store.vault;
-    if (!vault) return;
-
-    this.store.select_tag(tag, false);
-    this.store.set_notes_for_tag([]);
-    this.store.set_notes_loading(true);
-    try {
-      const notes = await this.port.get_notes_for_tag(vault.id, tag);
-      this.store.set_notes_for_tag(notes);
-    } catch (e) {
-      this.store.set_error(e instanceof Error ? e.message : String(e));
-    } finally {
-      this.store.set_notes_loading(false);
-    }
+    await this.load_notes(tag, false, () =>
+      this.port.get_notes_for_tag(this.vault_store.vault!.id, tag),
+    );
   }
 
   async select_tag_prefix(tag: string) {
+    await this.load_notes(tag, true, () =>
+      this.port.get_notes_for_tag_prefix(this.vault_store.vault!.id, tag),
+    );
+  }
+
+  private async load_notes(
+    tag: string,
+    is_prefix: boolean,
+    fetch_fn: () => Promise<string[]>,
+  ) {
     const vault = this.vault_store.vault;
     if (!vault) return;
 
-    this.store.select_tag(tag, true);
+    this.store.select_tag(tag, is_prefix);
     this.store.set_notes_for_tag([]);
     this.store.set_notes_loading(true);
     try {
-      const notes = await this.port.get_notes_for_tag_prefix(vault.id, tag);
+      const notes = await fetch_fn();
       this.store.set_notes_for_tag(notes);
     } catch (e) {
       this.store.set_error(e instanceof Error ? e.message : String(e));

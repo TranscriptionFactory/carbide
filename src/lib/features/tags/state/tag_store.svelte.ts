@@ -11,12 +11,6 @@ export class TagStore {
   search_query = $state("");
   expanded_tags = $state<Set<string>>(new Set());
 
-  get filtered_tags(): TagInfo[] {
-    if (!this.search_query) return this.tags;
-    const q = this.search_query.toLowerCase();
-    return this.tags.filter((t) => t.tag.toLowerCase().includes(q));
-  }
-
   set_tags(tags: TagInfo[]) {
     this.tags = tags;
   }

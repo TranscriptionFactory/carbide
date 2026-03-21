@@ -90,6 +90,46 @@ pub fn tags_list_all_unified(
     })
 }
 
+fn query_notes_by_tag(
+    conn: &rusqlite::Connection,
+    tag: &str,
+    source: Option<&str>,
+    prefix: bool,
+) -> Result<Vec<String>, String> {
+    let tag_condition = if prefix {
+        "(tag = ?1 OR tag LIKE ?2)"
+    } else {
+        "tag = ?1"
+    };
+
+    let mut bind_values: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(tag.to_string())];
+    if prefix {
+        bind_values.push(Box::new(format!("{tag}/%")));
+    }
+
+    let sql = match source {
+        Some(src) => {
+            let next = bind_values.len() + 1;
+            bind_values.push(Box::new(src.to_string()));
+            format!(
+                "SELECT DISTINCT path FROM note_inline_tags WHERE {tag_condition} AND source = ?{next} ORDER BY path ASC"
+            )
+        }
+        None => {
+            format!(
+                "SELECT DISTINCT path FROM note_inline_tags WHERE {tag_condition} ORDER BY path ASC"
+            )
+        }
+    };
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(&bind_values), |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn tags_get_notes_for_tag(
@@ -99,22 +139,7 @@ pub fn tags_get_notes_for_tag(
     source: Option<String>,
 ) -> Result<Vec<String>, String> {
     with_read_conn(&app, &vault_id, |conn| {
-        let (sql, tag_params): (&str, Vec<Box<dyn rusqlite::ToSql>>) = match source.as_deref() {
-            Some(src) => (
-                "SELECT DISTINCT path FROM note_inline_tags WHERE tag = ?1 AND source = ?2 ORDER BY path ASC",
-                vec![Box::new(tag.clone()), Box::new(src.to_string())],
-            ),
-            None => (
-                "SELECT DISTINCT path FROM note_inline_tags WHERE tag = ?1 ORDER BY path ASC",
-                vec![Box::new(tag.clone())],
-            ),
-        };
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(rusqlite::params_from_iter(&tag_params), |row| row.get(0))
-            .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())
+        query_notes_by_tag(conn, &tag, source.as_deref(), false)
     })
 }
 
@@ -127,26 +152,7 @@ pub fn tags_get_notes_for_tag_prefix(
     source: Option<String>,
 ) -> Result<Vec<String>, String> {
     with_read_conn(&app, &vault_id, |conn| {
-        let (sql, params): (&str, Vec<Box<dyn rusqlite::ToSql>>) = match source.as_deref() {
-            Some(src) => (
-                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) AND source = ?3 ORDER BY path ASC",
-                vec![
-                    Box::new(tag.clone()),
-                    Box::new(format!("{tag}/%")),
-                    Box::new(src.to_string()),
-                ],
-            ),
-            None => (
-                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) ORDER BY path ASC",
-                vec![Box::new(tag.clone()), Box::new(format!("{tag}/%"))],
-            ),
-        };
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(rusqlite::params_from_iter(&params), |row| row.get(0))
-            .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())
+        query_notes_by_tag(conn, &tag, source.as_deref(), true)
     })
 }
 

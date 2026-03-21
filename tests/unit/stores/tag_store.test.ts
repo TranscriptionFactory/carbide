@@ -106,37 +106,6 @@ describe("TagStore", () => {
     expect(store.search_query).toBe("svel");
   });
 
-  it("filtered_tags returns all tags when search_query is empty", () => {
-    const store = new TagStore();
-    store.set_tags([make_tag("rust", 5), make_tag("svelte", 3)]);
-
-    expect(store.filtered_tags).toHaveLength(2);
-  });
-
-  it("filtered_tags filters by search_query case-insensitively", () => {
-    const store = new TagStore();
-    store.set_tags([
-      make_tag("rust", 5),
-      make_tag("svelte", 3),
-      make_tag("RUST-async", 1),
-    ]);
-
-    store.set_search_query("RUST");
-
-    expect(store.filtered_tags).toHaveLength(2);
-    expect(store.filtered_tags.map((t) => t.tag)).toContain("rust");
-    expect(store.filtered_tags.map((t) => t.tag)).toContain("RUST-async");
-  });
-
-  it("filtered_tags returns empty when no match", () => {
-    const store = new TagStore();
-    store.set_tags([make_tag("rust", 5), make_tag("svelte", 3)]);
-
-    store.set_search_query("python");
-
-    expect(store.filtered_tags).toHaveLength(0);
-  });
-
   it("toggle_expanded adds and removes tags", () => {
     const store = new TagStore();
 
