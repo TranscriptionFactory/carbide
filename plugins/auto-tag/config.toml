@@ -1,0 +1,24 @@
+# Auto-Tag Plugin Configuration
+#
+# allow: words that will be prefixed with '#' when found in note body
+# deny:  words that must never be tagged, even if they appear in allow
+#
+# Tags are matched as whole words, case-insensitive.
+# Words already prefixed with '#' are skipped.
+
+[allow]
+tags = [
+  "todo",
+  "fixme",
+  "important",
+  "review",
+  "blocked",
+  "urgent",
+  "question",
+  "idea",
+  "meeting",
+  "followup",
+]
+
+[deny]
+tags = []

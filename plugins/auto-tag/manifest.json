@@ -1,0 +1,27 @@
+{
+  "id": "auto-tag",
+  "name": "Auto-Tag",
+  "version": "1.0.0",
+  "author": "Badgerly",
+  "description": "Automatically prefixes configured words with # to create inline tags. Uses a TOML config for allow/deny lists.",
+  "api_version": "1",
+  "permissions": [
+    "editor:read",
+    "editor:modify",
+    "fs:read",
+    "commands:register",
+    "events:subscribe",
+    "ui:statusbar"
+  ],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": [
+      {
+        "key": "auto_tag_on_save",
+        "type": "boolean",
+        "label": "Auto-tag on file save",
+        "default": false
+      }
+    ]
+  }
+}
