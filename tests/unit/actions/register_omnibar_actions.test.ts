@@ -363,6 +363,7 @@ describe("register_omnibar_actions", () => {
       [ACTION_IDS.git_pull]: vi.fn().mockResolvedValue(undefined),
       [ACTION_IDS.git_fetch]: vi.fn().mockResolvedValue(undefined),
       [ACTION_IDS.git_add_remote]: vi.fn().mockResolvedValue(undefined),
+      [ACTION_IDS.metadata_toggle_panel]: vi.fn().mockResolvedValue(undefined),
     };
 
     for (const [action_id, execute] of Object.entries(action_spies)) {
@@ -380,6 +381,7 @@ describe("register_omnibar_actions", () => {
       ["git_pull", ACTION_IDS.git_pull],
       ["git_fetch", ACTION_IDS.git_fetch],
       ["git_add_remote", ACTION_IDS.git_add_remote],
+      ["toggle_metadata_panel", ACTION_IDS.metadata_toggle_panel],
     ] as const;
 
     for (const [command_id, action_id] of cases) {

@@ -176,6 +176,21 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "refresh-cw",
   },
   {
+    id: "toggle_metadata_panel",
+    label: "Toggle Metadata Panel",
+    description: "Show or hide note properties and tags",
+    keywords: [
+      "metadata",
+      "properties",
+      "frontmatter",
+      "tags",
+      "context",
+      "panel",
+      "sidebar",
+    ],
+    icon: "list-tree",
+  },
+  {
     id: "quick_capture_task",
     label: "Quick Capture Task",
     description: "Rapidly add a new task to your vault",

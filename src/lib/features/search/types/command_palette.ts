@@ -18,6 +18,7 @@ export type CommandId =
   | "toggle_graph_panel"
   | "toggle_outline_panel"
   | "toggle_tasks_panel"
+  | "toggle_metadata_panel"
   | "quick_capture_task"
   | "show_tasks_list"
   | "show_tasks_kanban"

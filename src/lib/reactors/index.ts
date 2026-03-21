@@ -263,6 +263,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
     create_metadata_sync_reactor(
       context.editor_store,
+      context.search_store,
       context.ui_store,
       context.metadata_store,
       context.metadata_service,
