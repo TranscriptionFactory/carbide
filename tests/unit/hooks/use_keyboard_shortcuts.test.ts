@@ -37,7 +37,7 @@ describe("use_keyboard_shortcuts", () => {
     shortcuts.handle_keydown_capture({
       metaKey: true,
       ctrlKey: false,
-      key: "p",
+      key: "o",
       altKey: false,
       shiftKey: false,
       preventDefault: vi.fn(),
@@ -387,7 +387,7 @@ describe("use_keyboard_shortcuts", () => {
     shortcuts.handle_keydown_capture({
       metaKey: true,
       ctrlKey: false,
-      key: "p",
+      key: "o",
       altKey: false,
       shiftKey: false,
       preventDefault: vi.fn(),

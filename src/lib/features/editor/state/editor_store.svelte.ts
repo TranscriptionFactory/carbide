@@ -16,7 +16,6 @@ export class EditorStore {
   cursor_offset = $state(0);
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
-  show_frontmatter = $state(false);
   source_content_getter: (() => string) | null = null;
 
   set_source_content_getter(fn: () => string) {
@@ -155,14 +154,6 @@ export class EditorStore {
     this.scroll_fraction = fraction;
   }
 
-  toggle_frontmatter_visibility() {
-    this.show_frontmatter = !this.show_frontmatter;
-  }
-
-  set_frontmatter_visibility(visible: boolean) {
-    this.show_frontmatter = visible;
-  }
-
   reset() {
     this.open_note = null;
     this.cursor = null;
@@ -171,6 +162,5 @@ export class EditorStore {
     this.cursor_offset = 0;
     this.scroll_fraction = 0;
     this.selection = null;
-    this.show_frontmatter = false;
   }
 }

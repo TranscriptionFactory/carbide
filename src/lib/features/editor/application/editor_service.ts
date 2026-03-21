@@ -319,20 +319,6 @@ export class EditorService {
     this.session?.scroll_to_position?.(pos);
   }
 
-  insert_frontmatter(): boolean {
-    if (!this.session || !this.active_note) return false;
-    if (this.session.has_frontmatter?.()) return false;
-    const inserted = this.session.insert_frontmatter?.() ?? false;
-    if (inserted) {
-      this.editor_store.set_dirty(this.active_note.meta.id, true);
-    }
-    return inserted;
-  }
-
-  has_frontmatter(): boolean {
-    return this.session?.has_frontmatter?.() ?? false;
-  }
-
   set_editable(editable: boolean) {
     this.session?.set_editable?.(editable);
   }
