@@ -27,6 +27,7 @@ import { create_document_cache_reactor } from "$lib/reactors/document_cache.reac
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
+import { create_stt_reactor } from "$lib/reactors/stt.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
@@ -63,6 +64,7 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
+import type { SttStore, SttService, SttPort } from "$lib/features/stt";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -97,6 +99,9 @@ export type ReactorContext = {
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
+  stt_store: SttStore;
+  stt_service: SttService;
+  stt_port: SttPort;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -246,6 +251,12 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.note_service,
       context.editor_service,
+    ),
+    create_stt_reactor(
+      context.vault_store,
+      context.stt_store,
+      context.stt_service,
+      context.stt_port,
     ),
     create_update_check_reactor(),
     create_split_view_content_sync_reactor(

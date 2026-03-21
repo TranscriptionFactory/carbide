@@ -283,6 +283,7 @@ pub fn run() {
             features::stt::stt_load_model,
             features::stt::stt_unload_model,
             features::stt::stt_transcribe,
+            features::stt::stt_transcribe_file,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

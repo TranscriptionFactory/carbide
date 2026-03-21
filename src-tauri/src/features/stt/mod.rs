@@ -5,8 +5,11 @@ pub mod transcription;
 pub mod types;
 pub mod vad;
 
+use std::io::Cursor;
 use std::sync::Mutex;
 
+use rodio::Source;
+use rubato::{FftFixedIn, Resampler};
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -14,7 +17,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use audio::{AudioRecorder, is_microphone_access_denied};
 use models::ModelInfo;
 use transcription::TranscriptionResult;
-use types::{AudioDeviceInfo, AudioLevelEvent, RecordingState};
+use types::{AudioDeviceInfo, AudioLevelEvent, RecordingState, WHISPER_SAMPLE_RATE};
 use vad::{SileroVad, SmoothedVad};
 
 use std::sync::Arc;
@@ -243,6 +246,74 @@ pub async fn stt_transcribe(
     state: State<'_, transcription::SttTranscriptionState>,
 ) -> Result<TranscriptionResult, String> {
     state
+        .transcribe(audio, language)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_transcribe_file(
+    file_path: String,
+    language: Option<String>,
+    transcription_state: State<'_, transcription::SttTranscriptionState>,
+) -> Result<TranscriptionResult, String> {
+    let bytes = tokio::fs::read(&file_path)
+        .await
+        .map_err(|e| format!("Failed to read file: {e}"))?;
+
+    let cursor = Cursor::new(bytes);
+    let decoder = rodio::Decoder::new(cursor)
+        .map_err(|e| format!("Failed to decode audio file: {e}"))?;
+
+    let source_sample_rate = decoder.sample_rate() as usize;
+    let source_channels = decoder.channels() as usize;
+
+    let raw_samples: Vec<f32> = decoder.collect();
+
+    let mono_samples: Vec<f32> = if source_channels == 1 {
+        raw_samples
+    } else {
+        raw_samples
+            .chunks(source_channels)
+            .map(|frame| frame.iter().sum::<f32>() / source_channels as f32)
+            .collect()
+    };
+
+    let target_sample_rate = WHISPER_SAMPLE_RATE as usize;
+
+    let audio = if source_sample_rate != target_sample_rate {
+        let chunk_size = 1024;
+        let mut resampler =
+            FftFixedIn::<f32>::new(source_sample_rate, target_sample_rate, chunk_size, 1, 1)
+                .map_err(|e| format!("Failed to create resampler: {e}"))?;
+
+        let mut output = Vec::new();
+        let mut pos = 0;
+
+        while pos + chunk_size <= mono_samples.len() {
+            let chunk = &mono_samples[pos..pos + chunk_size];
+            let out = resampler
+                .process(&[chunk], None)
+                .map_err(|e| format!("Resampling failed: {e}"))?;
+            output.extend_from_slice(&out[0]);
+            pos += chunk_size;
+        }
+
+        if pos < mono_samples.len() {
+            let mut padded = mono_samples[pos..].to_vec();
+            padded.resize(chunk_size, 0.0);
+            let out = resampler
+                .process(&[&padded], None)
+                .map_err(|e| format!("Resampling failed: {e}"))?;
+            output.extend_from_slice(&out[0]);
+        }
+
+        output
+    } else {
+        mono_samples
+    };
+
+    transcription_state
         .transcribe(audio, language)
         .map_err(|e| e.to_string())
 }

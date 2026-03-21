@@ -364,6 +364,7 @@ export function create_app_context(input: {
       task: task_service,
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
+      stt: stt_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -470,6 +471,9 @@ export function create_app_context(input: {
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
+    stt_store: stores.stt,
+    stt_service,
+    stt_port: input.ports.stt,
   });
 
   return {

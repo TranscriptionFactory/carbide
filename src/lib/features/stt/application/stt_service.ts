@@ -169,6 +169,24 @@ export class SttService {
     }
   }
 
+  async transcribe_file(
+    file_path: string,
+  ): Promise<TranscriptionResult | null> {
+    this.op_store.start("stt.transcribe_file", this.now_ms());
+    try {
+      const config = this.stt_store.config;
+      const language = config.language === "auto" ? undefined : config.language;
+      const result = await this.stt_port.transcribe_file(file_path, language);
+      this.op_store.succeed("stt.transcribe_file");
+      return result;
+    } catch (error) {
+      const msg = error_message(error);
+      log.error("File transcription failed", { error: msg });
+      this.op_store.fail("stt.transcribe_file", msg);
+      return null;
+    }
+  }
+
   async update_config(config: Partial<SttConfig>): Promise<void> {
     this.stt_store.update_config(config);
   }

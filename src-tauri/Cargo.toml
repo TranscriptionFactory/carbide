@@ -70,6 +70,22 @@ specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 
+# STT dependencies (Phase 2: transcription engine)
+transcribe-rs = { version = "0.3.2", features = ["whisper-cpp", "onnx"] }
+
+# STT dependencies (Phase 5: audio file decoding)
+rodio = { git = "https://github.com/cjpais/rodio.git" }
+
+# Platform-specific STT accelerator features
+[target.'cfg(target_os = "macos")'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-metal"] }
+
+[target.'cfg(windows)'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan", "ort-directml"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan"] }
+
 [dev-dependencies]
 filetime = "0.2"
 

@@ -20,6 +20,10 @@ export interface SttPort {
   load_model(model_id: string): Promise<void>;
   unload_model(): Promise<void>;
   transcribe(audio: number[], language?: string): Promise<TranscriptionResult>;
+  transcribe_file(
+    file_path: string,
+    language?: string,
+  ): Promise<TranscriptionResult>;
 
   list_audio_devices(): Promise<AudioDeviceInfo[]>;
 

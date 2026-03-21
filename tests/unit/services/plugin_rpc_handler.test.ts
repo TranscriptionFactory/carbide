@@ -16,6 +16,26 @@ function make_manifest(permissions: string[]): PluginManifest {
   } as unknown as PluginManifest;
 }
 
+function make_stt_store(overrides: Record<string, unknown> = {}) {
+  return {
+    config: {
+      enabled: true,
+      model_id: "base",
+      language: "auto",
+      vad_threshold: 0.5,
+    },
+    is_ready: true,
+    available_models: [{ id: "base", name: "Base", is_downloaded: true }],
+    ...overrides,
+  };
+}
+
+function make_stt_service() {
+  return {
+    transcribe_file: vi.fn().mockResolvedValue({ text: "hello world" }),
+  };
+}
+
 function make_context() {
   const plugin = {
     register_command: vi.fn(),
@@ -28,10 +48,15 @@ function make_context() {
     register_settings_tab: vi.fn(),
   };
 
+  const stt_store = make_stt_store();
+  const stt_service = make_stt_service();
+
   return {
-    services: { plugin } as any,
-    stores: {} as any,
+    services: { plugin, stt: stt_service } as any,
+    stores: { stt: stt_store } as any,
     plugin,
+    stt_store,
+    stt_service,
   };
 }
 
@@ -328,6 +353,86 @@ describe("PluginRpcHandler", () => {
         /Missing settings:register_tab permission/,
       );
       expect(ctx.plugin.register_settings_tab).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("stt.*", () => {
+    it("stt.is_available returns enabled and model_loaded state", async () => {
+      const manifest = make_manifest(["stt:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt1",
+        method: "stt.is_available",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ enabled: true, model_loaded: true });
+    });
+
+    it("stt.get_models returns available models list", async () => {
+      const manifest = make_manifest(["stt:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt2",
+        method: "stt.get_models",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([
+        { id: "base", name: "Base", is_downloaded: true },
+      ]);
+    });
+
+    it("stt.get_config returns current config", async () => {
+      const manifest = make_manifest(["stt:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt3",
+        method: "stt.get_config",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toMatchObject({
+        enabled: true,
+        model_id: "base",
+      });
+    });
+
+    it("stt.transcribe_file calls transcribe_file with file path", async () => {
+      const manifest = make_manifest(["stt:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt4",
+        method: "stt.transcribe_file",
+        params: ["/tmp/audio.wav"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ text: "hello world" });
+      expect(ctx.stt_service.transcribe_file).toHaveBeenCalledWith(
+        "/tmp/audio.wav",
+      );
+    });
+
+    it("stt.* throws without stt:read permission", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt5",
+        method: "stt.is_available",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Missing stt:read permission/);
+    });
+
+    it("stt.unknown_action throws with descriptive error", async () => {
+      const manifest = make_manifest(["stt:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "stt6",
+        method: "stt.unknown_action",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Unknown stt action: unknown_action/);
     });
   });
 

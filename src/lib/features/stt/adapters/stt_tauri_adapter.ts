@@ -109,6 +109,13 @@ export function create_stt_tauri_adapter(): SttPort {
       });
     },
 
+    async transcribe_file(file_path, language) {
+      return await tauri_invoke<TranscriptionResult>("stt_transcribe_file", {
+        filePath: file_path,
+        language: language ?? null,
+      });
+    },
+
     async list_audio_devices() {
       return await tauri_invoke<AudioDeviceInfo[]>("stt_list_audio_devices");
     },

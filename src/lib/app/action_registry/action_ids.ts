@@ -268,6 +268,7 @@ export const ACTION_IDS = {
   stt_download_model: "stt.download_model",
   stt_delete_model: "stt.delete_model",
   stt_open_settings: "stt.open_settings",
+  stt_transcribe_file: "stt.transcribe_file",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

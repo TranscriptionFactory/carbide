@@ -118,6 +118,13 @@ export function create_test_ports(): Ports {
           duration_ms: 0,
           model_id: "",
         }),
+      transcribe_file: () =>
+        Promise.resolve({
+          text: "",
+          language: null,
+          duration_ms: 0,
+          model_id: "",
+        }),
       list_audio_devices: () => Promise.resolve([]),
       subscribe_audio_levels: () => () => {},
       subscribe_download_progress: () => () => {},

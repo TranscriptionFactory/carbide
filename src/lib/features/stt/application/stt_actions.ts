@@ -85,4 +85,15 @@ export function register_stt_actions(input: {
       await registry.execute(ACTION_IDS.settings_open, "speech");
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.stt_transcribe_file,
+    label: "Transcribe Audio File",
+    execute: async (...args: unknown[]) => {
+      const file_path = args[0] as string;
+      if (file_path) {
+        await stt_service.transcribe_file(file_path);
+      }
+    },
+  });
 }

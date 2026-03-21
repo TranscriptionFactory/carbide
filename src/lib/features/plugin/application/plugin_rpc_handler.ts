@@ -87,6 +87,8 @@ export class PluginRpcHandler {
         return this.handle_settings(plugin_id, manifest, action, params);
       case "events":
         return this.handle_events(plugin_id, manifest, action, params);
+      case "stt":
+        return this.handle_stt(manifest, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -340,6 +342,35 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown settings action: ${action}`);
+    }
+  }
+
+  private async handle_stt(
+    manifest: PluginManifest,
+    action: string,
+    params: any[],
+  ): Promise<any> {
+    if (!manifest.permissions.includes("stt:read")) {
+      throw new Error("Missing stt:read permission");
+    }
+
+    const stt_store = this.context.stores.stt;
+    const stt_service = this.context.services.stt;
+
+    switch (action) {
+      case "is_available":
+        return {
+          enabled: stt_store.config.enabled,
+          model_loaded: stt_store.is_ready,
+        };
+      case "get_models":
+        return stt_store.available_models;
+      case "get_config":
+        return stt_store.config;
+      case "transcribe_file":
+        return stt_service.transcribe_file(params[0]);
+      default:
+        throw new Error(`Unknown stt action: ${action}`);
     }
   }
 
