@@ -10,6 +10,7 @@ import {
   Code,
   ExternalLink,
   ChevronRight,
+  Mic,
 } from "lucide-static";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -135,6 +136,21 @@ class FileEmbedView implements NodeView {
       this._media_el = audio;
       this._resolve_and_set_src(audio, src, callbacks);
       content.appendChild(audio);
+      const transcribe_btn = document.createElement("button");
+      transcribe_btn.className = "file-embed-transcribe";
+      transcribe_btn.title = "Transcribe audio";
+      transcribe_btn.innerHTML = `${Mic}<span>Transcribe</span>`;
+      transcribe_btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        transcribe_btn.dispatchEvent(
+          new CustomEvent("stt-transcribe-file", {
+            detail: { path: src },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      });
+      content.appendChild(transcribe_btn);
       content.style.height = "auto";
     } else if (file_type === "video") {
       const video = document.createElement("video");

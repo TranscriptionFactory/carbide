@@ -438,6 +438,12 @@ export function create_app_context(input: {
     stt_store: stores.stt,
   });
 
+  const stt_transcribe_handler = (e: Event) => {
+    const { path } = (e as CustomEvent<{ path: string }>).detail;
+    void action_registry.execute(ACTION_IDS.stt_transcribe_file, path);
+  };
+  document.addEventListener("stt-transcribe-file", stt_transcribe_handler);
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -484,6 +490,10 @@ export function create_app_context(input: {
     terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
+      document.removeEventListener(
+        "stt-transcribe-file",
+        stt_transcribe_handler,
+      );
       plugin_service.destroy();
       terminal_service.destroy();
       split_view_service.destroy();

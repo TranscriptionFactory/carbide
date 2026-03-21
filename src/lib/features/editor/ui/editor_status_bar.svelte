@@ -3,6 +3,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { LintStatusIndicator } from "$lib/features/lint";
+  import { SttStatusIndicator } from "$lib/features/stt";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
@@ -37,6 +38,12 @@
     lint_warning_count: number;
     on_lint_click: () => void;
     on_lint_format_click: () => void;
+    stt_enabled: boolean;
+    stt_recording_state: import("$lib/features/stt").SttRecordingState;
+    stt_model_loading: boolean;
+    stt_has_model: boolean;
+    on_stt_click: () => void;
+    on_stt_settings_click: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -80,6 +87,12 @@
     lint_warning_count,
     on_lint_click,
     on_lint_format_click,
+    stt_enabled,
+    stt_recording_state,
+    stt_model_loading,
+    stt_has_model,
+    on_stt_click,
+    on_stt_settings_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -204,6 +217,17 @@
         is_running={lint_is_running}
         on_click={on_lint_click}
         on_format_click={on_lint_format_click}
+      />
+    {/if}
+    {#if stt_enabled}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <SttStatusIndicator
+        enabled={stt_enabled}
+        recording_state={stt_recording_state}
+        model_loading={stt_model_loading}
+        has_model={stt_has_model}
+        on_click={on_stt_click}
+        on_settings_click={on_stt_settings_click}
       />
     {/if}
   </div>
