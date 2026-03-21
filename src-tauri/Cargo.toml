@@ -62,6 +62,10 @@ hound = "3.5.1"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
 strsim = "0.11.0"
 natural = "0.5.0"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures-util = "0.3"
+flate2 = "1"
+tar = "0.4"
 specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
