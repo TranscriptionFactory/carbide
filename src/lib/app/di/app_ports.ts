@@ -18,6 +18,7 @@ import type { PluginHostPort, PluginSettingsPort } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
+import type { SttPort } from "$lib/features/stt";
 
 export type Ports = {
   vault: VaultPort;
@@ -44,4 +45,5 @@ export type Ports = {
   canvas: CanvasPort;
   tag: TagPort;
   lint: LintPort;
+  stt: SttPort;
 };

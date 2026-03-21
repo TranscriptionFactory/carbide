@@ -50,6 +50,7 @@ import {
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
+import { SttService, register_stt_actions } from "$lib/features/stt";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -319,6 +320,14 @@ export function create_app_context(input: {
     stores.op,
   );
 
+  const stt_service = new SttService(
+    input.ports.stt,
+    stores.stt,
+    editor_service,
+    stores.op,
+    now_ms,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -419,6 +428,12 @@ export function create_app_context(input: {
     editor_store: stores.editor,
     editor_service,
     ui_store: stores.ui,
+  });
+
+  register_stt_actions({
+    registry: action_registry,
+    stt_service,
+    stt_store: stores.stt,
   });
 
   const cleanup_reactors = mount_reactors({

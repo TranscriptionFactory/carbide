@@ -261,6 +261,13 @@ export const ACTION_IDS = {
   lint_toggle_problems: "lint.toggle_problems",
   lint_next_diagnostic: "lint.next_diagnostic",
   lint_prev_diagnostic: "lint.prev_diagnostic",
+
+  stt_toggle_recording: "stt.toggle_recording",
+  stt_cancel_recording: "stt.cancel_recording",
+  stt_select_model: "stt.select_model",
+  stt_download_model: "stt.download_model",
+  stt_delete_model: "stt.delete_model",
+  stt_open_settings: "stt.open_settings",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];
