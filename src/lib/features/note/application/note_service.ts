@@ -617,10 +617,6 @@ export class NoteService {
       return null;
     }
 
-    if (this.is_inactive_pane_for_same_note(session)) {
-      return null;
-    }
-
     this.sync_flushed_markdown(session, open_note.meta.id);
     const latest_open_note = session.editor_store.open_note;
     if (!latest_open_note) {
@@ -992,16 +988,6 @@ export class NoteService {
     }
 
     return this.resolve_save_session("primary");
-  }
-
-  private is_inactive_pane_for_same_note(session: SaveSession): boolean {
-    if (!this.split_view_service?.is_active()) return false;
-    const primary_note_id = this.editor_store.open_note?.meta.id;
-    if (!this.split_view_service.is_same_note_in_both_panes(primary_note_id)) {
-      return false;
-    }
-    const active_pane = this.split_view_service.get_active_pane();
-    return session.target !== active_pane;
   }
 
   private sync_split_view_session(session: SaveSession): void {

@@ -193,57 +193,7 @@ describe("NoteService split-view mtime propagation", () => {
     expect(primary_store.open_note?.meta.mtime_ms).toBe(fixed_mtime);
   });
 
-  it("skips save from inactive pane when both panes have same note", async () => {
-    const vault_store = new VaultStore();
-    const notes_store = new NotesStore();
-    const primary_store = new EditorStore();
-    const secondary_store = new EditorStore();
-    const op_store = new OpStore();
-
-    vault_store.set_vault(create_test_vault());
-
-    const note_meta = create_note_meta("notes/shared.md");
-    notes_store.set_notes([note_meta]);
-    primary_store.set_open_note({
-      meta: note_meta,
-      markdown: as_markdown_text("# Shared"),
-      buffer_id: note_meta.id,
-      is_dirty: true,
-    });
-    secondary_store.set_open_note({
-      meta: note_meta,
-      markdown: as_markdown_text("# Shared"),
-      buffer_id: note_meta.id,
-      is_dirty: true,
-    });
-
-    const secondary_editor_service = create_mock_editor_service();
-    const split_view_service = create_mock_split_view_service({
-      is_active: vi.fn().mockReturnValue(true),
-      get_active_pane: vi.fn().mockReturnValue("primary"),
-      is_same_note_in_both_panes: vi.fn().mockReturnValue(true),
-      get_secondary_editor_store: vi.fn().mockReturnValue(secondary_store),
-      get_secondary_editor: vi.fn().mockReturnValue(secondary_editor_service),
-    });
-
-    const { service, notes_port } = build_note_service(
-      vault_store,
-      notes_store,
-      primary_store,
-      op_store,
-      split_view_service,
-    );
-
-    const write_spy = vi.fn().mockResolvedValue({ new_mtime: Date.now() });
-    notes_port.write_and_index_note = write_spy;
-
-    const result = await service.save_note(null, true, "secondary");
-
-    expect(result.status).toBe("skipped");
-    expect(write_spy).not.toHaveBeenCalled();
-  });
-
-  it("allows active pane save when both panes have same note", async () => {
+  it("saves from either pane when both panes have same note", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
     const primary_store = new EditorStore();
