@@ -1,20 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { build_tag_tree } from "$lib/features/tags/domain/build_tag_tree";
-import type { TagInfo, TagTreeNode } from "$lib/features/tags/types";
+import type { TagInfo } from "$lib/features/tags/types";
 
 function tag(name: string, count: number): TagInfo {
   return { tag: name, count };
-}
-
-function pluck(
-  nodes: TagTreeNode[],
-): { full_tag: string; own: number; desc: number; children: number }[] {
-  return nodes.map((n) => ({
-    full_tag: n.full_tag,
-    own: n.own_count,
-    desc: n.descendant_count,
-    children: n.children.length,
-  }));
 }
 
 describe("build_tag_tree", () => {

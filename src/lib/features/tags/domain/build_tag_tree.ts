@@ -63,3 +63,22 @@ function sort_tree(nodes: TagTreeNode[]) {
     sort_tree(node.children);
   }
 }
+
+export function filter_tag_tree(
+  nodes: TagTreeNode[],
+  query: string,
+): TagTreeNode[] {
+  const q = query.toLowerCase();
+  return filter_nodes(nodes, q);
+}
+
+function filter_nodes(nodes: TagTreeNode[], query: string): TagTreeNode[] {
+  const result: TagTreeNode[] = [];
+  for (const node of nodes) {
+    const children = filter_nodes(node.children, query);
+    if (node.full_tag.toLowerCase().includes(query) || children.length > 0) {
+      result.push({ ...node, children });
+    }
+  }
+  return result;
+}

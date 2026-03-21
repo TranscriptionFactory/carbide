@@ -2716,6 +2716,42 @@ mod tests {
         assert_eq!(count_rows(&conn, "note_code_blocks", "rm/test.md"), 0);
         assert_eq!(count_rows(&conn, "note_properties", "rm/test.md"), 0);
     }
+
+    #[test]
+    fn tag_prefix_query_matches_exact_and_descendants() {
+        let conn = open_mem_db();
+
+        let meta1 = note("a.md", "A");
+        let body1 = "---\ntags: [status]\n---\nContent";
+        upsert_note(&conn, &meta1, body1).expect("upsert");
+
+        let meta2 = note("b.md", "B");
+        let body2 = "Some #status/active text.";
+        upsert_note(&conn, &meta2, body2).expect("upsert");
+
+        let meta3 = note("c.md", "C");
+        let body3 = "Has #status/done tag.";
+        upsert_note(&conn, &meta3, body3).expect("upsert");
+
+        let meta4 = note("d.md", "D");
+        let body4 = "Unrelated #other tag.";
+        upsert_note(&conn, &meta4, body4).expect("upsert");
+
+        let tag = "status";
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) ORDER BY path ASC",
+            )
+            .expect("prepare");
+        let rows: Vec<String> = stmt
+            .query_map(params![tag, format!("{tag}/%")], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+
+        assert_eq!(rows, vec!["a.md", "b.md", "c.md"]);
+        assert!(!rows.contains(&"d.md".to_string()));
+    }
 }
 
 pub fn get_orphan_outlinks(conn: &Connection, path: &str) -> Result<Vec<OrphanLink>, String> {
