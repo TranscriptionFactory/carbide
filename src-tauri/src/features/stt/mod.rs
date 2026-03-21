@@ -1,4 +1,7 @@
 pub mod audio;
+pub mod models;
+pub mod text;
+pub mod transcription;
 pub mod types;
 pub mod vad;
 
@@ -9,8 +12,12 @@ use specta::Type;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use audio::{AudioRecorder, is_microphone_access_denied};
+use models::ModelInfo;
+use transcription::TranscriptionResult;
 use types::{AudioDeviceInfo, AudioLevelEvent, RecordingState};
 use vad::{SileroVad, SmoothedVad};
+
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct SttAudioState {
@@ -158,4 +165,84 @@ pub async fn stt_get_recording_state(
 ) -> Result<RecordingState, String> {
     let rec_state = state.recording_state.lock().map_err(|e| e.to_string())?;
     Ok(*rec_state)
+}
+
+// ── Model management commands ───────────────────────────────────────────────
+
+pub struct SttModelState {
+    pub manager: Arc<models::ModelManager>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_list_models(state: State<'_, SttModelState>) -> Result<Vec<ModelInfo>, String> {
+    Ok(state.manager.get_available_models())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_download_model(
+    model_id: String,
+    state: State<'_, SttModelState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .download_model(&model_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_delete_model(
+    model_id: String,
+    state: State<'_, SttModelState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .delete_model(&model_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_cancel_download(
+    model_id: String,
+    state: State<'_, SttModelState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .cancel_download(&model_id)
+        .map_err(|e| e.to_string())
+}
+
+// ── Transcription commands ──────────────────────────────────────────────────
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_load_model(
+    model_id: String,
+    state: State<'_, transcription::SttTranscriptionState>,
+) -> Result<(), String> {
+    state.load_model(&model_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_unload_model(
+    state: State<'_, transcription::SttTranscriptionState>,
+) -> Result<(), String> {
+    state.unload_model().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_transcribe(
+    audio: Vec<f32>,
+    language: Option<String>,
+    state: State<'_, transcription::SttTranscriptionState>,
+) -> Result<TranscriptionResult, String> {
+    state
+        .transcribe(audio, language)
+        .map_err(|e| e.to_string())
 }

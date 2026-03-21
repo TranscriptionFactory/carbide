@@ -111,6 +111,32 @@ pub fn run() {
                     let _ = window.emit("menu-action", id);
                 }
             });
+
+            // Initialize STT model manager and transcription state
+            let app_handle = app.handle().clone();
+            match features::stt::models::ModelManager::new(&app_handle) {
+                Ok(manager) => {
+                    let manager = std::sync::Arc::new(manager);
+                    app.manage(features::stt::SttModelState {
+                        manager: manager.clone(),
+                    });
+                    match features::stt::transcription::SttTranscriptionState::new(
+                        &app_handle,
+                        manager,
+                    ) {
+                        Ok(transcription_state) => {
+                            app.manage(transcription_state);
+                        }
+                        Err(e) => {
+                            log::error!("Failed to initialize STT transcription: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to initialize STT model manager: {}", e);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -250,6 +276,13 @@ pub fn run() {
             features::stt::stt_cancel_recording,
             features::stt::stt_list_audio_devices,
             features::stt::stt_get_recording_state,
+            features::stt::stt_list_models,
+            features::stt::stt_download_model,
+            features::stt::stt_delete_model,
+            features::stt::stt_cancel_download,
+            features::stt::stt_load_model,
+            features::stt::stt_unload_model,
+            features::stt::stt_transcribe,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
