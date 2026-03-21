@@ -1,4 +1,4 @@
-import type { Theme } from "$lib/shared/types/theme";
+import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
 import { apply_auto_palette } from "$lib/shared/utils/palette_generator";
 import { resolve_font_stack } from "$lib/shared/utils/theme_helpers";
 
@@ -111,7 +111,10 @@ let applied_property_keys: string[] = [];
 
 export function apply_theme(
   theme: Theme,
-  options: { persist_to_cache?: boolean } = {},
+  options: {
+    persist_to_cache?: boolean;
+    color_scheme_preference?: ColorSchemePreference;
+  } = {},
 ): void {
   if (typeof document === "undefined") return;
 
@@ -139,16 +142,23 @@ export function apply_theme(
   }
 
   if (options.persist_to_cache !== false) {
-    cache_theme_for_fouc(theme, entries);
+    cache_theme_for_fouc(theme, entries, options.color_scheme_preference);
   }
 }
 
-function cache_theme_for_fouc(theme: Theme, entries: [string, string][]): void {
+function cache_theme_for_fouc(
+  theme: Theme,
+  entries: [string, string][],
+  color_scheme_preference?: ColorSchemePreference,
+): void {
   try {
-    const cache = {
+    const cache: Record<string, unknown> = {
       color_scheme: theme.color_scheme,
       tokens: Object.fromEntries(entries),
     };
+    if (color_scheme_preference) {
+      cache.color_scheme_preference = color_scheme_preference;
+    }
     localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(cache));
   } catch {
     // localStorage may be unavailable

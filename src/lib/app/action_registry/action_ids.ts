@@ -193,6 +193,8 @@ export const ACTION_IDS = {
   theme_update: "theme.update",
   theme_save: "theme.save",
   theme_revert: "theme.revert",
+  theme_set_color_scheme_preference: "theme.set_color_scheme_preference",
+  theme_set_system_themes: "theme.set_system_themes",
 
   hotkey_open_editor: "hotkey.open_editor",
   hotkey_close_editor: "hotkey.close_editor",

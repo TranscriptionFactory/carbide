@@ -5,7 +5,12 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Copy from "@lucide/svelte/icons/copy";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import { type Theme, AVAILABLE_SHIKI_THEMES } from "$lib/shared/types/theme";
+  import {
+    type Theme,
+    type ColorSchemePreference,
+    AVAILABLE_SHIKI_THEMES,
+    get_all_themes,
+  } from "$lib/shared/types/theme";
   import ThemeGallery from "./theme/theme_gallery.svelte";
   import AccentPicker from "./theme/accent_picker.svelte";
   import TypographyPresets from "./theme/typography_presets.svelte";
@@ -16,24 +21,45 @@
   type Props = {
     user_themes: Theme[];
     active_theme: Theme;
+    color_scheme_preference: ColorSchemePreference;
+    system_light_theme_id: string;
+    system_dark_theme_id: string;
     on_switch: (theme_id: string) => void;
     on_create: (name: string, base: Theme) => void;
     on_duplicate: (theme_id: string) => void;
     on_rename: (id: string, name: string) => void;
     on_delete: (theme_id: string) => void;
     on_update: (theme: Theme) => void;
+    on_set_color_scheme_preference: (pref: ColorSchemePreference) => void;
+    on_set_system_themes: (args: {
+      light_id?: string;
+      dark_id?: string;
+    }) => void;
   };
 
   let {
     user_themes,
     active_theme,
+    color_scheme_preference,
+    system_light_theme_id,
+    system_dark_theme_id,
     on_switch,
     on_create,
     on_duplicate,
     on_rename,
     on_delete,
     on_update,
+    on_set_color_scheme_preference,
+    on_set_system_themes,
   }: Props = $props();
+
+  const all_themes = $derived(get_all_themes(user_themes));
+  const light_themes = $derived(
+    all_themes.filter((t) => t.color_scheme === "light"),
+  );
+  const dark_themes = $derived(
+    all_themes.filter((t) => t.color_scheme === "dark"),
+  );
 
   const locked = $derived(active_theme.is_builtin);
 
@@ -135,6 +161,12 @@
   const color_scheme_options = [
     { value: "light", label: "Light" },
     { value: "dark", label: "Dark" },
+  ];
+
+  const appearance_options = [
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+    { value: "system", label: "System" },
   ];
 
   const heading_color_options = [
@@ -256,30 +288,105 @@
   <div class="ThemeSettings__body">
     <!-- Controls Column -->
     <div class="ThemeSettings__controls">
-      <!-- Color Scheme -->
+      <!-- Appearance -->
       <div class="ThemeSettings__row">
-        <span class="ThemeSettings__label">Color Scheme</span>
+        <span class="ThemeSettings__label">Appearance</span>
         <Select.Root
           type="single"
-          value={active_theme.color_scheme}
-          onValueChange={(v: string | undefined) =>
-            update_select("color_scheme", v)}
-          disabled={locked}
+          value={color_scheme_preference}
+          onValueChange={(v: string | undefined) => {
+            if (v === "light" || v === "dark" || v === "system") {
+              on_set_color_scheme_preference(v);
+            }
+          }}
         >
           <Select.Trigger class="w-28">
             <span data-slot="select-value">
-              {color_scheme_options.find(
-                (o) => o.value === active_theme.color_scheme,
+              {appearance_options.find(
+                (o) => o.value === color_scheme_preference,
               )?.label}
             </span>
           </Select.Trigger>
           <Select.Content>
-            {#each color_scheme_options as option (option.value)}
+            {#each appearance_options as option (option.value)}
               <Select.Item value={option.value}>{option.label}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
       </div>
+
+      {#if color_scheme_preference === "system"}
+        <!-- System Theme Pair -->
+        <div class="ThemeSettings__row">
+          <span class="ThemeSettings__label">Light Theme</span>
+          <Select.Root
+            type="single"
+            value={system_light_theme_id}
+            onValueChange={(v: string | undefined) => {
+              if (v) on_set_system_themes({ light_id: v });
+            }}
+          >
+            <Select.Trigger class="w-40">
+              <span data-slot="select-value">
+                {light_themes.find((t) => t.id === system_light_theme_id)
+                  ?.name ?? "Select..."}
+              </span>
+            </Select.Trigger>
+            <Select.Content>
+              {#each light_themes as theme (theme.id)}
+                <Select.Item value={theme.id}>{theme.name}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+        <div class="ThemeSettings__row">
+          <span class="ThemeSettings__label">Dark Theme</span>
+          <Select.Root
+            type="single"
+            value={system_dark_theme_id}
+            onValueChange={(v: string | undefined) => {
+              if (v) on_set_system_themes({ dark_id: v });
+            }}
+          >
+            <Select.Trigger class="w-40">
+              <span data-slot="select-value">
+                {dark_themes.find((t) => t.id === system_dark_theme_id)?.name ??
+                  "Select..."}
+              </span>
+            </Select.Trigger>
+            <Select.Content>
+              {#each dark_themes as theme (theme.id)}
+                <Select.Item value={theme.id}>{theme.name}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+      {:else}
+        <!-- Per-theme Color Scheme (non-system mode) -->
+        <div class="ThemeSettings__row">
+          <span class="ThemeSettings__label">Color Scheme</span>
+          <Select.Root
+            type="single"
+            value={active_theme.color_scheme}
+            onValueChange={(v: string | undefined) =>
+              update_select("color_scheme", v)}
+            disabled={locked}
+          >
+            <Select.Trigger class="w-28">
+              <span data-slot="select-value">
+                {color_scheme_options.find(
+                  (o) => o.value === active_theme.color_scheme,
+                )?.label}
+              </span>
+            </Select.Trigger>
+            <Select.Content>
+              {#each color_scheme_options as option (option.value)}
+                <Select.Item value={option.value}>{option.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+      {/if}
 
       <!-- Accent Color -->
       <AccentPicker

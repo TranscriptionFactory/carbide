@@ -17,15 +17,15 @@
           var raw = localStorage.getItem("badgerly_active_theme_cache");
           if (!raw) return;
           var cache = JSON.parse(raw);
-          if (cache.color_scheme) {
-            document.documentElement.setAttribute(
-              "data-color-scheme",
-              cache.color_scheme,
-            );
-            document.documentElement.style.setProperty(
-              "color-scheme",
-              cache.color_scheme,
-            );
+          var scheme = cache.color_scheme;
+          if (cache.color_scheme_preference === "system") {
+            scheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          }
+          if (scheme) {
+            document.documentElement.setAttribute("data-color-scheme", scheme);
+            document.documentElement.style.setProperty("color-scheme", scheme);
           }
           if (cache.tokens) {
             var keys = Object.keys(cache.tokens);

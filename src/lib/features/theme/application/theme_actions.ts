@@ -1,10 +1,11 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import type { Theme } from "$lib/shared/types/theme";
+import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
 import {
   BUILTIN_THEMES,
   get_all_themes,
   DEFAULT_THEME_ID,
+  find_paired_theme_id,
 } from "$lib/shared/types/theme";
 
 export function register_theme_actions(input: ActionRegistrationInput) {
@@ -14,8 +15,17 @@ export function register_theme_actions(input: ActionRegistrationInput) {
   let persisted_active_theme_id: string | null = null;
 
   async function persist_themes() {
-    await services.theme.save_user_themes(stores.ui.user_themes);
-    await services.theme.save_active_theme_id(stores.ui.active_theme_id);
+    await Promise.all([
+      services.theme.save_user_themes(stores.ui.user_themes),
+      services.theme.save_active_theme_id(stores.ui.active_theme_id),
+      services.theme.save_color_scheme_preference(
+        stores.ui.color_scheme_preference,
+      ),
+      services.theme.save_system_theme_ids(
+        stores.ui.system_light_theme_id,
+        stores.ui.system_dark_theme_id,
+      ),
+    ]);
   }
 
   function clone_theme(theme: Theme): Theme {
@@ -65,6 +75,9 @@ export function register_theme_actions(input: ActionRegistrationInput) {
       const result = await services.theme.load_themes();
       stores.ui.set_user_themes(result.user_themes);
       stores.ui.set_active_theme_id(result.active_theme_id);
+      stores.ui.set_color_scheme_preference(result.color_scheme_preference);
+      stores.ui.set_system_light_theme_id(result.system_light_theme_id);
+      stores.ui.set_system_dark_theme_id(result.system_dark_theme_id);
       reset_theme_draft_state();
     },
   });
@@ -175,6 +188,50 @@ export function register_theme_actions(input: ActionRegistrationInput) {
         stores.ui.set_active_theme_id(persisted_active_theme_id);
       }
       reset_theme_draft_state();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.theme_set_color_scheme_preference,
+    label: "Set Color Scheme Preference",
+    execute: (pref: unknown) => {
+      if (pref !== "light" && pref !== "dark" && pref !== "system") return;
+      mark_theme_draft();
+      stores.ui.set_color_scheme_preference(pref);
+      if (pref === "system") {
+        const all = get_all_themes(stores.ui.user_themes);
+        const current = stores.ui.active_theme;
+        if (current.color_scheme === "dark") {
+          stores.ui.set_system_dark_theme_id(current.id);
+          const light_id = find_paired_theme_id(current.id, all);
+          if (light_id) stores.ui.set_system_light_theme_id(light_id);
+        } else {
+          stores.ui.set_system_light_theme_id(current.id);
+          const dark_id = find_paired_theme_id(current.id, all);
+          if (dark_id) stores.ui.set_system_dark_theme_id(dark_id);
+        }
+      } else if (pref === "light" || pref === "dark") {
+        const current = stores.ui.active_theme;
+        if (current.color_scheme !== pref) {
+          const all = get_all_themes(stores.ui.user_themes);
+          const paired = find_paired_theme_id(current.id, all);
+          if (paired) stores.ui.set_active_theme_id(paired);
+        }
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.theme_set_system_themes,
+    label: "Set System Theme Pair",
+    execute: (args: unknown) => {
+      const { light_id, dark_id } = args as {
+        light_id?: string;
+        dark_id?: string;
+      };
+      mark_theme_draft();
+      if (light_id) stores.ui.set_system_light_theme_id(light_id);
+      if (dark_id) stores.ui.set_system_dark_theme_id(dark_id);
     },
   });
 }

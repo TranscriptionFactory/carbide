@@ -27,9 +27,14 @@ function create_harness() {
     load_themes: vi.fn().mockResolvedValue({
       user_themes: [],
       active_theme_id: BUILTIN_NORDIC_DARK.id,
+      color_scheme_preference: "dark",
+      system_light_theme_id: "nordic-light",
+      system_dark_theme_id: "nordic-dark",
     }),
     save_user_themes: vi.fn().mockResolvedValue(undefined),
     save_active_theme_id: vi.fn().mockResolvedValue(undefined),
+    save_color_scheme_preference: vi.fn().mockResolvedValue(undefined),
+    save_system_theme_ids: vi.fn().mockResolvedValue(undefined),
     duplicate_theme: vi.fn((name: string, base: Theme) => ({
       ...base,
       id: `${name.toLowerCase().replace(/\s+/g, "-")}-id`,

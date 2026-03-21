@@ -1,6 +1,8 @@
-import type { Theme } from "$lib/shared/types/theme";
+import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
 import {
   DEFAULT_THEME_ID,
+  DEFAULT_LIGHT_THEME_ID,
+  DEFAULT_DARK_THEME_ID,
   get_all_themes,
   resolve_theme,
 } from "$lib/shared/types/theme";
@@ -190,8 +192,22 @@ function initial_settings_dialog(settings: EditorSettings) {
 export class UIStore {
   user_themes = $state<Theme[]>([]);
   active_theme_id = $state<string>(DEFAULT_THEME_ID);
+
+  color_scheme_preference = $state<ColorSchemePreference>("dark");
+  system_light_theme_id = $state<string>(DEFAULT_LIGHT_THEME_ID);
+  system_dark_theme_id = $state<string>(DEFAULT_DARK_THEME_ID);
+  system_prefers_dark = $state<boolean>(true);
+
+  resolved_theme_id = $derived<string>(
+    this.color_scheme_preference === "system"
+      ? this.system_prefers_dark
+        ? this.system_dark_theme_id
+        : this.system_light_theme_id
+      : this.active_theme_id,
+  );
+
   active_theme = $derived<Theme>(
-    resolve_theme(get_all_themes(this.user_themes), this.active_theme_id),
+    resolve_theme(get_all_themes(this.user_themes), this.resolved_theme_id),
   );
 
   sidebar_open = $state(true);
@@ -386,6 +402,22 @@ export class UIStore {
 
   set_active_theme_id(id: string) {
     this.active_theme_id = id;
+  }
+
+  set_color_scheme_preference(pref: ColorSchemePreference) {
+    this.color_scheme_preference = pref;
+  }
+
+  set_system_light_theme_id(id: string) {
+    this.system_light_theme_id = id;
+  }
+
+  set_system_dark_theme_id(id: string) {
+    this.system_dark_theme_id = id;
+  }
+
+  set_system_prefers_dark(prefers_dark: boolean) {
+    this.system_prefers_dark = prefers_dark;
   }
 
   set_user_themes(themes: Theme[]) {

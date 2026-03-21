@@ -1,5 +1,7 @@
 export type ThemeColorScheme = "dark" | "light";
 
+export type ColorSchemePreference = "light" | "dark" | "system";
+
 export type ThemeSpacing =
   | "extra_compact"
   | "compact"
@@ -860,6 +862,8 @@ export const AVAILABLE_SHIKI_THEMES = {
 } as const;
 
 export const DEFAULT_THEME_ID = "nordic-dark";
+export const DEFAULT_LIGHT_THEME_ID = "nordic-light";
+export const DEFAULT_DARK_THEME_ID = "nordic-dark";
 
 export function get_all_themes(user_themes: Theme[]): Theme[] {
   return [...BUILTIN_THEMES, ...user_themes];
@@ -876,4 +880,21 @@ export function create_user_theme(name: string, base: Theme): Theme {
     name,
     is_builtin: false,
   };
+}
+
+export function find_paired_theme_id(
+  theme_id: string,
+  all_themes: Theme[],
+): string | null {
+  const theme = all_themes.find((t) => t.id === theme_id);
+  if (!theme) return null;
+  const target_scheme = theme.color_scheme === "dark" ? "light" : "dark";
+  const base_name = theme.name.replace(/ (Light|Dark)$/i, "");
+  const paired = all_themes.find(
+    (t) =>
+      t.color_scheme === target_scheme &&
+      t.name.replace(/ (Light|Dark)$/i, "") === base_name,
+  );
+  if (paired) return paired.id;
+  return all_themes.find((t) => t.color_scheme === target_scheme)?.id ?? null;
 }

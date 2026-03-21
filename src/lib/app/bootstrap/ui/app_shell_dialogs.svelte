@@ -39,7 +39,7 @@
   } from "$lib/shared/types/editor_settings";
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
-  import type { Theme } from "$lib/shared/types/theme";
+  import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
 
   type Props = {
     hide_choose_vault_button?: boolean;
@@ -354,6 +354,16 @@
     void action_registry.execute(ACTION_IDS.theme_delete, id)}
   on_theme_update={(theme: Theme) =>
     void action_registry.execute(ACTION_IDS.theme_update, theme)}
+  color_scheme_preference={stores.ui.color_scheme_preference}
+  system_light_theme_id={stores.ui.system_light_theme_id}
+  system_dark_theme_id={stores.ui.system_dark_theme_id}
+  on_theme_set_color_scheme_preference={(pref: ColorSchemePreference) =>
+    void action_registry.execute(
+      ACTION_IDS.theme_set_color_scheme_preference,
+      pref,
+    )}
+  on_theme_set_system_themes={(args: { light_id?: string; dark_id?: string }) =>
+    void action_registry.execute(ACTION_IDS.theme_set_system_themes, args)}
 />
 
 <CreateFolderDialog

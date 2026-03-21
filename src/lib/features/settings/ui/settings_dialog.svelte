@@ -42,7 +42,7 @@
     AiProviderConfig,
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
-  import type { Theme } from "$lib/shared/types/theme";
+  import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import { slide } from "svelte/transition";
   import { draggable } from "$lib/shared/utils/draggable";
@@ -76,6 +76,14 @@
     on_theme_rename: (id: string, name: string) => void;
     on_theme_delete: (theme_id: string) => void;
     on_theme_update: (theme: Theme) => void;
+    color_scheme_preference: ColorSchemePreference;
+    system_light_theme_id: string;
+    system_dark_theme_id: string;
+    on_theme_set_color_scheme_preference: (pref: ColorSchemePreference) => void;
+    on_theme_set_system_themes: (args: {
+      light_id?: string;
+      dark_id?: string;
+    }) => void;
   };
 
   let {
@@ -106,6 +114,11 @@
     on_theme_rename,
     on_theme_delete,
     on_theme_update,
+    color_scheme_preference,
+    system_light_theme_id,
+    system_dark_theme_id,
+    on_theme_set_color_scheme_preference,
+    on_theme_set_system_themes,
   }: Props = $props();
 
   const tab_count_options = Array.from({ length: 10 }, (_, i) => ({
@@ -442,12 +455,17 @@
           <ThemeSettings
             {user_themes}
             {active_theme}
+            {color_scheme_preference}
+            {system_light_theme_id}
+            {system_dark_theme_id}
             on_switch={on_theme_switch}
             on_create={on_theme_create}
             on_duplicate={on_theme_duplicate}
             on_rename={on_theme_rename}
             on_delete={on_theme_delete}
             on_update={on_theme_update}
+            on_set_color_scheme_preference={on_theme_set_color_scheme_preference}
+            on_set_system_themes={on_theme_set_system_themes}
           />
         {:else if active_category === "ai"}
           <h2 class="SettingsDialog__content-header">AI</h2>
