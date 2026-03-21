@@ -5,9 +5,10 @@ use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
 
-const MODEL_ID: &str = "BAAI/bge-small-en-v1.5";
+const MODEL_ID: &str = "Snowflake/snowflake-arctic-embed-xs";
 
 pub struct EmbeddingService {
     model: BertModel,
@@ -161,13 +162,26 @@ impl EmbeddingService {
     }
 }
 
-#[derive(Default)]
 pub struct EmbeddingServiceState {
     inner: Mutex<Option<Arc<EmbeddingService>>>,
+    initialized: AtomicBool,
+}
+
+impl Default for EmbeddingServiceState {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::new(None),
+            initialized: AtomicBool::new(false),
+        }
+    }
 }
 
 impl EmbeddingServiceState {
-    pub fn get_or_init(&self, cache_dir: PathBuf) -> Result<Arc<EmbeddingService>, String> {
+    pub fn get_or_init(
+        &self,
+        cache_dir: PathBuf,
+        app_handle: &AppHandle,
+    ) -> Result<Arc<EmbeddingService>, String> {
         let mut guard = self.inner.lock().map_err(|e| e.to_string())?;
         if let Some(ref service) = *guard {
             return Ok(Arc::clone(service));
@@ -178,6 +192,9 @@ impl EmbeddingServiceState {
         })?;
         let arc = Arc::new(service);
         *guard = Some(Arc::clone(&arc));
+        if !self.initialized.swap(true, Ordering::SeqCst) {
+            let _ = app_handle.emit("embedding_model_loaded", ());
+        }
         Ok(arc)
     }
 

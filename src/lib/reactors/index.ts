@@ -29,7 +29,7 @@ import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reacto
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
-import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
+import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
@@ -229,8 +229,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_menu_action_reactor(
       (action_id) => void context.action_registry.execute(action_id),
     ),
-    create_embedding_sync_reactor(
-      context.search_store,
+    create_embedding_model_loaded_reactor(
       context.vault_store,
       context.workspace_index_port,
     ),

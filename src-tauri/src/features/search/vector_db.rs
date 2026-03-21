@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 
-pub const MODEL_VERSION: &str = "bge-small-en-v1.5";
+pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs";
 pub const _EMBEDDING_DIMS: usize = 384;
 
 pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {

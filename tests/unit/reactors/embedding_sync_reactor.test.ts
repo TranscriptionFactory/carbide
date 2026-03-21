@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { create_embedding_sync_reactor } from "$lib/reactors/embedding_sync.reactor.svelte";
+import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 
-describe("embedding_sync.reactor", () => {
+describe("embedding_model_loaded.reactor", () => {
   it("returns a cleanup function", () => {
-    const unmount = create_embedding_sync_reactor(
-      {
-        index_progress: { status: "idle", indexed: 0, total: 0, error: null },
-      } as never,
+    const unmount = create_embedding_model_loaded_reactor(
       { vault: null } as never,
       { embed_sync: vi.fn() } as never,
     );
