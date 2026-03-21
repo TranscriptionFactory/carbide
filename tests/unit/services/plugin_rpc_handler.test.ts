@@ -278,7 +278,7 @@ describe("PluginRpcHandler", () => {
       const svc = make_settings_service();
       handler.set_settings_service(svc as any);
 
-      const manifest = make_manifest(["settings:register_tab"]);
+      const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "s5",
         method: "settings.register_tab",
@@ -298,7 +298,7 @@ describe("PluginRpcHandler", () => {
       const svc = make_settings_service();
       handler.set_settings_service(svc as any);
 
-      const manifest = make_manifest(["settings:register_tab"]);
+      const manifest = make_manifest(["settings:register"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "s6",
         method: "settings.register_tab",
@@ -313,7 +313,7 @@ describe("PluginRpcHandler", () => {
       });
     });
 
-    it("settings.register_tab throws without settings:register_tab permission", async () => {
+    it("settings.register_tab throws without settings:register permission", async () => {
       const svc = make_settings_service();
       handler.set_settings_service(svc as any);
 
@@ -324,9 +324,7 @@ describe("PluginRpcHandler", () => {
         params: [{ label: "My Settings" }],
       });
 
-      expect(response.error).toMatch(
-        /Missing settings:register_tab permission/,
-      );
+      expect(response.error).toMatch(/Missing settings:register permission/);
       expect(ctx.plugin.register_settings_tab).not.toHaveBeenCalled();
     });
   });

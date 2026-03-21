@@ -71,7 +71,7 @@ export function create_test_ports(): Ports {
       unload: () => Promise.resolve(),
     },
     plugin_settings: {
-      read_settings: () => Promise.resolve({ plugins: {} }),
+      read_settings: () => Promise.resolve({ schema_version: 1, plugins: {} }),
       write_settings: () => Promise.resolve(),
       approve_permission: () => Promise.resolve(),
       deny_permission: () => Promise.resolve(),

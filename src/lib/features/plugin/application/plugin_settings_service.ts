@@ -1,8 +1,54 @@
 import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
-import type { PluginSettingsPort, PluginSettingsData } from "../ports";
+import type {
+  PluginManifest,
+  PluginSettingsData,
+  PluginSettingsEntry,
+  PluginSettingsPort,
+} from "../ports";
 import type { VaultStore } from "$lib/features/vault";
 
 const SAVE_DEBOUNCE_MS = 300;
+export const PLUGIN_SETTINGS_SCHEMA_VERSION = 1;
+
+function manifest_default_settings(
+  manifest: PluginManifest,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    (manifest.contributes?.settings ?? [])
+      .filter((setting) => setting.default !== undefined)
+      .map((setting) => [setting.key, setting.default]),
+  );
+}
+
+function requested_permissions(manifest: PluginManifest): string[] {
+  return Array.from(new Set(manifest.permissions));
+}
+
+function create_entry_from_manifest(input: {
+  manifest: PluginManifest;
+  existing: PluginSettingsEntry | undefined;
+  source: string;
+}): PluginSettingsEntry {
+  const permissions_requested = requested_permissions(input.manifest);
+  const permissions_granted = (
+    input.existing?.permissions_granted ?? []
+  ).filter((permission) => permissions_requested.includes(permission));
+
+  return {
+    enabled: input.existing?.enabled ?? false,
+    version: input.manifest.version,
+    source: input.existing?.source ?? input.source,
+    permissions_granted,
+    permissions_pending: permissions_requested.filter(
+      (permission) => !permissions_granted.includes(permission),
+    ),
+    settings: {
+      ...manifest_default_settings(input.manifest),
+      ...(input.existing?.settings ?? {}),
+    },
+    content_hash: input.existing?.content_hash ?? null,
+  };
+}
 
 export class PluginSettingsService {
   private save_timer: ReturnType<typeof setTimeout> | null = null;
@@ -31,6 +77,7 @@ export class PluginSettingsService {
     if (!vault_path) return;
 
     const data: PluginSettingsData = {
+      schema_version: PLUGIN_SETTINGS_SCHEMA_VERSION,
       plugins: Object.fromEntries(this.store.entries),
     };
     await this.port.write_settings(vault_path, data);
@@ -71,6 +118,23 @@ export class PluginSettingsService {
 
   async get_all_settings(plugin_id: string): Promise<Record<string, unknown>> {
     return this.store.get_entry(plugin_id)?.settings ?? {};
+  }
+
+  sync_manifest_entry(
+    manifest: PluginManifest,
+    source = "local",
+  ): { changed: boolean; entry: PluginSettingsEntry } {
+    const existing = this.store.get_entry(manifest.id);
+    const entry = create_entry_from_manifest({
+      manifest,
+      existing,
+      source,
+    });
+    const changed = JSON.stringify(existing) !== JSON.stringify(entry);
+
+    this.store.set_entry(manifest.id, entry);
+
+    return { changed, entry };
   }
 
   private update_permission(
@@ -114,9 +178,23 @@ export class PluginSettingsService {
     await this.save();
   }
 
+  async set_enabled(plugin_id: string, enabled: boolean): Promise<void> {
+    const entry = this.store.get_entry(plugin_id);
+    if (!entry) return;
+
+    this.store.set_entry(plugin_id, {
+      ...entry,
+      enabled,
+    });
+    await this.save();
+  }
+
   ensure_plugin_entry(plugin_id: string) {
     if (!this.store.get_entry(plugin_id)) {
       this.store.set_entry(plugin_id, {
+        enabled: false,
+        version: "",
+        source: "local",
         permissions_granted: [],
         permissions_pending: [],
         settings: {},

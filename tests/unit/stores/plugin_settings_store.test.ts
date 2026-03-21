@@ -6,6 +6,9 @@ function make_entry(
   overrides?: Partial<PluginSettingsEntry>,
 ): PluginSettingsEntry {
   return {
+    enabled: false,
+    version: "",
+    source: "local",
     permissions_granted: [],
     permissions_pending: [],
     settings: {},

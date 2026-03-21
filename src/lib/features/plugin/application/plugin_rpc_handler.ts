@@ -326,8 +326,8 @@ export class PluginRpcHandler {
       case "get_all":
         return this.settings_service.get_all_settings(plugin_id);
       case "register_tab": {
-        if (!manifest.permissions.includes("settings:register_tab")) {
-          throw new Error("Missing settings:register_tab permission");
+        if (!manifest.permissions.includes("settings:register")) {
+          throw new Error("Missing settings:register permission");
         }
         const { label, icon } = params[0] ?? {};
         const tab: PluginSettingsTab = {
