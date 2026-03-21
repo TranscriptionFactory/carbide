@@ -113,6 +113,7 @@ mod specta_export {
                 crate::features::tags::service::tags_list_all,
                 crate::features::tags::service::tags_list_all_unified,
                 crate::features::tags::service::tags_get_notes_for_tag,
+                crate::features::tags::service::tags_get_notes_for_tag_prefix,
                 crate::features::tags::service::notes_with_code_language,
                 crate::features::tags::service::property_registry_list,
                 crate::features::tags::service::section_get_range,

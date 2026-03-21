@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./domain/build_tag_tree";
 export * from "./ports";
 export * from "./adapters/tag_tauri_adapter";
 export * from "./state/tag_store.svelte";

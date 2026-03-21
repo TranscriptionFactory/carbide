@@ -8,9 +8,38 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ACTION_IDS } from "$lib/app";
+  import TagTreeNode from "./tag_tree_node.svelte";
+  import { build_tag_tree } from "../domain/build_tag_tree";
+  import type { TagTreeNode as TagTreeNodeType } from "../types";
 
   const { stores, action_registry } = use_app_context();
   const tag_store = stores.tag;
+
+  let tag_tree = $derived(build_tag_tree(tag_store.tags));
+
+  let filtered_tree: TagTreeNodeType[] = $derived.by(() => {
+    if (!tag_store.search_query) return tag_tree;
+    const q = tag_store.search_query.toLowerCase();
+    return filter_tree(tag_tree, q);
+  });
+
+  function filter_tree(
+    nodes: TagTreeNodeType[],
+    query: string,
+  ): TagTreeNodeType[] {
+    const result: TagTreeNodeType[] = [];
+    for (const node of nodes) {
+      const children = filter_tree(node.children, query);
+      if (
+        node.segment.toLowerCase().includes(query) ||
+        node.full_tag.toLowerCase().includes(query) ||
+        children.length > 0
+      ) {
+        result.push({ ...node, children });
+      }
+    }
+    return result;
+  }
 
   onMount(() => {
     void action_registry.execute(ACTION_IDS.tags_refresh);
@@ -68,9 +97,11 @@
           >
             <ChevronLeft size={14} />
           </Button>
-          <span class="text-xs font-medium truncate"
-            >#{tag_store.selected_tag}</span
-          >
+          <span class="text-xs font-medium truncate">
+            #{tag_store.selected_tag}{tag_store.selected_is_prefix
+              ? "/..."
+              : ""}
+          </span>
         </div>
 
         {#if tag_store.notes_loading}
@@ -109,7 +140,7 @@
       >
         Loading tags...
       </div>
-    {:else if tag_store.filtered_tags.length === 0}
+    {:else if filtered_tree.length === 0}
       <div
         class="flex flex-col items-center justify-center h-40 text-xs text-muted-foreground gap-2"
       >
@@ -130,24 +161,9 @@
         {/if}
       </div>
     {:else}
-      <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
-        {#each tag_store.filtered_tags as tag_info (tag_info.tag)}
-          <button
-            type="button"
-            class="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center justify-between gap-2"
-            onclick={() =>
-              void action_registry.execute(
-                ACTION_IDS.tags_select,
-                tag_info.tag,
-              )}
-          >
-            <span class="truncate">#{tag_info.tag}</span>
-            <span
-              class="shrink-0 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full"
-            >
-              {tag_info.count}
-            </span>
-          </button>
+      <div class="flex-1 overflow-y-auto py-1 flex flex-col">
+        {#each filtered_tree as node (node.full_tag)}
+          <TagTreeNode {node} depth={0} {tag_store} {action_registry} />
         {/each}
       </div>
     {/if}

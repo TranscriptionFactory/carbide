@@ -34,11 +34,28 @@ export class TagService {
     const vault = this.vault_store.vault;
     if (!vault) return;
 
-    this.store.select_tag(tag);
+    this.store.select_tag(tag, false);
     this.store.set_notes_for_tag([]);
     this.store.set_notes_loading(true);
     try {
       const notes = await this.port.get_notes_for_tag(vault.id, tag);
+      this.store.set_notes_for_tag(notes);
+    } catch (e) {
+      this.store.set_error(e instanceof Error ? e.message : String(e));
+    } finally {
+      this.store.set_notes_loading(false);
+    }
+  }
+
+  async select_tag_prefix(tag: string) {
+    const vault = this.vault_store.vault;
+    if (!vault) return;
+
+    this.store.select_tag(tag, true);
+    this.store.set_notes_for_tag([]);
+    this.store.set_notes_loading(true);
+    try {
+      const notes = await this.port.get_notes_for_tag_prefix(vault.id, tag);
       this.store.set_notes_for_tag(notes);
     } catch (e) {
       this.store.set_error(e instanceof Error ? e.message : String(e));

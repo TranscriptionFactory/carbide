@@ -160,6 +160,7 @@ pub fn run() {
             features::tags::service::tags_list_all,
             features::tags::service::tags_list_all_unified,
             features::tags::service::tags_get_notes_for_tag,
+            features::tags::service::tags_get_notes_for_tag_prefix,
             features::tags::service::notes_with_code_language,
             features::tags::service::property_registry_list,
             features::tags::service::notes_with_tag_in_section,

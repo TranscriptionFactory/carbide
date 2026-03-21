@@ -253,6 +253,8 @@ export const ACTION_IDS = {
   tags_open_note: "tags.open_note",
   tags_set_search_query: "tags.set_search_query",
   tags_toggle_panel: "tags.toggle_panel",
+  tags_select_prefix: "tags.select_prefix",
+  tags_toggle_expanded: "tags.toggle_expanded",
 
   lint_format_file: "lint.format_file",
   lint_format_vault: "lint.format_vault",

@@ -86,6 +86,7 @@ export function create_test_ports(): Ports {
     tag: {
       list_all_tags: () => Promise.resolve([]),
       get_notes_for_tag: () => Promise.resolve([]),
+      get_notes_for_tag_prefix: () => Promise.resolve([]),
     },
     lint: {
       start: () => Promise.resolve(),

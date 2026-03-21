@@ -120,6 +120,38 @@ pub fn tags_get_notes_for_tag(
 
 #[tauri::command]
 #[specta::specta]
+pub fn tags_get_notes_for_tag_prefix(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+    source: Option<String>,
+) -> Result<Vec<String>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        let (sql, params): (&str, Vec<Box<dyn rusqlite::ToSql>>) = match source.as_deref() {
+            Some(src) => (
+                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) AND source = ?3 ORDER BY path ASC",
+                vec![
+                    Box::new(tag.clone()),
+                    Box::new(format!("{tag}/%")),
+                    Box::new(src.to_string()),
+                ],
+            ),
+            None => (
+                "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) ORDER BY path ASC",
+                vec![Box::new(tag.clone()), Box::new(format!("{tag}/%"))],
+            ),
+        };
+        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(&params), |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn notes_with_code_language(
     app: AppHandle,
     vault_id: String,
