@@ -113,7 +113,9 @@ describe("omnibar confirm_item routing", () => {
       make_note_item("docs/report.pdf"),
     );
 
-    expect(document_open).toHaveBeenCalledWith({ file_path: as_note_path("docs/report.pdf") });
+    expect(document_open).toHaveBeenCalledWith({
+      file_path: as_note_path("docs/report.pdf"),
+    });
     expect(note_open).not.toHaveBeenCalled();
   });
 
@@ -140,7 +142,9 @@ describe("omnibar confirm_item routing", () => {
       make_recent_note_item("archive/notes.pdf"),
     );
 
-    expect(document_open).toHaveBeenCalledWith({ file_path: as_note_path("archive/notes.pdf") });
+    expect(document_open).toHaveBeenCalledWith({
+      file_path: as_note_path("archive/notes.pdf"),
+    });
     expect(note_open).not.toHaveBeenCalled();
   });
 });

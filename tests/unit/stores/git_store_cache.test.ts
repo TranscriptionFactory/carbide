@@ -42,8 +42,14 @@ describe("GitStore history_cache invalidation", () => {
   it("restore_history_from_cache returns false after set_status even when cache had multiple entries", () => {
     const store = new GitStore();
 
-    store.set_history([make_commit("aaa")], "notes/a.md", { limit: 10, has_more: false });
-    store.set_history([make_commit("bbb")], "notes/b.md", { limit: 10, has_more: false });
+    store.set_history([make_commit("aaa")], "notes/a.md", {
+      limit: 10,
+      has_more: false,
+    });
+    store.set_history([make_commit("bbb")], "notes/b.md", {
+      limit: 10,
+      has_more: false,
+    });
 
     store.set_status("main", false, 0, false, false, null, 0, 0);
 

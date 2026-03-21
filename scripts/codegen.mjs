@@ -16,7 +16,10 @@ if (existsSync(bindingsPath) && process.platform === "win32") {
   process.exit(0);
 }
 
-execSync("cd src-tauri && cargo test specta_export::export_bindings -- --nocapture", {
-  stdio: "inherit",
-  shell: true,
-});
+execSync(
+  "cd src-tauri && cargo test specta_export::export_bindings -- --nocapture",
+  {
+    stdio: "inherit",
+    shell: true,
+  },
+);
