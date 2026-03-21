@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { build_file_link } from "$lib/features/editor/domain/file_drop_plugin";
+import { describe, it, expect, vi } from "vitest";
+import {
+  build_file_link,
+  create_file_drop_prose_plugin,
+} from "$lib/features/editor/domain/file_drop_plugin";
+import type { PastedImagePayload } from "$lib/shared/types/editor";
 
 describe("build_file_link", () => {
   describe("non-image files", () => {
@@ -82,5 +86,163 @@ describe("build_file_link", () => {
       const result = build_file_link("data/analysis.py", "notes/note.md");
       expect(result).toBe("[analysis.py](../data/analysis.py)");
     });
+  });
+});
+
+function make_mock_file(name: string, size: number, type: string): File {
+  const content = new Uint8Array(size).fill(1);
+  const file = new File([content], name, { type });
+  return file;
+}
+
+function make_drop_event(files: File[], extra_mime?: string): DragEvent {
+  const data_map = new Map<string, string>();
+  if (extra_mime) {
+    data_map.set("application/x-badgerly-filetree-count", extra_mime);
+  }
+
+  const dt = {
+    files,
+    getData: (key: string) => data_map.get(key) ?? "",
+  } as unknown as DataTransfer;
+
+  return {
+    dataTransfer: dt,
+    preventDefault: vi.fn(),
+    clientX: 0,
+    clientY: 0,
+  } as unknown as DragEvent;
+}
+
+function make_editable_view() {
+  return {
+    props: { editable: () => true },
+    state: { doc: { content: { size: 0 } } },
+    posAtCoords: () => null,
+    dispatch: vi.fn(),
+    focus: vi.fn(),
+  } as unknown as Parameters<
+    ReturnType<typeof create_file_drop_prose_plugin>["props"]["handleDrop"] &
+      object
+  >[0];
+}
+
+describe("create_file_drop_prose_plugin — external file drop", () => {
+  it("calls callback for each valid external file", async () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const files = [
+      make_mock_file("photo.png", 100, "image/png"),
+      make_mock_file("doc.pdf", 200, "application/pdf"),
+    ];
+    const event = make_drop_event(files);
+    const view = make_editable_view();
+
+    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    expect(result).toBe(true);
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(received).toHaveLength(2);
+  });
+
+  it("filters out zero-size files", async () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const files = [
+      make_mock_file("empty.png", 0, "image/png"),
+      make_mock_file("real.png", 50, "image/png"),
+    ];
+    const event = make_drop_event(files);
+    const view = make_editable_view();
+
+    plugin.props.handleDrop!(view, event, null as never, false);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(received).toHaveLength(1);
+    expect(received[0]!.file_name).toBe("real.png");
+  });
+
+  it("filters out files without names", async () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const nameless = make_mock_file("", 100, "image/png");
+    const named = make_mock_file("ok.jpg", 100, "image/jpeg");
+    const event = make_drop_event([nameless, named]);
+    const view = make_editable_view();
+
+    plugin.props.handleDrop!(view, event, null as never, false);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(received).toHaveLength(1);
+    expect(received[0]!.file_name).toBe("ok.jpg");
+  });
+
+  it("returns false when no callback is provided", () => {
+    const plugin = create_file_drop_prose_plugin();
+    const files = [make_mock_file("photo.png", 100, "image/png")];
+    const event = make_drop_event(files);
+    const view = make_editable_view();
+
+    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    expect(result).toBe(false);
+  });
+
+  it("returns false when dataTransfer has no files", () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const event = make_drop_event([]);
+    const view = make_editable_view();
+
+    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    expect(result).toBe(false);
+  });
+
+  it("returns false when drop has badgerly custom mime type", () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const files = [make_mock_file("photo.png", 100, "image/png")];
+    const event = make_drop_event(files, "1");
+    const view = make_editable_view();
+
+    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    expect(result).toBe(false);
+  });
+
+  it("callback receives correct PastedImagePayload shape", async () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const files = [make_mock_file("image.webp", 64, "image/webp")];
+    const event = make_drop_event(files);
+    const view = make_editable_view();
+
+    plugin.props.handleDrop!(view, event, null as never, false);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(received).toHaveLength(1);
+    const payload = received[0]!;
+    expect(payload.file_name).toBe("image.webp");
+    expect(payload.mime_type).toBe("image/webp");
+    expect(payload.bytes).toBeInstanceOf(Uint8Array);
+    expect(payload.bytes.length).toBe(64);
+  });
+
+  it("falls back to application/octet-stream when mime type is empty", async () => {
+    const received: PastedImagePayload[] = [];
+    const plugin = create_file_drop_prose_plugin((p) => received.push(p));
+
+    const files = [make_mock_file("data.bin", 32, "")];
+    const event = make_drop_event(files);
+    const view = make_editable_view();
+
+    plugin.props.handleDrop!(view, event, null as never, false);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(received[0]!.mime_type).toBe("application/octet-stream");
   });
 });

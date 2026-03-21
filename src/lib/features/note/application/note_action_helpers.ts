@@ -7,6 +7,7 @@ import {
 import type { PastedImagePayload } from "$lib/shared/types/editor";
 import { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";
 import { to_markdown_asset_target } from "$lib/features/note/domain/asset_markdown_path";
+import { detect_file_type } from "$lib/features/document";
 
 export function close_delete_dialog(input: ActionRegistrationInput) {
   input.stores.ui.delete_note_dialog = {
@@ -94,6 +95,56 @@ export function parse_note_open_input(input: unknown): {
     note_path: String(input),
     cleanup_if_missing: false,
   };
+}
+
+const EMBEDDABLE_EXTENSIONS = new Set([
+  "pdf",
+  "mp3",
+  "wav",
+  "m4a",
+  "ogg",
+  "flac",
+  "mp4",
+  "webm",
+  "ogv",
+  "mkv",
+]);
+
+function file_extension(file_name: string | null): string {
+  if (!file_name) return "";
+  const dot = file_name.lastIndexOf(".");
+  return dot >= 0 ? file_name.slice(dot + 1).toLowerCase() : "";
+}
+
+export async function save_and_insert_file(
+  input: ActionRegistrationInput,
+  note_id: NoteId,
+  note_path: NotePath,
+  file: PastedImagePayload,
+): Promise<void> {
+  const { stores, services } = input;
+
+  const write_result = await services.note.save_pasted_image(note_path, file);
+  if (write_result.status !== "saved") return;
+
+  const latest_open_note = stores.editor.open_note;
+  if (!latest_open_note || latest_open_note.meta.id !== note_id) return;
+
+  const target = to_markdown_asset_target(note_path, write_result.asset_path);
+  const ext = file_extension(file.file_name);
+
+  let syntax: string;
+  if (detect_file_type(file.file_name ?? "") === "image") {
+    const alt = image_alt_text(file.file_name);
+    syntax = `![${alt}](${target})`;
+  } else if (EMBEDDABLE_EXTENSIONS.has(ext)) {
+    syntax = `![[${target}]]`;
+  } else {
+    const name = file.file_name ?? "file";
+    syntax = `[${name}](${target})`;
+  }
+
+  services.editor.insert_text(syntax);
 }
 
 export async function save_and_insert_image(

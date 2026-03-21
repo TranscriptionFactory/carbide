@@ -63,6 +63,7 @@ export type EditorEventHandlers = {
   ) => void;
   on_external_link_click?: (url: string) => void;
   on_image_paste_requested?: (payload: PastedImagePayload) => void;
+  on_file_drop_requested?: (payload: PastedImagePayload) => void;
   on_wiki_suggest_query?: (query: string) => void;
   on_image_suggest_query?: (query: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;

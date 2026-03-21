@@ -43,6 +43,11 @@ export type EditorServiceCallbacks = {
     note_path: NotePath,
     image: PastedImagePayload,
   ) => void;
+  on_file_drop_requested: (
+    note_id: NoteId,
+    note_path: NotePath,
+    file: PastedImagePayload,
+  ) => void;
 };
 
 type EditorFlushResult = {
@@ -482,6 +487,11 @@ export class EditorService {
       on_image_paste_requested: (image: PastedImagePayload) => {
         this.with_active_note_identity(generation, (id, path) => {
           this.callbacks.on_image_paste_requested(id, path, image);
+        });
+      },
+      on_file_drop_requested: (file: PastedImagePayload) => {
+        this.with_active_note_identity(generation, (id, path) => {
+          this.callbacks.on_file_drop_requested(id, path, file);
         });
       },
     };

@@ -60,6 +60,7 @@ function create_service(session: EditorSession): EditorService {
     on_internal_link_click: vi.fn(),
     on_external_link_click: vi.fn(),
     on_image_paste_requested: vi.fn(),
+    on_file_drop_requested: vi.fn(),
   });
 }
 
@@ -108,6 +109,7 @@ describe("EditorService replace_at_match", () => {
         on_internal_link_click: vi.fn(),
         on_external_link_click: vi.fn(),
         on_image_paste_requested: vi.fn(),
+        on_file_drop_requested: vi.fn(),
       },
     );
 
@@ -149,6 +151,7 @@ describe("EditorService replace_all_matches", () => {
         on_internal_link_click: vi.fn(),
         on_external_link_click: vi.fn(),
         on_image_paste_requested: vi.fn(),
+        on_file_drop_requested: vi.fn(),
       },
     );
 
@@ -189,6 +192,7 @@ describe("EditorService get_markdown", () => {
         on_internal_link_click: vi.fn(),
         on_external_link_click: vi.fn(),
         on_image_paste_requested: vi.fn(),
+        on_file_drop_requested: vi.fn(),
       },
     );
 

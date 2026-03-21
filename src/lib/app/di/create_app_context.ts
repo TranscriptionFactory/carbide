@@ -141,6 +141,12 @@ export function create_app_context(input: {
         note_path,
         image,
       }),
+    on_file_drop_requested: (note_id, note_path, file) =>
+      void action_registry.execute(ACTION_IDS.note_insert_dropped_file, {
+        note_id,
+        note_path,
+        image: file,
+      }),
   };
 
   const editor_service = new EditorService(
