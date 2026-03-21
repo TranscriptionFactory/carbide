@@ -16,6 +16,13 @@ pub struct LocalLinksSnapshot {
     pub external_links: Vec<ExternalLink>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ParsedInternalLink {
+    pub target_path: String,
+    pub anchor: Option<String>,
+    pub line: usize,
+}
+
 #[derive(Default)]
 struct ParsedLinks {
     markdown_targets: Vec<String>,
@@ -130,6 +137,14 @@ fn strip_link_suffix(raw_target: &str) -> Option<String> {
         return None;
     }
     Some(target.to_string())
+}
+
+pub(crate) fn extract_anchor(raw: &str) -> Option<String> {
+    let decoded = decode_percent_sequences(raw.trim());
+    decoded
+        .find('#')
+        .map(|i| decoded[i + 1..].split('?').next().unwrap_or("").to_string())
+        .filter(|a| !a.is_empty())
 }
 
 fn parse_internal_markdown_target(raw_href: &str) -> Option<String> {

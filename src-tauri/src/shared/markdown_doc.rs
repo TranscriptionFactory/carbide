@@ -1,7 +1,7 @@
 use crate::features::tasks::service as tasks_service;
 use crate::features::tasks::types::Task;
 use crate::shared::frontmatter::{self, Frontmatter};
-use crate::shared::link_parser::{self, ExternalLink};
+use crate::shared::link_parser::{self, ExternalLink, ParsedInternalLink};
 use comrak::nodes::NodeValue;
 use comrak::{parse_document, Arena, Options};
 use regex::Regex;
@@ -43,15 +43,19 @@ pub struct CodeBlockMeta {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct NoteLinks {
-    pub wiki_targets: Vec<String>,
-    pub markdown_targets: Vec<String>,
+    pub wiki_targets: Vec<ParsedInternalLink>,
+    pub markdown_targets: Vec<ParsedInternalLink>,
     pub external_links: Vec<ExternalLink>,
 }
 
 impl NoteLinks {
     pub fn all_internal_targets(&self) -> Vec<String> {
-        let mut out = self.markdown_targets.clone();
-        out.extend(self.wiki_targets.iter().cloned());
+        let mut out: Vec<String> = self
+            .markdown_targets
+            .iter()
+            .map(|l| l.target_path.clone())
+            .collect();
+        out.extend(self.wiki_targets.iter().map(|l| l.target_path.clone()));
         out
     }
 }
@@ -193,13 +197,25 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
                         text: label,
                     });
                 } else if let Some(target) = link_parser::parse_link_node(link, source_path) {
-                    links.markdown_targets.push(target);
+                    let anchor = link_parser::extract_anchor(&link.url);
+                    let line = data.sourcepos.start.line + fm_line_offset;
+                    links.markdown_targets.push(ParsedInternalLink {
+                        target_path: target,
+                        anchor,
+                        line,
+                    });
                 }
             }
             NodeValue::WikiLink(link) => {
                 if !link_parser::is_embedded_wikilink(node) {
                     if let Some(target) = link_parser::parse_wikilink_node(link, source_path) {
-                        links.wiki_targets.push(target);
+                        let anchor = link_parser::extract_anchor(&link.url);
+                        let line = data.sourcepos.start.line + fm_line_offset;
+                        links.wiki_targets.push(ParsedInternalLink {
+                            target_path: target,
+                            anchor,
+                            line,
+                        });
                     }
                 }
             }
@@ -316,14 +332,14 @@ mod tests {
         let md = "See [[Other Note]] and [[folder/Deep Note]].";
         let parsed = parse_note(md, "notes/test.md");
 
-        assert!(parsed
+        let paths: Vec<&str> = parsed
             .links
             .wiki_targets
-            .contains(&"Other Note.md".to_string()));
-        assert!(parsed
-            .links
-            .wiki_targets
-            .contains(&"folder/Deep Note.md".to_string()));
+            .iter()
+            .map(|l| l.target_path.as_str())
+            .collect();
+        assert!(paths.contains(&"Other Note.md"));
+        assert!(paths.contains(&"folder/Deep Note.md"));
     }
 
     #[test]
@@ -331,10 +347,13 @@ mod tests {
         let md = "See [link](./other.md) and [ext](https://example.com).";
         let parsed = parse_note(md, "notes/test.md");
 
-        assert!(parsed
+        let paths: Vec<&str> = parsed
             .links
             .markdown_targets
-            .contains(&"notes/other.md".to_string()));
+            .iter()
+            .map(|l| l.target_path.as_str())
+            .collect();
+        assert!(paths.contains(&"notes/other.md"));
         assert_eq!(parsed.links.external_links.len(), 1);
         assert_eq!(parsed.links.external_links[0].url, "https://example.com");
     }
@@ -375,10 +394,7 @@ mod tests {
         let parsed = parse_note(md, "test.md");
 
         assert_eq!(parsed.links.wiki_targets.len(), 1);
-        assert!(parsed
-            .links
-            .wiki_targets
-            .contains(&"normal link.md".to_string()));
+        assert_eq!(parsed.links.wiki_targets[0].target_path, "normal link.md");
     }
 
     #[test]
@@ -389,6 +405,53 @@ mod tests {
         let all = parsed.links.all_internal_targets();
         assert!(all.contains(&"wiki.md".to_string()));
         assert!(all.contains(&"notes/other.md".to_string()));
+    }
+
+    #[test]
+    fn wiki_link_with_heading_anchor() {
+        let md = "See [[Other Note#Design]] here.";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.links.wiki_targets.len(), 1);
+        assert_eq!(parsed.links.wiki_targets[0].target_path, "Other Note.md");
+        assert_eq!(
+            parsed.links.wiki_targets[0].anchor.as_deref(),
+            Some("Design")
+        );
+    }
+
+    #[test]
+    fn markdown_link_with_heading_anchor() {
+        let md = "See [link](./other.md#setup) here.";
+        let parsed = parse_note(md, "notes/test.md");
+
+        assert_eq!(parsed.links.markdown_targets.len(), 1);
+        assert_eq!(
+            parsed.links.markdown_targets[0].target_path,
+            "notes/other.md"
+        );
+        assert_eq!(
+            parsed.links.markdown_targets[0].anchor.as_deref(),
+            Some("setup")
+        );
+    }
+
+    #[test]
+    fn link_without_anchor_has_none() {
+        let md = "See [[Plain Note]] here.";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.links.wiki_targets.len(), 1);
+        assert!(parsed.links.wiki_targets[0].anchor.is_none());
+    }
+
+    #[test]
+    fn link_captures_source_line() {
+        let md = "---\ntitle: Test\n---\nLine one.\n\n[[Target#heading]]";
+        let parsed = parse_note(md, "test.md");
+
+        assert_eq!(parsed.links.wiki_targets.len(), 1);
+        assert!(parsed.links.wiki_targets[0].line > 1);
     }
 
     #[test]

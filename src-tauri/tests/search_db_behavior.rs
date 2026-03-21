@@ -439,6 +439,46 @@ fn upsert_note_populates_note_links() {
 }
 
 #[test]
+fn upsert_note_populates_target_anchor_and_section_heading() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db = tmp.path().join("test.db");
+    let conn = open_search_db_at_path(&db).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "notes/test.md".into(),
+        path: "notes/test.md".into(),
+        title: "Test".into(),
+        name: "test".into(),
+        mtime_ms: 100,
+        size_bytes: 200,
+    };
+    let md = "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
+    upsert_note(&conn, &meta, md).expect("upsert");
+
+    let rows: Vec<(String, Option<String>, Option<String>, String)> = conn
+        .prepare("SELECT target_path, target_anchor, section_heading, link_type FROM note_links WHERE source_path = ?1 ORDER BY link_type")
+        .unwrap()
+        .query_map(rusqlite::params!["notes/test.md"], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(rows.len(), 2);
+
+    let md_link: Vec<_> = rows.iter().filter(|r| r.3 == "markdown").collect();
+    assert_eq!(md_link.len(), 1);
+    assert_eq!(md_link[0].1.as_deref(), Some("setup"));
+    assert_eq!(md_link[0].2.as_deref(), Some("Details"));
+
+    let wiki_link: Vec<_> = rows.iter().filter(|r| r.3 == "wiki").collect();
+    assert_eq!(wiki_link.len(), 1);
+    assert_eq!(wiki_link[0].1.as_deref(), Some("design"));
+    assert_eq!(wiki_link[0].2.as_deref(), Some("Intro"));
+}
+
+#[test]
 fn remove_note_clears_headings_and_links() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");
