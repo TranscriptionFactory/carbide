@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MetadataService } from "$lib/features/metadata/application/metadata_service";
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
 import type { MetadataPort } from "$lib/features/metadata/ports";
+import type { NoteMetadata } from "$lib/features/metadata/types";
 import type { VaultStore } from "$lib/features/vault";
 
 function create_mock_vault_store(vault_id: string | null): VaultStore {
@@ -9,7 +10,7 @@ function create_mock_vault_store(vault_id: string | null): VaultStore {
 }
 
 function create_mock_port(
-  metadata = { properties: [], tags: [] },
+  metadata: NoteMetadata = { properties: [], tags: [] },
 ): MetadataPort {
   return {
     get_note_metadata: vi.fn().mockResolvedValue(metadata),

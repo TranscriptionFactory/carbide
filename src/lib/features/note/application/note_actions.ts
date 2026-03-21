@@ -8,6 +8,7 @@ import {
 import { clear_folder_filetree_state } from "$lib/features/folder";
 import { detect_file_type } from "$lib/features/document";
 import {
+  build_default_attachment_name,
   build_full_path,
   build_note_path_from_name,
   close_delete_dialog,
@@ -535,7 +536,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
           note_id: payload.note_id,
           note_path: payload.note_path,
           image: payload.image,
-          filename: "",
+          filename: build_default_attachment_name(new Date(Date.now())),
           estimated_size_bytes,
           target_folder,
         };

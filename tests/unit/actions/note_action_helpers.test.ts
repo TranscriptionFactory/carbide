@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { save_and_insert_file } from "$lib/features/note/application/note_action_helpers";
+import {
+  build_default_attachment_name,
+  save_and_insert_file,
+  save_and_insert_image,
+} from "$lib/features/note/application/note_action_helpers";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
 import { as_note_path, as_asset_path } from "$lib/shared/types/ids";
@@ -13,6 +17,7 @@ function make_input(
     | { status: "skipped" },
 ) {
   const insert_text = vi.fn();
+  const save_pasted_image = vi.fn().mockResolvedValue(save_result);
 
   const input = {
     stores: {
@@ -24,7 +29,7 @@ function make_input(
     },
     services: {
       note: {
-        save_pasted_image: vi.fn().mockResolvedValue(save_result),
+        save_pasted_image,
       },
       editor: {
         insert_text,
@@ -32,7 +37,7 @@ function make_input(
     },
   } as unknown as ActionRegistrationInput;
 
-  return { input, insert_text };
+  return { input, insert_text, save_pasted_image };
 }
 
 function make_payload(
@@ -51,6 +56,12 @@ const NOTE_PATH = as_note_path("notes/my-note.md");
 const ASSET_PATH = as_asset_path("notes/.assets/my-note-1.png");
 
 describe("save_and_insert_file", () => {
+  it("formats the default attachment name with the common timestamp schema", () => {
+    expect(build_default_attachment_name(new Date("2026-03-21T14:05:00"))).toBe(
+      "2026-03-21_1405",
+    );
+  });
+
   it("inserts markdown image syntax for image files", async () => {
     const { input, insert_text } = make_input(NOTE_ID, NOTE_PATH, {
       status: "saved",
@@ -254,5 +265,49 @@ describe("save_and_insert_file", () => {
     expect(insert_text).toHaveBeenCalledOnce();
     const [syntax] = insert_text.mock.calls[0]!;
     expect(syntax).toMatch(/^!\[\[/);
+  });
+
+  it("passes the default timestamp filename when no custom name is provided", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-21T14:05:00"));
+
+    try {
+      const payload = make_payload("report.pdf", "application/pdf");
+      const { input, save_pasted_image } = make_input(NOTE_ID, NOTE_PATH, {
+        status: "saved",
+        asset_path: as_asset_path("notes/.assets/2026-03-21_1405.pdf"),
+      });
+
+      await save_and_insert_file(input, NOTE_ID, NOTE_PATH, payload);
+
+      expect(save_pasted_image).toHaveBeenCalledWith(NOTE_PATH, payload, {
+        custom_filename: "2026-03-21_1405",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("save_and_insert_image", () => {
+  it("passes the default timestamp filename when no custom name is provided", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-21T14:05:00"));
+
+    try {
+      const payload = make_payload("photo.png", "image/png");
+      const { input, save_pasted_image } = make_input(NOTE_ID, NOTE_PATH, {
+        status: "saved",
+        asset_path: as_asset_path("notes/.assets/2026-03-21_1405.png"),
+      });
+
+      await save_and_insert_image(input, NOTE_ID, NOTE_PATH, payload);
+
+      expect(save_pasted_image).toHaveBeenCalledWith(NOTE_PATH, payload, {
+        custom_filename: "2026-03-21_1405",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

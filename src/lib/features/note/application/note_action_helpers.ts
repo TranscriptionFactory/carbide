@@ -7,6 +7,7 @@ import {
 import type { PastedImagePayload } from "$lib/shared/types/editor";
 import { sanitize_note_name } from "$lib/features/note/domain/sanitize_note_name";
 import { to_markdown_asset_target } from "$lib/features/note/domain/asset_markdown_path";
+import { format_note_name } from "$lib/features/note/domain/format_note_name";
 import { detect_file_type } from "$lib/features/document";
 
 export function close_delete_dialog(input: ActionRegistrationInput) {
@@ -77,6 +78,33 @@ export function image_alt_text(file_name: string | null): string {
   return stem !== "" ? stem : "image";
 }
 
+type AttachmentSaveOptions = {
+  custom_filename?: string;
+  attachment_folder?: string;
+};
+
+const DEFAULT_ATTACHMENT_NAME_TEMPLATE = "%Y-%m-%d_%H%M";
+
+export function build_default_attachment_name(now: Date): string {
+  return format_note_name(DEFAULT_ATTACHMENT_NAME_TEMPLATE, now);
+}
+
+function resolve_attachment_save_options(
+  options?: AttachmentSaveOptions,
+): Required<Pick<AttachmentSaveOptions, "custom_filename">> &
+  Pick<AttachmentSaveOptions, "attachment_folder"> {
+  const custom_filename = options?.custom_filename?.trim();
+  return {
+    ...(options?.attachment_folder
+      ? { attachment_folder: options.attachment_folder }
+      : {}),
+    custom_filename:
+      custom_filename && custom_filename.length > 0
+        ? custom_filename
+        : build_default_attachment_name(new Date(Date.now())),
+  };
+}
+
 export function parse_note_open_input(input: unknown): {
   note_path: string;
   cleanup_if_missing: boolean;
@@ -121,10 +149,15 @@ export async function save_and_insert_file(
   note_id: NoteId,
   note_path: NotePath,
   file: PastedImagePayload,
+  options?: AttachmentSaveOptions,
 ): Promise<void> {
   const { stores, services } = input;
 
-  const write_result = await services.note.save_pasted_image(note_path, file);
+  const write_result = await services.note.save_pasted_image(
+    note_path,
+    file,
+    resolve_attachment_save_options(options),
+  );
   if (write_result.status !== "saved") return;
 
   const latest_open_note = stores.editor.open_note;
@@ -152,14 +185,14 @@ export async function save_and_insert_image(
   note_id: NoteId,
   note_path: NotePath,
   image: PastedImagePayload,
-  options?: { custom_filename?: string; attachment_folder?: string },
+  options?: AttachmentSaveOptions,
 ): Promise<void> {
   const { stores, services } = input;
 
   const write_result = await services.note.save_pasted_image(
     note_path,
     image,
-    options,
+    resolve_attachment_save_options(options),
   );
   if (write_result.status !== "saved") return;
 

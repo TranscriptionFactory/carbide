@@ -139,7 +139,13 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files);
     const view = make_editable_view();
 
-    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    const result = plugin.props.handleDrop!.call(
+      plugin,
+      view,
+      event,
+      null as never,
+      false,
+    );
     expect(result).toBe(true);
 
     await new Promise((r) => setTimeout(r, 0));
@@ -157,7 +163,7 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files);
     const view = make_editable_view();
 
-    plugin.props.handleDrop!(view, event, null as never, false);
+    plugin.props.handleDrop!.call(plugin, view, event, null as never, false);
     await new Promise((r) => setTimeout(r, 0));
 
     expect(received).toHaveLength(1);
@@ -173,7 +179,7 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event([nameless, named]);
     const view = make_editable_view();
 
-    plugin.props.handleDrop!(view, event, null as never, false);
+    plugin.props.handleDrop!.call(plugin, view, event, null as never, false);
     await new Promise((r) => setTimeout(r, 0));
 
     expect(received).toHaveLength(1);
@@ -186,7 +192,13 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files);
     const view = make_editable_view();
 
-    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    const result = plugin.props.handleDrop!.call(
+      plugin,
+      view,
+      event,
+      null as never,
+      false,
+    );
     expect(result).toBe(false);
   });
 
@@ -197,7 +209,13 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event([]);
     const view = make_editable_view();
 
-    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    const result = plugin.props.handleDrop!.call(
+      plugin,
+      view,
+      event,
+      null as never,
+      false,
+    );
     expect(result).toBe(false);
   });
 
@@ -209,7 +227,13 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files, "1");
     const view = make_editable_view();
 
-    const result = plugin.props.handleDrop!(view, event, null as never, false);
+    const result = plugin.props.handleDrop!.call(
+      plugin,
+      view,
+      event,
+      null as never,
+      false,
+    );
     expect(result).toBe(false);
   });
 
@@ -221,7 +245,7 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files);
     const view = make_editable_view();
 
-    plugin.props.handleDrop!(view, event, null as never, false);
+    plugin.props.handleDrop!.call(plugin, view, event, null as never, false);
     await new Promise((r) => setTimeout(r, 0));
 
     expect(received).toHaveLength(1);
@@ -240,7 +264,7 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     const event = make_drop_event(files);
     const view = make_editable_view();
 
-    plugin.props.handleDrop!(view, event, null as never, false);
+    plugin.props.handleDrop!.call(plugin, view, event, null as never, false);
     await new Promise((r) => setTimeout(r, 0));
 
     expect(received[0]!.mime_type).toBe("application/octet-stream");
