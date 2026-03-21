@@ -731,7 +731,7 @@ fn handle_embed_batch(
 ) {
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let model = match embedding_state.get_or_init(cache_dir) {
+    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
         Ok(m) => m,
         Err(e) => {
             log::warn!("embed_batch: model unavailable: {e}");
@@ -1216,7 +1216,7 @@ pub fn semantic_search(
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
-    let model = embedding_state.get_or_init(cache_dir)?;
+    let model = embedding_state.get_or_init(cache_dir, &app)?;
     let query_vec = model.embed_one(&query)?;
     let limit = limit.unwrap_or(20);
 
@@ -1335,7 +1335,7 @@ pub fn hybrid_search(
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
-    let model = embedding_state.get_or_init(cache_dir)?;
+    let model = embedding_state.get_or_init(cache_dir, &app)?;
     let limit = limit.unwrap_or(20);
 
     with_read_conn(&app, &vault_id, |conn| {
