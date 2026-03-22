@@ -74,9 +74,9 @@ function build_decorations(
   folded: Set<number>,
   ranges?: HeadingRange[],
 ): DecorationSet {
-  if (folded.size === 0) return DecorationSet.empty;
-
   const heading_ranges = ranges ?? compute_heading_ranges(doc);
+  if (heading_ranges.length === 0) return DecorationSet.empty;
+
   const decos: Decoration[] = [];
 
   // Linear scan: track the deepest active fold boundary to suppress
@@ -86,6 +86,20 @@ function build_decorations(
   for (const range of heading_ranges) {
     const is_nested_inside_fold = range.heading_pos < hide_until;
     const is_folded = folded.has(range.heading_pos);
+
+    if (!is_nested_inside_fold) {
+      const toggle = document.createElement("span");
+      toggle.className = `heading-fold-toggle${is_folded ? " heading-fold-toggle--folded" : ""}`;
+      toggle.dataset["headingPos"] = String(range.heading_pos);
+      toggle.contentEditable = "false";
+
+      decos.push(
+        Decoration.widget(range.heading_pos + 1, toggle, {
+          side: -1,
+          key: `fold-toggle-${String(range.heading_pos)}`,
+        }),
+      );
+    }
 
     if (is_nested_inside_fold || !is_folded) continue;
 
@@ -144,10 +158,10 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
     key: heading_fold_plugin_key,
 
     state: {
-      init() {
+      init(_, state) {
         return {
           folded: new Set<number>(),
-          decorations: DecorationSet.empty,
+          decorations: build_decorations(state.doc, new Set<number>()),
         };
       },
 
@@ -183,21 +197,15 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
             case "expand_all": {
               return {
                 folded: new Set<number>(),
-                decorations: DecorationSet.empty,
+                decorations: build_decorations(
+                  new_state.doc,
+                  new Set<number>(),
+                ),
               };
             }
           }
         } else if (tr.docChanged) {
-          if (prev.folded.size === 0) return prev;
           folded = map_folded_set(prev.folded, tr);
-          if (folded.size === 0) {
-            return { folded, decorations: DecorationSet.empty };
-          }
-          // Use DecorationSet.map for cheap propagation on content edits
-          return {
-            folded,
-            decorations: prev.decorations.map(tr.mapping, tr.doc),
-          };
         } else {
           return prev;
         }
@@ -212,6 +220,22 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
     props: {
       decorations(state: EditorState) {
         return heading_fold_plugin_key.getState(state)?.decorations;
+      },
+
+      handleDOMEvents: {
+        mousedown(view: EditorView, event: MouseEvent) {
+          const target = (event.target as HTMLElement).closest(
+            ".heading-fold-toggle",
+          );
+          if (!target) return false;
+          event.preventDefault();
+          event.stopPropagation();
+          const pos = Number((target as HTMLElement).dataset["headingPos"]);
+          if (!isNaN(pos)) {
+            toggle_heading_fold(view, pos);
+          }
+          return true;
+        },
       },
     },
   });

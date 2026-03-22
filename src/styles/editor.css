@@ -174,6 +174,67 @@
 }
 
 /* ============================================
+   HEADING FOLD TOGGLES
+   ============================================ */
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  position: relative;
+}
+
+.heading-fold-toggle {
+  position: absolute;
+  left: -1.5rem;
+  top: 0;
+  bottom: 0;
+  width: 1.25rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  z-index: 1;
+}
+
+.heading-fold-toggle::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--muted-foreground);
+  transition: transform 0.15s ease;
+}
+
+.heading-fold-toggle--folded::after {
+  transform: rotate(-90deg);
+}
+
+.ProseMirror h1:hover > .heading-fold-toggle,
+.ProseMirror h2:hover > .heading-fold-toggle,
+.ProseMirror h3:hover > .heading-fold-toggle,
+.ProseMirror h4:hover > .heading-fold-toggle,
+.ProseMirror h5:hover > .heading-fold-toggle,
+.ProseMirror h6:hover > .heading-fold-toggle,
+.heading-fold-toggle--folded {
+  opacity: 1;
+}
+
+.heading-fold-indicator {
+  color: var(--muted-foreground);
+  font-size: 0.75em;
+  margin-left: 0.25rem;
+  user-select: none;
+}
+
+/* ============================================
    TYPOGRAPHY — PARAGRAPHS & INLINE
    ============================================ */
 
