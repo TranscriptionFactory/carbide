@@ -19,6 +19,7 @@ import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
 import { LintStore } from "$lib/features/lint";
+import { IweStore } from "$lib/features/iwe";
 import { MetadataStore } from "$lib/features/metadata";
 
 export type AppStores = {
@@ -44,6 +45,7 @@ export type AppStores = {
   canvas: CanvasStore;
   tag: TagStore;
   lint: LintStore;
+  iwe: IweStore;
   metadata: MetadataStore;
 };
 
@@ -71,6 +73,7 @@ export function create_app_stores(): AppStores {
     canvas: new CanvasStore(),
     tag: new TagStore(),
     lint: new LintStore(),
+    iwe: new IweStore(),
     metadata: new MetadataStore(),
   };
 }

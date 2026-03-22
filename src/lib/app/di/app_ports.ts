@@ -18,6 +18,7 @@ import type { PluginHostPort, PluginSettingsPort } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
+import type { IwePort } from "$lib/features/iwe";
 import type { MetadataPort } from "$lib/features/metadata";
 
 export type Ports = {
@@ -45,5 +46,6 @@ export type Ports = {
   canvas: CanvasPort;
   tag: TagPort;
   lint: LintPort;
+  iwe: IwePort;
   metadata: MetadataPort;
 };
