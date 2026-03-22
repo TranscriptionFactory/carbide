@@ -253,8 +253,13 @@ async fn dispatch_message(
         let mut pending = pending.lock().await;
         if let Some(tx) = pending.remove(&id) {
             if let Some(error) = message.get("error") {
-                let msg = error["message"].as_str().unwrap_or("unknown error");
-                let _ = tx.send(Err(LspClientError::InvalidResponse(msg.to_string())));
+                let code = error.get("code").and_then(|c| c.as_i64());
+                let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("");
+                let detail = match code {
+                    Some(c) => format!("LSP error {}: {}", c, if msg.is_empty() { "method not supported" } else { msg }),
+                    None => if msg.is_empty() { "unknown LSP error".to_string() } else { msg.to_string() },
+                };
+                let _ = tx.send(Err(LspClientError::InvalidResponse(detail)));
             } else {
                 let result = message
                     .get("result")
