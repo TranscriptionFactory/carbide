@@ -7,6 +7,7 @@
     X,
     Wrench,
     Filter,
+    Copy,
   } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
@@ -98,6 +99,16 @@
 
   function format_file() {
     void action_registry.execute(ACTION_IDS.lint_format_file);
+  }
+
+  function copy_log() {
+    const text = filtered_logs
+      .map(
+        (e) =>
+          `[${e.level.toUpperCase()}] ${format_timestamp(e.timestamp)} ${e.message}`,
+      )
+      .join("\n");
+    void navigator.clipboard.writeText(text);
   }
 
   function format_timestamp(ts: number): string {
@@ -201,6 +212,15 @@
           <Wrench />
         </button>
       {:else}
+        <button
+          type="button"
+          class="ProblemsPanel__action-btn"
+          onclick={copy_log}
+          title="Copy log"
+          aria-label="Copy log to clipboard"
+        >
+          <Copy />
+        </button>
         <button
           type="button"
           class="ProblemsPanel__action-btn"
