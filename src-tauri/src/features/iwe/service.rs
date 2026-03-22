@@ -1,7 +1,8 @@
-use crate::shared::lsp_client::{LspClient, LspClientConfig, LspClientError};
+use crate::shared::lsp_client::{LspClient, LspClientConfig, LspClientError, ServerNotification};
 use crate::shared::storage;
+use serde::Serialize;
 use std::collections::HashMap;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
 use super::types::*;
@@ -83,20 +84,112 @@ fn iwe_state(app: &AppHandle) -> tauri::State<'_, IweState> {
     app.state::<IweState>()
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum IweEvent {
+    DiagnosticsUpdated {
+        vault_id: String,
+        uri: String,
+        diagnostics: Vec<IweLspDiagnostic>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct IweLspDiagnostic {
+    line: u32,
+    character: u32,
+    end_line: u32,
+    end_character: u32,
+    severity: String,
+    message: String,
+}
+
+fn lsp_severity_to_string(severity: Option<u64>) -> String {
+    match severity {
+        Some(1) => "error",
+        Some(2) => "warning",
+        Some(3) => "info",
+        _ => "hint",
+    }
+    .to_string()
+}
+
+fn parse_lsp_diagnostics(params: &serde_json::Value) -> Option<(String, Vec<IweLspDiagnostic>)> {
+    let uri = params.get("uri")?.as_str()?.to_string();
+    let diags = params
+        .get("diagnostics")?
+        .as_array()?
+        .iter()
+        .filter_map(|d| {
+            let range = d.get("range")?;
+            let start = range.get("start")?;
+            let end = range.get("end")?;
+            Some(IweLspDiagnostic {
+                line: start.get("line")?.as_u64()? as u32,
+                character: start.get("character")?.as_u64()? as u32,
+                end_line: end.get("line")?.as_u64()? as u32,
+                end_character: end.get("character")?.as_u64()? as u32,
+                severity: lsp_severity_to_string(d.get("severity").and_then(|s| s.as_u64())),
+                message: d.get("message")?.as_str()?.to_string(),
+            })
+        })
+        .collect();
+    Some((uri, diags))
+}
+
+fn spawn_notification_forwarder(
+    app: AppHandle,
+    vault_id: String,
+    mut notification_rx: tokio::sync::mpsc::Receiver<ServerNotification>,
+) {
+    tokio::spawn(async move {
+        while let Some(notification) = notification_rx.recv().await {
+            if notification.method == "textDocument/publishDiagnostics" {
+                if let Some((uri, diagnostics)) =
+                    parse_lsp_diagnostics(&notification.params)
+                {
+                    let _ = app.emit(
+                        "iwe_event",
+                        IweEvent::DiagnosticsUpdated {
+                            vault_id: vault_id.clone(),
+                            uri,
+                            diagnostics,
+                        },
+                    );
+                }
+            }
+        }
+    });
+}
+
 // --- Lifecycle commands ---
 
 #[tauri::command]
 #[specta::specta]
-pub async fn iwe_start(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn iwe_start(
+    app: AppHandle,
+    vault_id: String,
+    binary_path: String,
+) -> Result<(), String> {
     let root_uri = vault_root_uri(&app, &vault_id)?;
+    let resolved_binary = if binary_path.is_empty() {
+        "iwes".to_string()
+    } else {
+        binary_path
+    };
     let config = LspClientConfig {
-        binary_path: "iwes".to_string(),
+        binary_path: resolved_binary,
         args: vec![],
         root_uri,
         capabilities: serde_json::json!({}),
     };
 
-    let client = LspClient::start(config).await.map_err(err)?;
+    let mut client = LspClient::start(config).await.map_err(err)?;
+
+    if let Some(rx) = client.take_notification_rx() {
+        spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);
+    }
+
     let state = iwe_state(&app);
     state.clients.lock().await.insert(vault_id, client);
     Ok(())

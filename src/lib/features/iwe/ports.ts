@@ -1,6 +1,7 @@
 import type {
   IweCodeAction,
   IweCompletionItem,
+  IweDiagnosticsEvent,
   IweHoverResult,
   IweInlayHint,
   IweLocation,
@@ -11,7 +12,7 @@ import type {
 } from "$lib/features/iwe/types";
 
 export interface IwePort {
-  start(vault_id: string): Promise<void>;
+  start(vault_id: string, binary_path: string): Promise<void>;
   stop(vault_id: string): Promise<void>;
 
   did_open(vault_id: string, file_path: string, content: string): Promise<void>;
@@ -75,4 +76,7 @@ export interface IwePort {
   ): Promise<IweCompletionItem[]>;
   formatting(vault_id: string, file_path: string): Promise<IweTextEdit[]>;
   inlay_hints(vault_id: string, file_path: string): Promise<IweInlayHint[]>;
+  subscribe_diagnostics(
+    callback: (event: IweDiagnosticsEvent) => void,
+  ): () => void;
 }

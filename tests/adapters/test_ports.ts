@@ -130,6 +130,7 @@ export function create_test_ports(): Ports {
       completion: () => Promise.resolve([]),
       formatting: () => Promise.resolve([]),
       inlay_hints: () => Promise.resolve([]),
+      subscribe_diagnostics: () => () => {},
     },
     metadata: {
       get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),

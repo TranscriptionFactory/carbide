@@ -1,8 +1,10 @@
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
+import { listen } from "@tauri-apps/api/event";
 import type { IwePort } from "$lib/features/iwe/ports";
 import type {
   IweCodeAction,
   IweCompletionItem,
+  IweDiagnosticsEvent,
   IweHoverResult,
   IweInlayHint,
   IweLocation,
@@ -14,7 +16,8 @@ import type {
 
 export function create_iwe_tauri_adapter(): IwePort {
   return {
-    start: (vault_id) => tauri_invoke("iwe_start", { vaultId: vault_id }),
+    start: (vault_id, binary_path) =>
+      tauri_invoke("iwe_start", { vaultId: vault_id, binaryPath: binary_path }),
 
     stop: (vault_id) => tauri_invoke("iwe_stop", { vaultId: vault_id }),
 
@@ -129,5 +132,38 @@ export function create_iwe_tauri_adapter(): IwePort {
         vaultId: vault_id,
         filePath: file_path,
       }),
+
+    subscribe_diagnostics(callback: (event: IweDiagnosticsEvent) => void) {
+      let unlisten_fn: (() => void) | null = null;
+      let is_disposed = false;
+
+      void listen<IweDiagnosticsEvent>("iwe_event", (event) => {
+        if (is_disposed) return;
+        callback(event.payload);
+      }).then((fn_ref) => {
+        if (is_disposed) {
+          try {
+            fn_ref();
+          } catch {
+            /* already disposed */
+          }
+          return;
+        }
+        unlisten_fn = fn_ref;
+      });
+
+      return () => {
+        is_disposed = true;
+        if (unlisten_fn) {
+          const fn_ref = unlisten_fn;
+          unlisten_fn = null;
+          try {
+            fn_ref();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+    },
   };
 }

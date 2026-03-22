@@ -1,30 +1,58 @@
 import type { IwePort } from "$lib/features/iwe/ports";
 import type { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
+import type { LintStore } from "$lib/features/lint";
+import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { IweDiagnosticsEvent } from "$lib/features/iwe/types";
+import type {
+  LintDiagnostic,
+  LintSeverity,
+} from "$lib/features/lint/types/lint";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("iwe_service");
 
+function to_lint_severity(s: string): LintSeverity {
+  if (s === "error" || s === "warning" || s === "info" || s === "hint")
+    return s;
+  return "hint";
+}
+
+function uri_to_relative_path(uri: string, vault_path: string): string | null {
+  const prefix = `file://${vault_path}`;
+  if (!uri.startsWith(prefix)) return null;
+  let relative = uri.slice(prefix.length);
+  if (relative.startsWith("/")) relative = relative.slice(1);
+  return relative;
+}
+
 export class IweService {
   private lifecycle = Promise.resolve();
   private doc_versions = new Map<string, number>();
+  private unsubscribe_diagnostics: (() => void) | null = null;
 
   constructor(
     private readonly port: IwePort,
     private readonly store: IweStore,
     private readonly vault_store: VaultStore,
+    private readonly ui_store: UIStore,
+    private readonly lint_store?: LintStore,
   ) {}
 
   async start(): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
+    const binary_path = this.ui_store.editor_settings.iwe_binary_path;
+
     await this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
-        await this.port.start(vault_id);
+        this.subscribe_diagnostics();
+        await this.port.start(vault_id, binary_path);
         this.store.set_status("running");
       } catch (e) {
+        this.unsubscribe_all();
         log.from_error("Failed to start IWE", e);
         this.store.set_error(e instanceof Error ? e.message : String(e));
       }
@@ -36,6 +64,7 @@ export class IweService {
     if (!vault_id) return;
 
     await this.run_lifecycle(async () => {
+      this.unsubscribe_all();
       try {
         await this.port.stop(vault_id);
       } catch (e) {
@@ -44,6 +73,42 @@ export class IweService {
       this.doc_versions.clear();
       this.store.reset();
     });
+  }
+
+  private subscribe_diagnostics(): void {
+    if (!this.lint_store) return;
+    this.unsubscribe_diagnostics = this.port.subscribe_diagnostics(
+      (event: IweDiagnosticsEvent) => this.handle_diagnostics(event),
+    );
+  }
+
+  private unsubscribe_all(): void {
+    if (this.unsubscribe_diagnostics) {
+      this.unsubscribe_diagnostics();
+      this.unsubscribe_diagnostics = null;
+    }
+  }
+
+  private handle_diagnostics(event: IweDiagnosticsEvent): void {
+    if (!this.lint_store) return;
+    const vault_path = this.vault_store.vault?.path;
+    if (!vault_path) return;
+
+    const relative_path = uri_to_relative_path(event.uri, vault_path);
+    if (!relative_path) return;
+
+    const diagnostics: LintDiagnostic[] = event.diagnostics.map((d) => ({
+      line: d.line + 1,
+      column: d.character + 1,
+      end_line: d.end_line + 1,
+      end_column: d.end_character + 1,
+      severity: to_lint_severity(d.severity),
+      message: d.message,
+      rule_id: "iwe",
+      fixable: false,
+    }));
+
+    this.lint_store.set_diagnostics(relative_path, diagnostics);
   }
 
   async did_open(file_path: string, content: string): Promise<void> {

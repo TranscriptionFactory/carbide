@@ -341,7 +341,13 @@ export function create_app_context(input: {
     stores.op,
   );
 
-  const iwe_service = new IweService(input.ports.iwe, stores.iwe, stores.vault);
+  const iwe_service = new IweService(
+    input.ports.iwe,
+    stores.iwe,
+    stores.vault,
+    stores.ui,
+    stores.lint,
+  );
 
   const base_action_input = {
     registry: action_registry,
