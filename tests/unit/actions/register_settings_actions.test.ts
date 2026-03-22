@@ -182,6 +182,57 @@ describe("register_settings_actions", () => {
     });
   });
 
+  it("detects changes in settings keys added after initial compare list", async () => {
+    const { registry, stores } = create_harness();
+
+    await registry.execute(ACTION_IDS.settings_update, {
+      ...DEFAULT_EDITOR_SETTINGS,
+      graph_force_link_distance: 999,
+    });
+
+    expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(true);
+  });
+
+  it("detects changes after a save-then-edit cycle", async () => {
+    const { registry, stores } = create_harness();
+
+    await registry.execute(ACTION_IDS.settings_update, {
+      ...DEFAULT_EDITOR_SETTINGS,
+      terminal_font_size_px: 16,
+    });
+    await registry.execute(ACTION_IDS.settings_save);
+    expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(false);
+
+    await registry.execute(ACTION_IDS.settings_update, {
+      ...DEFAULT_EDITOR_SETTINGS,
+      terminal_font_size_px: 18,
+    });
+    expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(true);
+  });
+
+  it("remembers the last active category when re-opening settings", async () => {
+    const { registry, stores } = create_harness();
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 0,
+      mode: "vault",
+    });
+
+    stores.ui.settings_dialog = {
+      ...stores.ui.settings_dialog,
+      active_category: "terminal",
+    };
+
+    await registry.execute(ACTION_IDS.settings_close);
+
+    await registry.execute(ACTION_IDS.settings_open);
+
+    expect(stores.ui.settings_dialog.active_category).toBe("terminal");
+  });
+
   it("uses workspace_reconcile for ignored folder saves when available", async () => {
     const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
     const { registry, stores } = create_harness({ workspace_reconcile });

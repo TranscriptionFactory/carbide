@@ -8,56 +8,10 @@ import type {
   SettingsCategory,
 } from "$lib/shared/types/editor_settings";
 
-const SETTINGS_COMPARE_KEYS: readonly (keyof EditorSettings)[] = [
-  "attachment_folder",
-  "show_hidden_files",
-  "autosave_enabled",
-  "autosave_delay_ms",
-  "git_autocommit_mode",
-  "git_autocommit_interval_minutes",
-  "git_pull_strategy",
-  "git_auto_fetch_interval_minutes",
-  "show_vault_dashboard_on_open",
-  "max_open_tabs",
-  "editor_max_width_ch",
-  "editor_selection_color",
-  "editor_heading_spacing_density",
-  "editor_paragraph_spacing_density",
-  "editor_list_spacing_density",
-  "editor_code_block_padding",
-  "editor_code_block_radius",
-  "editor_code_block_wrap",
-  "editor_blockquote_padding",
-  "editor_blockquote_border_width",
-  "editor_link_underline_style",
-  "editor_divider_style",
-  "editor_divider_thickness_px",
-  "editor_divider_color",
-  "editor_divider_spacing",
-  "source_editor_line_numbers",
-  "terminal_shell_path",
-  "terminal_font_size_px",
-  "terminal_cursor_blink",
-  "terminal_follow_active_vault",
-  "ai_enabled",
-  "ai_providers",
-  "ai_default_provider_id",
-  "ai_execution_timeout_seconds",
-  "document_pdf_default_zoom",
-  "document_code_wrap",
-  "document_image_background",
-  "document_inactive_cache_limit",
-  "semantic_similarity_threshold",
-  "semantic_suggested_links_limit",
-  "semantic_graph_edges_per_note",
-  "semantic_graph_max_vault_size",
-  "semantic_omnibar_fallback_enabled",
-  "semantic_omnibar_min_words",
-] as const;
-
 export function register_settings_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
   let settings_open_revision = 0;
+  let last_active_category: SettingsCategory = "theme";
 
   function arrays_equal(a: string[], b: string[]) {
     if (a.length !== b.length) {
@@ -67,14 +21,13 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   }
 
   function editor_settings_equal(a: EditorSettings, b: EditorSettings) {
-    return (
-      arrays_equal(a.ignored_folders, b.ignored_folders) &&
-      SETTINGS_COMPARE_KEYS.every((key) => a[key] === b[key])
-    );
+    return JSON.stringify(a) === JSON.stringify(b);
   }
 
   function parse_settings_category(value: unknown): SettingsCategory {
-    return (typeof value === "string" ? value : "theme") as SettingsCategory;
+    return (
+      typeof value === "string" ? value : last_active_category
+    ) as SettingsCategory;
   }
 
   function build_hotkey_draft(overrides: typeof stores.ui.hotkey_overrides) {
@@ -111,6 +64,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   }
 
   function close_settings_dialog() {
+    last_active_category = stores.ui.settings_dialog.active_category;
     const persisted_settings = stores.ui.settings_dialog.persisted_settings;
     stores.ui.set_editor_settings(persisted_settings);
 
