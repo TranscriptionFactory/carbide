@@ -316,6 +316,27 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "maximize",
   },
   {
+    id: "fold_toggle",
+    label: "Toggle Heading Fold",
+    description: "Collapse or expand the current heading section",
+    keywords: ["fold", "collapse", "expand", "heading", "toggle", "section"],
+    icon: "list-tree",
+  },
+  {
+    id: "fold_collapse_all",
+    label: "Collapse All Headings",
+    description: "Collapse all heading sections in the editor",
+    keywords: ["fold", "collapse", "all", "heading", "section"],
+    icon: "list-tree",
+  },
+  {
+    id: "fold_expand_all",
+    label: "Expand All Headings",
+    description: "Expand all heading sections in the editor",
+    keywords: ["fold", "expand", "all", "heading", "section", "unfold"],
+    icon: "list-tree",
+  },
+  {
     id: "iwe_references",
     label: "IWE: Find References",
     description: "Find all references to the current heading or section",

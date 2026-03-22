@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   build_source_editor_background_theme_spec,
   build_source_editor_base_theme_spec,
-  build_source_editor_hide_gutters_theme_spec,
+  build_source_editor_hide_line_numbers_theme_spec,
 } from "$lib/features/editor/ui/source_editor_theme";
 
 describe("source_editor_theme", () => {
@@ -25,11 +25,14 @@ describe("source_editor_theme", () => {
     });
   });
 
-  it("can hide gutters when line numbers are disabled", () => {
-    expect(build_source_editor_hide_gutters_theme_spec()).toEqual({
-      ".cm-gutters": {
+  it("hides only line numbers, not fold gutters, when line numbers are disabled", () => {
+    const spec = build_source_editor_hide_line_numbers_theme_spec();
+
+    expect(spec).toEqual({
+      ".cm-lineNumbers": {
         display: "none",
       },
     });
+    expect(spec).not.toHaveProperty(".cm-gutters");
   });
 });

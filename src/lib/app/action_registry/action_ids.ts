@@ -130,6 +130,10 @@ export const ACTION_IDS = {
   omnibar_confirm_cross_vault_open: "omnibar.confirm_cross_vault_open",
   omnibar_cancel_cross_vault_open: "omnibar.cancel_cross_vault_open",
 
+  editor_fold_toggle: "editor.fold.toggle",
+  editor_fold_collapse_all: "editor.fold.collapse_all",
+  editor_fold_expand_all: "editor.fold.expand_all",
+
   outline_scroll_to_heading: "outline.scroll_to_heading",
 
   find_in_file_toggle: "find_in_file.toggle",

@@ -59,9 +59,9 @@ export function build_source_editor_background_theme_spec(): CodeMirrorThemeSpec
   };
 }
 
-export function build_source_editor_hide_gutters_theme_spec(): CodeMirrorThemeSpec {
+export function build_source_editor_hide_line_numbers_theme_spec(): CodeMirrorThemeSpec {
   return {
-    ".cm-gutters": {
+    ".cm-lineNumbers": {
       display: "none",
     },
   };

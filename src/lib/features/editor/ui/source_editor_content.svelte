@@ -10,7 +10,7 @@
   import {
     build_source_editor_background_theme_spec,
     build_source_editor_base_theme_spec,
-    build_source_editor_hide_gutters_theme_spec,
+    build_source_editor_hide_line_numbers_theme_spec,
   } from "$lib/features/editor/ui/source_editor_theme";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
@@ -209,7 +209,7 @@
 
       if (!show_line_numbers) {
         extensions.push(
-          EV.theme(build_source_editor_hide_gutters_theme_spec()),
+          EV.theme(build_source_editor_hide_line_numbers_theme_spec()),
         );
       }
 

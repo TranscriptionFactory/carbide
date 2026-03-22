@@ -419,6 +419,30 @@ export function register_app_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.editor_fold_toggle,
+    label: "Toggle Heading Fold",
+    execute: () => {
+      services.editor.toggle_heading_fold();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_fold_collapse_all,
+    label: "Collapse All Headings",
+    execute: () => {
+      services.editor.collapse_all_heading_folds();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_fold_expand_all,
+    label: "Expand All Headings",
+    execute: () => {
+      services.editor.expand_all_heading_folds();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.app_check_for_updates,
     label: "Check for Updates",
     execute: async () => execute_app_check_for_updates(),

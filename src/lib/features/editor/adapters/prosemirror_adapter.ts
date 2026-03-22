@@ -92,6 +92,13 @@ import { create_code_fence_language_prose_plugin } from "./code_fence_language_p
 import { create_details_view_prose_plugin } from "./details_view_plugin";
 import { create_details_keymap_prose_plugin } from "./details_keymap_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
+import {
+  create_heading_fold_prose_plugin,
+  heading_fold_plugin_key,
+  toggle_heading_fold,
+  collapse_all_headings,
+  expand_all_headings,
+} from "./heading_fold_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import {
   create_math_view_prose_plugin,
@@ -646,6 +653,7 @@ export function create_prosemirror_editor_port(args?: {
       }
       plugins.push(create_find_highlight_prose_plugin());
       plugins.push(create_outline_prose_plugin());
+      plugins.push(create_heading_fold_prose_plugin());
       plugins.push(create_shiki_prose_plugin());
       plugins.push(create_paired_delimiter_prose_plugin());
       plugins.push(create_mark_escape_prose_plugin());
@@ -1176,6 +1184,18 @@ export function create_prosemirror_editor_port(args?: {
           if (view) {
             view.setProps({ editable: () => is_editable });
           }
+        },
+        toggle_heading_fold(pos?: number) {
+          if (!view) return;
+          toggle_heading_fold(view, pos);
+        },
+        collapse_all_heading_folds() {
+          if (!view) return;
+          collapse_all_headings(view);
+        },
+        expand_all_heading_folds() {
+          if (!view) return;
+          expand_all_headings(view);
         },
       };
 

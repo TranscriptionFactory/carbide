@@ -32,6 +32,9 @@ export type CommandId =
   | "toggle_focus_mode"
   | "toggle_line_numbers"
   | "toggle_read_only_mode"
+  | "fold_toggle"
+  | "fold_collapse_all"
+  | "fold_expand_all"
   | (string & {});
 
 export type CommandIcon =

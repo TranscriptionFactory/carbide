@@ -42,6 +42,9 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   toggle_focus_mode: ACTION_IDS.ui_toggle_focus_mode,
   toggle_line_numbers: ACTION_IDS.editor_toggle_line_numbers,
   toggle_read_only_mode: ACTION_IDS.editor_toggle_read_only,
+  fold_toggle: ACTION_IDS.editor_fold_toggle,
+  fold_collapse_all: ACTION_IDS.editor_fold_collapse_all,
+  fold_expand_all: ACTION_IDS.editor_fold_expand_all,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

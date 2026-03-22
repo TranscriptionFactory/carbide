@@ -323,6 +323,18 @@ export class EditorService {
     this.session?.set_editable?.(editable);
   }
 
+  toggle_heading_fold(pos?: number) {
+    this.session?.toggle_heading_fold?.(pos);
+  }
+
+  collapse_all_heading_folds() {
+    this.session?.collapse_all_heading_folds?.();
+  }
+
+  expand_all_heading_folds() {
+    this.session?.expand_all_heading_folds?.();
+  }
+
   private resolve_visual_selection(): EditorSelectionSnapshot | null {
     const text = this.session?.get_selected_text?.();
     if (!text || text.trim() === "") return null;
