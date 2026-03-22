@@ -275,6 +275,7 @@ export const ACTION_IDS = {
   lint_next_diagnostic: "lint.next_diagnostic",
   lint_prev_diagnostic: "lint.prev_diagnostic",
 
+  iwe_restart: "iwe.restart",
   iwe_references: "iwe.references",
   iwe_code_actions: "iwe.code_actions",
   iwe_workspace_symbols: "iwe.workspace_symbols",

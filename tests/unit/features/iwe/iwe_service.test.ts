@@ -98,6 +98,25 @@ describe("IweService", () => {
     expect(store.error).toBe("iwes not found");
   });
 
+  it("restart stops then starts", async () => {
+    const store = new IweStore();
+    const port = create_mock_port();
+    const vault_store = create_mock_vault_store("vault-1");
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
+
+    store.set_status("running");
+    await service.restart();
+
+    expect(port.stop).toHaveBeenCalledWith("vault-1");
+    expect(port.start).toHaveBeenCalledWith("vault-1", "");
+    expect(store.status).toBe("running");
+  });
+
   it("stop calls port and resets store", async () => {
     const store = new IweStore();
     const port = create_mock_port();

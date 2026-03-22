@@ -79,11 +79,14 @@ pub fn run() {
         .manage(features::iwe::IweState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
-            // The first arg is the executable, subsequent args might be file paths
             for arg in args.iter().skip(1) {
+                if arg == "--restart-iwe" {
+                    let _ = app.emit("iwe-restart-requested", ());
+                    return;
+                }
                 if !arg.starts_with('-') {
                     handle_file_open(app, arg.clone());
-                    break; // Just handle the first file for now
+                    break;
                 }
             }
         }))
