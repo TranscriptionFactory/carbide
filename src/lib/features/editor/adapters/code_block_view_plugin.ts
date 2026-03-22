@@ -215,10 +215,20 @@ async function render_mermaid_preview(
 
 const MIN_CODE_BLOCK_HEIGHT = 48;
 
+function apply_height(pre: HTMLElement, height: number | null) {
+  if (height !== null && height > 0) {
+    pre.style.height = `${String(height)}px`;
+    pre.style.maxHeight = "none";
+  } else {
+    pre.style.removeProperty("height");
+    pre.style.removeProperty("max-height");
+  }
+}
+
 function create_resize_handle(
   pre: HTMLElement,
   on_resize_start: () => void,
-  on_resize_end: () => void,
+  on_commit: (height: number | null) => void,
 ): HTMLElement {
   const handle = document.createElement("div");
   handle.className = "code-block-resize-handle";
@@ -226,12 +236,12 @@ function create_resize_handle(
 
   let start_y = 0;
   let start_height = 0;
+  let current_height = 0;
 
   function on_pointer_move(e: PointerEvent) {
     const delta = e.clientY - start_y;
-    const new_height = Math.max(MIN_CODE_BLOCK_HEIGHT, start_height + delta);
-    pre.style.height = `${String(new_height)}px`;
-    pre.style.maxHeight = "none";
+    current_height = Math.max(MIN_CODE_BLOCK_HEIGHT, start_height + delta);
+    apply_height(pre, current_height);
   }
 
   function on_pointer_up(e: PointerEvent) {
@@ -240,7 +250,7 @@ function create_resize_handle(
     handle.removeEventListener("pointerup", on_pointer_up);
     document.body.style.removeProperty("cursor");
     document.body.style.removeProperty("user-select");
-    on_resize_end();
+    on_commit(current_height);
   }
 
   handle.addEventListener("pointerdown", (e) => {
@@ -248,6 +258,7 @@ function create_resize_handle(
     e.stopPropagation();
     start_y = e.clientY;
     start_height = pre.getBoundingClientRect().height;
+    current_height = start_height;
     if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
     handle.addEventListener("pointermove", on_pointer_move);
     handle.addEventListener("pointerup", on_pointer_up);
@@ -259,8 +270,8 @@ function create_resize_handle(
   handle.addEventListener("dblclick", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    pre.style.removeProperty("height");
-    pre.style.removeProperty("max-height");
+    apply_height(pre, null);
+    on_commit(null);
   });
 
   return handle;
@@ -270,6 +281,7 @@ class CodeBlockView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
   private toolbar: HTMLElement;
+  private pre: HTMLElement;
   private lang_label: HTMLButtonElement;
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
@@ -303,7 +315,7 @@ class CodeBlockView implements NodeView {
 
     this.toolbar.appendChild(this.lang_label);
 
-    const pre = document.createElement("pre");
+    this.pre = document.createElement("pre");
     this.contentDOM = document.createElement("code");
 
     if (this.current_language) {
@@ -312,31 +324,46 @@ class CodeBlockView implements NodeView {
       );
     }
 
-    pre.appendChild(this.contentDOM);
+    this.pre.appendChild(this.contentDOM);
 
     const copy_btn = create_copy_button(this.contentDOM);
     this.toolbar.appendChild(copy_btn);
 
+    apply_height(this.pre, node.attrs.height as number | null);
+
     const resize_handle = create_resize_handle(
-      pre,
+      this.pre,
       () => {
         this.is_resizing = true;
       },
-      () => {
+      (height) => {
         this.is_resizing = false;
+        this.commit_height(height);
       },
     );
 
     this.dom.appendChild(this.toolbar);
-    this.dom.appendChild(pre);
+    this.dom.appendChild(this.pre);
     this.dom.appendChild(resize_handle);
 
     if (this.current_language === "mermaid") {
-      this.setup_mermaid(pre);
+      this.setup_mermaid();
     }
   }
 
-  private setup_mermaid(pre: HTMLElement) {
+  private commit_height(height: number | null) {
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    const node = this.view.state.doc.nodeAt(pos);
+    if (!node) return;
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+      ...node.attrs,
+      height,
+    });
+    this.view.dispatch(tr);
+  }
+
+  private setup_mermaid() {
     const preview_container = document.createElement("div");
     preview_container.className = "mermaid-preview";
 
@@ -347,7 +374,7 @@ class CodeBlockView implements NodeView {
     toggle_btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.toggle_mermaid_preview(pre);
+      this.toggle_mermaid_preview();
     });
 
     this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
@@ -361,21 +388,21 @@ class CodeBlockView implements NodeView {
       last_rendered_content: this.node.textContent,
     };
 
-    pre.style.display = "none";
+    this.pre.style.display = "none";
     this.schedule_mermaid_render();
   }
 
-  private toggle_mermaid_preview(pre: HTMLElement) {
+  private toggle_mermaid_preview() {
     if (!this.mermaid) return;
     this.mermaid.is_preview = !this.mermaid.is_preview;
 
     if (this.mermaid.is_preview) {
-      pre.style.display = "none";
+      this.pre.style.display = "none";
       this.mermaid.preview_container.style.display = "";
       this.mermaid.toggle_btn.textContent = "Edit";
       this.schedule_mermaid_render();
     } else {
-      pre.style.display = "";
+      this.pre.style.display = "";
       this.mermaid.preview_container.style.display = "none";
       this.mermaid.toggle_btn.textContent = "Preview";
     }
@@ -397,8 +424,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.preview_container.remove();
     this.mermaid.toggle_btn.remove();
     this.mermaid = null;
-    const pre = this.dom.querySelector("pre");
-    if (pre) pre.style.display = "";
+    this.pre.style.display = "";
   }
 
   private toggle_picker() {
@@ -456,8 +482,7 @@ class CodeBlockView implements NodeView {
     const old_lang = this.current_language;
 
     if (new_lang === "mermaid" && old_lang !== "mermaid") {
-      const pre = this.dom.querySelector("pre");
-      if (pre) this.setup_mermaid(pre);
+      this.setup_mermaid();
     } else if (new_lang !== "mermaid" && old_lang === "mermaid") {
       this.teardown_mermaid();
     }
@@ -468,6 +493,10 @@ class CodeBlockView implements NodeView {
         ? `language-${String(new_lang)}`
         : "";
       this.lang_label.textContent = find_language_label(new_lang);
+    }
+
+    if (!this.is_resizing) {
+      apply_height(this.pre, updated.attrs.height as number | null);
     }
 
     if (this.mermaid?.is_preview) {

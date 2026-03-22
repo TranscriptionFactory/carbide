@@ -502,6 +502,9 @@ describe("CodeBlockView", () => {
       expect(pre.style.height).toBe("250px");
       expect(pre.style.maxHeight).toBe("none");
 
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBe(250);
+
       view.destroy();
     });
 
@@ -553,6 +556,9 @@ describe("CodeBlockView", () => {
 
       expect(pre.style.height).toBe("48px");
 
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBe(48);
+
       view.destroy();
     });
 
@@ -573,6 +579,37 @@ describe("CodeBlockView", () => {
 
       expect(pre.style.height).toBe("");
       expect(pre.style.maxHeight).toBe("");
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBeNull();
+
+      view.destroy();
+    });
+
+    it("restores height from node attrs on construction", () => {
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const code_block = schema.nodes.code_block.create(
+        { language: "javascript", height: 300 },
+        schema.text("const x = 1;"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin();
+      const state = EditorState.create({ doc, plugins: [plugin] });
+
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          const new_state = view.state.apply(tr);
+          view.updateState(new_state);
+        },
+      });
+
+      const pre = get_pre(container_el)!;
+      expect(pre.style.height).toBe("300px");
+      expect(pre.style.maxHeight).toBe("none");
 
       view.destroy();
     });

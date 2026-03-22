@@ -54,6 +54,7 @@ const code_block: NodeSpec = {
   code: true,
   attrs: {
     language: { default: "" },
+    height: { default: null },
   },
   parseDOM: [
     {
