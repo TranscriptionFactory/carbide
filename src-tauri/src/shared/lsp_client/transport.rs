@@ -143,7 +143,7 @@ async fn lsp_run_loop(
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
         while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-            log::debug!("[lsp stderr] {}", line.trim());
+            log::warn!("[lsp stderr] {}", line.trim());
             line.clear();
         }
     });
