@@ -14,6 +14,7 @@
   const code_actions = $derived(stores.iwe.code_actions);
   const symbols = $derived(stores.iwe.symbols);
   const loading = $derived(stores.iwe.loading);
+  const iwe_error = $derived(stores.iwe.error);
   const vault_uri_prefix = $derived.by(() => {
     const vault_path = stores.vault.vault?.path;
     return vault_path ? `file://${vault_path}/` : null;
@@ -95,6 +96,10 @@
     </div>
     {#if loading}
       <span class="IweResults__loading">Loading…</span>
+    {/if}
+    {#if iwe_error}
+      <span class="IweResults__error" title={iwe_error}>Error: {iwe_error}</span
+      >
     {/if}
   </div>
 
@@ -271,6 +276,15 @@
     50% {
       opacity: 1;
     }
+  }
+
+  .IweResults__error {
+    font-size: var(--text-xs);
+    color: var(--destructive);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 300px;
   }
 
   .IweResults__body {

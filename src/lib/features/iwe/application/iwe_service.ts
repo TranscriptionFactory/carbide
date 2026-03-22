@@ -198,6 +198,7 @@ export class IweService {
     } catch (e) {
       log.from_error("references failed", e);
       this.store.set_references([]);
+      this.store.set_error(e instanceof Error ? e.message : String(e));
     } finally {
       this.store.set_loading(false);
     }
@@ -247,6 +248,7 @@ export class IweService {
     } catch (e) {
       log.from_error("code_actions failed", e);
       this.store.set_code_actions([]);
+      this.store.set_error(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -281,6 +283,7 @@ export class IweService {
     } catch (e) {
       log.from_error("workspace_symbols failed", e);
       this.store.set_symbols([]);
+      this.store.set_error(e instanceof Error ? e.message : String(e));
     }
   }
 
