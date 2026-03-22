@@ -13,6 +13,14 @@ export function register_iwe_actions(input: {
   const { registry, iwe_service, iwe_store, editor_store } = input;
 
   registry.register({
+    id: ACTION_IDS.iwe_restart,
+    label: "IWE: Restart Server",
+    execute: async () => {
+      await iwe_service.restart();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.iwe_references,
     label: "IWE: Find References",
     when: () => iwe_store.status === "running",

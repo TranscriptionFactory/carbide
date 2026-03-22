@@ -59,6 +59,11 @@ export class IweService {
     });
   }
 
+  async restart(): Promise<void> {
+    await this.stop();
+    await this.start();
+  }
+
   async stop(): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
