@@ -12,6 +12,8 @@
   - IWE restart action and CLI trigger
 
   ### Editor Enhancements
+  - Resizable code blocks with drag handle and persisted height
+  - Inline SVG preview for Excalidraw embeds in notes
   - Collapsible headings in both visual and source editor modes with clickable fold toggles
   - Inline document and PDF embedding (`![[file.pdf]]`) via pdf.js canvas rendering
   - Collapsible sections (`<details>`/`<summary>`)
@@ -52,6 +54,11 @@
   ### AST-Indexed Schema
   - Property registry wiring with inline tags, sections, and code blocks
   - Compact frontmatter with auto-expand overrides and all-file indexing
+
+  ### Fixes
+  - Fix blank labels in IWE link completion dropdown
+  - Fix IWE panel, completion URIs, and status bar click handling
+  - Fix cursor position not persisting on tab switch
 
   ### Other
   - Auto-check for updates on startup with skip version support
