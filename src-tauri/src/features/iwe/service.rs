@@ -49,7 +49,9 @@ impl IweState {
 
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
     let full = vault_path.join(file_path);
-    format!("file://{}", full.display())
+    url::Url::from_file_path(&full)
+        .map(|u| u.to_string())
+        .unwrap_or_else(|_| format!("file://{}", full.display()))
 }
 
 fn err(e: LspClientError) -> String {
