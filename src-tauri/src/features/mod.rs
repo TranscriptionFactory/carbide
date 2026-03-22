@@ -3,6 +3,7 @@ pub mod bases;
 pub mod canvas;
 pub mod git;
 pub mod graph;
+pub mod iwe;
 pub mod lint;
 pub mod notes;
 pub mod pipeline;

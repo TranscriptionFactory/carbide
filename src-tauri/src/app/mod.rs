@@ -76,6 +76,7 @@ pub fn run() {
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
+        .manage(features::iwe::IweState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             // The first arg is the executable, subsequent args might be file paths
@@ -246,6 +247,22 @@ pub fn run() {
             features::lint::lint_check_vault,
             features::lint::lint_format_vault,
             features::lint::lint_get_status,
+            features::iwe::service::iwe_start,
+            features::iwe::service::iwe_stop,
+            features::iwe::service::iwe_did_open,
+            features::iwe::service::iwe_did_change,
+            features::iwe::service::iwe_did_save,
+            features::iwe::service::iwe_hover,
+            features::iwe::service::iwe_references,
+            features::iwe::service::iwe_definition,
+            features::iwe::service::iwe_code_actions,
+            features::iwe::service::iwe_code_action_resolve,
+            features::iwe::service::iwe_workspace_symbols,
+            features::iwe::service::iwe_rename,
+            features::iwe::service::iwe_prepare_rename,
+            features::iwe::service::iwe_completion,
+            features::iwe::service::iwe_formatting,
+            features::iwe::service::iwe_inlay_hints,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

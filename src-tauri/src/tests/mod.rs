@@ -140,6 +140,23 @@ mod specta_export {
                 crate::shared::buffer::close_buffer,
                 // App commands (1)
                 crate::app::get_pending_file_open,
+                // IWE commands (16)
+                crate::features::iwe::service::iwe_start,
+                crate::features::iwe::service::iwe_stop,
+                crate::features::iwe::service::iwe_did_open,
+                crate::features::iwe::service::iwe_did_change,
+                crate::features::iwe::service::iwe_did_save,
+                crate::features::iwe::service::iwe_hover,
+                crate::features::iwe::service::iwe_references,
+                crate::features::iwe::service::iwe_definition,
+                crate::features::iwe::service::iwe_code_actions,
+                crate::features::iwe::service::iwe_code_action_resolve,
+                crate::features::iwe::service::iwe_workspace_symbols,
+                crate::features::iwe::service::iwe_rename,
+                crate::features::iwe::service::iwe_prepare_rename,
+                crate::features::iwe::service::iwe_completion,
+                crate::features::iwe::service::iwe_formatting,
+                crate::features::iwe::service::iwe_inlay_hints,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])
