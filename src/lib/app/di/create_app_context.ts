@@ -476,7 +476,12 @@ export function create_app_context(input: {
   });
 
   register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
-  register_metadata_actions(action_registry, metadata_service, stores.ui);
+  register_metadata_actions(
+    action_registry,
+    metadata_service,
+    stores.metadata,
+    stores.ui,
+  );
 
   register_lint_actions({
     registry: action_registry,

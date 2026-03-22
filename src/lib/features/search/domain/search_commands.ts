@@ -315,4 +315,42 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     ],
     icon: "maximize",
   },
+  {
+    id: "iwe_references",
+    label: "IWE: Find References",
+    description: "Find all references to the current heading or section",
+    keywords: ["iwe", "references", "links", "backlinks", "lsp", "find"],
+    icon: "link",
+  },
+  {
+    id: "iwe_code_actions",
+    label: "IWE: Code Actions",
+    description:
+      "Show available IWE refactoring actions for the current context",
+    keywords: ["iwe", "code", "actions", "refactor", "lsp", "restructure"],
+    icon: "sparkles",
+  },
+  {
+    id: "iwe_workspace_symbols",
+    label: "IWE: Workspace Symbols",
+    description:
+      "Search across all document headings and sections in the vault",
+    keywords: [
+      "iwe",
+      "workspace",
+      "symbols",
+      "headings",
+      "outline",
+      "lsp",
+      "search",
+    ],
+    icon: "list-tree",
+  },
+  {
+    id: "iwe_formatting",
+    label: "IWE: Format Document",
+    description: "Format the current document using IWE language server",
+    keywords: ["iwe", "format", "formatting", "lsp", "clean", "style"],
+    icon: "settings",
+  },
 ];

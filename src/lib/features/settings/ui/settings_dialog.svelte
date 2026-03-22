@@ -3134,6 +3134,46 @@
                 placeholder={"MD013 = false\nMD040 = true"}
               ></textarea>
             </div>
+
+            <div class="SettingsDialog__section-divider"></div>
+            <h3 class="SettingsDialog__section-subheader">IWE Integration</h3>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Enable IWE Language Server</span
+                >
+                <span class="SettingsDialog__description"
+                  >Enable IWE for workspace-level refactoring, outline, and code
+                  actions</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.iwe_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("iwe_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">IWE Binary Path</span>
+                <span class="SettingsDialog__description"
+                  >Path to the IWE language server binary. Leave empty to use
+                  the bundled version</span
+                >
+              </div>
+              <Input
+                type="text"
+                class="w-64"
+                placeholder="/usr/local/bin/iwe"
+                value={editor_settings.iwe_binary_path}
+                oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                  update("iwe_binary_path", e.currentTarget.value);
+                }}
+              />
+            </div>
           </div>
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>
@@ -3347,5 +3387,17 @@
   :global(.SettingsDialog__footer) {
     padding: var(--space-3) var(--space-6);
     border-top: 1px solid var(--border);
+  }
+
+  .SettingsDialog__section-divider {
+    border-top: 1px solid var(--border);
+    margin-block: var(--space-4);
+  }
+
+  .SettingsDialog__section-subheader {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--foreground);
+    margin-block-end: var(--space-3);
   }
 </style>

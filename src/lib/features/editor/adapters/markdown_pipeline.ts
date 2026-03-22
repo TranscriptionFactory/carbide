@@ -3,6 +3,7 @@ import type { PluginSimple, PluginWithOptions } from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import texmathPlugin from "markdown-it-texmath";
 import frontmatterPlugin from "markdown-it-front-matter";
+import { full as emoji_plugin } from "markdown-it-emoji";
 import { MarkdownParser, MarkdownSerializer } from "prosemirror-markdown";
 import type { MarkdownSerializerState, ParseSpec } from "prosemirror-markdown";
 import type { Node as PmNode, Mark, Schema, NodeType } from "prosemirror-model";
@@ -15,6 +16,7 @@ type ParseStateInternal = {
     attrs: Record<string, unknown> | null,
   ): void;
   closeNode(): void;
+  addText(text: string): void;
 };
 
 type SerializerStateInternal = {
@@ -63,6 +65,7 @@ const md = new MarkdownIt({
   .use(details_markdown_it_plugin)
   .use(texmathPlugin as PluginSimple)
   .use(highlight_markdown_it_plugin)
+  .use(emoji_plugin as PluginSimple)
   .use(
     frontmatterPlugin as PluginWithOptions<(fm: string) => void>,
     (fm: string) => {
@@ -269,6 +272,10 @@ class CarbideMarkdownParser extends MarkdownParser {
       state.closeNode();
       state.closeNode();
     };
+
+    h["emoji"] = (state, tok) => {
+      state.addText(tok.content);
+    };
   }
 }
 
@@ -307,10 +314,14 @@ function render_table_row(state: MarkdownSerializerState, row: PmNode) {
       s.out = "";
       s.closed = null;
       state.renderInline(para);
-      const piece = s.out.replace(/\n/g, " ").trim();
+      const piece = s.out
+        .replace(/\\\n/g, " ")
+        .replace(/\n/g, " ")
+        .replace(/\s{2,}\s*$/g, " ")
+        .trim();
       s.out = saved_out;
       s.closed = saved_closed;
-      parts.push(piece);
+      if (piece) parts.push(piece);
     });
     cells.push(parts.join(" "));
   });

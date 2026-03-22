@@ -259,6 +259,9 @@ export const ACTION_IDS = {
 
   metadata_refresh: "metadata.refresh",
   metadata_toggle_panel: "metadata.toggle_panel",
+  metadata_add_property: "metadata.add_property",
+  metadata_update_property: "metadata.update_property",
+  metadata_delete_property: "metadata.delete_property",
 
   lint_format_file: "lint.format_file",
   lint_format_vault: "lint.format_vault",

@@ -104,6 +104,8 @@ export type EditorSettings = {
   lint_format_on_save: boolean;
   lint_formatter: LintFormatter;
   lint_rules_toml: string;
+  iwe_enabled: boolean;
+  iwe_binary_path: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -167,6 +169,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_format_on_save: false,
   lint_formatter: "prettier",
   lint_rules_toml: "",
+  iwe_enabled: false,
+  iwe_binary_path: "",
 };
 
 export const SETTINGS_KEY = "editor" as const;

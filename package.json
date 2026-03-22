@@ -56,6 +56,7 @@
     "katex": "^0.16.38",
     "lucide-static": "^0.563.0",
     "markdown-it": "^14.1.1",
+    "markdown-it-emoji": "^3.0.0",
     "markdown-it-front-matter": "^0.2.4",
     "markdown-it-texmath": "^1.0.0",
     "mermaid": "^11.12.3",

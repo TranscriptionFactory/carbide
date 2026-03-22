@@ -420,7 +420,15 @@ const frontmatter: NodeSpec = {
     },
   ],
   toDOM() {
-    return ["div", { "data-type": "frontmatter" }, 0];
+    return [
+      "div",
+      {
+        "data-type": "frontmatter",
+        class: "frontmatter-hidden",
+        style: "display:none",
+      },
+      0,
+    ];
   },
 };
 
