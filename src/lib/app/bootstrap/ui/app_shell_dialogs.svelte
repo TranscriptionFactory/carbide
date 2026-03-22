@@ -29,6 +29,7 @@
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
   import { QuickCaptureDialog } from "$lib/features/task";
+  import IweRenameDialog from "$lib/features/iwe/ui/iwe_rename_dialog.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OmnibarItem } from "$lib/shared/types/search";
@@ -567,3 +568,7 @@
   }}
   on_cancel={() => void action_registry.execute(ACTION_IDS.hotkey_close_editor)}
 />
+
+{#if stores.ui.iwe_rename_dialog.open}
+  <IweRenameDialog />
+{/if}

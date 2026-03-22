@@ -69,6 +69,20 @@ export type EditorServiceCallbacks = {
     }>
   >;
   on_iwe_definition_navigate?: (uri: string) => void;
+  on_iwe_completion?: (
+    file_path: string,
+    line: number,
+    character: number,
+  ) => Promise<
+    Array<{ label: string; detail: string | null; insert_text: string | null }>
+  >;
+  on_iwe_inlay_hints?: (file_path: string) => Promise<
+    Array<{
+      position_line: number;
+      position_character: number;
+      label: string;
+    }>
+  >;
 };
 
 type EditorFlushResult = {
@@ -560,6 +574,28 @@ export class EditorService {
     if (this.callbacks.on_iwe_definition_navigate) {
       events.on_iwe_definition_navigate =
         this.callbacks.on_iwe_definition_navigate;
+    }
+
+    if (this.callbacks.on_iwe_completion) {
+      const completion_cb = this.callbacks.on_iwe_completion;
+      events.on_iwe_completion = (line: number, character: number) => {
+        const note = this.active_note;
+        if (!note || !this.is_generation_current(generation)) {
+          return Promise.resolve([]);
+        }
+        return completion_cb(note.meta.path, line, character);
+      };
+    }
+
+    if (this.callbacks.on_iwe_inlay_hints) {
+      const hints_cb = this.callbacks.on_iwe_inlay_hints;
+      events.on_iwe_inlay_hints = () => {
+        const note = this.active_note;
+        if (!note || !this.is_generation_current(generation)) {
+          return Promise.resolve([]);
+        }
+        return hints_cb(note.meta.path);
+      };
     }
 
     return events;

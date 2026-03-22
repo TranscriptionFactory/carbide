@@ -2,6 +2,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { IweHoverResult } from "$lib/features/iwe";
+import { line_and_character_from_pos } from "./iwe_plugin_utils";
 
 const iwe_hover_plugin_key = new PluginKey("iwe-hover");
 
@@ -13,30 +14,6 @@ function pos_to_dom_rect(view: EditorView, from: number, to: number): DOMRect {
   const left = Math.min(start.left, end.left);
   const right = Math.max(start.right, end.right);
   return new DOMRect(left, top, right - left, bottom - top);
-}
-
-function count_newlines_before(doc_text: string): number {
-  let count = 0;
-  for (let i = 0; i < doc_text.length; i++) {
-    if (doc_text.charCodeAt(i) === 10) count++;
-  }
-  return count;
-}
-
-function line_and_character_from_pos(
-  view: EditorView,
-  pos: number,
-): { line: number; character: number } {
-  const doc = view.state.doc;
-  const clamped = Math.min(pos, doc.content.size);
-  const text_before = doc.textBetween(0, clamped, "\n");
-  const line = count_newlines_before(text_before);
-  const last_newline = text_before.lastIndexOf("\n");
-  const character =
-    last_newline === -1
-      ? text_before.length
-      : text_before.length - last_newline - 1;
-  return { line, character };
 }
 
 export function create_iwe_hover_plugin(input: {

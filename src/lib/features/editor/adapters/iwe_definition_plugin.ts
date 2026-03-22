@@ -1,13 +1,6 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { IweLocation } from "$lib/features/iwe";
-
-function count_newlines_before(text: string): number {
-  let count = 0;
-  for (let i = 0; i < text.length; i++) {
-    if (text.charCodeAt(i) === 10) count++;
-  }
-  return count;
-}
+import { line_and_character_from_pos } from "./iwe_plugin_utils";
 
 export function create_iwe_definition_plugin(input: {
   on_definition: (line: number, character: number) => Promise<IweLocation[]>;
@@ -25,16 +18,10 @@ export function create_iwe_definition_plugin(input: {
           const pos_result = view.posAtCoords(coords);
           if (!pos_result) return false;
 
-          const pos = pos_result.pos;
-          const doc = view.state.doc;
-          const clamped = Math.min(pos, doc.content.size);
-          const text_before = doc.textBetween(0, clamped, "\n");
-          const line = count_newlines_before(text_before);
-          const last_newline = text_before.lastIndexOf("\n");
-          const character =
-            last_newline === -1
-              ? text_before.length
-              : text_before.length - last_newline - 1;
+          const { line, character } = line_and_character_from_pos(
+            view,
+            pos_result.pos,
+          );
 
           event.preventDefault();
 
