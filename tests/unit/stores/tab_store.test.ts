@@ -166,7 +166,11 @@ describe("TabStore", () => {
     it("cleans up editor snapshot on close", () => {
       const store = new TabStore();
       store.open_tab(np("a.md"), "a");
-      store.set_snapshot("a.md", { scroll_top: 100, cursor: null });
+      store.set_snapshot("a.md", {
+        scroll_top: 100,
+        cursor: null,
+        cursor_offset: 0,
+      });
 
       store.close_tab("a.md");
 
@@ -274,7 +278,11 @@ describe("TabStore", () => {
       const store = new TabStore();
       store.open_tab(np("a.md"), "a");
       store.open_tab(np("b.md"), "b");
-      store.set_snapshot("a.md", { scroll_top: 50, cursor: null });
+      store.set_snapshot("a.md", {
+        scroll_top: 50,
+        cursor: null,
+        cursor_offset: 0,
+      });
 
       store.close_all_tabs();
 
@@ -485,7 +493,11 @@ describe("TabStore", () => {
     it("migrates editor snapshot to new path", () => {
       const store = new TabStore();
       store.open_tab(np("old.md"), "old");
-      store.set_snapshot("old.md", { scroll_top: 42, cursor: null });
+      store.set_snapshot("old.md", {
+        scroll_top: 42,
+        cursor: null,
+        cursor_offset: 0,
+      });
 
       store.update_tab_path(np("old.md"), np("new.md"));
 
@@ -885,7 +897,11 @@ describe("TabStore", () => {
       const store = new TabStore();
       store.open_tab(np("a.md"), "a");
       store.set_dirty("a.md", true);
-      store.set_snapshot("a.md", { scroll_top: 50, cursor: null });
+      store.set_snapshot("a.md", {
+        scroll_top: 50,
+        cursor: null,
+        cursor_offset: 0,
+      });
       store.push_closed_history({
         kind: "note",
         note_path: np("b.md"),

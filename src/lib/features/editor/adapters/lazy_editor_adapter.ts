@@ -8,6 +8,7 @@ type ResolveAssetUrlForVault = (
 
 export function create_lazy_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
+  load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
 }): EditorPort {
   let port_promise: Promise<EditorPort> | null = null;
 

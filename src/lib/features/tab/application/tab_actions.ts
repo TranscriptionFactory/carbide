@@ -271,6 +271,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         stores.tab.set_snapshot(tab.id, {
           scroll_top: entry.scroll_top,
           cursor: entry.cursor,
+          cursor_offset: 0,
         });
       }
 

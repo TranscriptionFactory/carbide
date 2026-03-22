@@ -87,6 +87,10 @@ export class CanvasService {
 
       await this.canvas_port.write_file(vault_id, state.file_path, content);
       this.canvas_store.set_dirty(tab_id, false);
+
+      if (state.file_type === "excalidraw") {
+        this.#export_svg_preview(tab_id, vault_id, state.file_path);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to save canvas";
@@ -131,6 +135,12 @@ export class CanvasService {
     await this.canvas_port.write_file(vault_id, file_path, content);
   }
 
+  async read_svg_preview(file_path: string): Promise<string | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    return this.canvas_port.read_svg_preview(vault_id, file_path);
+  }
+
   async repair_canvas_refs(
     vault_id: string,
     old_path: string,
@@ -141,5 +151,22 @@ export class CanvasService {
       old_path,
       new_path,
     );
+  }
+
+  async #export_svg_preview(
+    tab_id: string,
+    vault_id: string,
+    file_path: string,
+  ): Promise<void> {
+    const provider = this.canvas_store.get_svg_export_provider(tab_id);
+    if (!provider) return;
+    try {
+      const svg = await provider();
+      if (svg) {
+        await this.canvas_port.write_svg_preview(vault_id, file_path, svg);
+      }
+    } catch {
+      // SVG preview is best-effort; don't fail the save
+    }
   }
 }

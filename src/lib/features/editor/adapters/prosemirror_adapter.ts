@@ -82,7 +82,10 @@ import {
   create_excalidraw_embed_plugin,
   excalidraw_embed_plugin_key,
 } from "./excalidraw_embed_plugin";
-import { create_excalidraw_embed_view_plugin } from "./excalidraw_embed_view_plugin";
+import {
+  create_excalidraw_embed_view_plugin,
+  type ExcalidrawEmbedCallbacks,
+} from "./excalidraw_embed_view_plugin";
 import {
   create_file_embed_plugin,
   file_embed_plugin_key,
@@ -435,8 +438,10 @@ function create_image_block_view_plugin(input: {
 
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
+  load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
+  const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
 
   return {
     start_session: (config) => {
@@ -616,15 +621,23 @@ export function create_prosemirror_editor_port(args?: {
       plugins.push(create_task_keymap_prose_plugin());
       plugins.push(create_image_input_rule_prose_plugin());
       plugins.push(create_excalidraw_embed_plugin());
-      plugins.push(
-        create_excalidraw_embed_view_plugin({
+      {
+        const embed_callbacks: ExcalidrawEmbedCallbacks = {
           on_open_file: (path) => {
             if (on_internal_link_click) {
               on_internal_link_click(path, current_note_path, "wiki");
             }
           },
-        }),
-      );
+        };
+        if (load_svg_preview_fn) {
+          embed_callbacks.load_svg_preview = (path: string) => {
+            const vid = current_vault_id;
+            if (!vid) return Promise.resolve(null);
+            return load_svg_preview_fn(vid, path);
+          };
+        }
+        plugins.push(create_excalidraw_embed_view_plugin(embed_callbacks));
+      }
       plugins.push(create_file_embed_plugin());
       plugins.push(
         create_file_embed_view_plugin({

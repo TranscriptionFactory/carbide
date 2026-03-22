@@ -213,15 +213,118 @@ async function render_mermaid_preview(
   }
 }
 
+const MIN_CODE_BLOCK_HEIGHT = 48;
+
+function apply_height(pre: HTMLElement, height: number | null) {
+  if (height !== null && height > 0) {
+    pre.style.height = `${String(height)}px`;
+    pre.style.maxHeight = "none";
+  } else {
+    pre.style.removeProperty("height");
+    pre.style.removeProperty("max-height");
+  }
+}
+
+type ResizeHandle = {
+  el: HTMLElement;
+  cancel: () => void;
+};
+
+function create_resize_handle(
+  pre: HTMLElement,
+  on_resize_start: () => void,
+  on_commit: (height: number | null) => void,
+): ResizeHandle {
+  const handle = document.createElement("div");
+  handle.className = "code-block-resize-handle";
+  handle.contentEditable = "false";
+
+  let start_y = 0;
+  let start_height = 0;
+  let current_height = 0;
+  let active_pointer_id: number | null = null;
+
+  function finish_drag() {
+    if (
+      active_pointer_id !== null &&
+      typeof handle.releasePointerCapture === "function" &&
+      handle.hasPointerCapture(active_pointer_id)
+    ) {
+      handle.releasePointerCapture(active_pointer_id);
+    }
+    active_pointer_id = null;
+    handle.removeEventListener("pointermove", on_pointer_move);
+    handle.removeEventListener("pointerup", on_pointer_up);
+    handle.removeEventListener("pointercancel", on_pointer_cancel);
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }
+
+  function on_pointer_move(e: PointerEvent) {
+    const delta = e.clientY - start_y;
+    current_height = Math.max(MIN_CODE_BLOCK_HEIGHT, start_height + delta);
+    apply_height(pre, current_height);
+  }
+
+  function on_pointer_up() {
+    finish_drag();
+    on_commit(current_height);
+  }
+
+  function on_pointer_cancel() {
+    finish_drag();
+    on_commit(current_height);
+  }
+
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    start_y = e.clientY;
+    start_height = pre.getBoundingClientRect().height;
+    current_height = start_height;
+    active_pointer_id = e.pointerId;
+    if (typeof handle.setPointerCapture === "function") {
+      handle.setPointerCapture(e.pointerId);
+    }
+    handle.addEventListener("pointermove", on_pointer_move);
+    handle.addEventListener("pointerup", on_pointer_up);
+    handle.addEventListener("pointercancel", on_pointer_cancel);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    on_resize_start();
+  });
+
+  handle.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    apply_height(pre, null);
+    on_commit(null);
+  });
+
+  return {
+    el: handle,
+    cancel() {
+      if (active_pointer_id !== null) {
+        finish_drag();
+        on_commit(current_height);
+      }
+    },
+  };
+}
+
 class CodeBlockView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
   private toolbar: HTMLElement;
+  private pre: HTMLElement;
   private lang_label: HTMLButtonElement;
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
   private current_language: string;
+  private is_resizing = false;
+  private cancel_resize: () => void;
+  private applied_height: number | null = null;
 
   constructor(
     private node: ProseNode,
@@ -249,7 +352,7 @@ class CodeBlockView implements NodeView {
 
     this.toolbar.appendChild(this.lang_label);
 
-    const pre = document.createElement("pre");
+    this.pre = document.createElement("pre");
     this.contentDOM = document.createElement("code");
 
     if (this.current_language) {
@@ -258,20 +361,51 @@ class CodeBlockView implements NodeView {
       );
     }
 
-    pre.appendChild(this.contentDOM);
+    this.pre.appendChild(this.contentDOM);
 
     const copy_btn = create_copy_button(this.contentDOM);
     this.toolbar.appendChild(copy_btn);
 
+    this.set_height(node.attrs.height as number | null);
+
+    const { el: resize_el, cancel } = create_resize_handle(
+      this.pre,
+      () => {
+        this.is_resizing = true;
+      },
+      (height) => {
+        this.is_resizing = false;
+        this.commit_height(height);
+      },
+    );
+    this.cancel_resize = cancel;
+
     this.dom.appendChild(this.toolbar);
-    this.dom.appendChild(pre);
+    this.dom.appendChild(this.pre);
+    this.dom.appendChild(resize_el);
 
     if (this.current_language === "mermaid") {
-      this.setup_mermaid(pre);
+      this.setup_mermaid();
     }
   }
 
-  private setup_mermaid(pre: HTMLElement) {
+  private set_height(height: number | null) {
+    if (height === this.applied_height) return;
+    this.applied_height = height;
+    apply_height(this.pre, height);
+  }
+
+  private commit_height(height: number | null) {
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+      ...this.node.attrs,
+      height,
+    });
+    this.view.dispatch(tr);
+  }
+
+  private setup_mermaid() {
     const preview_container = document.createElement("div");
     preview_container.className = "mermaid-preview";
 
@@ -282,7 +416,7 @@ class CodeBlockView implements NodeView {
     toggle_btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.toggle_mermaid_preview(pre);
+      this.toggle_mermaid_preview();
     });
 
     this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
@@ -296,21 +430,21 @@ class CodeBlockView implements NodeView {
       last_rendered_content: this.node.textContent,
     };
 
-    pre.style.display = "none";
+    this.pre.style.display = "none";
     this.schedule_mermaid_render();
   }
 
-  private toggle_mermaid_preview(pre: HTMLElement) {
+  private toggle_mermaid_preview() {
     if (!this.mermaid) return;
     this.mermaid.is_preview = !this.mermaid.is_preview;
 
     if (this.mermaid.is_preview) {
-      pre.style.display = "none";
+      this.pre.style.display = "none";
       this.mermaid.preview_container.style.display = "";
       this.mermaid.toggle_btn.textContent = "Edit";
       this.schedule_mermaid_render();
     } else {
-      pre.style.display = "";
+      this.pre.style.display = "";
       this.mermaid.preview_container.style.display = "none";
       this.mermaid.toggle_btn.textContent = "Preview";
     }
@@ -332,8 +466,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.preview_container.remove();
     this.mermaid.toggle_btn.remove();
     this.mermaid = null;
-    const pre = this.dom.querySelector("pre");
-    if (pre) pre.style.display = "";
+    this.pre.style.display = "";
   }
 
   private toggle_picker() {
@@ -391,8 +524,7 @@ class CodeBlockView implements NodeView {
     const old_lang = this.current_language;
 
     if (new_lang === "mermaid" && old_lang !== "mermaid") {
-      const pre = this.dom.querySelector("pre");
-      if (pre) this.setup_mermaid(pre);
+      this.setup_mermaid();
     } else if (new_lang !== "mermaid" && old_lang === "mermaid") {
       this.teardown_mermaid();
     }
@@ -403,6 +535,10 @@ class CodeBlockView implements NodeView {
         ? `language-${String(new_lang)}`
         : "";
       this.lang_label.textContent = find_language_label(new_lang);
+    }
+
+    if (!this.is_resizing) {
+      this.set_height(updated.attrs.height as number | null);
     }
 
     if (this.mermaid?.is_preview) {
@@ -418,8 +554,12 @@ class CodeBlockView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
+    if (this.is_resizing) return true;
     if (!(event.target instanceof HTMLElement)) return false;
-    return event.target.closest(".code-block-toolbar") !== null;
+    return (
+      event.target.closest(".code-block-toolbar") !== null ||
+      event.target.closest(".code-block-resize-handle") !== null
+    );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
@@ -428,6 +568,7 @@ class CodeBlockView implements NodeView {
   }
 
   destroy() {
+    this.cancel_resize();
     this.dismiss_picker();
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);

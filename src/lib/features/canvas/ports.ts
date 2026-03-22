@@ -18,4 +18,13 @@ export interface CanvasPort {
     old_path: string,
     new_path: string,
   ): Promise<number>;
+  read_svg_preview(
+    vault_id: string,
+    canvas_path: string,
+  ): Promise<string | null>;
+  write_svg_preview(
+    vault_id: string,
+    canvas_path: string,
+    svg: string,
+  ): Promise<void>;
 }

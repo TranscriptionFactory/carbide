@@ -5,9 +5,10 @@
   interface Props {
     status: IweStatus;
     error: string | null;
+    onclick?: () => void;
   }
 
-  let { status, error }: Props = $props();
+  let { status, error, onclick }: Props = $props();
 
   const label = $derived.by(() => {
     switch (status) {
@@ -23,24 +24,43 @@
   });
 </script>
 
+{#snippet icon_content()}
+  {#if status === "running"}
+    <Zap class="IweIndicator__icon" />
+  {:else if status === "starting"}
+    <Loader class="IweIndicator__icon IweIndicator__icon--spin" />
+  {:else}
+    <ZapOff class="IweIndicator__icon" />
+  {/if}
+  <span>IWE</span>
+{/snippet}
+
 {#if status !== "idle"}
-  <span
-    class="IweIndicator"
-    class:IweIndicator--running={status === "running"}
-    class:IweIndicator--error={status === "error"}
-    class:IweIndicator--starting={status === "starting"}
-    aria-label={label}
-    title={label}
-  >
-    {#if status === "running"}
-      <Zap class="IweIndicator__icon" />
-    {:else if status === "starting"}
-      <Loader class="IweIndicator__icon IweIndicator__icon--spin" />
-    {:else}
-      <ZapOff class="IweIndicator__icon" />
-    {/if}
-    <span>IWE</span>
-  </span>
+  {#if onclick}
+    <button
+      type="button"
+      class="IweIndicator"
+      class:IweIndicator--running={status === "running"}
+      class:IweIndicator--error={status === "error"}
+      class:IweIndicator--starting={status === "starting"}
+      {onclick}
+      aria-label={label}
+      title={label}
+    >
+      {@render icon_content()}
+    </button>
+  {:else}
+    <span
+      class="IweIndicator"
+      class:IweIndicator--running={status === "running"}
+      class:IweIndicator--error={status === "error"}
+      class:IweIndicator--starting={status === "starting"}
+      aria-label={label}
+      title={label}
+    >
+      {@render icon_content()}
+    </span>
+  {/if}
 {/if}
 
 <style>
@@ -53,6 +73,24 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     opacity: 0.7;
+    transition:
+      opacity var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  button.IweIndicator {
+    cursor: pointer;
+  }
+
+  button.IweIndicator:hover {
+    opacity: 1;
+    color: var(--interactive);
+  }
+
+  button.IweIndicator:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
   }
 
   .IweIndicator--running {
