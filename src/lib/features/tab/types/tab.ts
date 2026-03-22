@@ -17,6 +17,7 @@ export type Tab = {
 export type TabEditorSnapshot = {
   scroll_top: number;
   cursor: CursorInfo | null;
+  cursor_offset: number;
 };
 
 export type ClosedTabEntry = {
