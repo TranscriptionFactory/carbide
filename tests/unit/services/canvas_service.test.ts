@@ -14,6 +14,8 @@ function make_port(overrides: Partial<CanvasPort> = {}): CanvasPort {
     read_camera: vi.fn().mockResolvedValue(null),
     write_camera: vi.fn().mockResolvedValue(undefined),
     rewrite_refs_for_rename: vi.fn().mockResolvedValue(0),
+    read_svg_preview: vi.fn().mockResolvedValue(null),
+    write_svg_preview: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -159,6 +161,68 @@ describe("CanvasService", () => {
       "sketch.excalidraw",
       expect.stringContaining('"type": "excalidraw"'),
     );
+  });
+
+  it("exports SVG preview after saving an excalidraw file", async () => {
+    const scene = {
+      type: "excalidraw",
+      version: 2,
+      source: "badgerly",
+      elements: [],
+      appState: {},
+    };
+    const { service, canvas_store, port } = make_service({
+      read_file: vi.fn().mockResolvedValue(JSON.stringify(scene)),
+    });
+
+    await service.open_canvas("tab1", "sketch.excalidraw", "excalidraw");
+
+    const svg_provider = vi.fn().mockResolvedValue("<svg>mock</svg>");
+    canvas_store.register_svg_export_provider("tab1", svg_provider);
+    canvas_store.set_dirty("tab1", true);
+
+    await service.save_canvas("tab1");
+
+    expect(svg_provider).toHaveBeenCalled();
+    expect(port.write_svg_preview).toHaveBeenCalledWith(
+      expect.any(String),
+      "sketch.excalidraw",
+      "<svg>mock</svg>",
+    );
+  });
+
+  it("does not fail save when SVG export fails", async () => {
+    const scene = {
+      type: "excalidraw",
+      version: 2,
+      source: "badgerly",
+      elements: [],
+      appState: {},
+    };
+    const { service, canvas_store, port } = make_service({
+      read_file: vi.fn().mockResolvedValue(JSON.stringify(scene)),
+    });
+
+    await service.open_canvas("tab1", "sketch.excalidraw", "excalidraw");
+
+    const svg_provider = vi.fn().mockRejectedValue(new Error("export failed"));
+    canvas_store.register_svg_export_provider("tab1", svg_provider);
+    canvas_store.set_dirty("tab1", true);
+
+    await service.save_canvas("tab1");
+
+    expect(canvas_store.get_state("tab1")!.is_dirty).toBe(false);
+    expect(port.write_svg_preview).not.toHaveBeenCalled();
+  });
+
+  it("reads cached SVG preview", async () => {
+    const { service, port } = make_service({
+      read_svg_preview: vi.fn().mockResolvedValue("<svg>cached</svg>"),
+    });
+
+    const result = await service.read_svg_preview("sketch.excalidraw");
+    expect(result).toBe("<svg>cached</svg>");
+    expect(port.read_svg_preview).toHaveBeenCalled();
   });
 
   it("does nothing when no vault is active", async () => {

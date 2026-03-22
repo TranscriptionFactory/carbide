@@ -47,5 +47,38 @@ export function create_canvas_tauri_adapter(): CanvasPort {
         newPath: new_path,
       });
     },
+
+    async read_svg_preview(
+      vault_id: string,
+      canvas_path: string,
+    ): Promise<string | null> {
+      const preview_path = svg_preview_path(canvas_path);
+      try {
+        return await invoke<string>("read_vault_file", {
+          vaultId: vault_id,
+          relativePath: preview_path,
+        });
+      } catch {
+        return null;
+      }
+    },
+
+    async write_svg_preview(
+      vault_id: string,
+      canvas_path: string,
+      svg: string,
+    ): Promise<void> {
+      const preview_path = svg_preview_path(canvas_path);
+      return invoke("write_vault_file", {
+        vaultId: vault_id,
+        relativePath: preview_path,
+        content: svg,
+      });
+    },
   };
+}
+
+function svg_preview_path(canvas_path: string): string {
+  const filename = canvas_path.replace(/\//g, "__");
+  return `.carbide/excalidraw_previews/${filename}.svg`;
 }

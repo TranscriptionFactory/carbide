@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToSvg } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { HostMessage, ExcalidrawScene } from "./bridge";
@@ -48,6 +48,29 @@ function App() {
               files: files as any,
             },
           });
+          break;
+        }
+
+        case "export_svg": {
+          const els = api_ref.current?.getSceneElements() ?? [];
+          const state = api_ref.current?.getAppState() ?? {};
+          const f = api_ref.current?.getFiles() ?? {};
+          exportToSvg({
+            elements: els as any,
+            appState: state as any,
+            files: f as any,
+            exportPadding: 16,
+            skipInliningFonts: true,
+          })
+            .then((svg_el) => {
+              post_to_host({
+                type: "svg_export_response",
+                svg: new XMLSerializer().serializeToString(svg_el),
+              });
+            })
+            .catch(() => {
+              post_to_host({ type: "svg_export_response", svg: "" });
+            });
           break;
         }
 

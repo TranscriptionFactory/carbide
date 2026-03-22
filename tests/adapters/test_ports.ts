@@ -82,6 +82,8 @@ export function create_test_ports(): Ports {
       read_camera: () => Promise.resolve(null),
       write_camera: () => Promise.resolve(),
       rewrite_refs_for_rename: () => Promise.resolve(0),
+      read_svg_preview: () => Promise.resolve(null),
+      write_svg_preview: () => Promise.resolve(),
     },
     tag: {
       list_all_tags: () => Promise.resolve([]),

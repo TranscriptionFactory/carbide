@@ -46,7 +46,13 @@
             appState: {},
           });
     });
-    return () => stores.canvas.unregister_scene_provider(tab_id);
+    stores.canvas.register_svg_export_provider(tab_id, async () => {
+      return excalidraw_host ? await excalidraw_host.export_svg() : "";
+    });
+    return () => {
+      stores.canvas.unregister_scene_provider(tab_id);
+      stores.canvas.unregister_svg_export_provider(tab_id);
+    };
   });
 
   const app_theme = $derived(is_dark ? ("dark" as const) : ("light" as const));

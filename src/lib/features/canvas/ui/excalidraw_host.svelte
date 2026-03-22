@@ -23,6 +23,7 @@
   const origin = "badgerly-excalidraw://localhost";
 
   let resolve_scene: ((scene: ExcalidrawScene) => void) | null = null;
+  let resolve_svg: ((svg: string) => void) | null = null;
 
   function handle_message(data: unknown) {
     const msg = data as { type: string; [key: string]: unknown };
@@ -52,6 +53,13 @@
           resolve_scene = null;
         }
         break;
+
+      case "svg_export_response":
+        if (resolve_svg) {
+          resolve_svg(msg.svg as string);
+          resolve_svg = null;
+        }
+        break;
     }
   }
 
@@ -79,6 +87,23 @@
           resolve(scene);
         }
       }, 3000);
+    });
+  }
+
+  export async function export_svg(): Promise<string> {
+    return new Promise((resolve) => {
+      if (resolve_svg) {
+        resolve_svg("");
+      }
+      resolve_svg = resolve;
+      iframe?.post_message({ type: "export_svg" });
+
+      setTimeout(() => {
+        if (resolve_svg === resolve) {
+          resolve_svg = null;
+          resolve("");
+        }
+      }, 5000);
     });
   }
 </script>
