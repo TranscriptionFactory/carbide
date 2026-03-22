@@ -98,6 +98,8 @@ import {
   collapse_all_headings,
   expand_all_headings,
 } from "./heading_fold_plugin";
+import { create_iwe_hover_plugin } from "$lib/features/editor/adapters/iwe_hover_plugin";
+import { create_iwe_definition_plugin } from "$lib/features/editor/adapters/iwe_definition_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import {
   create_math_view_prose_plugin,
@@ -449,6 +451,9 @@ export function create_prosemirror_editor_port(args?: {
         on_wiki_suggest_query,
         on_image_suggest_query,
         on_outline_change,
+        on_iwe_hover,
+        on_iwe_definition,
+        on_iwe_definition_navigate,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -729,6 +734,23 @@ export function create_prosemirror_editor_port(args?: {
         };
         plugins.push(
           create_image_suggest_prose_plugin(image_suggest_config) as Plugin,
+        );
+      }
+
+      if (on_iwe_hover) {
+        plugins.push(
+          create_iwe_hover_plugin({
+            on_hover: on_iwe_hover,
+          }),
+        );
+      }
+
+      if (on_iwe_definition) {
+        plugins.push(
+          create_iwe_definition_plugin({
+            on_definition: on_iwe_definition,
+            on_navigate: on_iwe_definition_navigate ?? (() => {}),
+          }),
         );
       }
 

@@ -48,6 +48,27 @@ export type EditorServiceCallbacks = {
     note_path: NotePath,
     file: PastedImagePayload,
   ) => void;
+  on_iwe_hover?: (
+    file_path: string,
+    line: number,
+    character: number,
+  ) => Promise<{ contents: string | null } | null>;
+  on_iwe_definition?: (
+    file_path: string,
+    line: number,
+    character: number,
+  ) => Promise<
+    Array<{
+      uri: string;
+      range: {
+        start_line: number;
+        start_character: number;
+        end_line: number;
+        end_character: number;
+      };
+    }>
+  >;
+  on_iwe_definition_navigate?: (uri: string) => void;
 };
 
 type EditorFlushResult = {
@@ -512,6 +533,33 @@ export class EditorService {
         if (!this.is_generation_current(generation)) return;
         outline_store.set_headings(headings);
       };
+    }
+
+    if (this.callbacks.on_iwe_hover) {
+      const hover_cb = this.callbacks.on_iwe_hover;
+      events.on_iwe_hover = (line: number, character: number) => {
+        const note = this.active_note;
+        if (!note || !this.is_generation_current(generation)) {
+          return Promise.resolve(null);
+        }
+        return hover_cb(note.meta.path, line, character);
+      };
+    }
+
+    if (this.callbacks.on_iwe_definition) {
+      const def_cb = this.callbacks.on_iwe_definition;
+      events.on_iwe_definition = (line: number, character: number) => {
+        const note = this.active_note;
+        if (!note || !this.is_generation_current(generation)) {
+          return Promise.resolve([]);
+        }
+        return def_cb(note.meta.path, line, character);
+      };
+    }
+
+    if (this.callbacks.on_iwe_definition_navigate) {
+      events.on_iwe_definition_navigate =
+        this.callbacks.on_iwe_definition_navigate;
     }
 
     return events;

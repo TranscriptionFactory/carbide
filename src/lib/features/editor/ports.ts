@@ -68,6 +68,25 @@ export type EditorEventHandlers = {
   on_wiki_suggest_query?: (query: string) => void;
   on_image_suggest_query?: (query: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
+  on_iwe_hover?: (
+    line: number,
+    character: number,
+  ) => Promise<{ contents: string | null } | null>;
+  on_iwe_definition?: (
+    line: number,
+    character: number,
+  ) => Promise<
+    Array<{
+      uri: string;
+      range: {
+        start_line: number;
+        start_character: number;
+        end_line: number;
+        end_character: number;
+      };
+    }>
+  >;
+  on_iwe_definition_navigate?: (uri: string) => void;
 };
 
 export type EditorSessionConfig = {

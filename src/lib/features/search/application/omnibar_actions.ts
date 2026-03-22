@@ -45,6 +45,11 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   fold_toggle: ACTION_IDS.editor_fold_toggle,
   fold_collapse_all: ACTION_IDS.editor_fold_collapse_all,
   fold_expand_all: ACTION_IDS.editor_fold_expand_all,
+  iwe_restart: ACTION_IDS.iwe_restart,
+  iwe_references: ACTION_IDS.iwe_references,
+  iwe_code_actions: ACTION_IDS.iwe_code_actions,
+  iwe_workspace_symbols: ACTION_IDS.iwe_workspace_symbols,
+  iwe_formatting: ACTION_IDS.iwe_formatting,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

@@ -337,6 +337,13 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "list-tree",
   },
   {
+    id: "iwe_restart",
+    label: "IWE: Restart Server",
+    description: "Restart the IWE language server to re-index the vault",
+    keywords: ["iwe", "restart", "reindex", "refresh", "lsp", "server"],
+    icon: "refresh-cw",
+  },
+  {
     id: "iwe_references",
     label: "IWE: Find References",
     description: "Find all references to the current heading or section",
