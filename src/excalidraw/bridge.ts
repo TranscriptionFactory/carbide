@@ -6,6 +6,7 @@ export type HostMessage =
       appState: Record<string, unknown>;
     }
   | { type: "get_scene" }
+  | { type: "export_svg" }
   | {
       type: "theme_sync";
       theme: "light" | "dark";
@@ -20,6 +21,7 @@ export type GuestMessage =
       dirty: boolean;
     }
   | { type: "scene_response"; scene: ExcalidrawScene }
+  | { type: "svg_export_response"; svg: string }
   | { type: "ready" };
 
 export type ExcalidrawScene = {
