@@ -95,6 +95,7 @@ let _log_entry_callback: LogEntryCallback | null = null;
 
 export function set_log_entry_callback(cb: LogEntryCallback) {
   _log_entry_callback = cb;
+  void get_raw_logger();
 }
 
 function numeric_level_to_string(level: number): LogEntryLevel {
