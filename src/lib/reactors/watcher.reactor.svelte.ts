@@ -26,7 +26,7 @@ export type WatcherEventDecision =
   | { action: "reload"; note_path: NotePath }
   | { action: "mark_conflict"; note_path: NotePath }
   | { action: "invalidate_tab_cache"; note_path: NotePath }
-  | { action: "refresh_tree" }
+  | { action: "refresh_tree"; affects_index?: boolean }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
   | { action: "log_only"; path: string }
@@ -65,7 +65,7 @@ export function resolve_watcher_event_decision(
       return { action: "ignore" };
     }
     case "note_added":
-      return { action: "refresh_tree" };
+      return { action: "refresh_tree", affects_index: true };
     case "note_removed": {
       const rp = as_note_path(event.note_path);
       if (
@@ -77,17 +77,17 @@ export function resolve_watcher_event_decision(
       if (find_background_tab(event.note_path)) {
         return { action: "remove_background_tab_and_refresh", note_path: rp };
       }
-      return { action: "refresh_tree" };
+      return { action: "refresh_tree", affects_index: true };
     }
     case "asset_changed":
       if (is_ignore_config_path(event.asset_path)) {
-        return { action: "refresh_tree" };
+        return { action: "refresh_tree", affects_index: true };
       }
       return { action: "log_only", path: event.asset_path };
     case "folder_created":
-      return { action: "refresh_tree" };
+      return { action: "refresh_tree", affects_index: false };
     case "folder_removed":
-      return { action: "refresh_tree" };
+      return { action: "refresh_tree", affects_index: false };
   }
 }
 
@@ -102,13 +102,16 @@ export function create_watcher_reactor(
   workspace_reconcile?: WorkspaceReconcile,
 ): () => void {
   return $effect.root(() => {
+    let pending_sync_index = false;
     const tree_refresh = create_debounced_task_controller<void>({
       run: () => {
+        const sync_index = pending_sync_index && vault_store.is_vault_mode;
+        pending_sync_index = false;
         void reconcile_workspace(
           action_registry,
           {
             refresh_tree: true,
-            sync_index: vault_store.is_vault_mode,
+            sync_index,
           },
           {
             workspace_reconcile,
@@ -118,7 +121,8 @@ export function create_watcher_reactor(
       },
     });
 
-    function debounced_tree_refresh() {
+    function debounced_tree_refresh(affects_index: boolean) {
+      if (affects_index) pending_sync_index = true;
       tree_refresh.schedule(undefined, TREE_REFRESH_DEBOUNCE_MS);
     }
 
@@ -163,20 +167,20 @@ export function create_watcher_reactor(
           if (watcher_service.is_tree_refresh_suppressed) {
             log.info("Tree refresh suppressed during move operation");
           } else {
-            debounced_tree_refresh();
+            debounced_tree_refresh(decision.affects_index ?? true);
           }
           break;
         case "clear_and_refresh":
           note_service.clear_open_note();
           tab_service.remove_tab(decision.note_path);
           if (!watcher_service.is_tree_refresh_suppressed) {
-            debounced_tree_refresh();
+            debounced_tree_refresh(true);
           }
           break;
         case "remove_background_tab_and_refresh":
           tab_service.remove_tab(decision.note_path);
           if (!watcher_service.is_tree_refresh_suppressed) {
-            debounced_tree_refresh();
+            debounced_tree_refresh(true);
           }
           break;
         case "log_only":

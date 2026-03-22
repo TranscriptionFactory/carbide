@@ -58,9 +58,8 @@ export class SplitViewService {
     note: OpenNoteState,
     root: HTMLDivElement,
   ): Promise<void> {
-    log.info("Mounting secondary editor", { note_id: note.meta.id });
-
     if (!this.secondary_editor) {
+      log.info("Mounting secondary editor", { note_id: note.meta.id });
       this.secondary_store = new EditorStore();
       this.secondary_editor = new EditorService(
         this.editor_port,
@@ -69,8 +68,18 @@ export class SplitViewService {
         this.op_store,
         this.callbacks,
       );
+      this.secondary_store.set_open_note(note);
+      this.sync_secondary_note_state();
+      await this.secondary_editor.mount({ root, note });
+      return;
     }
 
+    const current_path = this.secondary_store?.open_note?.meta.path;
+    if (current_path === note.meta.path) {
+      return;
+    }
+
+    log.info("Switching secondary editor note", { note_id: note.meta.id });
     this.secondary_store?.set_open_note(note);
     this.sync_secondary_note_state();
     await this.secondary_editor.mount({ root, note });

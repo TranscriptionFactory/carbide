@@ -180,7 +180,10 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: true,
+      });
     });
   });
 
@@ -207,7 +210,10 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: true,
+      });
     });
 
     it("removes background tab and refreshes tree for deleted background note", () => {
@@ -248,12 +254,15 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: true,
+      });
     });
   });
 
   describe("folder_created", () => {
-    it("triggers tree refresh", () => {
+    it("triggers tree refresh without index sync", () => {
       const decision = resolve_watcher_event_decision(
         folder_created_event("notes/subfolder"),
         VAULT_ID,
@@ -261,12 +270,15 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: false,
+      });
     });
   });
 
   describe("folder_removed", () => {
-    it("triggers tree refresh", () => {
+    it("triggers tree refresh without index sync", () => {
       const decision = resolve_watcher_event_decision(
         folder_removed_event("notes/subfolder"),
         VAULT_ID,
@@ -274,7 +286,10 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: false,
+      });
     });
   });
 
@@ -364,7 +379,7 @@ describe("watcher_reactor", () => {
   });
 
   describe("tree refresh suppression", () => {
-    it("folder_created resolves to refresh_tree", () => {
+    it("folder_created resolves to refresh_tree without index sync", () => {
       const decision = resolve_watcher_event_decision(
         folder_created_event("notes/new-folder"),
         VAULT_ID,
@@ -372,10 +387,13 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: false,
+      });
     });
 
-    it("folder_removed resolves to refresh_tree", () => {
+    it("folder_removed resolves to refresh_tree without index sync", () => {
       const decision = resolve_watcher_event_decision(
         folder_removed_event("notes/old-folder"),
         VAULT_ID,
@@ -383,10 +401,13 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: false,
+      });
     });
 
-    it("note_added resolves to refresh_tree", () => {
+    it("note_added resolves to refresh_tree with index sync", () => {
       const decision = resolve_watcher_event_decision(
         added_event("notes/new.md"),
         VAULT_ID,
@@ -394,7 +415,10 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "refresh_tree" });
+      expect(decision).toEqual({
+        action: "refresh_tree",
+        affects_index: true,
+      });
     });
 
     it("note_removed on open note resolves to clear_and_refresh", () => {

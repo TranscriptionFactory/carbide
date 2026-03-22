@@ -111,16 +111,14 @@ export function create_graph_refresh_reactor(
       }
 
       if (decision.action === "load_vault") {
-        void graph_service
-          .invalidate_cache()
-          .then(() => graph_service.load_vault_graph());
+        void graph_service.load_vault_graph();
         return;
       }
 
       if (decision.action === "load" && decision.note_path) {
         const note_path = decision.note_path;
         void graph_service
-          .invalidate_cache()
+          .invalidate_cache(note_path)
           .then(() => graph_service.load_note_neighborhood(note_path));
       }
     });
