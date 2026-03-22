@@ -42,7 +42,7 @@
   - Preserve undo history and cursor position across editor mode switches
   - VS Code-style thin colored resizable handles for panels
   - Atomic write+parse+index pipeline for vault operations
-  - Rename .carbide plugin directory to .badgerly
+  - Rename .badgerly plugin directory to .badgerly
   - Fix: heading backspace, cursor drift, phantom tasks, mermaid rendering crashes
   - Fix: code block escape behavior, language picker portal, toolbar flicker
   - Fix: AI settings migration wired into vault load path
@@ -115,7 +115,7 @@
   - Preserve undo history and cursor position across editor mode switches
   - VS Code-style thin colored resizable handles for panels
   - Atomic write+parse+index pipeline for vault operations
-  - Rename .carbide plugin directory to .badgerly
+  - Rename .badgerly plugin directory to .badgerly
   - Fix: heading backspace, cursor drift, phantom tasks, mermaid rendering crashes
   - Fix: code block escape behavior, language picker portal, toolbar flicker
   - Fix: AI settings migration wired into vault load path
