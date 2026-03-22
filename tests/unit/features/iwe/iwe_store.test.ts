@@ -42,7 +42,12 @@ describe("IweStore", () => {
     const refs = [
       {
         uri: "file:///test.md",
-        range: { start_line: 0, start_character: 0, end_line: 0, end_character: 5 },
+        range: {
+          start_line: 0,
+          start_character: 0,
+          end_line: 0,
+          end_character: 5,
+        },
       },
     ];
     store.set_references(refs);
@@ -51,7 +56,9 @@ describe("IweStore", () => {
 
   it("set_code_actions stores actions", () => {
     const store = new IweStore();
-    const actions = [{ title: "Extract Section", kind: "refactor", data: null }];
+    const actions = [
+      { title: "Extract Section", kind: "refactor", data: null },
+    ];
     store.set_code_actions(actions);
     expect(store.code_actions).toEqual(actions);
   });
@@ -64,7 +71,12 @@ describe("IweStore", () => {
         kind: 6,
         location: {
           uri: "file:///test.md",
-          range: { start_line: 0, start_character: 0, end_line: 5, end_character: 0 },
+          range: {
+            start_line: 0,
+            start_character: 0,
+            end_line: 5,
+            end_character: 0,
+          },
         },
       },
     ];
@@ -74,14 +86,18 @@ describe("IweStore", () => {
 
   it("set_completions stores completion items", () => {
     const store = new IweStore();
-    const items = [{ label: "[[link]]", detail: "note link", insert_text: "[[link]]" }];
+    const items = [
+      { label: "[[link]]", detail: "note link", insert_text: "[[link]]" },
+    ];
     store.set_completions(items);
     expect(store.completions).toEqual(items);
   });
 
   it("set_inlay_hints stores hints", () => {
     const store = new IweStore();
-    const hints = [{ position_line: 1, position_character: 0, label: "ref: 3" }];
+    const hints = [
+      { position_line: 1, position_character: 0, label: "ref: 3" },
+    ];
     store.set_inlay_hints(hints);
     expect(store.inlay_hints).toEqual(hints);
   });
@@ -101,7 +117,12 @@ describe("IweStore", () => {
     store.set_references([
       {
         uri: "file:///x.md",
-        range: { start_line: 0, start_character: 0, end_line: 0, end_character: 0 },
+        range: {
+          start_line: 0,
+          start_character: 0,
+          end_line: 0,
+          end_character: 0,
+        },
       },
     ]);
     store.set_code_actions([{ title: "X", kind: null, data: null }]);

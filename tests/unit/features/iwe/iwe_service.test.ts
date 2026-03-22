@@ -19,13 +19,19 @@ function create_mock_port(): IwePort {
     references: vi.fn().mockResolvedValue([]),
     definition: vi.fn().mockResolvedValue([]),
     code_actions: vi.fn().mockResolvedValue([]),
-    code_action_resolve: vi
-      .fn()
-      .mockResolvedValue({ files_created: [], files_deleted: [], files_modified: [], errors: [] }),
+    code_action_resolve: vi.fn().mockResolvedValue({
+      files_created: [],
+      files_deleted: [],
+      files_modified: [],
+      errors: [],
+    }),
     workspace_symbols: vi.fn().mockResolvedValue([]),
-    rename: vi
-      .fn()
-      .mockResolvedValue({ files_created: [], files_deleted: [], files_modified: [], errors: [] }),
+    rename: vi.fn().mockResolvedValue({
+      files_created: [],
+      files_deleted: [],
+      files_modified: [],
+      errors: [],
+    }),
     prepare_rename: vi.fn().mockResolvedValue(null),
     completion: vi.fn().mockResolvedValue([]),
     formatting: vi.fn().mockResolvedValue([]),
@@ -93,7 +99,11 @@ describe("IweService", () => {
     store.set_status("running");
     await service.did_open("notes/test.md", "# Hello");
 
-    expect(port.did_open).toHaveBeenCalledWith("vault-1", "notes/test.md", "# Hello");
+    expect(port.did_open).toHaveBeenCalledWith(
+      "vault-1",
+      "notes/test.md",
+      "# Hello",
+    );
   });
 
   it("did_open skips when not running", async () => {
@@ -117,7 +127,12 @@ describe("IweService", () => {
     await service.did_open("notes/test.md", "v1");
     await service.did_change("notes/test.md", "v2");
 
-    expect(port.did_change).toHaveBeenCalledWith("vault-1", "notes/test.md", 2, "v2");
+    expect(port.did_change).toHaveBeenCalledWith(
+      "vault-1",
+      "notes/test.md",
+      2,
+      "v2",
+    );
   });
 
   it("hover stores result", async () => {
@@ -152,7 +167,12 @@ describe("IweService", () => {
     const refs = [
       {
         uri: "file:///test.md",
-        range: { start_line: 0, start_character: 0, end_line: 0, end_character: 5 },
+        range: {
+          start_line: 0,
+          start_character: 0,
+          end_line: 0,
+          end_character: 5,
+        },
       },
     ];
     port.references = vi.fn().mockResolvedValue(refs);
@@ -207,7 +227,12 @@ describe("IweService", () => {
         kind: 6,
         location: {
           uri: "file:///test.md",
-          range: { start_line: 0, start_character: 0, end_line: 5, end_character: 0 },
+          range: {
+            start_line: 0,
+            start_character: 0,
+            end_line: 5,
+            end_character: 0,
+          },
         },
       },
     ];
@@ -224,7 +249,9 @@ describe("IweService", () => {
   it("completion stores results", async () => {
     const store = new IweStore();
     const port = create_mock_port();
-    const items = [{ label: "[[link]]", detail: null, insert_text: "[[link]]" }];
+    const items = [
+      { label: "[[link]]", detail: null, insert_text: "[[link]]" },
+    ];
     port.completion = vi.fn().mockResolvedValue(items);
     const vault_store = create_mock_vault_store("vault-1");
     const service = new IweService(port, store, vault_store);
@@ -238,7 +265,9 @@ describe("IweService", () => {
   it("inlay_hints stores results", async () => {
     const store = new IweStore();
     const port = create_mock_port();
-    const hints = [{ position_line: 0, position_character: 5, label: "3 refs" }];
+    const hints = [
+      { position_line: 0, position_character: 5, label: "3 refs" },
+    ];
     port.inlay_hints = vi.fn().mockResolvedValue(hints);
     const vault_store = create_mock_vault_store("vault-1");
     const service = new IweService(port, store, vault_store);
