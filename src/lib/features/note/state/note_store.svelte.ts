@@ -282,40 +282,36 @@ export class NotesStore {
       return !fresh_child_names.has(top);
     };
 
-    const retained_notes = this.notes.filter((note) => !is_stale(note.path));
+    const note_map = new Map(
+      this.notes.filter((note) => !is_stale(note.path)).map((n) => [n.id, n]),
+    );
     for (const note of contents.notes) {
-      const index = retained_notes.findIndex((item) => item.id === note.id);
-      if (index >= 0) {
-        retained_notes[index] = note;
-      } else {
-        retained_notes.push(note);
-      }
+      note_map.set(note.id, note);
     }
-    this.notes = retained_notes.sort((a, b) => a.path.localeCompare(b.path));
+    this.notes = [...note_map.values()].sort((a, b) =>
+      a.path.localeCompare(b.path),
+    );
 
-    const retained_files = this.files.filter((file) => !is_stale(file.path));
+    const file_map = new Map(
+      this.files.filter((file) => !is_stale(file.path)).map((f) => [f.path, f]),
+    );
     for (const file of incoming_files) {
-      const index = retained_files.findIndex((item) => item.path === file.path);
-      if (index >= 0) {
-        retained_files[index] = file;
-      } else {
-        retained_files.push(file);
-      }
+      file_map.set(file.path, file);
     }
-    this.files = retained_files.sort((a, b) => a.path.localeCompare(b.path));
+    this.files = [...file_map.values()].sort((a, b) =>
+      a.path.localeCompare(b.path),
+    );
 
-    const retained_folders = this.folder_paths.filter(
-      (path) => !is_stale(path),
+    const folder_set = new Set(
+      this.folder_paths.filter((path) => !is_stale(path)),
     );
     for (const subfolder of contents.subfolders) {
-      if (!retained_folders.includes(subfolder)) {
-        retained_folders.push(subfolder);
-      }
+      folder_set.add(subfolder);
     }
-    if (folder_path && !retained_folders.includes(folder_path)) {
-      retained_folders.push(folder_path);
+    if (folder_path) {
+      folder_set.add(folder_path);
     }
-    this.folder_paths = retained_folders.sort((a, b) => a.localeCompare(b));
+    this.folder_paths = [...folder_set].sort((a, b) => a.localeCompare(b));
   }
 
   append_folder_page(_folder_path: string, contents: FolderContents) {

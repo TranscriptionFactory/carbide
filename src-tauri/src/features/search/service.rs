@@ -767,9 +767,10 @@ fn handle_embed_batch(
         }
     }
 
+    let already_embedded = vector_db::get_embedded_paths(conn);
     let notes_needing_embedding: Vec<(&str, &str)> = notes_cache
         .iter()
-        .filter(|(path, _)| !vector_db::has_embedding(conn, path))
+        .filter(|(path, _)| !already_embedded.contains(path.as_str()))
         .map(|(path, _)| (path.as_str(), path.as_str()))
         .collect();
 

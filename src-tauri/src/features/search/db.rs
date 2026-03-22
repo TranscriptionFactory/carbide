@@ -3187,43 +3187,64 @@ pub fn query_bases(
         .query_map(&param_refs[..], |row| note_meta_with_stats_from_row(row))
         .map_err(|e| e.to_string())?;
 
-    let mut rows = Vec::new();
+    let mut notes_with_stats: Vec<(crate::features::search::model::IndexNoteMeta, crate::features::search::model::NoteStats)> = Vec::new();
     for note_res in note_rows {
-        let (note, stats) = note_res.map_err(|e| e.to_string())?;
+        notes_with_stats.push(note_res.map_err(|e| e.to_string())?);
+    }
 
-        let mut prop_stmt = conn
-            .prepare("SELECT key, value, type FROM note_properties WHERE path = ?1")
-            .map_err(|e| e.to_string())?;
+    let paths: Vec<&str> = notes_with_stats.iter().map(|(n, _)| n.path.as_str()).collect();
+
+    let mut props_by_path: HashMap<String, BTreeMap<String, crate::features::search::model::PropertyValue>> = HashMap::new();
+    let mut tags_by_path: HashMap<String, Vec<String>> = HashMap::new();
+
+    if !paths.is_empty() {
+        let placeholders: String = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+
+        let prop_sql = format!(
+            "SELECT path, key, value, type FROM note_properties WHERE path IN ({})",
+            placeholders
+        );
+        let mut prop_stmt = conn.prepare(&prop_sql).map_err(|e| e.to_string())?;
         let prop_rows = prop_stmt
-            .query_map(params![note.path], |row| {
+            .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
                 Ok((
                     row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
                     crate::features::search::model::PropertyValue {
-                        value: row.get(1)?,
-                        property_type: row.get(2)?,
+                        value: row.get(2)?,
+                        property_type: row.get(3)?,
                     },
                 ))
             })
             .map_err(|e| e.to_string())?;
-
-        let mut properties = BTreeMap::new();
         for prop_res in prop_rows {
-            let (key, val) = prop_res.map_err(|e| e.to_string())?;
-            properties.insert(key, val);
+            let (path, key, val) = prop_res.map_err(|e| e.to_string())?;
+            props_by_path.entry(path).or_default().insert(key, val);
         }
 
-        let mut tag_stmt = conn
-            .prepare("SELECT DISTINCT tag FROM note_inline_tags WHERE path = ?1")
-            .map_err(|e| e.to_string())?;
+        let tag_sql = format!(
+            "SELECT path, tag FROM note_inline_tags WHERE path IN ({})",
+            placeholders
+        );
+        let mut tag_stmt = conn.prepare(&tag_sql).map_err(|e| e.to_string())?;
         let tag_rows = tag_stmt
-            .query_map(params![note.path], |row| row.get::<_, String>(0))
+            .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .map_err(|e| e.to_string())?;
-
-        let mut tags = Vec::new();
         for tag_res in tag_rows {
-            tags.push(tag_res.map_err(|e| e.to_string())?);
+            let (path, tag) = tag_res.map_err(|e| e.to_string())?;
+            let tags = tags_by_path.entry(path).or_default();
+            if !tags.contains(&tag) {
+                tags.push(tag);
+            }
         }
+    }
 
+    let mut rows = Vec::new();
+    for (note, stats) in notes_with_stats {
+        let properties = props_by_path.remove(&note.path).unwrap_or_default();
+        let tags = tags_by_path.remove(&note.path).unwrap_or_default();
         rows.push(crate::features::search::model::BaseNoteRow {
             note,
             properties,

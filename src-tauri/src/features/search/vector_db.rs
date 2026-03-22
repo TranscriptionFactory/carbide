@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection};
+use std::collections::HashSet;
 
 pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs";
 pub const _EMBEDDING_DIMS: usize = 384;
@@ -214,6 +215,16 @@ pub fn has_embedding(conn: &Connection, path: &str) -> bool {
         |_| Ok(()),
     )
     .is_ok()
+}
+
+pub fn get_embedded_paths(conn: &Connection) -> HashSet<String> {
+    let mut stmt = conn
+        .prepare("SELECT path FROM note_embeddings")
+        .unwrap_or_else(|_| panic!("failed to prepare get_embedded_paths"));
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap_or_else(|_| panic!("failed to query embedded paths"));
+    rows.filter_map(|r| r.ok()).collect()
 }
 
 pub fn get_embedding_count(conn: &Connection) -> usize {
