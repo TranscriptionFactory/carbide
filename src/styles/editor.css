@@ -738,6 +738,38 @@
   height: 0.875rem;
 }
 
+/* ── Code block resize handle ── */
+
+.code-block-resize-handle {
+  position: relative;
+  height: 0.5rem;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-default);
+}
+
+.code-block-resize-handle::after {
+  content: "";
+  width: 2rem;
+  height: 3px;
+  border-radius: 1.5px;
+  background: color-mix(in oklch, var(--foreground) 25%, transparent);
+  transition: background var(--duration-normal) var(--ease-default);
+}
+
+.code-block-wrapper:hover .code-block-resize-handle,
+.code-block-resize-handle:active {
+  opacity: 1;
+}
+
+.code-block-resize-handle:hover::after,
+.code-block-resize-handle:active::after {
+  background: color-mix(in oklch, var(--foreground) 50%, transparent);
+}
+
 /* ============================================
    HORIZONTAL RULES
    ============================================ */

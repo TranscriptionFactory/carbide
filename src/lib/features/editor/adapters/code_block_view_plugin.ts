@@ -213,6 +213,59 @@ async function render_mermaid_preview(
   }
 }
 
+const MIN_CODE_BLOCK_HEIGHT = 48;
+
+function create_resize_handle(
+  pre: HTMLElement,
+  on_resize_start: () => void,
+  on_resize_end: () => void,
+): HTMLElement {
+  const handle = document.createElement("div");
+  handle.className = "code-block-resize-handle";
+  handle.contentEditable = "false";
+
+  let start_y = 0;
+  let start_height = 0;
+
+  function on_pointer_move(e: PointerEvent) {
+    const delta = e.clientY - start_y;
+    const new_height = Math.max(MIN_CODE_BLOCK_HEIGHT, start_height + delta);
+    pre.style.height = `${String(new_height)}px`;
+    pre.style.maxHeight = "none";
+  }
+
+  function on_pointer_up(e: PointerEvent) {
+    if (handle.releasePointerCapture) handle.releasePointerCapture(e.pointerId);
+    handle.removeEventListener("pointermove", on_pointer_move);
+    handle.removeEventListener("pointerup", on_pointer_up);
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+    on_resize_end();
+  }
+
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    start_y = e.clientY;
+    start_height = pre.getBoundingClientRect().height;
+    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+    handle.addEventListener("pointermove", on_pointer_move);
+    handle.addEventListener("pointerup", on_pointer_up);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    on_resize_start();
+  });
+
+  handle.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pre.style.removeProperty("height");
+    pre.style.removeProperty("max-height");
+  });
+
+  return handle;
+}
+
 class CodeBlockView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
@@ -222,6 +275,7 @@ class CodeBlockView implements NodeView {
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
   private current_language: string;
+  private is_resizing = false;
 
   constructor(
     private node: ProseNode,
@@ -263,8 +317,19 @@ class CodeBlockView implements NodeView {
     const copy_btn = create_copy_button(this.contentDOM);
     this.toolbar.appendChild(copy_btn);
 
+    const resize_handle = create_resize_handle(
+      pre,
+      () => {
+        this.is_resizing = true;
+      },
+      () => {
+        this.is_resizing = false;
+      },
+    );
+
     this.dom.appendChild(this.toolbar);
     this.dom.appendChild(pre);
+    this.dom.appendChild(resize_handle);
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid(pre);
@@ -418,8 +483,12 @@ class CodeBlockView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
+    if (this.is_resizing) return true;
     if (!(event.target instanceof HTMLElement)) return false;
-    return event.target.closest(".code-block-toolbar") !== null;
+    return (
+      event.target.closest(".code-block-toolbar") !== null ||
+      event.target.closest(".code-block-resize-handle") !== null
+    );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
