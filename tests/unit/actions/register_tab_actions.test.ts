@@ -177,14 +177,21 @@ describe("register_tab_actions", () => {
   });
 
   describe("note cache integration", () => {
-    it("capture_active_tab_snapshot caches the open note", async () => {
+    it("capture_active_tab_snapshot caches dirty notes only", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.open_tab(np("b.md"), "b");
       stores.editor.set_open_note(mock_open_note("b.md"));
 
       await registry.execute(ACTION_IDS.tab_activate, "a.md");
+      expect(stores.tab.get_cached_note("b.md")).toBeNull();
 
+      stores.tab.activate_tab("b.md");
+      stores.editor.set_open_note({
+        ...mock_open_note("b.md"),
+        is_dirty: true,
+      });
+      await registry.execute(ACTION_IDS.tab_activate, "a.md");
       expect(stores.tab.get_cached_note("b.md")).not.toBeNull();
     });
 
@@ -236,13 +243,14 @@ describe("register_tab_actions", () => {
       expect(services.note.save_note).not.toHaveBeenCalled();
     });
 
-    it("tab switch uses cached note instead of hitting disk", async () => {
+    it("tab switch uses cached note instead of hitting disk for dirty tabs", async () => {
       const { registry, stores, services } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.open_tab(np("b.md"), "b");
       stores.tab.activate_tab("a.md");
-      stores.tab.set_cached_note("a.md", mock_open_note("a.md"));
-      stores.editor.set_open_note(mock_open_note("a.md"));
+      const dirty_note = { ...mock_open_note("a.md"), is_dirty: true };
+      stores.tab.set_cached_note("a.md", dirty_note);
+      stores.editor.set_open_note(dirty_note);
 
       await registry.execute(ACTION_IDS.tab_activate, "b.md");
       stores.editor.set_open_note(mock_open_note("b.md"));

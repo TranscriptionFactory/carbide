@@ -1149,6 +1149,90 @@ pub fn sync_index(
     })
 }
 
+pub fn sync_index_paths(
+    _app: Option<&tauri::AppHandle>,
+    _vault_id: &str,
+    conn: &Connection,
+    vault_root: &Path,
+    cancel: &AtomicBool,
+    on_progress: &dyn Fn(usize, usize),
+    _yield_fn: &mut dyn FnMut(),
+    changed_paths: &[String],
+    removed_paths: &[String],
+) -> Result<IndexResult, String> {
+    let total = changed_paths.len() + removed_paths.len();
+    if total == 0 {
+        on_progress(0, 0);
+        return Ok(IndexResult {
+            total: 0,
+            indexed: 0,
+            vault_stats: None,
+        });
+    }
+
+    on_progress(0, total);
+    let mut indexed: usize = 0;
+
+    if !removed_paths.is_empty() {
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
+        for path in removed_paths {
+            if cancel.load(Ordering::Relaxed) {
+                conn.execute_batch("ROLLBACK").ok();
+                return Ok(IndexResult {
+                    total,
+                    indexed,
+                    vault_stats: None,
+                });
+            }
+            remove_note(conn, path)?;
+            indexed += 1;
+        }
+        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+        on_progress(indexed, total);
+    }
+
+    if !changed_paths.is_empty() {
+        let mut pending_links: Vec<(String, Vec<String>)> = Vec::new();
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
+
+        for rel_path in changed_paths {
+            if cancel.load(Ordering::Relaxed) {
+                conn.execute_batch("ROLLBACK").ok();
+                break;
+            }
+            let abs = vault_root.join(rel_path);
+            if !abs.exists() {
+                remove_note(conn, rel_path)?;
+                indexed += 1;
+                continue;
+            }
+            let raw = io_utils::read_file_to_string(&abs).unwrap_or_default();
+            let mut meta = match extract_file_meta(&abs, vault_root) {
+                Ok(m) => m,
+                Err(e) => {
+                    log::warn!("sync_paths: skip {}: {}", abs.display(), e);
+                    indexed += 1;
+                    continue;
+                }
+            };
+            index_single_file(conn, &abs, &raw, &mut meta, &mut pending_links)?;
+            indexed += 1;
+        }
+
+        resolve_batch_outlinks(conn, &pending_links)?;
+        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+        on_progress(indexed, total);
+    }
+
+    Ok(IndexResult {
+        total,
+        indexed,
+        vault_stats: None,
+    })
+}
+
 fn resolve_git_head(vault_root: &Path) -> Result<String, String> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
@@ -2987,6 +3071,61 @@ pub fn rebuild_property_registry(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+pub fn get_linked_paths_batch(
+    conn: &Connection,
+    paths: &[String],
+) -> Result<std::collections::HashMap<String, std::collections::HashSet<String>>, String> {
+    let mut result: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        paths
+            .iter()
+            .map(|p| (p.clone(), std::collections::HashSet::new()))
+            .collect();
+
+    if paths.is_empty() {
+        return Ok(result);
+    }
+
+    let placeholders: String = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+
+    let outlinks_sql = format!(
+        "SELECT source_path, target_path FROM outlinks WHERE source_path IN ({})",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&outlinks_sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        if let Ok((source, target)) = row {
+            if let Some(set) = result.get_mut(&source) {
+                set.insert(target);
+            }
+        }
+    }
+
+    let backlinks_sql = format!(
+        "SELECT target_path, source_path FROM outlinks WHERE target_path IN ({})",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&backlinks_sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        if let Ok((target, source)) = row {
+            if let Some(set) = result.get_mut(&target) {
+                set.insert(source);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {

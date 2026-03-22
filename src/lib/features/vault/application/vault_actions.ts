@@ -417,6 +417,21 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.vault_sync_index_paths,
+    label: "Sync Index Paths",
+    when: () => stores.vault.is_vault_mode,
+    execute: async (...args: unknown[]) => {
+      const params = args[0] as
+        | { changed_paths?: string[]; removed_paths?: string[] }
+        | undefined;
+      const changed = params?.changed_paths ?? [];
+      const removed = params?.removed_paths ?? [];
+      if (changed.length === 0 && removed.length === 0) return;
+      await services.vault.sync_index_paths(changed, removed);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.vault_reindex,
     label: "Reindex Vault",
     when: () => stores.vault.is_vault_mode,

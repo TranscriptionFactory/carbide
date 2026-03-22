@@ -557,6 +557,9 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     embed_sync() {
       return Promise.resolve();
     },
+    sync_index_paths() {
+      return Promise.resolve();
+    },
   };
   return mock;
 }

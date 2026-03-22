@@ -183,6 +183,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "refresh_tree",
         affects_index: true,
+        index_hint: { changed: "notes/new.md" },
       });
     });
   });
@@ -213,6 +214,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "refresh_tree",
         affects_index: true,
+        index_hint: { removed: "notes/other.md" },
       });
     });
 
@@ -418,6 +420,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "refresh_tree",
         affects_index: true,
+        index_hint: { changed: "notes/new.md" },
       });
     });
 

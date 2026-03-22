@@ -119,6 +119,14 @@ enum DbCommand {
         app_handle: AppHandle,
         vault_id: String,
     },
+    SyncPaths {
+        vault_root: PathBuf,
+        cancel: Arc<AtomicBool>,
+        app_handle: AppHandle,
+        vault_id: String,
+        changed_paths: Vec<String>,
+        removed_paths: Vec<String>,
+    },
     EmbedBatch {
         vault_root: PathBuf,
         app_handle: AppHandle,
@@ -404,6 +412,26 @@ fn dispatch_command(
                 notes_cache,
             );
         }
+        DbCommand::SyncPaths {
+            vault_root,
+            cancel,
+            app_handle,
+            vault_id,
+            changed_paths,
+            removed_paths,
+        } => {
+            handle_sync_paths(
+                conn,
+                &vault_root,
+                &cancel,
+                &app_handle,
+                &vault_id,
+                rx,
+                notes_cache,
+                &changed_paths,
+                &removed_paths,
+            );
+        }
         DbCommand::EmbedBatch {
             vault_root,
             app_handle,
@@ -537,6 +565,7 @@ fn run_index_op(
                 match cmd {
                     DbCommand::Rebuild { .. }
                     | DbCommand::Sync { .. }
+                    | DbCommand::SyncPaths { .. }
                     | DbCommand::EmbedBatch { .. }
                     | DbCommand::RebuildEmbeddings { .. } => {
                         deferred.borrow_mut().push(cmd);
@@ -721,6 +750,83 @@ fn handle_sync(
         "sync",
         search_db::sync_index,
     );
+}
+
+fn handle_sync_paths(
+    conn: &Connection,
+    vault_root: &Path,
+    cancel: &Arc<AtomicBool>,
+    app_handle: &AppHandle,
+    vault_id: &str,
+    rx: &Receiver<DbCommand>,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
+    changed_paths: &[String],
+    removed_paths: &[String],
+) {
+    let start = Instant::now();
+    let vid = vault_id.to_string();
+    let app = app_handle.clone();
+    let deferred: RefCell<Vec<DbCommand>> = RefCell::new(Vec::new());
+
+    let mut drain_pending = || {
+        while let Ok(cmd) = rx.try_recv() {
+            deferred.borrow_mut().push(cmd);
+        }
+    };
+
+    let result = search_db::sync_index_paths(
+        Some(app_handle),
+        vault_id,
+        conn,
+        vault_root,
+        cancel,
+        &|indexed, total| {
+            let _ = app.emit(
+                "index_progress",
+                IndexProgressEvent::Progress {
+                    vault_id: vid.clone(),
+                    indexed,
+                    total,
+                },
+            );
+        },
+        &mut drain_pending,
+        changed_paths,
+        removed_paths,
+    );
+
+    match result {
+        Ok(res) => {
+            if res.indexed > 0 {
+                if let Err(e) = search_db::rebuild_property_registry(conn) {
+                    log::warn!("sync_paths: property registry rebuild failed: {e}");
+                }
+            }
+            let elapsed_ms = start.elapsed().as_millis() as u64;
+            log::info!(
+                "sync_paths: indexed {} in {}ms",
+                res.indexed,
+                elapsed_ms
+            );
+        }
+        Err(e) => {
+            log::error!("sync_paths failed: {e}");
+        }
+    }
+
+    match search_db::get_all_notes_from_db(conn) {
+        Ok(map) => *notes_cache = map,
+        Err(e) => log::warn!("writer: failed to reload notes cache after sync_paths: {e}"),
+    }
+
+    for cmd in deferred.into_inner() {
+        if matches!(
+            dispatch_command(conn, cmd, notes_cache, rx),
+            LoopAction::Break
+        ) {
+            break;
+        }
+    }
 }
 
 fn handle_embed_batch(
@@ -963,6 +1069,33 @@ pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
             vault_id,
         },
     )
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn index_sync_paths(
+    app: AppHandle,
+    vault_id: String,
+    changed_paths: Vec<String>,
+    removed_paths: Vec<String>,
+) -> Result<(), String> {
+    log::info!(
+        "Incremental sync vault_id={} changed={} removed={}",
+        vault_id,
+        changed_paths.len(),
+        removed_paths.len()
+    );
+    let vault_root = storage::vault_path(&app, &vault_id)?;
+    let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let cmd = DbCommand::SyncPaths {
+        vault_root,
+        cancel,
+        app_handle: app.clone(),
+        vault_id: vault_id.clone(),
+        changed_paths,
+        removed_paths,
+    };
+    send_write(&app, &vault_id, cmd)
 }
 
 #[tauri::command]
@@ -1303,20 +1436,9 @@ pub fn semantic_search_batch(
     distance_threshold: f32,
 ) -> Result<Vec<BatchSemanticEdge>, String> {
     with_read_conn(&app, &vault_id, |conn| {
-        let edges = vector_db::knn_search_batch(conn, &paths, limit, distance_threshold, |path| {
-            let mut set = std::collections::HashSet::new();
-            if let Ok(backlinks) = search_db::get_backlinks(conn, path) {
-                for n in backlinks {
-                    set.insert(n.path.clone());
-                }
-            }
-            if let Ok(outlinks) = search_db::get_outlinks(conn, path) {
-                for n in outlinks {
-                    set.insert(n.path.clone());
-                }
-            }
-            set
-        })?;
+        let linked_sets = search_db::get_linked_paths_batch(conn, &paths)?;
+        let edges =
+            vector_db::knn_search_batch(conn, &paths, limit, distance_threshold, &linked_sets)?;
 
         Ok(edges
             .into_iter()

@@ -373,6 +373,28 @@ export class VaultService {
     }
   }
 
+  async sync_index_paths(
+    changed_paths: string[],
+    removed_paths: string[],
+  ): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.vault_store.is_vault_mode) {
+      return;
+    }
+    try {
+      await this.index_port.sync_index_paths(
+        vault_id,
+        changed_paths,
+        removed_paths,
+      );
+    } catch (error) {
+      log.warn("Incremental index sync failed, will fall back to full sync", {
+        error,
+      });
+      await this.index_port.sync_index(vault_id);
+    }
+  }
+
   private async change_vault(
     open_fn: (
       revision: number,

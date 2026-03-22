@@ -129,7 +129,7 @@ pub fn knn_search_batch(
     paths: &[String],
     limit: usize,
     distance_threshold: f32,
-    exclude_linked_fn: impl Fn(&str) -> std::collections::HashSet<String>,
+    linked_sets: &std::collections::HashMap<String, std::collections::HashSet<String>>,
 ) -> Result<Vec<(String, String, f32)>, String> {
     let mut stmt = conn
         .prepare("SELECT path, embedding FROM note_embeddings")
@@ -159,7 +159,8 @@ pub fn knn_search_batch(
             None => continue,
         };
 
-        let linked = exclude_linked_fn(query_path);
+        let empty_set = std::collections::HashSet::new();
+        let linked = linked_sets.get(query_path.as_str()).unwrap_or(&empty_set);
 
         let mut scored: Vec<(&str, f32)> = all_embeddings
             .iter()

@@ -107,7 +107,11 @@ export async function capture_active_tab_snapshot(
 
   const open_note = stores.editor.open_note;
   if (open_note) {
-    stores.tab.set_cached_note(active_id, open_note);
+    if (open_note.is_dirty) {
+      stores.tab.set_cached_note(active_id, open_note);
+    } else {
+      stores.tab.clear_cached_note(active_id);
+    }
     stores.tab.set_dirty(active_id, open_note.is_dirty);
     if (open_note.is_dirty && stores.ui.editor_settings.autosave_enabled) {
       await services.note.save_note(null, true, "primary");
@@ -145,10 +149,6 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   const result = await services.note.open_note(active_tab.note_path, false);
   if (result.status === "opened") {
     stores.ui.set_selected_folder_path(result.selected_folder_path);
-    const open_note = stores.editor.open_note;
-    if (open_note) {
-      stores.tab.set_cached_note(active_tab.id, open_note);
-    }
     services.editor.set_scroll_top(snapshot?.scroll_top ?? 0);
   }
 }

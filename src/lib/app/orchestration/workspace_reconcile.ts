@@ -4,6 +4,7 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 export type WorkspaceReconcileRequest = {
   refresh_tree?: boolean;
   sync_index?: boolean;
+  sync_index_paths?: { changed: string[]; removed: string[] } | undefined;
 };
 
 export type WorkspaceReconcile = (
@@ -13,12 +14,14 @@ export type WorkspaceReconcile = (
 type NormalizedWorkspaceReconcileRequest = {
   refresh_tree: boolean;
   sync_index: boolean;
+  sync_index_paths: { changed: string[]; removed: string[] } | null;
 };
 
 function empty_request(): NormalizedWorkspaceReconcileRequest {
   return {
     refresh_tree: false,
     sync_index: false,
+    sync_index_paths: null,
   };
 }
 
@@ -28,11 +31,28 @@ function normalize_request(
   return {
     refresh_tree: request.refresh_tree ?? false,
     sync_index: request.sync_index ?? false,
+    sync_index_paths: request.sync_index_paths ?? null,
   };
 }
 
 function has_request(request: NormalizedWorkspaceReconcileRequest) {
-  return request.refresh_tree || request.sync_index;
+  return (
+    request.refresh_tree ||
+    request.sync_index ||
+    request.sync_index_paths !== null
+  );
+}
+
+function merge_sync_paths(
+  existing: { changed: string[]; removed: string[] } | null,
+  incoming: { changed: string[]; removed: string[] } | null,
+): { changed: string[]; removed: string[] } | null {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  return {
+    changed: [...existing.changed, ...incoming.changed],
+    removed: [...existing.removed, ...incoming.removed],
+  };
 }
 
 function merge_requests(
@@ -43,6 +63,10 @@ function merge_requests(
   return {
     refresh_tree: pending.refresh_tree || normalized_next.refresh_tree,
     sync_index: pending.sync_index || normalized_next.sync_index,
+    sync_index_paths: merge_sync_paths(
+      pending.sync_index_paths,
+      normalized_next.sync_index_paths,
+    ),
   };
 }
 
@@ -54,8 +78,15 @@ async function execute_request(
   if (request.refresh_tree) {
     await action_registry.execute(ACTION_IDS.folder_refresh_tree);
   }
-  if (request.sync_index && is_vault_mode) {
-    await action_registry.execute(ACTION_IDS.vault_sync_index);
+  if (is_vault_mode) {
+    if (request.sync_index) {
+      await action_registry.execute(ACTION_IDS.vault_sync_index);
+    } else if (request.sync_index_paths) {
+      await action_registry.execute(ACTION_IDS.vault_sync_index_paths, {
+        changed_paths: request.sync_index_paths.changed,
+        removed_paths: request.sync_index_paths.removed,
+      });
+    }
   }
 }
 

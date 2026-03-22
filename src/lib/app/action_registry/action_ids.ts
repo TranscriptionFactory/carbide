@@ -50,6 +50,7 @@ export const ACTION_IDS = {
   vault_fetch_git_info_for_list: "vault.fetch_git_info_for_list",
   vault_promote: "vault.promote",
   vault_sync_index: "vault.sync_index",
+  vault_sync_index_paths: "vault.sync_index_paths",
   vault_reindex: "vault.reindex",
 
   folder_request_create: "folder.request_create",

@@ -42,6 +42,7 @@ mod specta_export {
                 crate::features::notes::service::write_vault_file,
                 // Search commands (26)
                 crate::features::search::service::index_build,
+                crate::features::search::service::index_sync_paths,
                 crate::features::search::service::index_cancel,
                 crate::features::search::service::index_rebuild,
                 crate::features::search::service::index_search,

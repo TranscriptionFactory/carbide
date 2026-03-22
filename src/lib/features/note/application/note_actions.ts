@@ -145,7 +145,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
 
   function cache_open_note_for_tab(tab_id: string) {
     const open_note = stores.editor.open_note;
-    if (!open_note) {
+    if (!open_note || !open_note.is_dirty) {
       return;
     }
     stores.tab.set_cached_note(tab_id, open_note);

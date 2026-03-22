@@ -11,6 +11,7 @@ import {
   set_pagination,
   transform_filetree_paths,
 } from "$lib/features/folder/application/filetree_action_helpers";
+import { map_with_concurrency } from "$lib/shared/utils/concurrent";
 import {
   ancestor_folder_paths,
   build_folder_path_from_name,
@@ -628,7 +629,9 @@ export function register_folder_actions(input: ActionRegistrationInput) {
 
         await load_folder(input, "");
         const non_root = Array.from(loaded_paths).filter((path) => path !== "");
-        await Promise.all(non_root.map((path) => load_folder(input, path)));
+        await map_with_concurrency(non_root, 5, (path) =>
+          load_folder(input, path),
+        );
 
         const fresh_folder_paths = new Set(stores.notes.folder_paths);
         transform_filetree_paths(input, (path) =>

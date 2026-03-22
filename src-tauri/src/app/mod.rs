@@ -128,6 +128,7 @@ pub fn run() {
             features::watcher::service::watch_vault,
             features::watcher::service::unwatch_vault,
             features::search::service::index_build,
+            features::search::service::index_sync_paths,
             features::search::service::index_cancel,
             features::search::service::index_rebuild,
             features::search::service::index_search,

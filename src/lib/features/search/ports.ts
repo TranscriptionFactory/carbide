@@ -106,6 +106,11 @@ export interface SearchPort {
 export interface WorkspaceIndexPort {
   cancel_index(vault_id: VaultId): Promise<void>;
   sync_index(vault_id: VaultId): Promise<void>;
+  sync_index_paths(
+    vault_id: VaultId,
+    changed_paths: string[],
+    removed_paths: string[],
+  ): Promise<void>;
   rebuild_index(vault_id: VaultId): Promise<void>;
   list_note_paths_by_prefix(
     vault_id: VaultId,

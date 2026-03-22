@@ -249,6 +249,17 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
     async sync_index(vault_id: VaultId): Promise<void> {
       await run_index_command("index_build", vault_id);
     },
+    async sync_index_paths(
+      vault_id: VaultId,
+      changed_paths: string[],
+      removed_paths: string[],
+    ): Promise<void> {
+      await tauri_invoke<undefined>("index_sync_paths", {
+        vaultId: vault_id,
+        changedPaths: changed_paths,
+        removedPaths: removed_paths,
+      });
+    },
     async rebuild_index(vault_id: VaultId): Promise<void> {
       await run_index_command("index_rebuild", vault_id);
     },
