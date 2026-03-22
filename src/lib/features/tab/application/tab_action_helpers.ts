@@ -103,6 +103,7 @@ export async function capture_active_tab_snapshot(
   stores.tab.set_snapshot(active_id, {
     scroll_top: services.editor.get_scroll_top(),
     cursor,
+    cursor_offset: stores.editor.cursor_offset,
   });
 
   const open_note = stores.editor.open_note;
@@ -142,6 +143,9 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
     stores.editor.set_open_note(cached);
     const folder = parent_folder_path(active_tab.note_path);
     stores.ui.set_selected_folder_path(folder);
+    if (snapshot) {
+      stores.editor.set_cursor_offset(snapshot.cursor_offset);
+    }
     services.editor.set_scroll_top(snapshot?.scroll_top ?? 0);
     return;
   }
@@ -149,6 +153,9 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   const result = await services.note.open_note(active_tab.note_path, false);
   if (result.status === "opened") {
     stores.ui.set_selected_folder_path(result.selected_folder_path);
+    if (snapshot) {
+      stores.editor.set_cursor_offset(snapshot.cursor_offset);
+    }
     services.editor.set_scroll_top(snapshot?.scroll_top ?? 0);
   }
 }

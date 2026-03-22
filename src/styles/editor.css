@@ -738,6 +738,38 @@
   height: 0.875rem;
 }
 
+/* ── Code block resize handle ── */
+
+.code-block-resize-handle {
+  position: relative;
+  height: 0.5rem;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-default);
+}
+
+.code-block-resize-handle::after {
+  content: "";
+  width: 2rem;
+  height: 3px;
+  border-radius: 1.5px;
+  background: color-mix(in oklch, var(--foreground) 25%, transparent);
+  transition: background var(--duration-normal) var(--ease-default);
+}
+
+.code-block-wrapper:hover .code-block-resize-handle,
+.code-block-resize-handle:active {
+  opacity: 1;
+}
+
+.code-block-resize-handle:hover::after,
+.code-block-resize-handle:active::after {
+  background: color-mix(in oklch, var(--foreground) 50%, transparent);
+}
+
 /* ============================================
    HORIZONTAL RULES
    ============================================ */
@@ -835,21 +867,54 @@
    ============================================ */
 
 .excalidraw-embed {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
   margin: 0.5rem 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--muted);
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s;
+  overflow: hidden;
 }
 
 .excalidraw-embed:hover {
   background: var(--accent);
+}
+
+.excalidraw-embed--chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--muted);
+}
+
+.excalidraw-embed--preview {
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+}
+
+.excalidraw-embed-preview {
+  padding: 0.5rem;
+  max-height: 24rem;
+  overflow: hidden;
+}
+
+.excalidraw-embed-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 22rem;
+  object-fit: contain;
+}
+
+.excalidraw-embed-label-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--muted);
 }
 
 .excalidraw-embed-icon {

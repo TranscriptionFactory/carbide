@@ -49,9 +49,7 @@ impl IweState {
 
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
     let full = vault_path.join(file_path);
-    url::Url::from_file_path(&full)
-        .map(|u| u.to_string())
-        .unwrap_or_else(|_| format!("file://{}", full.display()))
+    format!("file://{}", full.display())
 }
 
 fn err(e: LspClientError) -> String {
@@ -521,6 +519,23 @@ pub async fn iwe_prepare_rename(
     Ok(Some(IwePrepareRenameResult { range, placeholder }))
 }
 
+fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
+    let text = item.get("insertText")?.as_str()?;
+    // insertText is typically a markdown link like [](../path/to/note)
+    // or [title](../path/to/note). Extract the path's last segment as label.
+    let dest = text
+        .find("](")
+        .and_then(|start| {
+            let rest = &text[start + 2..];
+            rest.find(')').map(|end| &rest[..end])
+        })?;
+    let segment = dest.rsplit('/').next().unwrap_or(dest);
+    if segment.is_empty() {
+        return None;
+    }
+    Some(segment.to_string())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn iwe_completion(
@@ -559,8 +574,14 @@ pub async fn iwe_completion(
     let items = raw_items
         .iter()
         .filter_map(|item| {
+            let raw_label = item.get("label")?.as_str()?.to_string();
+            let label = if raw_label.trim().is_empty() {
+                label_from_insert_text(item).unwrap_or(raw_label)
+            } else {
+                raw_label
+            };
             Some(IweCompletionItem {
-                label: item.get("label")?.as_str()?.to_string(),
+                label,
                 detail: item.get("detail").and_then(|d| d.as_str()).map(String::from),
                 insert_text: item
                     .get("insertText")

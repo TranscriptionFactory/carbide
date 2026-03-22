@@ -429,4 +429,235 @@ describe("CodeBlockView", () => {
       view.destroy();
     });
   });
+
+  describe("resize handle", () => {
+    function get_resize_handle(c: HTMLElement): HTMLElement | null {
+      return c.querySelector(".code-block-resize-handle");
+    }
+
+    function get_pre(c: HTMLElement): HTMLPreElement | null {
+      return c.querySelector("pre");
+    }
+
+    it("renders a resize handle on code blocks", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c);
+      expect(handle).not.toBeNull();
+      expect(handle?.contentEditable).toBe("false");
+
+      view.destroy();
+    });
+
+    it("sets height on pre element during drag", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c)!;
+      const pre = get_pre(c)!;
+
+      Object.defineProperty(pre, "getBoundingClientRect", {
+        value: () => ({
+          height: 200,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 200,
+          width: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+
+      handle.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          clientY: 100,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientY: 150,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointerup", {
+          clientY: 150,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+
+      expect(pre.style.height).toBe("250px");
+      expect(pre.style.maxHeight).toBe("none");
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBe(250);
+
+      view.destroy();
+    });
+
+    it("enforces minimum height during drag", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c)!;
+      const pre = get_pre(c)!;
+
+      Object.defineProperty(pre, "getBoundingClientRect", {
+        value: () => ({
+          height: 100,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 100,
+          width: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+
+      handle.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          clientY: 100,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientY: 0,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointerup", {
+          clientY: 0,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+
+      expect(pre.style.height).toBe("48px");
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBe(48);
+
+      view.destroy();
+    });
+
+    it("resets height on double-click", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c)!;
+      const pre = get_pre(c)!;
+
+      pre.style.height = "300px";
+      pre.style.maxHeight = "none";
+
+      handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+      expect(pre.style.height).toBe("");
+      expect(pre.style.maxHeight).toBe("");
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs.height).toBeNull();
+
+      view.destroy();
+    });
+
+    it("restores height from node attrs on construction", () => {
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const code_block = schema.nodes.code_block.create(
+        { language: "javascript", height: 300 },
+        schema.text("const x = 1;"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin();
+      const state = EditorState.create({ doc, plugins: [plugin] });
+
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          const new_state = view.state.apply(tr);
+          view.updateState(new_state);
+        },
+      });
+
+      const pre = get_pre(container_el)!;
+      expect(pre.style.height).toBe("300px");
+      expect(pre.style.maxHeight).toBe("none");
+
+      view.destroy();
+    });
+
+    it("cleans up body styles when destroyed mid-drag", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c)!;
+      const pre = get_pre(c)!;
+
+      Object.defineProperty(pre, "getBoundingClientRect", {
+        value: () => ({
+          height: 200,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 200,
+          width: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+
+      handle.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          clientY: 100,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientY: 150,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+
+      expect(document.body.style.userSelect).toBe("none");
+
+      view.destroy();
+
+      expect(document.body.style.userSelect).toBe("");
+    });
+  });
 });

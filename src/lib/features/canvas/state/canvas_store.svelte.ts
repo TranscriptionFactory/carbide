@@ -24,6 +24,7 @@ export type CanvasTabState = {
 export class CanvasStore {
   states = $state<Map<string, CanvasTabState>>(new Map());
   #scene_providers = new Map<string, () => Promise<ExcalidrawScene>>();
+  #svg_export_providers = new Map<string, () => Promise<string>>();
 
   register_scene_provider(
     tab_id: string,
@@ -40,6 +41,21 @@ export class CanvasStore {
     tab_id: string,
   ): (() => Promise<ExcalidrawScene>) | undefined {
     return this.#scene_providers.get(tab_id);
+  }
+
+  register_svg_export_provider(
+    tab_id: string,
+    provider: () => Promise<string>,
+  ): void {
+    this.#svg_export_providers.set(tab_id, provider);
+  }
+
+  unregister_svg_export_provider(tab_id: string): void {
+    this.#svg_export_providers.delete(tab_id);
+  }
+
+  get_svg_export_provider(tab_id: string): (() => Promise<string>) | undefined {
+    return this.#svg_export_providers.get(tab_id);
   }
 
   get_state(tab_id: string): CanvasTabState | undefined {

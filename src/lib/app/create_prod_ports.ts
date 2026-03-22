@@ -52,6 +52,7 @@ export function create_prod_ports(): Ports {
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();
   const plugin_settings = new PluginSettingsTauriAdapter();
+  const canvas = create_canvas_tauri_adapter();
 
   return {
     vault,
@@ -64,6 +65,8 @@ export function create_prod_ports(): Ports {
     editor: create_milkdown_editor_port({
       resolve_asset_url_for_vault: (vault_id, asset_path) =>
         assets.resolve_asset_url(vault_id, asset_path),
+      load_svg_preview: (vault_id, path) =>
+        canvas.read_svg_preview(vault_id, path),
     }),
     clipboard,
     shell,
@@ -78,7 +81,7 @@ export function create_prod_ports(): Ports {
     task,
     plugin,
     plugin_settings,
-    canvas: create_canvas_tauri_adapter(),
+    canvas,
     tag: create_tag_tauri_adapter(),
     lint: create_lint_tauri_adapter(),
     iwe: create_iwe_tauri_adapter(),

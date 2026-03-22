@@ -91,14 +91,20 @@
     {#if active_tab === "terminal"}
       {#await load_terminal() then mod}
         <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load panel</div>
       {/await}
     {:else if active_tab === "iwe_results"}
       {#await load_iwe_results() then mod}
         <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load panel</div>
       {/await}
     {:else}
       {#await load_problems() then mod}
         <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load panel</div>
       {/await}
     {/if}
   </div>
@@ -197,5 +203,14 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .BottomPanel__error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--destructive);
+    font-size: var(--text-sm);
   }
 </style>
