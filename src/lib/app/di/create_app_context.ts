@@ -50,6 +50,7 @@ import {
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
+import { IweService, register_iwe_actions } from "$lib/features/iwe";
 import {
   MetadataService,
   register_metadata_actions,
@@ -340,6 +341,8 @@ export function create_app_context(input: {
     stores.op,
   );
 
+  const iwe_service = new IweService(input.ports.iwe, stores.iwe, stores.vault);
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -484,6 +487,13 @@ export function create_app_context(input: {
     ui_store: stores.ui,
   });
 
+  register_iwe_actions({
+    registry: action_registry,
+    iwe_service,
+    iwe_store: stores.iwe,
+    editor_store: stores.editor,
+  });
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -518,6 +528,8 @@ export function create_app_context(input: {
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
+    iwe_store: stores.iwe,
+    iwe_service,
     metadata_store: stores.metadata,
     metadata_service,
   });
@@ -536,6 +548,7 @@ export function create_app_context(input: {
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();
+      void iwe_service.stop();
     },
   };
 }

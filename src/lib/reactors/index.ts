@@ -32,6 +32,8 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
+import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
+import { create_iwe_document_sync_reactor } from "$lib/reactors/iwe_document_sync.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
@@ -65,6 +67,7 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
+import type { IweStore, IweService } from "$lib/features/iwe";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { PluginService } from "$lib/features/plugin";
 
@@ -102,6 +105,8 @@ export type ReactorContext = {
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
+  iwe_store: IweStore;
+  iwe_service: IweService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
 };
@@ -271,6 +276,12 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_plugin_lifecycle_reactor(
       context.vault_store,
       context.plugin_service,
+    ),
+    create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
+    create_iwe_document_sync_reactor(
+      context.editor_store,
+      context.iwe_store,
+      context.iwe_service,
     ),
   ];
 
