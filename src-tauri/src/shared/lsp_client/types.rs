@@ -6,6 +6,7 @@ pub struct LspClientConfig {
     pub args: Vec<String>,
     pub root_uri: String,
     pub capabilities: serde_json::Value,
+    pub working_dir: Option<String>,
 }
 
 #[derive(Debug)]

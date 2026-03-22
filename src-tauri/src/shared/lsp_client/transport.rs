@@ -116,13 +116,16 @@ async fn lsp_run_loop(
     notification_tx: mpsc::Sender<ServerNotification>,
 ) {
     let binary = &config.binary_path;
-    let child_result = Command::new(binary)
-        .args(&config.args)
+    let mut cmd = Command::new(binary);
+    cmd.args(&config.args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn();
+        .kill_on_drop(true);
+    if let Some(dir) = &config.working_dir {
+        cmd.current_dir(dir);
+    }
+    let child_result = cmd.spawn();
 
     let mut child: Child = match child_result {
         Ok(c) => c,
