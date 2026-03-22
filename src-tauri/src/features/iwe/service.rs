@@ -49,9 +49,7 @@ impl IweState {
 
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
     let full = vault_path.join(file_path);
-    tauri::Url::from_file_path(&full)
-        .map(|u| u.to_string())
-        .unwrap_or_else(|_| format!("file://{}", full.display()))
+    format!("file://{}", full.display())
 }
 
 fn err(e: LspClientError) -> String {
@@ -532,6 +530,7 @@ pub async fn iwe_completion(
 ) -> Result<Vec<IweCompletionItem>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
+    log::info!("IWE completion request uri={}", uri);
     let result = iwe_state(&app)
         .request(
             &vault_id,
@@ -548,9 +547,14 @@ pub async fn iwe_completion(
         None
     };
 
-    let items = items_val
+    let empty_vec = vec![];
+    let raw_items = items_val
         .and_then(|v| v.as_array())
-        .unwrap_or(&vec![])
+        .unwrap_or(&empty_vec);
+    if let Some(first) = raw_items.first() {
+        log::info!("IWE completion first item: {}", first);
+    }
+    let items = raw_items
         .iter()
         .filter_map(|item| {
             Some(IweCompletionItem {
