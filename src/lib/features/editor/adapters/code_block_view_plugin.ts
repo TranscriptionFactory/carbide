@@ -225,11 +225,16 @@ function apply_height(pre: HTMLElement, height: number | null) {
   }
 }
 
+type ResizeHandle = {
+  el: HTMLElement;
+  cancel: () => void;
+};
+
 function create_resize_handle(
   pre: HTMLElement,
   on_resize_start: () => void,
   on_commit: (height: number | null) => void,
-): HTMLElement {
+): ResizeHandle {
   const handle = document.createElement("div");
   handle.className = "code-block-resize-handle";
   handle.contentEditable = "false";
@@ -237,6 +242,23 @@ function create_resize_handle(
   let start_y = 0;
   let start_height = 0;
   let current_height = 0;
+  let active_pointer_id: number | null = null;
+
+  function finish_drag() {
+    if (
+      active_pointer_id !== null &&
+      typeof handle.releasePointerCapture === "function" &&
+      handle.hasPointerCapture(active_pointer_id)
+    ) {
+      handle.releasePointerCapture(active_pointer_id);
+    }
+    active_pointer_id = null;
+    handle.removeEventListener("pointermove", on_pointer_move);
+    handle.removeEventListener("pointerup", on_pointer_up);
+    handle.removeEventListener("pointercancel", on_pointer_cancel);
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }
 
   function on_pointer_move(e: PointerEvent) {
     const delta = e.clientY - start_y;
@@ -244,12 +266,13 @@ function create_resize_handle(
     apply_height(pre, current_height);
   }
 
-  function on_pointer_up(e: PointerEvent) {
-    if (handle.releasePointerCapture) handle.releasePointerCapture(e.pointerId);
-    handle.removeEventListener("pointermove", on_pointer_move);
-    handle.removeEventListener("pointerup", on_pointer_up);
-    document.body.style.removeProperty("cursor");
-    document.body.style.removeProperty("user-select");
+  function on_pointer_up() {
+    finish_drag();
+    on_commit(current_height);
+  }
+
+  function on_pointer_cancel() {
+    finish_drag();
     on_commit(current_height);
   }
 
@@ -259,9 +282,13 @@ function create_resize_handle(
     start_y = e.clientY;
     start_height = pre.getBoundingClientRect().height;
     current_height = start_height;
-    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+    active_pointer_id = e.pointerId;
+    if (typeof handle.setPointerCapture === "function") {
+      handle.setPointerCapture(e.pointerId);
+    }
     handle.addEventListener("pointermove", on_pointer_move);
     handle.addEventListener("pointerup", on_pointer_up);
+    handle.addEventListener("pointercancel", on_pointer_cancel);
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
     on_resize_start();
@@ -274,7 +301,15 @@ function create_resize_handle(
     on_commit(null);
   });
 
-  return handle;
+  return {
+    el: handle,
+    cancel() {
+      if (active_pointer_id !== null) {
+        finish_drag();
+        on_commit(current_height);
+      }
+    },
+  };
 }
 
 class CodeBlockView implements NodeView {
@@ -288,6 +323,8 @@ class CodeBlockView implements NodeView {
   private mermaid: MermaidState | null = null;
   private current_language: string;
   private is_resizing = false;
+  private cancel_resize: () => void;
+  private applied_height: number | null = null;
 
   constructor(
     private node: ProseNode,
@@ -329,9 +366,9 @@ class CodeBlockView implements NodeView {
     const copy_btn = create_copy_button(this.contentDOM);
     this.toolbar.appendChild(copy_btn);
 
-    apply_height(this.pre, node.attrs.height as number | null);
+    this.set_height(node.attrs.height as number | null);
 
-    const resize_handle = create_resize_handle(
+    const { el: resize_el, cancel } = create_resize_handle(
       this.pre,
       () => {
         this.is_resizing = true;
@@ -341,23 +378,28 @@ class CodeBlockView implements NodeView {
         this.commit_height(height);
       },
     );
+    this.cancel_resize = cancel;
 
     this.dom.appendChild(this.toolbar);
     this.dom.appendChild(this.pre);
-    this.dom.appendChild(resize_handle);
+    this.dom.appendChild(resize_el);
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid();
     }
   }
 
+  private set_height(height: number | null) {
+    if (height === this.applied_height) return;
+    this.applied_height = height;
+    apply_height(this.pre, height);
+  }
+
   private commit_height(height: number | null) {
     const pos = this.get_pos();
     if (pos === undefined) return;
-    const node = this.view.state.doc.nodeAt(pos);
-    if (!node) return;
     const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
-      ...node.attrs,
+      ...this.node.attrs,
       height,
     });
     this.view.dispatch(tr);
@@ -496,7 +538,7 @@ class CodeBlockView implements NodeView {
     }
 
     if (!this.is_resizing) {
-      apply_height(this.pre, updated.attrs.height as number | null);
+      this.set_height(updated.attrs.height as number | null);
     }
 
     if (this.mermaid?.is_preview) {
@@ -526,6 +568,7 @@ class CodeBlockView implements NodeView {
   }
 
   destroy() {
+    this.cancel_resize();
     this.dismiss_picker();
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);

@@ -613,5 +613,51 @@ describe("CodeBlockView", () => {
 
       view.destroy();
     });
+
+    it("cleans up body styles when destroyed mid-drag", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const handle = get_resize_handle(c)!;
+      const pre = get_pre(c)!;
+
+      Object.defineProperty(pre, "getBoundingClientRect", {
+        value: () => ({
+          height: 200,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 200,
+          width: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+
+      handle.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          clientY: 100,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+      handle.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientY: 150,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      );
+
+      expect(document.body.style.userSelect).toBe("none");
+
+      view.destroy();
+
+      expect(document.body.style.userSelect).toBe("");
+    });
   });
 });
