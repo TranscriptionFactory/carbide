@@ -156,12 +156,30 @@ export function create_app_context(input: {
     on_iwe_hover: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return null;
-      return input.ports.iwe.hover(vault_id, file_path, line, character);
+      try {
+        return await input.ports.iwe.hover(
+          vault_id,
+          file_path,
+          line,
+          character,
+        );
+      } catch {
+        return null;
+      }
     },
     on_iwe_definition: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];
-      return input.ports.iwe.definition(vault_id, file_path, line, character);
+      try {
+        return await input.ports.iwe.definition(
+          vault_id,
+          file_path,
+          line,
+          character,
+        );
+      } catch {
+        return [];
+      }
     },
     on_iwe_definition_navigate: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
@@ -174,12 +192,25 @@ export function create_app_context(input: {
     on_iwe_completion: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];
-      return input.ports.iwe.completion(vault_id, file_path, line, character);
+      try {
+        return await input.ports.iwe.completion(
+          vault_id,
+          file_path,
+          line,
+          character,
+        );
+      } catch {
+        return [];
+      }
     },
     on_iwe_inlay_hints: async (file_path) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];
-      return input.ports.iwe.inlay_hints(vault_id, file_path);
+      try {
+        return await input.ports.iwe.inlay_hints(vault_id, file_path);
+      } catch {
+        return [];
+      }
     },
   };
 
