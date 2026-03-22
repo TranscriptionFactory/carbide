@@ -47,15 +47,6 @@ impl IweState {
     }
 }
 
-fn vault_root_uri(app: &AppHandle, vault_id: &str) -> Result<String, String> {
-    let path = storage::vault_path(app, vault_id)?;
-    let uri = format!(
-        "file://{}",
-        path.to_str().ok_or("invalid vault path encoding")?
-    );
-    Ok(uri)
-}
-
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
     let full = vault_path.join(file_path);
     format!("file://{}", full.display())
@@ -171,7 +162,13 @@ pub async fn iwe_start(
     vault_id: String,
     binary_path: String,
 ) -> Result<(), String> {
-    let root_uri = vault_root_uri(&app, &vault_id)?;
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let root_uri = format!(
+        "file://{}",
+        vault_path
+            .to_str()
+            .ok_or("invalid vault path encoding")?,
+    );
     let resolved_binary = if binary_path.is_empty() {
         "iwes".to_string()
     } else {
@@ -182,6 +179,12 @@ pub async fn iwe_start(
         args: vec![],
         root_uri,
         capabilities: serde_json::json!({}),
+        working_dir: Some(
+            vault_path
+                .to_str()
+                .ok_or("invalid vault path encoding")?
+                .to_string(),
+        ),
     };
 
     let mut client = LspClient::start(config).await.map_err(err)?;
