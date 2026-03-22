@@ -56,3 +56,19 @@ export type IweInlayHint = {
   position_character: number;
   label: string;
 };
+
+export type IweLspDiagnostic = {
+  line: number;
+  character: number;
+  end_line: number;
+  end_character: number;
+  severity: string;
+  message: string;
+};
+
+export type IweDiagnosticsEvent = {
+  type: "diagnostics_updated";
+  vault_id: string;
+  uri: string;
+  diagnostics: IweLspDiagnostic[];
+};

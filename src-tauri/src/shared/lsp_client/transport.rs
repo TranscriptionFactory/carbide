@@ -22,6 +22,13 @@ pub struct LspClient {
     request_tx: mpsc::Sender<LspOutgoing>,
     stop_tx: Option<oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
+    notification_rx: Option<mpsc::Receiver<ServerNotification>>,
+}
+
+#[derive(Debug)]
+pub struct ServerNotification {
+    pub method: String,
+    pub params: serde_json::Value,
 }
 
 impl LspClient {
@@ -29,8 +36,15 @@ impl LspClient {
         let (request_tx, request_rx) = mpsc::channel::<LspOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (ready_tx, ready_rx) = oneshot::channel::<Result<(), LspClientError>>();
+        let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
 
-        let join_handle = tokio::spawn(lsp_run_loop(config, request_rx, stop_rx, ready_tx));
+        let join_handle = tokio::spawn(lsp_run_loop(
+            config,
+            request_rx,
+            stop_rx,
+            ready_tx,
+            notification_tx,
+        ));
 
         ready_rx.await.map_err(|_| LspClientError::ChannelClosed)??;
 
@@ -38,7 +52,12 @@ impl LspClient {
             request_tx,
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
+            notification_rx: Some(notification_rx),
         })
+    }
+
+    pub fn take_notification_rx(&mut self) -> Option<mpsc::Receiver<ServerNotification>> {
+        self.notification_rx.take()
     }
 
     pub async fn send_notification(
@@ -94,6 +113,7 @@ async fn lsp_run_loop(
     mut request_rx: mpsc::Receiver<LspOutgoing>,
     mut stop_rx: oneshot::Receiver<()>,
     ready_tx: oneshot::Sender<Result<(), LspClientError>>,
+    notification_tx: mpsc::Sender<ServerNotification>,
 ) {
     let binary = &config.binary_path;
     let child_result = Command::new(binary)
@@ -151,6 +171,7 @@ async fn lsp_run_loop(
     > = Arc::new(Mutex::new(HashMap::new()));
 
     let pending_clone = pending.clone();
+    let notification_tx_clone = notification_tx;
     let (reader_stop_tx, mut reader_stop_rx) = oneshot::channel::<()>();
 
     let reader_handle = tokio::spawn(async move {
@@ -160,7 +181,7 @@ async fn lsp_run_loop(
                 msg = read_lsp_message(&mut stdout_reader) => {
                     match msg {
                         Ok(Some(message)) => {
-                            dispatch_response(message, &pending_clone).await;
+                            dispatch_message(message, &pending_clone, &notification_tx_clone).await;
                         }
                         Ok(None) => break,
                         Err(e) => {
@@ -221,11 +242,12 @@ async fn lsp_run_loop(
     }
 }
 
-async fn dispatch_response(
+async fn dispatch_message(
     message: serde_json::Value,
     pending: &Arc<
         Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>,
     >,
+    notification_tx: &mpsc::Sender<ServerNotification>,
 ) {
     if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
         let mut pending = pending.lock().await;
@@ -241,6 +263,17 @@ async fn dispatch_response(
                 let _ = tx.send(Ok(result));
             }
         }
+    } else if let Some(method) = message.get("method").and_then(|m| m.as_str()) {
+        let params = message
+            .get("params")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let _ = notification_tx
+            .send(ServerNotification {
+                method: method.to_string(),
+                params,
+            })
+            .await;
     }
 }
 

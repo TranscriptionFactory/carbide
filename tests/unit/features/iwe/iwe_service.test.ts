@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { IweService } from "$lib/features/iwe/application/iwe_service";
 import { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
+import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { IwePort } from "$lib/features/iwe/ports";
 import type { VaultStore } from "$lib/features/vault";
 
 function create_mock_vault_store(vault_id: string | null): VaultStore {
   return { vault: vault_id ? { id: vault_id } : null } as VaultStore;
+}
+
+function create_mock_ui_store(): UIStore {
+  return new UIStore();
 }
 
 function create_mock_port(): IwePort {
@@ -36,6 +41,7 @@ function create_mock_port(): IwePort {
     completion: vi.fn().mockResolvedValue([]),
     formatting: vi.fn().mockResolvedValue([]),
     inlay_hints: vi.fn().mockResolvedValue([]),
+    subscribe_diagnostics: vi.fn().mockReturnValue(() => {}),
   };
 }
 
@@ -44,11 +50,16 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     await service.start();
 
-    expect(port.start).toHaveBeenCalledWith("vault-1");
+    expect(port.start).toHaveBeenCalledWith("vault-1", "");
     expect(store.status).toBe("running");
   });
 
@@ -56,7 +67,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store(null);
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     await service.start();
 
@@ -69,7 +85,12 @@ describe("IweService", () => {
     const port = create_mock_port();
     port.start = vi.fn().mockRejectedValue(new Error("iwes not found"));
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     await service.start();
 
@@ -81,7 +102,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.stop();
@@ -94,7 +120,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.did_open("notes/test.md", "# Hello");
@@ -110,7 +141,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     await service.did_open("notes/test.md", "# Hello");
 
@@ -121,7 +157,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.did_open("notes/test.md", "v1");
@@ -139,7 +180,12 @@ describe("IweService", () => {
     const store = new IweStore();
     const port = create_mock_port();
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.hover("notes/test.md", 1, 0);
@@ -152,7 +198,12 @@ describe("IweService", () => {
     const port = create_mock_port();
     port.hover = vi.fn().mockRejectedValue(new Error("fail"));
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     store.set_hover({ contents: "old" });
@@ -177,7 +228,12 @@ describe("IweService", () => {
     ];
     port.references = vi.fn().mockResolvedValue(refs);
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.references("notes/test.md", 0, 0);
@@ -192,7 +248,12 @@ describe("IweService", () => {
     const actions = [{ title: "Extract", kind: "refactor", data: null }];
     port.code_actions = vi.fn().mockResolvedValue(actions);
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.code_actions("test.md", 0, 0, 5, 0);
@@ -210,7 +271,12 @@ describe("IweService", () => {
       errors: ["partial failure"],
     });
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.code_action_resolve('{"title":"test"}');
@@ -238,7 +304,12 @@ describe("IweService", () => {
     ];
     port.workspace_symbols = vi.fn().mockResolvedValue(symbols);
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.workspace_symbols("intro");
@@ -254,7 +325,12 @@ describe("IweService", () => {
     ];
     port.completion = vi.fn().mockResolvedValue(items);
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.completion("test.md", 1, 2);
@@ -270,7 +346,12 @@ describe("IweService", () => {
     ];
     port.inlay_hints = vi.fn().mockResolvedValue(hints);
     const vault_store = create_mock_vault_store("vault-1");
-    const service = new IweService(port, store, vault_store);
+    const service = new IweService(
+      port,
+      store,
+      vault_store,
+      create_mock_ui_store(),
+    );
 
     store.set_status("running");
     await service.inlay_hints("test.md");
