@@ -153,6 +153,24 @@ export function create_app_context(input: {
         note_path,
         image: file,
       }),
+    on_iwe_hover: async (file_path, line, character) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id || stores.iwe.status !== "running") return null;
+      return input.ports.iwe.hover(vault_id, file_path, line, character);
+    },
+    on_iwe_definition: async (file_path, line, character) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id || stores.iwe.status !== "running") return [];
+      return input.ports.iwe.definition(vault_id, file_path, line, character);
+    },
+    on_iwe_definition_navigate: (uri: string) => {
+      const vault_path = stores.vault.vault?.path;
+      if (!vault_path) return;
+      const prefix = `file://${vault_path}/`;
+      if (!uri.startsWith(prefix)) return;
+      const relative_path = uri.slice(prefix.length);
+      void action_registry.execute(ACTION_IDS.note_open, relative_path);
+    },
   };
 
   const editor_service = new EditorService(

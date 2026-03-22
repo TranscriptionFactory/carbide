@@ -322,4 +322,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Collapse all expanded folders in the file explorer",
     category: "navigation",
   },
+  {
+    action_id: ACTION_IDS.iwe_restart,
+    key: "CmdOrCtrl+Shift+I",
+    phase: "capture",
+    label: "IWE: Restart Server",
+    description: "Restart the IWE language server to re-index the vault",
+    category: "general",
+  },
 ];

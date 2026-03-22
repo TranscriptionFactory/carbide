@@ -26,8 +26,13 @@ export function register_iwe_actions(input: {
     when: () => iwe_store.status === "running",
     execute: async () => {
       const note = editor_store.open_note;
-      if (!note) return;
-      await iwe_service.references(note.meta.path, 0, 0);
+      const cursor = editor_store.cursor;
+      if (!note || !cursor) return;
+      await iwe_service.references(
+        note.meta.path,
+        cursor.line - 1,
+        cursor.column - 1,
+      );
     },
   });
 
@@ -37,8 +42,15 @@ export function register_iwe_actions(input: {
     when: () => iwe_store.status === "running",
     execute: async () => {
       const note = editor_store.open_note;
-      if (!note) return;
-      await iwe_service.code_actions(note.meta.path, 0, 0, 0, 0);
+      const cursor = editor_store.cursor;
+      if (!note || !cursor) return;
+      await iwe_service.code_actions(
+        note.meta.path,
+        cursor.line - 1,
+        cursor.column - 1,
+        cursor.line - 1,
+        cursor.column - 1,
+      );
     },
   });
 
