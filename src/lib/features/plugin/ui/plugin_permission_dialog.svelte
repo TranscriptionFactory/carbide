@@ -5,6 +5,7 @@
   import { ShieldCheck, ShieldX } from "@lucide/svelte";
   import { untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
+  import { create_logger } from "$lib/shared/utils/logger";
 
   interface Props {
     plugin_id: string;
@@ -16,6 +17,7 @@
   const { plugin_id, plugin_name, permissions, on_close }: Props = $props();
 
   const { services } = use_app_context();
+  const log = create_logger("plugin_permission_dialog");
 
   const PERMISSION_LABELS: Record<string, string> = {
     "fs:read": "Read vault files",
@@ -43,33 +45,71 @@
     }
   }
 
-  async function approve_all() {
-    await Promise.all(
-      permissions.map((p) =>
-        services.plugin_settings.approve_permission(plugin_id, p),
-      ),
-    );
+  async function with_retry<T>(
+    fn: () => Promise<T>,
+    retries = 1,
+    delay_ms = 200,
+  ): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (retries <= 0) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const is_transient =
+        msg.includes("no such file") ||
+        msg.includes("No such file") ||
+        msg.includes("ENOENT") ||
+        msg.includes("could not be found");
+      if (!is_transient) throw err;
+      log.warn(
+        `Transient file error during permission grant, retrying: ${msg}`,
+      );
+      await new Promise((r) => setTimeout(r, delay_ms));
+      return fn();
+    }
+  }
+
+  async function apply_permissions(
+    grants: Array<{ permission: string; approve: boolean }>,
+  ) {
+    try {
+      await with_retry(() =>
+        Promise.all(
+          grants.map((g) =>
+            g.approve
+              ? services.plugin_settings.approve_permission(
+                  plugin_id,
+                  g.permission,
+                )
+              : services.plugin_settings.deny_permission(
+                  plugin_id,
+                  g.permission,
+                ),
+          ),
+        ),
+      );
+    } catch (err) {
+      log.from_error("Failed to apply plugin permissions", err);
+    }
     on_close();
   }
 
-  async function deny_all() {
-    await Promise.all(
-      permissions.map((p) =>
-        services.plugin_settings.deny_permission(plugin_id, p),
-      ),
+  function approve_all() {
+    return apply_permissions(
+      permissions.map((p) => ({ permission: p, approve: true })),
     );
-    on_close();
   }
 
-  async function apply() {
-    await Promise.all(
-      permissions.map((p) =>
-        approved.has(p)
-          ? services.plugin_settings.approve_permission(plugin_id, p)
-          : services.plugin_settings.deny_permission(plugin_id, p),
-      ),
+  function deny_all() {
+    return apply_permissions(
+      permissions.map((p) => ({ permission: p, approve: false })),
     );
-    on_close();
+  }
+
+  function apply() {
+    return apply_permissions(
+      permissions.map((p) => ({ permission: p, approve: approved.has(p) })),
+    );
   }
 
   let open = $state(true);

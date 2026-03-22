@@ -540,4 +540,28 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "distance",
     ],
   },
+  {
+    key: "iwe_enabled",
+    label: "Enable IWE Integration",
+    description:
+      "Enable the IWE language server for workspace-level refactoring, outline, and code actions",
+    category: "Misc",
+    keywords: [
+      "iwe",
+      "lsp",
+      "language",
+      "server",
+      "workspace",
+      "refactor",
+      "integration",
+    ],
+  },
+  {
+    key: "iwe_binary_path",
+    label: "IWE Binary Path",
+    description:
+      "Path to the IWE language server binary. Leave empty to use the bundled version",
+    category: "Misc",
+    keywords: ["iwe", "lsp", "binary", "path", "executable"],
+  },
 ];
