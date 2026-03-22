@@ -69,30 +69,29 @@ export function compute_heading_ranges(doc: ProseNode): HeadingRange[] {
   return ranges;
 }
 
-function build_decorations(doc: ProseNode, folded: Set<number>): DecorationSet {
+function build_decorations(
+  doc: ProseNode,
+  folded: Set<number>,
+  ranges?: HeadingRange[],
+): DecorationSet {
   if (folded.size === 0) return DecorationSet.empty;
 
-  const ranges = compute_heading_ranges(doc);
+  const heading_ranges = ranges ?? compute_heading_ranges(doc);
   const decos: Decoration[] = [];
 
-  const effectively_hidden = new Set<number>();
+  // Linear scan: track the deepest active fold boundary to suppress
+  // nested fold widgets (parent fold already hides them via decoration).
+  let hide_until = -1;
 
-  for (const range of ranges) {
-    if (!folded.has(range.heading_pos)) continue;
+  for (const range of heading_ranges) {
+    const is_nested_inside_fold = range.heading_pos < hide_until;
+    const is_folded = folded.has(range.heading_pos);
 
-    for (const child_range of ranges) {
-      if (
-        child_range.heading_pos > range.heading_pos &&
-        child_range.heading_pos < range.body_end
-      ) {
-        effectively_hidden.add(child_range.heading_pos);
-      }
+    if (is_nested_inside_fold || !is_folded) continue;
+
+    if (range.body_end > hide_until) {
+      hide_until = range.body_end;
     }
-  }
-
-  for (const range of ranges) {
-    if (effectively_hidden.has(range.heading_pos)) continue;
-    if (!folded.has(range.heading_pos)) continue;
 
     const widget = document.createElement("span");
     widget.className = "heading-fold-indicator";
@@ -132,8 +131,7 @@ function map_folded_set(folded: Set<number>, tr: Transaction): Set<number> {
   const next = new Set<number>();
   for (const pos of folded) {
     const mapped = tr.mapping.map(pos, 1);
-    const resolved = tr.doc.resolve(mapped);
-    const node = resolved.nodeAfter;
+    const node = tr.doc.nodeAt(mapped);
     if (node?.type.name === "heading") {
       next.add(mapped);
     }
@@ -177,15 +175,29 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
               for (const r of ranges) {
                 folded.add(r.heading_pos);
               }
-              break;
+              return {
+                folded,
+                decorations: build_decorations(new_state.doc, folded, ranges),
+              };
             }
             case "expand_all": {
-              folded = new Set<number>();
-              break;
+              return {
+                folded: new Set<number>(),
+                decorations: DecorationSet.empty,
+              };
             }
           }
         } else if (tr.docChanged) {
-          folded = map_folded_set(folded, tr);
+          if (prev.folded.size === 0) return prev;
+          folded = map_folded_set(prev.folded, tr);
+          if (folded.size === 0) {
+            return { folded, decorations: DecorationSet.empty };
+          }
+          // Use DecorationSet.map for cheap propagation on content edits
+          return {
+            folded,
+            decorations: prev.decorations.map(tr.mapping, tr.doc),
+          };
         } else {
           return prev;
         }
@@ -238,11 +250,6 @@ function find_heading_at_selection(state: EditorState): number | null {
     if (node.type.name === "heading") {
       return $from.before(depth);
     }
-  }
-
-  const parent = $from.parent;
-  if (parent.type.name === "heading") {
-    return $from.before($from.depth);
   }
 
   const ranges = compute_heading_ranges(state.doc);

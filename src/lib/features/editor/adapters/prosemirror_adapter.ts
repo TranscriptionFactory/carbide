@@ -94,7 +94,6 @@ import { create_details_keymap_prose_plugin } from "./details_keymap_plugin";
 import { create_shiki_prose_plugin } from "./shiki_plugin";
 import {
   create_heading_fold_prose_plugin,
-  heading_fold_plugin_key,
   toggle_heading_fold,
   collapse_all_headings,
   expand_all_headings,
@@ -1186,16 +1185,13 @@ export function create_prosemirror_editor_port(args?: {
           }
         },
         toggle_heading_fold(pos?: number) {
-          if (!view) return;
-          toggle_heading_fold(view, pos);
+          run_view_action((v) => toggle_heading_fold(v, pos));
         },
         collapse_all_heading_folds() {
-          if (!view) return;
-          collapse_all_headings(view);
+          run_view_action((v) => collapse_all_headings(v));
         },
         expand_all_heading_folds() {
-          if (!view) return;
-          expand_all_headings(view);
+          run_view_action((v) => expand_all_headings(v));
         },
       };
 
