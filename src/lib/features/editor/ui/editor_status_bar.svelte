@@ -38,6 +38,7 @@
     on_lint_format_click: () => void;
     iwe_status: IweStatus;
     iwe_error: string | null;
+    on_iwe_click?: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -80,6 +81,7 @@
     on_lint_format_click,
     iwe_status,
     iwe_error,
+    on_iwe_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -193,7 +195,11 @@
     {/if}
     {#if iwe_status !== "idle"}
       <span class="StatusBar__separator" aria-hidden="true"></span>
-      <IweStatusIndicator status={iwe_status} error={iwe_error} />
+      <IweStatusIndicator
+        status={iwe_status}
+        error={iwe_error}
+        {...on_iwe_click ? { onclick: on_iwe_click } : {}}
+      />
     {/if}
   </div>
   <div class="StatusBar__section">
