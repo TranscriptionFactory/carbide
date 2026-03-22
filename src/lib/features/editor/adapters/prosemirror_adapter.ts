@@ -100,6 +100,8 @@ import {
 } from "./heading_fold_plugin";
 import { create_iwe_hover_plugin } from "$lib/features/editor/adapters/iwe_hover_plugin";
 import { create_iwe_definition_plugin } from "$lib/features/editor/adapters/iwe_definition_plugin";
+import { create_iwe_completion_plugin } from "$lib/features/editor/adapters/iwe_completion_plugin";
+import { create_iwe_inlay_hints_plugin } from "$lib/features/editor/adapters/iwe_inlay_hints_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import {
   create_math_view_prose_plugin,
@@ -454,6 +456,8 @@ export function create_prosemirror_editor_port(args?: {
         on_iwe_hover,
         on_iwe_definition,
         on_iwe_definition_navigate,
+        on_iwe_completion,
+        on_iwe_inlay_hints,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -750,6 +754,22 @@ export function create_prosemirror_editor_port(args?: {
           create_iwe_definition_plugin({
             on_definition: on_iwe_definition,
             on_navigate: on_iwe_definition_navigate ?? (() => {}),
+          }),
+        );
+      }
+
+      if (on_iwe_completion) {
+        plugins.push(
+          create_iwe_completion_plugin({
+            on_completion: on_iwe_completion,
+          }),
+        );
+      }
+
+      if (on_iwe_inlay_hints) {
+        plugins.push(
+          create_iwe_inlay_hints_plugin({
+            on_inlay_hints: on_iwe_inlay_hints,
           }),
         );
       }

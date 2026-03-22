@@ -381,4 +381,11 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["iwe", "format", "formatting", "lsp", "clean", "style"],
     icon: "settings",
   },
+  {
+    id: "iwe_rename",
+    label: "IWE: Rename Symbol",
+    description: "Rename the heading or section at the cursor across the vault",
+    keywords: ["iwe", "rename", "refactor", "lsp", "heading", "section"],
+    icon: "pencil",
+  },
 ];

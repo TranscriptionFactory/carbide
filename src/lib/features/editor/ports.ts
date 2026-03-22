@@ -87,6 +87,19 @@ export type EditorEventHandlers = {
     }>
   >;
   on_iwe_definition_navigate?: (uri: string) => void;
+  on_iwe_completion?: (
+    line: number,
+    character: number,
+  ) => Promise<
+    Array<{ label: string; detail: string | null; insert_text: string | null }>
+  >;
+  on_iwe_inlay_hints?: () => Promise<
+    Array<{
+      position_line: number;
+      position_character: number;
+      label: string;
+    }>
+  >;
 };
 
 export type EditorSessionConfig = {

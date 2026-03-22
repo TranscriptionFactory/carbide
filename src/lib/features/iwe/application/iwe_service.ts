@@ -3,7 +3,11 @@ import type { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { LintStore } from "$lib/features/lint";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
-import type { IweDiagnosticsEvent } from "$lib/features/iwe/types";
+import type {
+  IweDiagnosticsEvent,
+  IwePrepareRenameResult,
+  IweTextEdit,
+} from "$lib/features/iwe/types";
 import type {
   LintDiagnostic,
   LintSeverity,
@@ -280,6 +284,27 @@ export class IweService {
     }
   }
 
+  async prepare_rename(
+    file_path: string,
+    line: number,
+    character: number,
+  ): Promise<IwePrepareRenameResult | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || this.store.status !== "running") return null;
+
+    try {
+      return await this.port.prepare_rename(
+        vault_id,
+        file_path,
+        line,
+        character,
+      );
+    } catch (e) {
+      log.from_error("prepare_rename failed", e);
+      return null;
+    }
+  }
+
   async rename(
     file_path: string,
     line: number,
@@ -331,16 +356,17 @@ export class IweService {
     }
   }
 
-  async formatting(file_path: string): Promise<void> {
+  async formatting(file_path: string): Promise<IweTextEdit[]> {
     const vault_id = this.vault_store.vault?.id;
-    if (!vault_id || this.store.status !== "running") return;
+    if (!vault_id || this.store.status !== "running") return [];
 
     this.store.set_loading(true);
     try {
-      await this.port.formatting(vault_id, file_path);
+      return await this.port.formatting(vault_id, file_path);
     } catch (e) {
       log.from_error("formatting failed", e);
       this.store.set_error(e instanceof Error ? e.message : String(e));
+      return [];
     } finally {
       this.store.set_loading(false);
     }
