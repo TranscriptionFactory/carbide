@@ -189,6 +189,10 @@ pub async fn iwe_start(
 
     let mut client = LspClient::start(config).await.map_err(err)?;
     let trigger_characters = client.completion_trigger_characters();
+    log::info!(
+        "IWE completion trigger characters: {:?}",
+        trigger_characters
+    );
 
     if let Some(rx) = client.take_notification_rx() {
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);

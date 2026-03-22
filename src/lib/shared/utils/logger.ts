@@ -66,12 +66,52 @@ function wrap_async_log(fn: (msg: string) => Promise<void>): LogFn {
 async function create_tauri_raw_logger(): Promise<RawLogger> {
   const mod = await import("@tauri-apps/plugin-log");
   await mod.attachConsole();
+  await mod.attachLogger(({ level, message }) => {
+    if (_log_entry_callback) {
+      _log_entry_callback({
+        level: numeric_level_to_string(level),
+        message,
+        timestamp: Date.now(),
+      });
+    }
+  });
   return {
     error: wrap_async_log(mod.error),
     warn: wrap_async_log(mod.warn),
     info: wrap_async_log(mod.info),
     debug: wrap_async_log(mod.debug),
   };
+}
+
+type LogEntryLevel = "error" | "warn" | "info" | "debug" | "trace";
+
+type LogEntryCallback = (entry: {
+  level: LogEntryLevel;
+  message: string;
+  timestamp: number;
+}) => void;
+
+let _log_entry_callback: LogEntryCallback | null = null;
+
+export function set_log_entry_callback(cb: LogEntryCallback) {
+  _log_entry_callback = cb;
+}
+
+function numeric_level_to_string(level: number): LogEntryLevel {
+  switch (level) {
+    case 1:
+      return "trace";
+    case 2:
+      return "debug";
+    case 3:
+      return "info";
+    case 4:
+      return "warn";
+    case 5:
+      return "error";
+    default:
+      return "debug";
+  }
 }
 
 let _raw_logger: RawLogger | null = null;

@@ -14,6 +14,7 @@
     LintDiagnostic,
     LintSeverity,
   } from "$lib/features/lint/types/lint";
+  import type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
 
   const { stores, action_registry } = use_app_context();
 
@@ -21,13 +22,16 @@
   const active_path = $derived(stores.lint.active_file_path);
   const error_count = $derived(stores.lint.error_count);
   const warning_count = $derived(stores.lint.warning_count);
+  const log_entries = $derived(stores.log.entries);
+  const log_count = $derived(stores.log.entry_count);
 
-  let severity_filter = $state<LintSeverity | "all">("all");
+  let severity_filter = $state<LintSeverity | "all" | "log">("all");
   let search_query = $state("");
+  let log_viewport: HTMLElement | undefined = $state();
 
   const filtered = $derived.by(() => {
     let items = diagnostics;
-    if (severity_filter !== "all") {
+    if (severity_filter !== "all" && severity_filter !== "log") {
       items = items.filter((d) => d.severity === severity_filter);
     }
     if (search_query) {
@@ -39,6 +43,12 @@
       );
     }
     return items;
+  });
+
+  const filtered_logs = $derived.by(() => {
+    if (!search_query) return log_entries;
+    const q = search_query.toLowerCase();
+    return log_entries.filter((e) => e.message.toLowerCase().includes(q));
   });
 
   const grouped = $derived.by(() => {
@@ -70,7 +80,6 @@
   }
 
   function navigate_to(diagnostic: LintDiagnostic) {
-    // TODO: scroll editor to diagnostic line via editor action
     void diagnostic;
   }
 
@@ -90,29 +99,66 @@
   function format_file() {
     void action_registry.execute(ACTION_IDS.lint_format_file);
   }
+
+  function format_timestamp(ts: number): string {
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  $effect(() => {
+    if (severity_filter === "log" && log_viewport && filtered_logs.length > 0) {
+      log_viewport.scrollTop = log_viewport.scrollHeight;
+    }
+  });
+
+  function log_level_class(level: LogEntry["level"]): string {
+    switch (level) {
+      case "error":
+        return "ProblemsPanel__log-level--error";
+      case "warn":
+        return "ProblemsPanel__log-level--warn";
+      case "info":
+        return "ProblemsPanel__log-level--info";
+      case "debug":
+        return "ProblemsPanel__log-level--debug";
+      case "trace":
+        return "ProblemsPanel__log-level--trace";
+    }
+  }
 </script>
 
 <div class="ProblemsPanel">
   <div class="ProblemsPanel__header">
     <div class="ProblemsPanel__title">
       <span class="ProblemsPanel__heading">Problems</span>
-      {#if active_path}
-        <span class="ProblemsPanel__file-path">{active_path}</span>
+      {#if severity_filter !== "log"}
+        {#if active_path}
+          <span class="ProblemsPanel__file-path">{active_path}</span>
+        {/if}
+        <span class="ProblemsPanel__counts">
+          {#if error_count > 0}
+            <span class="ProblemsPanel__count ProblemsPanel__count--error">
+              <CircleAlert class="ProblemsPanel__count-icon" />
+              {error_count}
+            </span>
+          {/if}
+          {#if warning_count > 0}
+            <span class="ProblemsPanel__count ProblemsPanel__count--warning">
+              <TriangleAlert class="ProblemsPanel__count-icon" />
+              {warning_count}
+            </span>
+          {/if}
+        </span>
+      {:else}
+        <span class="ProblemsPanel__counts">
+          <span class="ProblemsPanel__count ProblemsPanel__count--log">
+            {log_count} entries
+          </span>
+        </span>
       {/if}
-      <span class="ProblemsPanel__counts">
-        {#if error_count > 0}
-          <span class="ProblemsPanel__count ProblemsPanel__count--error">
-            <CircleAlert class="ProblemsPanel__count-icon" />
-            {error_count}
-          </span>
-        {/if}
-        {#if warning_count > 0}
-          <span class="ProblemsPanel__count ProblemsPanel__count--warning">
-            <TriangleAlert class="ProblemsPanel__count-icon" />
-            {warning_count}
-          </span>
-        {/if}
-      </span>
     </div>
     <div class="ProblemsPanel__actions">
       <div class="ProblemsPanel__search">
@@ -133,25 +179,38 @@
         <option value="warning">Warnings</option>
         <option value="info">Info</option>
         <option value="hint">Hints</option>
+        <option value="log">Log</option>
       </select>
-      <button
-        type="button"
-        class="ProblemsPanel__action-btn"
-        onclick={format_file}
-        title="Format file"
-        aria-label="Format file"
-      >
-        <Filter />
-      </button>
-      <button
-        type="button"
-        class="ProblemsPanel__action-btn"
-        onclick={fix_all}
-        title="Fix all"
-        aria-label="Fix all"
-      >
-        <Wrench />
-      </button>
+      {#if severity_filter !== "log"}
+        <button
+          type="button"
+          class="ProblemsPanel__action-btn"
+          onclick={format_file}
+          title="Format file"
+          aria-label="Format file"
+        >
+          <Filter />
+        </button>
+        <button
+          type="button"
+          class="ProblemsPanel__action-btn"
+          onclick={fix_all}
+          title="Fix all"
+          aria-label="Fix all"
+        >
+          <Wrench />
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="ProblemsPanel__action-btn"
+          onclick={() => stores.log.clear()}
+          title="Clear log"
+          aria-label="Clear log"
+        >
+          <X />
+        </button>
+      {/if}
       <button
         type="button"
         class="ProblemsPanel__action-btn"
@@ -164,64 +223,97 @@
     </div>
   </div>
 
-  <div class="ProblemsPanel__body">
-    {#if filtered.length === 0}
-      <div class="ProblemsPanel__empty">
-        {#if diagnostics.length === 0}
-          No problems detected in this file.
-        {:else}
-          No problems match the current filter.
-        {/if}
-      </div>
-    {:else}
-      {#each severity_order as severity (severity)}
-        {#if grouped[severity].length > 0}
-          <div class="ProblemsPanel__group">
-            {#each grouped[severity] as diagnostic, i (`${severity}-${diagnostic.line}-${diagnostic.column}-${i}`)}
-              {@const Icon = severity_icon(diagnostic.severity)}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div
-                class="ProblemsPanel__row"
-                class:ProblemsPanel__row--fixable={diagnostic.fixable}
-                onclick={() => navigate_to(diagnostic)}
-                onkeydown={(e: KeyboardEvent) => {
-                  if (e.key === "Enter" || e.key === " ")
-                    navigate_to(diagnostic);
-                }}
-                role="button"
-                tabindex="0"
-              >
-                <Icon
-                  class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{diagnostic.severity}"
-                />
-                <span class="ProblemsPanel__message">{diagnostic.message}</span>
-                {#if diagnostic.rule_id}
-                  <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span>
-                {/if}
-                <span class="ProblemsPanel__location">
-                  Ln {diagnostic.line}, Col {diagnostic.column}
-                </span>
-                {#if diagnostic.fixable}
-                  <button
-                    type="button"
-                    class="ProblemsPanel__fix-btn"
-                    onclick={(e: MouseEvent) => {
-                      e.stopPropagation();
-                      fix_diagnostic(diagnostic);
-                    }}
-                    title="Fix"
-                    aria-label="Fix this issue"
-                  >
-                    <Wrench />
-                  </button>
-                {/if}
-              </div>
-            {/each}
+  {#if severity_filter === "log"}
+    <div
+      class="ProblemsPanel__body ProblemsPanel__log-body"
+      bind:this={log_viewport}
+    >
+      {#if filtered_logs.length === 0}
+        <div class="ProblemsPanel__empty">
+          {#if log_count === 0}
+            No log entries yet.
+          {:else}
+            No log entries match the current filter.
+          {/if}
+        </div>
+      {:else}
+        {#each filtered_logs as entry, i (i)}
+          <div class="ProblemsPanel__log-row">
+            <span
+              class="ProblemsPanel__log-level {log_level_class(entry.level)}"
+              >{entry.level}</span
+            >
+            <span class="ProblemsPanel__log-time"
+              >{format_timestamp(entry.timestamp)}</span
+            >
+            <span class="ProblemsPanel__log-message">{entry.message}</span>
           </div>
-        {/if}
-      {/each}
-    {/if}
-  </div>
+        {/each}
+      {/if}
+    </div>
+  {:else}
+    <div class="ProblemsPanel__body">
+      {#if filtered.length === 0}
+        <div class="ProblemsPanel__empty">
+          {#if diagnostics.length === 0}
+            No problems detected in this file.
+          {:else}
+            No problems match the current filter.
+          {/if}
+        </div>
+      {:else}
+        {#each severity_order as severity (severity)}
+          {#if grouped[severity].length > 0}
+            <div class="ProblemsPanel__group">
+              {#each grouped[severity] as diagnostic, i (`${severity}-${diagnostic.line}-${diagnostic.column}-${i}`)}
+                {@const Icon = severity_icon(diagnostic.severity)}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                  class="ProblemsPanel__row"
+                  class:ProblemsPanel__row--fixable={diagnostic.fixable}
+                  onclick={() => navigate_to(diagnostic)}
+                  onkeydown={(e: KeyboardEvent) => {
+                    if (e.key === "Enter" || e.key === " ")
+                      navigate_to(diagnostic);
+                  }}
+                  role="button"
+                  tabindex="0"
+                >
+                  <Icon
+                    class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{diagnostic.severity}"
+                  />
+                  <span class="ProblemsPanel__message"
+                    >{diagnostic.message}</span
+                  >
+                  {#if diagnostic.rule_id}
+                    <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span
+                    >
+                  {/if}
+                  <span class="ProblemsPanel__location">
+                    Ln {diagnostic.line}, Col {diagnostic.column}
+                  </span>
+                  {#if diagnostic.fixable}
+                    <button
+                      type="button"
+                      class="ProblemsPanel__fix-btn"
+                      onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        fix_diagnostic(diagnostic);
+                      }}
+                      title="Fix"
+                      aria-label="Fix this issue"
+                    >
+                      <Wrench />
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/each}
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -286,6 +378,10 @@
 
   .ProblemsPanel__count--warning {
     color: var(--warning, oklch(0.75 0.15 85));
+  }
+
+  .ProblemsPanel__count--log {
+    color: var(--muted-foreground);
   }
 
   :global(.ProblemsPanel__count-icon) {
@@ -374,6 +470,11 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  .ProblemsPanel__log-body {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--text-xs);
   }
 
   .ProblemsPanel__empty {
@@ -481,5 +582,64 @@
   :global(.ProblemsPanel__fix-btn svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
+  }
+
+  .ProblemsPanel__log-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-0-5) var(--space-3);
+    border-bottom: 1px solid transparent;
+  }
+
+  .ProblemsPanel__log-row:hover {
+    background-color: var(--muted);
+  }
+
+  .ProblemsPanel__log-level {
+    flex-shrink: 0;
+    width: 2.5rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .ProblemsPanel__log-level--error {
+    color: var(--destructive);
+  }
+
+  .ProblemsPanel__log-level--warn {
+    color: var(--warning, oklch(0.75 0.15 85));
+  }
+
+  .ProblemsPanel__log-level--info {
+    color: var(--primary);
+  }
+
+  .ProblemsPanel__log-level--debug {
+    color: var(--muted-foreground);
+  }
+
+  .ProblemsPanel__log-level--trace {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+
+  .ProblemsPanel__log-time {
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    font-feature-settings: "tnum" 1;
+    opacity: 0.7;
+  }
+
+  .ProblemsPanel__log-message {
+    flex: 1;
+    min-width: 0;
+    color: var(--foreground);
+    font-size: var(--text-xs);
+    white-space: pre-wrap;
+    word-break: break-all;
   }
 </style>

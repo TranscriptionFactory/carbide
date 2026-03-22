@@ -51,6 +51,7 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { IweService, register_iwe_actions } from "$lib/features/iwe";
+import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
   register_metadata_actions,
@@ -71,6 +72,7 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
+  set_log_entry_callback((entry) => stores.log.push(entry));
   const action_registry = new ActionRegistry();
   const workspace_reconcile = create_workspace_reconcile(
     action_registry,

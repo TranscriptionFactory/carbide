@@ -1,6 +1,8 @@
 export type { LintPort } from "$lib/features/lint/ports";
 export { create_lint_tauri_adapter } from "$lib/features/lint/adapters/lint_tauri_adapter";
 export { LintStore } from "$lib/features/lint/state/lint_store.svelte";
+export { LogStore } from "$lib/features/lint/state/log_store.svelte";
+export type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
 export { LintService } from "$lib/features/lint/application/lint_service";
 export { register_lint_actions } from "$lib/features/lint/application/lint_actions";
 export { apply_lint_text_edits } from "$lib/features/lint/domain/apply_text_edits";

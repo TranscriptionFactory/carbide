@@ -100,6 +100,10 @@ impl LspClient {
     }
 
     pub fn completion_trigger_characters(&self) -> Vec<String> {
+        log::info!(
+            "LSP server capabilities: {}",
+            serde_json::to_string_pretty(&self.server_capabilities).unwrap_or_default()
+        );
         self.server_capabilities
             .get("capabilities")
             .and_then(|c| c.get("completionProvider"))
