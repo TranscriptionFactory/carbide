@@ -16,6 +16,7 @@ export class IweStore {
   symbols = $state<IweSymbol[]>([]);
   completions = $state<IweCompletionItem[]>([]);
   inlay_hints = $state<IweInlayHint[]>([]);
+  completion_trigger_characters = $state<string[]>([]);
   error = $state<string | null>(null);
   loading = $state(false);
 
@@ -55,6 +56,10 @@ export class IweStore {
     this.inlay_hints = hints;
   }
 
+  set_completion_trigger_characters(chars: string[]) {
+    this.completion_trigger_characters = chars;
+  }
+
   set_loading(loading: boolean) {
     this.loading = loading;
   }
@@ -66,6 +71,7 @@ export class IweStore {
     this.code_actions = [];
     this.symbols = [];
     this.completions = [];
+    this.completion_trigger_characters = [];
     this.inlay_hints = [];
     this.error = null;
     this.loading = false;

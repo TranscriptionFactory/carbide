@@ -53,7 +53,10 @@ export class IweService {
       this.store.set_status("starting");
       try {
         this.subscribe_diagnostics();
-        await this.port.start(vault_id, binary_path);
+        const result = await this.port.start(vault_id, binary_path);
+        this.store.set_completion_trigger_characters(
+          result.completion_trigger_characters,
+        );
         this.store.set_status("running");
       } catch (e) {
         this.unsubscribe_all();

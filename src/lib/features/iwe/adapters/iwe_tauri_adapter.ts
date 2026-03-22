@@ -9,6 +9,7 @@ import type {
   IweInlayHint,
   IweLocation,
   IwePrepareRenameResult,
+  IweStartResult,
   IweSymbol,
   IweTextEdit,
   IweWorkspaceEditResult,
@@ -17,7 +18,10 @@ import type {
 export function create_iwe_tauri_adapter(): IwePort {
   return {
     start: (vault_id, binary_path) =>
-      tauri_invoke("iwe_start", { vaultId: vault_id, binaryPath: binary_path }),
+      tauri_invoke<IweStartResult>("iwe_start", {
+        vaultId: vault_id,
+        binaryPath: binary_path,
+      }),
 
     stop: (vault_id) => tauri_invoke("iwe_stop", { vaultId: vault_id }),
 

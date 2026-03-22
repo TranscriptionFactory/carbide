@@ -93,6 +93,7 @@ export type EditorEventHandlers = {
   ) => Promise<
     Array<{ label: string; detail: string | null; insert_text: string | null }>
   >;
+  get_iwe_completion_trigger_characters?: () => string[];
   on_iwe_inlay_hints?: () => Promise<
     Array<{
       position_line: number;

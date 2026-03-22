@@ -161,7 +161,7 @@ pub async fn iwe_start(
     app: AppHandle,
     vault_id: String,
     binary_path: String,
-) -> Result<(), String> {
+) -> Result<IweStartResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let root_uri = format!(
         "file://{}",
@@ -188,6 +188,7 @@ pub async fn iwe_start(
     };
 
     let mut client = LspClient::start(config).await.map_err(err)?;
+    let trigger_characters = client.completion_trigger_characters();
 
     if let Some(rx) = client.take_notification_rx() {
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);
@@ -195,7 +196,9 @@ pub async fn iwe_start(
 
     let state = iwe_state(&app);
     state.clients.lock().await.insert(vault_id, client);
-    Ok(())
+    Ok(IweStartResult {
+        completion_trigger_characters: trigger_characters,
+    })
 }
 
 #[tauri::command]

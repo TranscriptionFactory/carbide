@@ -74,18 +74,27 @@ function render_items(
   }
 }
 
-function word_before_cursor(
+function escape_regex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function trigger_context(
   view: EditorView,
-): { word: string; from: number } | null {
+  trigger_chars: string[],
+): { query: string; from: number } | null {
+  if (trigger_chars.length === 0) return null;
   if (wiki_suggest_plugin_key.getState(view.state)?.active) return null;
   const { $from } = view.state.selection;
   if (!$from.parent.isTextblock || $from.parent.type.name === "code_block") {
     return null;
   }
-  const text_in_block = $from.parent.textBetween(0, $from.parentOffset);
-  const match = /[\w-]+$/.exec(text_in_block);
+  const text = $from.parent.textBetween(0, $from.parentOffset);
+  const escaped = trigger_chars.map(escape_regex);
+  const pattern = new RegExp(`(?:${escaped.join("|")})(\\S*)$`);
+  const match = pattern.exec(text);
   if (!match) return null;
-  return { word: match[0], from: $from.pos - match[0].length };
+  const from = $from.pos - match[0].length;
+  return { query: match[0], from };
 }
 
 export function create_iwe_completion_plugin(input: {
@@ -93,6 +102,7 @@ export function create_iwe_completion_plugin(input: {
     line: number,
     character: number,
   ) => Promise<IweCompletionItem[]>;
+  get_trigger_characters: () => string[];
 }): Plugin<IweCompletionState> {
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
@@ -200,17 +210,18 @@ export function create_iwe_completion_plugin(input: {
             return;
           }
 
-          const context = word_before_cursor(view);
-          if (!context || context.word.length < 2) {
+          const trigger_chars = input.get_trigger_characters();
+          const context = trigger_context(view, trigger_chars);
+          if (!context) {
             dismiss(view);
             return;
           }
 
           const plugin_state = get_state(view);
-          if (context.word !== plugin_state.query || !plugin_state.active) {
+          if (context.query !== plugin_state.query || !plugin_state.active) {
             const new_state: IweCompletionState = {
               active: true,
-              query: context.word,
+              query: context.query,
               from: context.from,
               items: plugin_state.active ? plugin_state.items : [],
               selected_index: 0,

@@ -76,6 +76,7 @@ export type EditorServiceCallbacks = {
   ) => Promise<
     Array<{ label: string; detail: string | null; insert_text: string | null }>
   >;
+  get_iwe_completion_trigger_characters?: () => string[];
   on_iwe_inlay_hints?: (file_path: string) => Promise<
     Array<{
       position_line: number;
@@ -585,6 +586,11 @@ export class EditorService {
         }
         return completion_cb(note.meta.path, line, character);
       };
+    }
+
+    if (this.callbacks.get_iwe_completion_trigger_characters) {
+      events.get_iwe_completion_trigger_characters =
+        this.callbacks.get_iwe_completion_trigger_characters;
     }
 
     if (this.callbacks.on_iwe_inlay_hints) {

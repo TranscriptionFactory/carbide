@@ -15,7 +15,7 @@ function create_mock_ui_store(): UIStore {
 
 function create_mock_port(): IwePort {
   return {
-    start: vi.fn().mockResolvedValue(undefined),
+    start: vi.fn().mockResolvedValue({ completion_trigger_characters: [] }),
     stop: vi.fn().mockResolvedValue(undefined),
     did_open: vi.fn().mockResolvedValue(undefined),
     did_change: vi.fn().mockResolvedValue(undefined),

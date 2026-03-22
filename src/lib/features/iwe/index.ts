@@ -10,6 +10,7 @@ export type {
   IweLocation,
   IweCodeAction,
   IweCompletionItem,
+  IweStartResult,
   IweSymbol,
   IweTextEdit,
   IweWorkspaceEditResult,

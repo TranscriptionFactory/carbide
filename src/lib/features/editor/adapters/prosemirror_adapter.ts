@@ -457,6 +457,7 @@ export function create_prosemirror_editor_port(args?: {
         on_iwe_definition,
         on_iwe_definition_navigate,
         on_iwe_completion,
+        get_iwe_completion_trigger_characters,
         on_iwe_inlay_hints,
       } = events;
 
@@ -762,6 +763,8 @@ export function create_prosemirror_editor_port(args?: {
         plugins.push(
           create_iwe_completion_plugin({
             on_completion: on_iwe_completion,
+            get_trigger_characters:
+              get_iwe_completion_trigger_characters ?? (() => []),
           }),
         );
       }

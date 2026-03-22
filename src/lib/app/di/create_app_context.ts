@@ -189,6 +189,8 @@ export function create_app_context(input: {
       const relative_path = uri.slice(prefix.length);
       void action_registry.execute(ACTION_IDS.note_open, relative_path);
     },
+    get_iwe_completion_trigger_characters: () =>
+      stores.iwe.completion_trigger_characters,
     on_iwe_completion: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];

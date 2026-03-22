@@ -23,6 +23,7 @@ pub struct LspClient {
     stop_tx: Option<oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
     notification_rx: Option<mpsc::Receiver<ServerNotification>>,
+    server_capabilities: serde_json::Value,
 }
 
 #[derive(Debug)]
@@ -35,7 +36,8 @@ impl LspClient {
     pub async fn start(config: LspClientConfig) -> Result<Self, LspClientError> {
         let (request_tx, request_rx) = mpsc::channel::<LspOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
-        let (ready_tx, ready_rx) = oneshot::channel::<Result<(), LspClientError>>();
+        let (ready_tx, ready_rx) =
+            oneshot::channel::<Result<serde_json::Value, LspClientError>>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
 
         let join_handle = tokio::spawn(lsp_run_loop(
@@ -46,13 +48,16 @@ impl LspClient {
             notification_tx,
         ));
 
-        ready_rx.await.map_err(|_| LspClientError::ChannelClosed)??;
+        let server_capabilities = ready_rx
+            .await
+            .map_err(|_| LspClientError::ChannelClosed)??;
 
         Ok(Self {
             request_tx,
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
             notification_rx: Some(notification_rx),
+            server_capabilities,
         })
     }
 
@@ -94,6 +99,20 @@ impl LspClient {
             .map_err(|_| LspClientError::ChannelClosed)?
     }
 
+    pub fn completion_trigger_characters(&self) -> Vec<String> {
+        self.server_capabilities
+            .get("capabilities")
+            .and_then(|c| c.get("completionProvider"))
+            .and_then(|cp| cp.get("triggerCharacters"))
+            .and_then(|tc| tc.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub fn is_alive(&self) -> bool {
         !self.request_tx.is_closed()
     }
@@ -112,7 +131,7 @@ async fn lsp_run_loop(
     config: LspClientConfig,
     mut request_rx: mpsc::Receiver<LspOutgoing>,
     mut stop_rx: oneshot::Receiver<()>,
-    ready_tx: oneshot::Sender<Result<(), LspClientError>>,
+    ready_tx: oneshot::Sender<Result<serde_json::Value, LspClientError>>,
     notification_tx: mpsc::Sender<ServerNotification>,
 ) {
     let binary = &config.binary_path;
@@ -161,13 +180,16 @@ async fn lsp_run_loop(
         config.capabilities.clone(),
     )
     .await;
-    if let Err(e) = init_result {
-        log::error!("LSP initialization failed: {}", e);
-        let _ = ready_tx.send(Err(LspClientError::ProcessSpawnFailed(e.to_string())));
-        let _ = child.kill().await;
-        return;
-    }
-    let _ = ready_tx.send(Ok(()));
+    let server_capabilities = match init_result {
+        Ok(caps) => caps,
+        Err(e) => {
+            log::error!("LSP initialization failed: {}", e);
+            let _ = ready_tx.send(Err(LspClientError::ProcessSpawnFailed(e.to_string())));
+            let _ = child.kill().await;
+            return;
+        }
+    };
+    let _ = ready_tx.send(Ok(server_capabilities));
 
     let pending: Arc<
         Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>,
@@ -291,7 +313,7 @@ async fn lsp_initialize(
     next_id: &mut i64,
     root_uri: &str,
     capabilities: serde_json::Value,
-) -> Result<(), anyhow::Error> {
+) -> Result<serde_json::Value, anyhow::Error> {
     let id = *next_id;
     *next_id += 1;
 
@@ -313,8 +335,13 @@ async fn lsp_initialize(
         return Err(anyhow::anyhow!("LSP initialize error: {}", err));
     }
 
+    let result = response
+        .get("result")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+
     write_lsp_notification(stdin, "initialized", serde_json::json!({})).await?;
-    Ok(())
+    Ok(result)
 }
 
 async fn lsp_shutdown(

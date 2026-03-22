@@ -67,3 +67,8 @@ pub struct IweInlayHint {
     pub position_character: u32,
     pub label: String,
 }
+
+#[derive(Debug, Serialize, Type)]
+pub struct IweStartResult {
+    pub completion_trigger_characters: Vec<String>,
+}

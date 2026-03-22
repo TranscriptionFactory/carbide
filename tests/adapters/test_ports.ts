@@ -102,7 +102,7 @@ export function create_test_ports(): Ports {
       subscribe_events: () => () => {},
     },
     iwe: {
-      start: () => Promise.resolve(),
+      start: () => Promise.resolve({ completion_trigger_characters: [] }),
       stop: () => Promise.resolve(),
       did_open: () => Promise.resolve(),
       did_change: () => Promise.resolve(),

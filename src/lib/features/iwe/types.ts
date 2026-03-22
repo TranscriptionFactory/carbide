@@ -28,6 +28,10 @@ export type IweCompletionItem = {
   insert_text: string | null;
 };
 
+export type IweStartResult = {
+  completion_trigger_characters: string[];
+};
+
 export type IweSymbol = {
   name: string;
   kind: number;

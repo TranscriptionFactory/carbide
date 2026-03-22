@@ -6,13 +6,14 @@ import type {
   IweInlayHint,
   IweLocation,
   IwePrepareRenameResult,
+  IweStartResult,
   IweSymbol,
   IweTextEdit,
   IweWorkspaceEditResult,
 } from "$lib/features/iwe/types";
 
 export interface IwePort {
-  start(vault_id: string, binary_path: string): Promise<void>;
+  start(vault_id: string, binary_path: string): Promise<IweStartResult>;
   stop(vault_id: string): Promise<void>;
 
   did_open(vault_id: string, file_path: string, content: string): Promise<void>;
