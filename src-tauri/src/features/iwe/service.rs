@@ -570,14 +570,20 @@ pub async fn iwe_completion(
 
     let empty_vec = vec![];
     let raw_items = items_val.and_then(|v| v.as_array()).unwrap_or(&empty_vec);
-    if let Some(first) = raw_items.first() {
-        log::info!("IWE completion first item: {}", first);
+    for item in raw_items.iter() {
+        log::info!(
+            "IWE completion item: label={:?} insertText={:?} detail={:?}",
+            item.get("label").and_then(|v| v.as_str()),
+            item.get("insertText").and_then(|v| v.as_str()),
+            item.get("detail").and_then(|v| v.as_str()),
+        );
     }
     let items = raw_items
         .iter()
         .filter_map(|item| {
             let raw_label = item.get("label")?.as_str()?.to_string();
-            let label = if raw_label.trim().is_empty() {
+            let title_part = raw_label.trim().trim_start_matches("🔗").trim();
+            let label = if title_part.is_empty() {
                 label_from_insert_text(item)?
             } else {
                 raw_label
