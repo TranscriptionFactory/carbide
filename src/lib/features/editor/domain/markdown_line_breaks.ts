@@ -85,65 +85,6 @@ export function normalize_markdown_line_breaks(raw: string): string {
   return result;
 }
 
-export function prepare_markdown_line_breaks_for_visual_editor(
-  raw: string,
-): string {
-  if (raw === "") return raw;
-
-  const normalized = normalize_markdown_line_breaks(raw);
-  let result = "";
-  let index = 0;
-  let fence_state: CodeFenceState | null = null;
-  let in_math_block = false;
-
-  while (index < normalized.length) {
-    let line_end = normalized.indexOf("\n", index);
-    if (line_end === -1) line_end = normalized.length;
-
-    const has_newline = line_end < normalized.length;
-    const line =
-      has_newline && line_end > index && normalized[line_end - 1] === "\r"
-        ? normalized.slice(index, line_end - 1)
-        : normalized.slice(index, line_end);
-    const newline = has_newline
-      ? normalized[line_end - 1] === "\r"
-        ? "\r\n"
-        : "\n"
-      : "";
-
-    if (in_math_block) {
-      result += line + newline;
-      if (is_math_fence_line(line)) {
-        in_math_block = false;
-      }
-    } else if (fence_state) {
-      result += line + newline;
-      if (is_closing_fence_line(line, fence_state)) {
-        fence_state = null;
-      }
-    } else {
-      if (is_math_fence_line(line)) {
-        in_math_block = true;
-        result += line + newline;
-      } else {
-        const opening_fence = get_opening_fence(line);
-        if (opening_fence) {
-          fence_state = opening_fence;
-          result += line + newline;
-        } else if (is_indented_code_line(line)) {
-          result += line + newline;
-        } else {
-          result += prepare_line_break_line_for_visual_editor(line) + newline;
-        }
-      }
-    }
-
-    index = line_end + newline.length;
-  }
-
-  return result;
-}
-
 function normalize_line_break_line(line: string): string {
   const trimmed = trim_trailing_whitespace(line);
   if (trimmed.endsWith("\\")) {
@@ -170,18 +111,6 @@ function normalize_line_break_line(line: string): string {
   const trailing_whitespace = line.slice(trimmed.length);
   if (trailing_whitespace.length >= 2) {
     return `${trimmed}\\`;
-  }
-
-  return line;
-}
-
-function prepare_line_break_line_for_visual_editor(line: string): string {
-  const trimmed = trim_trailing_whitespace(line);
-  if (trimmed.endsWith("\\") && !trimmed.endsWith("\\\\")) {
-    if (is_range_inside_code_span(line, trimmed.length - 1, trimmed.length)) {
-      return line;
-    }
-    return `${trimmed.slice(0, -1)}<br />`;
   }
 
   return line;

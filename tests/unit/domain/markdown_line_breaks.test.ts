@@ -3,7 +3,6 @@ import {
   MARKDOWN_HARD_BREAK,
   insert_markdown_hard_break,
   normalize_markdown_line_breaks,
-  prepare_markdown_line_breaks_for_visual_editor,
 } from "$lib/features/editor/domain/markdown_line_breaks";
 
 describe("normalize_markdown_line_breaks", () => {
@@ -134,71 +133,6 @@ describe("insert_markdown_hard_break", () => {
       markdown: `one${MARKDOWN_HARD_BREAK}`,
       cursor_offset: 5,
     });
-  });
-});
-
-describe("prepare_markdown_line_breaks_for_visual_editor", () => {
-  it("converts canonical backslash hard breaks to html breaks for visual parsing", () => {
-    expect(prepare_markdown_line_breaks_for_visual_editor("one\\\ntwo")).toBe(
-      "one<br />\ntwo",
-    );
-  });
-
-  it("normalizes legacy hard breaks before preparing for the visual editor", () => {
-    expect(prepare_markdown_line_breaks_for_visual_editor("one  \ntwo")).toBe(
-      "one<br />\ntwo",
-    );
-  });
-
-  it("preserves lines ending with multiple backslashes", () => {
-    expect(prepare_markdown_line_breaks_for_visual_editor("one\\\\\ntwo")).toBe(
-      "one\\\\\ntwo",
-    );
-  });
-
-  it("preserves hard-break syntax inside inline code spans", () => {
-    expect(
-      prepare_markdown_line_breaks_for_visual_editor("`one\\`\\\ntwo"),
-    ).toBe("`one\\`<br />\ntwo");
-    expect(prepare_markdown_line_breaks_for_visual_editor("`one\\`")).toBe(
-      "`one\\`",
-    );
-  });
-
-  it("preserves hard-break syntax inside fenced code blocks", () => {
-    const markdown = ["```md", "one\\", "```"].join("\n");
-    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
-      markdown,
-    );
-  });
-
-  it("preserves backslashes inside math blocks", () => {
-    const markdown = ["$$", "x = \\frac{1}{2}\\", "$$"].join("\n");
-    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
-      markdown,
-    );
-  });
-
-  it("preserves LaTeX line breaks (double backslash) inside math blocks", () => {
-    const markdown = [
-      "$$",
-      "\\begin{aligned}",
-      "  x &= y \\\\",
-      "  a &= b",
-      "\\end{aligned}",
-      "$$",
-    ].join("\n");
-    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
-      markdown,
-    );
-  });
-
-  it("resumes normal processing after math block closes", () => {
-    const markdown = ["$$", "x\\", "$$", "after\\"].join("\n");
-    const expected = ["$$", "x\\", "$$", "after<br />"].join("\n");
-    expect(prepare_markdown_line_breaks_for_visual_editor(markdown)).toBe(
-      expected,
-    );
   });
 });
 
