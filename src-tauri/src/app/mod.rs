@@ -77,6 +77,7 @@ pub fn run() {
         .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
         .manage(features::iwe::IweState::default())
+        .manage(features::toolchain::service::ToolchainState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -269,6 +270,10 @@ pub fn run() {
             features::iwe::service::iwe_inlay_hints,
             features::iwe::service::iwe_document_symbols,
             features::iwe::service::iwe_hierarchy_tree,
+            features::toolchain::service::toolchain_list_tools,
+            features::toolchain::service::toolchain_install,
+            features::toolchain::service::toolchain_uninstall,
+            features::toolchain::service::toolchain_resolve,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

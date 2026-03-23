@@ -12,6 +12,7 @@ pub mod search;
 pub mod settings;
 pub mod tags;
 pub mod tasks;
+pub mod toolchain;
 pub mod vault;
 pub mod vault_settings;
 pub mod watcher;

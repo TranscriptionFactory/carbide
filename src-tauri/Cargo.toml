@@ -57,6 +57,11 @@ specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 lsp-types = "0.97"
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 url = "2.5.8"
 
 [dev-dependencies]
