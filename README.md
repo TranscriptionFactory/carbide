@@ -1,8 +1,10 @@
-<img src="./src-tauri/icons/Square310x310Logo.png" alt="Carbide" width="235">
+<img src="./assets/carbide_icon.jpg" alt="Carbide" width="235">
 
 [![Release](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml)
 
 # Carbide
+
+> **Fork of [Otterly](https://github.com/ajkdrag/otterly)** — Carbide builds on Otterly's foundation with additional features, plugins, and a redesigned UI.
 
 A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Notes are plain Markdown files—no proprietary formats, no cloud dependency, no vendor lock-in.
 
@@ -225,7 +227,7 @@ Carbide uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md
 
 ## Acknowledgments
 
-Fork of [Otterly](https://github.com/TranscriptionFactory/otterly). File management architecture from [Ferrite](https://github.com/jrmoulton/ferrite).
+Fork of [Otterly](https://github.com/ajkdrag/otterly). File management architecture from [Ferrite](https://github.com/jrmoulton/ferrite).
 
 ## License
 
