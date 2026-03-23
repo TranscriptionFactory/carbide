@@ -67,6 +67,7 @@ import { mount_reactors } from "$lib/reactors";
 import { Blocks, PencilRuler } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import type { DiagnosticSource } from "$lib/features/diagnostics";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -552,6 +553,47 @@ export function create_app_context(input: {
     stores: {
       notes: stores.notes,
       editor: stores.editor,
+    },
+    search: {
+      async fts(query, limit) {
+        const vault = stores.vault.vault;
+        if (!vault) throw new Error("No active vault");
+        const hits = await input.ports.search.search_notes(
+          vault.id,
+          { raw: query, text: query, scope: "content", domain: "notes" },
+          limit,
+        );
+        return hits.map((h) => ({ path: h.note.path, score: h.score }));
+      },
+      async tags() {
+        const vault = stores.vault.vault;
+        if (!vault) throw new Error("No active vault");
+        return input.ports.tag.list_all_tags(vault.id);
+      },
+      async notes_for_tag(tag) {
+        const vault = stores.vault.vault;
+        if (!vault) throw new Error("No active vault");
+        return input.ports.tag.get_notes_for_tag(vault.id, tag);
+      },
+    },
+    diagnostics: {
+      push(source_id, file_path, diagnostics) {
+        stores.diagnostics.push(
+          source_id as DiagnosticSource,
+          file_path,
+          diagnostics,
+        );
+      },
+      clear(source_id, file_path) {
+        if (file_path) {
+          stores.diagnostics.clear_file(
+            source_id as DiagnosticSource,
+            file_path,
+          );
+        } else {
+          stores.diagnostics.clear_source(source_id as DiagnosticSource);
+        }
+      },
     },
   });
 
