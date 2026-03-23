@@ -59,12 +59,6 @@ jobs:
 
       - run: pnpm install
 
-      - name: Stub external binary for build
-        run: |
-          target=$(rustc -vV | awk '/^host:/ { print $2 }')
-          touch "src-tauri/binaries/rumdl-${target}"
-          chmod +x "src-tauri/binaries/rumdl-${target}"
-
       - name: Stub excalidraw-dist for build
         run: |
           mkdir -p src-tauri/excalidraw-dist/assets
@@ -126,16 +120,6 @@ jobs:
           save-if: ${{ github.event_name == 'push' }}
 
       - run: pnpm install
-
-      - name: Download sidecar binary
-        shell: bash
-        run: |
-          TARGET=""
-          case "${{ matrix.args }}" in
-            *aarch64-apple-darwin*) TARGET="aarch64-apple-darwin" ;;
-            *x86_64-apple-darwin*)  TARGET="x86_64-apple-darwin" ;;
-          esac
-          pnpm sidecar $TARGET
 
       - name: Download TypeScript bindings
         uses: actions/download-artifact@v4
