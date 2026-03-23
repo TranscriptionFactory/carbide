@@ -30,9 +30,15 @@ function to_lint_severity(s: string): LintSeverity {
 }
 
 function uri_to_relative_path(uri: string, vault_path: string): string | null {
+  let decoded: string;
+  try {
+    decoded = decodeURI(uri);
+  } catch {
+    decoded = uri;
+  }
   const prefix = `file://${vault_path}`;
-  if (!uri.startsWith(prefix)) return null;
-  let relative = uri.slice(prefix.length);
+  if (!decoded.startsWith(prefix)) return null;
+  let relative = decoded.slice(prefix.length);
   if (relative.startsWith("/")) relative = relative.slice(1);
   return relative;
 }

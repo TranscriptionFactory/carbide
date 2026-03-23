@@ -186,9 +186,15 @@ export function create_app_context(input: {
     on_iwe_definition_navigate: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
+      let decoded: string;
+      try {
+        decoded = decodeURI(uri);
+      } catch {
+        decoded = uri;
+      }
       const prefix = `file://${vault_path}/`;
-      if (!uri.startsWith(prefix)) return;
-      const relative_path = uri.slice(prefix.length);
+      if (!decoded.startsWith(prefix)) return;
+      const relative_path = decoded.slice(prefix.length);
       void action_registry.execute(ACTION_IDS.note_open, relative_path);
     },
     get_iwe_completion_trigger_characters: () =>

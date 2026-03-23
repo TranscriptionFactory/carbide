@@ -49,7 +49,9 @@ impl IweState {
 
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
     let full = vault_path.join(file_path);
-    format!("file://{}", full.display())
+    tauri::Url::from_file_path(&full)
+        .map(|u| u.to_string())
+        .unwrap_or_else(|_| format!("file://{}", full.display()))
 }
 
 fn err(e: LspClientError) -> String {
@@ -136,9 +138,7 @@ fn spawn_notification_forwarder(
     tokio::spawn(async move {
         while let Some(notification) = notification_rx.recv().await {
             if notification.method == "textDocument/publishDiagnostics" {
-                if let Some((uri, diagnostics)) =
-                    parse_lsp_diagnostics(&notification.params)
-                {
+                if let Some((uri, diagnostics)) = parse_lsp_diagnostics(&notification.params) {
                     let _ = app.emit(
                         "iwe_event",
                         IweEvent::DiagnosticsUpdated {
@@ -163,7 +163,9 @@ pub async fn iwe_start(
     binary_path: String,
 ) -> Result<IweStartResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
-    let root_uri = format!("file://{}", vault_path.display());
+    let root_uri = tauri::Url::from_file_path(&vault_path)
+        .map_err(|_| "invalid vault path for URI".to_string())?
+        .to_string();
     let resolved_binary = if binary_path.is_empty() {
         "iwes".to_string()
     } else {
@@ -521,12 +523,10 @@ fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
     let text = item.get("insertText")?.as_str()?;
     // insertText is typically a markdown link like [](../path/to/note)
     // or [title](../path/to/note). Extract the path's last segment as label.
-    let dest = text
-        .find("](")
-        .and_then(|start| {
-            let rest = &text[start + 2..];
-            rest.find(')').map(|end| &rest[..end])
-        })?;
+    let dest = text.find("](").and_then(|start| {
+        let rest = &text[start + 2..];
+        rest.find(')').map(|end| &rest[..end])
+    })?;
     let segment = dest.rsplit('/').next().unwrap_or(dest);
     if segment.is_empty() {
         return None;
@@ -563,9 +563,7 @@ pub async fn iwe_completion(
     };
 
     let empty_vec = vec![];
-    let raw_items = items_val
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty_vec);
+    let raw_items = items_val.and_then(|v| v.as_array()).unwrap_or(&empty_vec);
     if let Some(first) = raw_items.first() {
         log::info!("IWE completion first item: {}", first);
     }
@@ -580,7 +578,10 @@ pub async fn iwe_completion(
             };
             Some(IweCompletionItem {
                 label,
-                detail: item.get("detail").and_then(|d| d.as_str()).map(String::from),
+                detail: item
+                    .get("detail")
+                    .and_then(|d| d.as_str())
+                    .map(String::from),
                 insert_text: item
                     .get("insertText")
                     .and_then(|t| t.as_str())
@@ -937,15 +938,9 @@ async fn apply_edits_to_file(uri: &str, edits: &[serde_json::Value]) -> Result<(
         let end = range.get("end").ok_or("range missing end")?;
 
         let start_line = start.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
-        let start_char = start
-            .get("character")
-            .and_then(|c| c.as_u64())
-            .unwrap_or(0) as usize;
+        let start_char = start.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
         let end_line = end.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
-        let end_char = end
-            .get("character")
-            .and_then(|c| c.as_u64())
-            .unwrap_or(0) as usize;
+        let end_char = end.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
 
         let start_offset = line_col_to_offset(&lines, start_line, start_char);
         let end_offset = line_col_to_offset(&lines, end_line, end_char);
