@@ -1,50 +1,88 @@
-const LINE_HEIGHT = 7;
-const MARGIN = 20;
-const PAGE_WIDTH = 210;
-const USABLE_WIDTH = PAGE_WIDTH - MARGIN * 2;
+import MarkdownIt from "markdown-it";
 
-type HeadingLevel = 1 | 2 | 3;
+const PDF_STYLES = `
+h1 { font-size: 24px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #d0d7de; }
+h2 { font-size: 20px; margin: 20px 0 12px 0; font-weight: 600; }
+h3 { font-size: 16px; margin: 16px 0 8px 0; font-weight: 600; }
+h4 { font-size: 14px; margin: 12px 0 6px 0; font-weight: 600; }
+p { margin: 0 0 12px 0; line-height: 1.6; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+code { background: #f6f8fa; padding: 2px 6px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.875em; }
+del { text-decoration: line-through; color: #57606a; }
+a { color: #0969da; text-decoration: none; }
+pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; margin: 0 0 16px 0; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #d0d7de; padding-left: 16px; margin: 0 0 16px 0; color: #57606a; }
+ul, ol { padding-left: 24px; margin: 0 0 16px 0; }
+li { margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; margin: 0 0 16px 0; }
+th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; }
+hr { border: none; border-top: 1px solid #d0d7de; margin: 24px 0; }
+img { max-width: 100%; height: auto; }
+.task-list-item { list-style: none; margin-left: -24px; }
+.task-list-item input { margin-right: 8px; }
+`;
 
-type Block =
-  | { kind: "heading"; level: HeadingLevel; text: string }
-  | { kind: "text"; text: string };
-
-function parse_blocks(markdown: string): Block[] {
-  const lines = markdown.split("\n");
-  const blocks: Block[] = [];
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    const h3 = line.match(/^###\s+(.*)/);
-    if (h3) {
-      blocks.push({ kind: "heading", level: 3, text: h3[1] ?? "" });
-      continue;
-    }
-    const h2 = line.match(/^##\s+(.*)/);
-    if (h2) {
-      blocks.push({ kind: "heading", level: 2, text: h2[1] ?? "" });
-      continue;
-    }
-    const h1 = line.match(/^#\s+(.*)/);
-    if (h1) {
-      blocks.push({ kind: "heading", level: 1, text: h1[1] ?? "" });
-      continue;
-    }
-    const stripped = line
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .replace(/\*(.+?)\*/g, "$1")
-      .replace(/`(.+?)`/g, "$1")
-      .replace(/~~(.+?)~~/g, "$1");
-    blocks.push({ kind: "text", text: stripped });
-  }
-
-  return blocks;
+function create_md(): MarkdownIt {
+  return new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true,
+  }).enable(["table", "strikethrough"]);
 }
 
-function heading_font_size(level: HeadingLevel): number {
-  if (level === 1) return 20;
-  if (level === 2) return 16;
-  return 13;
+function escape_html(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function render_code_blocks(html: string): string {
+  return html.replace(
+    /<pre><code(?: class="language-(\w+)")?>/g,
+    (_match, lang) => {
+      const langAttr = lang ? ` class="language-${lang}"` : "";
+      return `<pre><code${langAttr}>`;
+    },
+  );
+}
+
+function create_export_container(title: string, html: string): HTMLDivElement {
+  const container = document.createElement("div");
+  container.id = "pdf-export-container";
+  container.style.cssText = `
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 800px;
+    padding: 40px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #24292f;
+    background: #ffffff;
+  `;
+
+  const style = document.createElement("style");
+  style.textContent = PDF_STYLES;
+  container.appendChild(style);
+
+  const titleEl = document.createElement("h1");
+  titleEl.textContent = title;
+  container.appendChild(titleEl);
+
+  const content = document.createElement("div");
+  content.className = "markdown-body";
+  content.innerHTML = render_code_blocks(html);
+  container.appendChild(content);
+
+  document.body.appendChild(container);
+  return container;
 }
 
 export async function export_note_as_pdf(
@@ -52,44 +90,27 @@ export async function export_note_as_pdf(
   content: string,
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  const blocks = parse_blocks(content);
+  const md = create_md();
+  const html = md.render(content);
 
-  let y = MARGIN;
+  const container = create_export_container(title, html);
 
-  function ensure_space(needed: number) {
-    const page_height = doc.internal.pageSize.getHeight();
-    if (y + needed > page_height - MARGIN) {
-      doc.addPage();
-      y = MARGIN;
-    }
+  try {
+    const doc = new jsPDF({
+      unit: "mm",
+      format: "a4",
+      orientation: "portrait",
+    });
+
+    await doc.html(container, {
+      width: 170,
+      windowWidth: 800,
+      callback: (doc) => {
+        doc.save(`${escape_html(title)}.pdf`);
+      },
+    });
+  } finally {
+    container.remove();
   }
-
-  for (const block of blocks) {
-    if (block.kind === "heading") {
-      const size = heading_font_size(block.level);
-      doc.setFontSize(size);
-      doc.setFont("helvetica", "bold");
-      const line_h = size * 0.3528 * 1.4;
-      ensure_space(line_h + 2);
-      doc.text(block.text, MARGIN, y);
-      y += line_h + 2;
-    } else {
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      if (block.text.trim() === "") {
-        y += LINE_HEIGHT * 0.5;
-        continue;
-      }
-      const lines = doc.splitTextToSize(block.text, USABLE_WIDTH) as string[];
-      for (const line of lines) {
-        ensure_space(LINE_HEIGHT);
-        doc.text(line, MARGIN, y);
-        y += LINE_HEIGHT;
-      }
-    }
-  }
-
-  doc.save(`${title}.pdf`);
 }
