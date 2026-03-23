@@ -294,6 +294,7 @@ export function mount_reactors(context: ReactorContext): () => void {
           void context.iwe_service.did_change(path, content),
         on_save: (path, content) =>
           void context.iwe_service.did_save(path, content),
+        on_close: (path) => context.diagnostics_store.clear_file("iwe", path),
       },
       {
         is_ready: () => context.lint_store.is_running,

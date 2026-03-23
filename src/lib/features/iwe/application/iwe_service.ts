@@ -96,6 +96,7 @@ export class IweService {
       }
       this.doc_versions.clear();
       this.store.reset();
+      this.diagnostics_store?.clear_source("iwe");
     });
   }
 
