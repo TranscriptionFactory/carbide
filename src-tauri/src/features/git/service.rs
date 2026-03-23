@@ -65,7 +65,7 @@ fn repo_index(repo: &Repository) -> Result<git2::Index, String> {
 }
 
 fn default_signature() -> Result<Signature<'static>, String> {
-    Signature::now("Badgerly", "badgerly@local")
+    Signature::now("Carbide", "carbide@local")
         .map_err(|e| format!("failed to create signature: {}", e))
 }
 
@@ -77,7 +77,7 @@ fn write_default_gitignore_if_missing(vault_path: &str) -> Result<(), String> {
 
     std::fs::write(
         &gitignore_path,
-        "node_modules/\n.DS_Store\n*.tmp\n.env\nThumbs.db\n.badgerly/\n",
+        "node_modules/\n.DS_Store\n*.tmp\n.env\nThumbs.db\n.carbide/\n",
     )
     .map_err(|e| format!("failed to write .gitignore: {}", e))
 }

@@ -1,8 +1,8 @@
 import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { run_auto_update_check } from "$lib/app/orchestration/app_actions";
 
-const LAST_CHECK_KEY = "badgerly:last_update_check";
-const SKIPPED_VERSION_KEY = "badgerly:skipped_update_version";
+const LAST_CHECK_KEY = "carbide:last_update_check";
+const SKIPPED_VERSION_KEY = "carbide:skipped_update_version";
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 15_000;
 

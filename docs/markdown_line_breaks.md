@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define how Badgerly handles paragraph breaks and hard line breaks in Markdown across source mode, visual mode, mode switches, autosave, and explicit save.
+Define how Carbide handles paragraph breaks and hard line breaks in Markdown across source mode, visual mode, mode switches, autosave, and explicit save.
 
 This spec is about Markdown structure, not OS-specific file line endings.
 
@@ -15,10 +15,10 @@ This spec is about Markdown structure, not OS-specific file line endings.
 
 ## Canonical Representation
 
-- Badgerly stores paragraph breaks as Markdown paragraphs separated by blank lines.
-- Badgerly stores hard line breaks as backslash + newline: `\\\n`.
-- Badgerly must not generate `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks when serializing Markdown.
-- Badgerly may accept those forms as input, but must normalize them to `\\\n` on the next serialization boundary.
+- Carbide stores paragraph breaks as Markdown paragraphs separated by blank lines.
+- Carbide stores hard line breaks as backslash + newline: `\\\n`.
+- Carbide must not generate `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks when serializing Markdown.
+- Carbide may accept those forms as input, but must normalize them to `\\\n` on the next serialization boundary.
 
 ## Invariants
 
@@ -28,7 +28,7 @@ This spec is about Markdown structure, not OS-specific file line endings.
 - A soft break is not treated as a hard line break.
 - A paragraph break must never be rewritten into a hard line break.
 - A hard line break must never be rewritten into a paragraph break.
-- Badgerly uses one internal semantic for hard breaks, regardless of whether the input was `\\\n`, `<br />`, or trailing spaces.
+- Carbide uses one internal semantic for hard breaks, regardless of whether the input was `\\\n`, `<br />`, or trailing spaces.
 
 ## Source Mode
 
@@ -37,7 +37,7 @@ This spec is about Markdown structure, not OS-specific file line endings.
 - A blank line represents a paragraph break.
 - `Shift+Enter` inserts the canonical hard line break form `\\\n`.
 - Source mode should show Markdown-native syntax, not auto-insert HTML for line breaks.
-- If a document contains `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks, Badgerly normalizes them to `\\\n` when the note is loaded into editor state and on later serialization boundaries.
+- If a document contains `<br>`, `<br/>`, `<br />`, or trailing-space hard breaks, Carbide normalizes them to `\\\n` when the note is loaded into editor state and on later serialization boundaries.
 
 ## Visual Mode
 
@@ -50,17 +50,17 @@ This spec is about Markdown structure, not OS-specific file line endings.
 - In fenced or indented code blocks:
   - `Enter` inserts a literal newline in code content.
   - `Shift+Enter` must not create a Markdown hard-break token outside code semantics.
-- Badgerly serializes visual-mode hard breaks as `\\\n`.
+- Carbide serializes visual-mode hard breaks as `\\\n`.
 
 ## Round-Trip Rules
 
-- Badgerly parses these inputs as the same hard-break semantic:
+- Carbide parses these inputs as the same hard-break semantic:
   - `\\\n`
   - `<br>`
   - `<br/>`
   - `<br />`
   - two trailing spaces followed by newline
-- On any serialization boundary, Badgerly writes that semantic back as `\\\n`.
+- On any serialization boundary, Carbide writes that semantic back as `\\\n`.
 
 Serialization boundaries include:
 
@@ -78,7 +78,7 @@ Serialization boundaries include:
 ## Table Constraint
 
 - Hard line breaks inside Markdown table cells are not part of this guarantee.
-- Badgerly must not introduce `<br />` just to represent table-cell line breaks.
+- Carbide must not introduce `<br />` just to represent table-cell line breaks.
 - If full multiline table-cell support is needed, it requires a separate spec.
 
 ## Acceptance Scenarios
@@ -106,26 +106,26 @@ Serialization boundaries include:
 ### HTML break normalization
 
 - Given stored Markdown `one<br />\ntwo`
-- When Badgerly parses and later serializes the document
+- When Carbide parses and later serializes the document
 - Then the serialized Markdown is `one\\\ntwo`
 
 ### Trailing-space normalization
 
 - Given stored Markdown with two trailing spaces before newline between `one` and `two`
-- When Badgerly parses and later serializes the document
+- When Carbide parses and later serializes the document
 - Then the serialized Markdown is `one\\\ntwo`
 
 ### Backslash normalization
 
 - Given stored Markdown `one\\\ntwo`
-- When Badgerly parses and later serializes the document
+- When Carbide parses and later serializes the document
 - Then the serialized Markdown is `one\\\ntwo`
 
 ### Soft break preservation
 
 - Given source Markdown with a single newline inside a paragraph and no hard-break marker
 - When the document is opened and saved without semantic edits
-- Then Badgerly does not upgrade that soft break into a hard line break
+- Then Carbide does not upgrade that soft break into a hard line break
 
 ### List item hard break
 
@@ -138,5 +138,5 @@ Serialization boundaries include:
 
 - Given the cursor inside a fenced code block
 - When the user presses `Enter`
-- Then Badgerly inserts a literal code newline
+- Then Carbide inserts a literal code newline
 - And it does not serialize that newline as a hard line break token

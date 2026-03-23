@@ -1,8 +1,8 @@
-<img src="./src-tauri/icons/Square310x310Logo.png" alt="Badgerly" width="235">
+<img src="./src-tauri/icons/Square310x310Logo.png" alt="Carbide" width="235">
 
-[![Release](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml)
+[![Release](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml)
 
-# Badgerly
+# Carbide
 
 A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Notes are plain Markdown files—no proprietary formats, no cloud dependency, no vendor lock-in.
 
@@ -22,21 +22,21 @@ A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.a
 ### Homebrew (macOS)
 
 ```bash
-brew install --cask TranscriptionFactory/tap/badgerly
+brew install --cask TranscriptionFactory/tap/carbide
 ```
 
 ### GitHub Releases
 
-Download pre-built binaries from the [Releases](https://github.com/TranscriptionFactory/badgerly/releases) page:
+Download pre-built binaries from the [Releases](https://github.com/TranscriptionFactory/carbide/releases) page:
 
-| Platform          | Format               |
-| ----------------- | -------------------- |
-| macOS (Apple Silicon) | `.dmg` (aarch64)  |
-| macOS (Intel)     | `.dmg` (x64)         |
-| Windows           | `.msi`               |
-| Linux             | `.deb`, `.AppImage`  |
+| Platform              | Format              |
+| --------------------- | ------------------- |
+| macOS (Apple Silicon) | `.dmg` (aarch64)    |
+| macOS (Intel)         | `.dmg` (x64)        |
+| Windows               | `.msi`              |
+| Linux                 | `.deb`, `.AppImage` |
 
-Badgerly includes a built-in auto-updater—once installed, updates are applied automatically on startup with an option to skip specific versions.
+Carbide includes a built-in auto-updater—once installed, updates are applied automatically on startup with an option to skip specific versions.
 
 ## Tech Stack
 
@@ -52,61 +52,61 @@ Badgerly includes a built-in auto-updater—once installed, updates are applied 
 | Terminal  | xterm.js + tauri-plugin-pty                                                                                                            |
 | Search    | SQLite FTS5, candle semantic, SkimMatcherV2 fuzzy                                                                                      |
 | Viz       | D3-force, WebGL                                                                                                                        |
-| Linting   | [rumdl](https://github.com/platers/rumdl) LSP sidecar                                                                                 |
+| Linting   | [rumdl](https://github.com/platers/rumdl) LSP sidecar                                                                                  |
 
 ## Features
 
 ### Editor
 
-| Feature              | Description                                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| WYSIWYG Markdown     | Live rendering, headings, tables, task lists, syntax highlighting, slash commands, typographic substitution |
-| Wikilinks            | `[[note]]` with autocomplete, backlink tracking, orphan detection, rename repair                            |
-| Split view           | Two-pane editing (`Cmd+\`) with real-time content sync, draggable tabs                                      |
-| Collapsible headings | Clickable fold toggles in both visual and source modes                                                      |
-| Resizable code blocks| Drag handle to resize, height persisted per block                                                           |
-| Find & replace       | `Cmd+H` with replace-all in a single transaction                                                            |
-| Inline embeds        | Inline SVG preview for Excalidraw, `![[file.pdf]]` for PDF embedding                                       |
-| Math/LaTeX           | Inline `$expr$` and block `$$expr$$` via KaTeX                                                              |
-| Outline panel        | Live heading hierarchy with click-to-scroll                                                                 |
-| Date links           | `@` trigger for `[[YYYY-MM-DD]]` links                                                                      |
-| Zen mode             | Distraction-free writing (`Cmd+Shift+Enter`)                                                                |
-| Drag-and-drop        | Drop external files into the editor with automatic embedding                                                |
+| Feature               | Description                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| WYSIWYG Markdown      | Live rendering, headings, tables, task lists, syntax highlighting, slash commands, typographic substitution |
+| Wikilinks             | `[[note]]` with autocomplete, backlink tracking, orphan detection, rename repair                            |
+| Split view            | Two-pane editing (`Cmd+\`) with real-time content sync, draggable tabs                                      |
+| Collapsible headings  | Clickable fold toggles in both visual and source modes                                                      |
+| Resizable code blocks | Drag handle to resize, height persisted per block                                                           |
+| Find & replace        | `Cmd+H` with replace-all in a single transaction                                                            |
+| Inline embeds         | Inline SVG preview for Excalidraw, `![[file.pdf]]` for PDF embedding                                        |
+| Math/LaTeX            | Inline `$expr$` and block `$$expr$$` via KaTeX                                                              |
+| Outline panel         | Live heading hierarchy with click-to-scroll                                                                 |
+| Date links            | `@` trigger for `[[YYYY-MM-DD]]` links                                                                      |
+| Zen mode              | Distraction-free writing (`Cmd+Shift+Enter`)                                                                |
+| Drag-and-drop         | Drop external files into the editor with automatic embedding                                                |
 
 ### IWE (Intelligent Writing Engine)
 
-| Feature              | Description                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| LSP integration      | Hover, go-to-definition, completion, formatting, rename        |
-| Inline diagnostics   | Real-time diagnostics surfaced in Problems panel               |
-| Inlay hints          | Contextual hints rendered inline in the editor                 |
-| Dynamic triggers     | Completion triggers read from server capabilities at startup   |
+| Feature            | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| LSP integration    | Hover, go-to-definition, completion, formatting, rename      |
+| Inline diagnostics | Real-time diagnostics surfaced in Problems panel             |
+| Inlay hints        | Contextual hints rendered inline in the editor               |
+| Dynamic triggers   | Completion triggers read from server capabilities at startup |
 
 ### Graph & Semantic Search
 
-| Feature             | Description                                                          |
-| ------------------- | -------------------------------------------------------------------- |
-| Knowledge graph     | WebGL-rendered force-directed visualization with viewport culling    |
-| Graph views         | Toggle between vault-wide and neighborhood-scoped views              |
-| Graph tabs          | Open graph as a first-class tab alongside notes                      |
-| Semantic embeddings | BGE-small-en vectors per note via pure-Rust candle                   |
-| Hybrid search       | FTS + vector KNN + Reciprocal Rank Fusion re-ranking                 |
-| Suggested links     | Wikilink recommendations by semantic proximity                       |
+| Feature             | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| Knowledge graph     | WebGL-rendered force-directed visualization with viewport culling |
+| Graph views         | Toggle between vault-wide and neighborhood-scoped views           |
+| Graph tabs          | Open graph as a first-class tab alongside notes                   |
+| Semantic embeddings | BGE-small-en vectors per note via pure-Rust candle                |
+| Hybrid search       | FTS + vector KNN + Reciprocal Rank Fusion re-ranking              |
+| Suggested links     | Wikilink recommendations by semantic proximity                    |
 
 ### Search & Discovery
 
-| Feature            | Description                                              |
-| ------------------ | -------------------------------------------------------- |
-| Omnibar            | Unified file/content/command search (`Cmd+P`)            |
-| Full-text search   | SQLite FTS5 with instant results                         |
-| Fuzzy matching     | SkimMatcherV2 (fzf-style) across files, commands, links  |
-| Hierarchical tags  | Tree-based tag browser with prefix queries and filtering |
+| Feature           | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| Omnibar           | Unified file/content/command search (`Cmd+P`)            |
+| Full-text search  | SQLite FTS5 with instant results                         |
+| Fuzzy matching    | SkimMatcherV2 (fzf-style) across files, commands, links  |
+| Hierarchical tags | Tree-based tag browser with prefix queries and filtering |
 
 ### Document Viewer
 
 | Feature      | Description                                                 |
 | ------------ | ----------------------------------------------------------- |
-| PDF viewer   | Continuous scroll and paginated modes, text selection        |
+| PDF viewer   | Continuous scroll and paginated modes, text selection       |
 | Image viewer | PNG, JPG, SVG, GIF, WebP with zoom/pan                      |
 | Code viewer  | Syntax-highlighted for `.py`, `.rs`, `.json`, `.yaml`, etc. |
 | PDF export   | Styled PDF output (`Cmd+Shift+E`)                           |
@@ -125,13 +125,13 @@ Badgerly includes a built-in auto-updater—once installed, updates are applied 
 
 ### Linting & Formatting
 
-| Feature          | Description                                                      |
-| ---------------- | ---------------------------------------------------------------- |
-| Markdown linting | Real-time diagnostics via rumdl LSP sidecar with gutter markers  |
-| Problems panel   | VS Code-style tabbed panel (terminal + problems)                 |
-| Format-on-save   | Configurable formatter (rumdl or Prettier)                       |
-| Format now       | On-demand formatting (`Cmd+Shift+F`)                             |
-| Fix-all action   | Apply all lint fixes in one action                               |
+| Feature          | Description                                                     |
+| ---------------- | --------------------------------------------------------------- |
+| Markdown linting | Real-time diagnostics via rumdl LSP sidecar with gutter markers |
+| Problems panel   | VS Code-style tabbed panel (terminal + problems)                |
+| Format-on-save   | Configurable formatter (rumdl or Prettier)                      |
+| Format now       | On-demand formatting (`Cmd+Shift+F`)                            |
+| Fix-all action   | Apply all lint fixes in one action                              |
 
 ### Git Integration
 
@@ -173,24 +173,24 @@ See [Plugin How-To](./docs/plugin_howto.md) for the full API.
 
 ### Workspace
 
-| Feature            | Description                                                         |
-| ------------------ | ------------------------------------------------------------------- |
-| Vault switcher     | Dropdown selector (`Cmd+Shift+V`) with recent vaults and git status |
-| Terminal           | Integrated terminal (`Cmd+Shift+\``) with PTY, persists across tabs |
-| Native menu bar    | macOS menu bar with app-specific items (File, Edit, View, etc.)     |
-| File associations  | Registers as handler for `.md`, `.markdown`, `.mdx` files on macOS  |
-| Auto-update        | Background update check on startup with skip-version support        |
+| Feature           | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| Vault switcher    | Dropdown selector (`Cmd+Shift+V`) with recent vaults and git status |
+| Terminal          | Integrated terminal (`Cmd+Shift+\``) with PTY, persists across tabs |
+| Native menu bar   | macOS menu bar with app-specific items (File, Edit, View, etc.)     |
+| File associations | Registers as handler for `.md`, `.markdown`, `.mdx` files on macOS  |
+| Auto-update       | Background update check on startup with skip-version support        |
 
 ### Customization
 
-| Feature            | Description                                                         |
-| ------------------ | ------------------------------------------------------------------- |
-| Themes             | Dark/light/auto, built-in themes (Floating, Glass, Dense, Linear)   |
-| Custom themes      | JSON theme definitions with live preview                            |
-| File tree styles   | Compact, macOS Finder, Refined, Airy Minimal variants               |
-| Hotkeys            | Rebindable shortcuts                                                |
-| Vault settings     | Per-vault config for git, lint, formatting, plugins                 |
-| Note naming        | Configurable default note names with strftime templates             |
+| Feature          | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| Themes           | Dark/light/auto, built-in themes (Floating, Glass, Dense, Linear) |
+| Custom themes    | JSON theme definitions with live preview                          |
+| File tree styles | Compact, macOS Finder, Refined, Airy Minimal variants             |
+| Hotkeys          | Rebindable shortcuts                                              |
+| Vault settings   | Per-vault config for git, lint, formatting, plugins               |
+| Note naming      | Configurable default note names with strftime templates           |
 
 ## Building from Source
 
@@ -213,7 +213,7 @@ See [Plugin How-To](./docs/plugin_howto.md) for the full API.
 
 ## Contributing
 
-Badgerly uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md](./docs/architecture.md) for the decision tree and rules.
+Carbide uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md](./docs/architecture.md) for the decision tree and rules.
 
 | Command                       | Check                           |
 | ----------------------------- | ------------------------------- |

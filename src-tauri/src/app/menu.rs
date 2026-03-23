@@ -9,7 +9,7 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
     let check_updates = MenuItemBuilder::new("Check for Updates...")
         .id("app.check_for_updates")
         .build(app)?;
-    let app_menu = SubmenuBuilder::new(app, "badgerly")
+    let app_menu = SubmenuBuilder::new(app, "carbide")
         .item(&PredefinedMenuItem::about(app, None, None)?)
         .separator()
         .item(&settings)

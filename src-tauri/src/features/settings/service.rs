@@ -16,7 +16,7 @@ pub struct SettingsStore {
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    let dir = dir.join("badgerly");
+    let dir = dir.join("carbide");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("settings.json"))
 }

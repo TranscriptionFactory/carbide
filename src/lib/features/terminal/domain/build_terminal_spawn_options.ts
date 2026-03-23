@@ -15,7 +15,7 @@ export function build_terminal_spawn_options(input: {
     env: {
       COLORTERM: "truecolor",
       TERM: terminal_name,
-      TERM_PROGRAM: "badgerly",
+      TERM_PROGRAM: "carbide",
     },
   };
 

@@ -382,13 +382,13 @@ describe("register_git_actions", () => {
     const { registry, stores, services } = create_harness();
     stores.ui.add_remote_dialog = {
       open: true,
-      url: "  git@github.com:badgerly/repo.git  ",
+      url: "  git@github.com:carbide/repo.git  ",
     };
 
     await registry.execute(ACTION_IDS.git_confirm_add_remote);
 
     expect(services.git.add_remote).toHaveBeenCalledWith(
-      "git@github.com:badgerly/repo.git",
+      "git@github.com:carbide/repo.git",
     );
     expect(stores.ui.add_remote_dialog).toEqual({
       open: false,
@@ -404,11 +404,11 @@ describe("register_git_actions", () => {
 
     await registry.execute(
       ACTION_IDS.git_update_remote_url,
-      "git@github.com:badgerly/repo.git",
+      "git@github.com:carbide/repo.git",
     );
 
     expect(stores.ui.add_remote_dialog.url).toBe(
-      "git@github.com:badgerly/repo.git",
+      "git@github.com:carbide/repo.git",
     );
   });
 
@@ -421,7 +421,7 @@ describe("register_git_actions", () => {
     });
     stores.ui.add_remote_dialog = {
       open: true,
-      url: "git@github.com:badgerly/repo.git",
+      url: "git@github.com:carbide/repo.git",
     };
 
     await registry.execute(ACTION_IDS.git_confirm_add_remote);
@@ -436,7 +436,7 @@ describe("register_git_actions", () => {
     const { registry, stores } = create_harness();
     stores.ui.add_remote_dialog = {
       open: true,
-      url: "git@github.com:badgerly/repo.git",
+      url: "git@github.com:carbide/repo.git",
     };
 
     await registry.execute(ACTION_IDS.git_cancel_add_remote);

@@ -39,7 +39,7 @@ function App() {
             scene: {
               type: "excalidraw",
               version: 2,
-              source: "badgerly",
+              source: "carbide",
               elements: JSON.parse(JSON.stringify(elements)),
               appState: {
                 viewBackgroundColor:

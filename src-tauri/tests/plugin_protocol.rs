@@ -13,13 +13,13 @@ fn now_ms() -> u128 {
 
 fn mk_temp_dir() -> PathBuf {
     let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("badgerly-plugin-test-{}-{}", now_ms(), counter));
+    let dir = std::env::temp_dir().join(format!("carbide-plugin-test-{}-{}", now_ms(), counter));
     std::fs::create_dir_all(&dir).expect("temp dir should be created");
     dir
 }
 
 fn make_plugin_dir(vault_root: &std::path::Path, plugin_id: &str) -> PathBuf {
-    let dir = vault_root.join(".badgerly").join("plugins").join(plugin_id);
+    let dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
     std::fs::create_dir_all(&dir).expect("plugin dir should be created");
     dir
 }

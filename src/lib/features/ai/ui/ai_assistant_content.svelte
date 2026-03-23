@@ -297,7 +297,7 @@
             >
               {provider_config.install_url}
             </a>
-            and restart Badgerly.
+            and restart Carbide.
           </p>
         {/if}
       </div>

@@ -260,7 +260,7 @@ async function download_and_install(
   try {
     await update.downloadAndInstall();
     toast.dismiss(loading_id);
-    toast.success("Update installed — restart Badgerly to apply");
+    toast.success("Update installed — restart Carbide to apply");
   } catch (error) {
     toast.dismiss(loading_id);
     toast.error("Update failed");
@@ -276,7 +276,7 @@ export async function run_auto_update_check(
   if (!update) return;
   if (is_version_skipped(update.version)) return;
 
-  toast.info(`Badgerly v${update.version} is available`, {
+  toast.info(`Carbide v${update.version} is available`, {
     duration: 30_000,
     action: {
       label: "Update",
@@ -301,7 +301,7 @@ async function execute_app_check_for_updates() {
     const update = await check_for_update_silently();
     toast.dismiss(loading_toast_id);
     if (!update) {
-      toast.success("Badgerly is up to date");
+      toast.success("Carbide is up to date");
       return;
     }
     await download_and_install(update);

@@ -34,18 +34,18 @@ describe("update_check_reactor", () => {
     });
 
     it("returns false when checked less than 24h ago", () => {
-      store.set("badgerly:last_update_check", new Date().toISOString());
+      store.set("carbide:last_update_check", new Date().toISOString());
       expect(should_check()).toBe(false);
     });
 
     it("returns true when checked more than 24h ago", () => {
       const old_date = new Date(Date.now() - 25 * 60 * 60 * 1000);
-      store.set("badgerly:last_update_check", old_date.toISOString());
+      store.set("carbide:last_update_check", old_date.toISOString());
       expect(should_check()).toBe(true);
     });
 
     it("returns true when stored value is invalid", () => {
-      store.set("badgerly:last_update_check", "not-a-date");
+      store.set("carbide:last_update_check", "not-a-date");
       expect(should_check()).toBe(true);
     });
   });
@@ -53,7 +53,7 @@ describe("update_check_reactor", () => {
   describe("mark_checked", () => {
     it("writes a valid ISO timestamp", () => {
       mark_checked();
-      const stored = store.get("badgerly:last_update_check");
+      const stored = store.get("carbide:last_update_check");
       expect(stored).toBeTruthy();
       expect(new Date(stored!).getTime()).toBeGreaterThan(0);
     });
@@ -65,12 +65,12 @@ describe("update_check_reactor", () => {
     });
 
     it("returns true when version matches", () => {
-      store.set("badgerly:skipped_update_version", "1.1.0");
+      store.set("carbide:skipped_update_version", "1.1.0");
       expect(is_version_skipped("1.1.0")).toBe(true);
     });
 
     it("returns false when version differs", () => {
-      store.set("badgerly:skipped_update_version", "1.1.0");
+      store.set("carbide:skipped_update_version", "1.1.0");
       expect(is_version_skipped("1.2.0")).toBe(false);
     });
   });
@@ -78,13 +78,13 @@ describe("update_check_reactor", () => {
   describe("skip_version", () => {
     it("stores the version", () => {
       skip_version("2.0.0");
-      expect(store.get("badgerly:skipped_update_version")).toBe("2.0.0");
+      expect(store.get("carbide:skipped_update_version")).toBe("2.0.0");
     });
 
     it("overwrites previously skipped version", () => {
       skip_version("1.0.0");
       skip_version("2.0.0");
-      expect(store.get("badgerly:skipped_update_version")).toBe("2.0.0");
+      expect(store.get("carbide:skipped_update_version")).toBe("2.0.0");
     });
   });
 });

@@ -1,4 +1,4 @@
-# badgerly
+# carbide
 
 ## 1.1.0
 
@@ -109,7 +109,7 @@
   - Preserve undo history and cursor position across editor mode switches
   - VS Code-style thin colored resizable handles for panels
   - Atomic write+parse+index pipeline for vault operations
-  - Rename .badgerly plugin directory to .badgerly
+  - Rename .carbide plugin directory to .carbide
   - Fix: heading backspace, cursor drift, phantom tasks, mermaid rendering crashes
   - Fix: code block escape behavior, language picker portal, toolbar flicker
   - Fix: AI settings migration wired into vault load path
@@ -182,7 +182,7 @@
   - Preserve undo history and cursor position across editor mode switches
   - VS Code-style thin colored resizable handles for panels
   - Atomic write+parse+index pipeline for vault operations
-  - Rename .badgerly plugin directory to .badgerly
+  - Rename .carbide plugin directory to .carbide
   - Fix: heading backspace, cursor drift, phantom tasks, mermaid rendering crashes
   - Fix: code block escape behavior, language picker portal, toolbar flicker
   - Fix: AI settings migration wired into vault load path
@@ -217,7 +217,7 @@
 
 ### Major Changes
 
-- f289d9e: Edit/ask for AI assistants; graph & canvas views; new themes; Badgerly icon
+- f289d9e: Edit/ask for AI assistants; graph & canvas views; new themes; Carbide icon
 - db5a9b5: Full-vault graph visualization and sqlite-vec semantic embeddings infrastructure
 
   **A1: Full-Vault Graph View**
