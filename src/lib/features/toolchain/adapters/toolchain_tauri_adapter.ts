@@ -7,7 +7,8 @@ export function create_toolchain_tauri_adapter(): ToolchainPort {
   return {
     list_tools: () => tauri_invoke<ToolInfo[]>("toolchain_list_tools"),
 
-    install: (tool_id) => tauri_invoke("toolchain_install", { toolId: tool_id }),
+    install: (tool_id) =>
+      tauri_invoke("toolchain_install", { toolId: tool_id }),
 
     uninstall: (tool_id) =>
       tauri_invoke("toolchain_uninstall", { toolId: tool_id }),

@@ -17,6 +17,7 @@
   import BrainIcon from "@lucide/svelte/icons/brain";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
+  import WrenchIcon from "@lucide/svelte/icons/wrench";
   import { HotkeysPanel } from "$lib/features/hotkey";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
@@ -362,6 +363,7 @@
     { id: "graph", label: "Graph", icon: NetworkIcon },
     { id: "semantic", label: "Semantic", icon: BrainIcon },
     { id: "misc", label: "Misc", icon: SlidersIcon },
+    { id: "toolchain", label: "Tools", icon: WrenchIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
   ];
 
@@ -3134,9 +3136,19 @@
                 placeholder={"MD013 = false\nMD040 = true"}
               ></textarea>
             </div>
+          </div>
+        {:else if active_category === "toolchain"}
+          <h2 class="SettingsDialog__content-header">Tools</h2>
+          <div class="SettingsDialog__section-content">
+            <p class="SettingsDialog__description">
+              External tools are downloaded automatically when needed. You can
+              also manage them manually below.
+            </p>
 
             <div class="SettingsDialog__section-divider"></div>
-            <h3 class="SettingsDialog__section-subheader">IWE Integration</h3>
+            <h3 class="SettingsDialog__section-subheader">
+              IWE (Writing Engine)
+            </h3>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
@@ -3160,14 +3172,13 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">IWE Binary Path</span>
                 <span class="SettingsDialog__description"
-                  >Path to the IWE language server binary. Leave empty to use
-                  the bundled version</span
+                  >Custom path to the IWE binary. Leave empty to auto-download</span
                 >
               </div>
               <Input
                 type="text"
                 class="w-64"
-                placeholder="/usr/local/bin/iwe"
+                placeholder="/usr/local/bin/iwes"
                 value={editor_settings.iwe_binary_path}
                 oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
                   update("iwe_binary_path", e.currentTarget.value);

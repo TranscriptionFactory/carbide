@@ -14,6 +14,7 @@ export type SettingsCategory =
   | "graph"
   | "semantic"
   | "misc"
+  | "toolchain"
   | "hotkeys";
 
 export type GitAutocommitMode = "off" | "on_save" | "interval";
