@@ -51,6 +51,9 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   iwe_workspace_symbols: ACTION_IDS.iwe_workspace_symbols,
   iwe_formatting: ACTION_IDS.iwe_formatting,
   iwe_rename: ACTION_IDS.iwe_rename,
+  iwe_document_symbols: ACTION_IDS.iwe_document_symbols,
+  iwe_open_config: ACTION_IDS.iwe_open_config,
+  graph_load_hierarchy: ACTION_IDS.graph_load_hierarchy,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

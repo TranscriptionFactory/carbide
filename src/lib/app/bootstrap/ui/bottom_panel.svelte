@@ -29,7 +29,8 @@
   const iwe_result_count = $derived(
     stores.iwe.references.length +
       stores.iwe.code_actions.length +
-      stores.iwe.symbols.length,
+      stores.iwe.symbols.length +
+      stores.iwe.document_symbols.length,
   );
 
   const load_terminal = () =>

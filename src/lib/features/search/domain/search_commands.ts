@@ -388,4 +388,27 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["iwe", "rename", "refactor", "lsp", "heading", "section"],
     icon: "pencil",
   },
+  {
+    id: "iwe_document_symbols",
+    label: "IWE: Document Symbols",
+    description:
+      "Show graph navigation paths for the current document via IWE",
+    keywords: ["iwe", "document", "symbols", "outline", "graph", "paths"],
+    icon: "list-tree",
+  },
+  {
+    id: "iwe_open_config",
+    label: "IWE: Open Configuration",
+    description: "Open the IWE config.toml file for the current vault",
+    keywords: ["iwe", "config", "configuration", "settings", "toml"],
+    icon: "settings",
+  },
+  {
+    id: "graph_load_hierarchy",
+    label: "Load IWE Hierarchy",
+    description:
+      "Show the IWE inclusion hierarchy tree in the graph panel",
+    keywords: ["iwe", "hierarchy", "tree", "graph", "inclusion", "structure"],
+    icon: "list-tree",
+  },
 ];
