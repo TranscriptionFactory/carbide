@@ -6,25 +6,26 @@ use comrak::nodes::NodeValue;
 use comrak::{parse_document, Arena, Options};
 use regex::Regex;
 use serde::Serialize;
+use specta::Type;
 use std::sync::LazyLock;
 
 static INLINE_TAG_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:^|\s)#([a-zA-Z_][\w/-]*)").unwrap());
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct Heading {
     pub level: u8,
     pub text: String,
     pub line: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct InlineTag {
     pub tag: String,
     pub line: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct Section {
     pub heading_id: String,
     pub level: u8,
@@ -34,14 +35,14 @@ pub struct Section {
     pub word_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct CodeBlockMeta {
     pub line: usize,
     pub language: Option<String>,
     pub length: usize,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Type)]
 pub struct NoteLinks {
     pub wiki_targets: Vec<ParsedInternalLink>,
     pub markdown_targets: Vec<ParsedInternalLink>,
@@ -74,6 +75,35 @@ pub struct ParsedNote {
     pub inline_tags: Vec<InlineTag>,
     pub sections: Vec<Section>,
     pub code_blocks: Vec<CodeBlockMeta>,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct ParsedNoteDto {
+    pub title: Option<String>,
+    pub headings: Vec<Heading>,
+    pub links: NoteLinks,
+    pub tasks: Vec<Task>,
+    pub inline_tags: Vec<InlineTag>,
+    pub sections: Vec<Section>,
+    pub code_blocks: Vec<CodeBlockMeta>,
+    pub word_count: i64,
+    pub reading_time_secs: i64,
+}
+
+impl From<ParsedNote> for ParsedNoteDto {
+    fn from(p: ParsedNote) -> Self {
+        Self {
+            title: p.title,
+            headings: p.headings,
+            links: p.links,
+            tasks: p.tasks,
+            inline_tags: p.inline_tags,
+            sections: p.sections,
+            code_blocks: p.code_blocks,
+            word_count: p.word_count,
+            reading_time_secs: p.reading_time_secs,
+        }
+    }
 }
 
 fn slugify(text: &str) -> String {

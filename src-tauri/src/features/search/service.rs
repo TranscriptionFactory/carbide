@@ -93,7 +93,7 @@ enum DbCommand {
         vault_root: PathBuf,
         note_id: String,
         markdown: String,
-        reply: SyncSender<Result<(), String>>,
+        reply: SyncSender<Result<crate::shared::markdown_doc::ParsedNote, String>>,
     },
     RemoveNote {
         note_id: String,
@@ -511,7 +511,7 @@ fn handle_upsert_with_content(
     note_id: &str,
     markdown: &str,
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
-) -> Result<(), String> {
+) -> Result<crate::shared::markdown_doc::ParsedNote, String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     let parsed = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
@@ -528,7 +528,8 @@ fn handle_upsert_with_content(
             resolved.insert(target);
         }
     }
-    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())
+    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())?;
+    Ok(parsed)
 }
 
 type IndexFn = fn(
@@ -1212,9 +1213,9 @@ pub fn index_upsert_note_with_content(
     vault_id: &str,
     note_id: &str,
     markdown: String,
-) -> Result<(), String> {
+) -> Result<crate::shared::markdown_doc::ParsedNote, String> {
     let vault_root = storage::vault_path(app, vault_id)?;
-    send_write_blocking(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
+    send_write_reply(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
         vault_root,
         note_id: note_id.to_string(),
         markdown,

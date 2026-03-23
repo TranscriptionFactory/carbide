@@ -38,6 +38,7 @@ import {
 } from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
 import type { SplitViewService } from "$lib/features/split_view";
+import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import {
   to_open_note_state,
   type PastedImagePayload,
@@ -93,6 +94,7 @@ export class NoteService {
     private readonly link_repair: LinkRepairService | null = null,
     private readonly on_file_written?: (path: string) => void,
     private readonly split_view_service?: SplitViewService,
+    private readonly parsed_note_cache?: ParsedNoteCache,
   ) {}
 
   async list_all_folders(vault_id: VaultId): Promise<string[]> {
@@ -754,6 +756,9 @@ export class NoteService {
         this.resolve_expected_mtime(open_note),
       );
       new_mtime = result.new_mtime;
+      if (result.parsed) {
+        this.parsed_note_cache?.set(open_note.meta.id, result.parsed);
+      }
     } else {
       new_mtime = await this.notes_port.write_note(
         vault_id,

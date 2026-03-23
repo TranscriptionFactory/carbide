@@ -24,6 +24,7 @@ import type { SplitViewStore } from "$lib/features/split_view";
 import type { GraphStore } from "$lib/features/graph";
 import type { BasesStore } from "$lib/features/bases";
 import type { TaskStore } from "$lib/features/task";
+import type { ParsedNoteCache } from "$lib/features/note";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 
 export type ActionRegistrationInput = {
@@ -43,6 +44,7 @@ export type ActionRegistrationInput = {
     graph: GraphStore;
     bases: BasesStore;
     task: TaskStore;
+    parsed_note_cache: ParsedNoteCache;
   };
   services: {
     vault: VaultService;

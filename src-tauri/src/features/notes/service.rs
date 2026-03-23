@@ -364,9 +364,10 @@ pub fn write_note(
     Ok(new_mtime)
 }
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Type)]
 pub struct WriteAndIndexResult {
     pub new_mtime: i64,
+    pub parsed: Option<crate::shared::markdown_doc::ParsedNoteDto>,
 }
 
 #[tauri::command]
@@ -413,14 +414,17 @@ pub fn write_and_index_note(
 
     let (new_mtime, _) = file_meta(&abs)?;
 
-    crate::features::search::service::index_upsert_note_with_content(
+    let parsed = crate::features::search::service::index_upsert_note_with_content(
         &app,
         &args.vault_id,
         &args.note_id,
         args.markdown,
     )?;
 
-    Ok(WriteAndIndexResult { new_mtime })
+    Ok(WriteAndIndexResult {
+        new_mtime,
+        parsed: Some(parsed.into()),
+    })
 }
 
 #[derive(Debug, Deserialize, Type)]

@@ -6,6 +6,7 @@ import type {
   AssetPath,
 } from "$lib/shared/types/ids";
 import type { NoteDoc, NoteMeta } from "$lib/shared/types/note";
+import type { WriteAndIndexResult } from "$lib/generated/bindings";
 import type {
   FolderContents,
   FolderStats,
@@ -54,7 +55,7 @@ export interface NotesPort {
     note_id: NoteId,
     markdown: MarkdownText,
     expected_mtime_ms?: number,
-  ): Promise<{ new_mtime: number }>;
+  ): Promise<WriteAndIndexResult>;
   create_note(
     vault_id: VaultId,
     note_path: NotePath,

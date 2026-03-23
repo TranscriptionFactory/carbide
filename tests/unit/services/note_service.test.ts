@@ -769,7 +769,7 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.write_and_index_note = vi
       .fn()
-      .mockResolvedValue({ new_mtime: disk_mtime });
+      .mockResolvedValue({ new_mtime: disk_mtime, parsed: null });
     const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
@@ -877,7 +877,7 @@ describe("NoteService", () => {
     const disk_mtime = 1_700_000_000_500;
     const write_and_index = vi
       .fn()
-      .mockResolvedValue({ new_mtime: disk_mtime });
+      .mockResolvedValue({ new_mtime: disk_mtime, parsed: null });
     notes_port.write_and_index_note = write_and_index;
     const index_port = create_mock_index_port();
     const assets_port = {
@@ -1212,18 +1212,18 @@ describe("NoteService", () => {
       is_dirty: true,
     });
 
-    const first_write = create_deferred<{ new_mtime: number }>();
+    const first_write = create_deferred<{ new_mtime: number; parsed: null }>();
     const notes_port = create_mock_notes_port();
     const write_and_index = vi
       .fn()
       .mockImplementationOnce(async () => {
-        first_write.resolve({ new_mtime: 200 });
+        first_write.resolve({ new_mtime: 200, parsed: null });
         return await first_write.promise;
       })
       .mockImplementationOnce(
         (_vault_id, _note_id, _markdown, expected_mtime_ms?: number) => {
           expect(expected_mtime_ms).toBe(200);
-          return Promise.resolve({ new_mtime: 300 });
+          return Promise.resolve({ new_mtime: 300, parsed: null });
         },
       );
     notes_port.write_and_index_note = write_and_index;

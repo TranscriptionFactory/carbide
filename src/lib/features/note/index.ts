@@ -1,6 +1,7 @@
 export { register_note_actions } from "$lib/features/note/application/note_actions";
 export { NoteService } from "$lib/features/note/application/note_service";
 export { NotesStore } from "$lib/features/note/state/note_store.svelte";
+export { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 export {
   create_untitled_open_note,
   is_draft_note_path,

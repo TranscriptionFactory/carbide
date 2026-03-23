@@ -386,6 +386,7 @@ export function create_app_context(input: {
       watcher_service.suppress_next(path);
     },
     split_view_service,
+    stores.parsed_note_cache,
   );
 
   const tab_service = new TabService(
@@ -495,6 +496,7 @@ export function create_app_context(input: {
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
+      parsed_note_cache: stores.parsed_note_cache,
     },
     services: {
       vault: vault_service,

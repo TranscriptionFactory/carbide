@@ -24,6 +24,7 @@ import { DiagnosticsStore } from "$lib/features/diagnostics";
 import { MetadataStore } from "$lib/features/metadata";
 import { ToolchainStore } from "$lib/features/toolchain";
 import { QueryStore } from "$lib/features/query";
+import { ParsedNoteCache } from "$lib/features/note";
 
 export type AppStores = {
   vault: VaultStore;
@@ -54,6 +55,7 @@ export type AppStores = {
   metadata: MetadataStore;
   toolchain: ToolchainStore;
   query: QueryStore;
+  parsed_note_cache: ParsedNoteCache;
 };
 
 export function create_app_stores(): AppStores {
@@ -86,5 +88,6 @@ export function create_app_stores(): AppStores {
     metadata: new MetadataStore(),
     toolchain: new ToolchainStore(),
     query: new QueryStore(),
+    parsed_note_cache: new ParsedNoteCache(),
   };
 }
