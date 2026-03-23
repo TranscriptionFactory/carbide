@@ -146,5 +146,11 @@ export function create_test_ports(): Ports {
       resolve: () => Promise.resolve(""),
       subscribe_events: () => () => {},
     },
+    saved_query: {
+      list: () => Promise.resolve([]),
+      read: () => Promise.resolve(""),
+      write: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
   };
 }

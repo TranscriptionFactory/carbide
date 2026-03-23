@@ -1424,6 +1424,83 @@ pub fn write_vault_file(
     io_utils::atomic_write(&abs, content.as_bytes())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn delete_vault_file(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+) -> Result<(), String> {
+    let root = storage::vault_path(&app, &vault_id)?;
+    let abs = safe_vault_abs(&root, &relative_path)?;
+    std::fs::remove_file(&abs).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn list_vault_files_by_extension(
+    app: AppHandle,
+    vault_id: String,
+    extension: String,
+) -> Result<Vec<FileMeta>, String> {
+    let root = storage::vault_path(&app, &vault_id)?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
+    let ext_lower = extension.to_lowercase();
+
+    let mut results = Vec::new();
+    for entry in WalkDir::new(&root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            !constants::is_excluded_folder(&name)
+                && !ignore_matcher.is_ignored(&root, e.path(), e.file_type().is_dir())
+        })
+        .filter_map(|e| e.ok())
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let file_ext = entry
+            .path()
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if file_ext != ext_lower {
+            continue;
+        }
+        let rel = match entry.path().strip_prefix(&root) {
+            Ok(r) => storage::normalize_relative_path(r),
+            Err(_) => continue,
+        };
+        let name = entry
+            .path()
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        let meta = entry.metadata().ok();
+        let mtime_ms = meta
+            .as_ref()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let size_bytes = meta.as_ref().map(|m| m.len() as i64).unwrap_or(0);
+
+        results.push(FileMeta {
+            path: rel,
+            name,
+            extension: ext_lower.clone(),
+            size_bytes,
+            mtime_ms,
+        });
+    }
+    results.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(results)
+}
+
 const ASSET_IMAGE_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "tiff", "avif",
 ];

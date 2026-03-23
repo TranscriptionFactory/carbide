@@ -46,4 +46,47 @@ export function register_query_actions(
       ui_store.bottom_panel_open = true;
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.query_save,
+    label: "Save Query",
+    execute: async (name: unknown) => {
+      if (typeof name !== "string") return;
+      await query_service.save(name);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.query_save_cancel,
+    label: "Cancel Save Query",
+    execute: () => {
+      query_service.reset_save_op();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.query_load,
+    label: "Load Saved Query",
+    execute: async (path: unknown) => {
+      if (typeof path !== "string") return;
+      await query_service.load(path);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.query_delete_saved,
+    label: "Delete Saved Query",
+    execute: async (path: unknown) => {
+      if (typeof path !== "string") return;
+      await query_service.delete_saved(path);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.query_list_saved,
+    label: "List Saved Queries",
+    execute: async () => {
+      await query_service.list_saved();
+    },
+  });
 }

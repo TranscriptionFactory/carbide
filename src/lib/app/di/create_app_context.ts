@@ -474,6 +474,8 @@ export function create_app_context(input: {
     },
     stores.query,
     stores.vault,
+    input.ports.saved_query,
+    stores.op,
   );
 
   const base_action_input = {

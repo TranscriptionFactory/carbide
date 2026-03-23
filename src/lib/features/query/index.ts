@@ -1,7 +1,10 @@
 export * from "./types";
+export * from "./ports";
 export * from "./domain/query_parser";
 export * from "./domain/query_solver";
+export * from "./domain/saved_query";
 export * from "./state/query_store.svelte";
 export * from "./application/query_service";
 export * from "./application/query_actions";
+export { create_saved_query_tauri_adapter } from "./adapters/saved_query_tauri_adapter";
 export { default as QueryPanelContent } from "./ui/query_panel_content.svelte";
