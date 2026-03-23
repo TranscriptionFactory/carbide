@@ -521,17 +521,23 @@ pub async fn iwe_prepare_rename(
 
 fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
     let text = item.get("insertText")?.as_str()?;
-    // insertText is typically a markdown link like [](../path/to/note)
-    // or [title](../path/to/note). Extract the path's last segment as label.
-    let dest = text.find("](").and_then(|start| {
-        let rest = &text[start + 2..];
-        rest.find(')').map(|end| &rest[..end])
-    })?;
+    // insertText is typically a markdown link like [](../path/to/note.md)
+    // or [title](../path/to/note.md). Extract the path's last segment as label.
+    let dest = text
+        .find("](")
+        .and_then(|start| {
+            let rest = &text[start + 2..];
+            rest.find(')').map(|end| &rest[..end])
+        })
+        .unwrap_or(text);
     let segment = dest.rsplit('/').next().unwrap_or(dest);
-    if segment.is_empty() {
+    let segment = segment.strip_suffix(".md").unwrap_or(segment);
+    let decoded = percent_decode(segment);
+    let label = decoded.trim().to_string();
+    if label.is_empty() {
         return None;
     }
-    Some(segment.to_string())
+    Some(label)
 }
 
 #[tauri::command]
@@ -572,7 +578,7 @@ pub async fn iwe_completion(
         .filter_map(|item| {
             let raw_label = item.get("label")?.as_str()?.to_string();
             let label = if raw_label.trim().is_empty() {
-                label_from_insert_text(item).unwrap_or(raw_label)
+                label_from_insert_text(item)?
             } else {
                 raw_label
             };
