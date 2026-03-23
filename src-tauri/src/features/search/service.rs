@@ -803,11 +803,7 @@ fn handle_sync_paths(
                 }
             }
             let elapsed_ms = start.elapsed().as_millis() as u64;
-            log::info!(
-                "sync_paths: indexed {} in {}ms",
-                res.indexed,
-                elapsed_ms
-            );
+            log::info!("sync_paths: indexed {} in {}ms", res.indexed, elapsed_ms);
         }
         Err(e) => {
             log::error!("sync_paths failed: {e}");

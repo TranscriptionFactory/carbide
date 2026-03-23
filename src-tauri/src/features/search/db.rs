@@ -3077,11 +3077,10 @@ pub fn get_linked_paths_batch(
     conn: &Connection,
     paths: &[String],
 ) -> Result<std::collections::HashMap<String, std::collections::HashSet<String>>, String> {
-    let mut result: std::collections::HashMap<String, std::collections::HashSet<String>> =
-        paths
-            .iter()
-            .map(|p| (p.clone(), std::collections::HashSet::new()))
-            .collect();
+    let mut result: std::collections::HashMap<String, std::collections::HashSet<String>> = paths
+        .iter()
+        .map(|p| (p.clone(), std::collections::HashSet::new()))
+        .collect();
 
     if paths.is_empty() {
         return Ok(result);
@@ -3326,14 +3325,23 @@ pub fn query_bases(
         .query_map(&param_refs[..], |row| note_meta_with_stats_from_row(row))
         .map_err(|e| e.to_string())?;
 
-    let mut notes_with_stats: Vec<(crate::features::search::model::IndexNoteMeta, crate::features::search::model::NoteStats)> = Vec::new();
+    let mut notes_with_stats: Vec<(
+        crate::features::search::model::IndexNoteMeta,
+        crate::features::search::model::NoteStats,
+    )> = Vec::new();
     for note_res in note_rows {
         notes_with_stats.push(note_res.map_err(|e| e.to_string())?);
     }
 
-    let paths: Vec<&str> = notes_with_stats.iter().map(|(n, _)| n.path.as_str()).collect();
+    let paths: Vec<&str> = notes_with_stats
+        .iter()
+        .map(|(n, _)| n.path.as_str())
+        .collect();
 
-    let mut props_by_path: HashMap<String, BTreeMap<String, crate::features::search::model::PropertyValue>> = HashMap::new();
+    let mut props_by_path: HashMap<
+        String,
+        BTreeMap<String, crate::features::search::model::PropertyValue>,
+    > = HashMap::new();
     let mut tags_by_path: HashMap<String, Vec<String>> = HashMap::new();
 
     if !paths.is_empty() {

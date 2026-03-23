@@ -4,7 +4,7 @@ pub mod constants;
 pub mod frontmatter;
 pub mod io_utils;
 pub mod link_parser;
+pub mod lsp_client;
 pub mod markdown_doc;
 pub mod storage;
 pub mod vault_ignore;
-pub mod lsp_client;

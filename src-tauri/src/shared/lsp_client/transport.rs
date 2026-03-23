@@ -36,8 +36,7 @@ impl LspClient {
     pub async fn start(config: LspClientConfig) -> Result<Self, LspClientError> {
         let (request_tx, request_rx) = mpsc::channel::<LspOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
-        let (ready_tx, ready_rx) =
-            oneshot::channel::<Result<serde_json::Value, LspClientError>>();
+        let (ready_tx, ready_rx) = oneshot::channel::<Result<serde_json::Value, LspClientError>>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
 
         let join_handle = tokio::spawn(lsp_run_loop(
@@ -273,9 +272,7 @@ async fn lsp_run_loop(
 
 async fn dispatch_message(
     message: serde_json::Value,
-    pending: &Arc<
-        Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>,
-    >,
+    pending: &Arc<Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>>,
     notification_tx: &mpsc::Sender<ServerNotification>,
 ) {
     if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
@@ -285,8 +282,22 @@ async fn dispatch_message(
                 let code = error.get("code").and_then(|c| c.as_i64());
                 let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("");
                 let detail = match code {
-                    Some(c) => format!("LSP error {}: {}", c, if msg.is_empty() { "method not supported" } else { msg }),
-                    None => if msg.is_empty() { "unknown LSP error".to_string() } else { msg.to_string() },
+                    Some(c) => format!(
+                        "LSP error {}: {}",
+                        c,
+                        if msg.is_empty() {
+                            "method not supported"
+                        } else {
+                            msg
+                        }
+                    ),
+                    None => {
+                        if msg.is_empty() {
+                            "unknown LSP error".to_string()
+                        } else {
+                            msg.to_string()
+                        }
+                    }
                 };
                 let _ = tx.send(Err(LspClientError::InvalidResponse(detail)));
             } else {
@@ -333,9 +344,7 @@ async fn lsp_initialize(
         .ok_or_else(|| anyhow::anyhow!("LSP closed during init"))?;
 
     if response.get("error").is_some() {
-        let err = response["error"]["message"]
-            .as_str()
-            .unwrap_or("unknown");
+        let err = response["error"]["message"].as_str().unwrap_or("unknown");
         return Err(anyhow::anyhow!("LSP initialize error: {}", err));
     }
 
@@ -413,8 +422,7 @@ async fn read_lsp_message(
         }
     }
 
-    let content_length =
-        content_length.ok_or_else(|| anyhow::anyhow!("Missing Content-Length"))?;
+    let content_length = content_length.ok_or_else(|| anyhow::anyhow!("Missing Content-Length"))?;
     let mut body = vec![0u8; content_length];
     reader.read_exact(&mut body).await?;
     let message: serde_json::Value = serde_json::from_slice(&body)?;
