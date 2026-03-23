@@ -61,13 +61,11 @@ export class IweService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
-    const binary_path = this.ui_store.editor_settings.iwe_binary_path;
-
     await this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
         this.subscribe_diagnostics();
-        const result = await this.port.start(vault_id, binary_path);
+        const result = await this.port.start(vault_id);
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
