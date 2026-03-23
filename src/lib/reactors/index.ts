@@ -119,7 +119,21 @@ export type ReactorContext = {
 export function mount_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
+  let last_index_status: string = "idle";
   const unmounts = [
+    $effect.root(() => {
+      $effect(() => {
+        const status = context.search_store.index_progress.status;
+        const indexed = context.search_store.index_progress.indexed;
+        if (status === "completed" && last_index_status !== "completed") {
+          context.plugin_service.emit_plugin_event("note-indexed", {
+            indexed,
+          });
+        }
+        last_index_status = status;
+      });
+      return () => {};
+    }),
     create_editor_sync_reactor(context.editor_store, context.editor_service),
     create_editor_appearance_reactor(context.ui_store),
     create_editor_width_reactor(context.ui_store),

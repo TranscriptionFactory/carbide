@@ -1,4 +1,9 @@
-export type DiagnosticSource = "lint" | "iwe" | "ast" | "plugin";
+export type DiagnosticSource =
+  | "lint"
+  | "iwe"
+  | "ast"
+  | "plugin"
+  | `plugin:${string}`;
 
 export type DiagnosticSeverity = "error" | "warning" | "info" | "hint";
 

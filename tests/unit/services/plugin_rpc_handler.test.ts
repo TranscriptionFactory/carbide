@@ -572,4 +572,252 @@ describe("PluginRpcHandler", () => {
       expect(response.error).toMatch(/Event bus not initialized/);
     });
   });
+
+  describe("search.*", () => {
+    function make_search_backend() {
+      return {
+        fts: vi.fn().mockResolvedValue([{ path: "notes/test.md", score: 1.5 }]),
+        tags: vi.fn().mockResolvedValue([{ tag: "project", count: 3 }]),
+        notes_for_tag: vi.fn().mockResolvedValue(["notes/a.md", "notes/b.md"]),
+      };
+    }
+
+    it("search.fts returns FTS results when search:read is granted", async () => {
+      grant_permissions("search:read");
+      const search = make_search_backend();
+      ctx.context.search = search;
+
+      const manifest = make_manifest(["search:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s1",
+        method: "search.fts",
+        params: ["deadline"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([{ path: "notes/test.md", score: 1.5 }]);
+      expect(search.fts).toHaveBeenCalledWith("deadline", undefined);
+    });
+
+    it("search.fts passes limit parameter", async () => {
+      grant_permissions("search:read");
+      const search = make_search_backend();
+      ctx.context.search = search;
+
+      const manifest = make_manifest(["search:read"]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s2",
+        method: "search.fts",
+        params: ["query", 10],
+      });
+
+      expect(search.fts).toHaveBeenCalledWith("query", 10);
+    });
+
+    it("search.tags returns all tags when no argument given", async () => {
+      grant_permissions("search:read");
+      const search = make_search_backend();
+      ctx.context.search = search;
+
+      const manifest = make_manifest(["search:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s3",
+        method: "search.tags",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([{ tag: "project", count: 3 }]);
+      expect(search.tags).toHaveBeenCalled();
+    });
+
+    it("search.tags returns notes for a specific tag", async () => {
+      grant_permissions("search:read");
+      const search = make_search_backend();
+      ctx.context.search = search;
+
+      const manifest = make_manifest(["search:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s4",
+        method: "search.tags",
+        params: ["project"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual(["notes/a.md", "notes/b.md"]);
+      expect(search.notes_for_tag).toHaveBeenCalledWith("project");
+    });
+
+    it("search.* blocks when search:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.search = make_search_backend();
+
+      const manifest = make_manifest(["search:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s5",
+        method: "search.fts",
+        params: ["query"],
+      });
+
+      expect(response.error).toMatch(/Missing search:read permission/);
+    });
+
+    it("search.* errors when search backend not initialized", async () => {
+      grant_permissions("search:read");
+
+      const manifest = make_manifest(["search:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s6",
+        method: "search.fts",
+        params: ["query"],
+      });
+
+      expect(response.error).toMatch(/Search backend not initialized/);
+    });
+  });
+
+  describe("diagnostics.*", () => {
+    function make_diagnostics_backend() {
+      return {
+        push: vi.fn(),
+        clear: vi.fn(),
+      };
+    }
+
+    it("diagnostics.push pushes diagnostics with plugin-scoped source", async () => {
+      grant_permissions("diagnostics:write");
+      const diag = make_diagnostics_backend();
+      ctx.context.diagnostics = diag;
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d1",
+        method: "diagnostics.push",
+        params: [
+          "notes/test.md",
+          [
+            {
+              line: 1,
+              column: 0,
+              end_line: 1,
+              end_column: 10,
+              severity: "warning",
+              message: "Heading too long",
+              rule_id: "heading-length",
+              fixable: false,
+            },
+          ],
+        ],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(diag.push).toHaveBeenCalledWith(
+        `plugin:${PLUGIN_ID}`,
+        "notes/test.md",
+        [
+          {
+            source: `plugin:${PLUGIN_ID}`,
+            line: 1,
+            column: 0,
+            end_line: 1,
+            end_column: 10,
+            severity: "warning",
+            message: "Heading too long",
+            rule_id: "heading-length",
+            fixable: false,
+          },
+        ],
+      );
+    });
+
+    it("diagnostics.push rejects invalid severity", async () => {
+      grant_permissions("diagnostics:write");
+      ctx.context.diagnostics = make_diagnostics_backend();
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d2",
+        method: "diagnostics.push",
+        params: [
+          "notes/test.md",
+          [
+            {
+              line: 1,
+              column: 0,
+              end_line: 1,
+              end_column: 5,
+              severity: "critical",
+              message: "bad",
+            },
+          ],
+        ],
+      });
+
+      expect(response.error).toMatch(/Invalid diagnostics\[0\]\.severity/);
+    });
+
+    it("diagnostics.clear clears all diagnostics for the plugin", async () => {
+      grant_permissions("diagnostics:write");
+      const diag = make_diagnostics_backend();
+      ctx.context.diagnostics = diag;
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d3",
+        method: "diagnostics.clear",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(diag.clear).toHaveBeenCalledWith(`plugin:${PLUGIN_ID}`, undefined);
+    });
+
+    it("diagnostics.clear clears diagnostics for a specific file", async () => {
+      grant_permissions("diagnostics:write");
+      const diag = make_diagnostics_backend();
+      ctx.context.diagnostics = diag;
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d4",
+        method: "diagnostics.clear",
+        params: ["notes/test.md"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(diag.clear).toHaveBeenCalledWith(
+        `plugin:${PLUGIN_ID}`,
+        "notes/test.md",
+      );
+    });
+
+    it("diagnostics.* blocks when diagnostics:write is not granted", async () => {
+      grant_permissions();
+      ctx.context.diagnostics = make_diagnostics_backend();
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d5",
+        method: "diagnostics.push",
+        params: ["notes/test.md", []],
+      });
+
+      expect(response.error).toMatch(/Missing diagnostics:write permission/);
+    });
+
+    it("diagnostics.* errors when diagnostics backend not initialized", async () => {
+      grant_permissions("diagnostics:write");
+
+      const manifest = make_manifest(["diagnostics:write"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "d6",
+        method: "diagnostics.push",
+        params: ["notes/test.md", []],
+      });
+
+      expect(response.error).toMatch(/Diagnostics backend not initialized/);
+    });
+  });
 });

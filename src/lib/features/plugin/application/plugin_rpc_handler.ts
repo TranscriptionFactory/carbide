@@ -13,6 +13,7 @@ import { toast } from "svelte-sonner";
 import type { PluginEventBus } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginService } from "./plugin_service";
+import type { Diagnostic, DiagnosticSeverity } from "$lib/features/diagnostics";
 
 export interface RpcRequest {
   id: string;
@@ -77,6 +78,20 @@ type PluginSettingsTabInput = {
   settings_schema: PluginSettingSchema[];
 };
 
+type PluginRpcSearchBackend = {
+  fts(
+    query: string,
+    limit?: number,
+  ): Promise<{ path: string; score: number }[]>;
+  tags(): Promise<{ tag: string; count: number }[]>;
+  notes_for_tag(tag: string): Promise<string[]>;
+};
+
+type PluginRpcDiagnosticsBackend = {
+  push(source_id: string, file_path: string, diagnostics: Diagnostic[]): void;
+  clear(source_id: string, file_path?: string): void;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -99,6 +114,8 @@ export type PluginRpcContext = {
     notes: { notes: Array<{ path: string }> };
     editor: { open_note: { markdown: string } | null };
   };
+  search?: PluginRpcSearchBackend;
+  diagnostics?: PluginRpcDiagnosticsBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -445,6 +462,10 @@ export class PluginRpcHandler {
         return this.handle_settings(plugin_id, manifest, action, params);
       case "events":
         return this.handle_events(plugin_id, action, params);
+      case "search":
+        return this.handle_search(plugin_id, action, params);
+      case "diagnostics":
+        return this.handle_diagnostics(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -706,4 +727,103 @@ export class PluginRpcHandler {
         throw new Error(`Unknown events action: ${action}`);
     }
   }
+
+  private async handle_search(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "search:read");
+
+    if (!this.context.search) {
+      throw new Error("Search backend not initialized");
+    }
+
+    switch (action) {
+      case "fts": {
+        const query = read_param_string(params, 0, "search query");
+        const limit = read_optional_number(params[1], "search limit");
+        return this.context.search.fts(query, limit);
+      }
+      case "tags": {
+        if (params[0] !== undefined) {
+          const tag = read_param_string(params, 0, "tag pattern");
+          return this.context.search.notes_for_tag(tag);
+        }
+        return this.context.search.tags();
+      }
+      default:
+        throw new Error(`Unknown search action: ${action}`);
+    }
+  }
+
+  private handle_diagnostics(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "diagnostics:write");
+
+    if (!this.context.diagnostics) {
+      throw new Error("Diagnostics backend not initialized");
+    }
+
+    const source_id = `plugin:${plugin_id}`;
+
+    switch (action) {
+      case "push": {
+        const file_path = read_param_string(params, 0, "file path");
+        const raw_diagnostics = params[1];
+        if (!Array.isArray(raw_diagnostics)) {
+          throw new Error("Invalid diagnostics array");
+        }
+        const diagnostics = raw_diagnostics.map((d, i) =>
+          read_plugin_diagnostic(d, source_id, i),
+        );
+        this.context.diagnostics.push(source_id, file_path, diagnostics);
+        return { success: true };
+      }
+      case "clear": {
+        const file_path = read_optional_string(params[0]);
+        this.context.diagnostics.clear(source_id, file_path);
+        return { success: true };
+      }
+      default:
+        throw new Error(`Unknown diagnostics action: ${action}`);
+    }
+  }
+}
+
+const VALID_SEVERITIES = new Set<DiagnosticSeverity>([
+  "error",
+  "warning",
+  "info",
+  "hint",
+]);
+
+function read_plugin_diagnostic(
+  input: unknown,
+  source_id: string,
+  index: number,
+): Diagnostic {
+  const label = `diagnostics[${String(index)}]`;
+  const record = read_record(input, label);
+  const severity = read_string(
+    record.severity,
+    `${label}.severity`,
+  ) as DiagnosticSeverity;
+  if (!VALID_SEVERITIES.has(severity)) {
+    throw new Error(`Invalid ${label}.severity: ${severity}`);
+  }
+  return {
+    source: source_id as Diagnostic["source"],
+    line: read_number(record.line, `${label}.line`),
+    column: read_number(record.column, `${label}.column`),
+    end_line: read_number(record.end_line, `${label}.end_line`),
+    end_column: read_number(record.end_column, `${label}.end_column`),
+    severity,
+    message: read_string(record.message, `${label}.message`),
+    rule_id: read_optional_string(record.rule_id) ?? null,
+    fixable: record.fixable === true,
+  };
 }
