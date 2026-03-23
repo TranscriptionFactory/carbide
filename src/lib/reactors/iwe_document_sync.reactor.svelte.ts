@@ -1,5 +1,6 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { IweService, IweStore } from "$lib/features/iwe";
+import { is_draft_note_path } from "$lib/features/note";
 
 const DEBOUNCE_MS = 500;
 
@@ -22,7 +23,11 @@ export function create_iwe_document_sync_reactor(
 
       const current_path = open_note?.meta.path ?? null;
 
-      if (current_path && current_path !== previous_path) {
+      if (
+        current_path &&
+        current_path !== previous_path &&
+        !is_draft_note_path(current_path)
+      ) {
         const content = open_note?.markdown ?? "";
         void iwe_service.did_open(current_path, content);
       }
@@ -39,6 +44,8 @@ export function create_iwe_document_sync_reactor(
       if (!open_note || status !== "running") return;
 
       const path = open_note.meta.path;
+      if (is_draft_note_path(path)) return;
+
       const content = open_note.markdown;
       const is_dirty = open_note.is_dirty;
 
@@ -69,6 +76,7 @@ export function create_iwe_document_sync_reactor(
       was_dirty = is_dirty;
 
       if (!just_saved || status !== "running" || !open_note) return;
+      if (is_draft_note_path(open_note.meta.path)) return;
 
       void iwe_service.did_save(open_note.meta.path, open_note.markdown ?? "");
     });

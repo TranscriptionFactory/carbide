@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { IweService } from "$lib/features/iwe/application/iwe_service";
 import { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
@@ -376,5 +376,105 @@ describe("IweService", () => {
     await service.inlay_hints("test.md");
 
     expect(store.inlay_hints).toEqual(hints);
+  });
+
+  describe("channel closed auto-restart", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("detects channel closed error and sets error status", async () => {
+      const store = new IweStore();
+      const port = create_mock_port();
+      port.did_open = vi
+        .fn()
+        .mockRejectedValue(new Error("LSP client channel closed"));
+      const vault_store = create_mock_vault_store("vault-1");
+      const service = new IweService(
+        port,
+        store,
+        vault_store,
+        create_mock_ui_store(),
+      );
+
+      store.set_status("running");
+      await service.did_open("test.md", "content");
+
+      expect(store.status).toBe("error");
+      expect(store.error).toContain("restarting");
+    });
+
+    it("schedules restart after channel closed", async () => {
+      const store = new IweStore();
+      const port = create_mock_port();
+      port.did_change = vi
+        .fn()
+        .mockRejectedValue(new Error("LSP client channel closed"));
+      const vault_store = create_mock_vault_store("vault-1");
+      const service = new IweService(
+        port,
+        store,
+        vault_store,
+        create_mock_ui_store(),
+      );
+
+      store.set_status("running");
+      await service.did_change("test.md", "content");
+
+      expect(port.stop).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(port.stop).toHaveBeenCalledWith("vault-1");
+      expect(port.start).toHaveBeenCalledWith("vault-1", "");
+    });
+
+    it("does not schedule multiple restarts for consecutive failures", async () => {
+      const store = new IweStore();
+      const port = create_mock_port();
+      const channel_error = new Error("LSP client channel closed");
+      port.did_open = vi.fn().mockRejectedValue(channel_error);
+      port.did_change = vi.fn().mockRejectedValue(channel_error);
+      const vault_store = create_mock_vault_store("vault-1");
+      const service = new IweService(
+        port,
+        store,
+        vault_store,
+        create_mock_ui_store(),
+      );
+
+      store.set_status("running");
+      await service.did_open("test.md", "content");
+      await service.did_change("test.md", "content2");
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(port.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not trigger restart for non-channel-closed errors", async () => {
+      const store = new IweStore();
+      const port = create_mock_port();
+      port.did_open = vi.fn().mockRejectedValue(new Error("some other error"));
+      const vault_store = create_mock_vault_store("vault-1");
+      const service = new IweService(
+        port,
+        store,
+        vault_store,
+        create_mock_ui_store(),
+      );
+
+      store.set_status("running");
+      await service.did_open("test.md", "content");
+
+      expect(store.status).toBe("running");
+
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(port.stop).not.toHaveBeenCalled();
+    });
   });
 });

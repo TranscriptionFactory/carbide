@@ -554,7 +554,11 @@ export class EditorService {
       const hover_cb = this.callbacks.on_iwe_hover;
       events.on_iwe_hover = (line: number, character: number) => {
         const note = this.active_note;
-        if (!note || !this.is_generation_current(generation)) {
+        if (
+          !note ||
+          !this.is_generation_current(generation) ||
+          is_draft_note_path(note.meta.path)
+        ) {
           return Promise.resolve(null);
         }
         return hover_cb(note.meta.path, line, character);
@@ -565,7 +569,11 @@ export class EditorService {
       const def_cb = this.callbacks.on_iwe_definition;
       events.on_iwe_definition = (line: number, character: number) => {
         const note = this.active_note;
-        if (!note || !this.is_generation_current(generation)) {
+        if (
+          !note ||
+          !this.is_generation_current(generation) ||
+          is_draft_note_path(note.meta.path)
+        ) {
           return Promise.resolve([]);
         }
         return def_cb(note.meta.path, line, character);
@@ -581,7 +589,11 @@ export class EditorService {
       const completion_cb = this.callbacks.on_iwe_completion;
       events.on_iwe_completion = (line: number, character: number) => {
         const note = this.active_note;
-        if (!note || !this.is_generation_current(generation)) {
+        if (
+          !note ||
+          !this.is_generation_current(generation) ||
+          is_draft_note_path(note.meta.path)
+        ) {
           return Promise.resolve([]);
         }
         return completion_cb(note.meta.path, line, character);
@@ -597,7 +609,11 @@ export class EditorService {
       const hints_cb = this.callbacks.on_iwe_inlay_hints;
       events.on_iwe_inlay_hints = () => {
         const note = this.active_note;
-        if (!note || !this.is_generation_current(generation)) {
+        if (
+          !note ||
+          !this.is_generation_current(generation) ||
+          is_draft_note_path(note.meta.path)
+        ) {
           return Promise.resolve([]);
         }
         return hints_cb(note.meta.path);

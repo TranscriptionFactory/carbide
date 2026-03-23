@@ -15,6 +15,13 @@ import type {
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("iwe_service");
+const CHANNEL_CLOSED_PATTERN = "channel closed";
+const AUTO_RESTART_DELAY_MS = 1000;
+
+function is_channel_closed_error(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.toLowerCase().includes(CHANNEL_CLOSED_PATTERN);
+}
 
 function to_lint_severity(s: string): LintSeverity {
   if (s === "error" || s === "warning" || s === "info" || s === "hint")
@@ -131,7 +138,7 @@ export class IweService {
     try {
       await this.port.did_open(vault_id, file_path, content);
     } catch (e) {
-      log.from_error("did_open failed", e);
+      if (!this.handle_channel_closed(e)) log.from_error("did_open failed", e);
     }
   }
 
@@ -144,7 +151,8 @@ export class IweService {
     try {
       await this.port.did_change(vault_id, file_path, version, content);
     } catch (e) {
-      log.from_error("did_change failed", e);
+      if (!this.handle_channel_closed(e))
+        log.from_error("did_change failed", e);
     }
   }
 
@@ -155,7 +163,7 @@ export class IweService {
     try {
       await this.port.did_save(vault_id, file_path, content);
     } catch (e) {
-      log.from_error("did_save failed", e);
+      if (!this.handle_channel_closed(e)) log.from_error("did_save failed", e);
     }
   }
 
@@ -176,7 +184,7 @@ export class IweService {
       );
       this.store.set_hover(result);
     } catch (e) {
-      log.from_error("hover failed", e);
+      if (!this.handle_channel_closed(e)) log.from_error("hover failed", e);
       this.store.set_hover(null);
     }
   }
@@ -199,9 +207,11 @@ export class IweService {
       );
       this.store.set_references(refs);
     } catch (e) {
-      log.from_error("references failed", e);
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("references failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
       this.store.set_references([]);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
     } finally {
       this.store.set_loading(false);
     }
@@ -224,7 +234,8 @@ export class IweService {
       );
       this.store.set_references(locs);
     } catch (e) {
-      log.from_error("definition failed", e);
+      if (!this.handle_channel_closed(e))
+        log.from_error("definition failed", e);
     }
   }
 
@@ -249,9 +260,11 @@ export class IweService {
       );
       this.store.set_code_actions(actions);
     } catch (e) {
-      log.from_error("code_actions failed", e);
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("code_actions failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
       this.store.set_code_actions([]);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -269,8 +282,10 @@ export class IweService {
         log.warn("Code action resolve had errors", { errors: result.errors });
       }
     } catch (e) {
-      log.from_error("code_action_resolve failed", e);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("code_action_resolve failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       this.store.set_loading(false);
     }
@@ -284,9 +299,11 @@ export class IweService {
       const symbols = await this.port.workspace_symbols(vault_id, query);
       this.store.set_symbols(symbols);
     } catch (e) {
-      log.from_error("workspace_symbols failed", e);
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("workspace_symbols failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
       this.store.set_symbols([]);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -306,7 +323,8 @@ export class IweService {
         character,
       );
     } catch (e) {
-      log.from_error("prepare_rename failed", e);
+      if (!this.handle_channel_closed(e))
+        log.from_error("prepare_rename failed", e);
       return null;
     }
   }
@@ -333,8 +351,10 @@ export class IweService {
         log.warn("Rename had errors", { errors: result.errors });
       }
     } catch (e) {
-      log.from_error("rename failed", e);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("rename failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       this.store.set_loading(false);
     }
@@ -357,7 +377,8 @@ export class IweService {
       );
       this.store.set_completions(items);
     } catch (e) {
-      log.from_error("completion failed", e);
+      if (!this.handle_channel_closed(e))
+        log.from_error("completion failed", e);
       this.store.set_completions([]);
     }
   }
@@ -370,8 +391,10 @@ export class IweService {
     try {
       return await this.port.formatting(vault_id, file_path);
     } catch (e) {
-      log.from_error("formatting failed", e);
-      this.store.set_error(e instanceof Error ? e.message : String(e));
+      if (!this.handle_channel_closed(e)) {
+        log.from_error("formatting failed", e);
+        this.store.set_error(e instanceof Error ? e.message : String(e));
+      }
       return [];
     } finally {
       this.store.set_loading(false);
@@ -386,9 +409,29 @@ export class IweService {
       const hints = await this.port.inlay_hints(vault_id, file_path);
       this.store.set_inlay_hints(hints);
     } catch (e) {
-      log.from_error("inlay_hints failed", e);
+      if (!this.handle_channel_closed(e))
+        log.from_error("inlay_hints failed", e);
       this.store.set_inlay_hints([]);
     }
+  }
+
+  private restart_scheduled = false;
+
+  private handle_channel_closed(e: unknown): boolean {
+    if (!is_channel_closed_error(e)) return false;
+    if (this.store.status !== "running") return true;
+
+    log.warn("IWE LSP process died, scheduling restart");
+    this.store.set_error("IWE process crashed — restarting...");
+
+    if (!this.restart_scheduled) {
+      this.restart_scheduled = true;
+      setTimeout(() => {
+        this.restart_scheduled = false;
+        void this.restart();
+      }, AUTO_RESTART_DELAY_MS);
+    }
+    return true;
   }
 
   private run_lifecycle(operation: () => Promise<void>): Promise<void> {
