@@ -4,14 +4,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const mock_html = vi.fn();
 const mock_save = vi.fn();
 
+const mock_set_font_size = vi.fn();
+const mock_set_font = vi.fn();
+const mock_text = vi.fn();
+const mock_split_text_to_size = vi.fn((text: string) => [text]);
+const mock_add_page = vi.fn();
+
 const mockjspdf_instance = {
   internal: {
     pageSize: {
       getHeight: () => 297,
     },
   },
+  addPage: mock_add_page,
   html: mock_html,
   save: mock_save,
+  setFont: mock_set_font,
+  setFontSize: mock_set_font_size,
+  splitTextToSize: mock_split_text_to_size,
+  text: mock_text,
 };
 
 const MockJsPDF = vi.fn(() => mockjspdf_instance);
@@ -30,13 +41,8 @@ function getContainer(): HTMLElement {
   return calls[0][0] as HTMLElement;
 }
 
-function getShadowContent(): string {
-  const container = getContainer();
-  const shadow = container.shadowRoot;
-  if (!shadow) {
-    throw new Error("No shadow root found");
-  }
-  return shadow.innerHTML;
+function getContainerContent(): string {
+  return getContainer().innerHTML;
 }
 
 describe("export_note_as_pdf", () => {
@@ -54,6 +60,7 @@ describe("export_note_as_pdf", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -64,7 +71,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts h1 headings to HTML", async () => {
     await export_note_as_pdf("Test", "# Heading One");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<h1>");
     expect(html).toContain("Heading One");
     expect(html).toContain("</h1>");
@@ -72,7 +79,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts h2 headings to HTML", async () => {
     await export_note_as_pdf("Test", "## Heading Two");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<h2>");
     expect(html).toContain("Heading Two");
     expect(html).toContain("</h2>");
@@ -80,7 +87,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts h3 headings to HTML", async () => {
     await export_note_as_pdf("Test", "### Heading Three");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<h3>");
     expect(html).toContain("Heading Three");
     expect(html).toContain("</h3>");
@@ -88,7 +95,7 @@ describe("export_note_as_pdf", () => {
 
   it("preserves bold markdown as strong tags", async () => {
     await export_note_as_pdf("Test", "This is **bold** text");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<strong>");
     expect(html).toContain("bold");
     expect(html).toContain("</strong>");
@@ -96,7 +103,7 @@ describe("export_note_as_pdf", () => {
 
   it("preserves italic markdown as em tags", async () => {
     await export_note_as_pdf("Test", "This is *italic* text");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<em>");
     expect(html).toContain("italic");
     expect(html).toContain("</em>");
@@ -104,7 +111,7 @@ describe("export_note_as_pdf", () => {
 
   it("preserves inline code as code tags", async () => {
     await export_note_as_pdf("Test", "Use `const x = 1` here");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<code>");
     expect(html).toContain("const x = 1");
     expect(html).toContain("</code>");
@@ -112,7 +119,7 @@ describe("export_note_as_pdf", () => {
 
   it("preserves strikethrough markdown as s tags", async () => {
     await export_note_as_pdf("Test", "~~deleted~~ text");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<s>");
     expect(html).toContain("deleted");
     expect(html).toContain("</s>");
@@ -120,7 +127,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts links to anchor tags", async () => {
     await export_note_as_pdf("Test", "[example](https://example.com)");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain('<a href="https://example.com"');
     expect(html).toContain("example");
     expect(html).toContain("</a>");
@@ -128,7 +135,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts lists to ul/li tags", async () => {
     await export_note_as_pdf("Test", "- item one\n- item two");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<ul>");
     expect(html).toContain("<li>");
     expect(html).toContain("item one");
@@ -137,7 +144,7 @@ describe("export_note_as_pdf", () => {
 
   it("converts code blocks to pre/code tags", async () => {
     await export_note_as_pdf("Test", "```\ncode here\n```");
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<pre>");
     expect(html).toContain("<code>");
     expect(html).toContain("code here");
@@ -150,7 +157,7 @@ describe("export_note_as_pdf", () => {
       "Test",
       "# Title\n\nSome body text.\n\n## Section\n\nMore text.",
     );
-    const html = getShadowContent();
+    const html = getContainerContent();
     expect(html).toContain("<h1>");
     expect(html).toContain("Title");
     expect(html).toContain("<h2>");
@@ -168,6 +175,23 @@ describe("export_note_as_pdf", () => {
         windowWidth: 800,
       }),
     );
+  });
+
+  it("falls back to text export when html rendering stalls", async () => {
+    vi.useFakeTimers();
+    mock_html.mockImplementation(() => new Promise<void>(() => {}));
+
+    const export_promise = export_note_as_pdf("Test", "Plain body line");
+    await vi.advanceTimersByTimeAsync(15_000);
+    await export_promise;
+
+    expect(mock_split_text_to_size).toHaveBeenCalledWith(
+      "Plain body line",
+      expect.any(Number),
+    );
+    expect(mock_save).toHaveBeenCalledWith("Test.pdf");
+
+    vi.useRealTimers();
   });
 
   it("removes container after export", async () => {
