@@ -40,6 +40,109 @@ function escape_html(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+const HTML_EXPORT_TIMEOUT_MS = 12_000;
+
+function normalize_pdf_error(error: unknown): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+  if (typeof error === "string") {
+    return new Error(error);
+  }
+  return new Error("Unknown PDF export error");
+}
+
+function prune_clone_styles(cloned_doc: HTMLDocument): void {
+  const export_container = cloned_doc.getElementById("pdf-export-container");
+  if (!export_container) {
+    return;
+  }
+
+  const allowed_style_nodes = new Set(
+    Array.from(
+      export_container.querySelectorAll("style, link[rel='stylesheet']"),
+    ),
+  );
+
+  for (const node of Array.from(
+    cloned_doc.querySelectorAll("style, link[rel='stylesheet']"),
+  )) {
+    if (!allowed_style_nodes.has(node)) {
+      node.remove();
+    }
+  }
+}
+
+async function render_html_export(
+  doc: {
+    html(
+      element: HTMLElement,
+      options: {
+        width: number;
+        windowWidth: number;
+        callback: () => void;
+        html2canvas: {
+          logging: boolean;
+          onclone: (cloned_doc: HTMLDocument) => void;
+        };
+      },
+    ): Promise<unknown> | unknown;
+    save(filename: string): void;
+  },
+  container: HTMLElement,
+  title: string,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timeout_id: ReturnType<typeof setTimeout> | undefined;
+
+    const finalize = (handler: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeout_id !== undefined) {
+        clearTimeout(timeout_id);
+      }
+      handler();
+    };
+
+    const fail = (error: unknown): void => {
+      finalize(() => reject(normalize_pdf_error(error)));
+    };
+
+    timeout_id = setTimeout(() => {
+      fail(
+        new Error(
+          `PDF HTML export timed out after ${HTML_EXPORT_TIMEOUT_MS}ms`,
+        ),
+      );
+    }, HTML_EXPORT_TIMEOUT_MS);
+
+    try {
+      const result = doc.html(container, {
+        width: 170,
+        windowWidth: 800,
+        callback: () => {
+          finalize(() => resolve());
+        },
+        html2canvas: {
+          logging: false,
+          onclone: prune_clone_styles,
+        },
+      });
+
+      if (result && typeof (result as Promise<unknown>).catch === "function") {
+        void (result as Promise<unknown>).catch(fail);
+      }
+    } catch (error) {
+      fail(error);
+    }
+  });
+
+  doc.save(`${escape_html(title)}.pdf`);
+}
+
 function create_export_container(title: string, html: string): HTMLDivElement {
   const container = document.createElement("div");
   container.id = "pdf-export-container";
@@ -57,11 +160,9 @@ function create_export_container(title: string, html: string): HTMLDivElement {
     isolation: isolate;
   `;
 
-  const shadow = container.attachShadow({ mode: "open" });
-
   const style = document.createElement("style");
   style.textContent = PDF_STYLES;
-  shadow.appendChild(style);
+  container.appendChild(style);
 
   const wrapper = document.createElement("div");
   wrapper.className = "markdown-body";
@@ -74,7 +175,7 @@ function create_export_container(title: string, html: string): HTMLDivElement {
   content.innerHTML = html;
   wrapper.appendChild(content);
 
-  shadow.appendChild(wrapper);
+  container.appendChild(wrapper);
 
   document.body.appendChild(container);
   return container;
@@ -176,13 +277,7 @@ export async function export_note_as_pdf(
         orientation: "portrait",
       });
 
-      await doc.html(container, {
-        width: 170,
-        windowWidth: 800,
-        callback: (doc) => {
-          doc.save(`${escape_html(title)}.pdf`);
-        },
-      });
+      await render_html_export(doc, container, title);
     } finally {
       container.remove();
     }
