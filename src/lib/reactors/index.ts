@@ -35,6 +35,7 @@ import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
+import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
@@ -304,18 +305,17 @@ export function mount_reactors(context: ReactorContext): () => void {
       {
         is_ready: () => context.lint_store.is_running,
         debounce_ms: 300,
-        on_open: (path, content) => {
-          context.diagnostics_store.set_active_file(path);
-          void context.lint_service.notify_file_opened(path, content);
-        },
+        on_open: (path, content) =>
+          void context.lint_service.notify_file_opened(path, content),
         on_change: (path, content) =>
           void context.lint_service.notify_file_changed(path, content),
-        on_close: (path) => {
-          context.diagnostics_store.set_active_file(null);
-          void context.lint_service.notify_file_closed(path);
-        },
+        on_close: (path) => void context.lint_service.notify_file_closed(path),
       },
     ]),
+    create_diagnostics_active_file_reactor(
+      context.editor_store,
+      context.diagnostics_store,
+    ),
     create_toolchain_lifecycle_reactor(
       context.vault_store,
       context.toolchain_service,
