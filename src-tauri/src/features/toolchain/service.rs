@@ -48,6 +48,7 @@ pub async fn toolchain_list_tools(
             github_repo: spec.github_repo.to_string(),
             version: spec.version.to_string(),
             status,
+            capabilities: spec.capabilities.to_vec(),
         });
     }
 

@@ -1,3 +1,16 @@
+export type ToolCapability =
+  | { type: "document_sync"; debounce_ms: number; skip_draft: boolean }
+  | { type: "diagnostics" }
+  | { type: "completion" }
+  | { type: "hover" }
+  | { type: "references" }
+  | { type: "definition" }
+  | { type: "rename" }
+  | { type: "formatting" }
+  | { type: "code_actions" }
+  | { type: "workspace_symbols" }
+  | { type: "inlay_hints" };
+
 export type ToolStatus =
   | { type: "not_installed" }
   | { type: "downloading"; percent: number }
@@ -10,6 +23,7 @@ export type ToolInfo = {
   github_repo: string;
   version: string;
   status: ToolStatus;
+  capabilities: ToolCapability[];
 };
 
 export type ToolchainEvent =

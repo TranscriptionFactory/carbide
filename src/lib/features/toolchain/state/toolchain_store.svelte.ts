@@ -1,4 +1,8 @@
-import type { ToolInfo, ToolStatus } from "$lib/features/toolchain/types";
+import type {
+  ToolCapability,
+  ToolInfo,
+  ToolStatus,
+} from "$lib/features/toolchain/types";
 
 export class ToolchainStore {
   tools: Map<string, ToolInfo> = $state(new Map<string, ToolInfo>());
@@ -19,5 +23,11 @@ export class ToolchainStore {
 
   get_tool(tool_id: string): ToolInfo | undefined {
     return this.tools.get(tool_id);
+  }
+
+  tools_with_capability(cap: ToolCapability["type"]): ToolInfo[] {
+    return [...this.tools.values()].filter((t) =>
+      t.capabilities.some((c) => c.type === cap),
+    );
   }
 }

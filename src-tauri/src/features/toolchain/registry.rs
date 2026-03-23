@@ -1,4 +1,4 @@
-use super::types::{PlatformBinary, ToolSpec};
+use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 
 const RUMDL_VERSION: &str = "0.1.5";
 const IWE_VERSION: &str = "0.69.0";
@@ -58,6 +58,12 @@ pub static TOOLS: &[ToolSpec] = &[
         platform_binaries: RUMDL_BINARIES,
         binary_name: "rumdl",
         default_args: &["server"],
+        capabilities: &[
+            ToolCapability::DocumentSync { debounce_ms: 300, skip_draft: false },
+            ToolCapability::Diagnostics,
+            ToolCapability::Formatting,
+            ToolCapability::CodeActions,
+        ],
     },
     ToolSpec {
         id: "iwes",
@@ -67,6 +73,19 @@ pub static TOOLS: &[ToolSpec] = &[
         platform_binaries: IWE_BINARIES,
         binary_name: "iwes",
         default_args: &[],
+        capabilities: &[
+            ToolCapability::DocumentSync { debounce_ms: 500, skip_draft: true },
+            ToolCapability::Diagnostics,
+            ToolCapability::Completion,
+            ToolCapability::Hover,
+            ToolCapability::References,
+            ToolCapability::Definition,
+            ToolCapability::Rename,
+            ToolCapability::Formatting,
+            ToolCapability::CodeActions,
+            ToolCapability::WorkspaceSymbols,
+            ToolCapability::InlayHints,
+        ],
     },
 ];
 
