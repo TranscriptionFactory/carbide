@@ -637,4 +637,22 @@ describe("PluginService", () => {
     expect(host.unload).toHaveBeenNthCalledWith(2, "error");
     expect(store.plugins.size).toBe(0);
   });
+
+  it("on_plugin_cleanup callbacks fire when a plugin is unloaded", async () => {
+    const { service, store, host } = create_harness();
+    const cleanup = vi.fn();
+    service.on_plugin_cleanup(cleanup);
+
+    const manifest = make_manifest({ id: "p1" });
+    store.plugins.set("p1", {
+      manifest,
+      path: "/vault/.badgerly/plugins/p1",
+      enabled: true,
+      status: "active",
+    });
+
+    await service.unload_plugin("p1");
+
+    expect(cleanup).toHaveBeenCalledWith("p1");
+  });
 });

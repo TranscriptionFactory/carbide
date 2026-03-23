@@ -107,6 +107,10 @@ export function create_app_context(input: {
     stores.plugin_settings,
   );
 
+  plugin_service.on_plugin_cleanup((plugin_id) => {
+    stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
+  });
+
   plugin_service.register_sidebar_view({
     id: "canvases",
     label: "Canvases",

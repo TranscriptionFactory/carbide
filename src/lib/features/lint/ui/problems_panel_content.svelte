@@ -24,6 +24,7 @@
   const active_path = $derived(stores.diagnostics.active_file_path);
   const error_count = $derived(stores.diagnostics.error_count);
   const warning_count = $derived(stores.diagnostics.warning_count);
+  const active_sources = $derived(stores.diagnostics.active_sources);
   const log_entries = $derived(stores.log.entries);
   const log_count = $derived(stores.log.entry_count);
 
@@ -121,6 +122,14 @@
     void navigator.clipboard.writeText(text);
   }
 
+  function source_label(source: DiagnosticSource): string {
+    if (source === "lint") return "Lint";
+    if (source === "iwe") return "IWE";
+    if (source === "ast") return "AST";
+    if (source.startsWith("plugin:")) return source.slice("plugin:".length);
+    return source;
+  }
+
   function format_timestamp(ts: number): string {
     const d = new Date(ts);
     const hh = String(d.getHours()).padStart(2, "0");
@@ -209,8 +218,9 @@
           aria-label="Filter by source"
         >
           <option value="all">All Sources</option>
-          <option value="lint">Lint</option>
-          <option value="iwe">IWE</option>
+          {#each active_sources as source (source)}
+            <option value={source}>{source_label(source)}</option>
+          {/each}
         </select>
       {/if}
       {#if severity_filter !== "log"}

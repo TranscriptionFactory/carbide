@@ -11,6 +11,10 @@ export class DiagnosticsStore {
   >();
   active_file_path = $state<string | null>(null);
 
+  active_sources = $derived.by(() => {
+    return Array.from(this.store.keys());
+  });
+
   active_diagnostics = $derived.by(() => {
     if (!this.active_file_path) return [];
     const result: Diagnostic[] = [];
