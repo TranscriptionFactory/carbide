@@ -40,6 +40,7 @@ import type { EditorService } from "$lib/features/editor";
 import type { SplitViewService } from "$lib/features/split_view";
 import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
+import type { DiagnosticSeverity } from "$lib/features/diagnostics";
 import type { ParseDiagnostic } from "$lib/generated/bindings";
 import {
   to_open_note_state,
@@ -49,6 +50,12 @@ import { create_write_queue } from "$lib/shared/utils/write_queue";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("note_service");
+
+function to_severity(s: string): DiagnosticSeverity {
+  if (s === "error" || s === "warning" || s === "info" || s === "hint")
+    return s;
+  return "error";
+}
 
 type OpenNoteOptions = {
   cleanup_if_missing?: boolean;
@@ -795,7 +802,7 @@ export class NoteService {
         column: d.column,
         end_line: d.end_line,
         end_column: d.end_column,
-        severity: d.severity as "error" | "warning",
+        severity: to_severity(d.severity),
         message: d.message,
         rule_id: d.rule_id,
         fixable: false,
