@@ -10,9 +10,15 @@ use types::*;
 use std::path::Path;
 use tauri::{AppHandle, State};
 
+use super::toolchain;
+
 fn resolve_uri(vault_path: &Path, rel_path: &str) -> String {
     let abs = vault_path.join(rel_path);
     format!("file://{}", abs.display())
+}
+
+async fn resolve_rumdl_binary(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    toolchain::resolver::resolve(app, "rumdl", None).await
 }
 
 #[tauri::command]
@@ -127,6 +133,7 @@ pub async fn lint_close_file(
 #[tauri::command]
 #[specta::specta]
 pub async fn lint_format_file(
+    app: AppHandle,
     state: State<'_, LintState>,
     vault_id: String,
     path: String,
@@ -184,7 +191,8 @@ pub async fn lint_format_file(
                 "LSP returned null/empty for formatting ({}), falling back to CLI",
                 uri
             );
-            match cli::format_file_content(&vault_path, &content, &formatter).await {
+            let binary = resolve_rumdl_binary(&app).await?;
+            match cli::format_file_content(&binary, &vault_path, &content, &formatter).await {
                 Ok(formatted) if formatted != content => {
                     let line_count = content.lines().count().max(1);
                     let last_line_len = content.lines().last().map(|l| l.len()).unwrap_or(0);
@@ -279,7 +287,6 @@ pub async fn lint_fix_all(
             return Ok(None);
         }
 
-        // Need to drop sessions lock before async file read
         let abs_path = abs_path.clone();
         drop(sessions);
 
@@ -341,16 +348,24 @@ fn line_col_to_offset(lines: &[&str], line: usize, col: usize) -> usize {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn lint_check_vault(vault_path: String) -> Result<Vec<FileDiagnostics>, String> {
-    cli::check_vault(Path::new(&vault_path))
+pub async fn lint_check_vault(
+    app: AppHandle,
+    vault_path: String,
+) -> Result<Vec<FileDiagnostics>, String> {
+    let binary = resolve_rumdl_binary(&app).await?;
+    cli::check_vault(&binary, Path::new(&vault_path))
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn lint_format_vault(vault_path: String) -> Result<Vec<String>, String> {
-    cli::format_vault(Path::new(&vault_path))
+pub async fn lint_format_vault(
+    app: AppHandle,
+    vault_path: String,
+) -> Result<Vec<String>, String> {
+    let binary = resolve_rumdl_binary(&app).await?;
+    cli::format_vault(&binary, Path::new(&vault_path))
         .await
         .map_err(|e| e.to_string())
 }
