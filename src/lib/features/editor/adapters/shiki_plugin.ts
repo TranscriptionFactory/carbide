@@ -116,10 +116,9 @@ export function create_shiki_prose_plugin(): Plugin {
           | Partial<ShikiPluginState>
           | undefined;
         const theme = meta?.theme ?? prev_state.theme;
-        const theme_changed =
-          meta?.theme !== undefined && meta.theme !== prev_state.theme;
+        const theme_refreshed = meta?.theme !== undefined;
 
-        if (!tr.docChanged && !theme_changed) {
+        if (!tr.docChanged && !theme_refreshed) {
           return prev_state;
         }
 
@@ -132,7 +131,7 @@ export function create_shiki_prose_plugin(): Plugin {
           };
         }
 
-        if (theme_changed) {
+        if (theme_refreshed) {
           const fp = compute_code_fingerprint(tr.doc);
           return {
             theme,
@@ -164,17 +163,33 @@ export function create_shiki_prose_plugin(): Plugin {
     },
 
     view(editor_view) {
+      let destroyed = false;
+
+      function load_and_apply(theme_name: string) {
+        void load_shiki_theme(theme_name).then((loaded) => {
+          if (!loaded || destroyed) return;
+          const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
+            theme: theme_name,
+          });
+          editor_view.dispatch(tr);
+        });
+      }
+
+      const initial_theme = resolve_theme();
+      const initial_state = shiki_plugin_key.getState(editor_view.state);
+      if (
+        initial_state &&
+        initial_state.decorations === DecorationSet.empty &&
+        initial_theme
+      ) {
+        load_and_apply(initial_theme);
+      }
+
       theme_observer = new MutationObserver(() => {
         const new_theme = resolve_theme();
         const current = shiki_plugin_key.getState(editor_view.state);
         if (current && current.theme !== new_theme) {
-          void load_shiki_theme(new_theme).then((loaded) => {
-            if (!loaded) return;
-            const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
-              theme: new_theme,
-            });
-            editor_view.dispatch(tr);
-          });
+          load_and_apply(new_theme);
         }
       });
 
@@ -185,6 +200,7 @@ export function create_shiki_prose_plugin(): Plugin {
 
       return {
         destroy() {
+          destroyed = true;
           theme_observer?.disconnect();
           theme_observer = null;
         },
