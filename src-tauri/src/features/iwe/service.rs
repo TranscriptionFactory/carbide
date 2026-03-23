@@ -583,10 +583,22 @@ pub async fn iwe_completion(
         .filter_map(|item| {
             let raw_label = item.get("label")?.as_str()?.to_string();
             let title_part = raw_label.trim().trim_start_matches("🔗").trim();
-            let label = if title_part.is_empty() {
-                label_from_insert_text(item)?
+            let raw_insert = item
+                .get("insertText")
+                .and_then(|t| t.as_str())
+                .map(String::from);
+            let (label, insert_text) = if title_part.is_empty() {
+                let fallback = label_from_insert_text(item)?;
+                let fixed_insert = raw_insert.map(|t| {
+                    if t.starts_with("[](") {
+                        format!("[{}]({}",  &fallback, &t[3..])
+                    } else {
+                        t
+                    }
+                });
+                (fallback, fixed_insert)
             } else {
-                raw_label
+                (raw_label, raw_insert)
             };
             Some(IweCompletionItem {
                 label,
@@ -594,10 +606,7 @@ pub async fn iwe_completion(
                     .get("detail")
                     .and_then(|d| d.as_str())
                     .map(String::from),
-                insert_text: item
-                    .get("insertText")
-                    .and_then(|t| t.as_str())
-                    .map(String::from),
+                insert_text,
             })
         })
         .collect();
