@@ -33,19 +33,6 @@ describe("QueryStore saved queries", () => {
     expect(store.saved_queries).toHaveLength(2);
   });
 
-  it("adds a saved query and deduplicates by path", () => {
-    store.set_saved_queries([make_saved({ path: "a.query", name: "a" })]);
-    store.add_saved_query(make_saved({ path: "a.query", name: "a-updated" }));
-    expect(store.saved_queries).toHaveLength(1);
-    expect(store.saved_queries[0]!.name).toBe("a-updated");
-  });
-
-  it("prepends new saved query", () => {
-    store.set_saved_queries([make_saved({ path: "old.query", name: "old" })]);
-    store.add_saved_query(make_saved({ path: "new.query", name: "new" }));
-    expect(store.saved_queries[0]!.path).toBe("new.query");
-  });
-
   it("removes saved query by path", () => {
     store.set_saved_queries([
       make_saved({ path: "a.query" }),

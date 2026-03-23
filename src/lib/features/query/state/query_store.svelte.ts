@@ -43,13 +43,6 @@ export class QueryStore {
     this.saved_queries = queries;
   }
 
-  add_saved_query(query: SavedQueryMeta) {
-    this.saved_queries = [
-      query,
-      ...this.saved_queries.filter((q) => q.path !== query.path),
-    ];
-  }
-
   remove_saved_query(path: string) {
     this.saved_queries = this.saved_queries.filter((q) => q.path !== path);
     if (this.active_saved_path === path) {

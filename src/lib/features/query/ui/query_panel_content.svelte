@@ -77,10 +77,9 @@
     }
   }
 
-  function load_query(path: string) {
-    void action_registry.execute(ACTION_IDS.query_load, path).then(() => {
-      input_value = stores.query.query_text;
-    });
+  async function load_query(path: string) {
+    await action_registry.execute(ACTION_IDS.query_load, path);
+    input_value = stores.query.query_text;
   }
 
   function delete_query(event: MouseEvent, path: string) {

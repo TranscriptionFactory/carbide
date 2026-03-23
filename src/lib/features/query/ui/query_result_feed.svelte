@@ -35,6 +35,7 @@
 
 <div class="QueryResultFeed">
   {#each items as item (item.note.path)}
+    {@const folder = folder_from_path(item.note.path)}
     <button
       type="button"
       class="QueryResultFeed__item"
@@ -42,15 +43,15 @@
     >
       <div class="QueryResultFeed__header">
         <span class="QueryResultFeed__title">{item.note.title}</span>
-        <span class="QueryResultFeed__time"
-          >{format_relative_time(item.note.mtime_ms)}</span
-        >
+        {#if item.note.mtime_ms}
+          <span class="QueryResultFeed__time"
+            >{format_relative_time(item.note.mtime_ms)}</span
+          >
+        {/if}
       </div>
       <div class="QueryResultFeed__details">
-        {#if folder_from_path(item.note.path)}
-          <span class="QueryResultFeed__folder"
-            >{folder_from_path(item.note.path)}</span
-          >
+        {#if folder}
+          <span class="QueryResultFeed__folder">{folder}</span>
         {/if}
         {#if item.note.size_bytes}
           <span>{format_size(item.note.size_bytes)}</span>
