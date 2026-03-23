@@ -121,7 +121,7 @@ async function render_html_export(
 
     try {
       const result = doc.html(container, {
-        width: 170,
+        width: 210,
         windowWidth: 800,
         callback: () => {
           finalize(() => resolve());
@@ -129,6 +129,7 @@ async function render_html_export(
         html2canvas: {
           logging: false,
           onclone: prune_clone_styles,
+          scale: 1,
         },
       });
 
@@ -147,17 +148,20 @@ function create_export_container(title: string, html: string): HTMLDivElement {
   const container = document.createElement("div");
   container.id = "pdf-export-container";
   container.style.cssText = `
-    position: absolute;
-    left: -9999px;
+    position: fixed;
+    left: 0;
     top: 0;
     width: 800px;
-    padding: 40px;
+    padding: 60px;
     font-family: Arial, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     color: #24292f;
     background: #ffffff;
     isolation: isolate;
+    z-index: -9999;
+    pointer-events: none;
+    clip-path: inset(0 0 100% 100%);
   `;
 
   const style = document.createElement("style");
