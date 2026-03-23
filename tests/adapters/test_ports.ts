@@ -139,5 +139,12 @@ export function create_test_ports(): Ports {
     metadata: {
       get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
     },
+    toolchain: {
+      list_tools: () => Promise.resolve([]),
+      install: () => Promise.resolve(),
+      uninstall: () => Promise.resolve(),
+      resolve: () => Promise.resolve(""),
+      subscribe_events: () => () => {},
+    },
   };
 }

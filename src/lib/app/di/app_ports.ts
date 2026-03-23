@@ -20,6 +20,7 @@ import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
 import type { IwePort } from "$lib/features/iwe";
 import type { MetadataPort } from "$lib/features/metadata";
+import type { ToolchainPort } from "$lib/features/toolchain";
 
 export type Ports = {
   vault: VaultPort;
@@ -48,4 +49,5 @@ export type Ports = {
   lint: LintPort;
   iwe: IwePort;
   metadata: MetadataPort;
+  toolchain: ToolchainPort;
 };

@@ -51,6 +51,10 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { IweService, register_iwe_actions } from "$lib/features/iwe";
+import {
+  ToolchainService,
+  register_toolchain_actions,
+} from "$lib/features/toolchain";
 import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
@@ -444,6 +448,11 @@ export function create_app_context(input: {
     stores.vault,
   );
 
+  const toolchain_service = new ToolchainService(
+    input.ports.toolchain,
+    stores.toolchain,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -602,6 +611,11 @@ export function create_app_context(input: {
     ui_store: stores.ui,
   });
 
+  register_toolchain_actions({
+    registry: action_registry,
+    toolchain_service,
+  });
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -657,6 +671,7 @@ export function create_app_context(input: {
       void watcher_service.stop();
       void lint_service.stop();
       void iwe_service.stop();
+      toolchain_service.dispose();
     },
   };
 }

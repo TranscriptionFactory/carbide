@@ -21,6 +21,7 @@ import { TagStore } from "$lib/features/tags";
 import { LintStore, LogStore } from "$lib/features/lint";
 import { IweStore } from "$lib/features/iwe";
 import { MetadataStore } from "$lib/features/metadata";
+import { ToolchainStore } from "$lib/features/toolchain";
 
 export type AppStores = {
   vault: VaultStore;
@@ -48,6 +49,7 @@ export type AppStores = {
   log: LogStore;
   iwe: IweStore;
   metadata: MetadataStore;
+  toolchain: ToolchainStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -77,5 +79,6 @@ export function create_app_stores(): AppStores {
     log: new LogStore(),
     iwe: new IweStore(),
     metadata: new MetadataStore(),
+    toolchain: new ToolchainStore(),
   };
 }

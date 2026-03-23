@@ -32,6 +32,7 @@ import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
 import { create_iwe_tauri_adapter } from "$lib/features/iwe";
 import { create_metadata_tauri_adapter } from "$lib/features/metadata";
+import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -86,5 +87,6 @@ export function create_prod_ports(): Ports {
     lint: create_lint_tauri_adapter(),
     iwe: create_iwe_tauri_adapter(),
     metadata: create_metadata_tauri_adapter(),
+    toolchain: create_toolchain_tauri_adapter(),
   };
 }
