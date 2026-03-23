@@ -7,12 +7,19 @@ import type {
   LintEvent,
   LintTextEdit,
   FileDiagnostics,
+  LintDiagnostic,
 } from "$lib/features/lint/types/lint";
 import type { VaultId, VaultPath } from "$lib/shared/types/ids";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
+import type { Diagnostic } from "$lib/features/diagnostics";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 
 const log = create_logger("lint_service");
+
+function to_diagnostic(d: LintDiagnostic): Diagnostic {
+  return { ...d, source: "lint" };
+}
 
 export class LintService {
   private event_unsubscribe: (() => void) | null = null;
@@ -25,6 +32,7 @@ export class LintService {
     private readonly vault_store: VaultStore,
     private readonly editor_store: EditorStore,
     private readonly op_store: OpStore,
+    private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
   async start(
@@ -94,7 +102,7 @@ export class LintService {
     if (!vault_id || !this.lint_store.is_running) return;
 
     this.file_versions.delete(path);
-    this.lint_store.remove_file(path);
+    this.diagnostics_store?.clear_file("lint", path);
     try {
       await this.port.close_file(vault_id, path);
     } catch (error) {
@@ -149,7 +157,11 @@ export class LintService {
     try {
       const results = await this.port.check_vault(vault.path);
       for (const file of results) {
-        this.lint_store.set_diagnostics(file.path, file.diagnostics);
+        this.diagnostics_store?.push(
+          "lint",
+          file.path,
+          file.diagnostics.map(to_diagnostic),
+        );
       }
       this.op_store.succeed("lint.check_vault");
       return results;
@@ -177,13 +189,17 @@ export class LintService {
   private handle_event(event: LintEvent): void {
     switch (event.type) {
       case "diagnostics_updated": {
-        const active = this.lint_store.active_file_path;
+        const active = this.diagnostics_store?.active_file_path;
         if (active && event.path !== active) {
           log.warn(
             `Diagnostic path mismatch: store="${event.path}" active="${active}"`,
           );
         }
-        this.lint_store.set_diagnostics(event.path, event.diagnostics);
+        this.diagnostics_store?.push(
+          "lint",
+          event.path,
+          event.diagnostics.map(to_diagnostic),
+        );
         break;
       }
       case "status_changed":
@@ -205,6 +221,7 @@ export class LintService {
       this.event_unsubscribe = null;
       unsub();
     }
+    this.diagnostics_store?.clear_source("lint");
     this.lint_store.reset();
     this.file_versions.clear();
   }

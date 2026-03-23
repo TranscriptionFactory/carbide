@@ -4,6 +4,7 @@ import type { LintService } from "$lib/features/lint/application/lint_service";
 import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { NoteId } from "$lib/shared/types/ids";
 import { as_markdown_text } from "$lib/shared/types/ids";
 import { apply_lint_text_edits } from "$lib/features/lint/domain/apply_text_edits";
@@ -15,6 +16,7 @@ export function register_lint_actions(input: {
   editor_store: EditorStore;
   editor_service: EditorService;
   ui_store: UIStore;
+  diagnostics_store: DiagnosticsStore;
 }): void {
   const {
     registry,
@@ -23,6 +25,7 @@ export function register_lint_actions(input: {
     editor_store,
     editor_service,
     ui_store,
+    diagnostics_store,
   } = input;
 
   registry.register({
@@ -31,7 +34,7 @@ export function register_lint_actions(input: {
     shortcut: "CmdOrCtrl+Shift+F",
     when: () => lint_store.is_running,
     execute: async () => {
-      const path = lint_store.active_file_path ?? "";
+      const path = diagnostics_store.active_file_path ?? "";
       if (!path) return;
 
       const open_note = editor_store.open_note;
@@ -68,7 +71,7 @@ export function register_lint_actions(input: {
     label: "Fix All Lint Issues",
     when: () => lint_store.is_running,
     execute: async () => {
-      const path = lint_store.active_file_path ?? "";
+      const path = diagnostics_store.active_file_path ?? "";
       if (!path) return;
 
       const fixed = await lint_service.fix_all(path);
@@ -116,7 +119,7 @@ export function register_lint_actions(input: {
     label: "Next Diagnostic",
     shortcut: "F8",
     when: () =>
-      lint_store.is_running && lint_store.active_diagnostics.length > 0,
+      lint_store.is_running && diagnostics_store.active_diagnostics.length > 0,
     execute: () => {
       ui_store.bottom_panel_tab = "problems";
       ui_store.bottom_panel_open = true;
@@ -128,7 +131,7 @@ export function register_lint_actions(input: {
     label: "Previous Diagnostic",
     shortcut: "Shift+F8",
     when: () =>
-      lint_store.is_running && lint_store.active_diagnostics.length > 0,
+      lint_store.is_running && diagnostics_store.active_diagnostics.length > 0,
     execute: () => {
       ui_store.bottom_panel_tab = "problems";
       ui_store.bottom_panel_open = true;

@@ -7,12 +7,9 @@ import {
   type Diagnostic as CmDiagnostic,
 } from "@codemirror/lint";
 import { keymap } from "@codemirror/view";
-import type {
-  LintDiagnostic,
-  LintSeverity,
-} from "$lib/features/lint/types/lint";
+import type { Diagnostic, DiagnosticSeverity } from "$lib/features/diagnostics";
 
-const SEVERITY_MAP: Record<LintSeverity, CmDiagnostic["severity"]> = {
+const SEVERITY_MAP: Record<DiagnosticSeverity, CmDiagnostic["severity"]> = {
   error: "error",
   warning: "warning",
   info: "info",
@@ -21,7 +18,7 @@ const SEVERITY_MAP: Record<LintSeverity, CmDiagnostic["severity"]> = {
 
 export function map_lint_diagnostics(
   doc: Text,
-  diagnostics: LintDiagnostic[],
+  diagnostics: Diagnostic[],
   on_fix_all?: () => void,
 ): CmDiagnostic[] {
   const result: CmDiagnostic[] = [];
@@ -59,7 +56,7 @@ export function map_lint_diagnostics(
 
 export function update_cm_diagnostics(
   view: EditorView,
-  diagnostics: LintDiagnostic[],
+  diagnostics: Diagnostic[],
   on_fix_all?: () => void,
 ): void {
   const cm_diags = map_lint_diagnostics(

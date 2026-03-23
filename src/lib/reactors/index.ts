@@ -70,6 +70,7 @@ import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type { IweStore, IweService } from "$lib/features/iwe";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 
@@ -108,6 +109,7 @@ export type ReactorContext = {
   lint_store: LintStore;
   lint_service: LintService;
   iwe_store: IweStore;
+  diagnostics_store: DiagnosticsStore;
   iwe_service: IweService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
@@ -297,13 +299,13 @@ export function mount_reactors(context: ReactorContext): () => void {
         is_ready: () => context.lint_store.is_running,
         debounce_ms: 300,
         on_open: (path, content) => {
-          context.lint_store.set_active_file(path);
+          context.diagnostics_store.set_active_file(path);
           void context.lint_service.notify_file_opened(path, content);
         },
         on_change: (path, content) =>
           void context.lint_service.notify_file_changed(path, content),
         on_close: (path) => {
-          context.lint_store.set_active_file(null);
+          context.diagnostics_store.set_active_file(null);
           void context.lint_service.notify_file_closed(path);
         },
       },

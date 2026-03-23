@@ -7,8 +7,8 @@
   const { stores, action_registry } = use_app_context();
 
   const active_tab = $derived(stores.ui.bottom_panel_tab);
-  const error_count = $derived(stores.lint.error_count);
-  const warning_count = $derived(stores.lint.warning_count);
+  const error_count = $derived(stores.diagnostics.error_count);
+  const warning_count = $derived(stores.diagnostics.warning_count);
   const has_issues = $derived(error_count + warning_count > 0);
 
   function set_tab(tab: BottomPanelTab) {

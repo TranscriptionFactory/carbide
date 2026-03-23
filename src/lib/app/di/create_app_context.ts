@@ -404,6 +404,7 @@ export function create_app_context(input: {
     stores.vault,
     stores.editor,
     stores.op,
+    stores.diagnostics,
   );
 
   const iwe_service = new IweService(
@@ -411,7 +412,7 @@ export function create_app_context(input: {
     stores.iwe,
     stores.vault,
     stores.ui,
-    stores.lint,
+    stores.diagnostics,
   );
 
   const graph_service = new GraphService(
@@ -612,6 +613,7 @@ export function create_app_context(input: {
     editor_store: stores.editor,
     editor_service,
     ui_store: stores.ui,
+    diagnostics_store: stores.diagnostics,
   });
 
   register_iwe_actions({
@@ -666,6 +668,7 @@ export function create_app_context(input: {
     lint_service,
     iwe_store: stores.iwe,
     iwe_service,
+    diagnostics_store: stores.diagnostics,
     metadata_store: stores.metadata,
     metadata_service,
     toolchain_service,
