@@ -131,7 +131,11 @@ export function create_test_notes_adapter(): NotesPort {
       const note_path = as_note_path(note_id);
       const mtime = Date.now();
       user_notes.set(note_path, { markdown, mtime_ms: mtime });
-      return Promise.resolve({ new_mtime: mtime, parsed: null });
+      return Promise.resolve({
+        new_mtime: mtime,
+        parsed: null,
+        diagnostics: [],
+      });
     },
 
     create_note(

@@ -61,6 +61,22 @@ impl NoteLinks {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct ParseDiagnostic {
+    pub line: u32,
+    pub column: u32,
+    pub end_line: u32,
+    pub end_column: u32,
+    pub severity: String,
+    pub message: String,
+    pub rule_id: Option<String>,
+}
+
+pub struct ParseResult {
+    pub note: ParsedNote,
+    pub diagnostics: Vec<ParseDiagnostic>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ParsedNote {
     pub frontmatter: Frontmatter,
@@ -172,10 +188,29 @@ pub fn markdown_options() -> Options<'static> {
     options
 }
 
-pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
+pub fn parse_note(markdown: &str, source_path: &str) -> ParseResult {
     let (yaml_slice, body) = frontmatter::split_frontmatter(markdown);
+    let mut diagnostics = Vec::new();
+
     let fm = match yaml_slice {
-        Some(yaml) => frontmatter::parse_yaml_frontmatter(yaml),
+        Some(yaml) => {
+            let (fm, error) = frontmatter::parse_yaml_frontmatter(yaml);
+            if let Some(msg) = error {
+                diagnostics.push(ParseDiagnostic {
+                    line: 2,
+                    column: 1,
+                    end_line: markdown[..markdown.len() - body.len()]
+                        .lines()
+                        .count()
+                        .saturating_sub(1) as u32,
+                    end_column: 1,
+                    severity: "error".to_string(),
+                    message: msg,
+                    rule_id: Some("frontmatter/invalid-yaml".to_string()),
+                });
+            }
+            fm
+        }
         None => Frontmatter::default(),
     };
 
@@ -290,19 +325,22 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParsedNote {
         compute_sections(&headings, all_lines.len(), &all_lines)
     };
 
-    ParsedNote {
-        frontmatter: fm,
-        title,
-        headings,
-        links,
-        tasks,
-        word_count,
-        char_count,
-        heading_count,
-        reading_time_secs,
-        inline_tags,
-        sections,
-        code_blocks,
+    ParseResult {
+        note: ParsedNote {
+            frontmatter: fm,
+            title,
+            headings,
+            links,
+            tasks,
+            word_count,
+            char_count,
+            heading_count,
+            reading_time_secs,
+            inline_tags,
+            sections,
+            code_blocks,
+        },
+        diagnostics,
     }
 }
 
@@ -313,7 +351,7 @@ mod tests {
     #[test]
     fn parse_note_with_frontmatter_and_heading() {
         let md = "---\ntags: [rust]\nstatus: draft\n---\n# My Title\n\nSome body text here.";
-        let parsed = parse_note(md, "notes/test.md");
+        let parsed = parse_note(md, "notes/test.md").note;
 
         assert_eq!(parsed.frontmatter.tags, vec!["rust"]);
         assert_eq!(
@@ -329,7 +367,7 @@ mod tests {
     #[test]
     fn parse_note_no_frontmatter() {
         let md = "# Title\n\nBody content.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert!(parsed.frontmatter.tags.is_empty());
         assert!(parsed.frontmatter.properties.is_empty());
@@ -340,7 +378,7 @@ mod tests {
     #[test]
     fn parse_note_multiple_headings() {
         let md = "# H1\n## H2\n### H3\n## Another H2";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.heading_count, 4);
         assert_eq!(parsed.title, Some("H1".to_string()));
@@ -351,7 +389,7 @@ mod tests {
     #[test]
     fn parse_note_title_fallback_when_no_h1() {
         let md = "## Only H2\n\nBody text.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.title, None);
         assert_eq!(parsed.heading_count, 1);
@@ -360,7 +398,7 @@ mod tests {
     #[test]
     fn parse_note_wiki_links() {
         let md = "See [[Other Note]] and [[folder/Deep Note]].";
-        let parsed = parse_note(md, "notes/test.md");
+        let parsed = parse_note(md, "notes/test.md").note;
 
         let paths: Vec<&str> = parsed
             .links
@@ -375,7 +413,7 @@ mod tests {
     #[test]
     fn parse_note_markdown_links() {
         let md = "See [link](./other.md) and [ext](https://example.com).";
-        let parsed = parse_note(md, "notes/test.md");
+        let parsed = parse_note(md, "notes/test.md").note;
 
         let paths: Vec<&str> = parsed
             .links
@@ -391,7 +429,7 @@ mod tests {
     #[test]
     fn parse_note_tasks() {
         let md = "# Tasks\n- [ ] Todo item\n- [x] Done item\n- [/] In progress";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.tasks.len(), 3);
     }
@@ -399,7 +437,7 @@ mod tests {
     #[test]
     fn parse_note_stats() {
         let md = "---\ntitle: Test\n---\nOne two three four five.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.word_count, 5);
         assert!(parsed.char_count > 0);
@@ -409,7 +447,7 @@ mod tests {
 
     #[test]
     fn parse_note_empty() {
-        let parsed = parse_note("", "test.md");
+        let parsed = parse_note("", "test.md").note;
 
         assert!(parsed.frontmatter.tags.is_empty());
         assert_eq!(parsed.title, None);
@@ -421,7 +459,7 @@ mod tests {
     #[test]
     fn parse_note_embedded_wikilink_excluded() {
         let md = "![[embedded image]] and [[normal link]]";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.links.wiki_targets.len(), 1);
         assert_eq!(parsed.links.wiki_targets[0].target_path, "normal link.md");
@@ -430,7 +468,7 @@ mod tests {
     #[test]
     fn all_internal_targets_combines_both() {
         let md = "[[wiki]] and [md](./other.md)";
-        let parsed = parse_note(md, "notes/test.md");
+        let parsed = parse_note(md, "notes/test.md").note;
 
         let all = parsed.links.all_internal_targets();
         assert!(all.contains(&"wiki.md".to_string()));
@@ -440,7 +478,7 @@ mod tests {
     #[test]
     fn wiki_link_with_heading_anchor() {
         let md = "See [[Other Note#Design]] here.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.links.wiki_targets.len(), 1);
         assert_eq!(parsed.links.wiki_targets[0].target_path, "Other Note.md");
@@ -453,7 +491,7 @@ mod tests {
     #[test]
     fn markdown_link_with_heading_anchor() {
         let md = "See [link](./other.md#setup) here.";
-        let parsed = parse_note(md, "notes/test.md");
+        let parsed = parse_note(md, "notes/test.md").note;
 
         assert_eq!(parsed.links.markdown_targets.len(), 1);
         assert_eq!(
@@ -469,7 +507,7 @@ mod tests {
     #[test]
     fn link_without_anchor_has_none() {
         let md = "See [[Plain Note]] here.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.links.wiki_targets.len(), 1);
         assert!(parsed.links.wiki_targets[0].anchor.is_none());
@@ -478,7 +516,7 @@ mod tests {
     #[test]
     fn link_captures_source_line() {
         let md = "---\ntitle: Test\n---\nLine one.\n\n[[Target#heading]]";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.links.wiki_targets.len(), 1);
         assert!(parsed.links.wiki_targets[0].line > 1);
@@ -487,7 +525,7 @@ mod tests {
     #[test]
     fn inline_tags_extracted_from_body() {
         let md = "Some text #status/active and #project/carbide here.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.inline_tags.len(), 2);
         assert_eq!(parsed.inline_tags[0].tag, "status/active");
@@ -497,7 +535,7 @@ mod tests {
     #[test]
     fn inline_tags_not_extracted_from_headings() {
         let md = "# Heading with #tag\n\nBody #real-tag here.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.inline_tags.len(), 1);
         assert_eq!(parsed.inline_tags[0].tag, "real-tag");
@@ -506,7 +544,7 @@ mod tests {
     #[test]
     fn inline_tags_not_extracted_from_code_blocks() {
         let md = "Text #visible\n\n```\n#not-a-tag\n```\n\nMore #also-visible.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
         assert!(tags.contains(&"visible"));
@@ -517,7 +555,7 @@ mod tests {
     #[test]
     fn inline_tags_require_word_boundary() {
         let md = "email@#notag and foo#bar should not match, but #real should.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.inline_tags.len(), 1);
         assert_eq!(parsed.inline_tags[0].tag, "real");
@@ -526,7 +564,7 @@ mod tests {
     #[test]
     fn inline_tags_hierarchical() {
         let md = "#top-level and #nested/sub/deep";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.inline_tags.len(), 2);
         assert_eq!(parsed.inline_tags[0].tag, "top-level");
@@ -536,7 +574,7 @@ mod tests {
     #[test]
     fn inline_tags_reject_numeric_only() {
         let md = "Step #2 and item #123 should not match, but #v2 and #_internal should.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
         assert!(!tags.contains(&"2"));
@@ -548,7 +586,7 @@ mod tests {
     #[test]
     fn inline_tags_reject_digit_leading() {
         let md = "Plan #2024-roadmap should not match, but #roadmap-2024 should.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         let tags: Vec<&str> = parsed.inline_tags.iter().map(|t| t.tag.as_str()).collect();
         assert!(!tags.contains(&"2024-roadmap"));
@@ -558,7 +596,7 @@ mod tests {
     #[test]
     fn sections_computed_from_headings() {
         let md = "# H1\nSome text\n## H2a\nMore text here\n## H2b\nFinal text";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.sections.len(), 3);
         assert_eq!(parsed.sections[0].heading_id, "h1");
@@ -574,14 +612,14 @@ mod tests {
     #[test]
     fn sections_empty_when_no_headings() {
         let md = "Just body text, no headings.";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
         assert!(parsed.sections.is_empty());
     }
 
     #[test]
     fn code_blocks_extracted() {
         let md = "# Title\n\n```rust\nfn main() {}\n```\n\n```mermaid\ngraph TD\n  A --> B\n```";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.code_blocks.len(), 2);
         assert_eq!(parsed.code_blocks[0].language, Some("rust".to_string()));
@@ -591,7 +629,7 @@ mod tests {
     #[test]
     fn code_blocks_no_language() {
         let md = "```\nplain code\n```";
-        let parsed = parse_note(md, "test.md");
+        let parsed = parse_note(md, "test.md").note;
 
         assert_eq!(parsed.code_blocks.len(), 1);
         assert_eq!(parsed.code_blocks[0].language, None);
@@ -603,5 +641,52 @@ mod tests {
         assert_eq!(slugify("My  Title!!"), "my-title");
         assert_eq!(slugify("kebab-case"), "kebab-case");
         assert_eq!(slugify("with_underscores"), "with-underscores");
+    }
+
+    #[test]
+    fn parse_valid_frontmatter_no_diagnostics() {
+        let md = "---\ntags: [rust]\nstatus: draft\n---\n# Title\n\nBody.";
+        let result = parse_note(md, "test.md");
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.note.title, Some("Title".to_string()));
+    }
+
+    #[test]
+    fn parse_invalid_yaml_produces_diagnostic() {
+        let md = "---\n: invalid yaml [\n---\n# Title\n\nBody.";
+        let result = parse_note(md, "test.md");
+        assert_eq!(result.diagnostics.len(), 1);
+        assert_eq!(result.diagnostics[0].severity, "error");
+        assert_eq!(
+            result.diagnostics[0].rule_id.as_deref(),
+            Some("frontmatter/invalid-yaml")
+        );
+        assert!(result.diagnostics[0].line >= 2);
+        // note still parses with default frontmatter
+        assert!(result.note.frontmatter.tags.is_empty());
+        assert_eq!(result.note.title, Some("Title".to_string()));
+    }
+
+    #[test]
+    fn parse_no_frontmatter_no_diagnostics() {
+        let md = "# Title\n\nJust body text.";
+        let result = parse_note(md, "test.md");
+        assert!(result.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn parse_empty_frontmatter_no_diagnostics() {
+        let md = "---\n---\nBody.";
+        let result = parse_note(md, "test.md");
+        assert!(result.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn parse_unclosed_bracket_yaml_produces_diagnostic() {
+        let md = "---\ntags: [unclosed\n---\n# Title";
+        let result = parse_note(md, "test.md");
+        assert_eq!(result.diagnostics.len(), 1);
+        assert_eq!(result.diagnostics[0].severity, "error");
+        assert!(result.diagnostics[0].message.len() > 0);
     }
 }

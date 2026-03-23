@@ -650,13 +650,13 @@ pub(crate) fn upsert_note_parsed_inner(
 }
 
 pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
-    let parsed = markdown_doc::parse_note(body, &meta.path);
-    upsert_note_parsed(conn, meta, body, &parsed)
+    let result = markdown_doc::parse_note(body, &meta.path);
+    upsert_note_parsed(conn, meta, body, &result.note)
 }
 
 fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
-    let parsed = markdown_doc::parse_note(body, &meta.path);
-    upsert_note_parsed_inner(conn, meta, body, &parsed)
+    let result = markdown_doc::parse_note(body, &meta.path);
+    upsert_note_parsed_inner(conn, meta, body, &result.note)
 }
 
 pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
@@ -1032,10 +1032,10 @@ fn index_single_file(
             .unwrap_or_default();
         pending_links.push((meta.path.clone(), targets));
     } else if abs.extension().and_then(|x| x.to_str()) == Some("md") {
-        let parsed = markdown_doc::parse_note(raw, &meta.path);
-        meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
-        upsert_note_parsed_inner(conn, meta, raw, &parsed)?;
-        let targets = parsed.links.all_internal_targets();
+        let result = markdown_doc::parse_note(raw, &meta.path);
+        meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
+        upsert_note_parsed_inner(conn, meta, raw, &result.note)?;
+        let targets = result.note.links.all_internal_targets();
         pending_links.push((meta.path.clone(), targets));
     } else {
         upsert_note_inner(conn, meta, "")?;

@@ -39,6 +39,8 @@ import {
 import type { EditorService } from "$lib/features/editor";
 import type { SplitViewService } from "$lib/features/split_view";
 import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
+import type { ParseDiagnostic } from "$lib/generated/bindings";
 import {
   to_open_note_state,
   type PastedImagePayload,
@@ -95,6 +97,7 @@ export class NoteService {
     private readonly on_file_written?: (path: string) => void,
     private readonly split_view_service?: SplitViewService,
     private readonly parsed_note_cache?: ParsedNoteCache,
+    private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
   async list_all_folders(vault_id: VaultId): Promise<string[]> {
@@ -759,6 +762,7 @@ export class NoteService {
       if (result.parsed) {
         this.parsed_note_cache?.set(open_note.meta.id, result.parsed);
       }
+      this.push_ast_diagnostics(open_note.meta.id, result.diagnostics);
     } else {
       new_mtime = await this.notes_port.write_note(
         vault_id,
@@ -771,6 +775,32 @@ export class NoteService {
     this.on_file_written?.(open_note.meta.id);
     this.propagate_mtime_to_other_pane(session, open_note.meta.id, new_mtime);
     this.sync_split_view_session(session);
+  }
+
+  private push_ast_diagnostics(
+    note_id: string,
+    parse_diagnostics: ParseDiagnostic[],
+  ) {
+    if (!this.diagnostics_store) return;
+    if (parse_diagnostics.length === 0) {
+      this.diagnostics_store.clear_file("ast", note_id);
+      return;
+    }
+    this.diagnostics_store.push(
+      "ast",
+      note_id,
+      parse_diagnostics.map((d) => ({
+        source: "ast" as const,
+        line: d.line,
+        column: d.column,
+        end_line: d.end_line,
+        end_column: d.end_column,
+        severity: d.severity as "error" | "warning",
+        message: d.message,
+        rule_id: d.rule_id,
+        fixable: false,
+      })),
+    );
   }
 
   private propagate_mtime_to_other_pane(

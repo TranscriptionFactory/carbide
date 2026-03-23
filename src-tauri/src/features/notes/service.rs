@@ -368,6 +368,7 @@ pub fn write_note(
 pub struct WriteAndIndexResult {
     pub new_mtime: i64,
     pub parsed: Option<crate::shared::markdown_doc::ParsedNoteDto>,
+    pub diagnostics: Vec<crate::shared::markdown_doc::ParseDiagnostic>,
 }
 
 #[tauri::command]
@@ -414,7 +415,7 @@ pub fn write_and_index_note(
 
     let (new_mtime, _) = file_meta(&abs)?;
 
-    let parsed = crate::features::search::service::index_upsert_note_with_content(
+    let result = crate::features::search::service::index_upsert_note_with_content(
         &app,
         &args.vault_id,
         &args.note_id,
@@ -423,7 +424,8 @@ pub fn write_and_index_note(
 
     Ok(WriteAndIndexResult {
         new_mtime,
-        parsed: Some(parsed.into()),
+        parsed: Some(result.note.into()),
+        diagnostics: result.diagnostics,
     })
 }
 

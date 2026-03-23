@@ -387,6 +387,7 @@ export function create_app_context(input: {
     },
     split_view_service,
     stores.parsed_note_cache,
+    stores.diagnostics,
   );
 
   const tab_service = new TabService(

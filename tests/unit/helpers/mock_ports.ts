@@ -208,7 +208,11 @@ export function create_mock_notes_port(): NotesPort & {
         entry.expected_mtime_ms = expected_mtime_ms;
       }
       mock._calls.write_note.push(entry);
-      return Promise.resolve({ new_mtime: Date.now(), parsed: null });
+      return Promise.resolve({
+        new_mtime: Date.now(),
+        parsed: null,
+        diagnostics: [],
+      });
     },
     create_note(
       vault_id: VaultId,
