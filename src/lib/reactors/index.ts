@@ -39,6 +39,7 @@ import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
+import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -119,21 +120,11 @@ export type ReactorContext = {
 export function mount_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
-  let last_index_status: string = "idle";
   const unmounts = [
-    $effect.root(() => {
-      $effect(() => {
-        const status = context.search_store.index_progress.status;
-        const indexed = context.search_store.index_progress.indexed;
-        if (status === "completed" && last_index_status !== "completed") {
-          context.plugin_service.emit_plugin_event("note-indexed", {
-            indexed,
-          });
-        }
-        last_index_status = status;
-      });
-      return () => {};
-    }),
+    create_plugin_note_indexed_reactor(
+      context.search_store,
+      context.plugin_service,
+    ),
     create_editor_sync_reactor(context.editor_store, context.editor_service),
     create_editor_appearance_reactor(context.ui_store),
     create_editor_width_reactor(context.ui_store),

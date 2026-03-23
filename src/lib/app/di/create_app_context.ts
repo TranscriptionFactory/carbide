@@ -78,6 +78,11 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
+  function require_vault() {
+    const vault = stores.vault.vault;
+    if (!vault) throw new Error("No active vault");
+    return vault;
+  }
   set_log_entry_callback((entry) => stores.log.push(entry));
   const action_registry = new ActionRegistry();
   const workspace_reconcile = create_workspace_reconcile(
@@ -556,8 +561,7 @@ export function create_app_context(input: {
     },
     search: {
       async fts(query, limit) {
-        const vault = stores.vault.vault;
-        if (!vault) throw new Error("No active vault");
+        const vault = require_vault();
         const hits = await input.ports.search.search_notes(
           vault.id,
           { raw: query, text: query, scope: "content", domain: "notes" },
@@ -566,32 +570,23 @@ export function create_app_context(input: {
         return hits.map((h) => ({ path: h.note.path, score: h.score }));
       },
       async tags() {
-        const vault = stores.vault.vault;
-        if (!vault) throw new Error("No active vault");
-        return input.ports.tag.list_all_tags(vault.id);
+        return input.ports.tag.list_all_tags(require_vault().id);
       },
       async notes_for_tag(tag) {
-        const vault = stores.vault.vault;
-        if (!vault) throw new Error("No active vault");
-        return input.ports.tag.get_notes_for_tag(vault.id, tag);
+        return input.ports.tag.get_notes_for_tag(require_vault().id, tag);
       },
     },
     diagnostics: {
       push(source_id, file_path, diagnostics) {
-        stores.diagnostics.push(
-          source_id as DiagnosticSource,
-          file_path,
-          diagnostics,
-        );
+        const source = source_id as DiagnosticSource;
+        stores.diagnostics.push(source, file_path, diagnostics);
       },
       clear(source_id, file_path) {
+        const source = source_id as DiagnosticSource;
         if (file_path) {
-          stores.diagnostics.clear_file(
-            source_id as DiagnosticSource,
-            file_path,
-          );
+          stores.diagnostics.clear_file(source, file_path);
         } else {
-          stores.diagnostics.clear_source(source_id as DiagnosticSource);
+          stores.diagnostics.clear_source(source);
         }
       },
     },
