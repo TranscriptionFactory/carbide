@@ -25,11 +25,11 @@ pub async fn toolchain_list_tools(
     app: AppHandle,
     state: State<'_, ToolchainState>,
 ) -> Result<Vec<ToolInfo>, String> {
-    let statuses = state.statuses.lock().await;
+    let cached: HashMap<String, ToolStatus> = state.statuses.lock().await.clone();
     let mut tools = Vec::new();
 
     for spec in registry::TOOLS {
-        let status = match statuses.get(spec.id) {
+        let status = match cached.get(spec.id) {
             Some(s) => s.clone(),
             None => {
                 match resolver::resolve(&app, spec.id, None).await {

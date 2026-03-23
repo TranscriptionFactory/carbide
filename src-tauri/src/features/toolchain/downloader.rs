@@ -59,6 +59,11 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
 
     if platform.sha256 != "TODO" {
         verify_sha256(&bytes, platform.sha256)?;
+    } else {
+        log::warn!(
+            "SHA-256 verification skipped for {} — hash not yet populated",
+            spec.display_name
+        );
     }
 
     emit_progress(app, tool_id, 75.0);

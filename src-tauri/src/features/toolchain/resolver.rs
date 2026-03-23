@@ -61,12 +61,18 @@ pub fn downloaded_path(
 }
 
 fn which(name: &str) -> Result<PathBuf, String> {
-    let output = std::process::Command::new("which")
+    let cmd = if cfg!(target_os = "windows") {
+        "where"
+    } else {
+        "which"
+    };
+    let output = std::process::Command::new(cmd)
         .arg(name)
         .output()
         .map_err(|e| e.to_string())?;
     if output.status.success() {
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let path = stdout.lines().next().unwrap_or("").trim().to_string();
         if !path.is_empty() {
             return Ok(PathBuf::from(path));
         }
