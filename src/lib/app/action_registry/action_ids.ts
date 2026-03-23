@@ -290,6 +290,11 @@ export const ACTION_IDS = {
   iwe_toggle_results: "iwe.toggle_results",
   iwe_document_symbols: "iwe.document_symbols",
   iwe_open_config: "iwe.open_config",
+
+  query_execute: "query.execute",
+  query_clear: "query.clear",
+  query_toggle_panel: "query.toggle_panel",
+  query_open: "query.open",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

@@ -55,6 +55,7 @@ import {
   ToolchainService,
   register_toolchain_actions,
 } from "$lib/features/toolchain";
+import { QueryService, register_query_actions } from "$lib/features/query";
 import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
@@ -453,6 +454,17 @@ export function create_app_context(input: {
     stores.toolchain,
   );
 
+  const query_service = new QueryService(
+    {
+      search: input.ports.search,
+      index: input.ports.index,
+      tags: input.ports.tag,
+      bases: input.ports.bases,
+    },
+    stores.query,
+    stores.vault,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -616,6 +628,8 @@ export function create_app_context(input: {
     toolchain_service,
   });
 
+  register_query_actions(action_registry, query_service, stores.ui);
+
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -654,6 +668,7 @@ export function create_app_context(input: {
     iwe_service,
     metadata_store: stores.metadata,
     metadata_service,
+    toolchain_service,
   });
 
   return {

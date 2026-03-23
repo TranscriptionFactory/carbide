@@ -300,6 +300,8 @@
         event.preventDefault();
         if (visible_items[selected_index]) {
           on_confirm(visible_items[selected_index]);
+        } else if (query.trim().startsWith("?")) {
+          on_confirm(null as unknown as OmnibarItem);
         }
         break;
     }

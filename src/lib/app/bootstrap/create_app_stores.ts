@@ -22,6 +22,7 @@ import { LintStore, LogStore } from "$lib/features/lint";
 import { IweStore } from "$lib/features/iwe";
 import { MetadataStore } from "$lib/features/metadata";
 import { ToolchainStore } from "$lib/features/toolchain";
+import { QueryStore } from "$lib/features/query";
 
 export type AppStores = {
   vault: VaultStore;
@@ -50,6 +51,7 @@ export type AppStores = {
   iwe: IweStore;
   metadata: MetadataStore;
   toolchain: ToolchainStore;
+  query: QueryStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -80,5 +82,6 @@ export function create_app_stores(): AppStores {
     iwe: new IweStore(),
     metadata: new MetadataStore(),
     toolchain: new ToolchainStore(),
+    query: new QueryStore(),
   };
 }

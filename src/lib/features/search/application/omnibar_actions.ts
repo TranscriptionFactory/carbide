@@ -54,6 +54,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   iwe_document_symbols: ACTION_IDS.iwe_document_symbols,
   iwe_open_config: ACTION_IDS.iwe_open_config,
   graph_load_hierarchy: ACTION_IDS.graph_load_hierarchy,
+  query_open: ACTION_IDS.query_open,
+  query_toggle_panel: ACTION_IDS.query_toggle_panel,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,
@@ -359,6 +361,12 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
         return;
       }
 
+      if (normalized_query.trim().startsWith("?")) {
+        set_omnibar_searching(input, false);
+        stores.search.clear_omnibar();
+        return;
+      }
+
       set_omnibar_searching(input, true);
       const scope = stores.ui.omnibar.scope;
       await search_omnibar_query(input, normalized_query, scope);
@@ -404,6 +412,16 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.omnibar_confirm_item,
     label: "Confirm Omnibar Item",
     execute: async (arg: unknown) => {
+      const current_query = stores.ui.omnibar.query.trim();
+      if (current_query.startsWith("?")) {
+        close_omnibar(input);
+        const query_text = current_query.slice(1).trim();
+        if (query_text) {
+          await registry.execute(ACTION_IDS.query_open);
+          await registry.execute(ACTION_IDS.query_execute, query_text);
+        }
+        return;
+      }
       const item = arg as OmnibarItem | undefined;
       if (!item) return;
       await confirm_item(input, item);
