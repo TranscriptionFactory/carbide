@@ -467,6 +467,7 @@ export function create_prosemirror_editor_port(args?: {
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
+      let saved_markdown = current_markdown;
       let current_is_dirty = false;
       let view: EditorView | null = null;
       let outline_timer: ReturnType<typeof setTimeout> | undefined;
@@ -478,6 +479,7 @@ export function create_prosemirror_editor_port(args?: {
         state: EditorState;
         note_path: string;
         markdown: string;
+        saved_markdown: string;
         is_dirty: boolean;
       };
 
@@ -682,10 +684,7 @@ export function create_prosemirror_editor_port(args?: {
 
       plugins.push(
         create_dirty_state_prose_plugin({
-          on_dirty_state_change: (is_dirty) => {
-            current_is_dirty = is_dirty;
-            on_dirty_state_change(is_dirty);
-          },
+          on_dirty_state_change: () => {},
         }),
       );
 
@@ -694,6 +693,13 @@ export function create_prosemirror_editor_port(args?: {
           const new_md = normalize_markdown(serialize_markdown(doc));
           if (new_md === current_markdown) return;
           current_markdown = new_md;
+
+          const now_dirty = current_markdown !== saved_markdown;
+          if (now_dirty !== current_is_dirty) {
+            current_is_dirty = now_dirty;
+            on_dirty_state_change(current_is_dirty);
+          }
+
           on_markdown_change(new_md);
 
           if (on_outline_change) {
@@ -849,23 +855,18 @@ export function create_prosemirror_editor_port(args?: {
       function get_buffer_entry_from_view_state(
         state: EditorState,
       ): BufferEntry {
-        const dirty_state = dirty_state_plugin_key.getState(state) as
-          | { is_dirty?: boolean }
-          | undefined;
-
         return {
           state,
           note_path: current_note_path,
           markdown: current_markdown,
-          is_dirty: Boolean(dirty_state?.is_dirty ?? current_is_dirty),
+          saved_markdown,
+          is_dirty: current_is_dirty,
         };
       }
 
-      function sync_runtime_dirty_from_state(state: EditorState) {
-        const dirty_state = dirty_state_plugin_key.getState(state) as
-          | { is_dirty?: boolean }
-          | undefined;
-        current_is_dirty = Boolean(dirty_state?.is_dirty ?? false);
+      function sync_runtime_dirty_from_buffer(entry: BufferEntry) {
+        current_is_dirty = entry.is_dirty;
+        saved_markdown = entry.saved_markdown;
       }
 
       function save_current_buffer() {
@@ -901,6 +902,8 @@ export function create_prosemirror_editor_port(args?: {
           action: "mark_clean",
         });
         v.dispatch(clean_tr);
+        saved_markdown = current_markdown;
+        current_is_dirty = false;
       }
 
       if (!is_large_note) {
@@ -908,6 +911,9 @@ export function create_prosemirror_editor_port(args?: {
           dispatch_full_scan(v);
         });
       }
+
+      saved_markdown = current_markdown;
+      current_is_dirty = false;
 
       save_current_buffer();
       emit_outline_headings();
@@ -918,6 +924,11 @@ export function create_prosemirror_editor_port(args?: {
           tr.setMeta(dirty_state_plugin_key, { action: "mark_clean" });
           v.dispatch(tr);
         });
+        saved_markdown = current_markdown;
+        if (current_is_dirty) {
+          current_is_dirty = false;
+          on_dirty_state_change(false);
+        }
       }
 
       const handle = {
@@ -1038,6 +1049,7 @@ export function create_prosemirror_editor_port(args?: {
           if (saved_entry) {
             v.updateState(saved_entry.state);
             current_markdown = saved_entry.markdown;
+            sync_runtime_dirty_from_buffer(saved_entry);
             is_large_note = is_large_markdown(current_markdown);
           } else {
             const normalized_initial_markdown = normalize_markdown(
@@ -1085,9 +1097,10 @@ export function create_prosemirror_editor_port(args?: {
           if ((restore_policy === "fresh" || !saved_entry) && !is_large_note) {
             dispatch_full_scan(v);
             dispatch_mark_clean(v);
+          } else if (!saved_entry) {
+            saved_markdown = current_markdown;
+            current_is_dirty = false;
           }
-
-          sync_runtime_dirty_from_state(v.state);
 
           buffer_map.set(
             current_note_path,
