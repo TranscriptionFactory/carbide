@@ -4,6 +4,7 @@ export type LanguageEntry = {
 };
 
 export const POPULAR_LANGUAGES: LanguageEntry[] = [
+  { id: "", label: "Plain Text" },
   { id: "javascript", label: "JavaScript" },
   { id: "typescript", label: "TypeScript" },
   { id: "python", label: "Python" },

@@ -163,9 +163,7 @@ pub async fn iwe_start(
     binary_path: String,
 ) -> Result<IweStartResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
-    let root_uri = tauri::Url::from_file_path(&vault_path)
-        .map_err(|_| "invalid vault path for URI".to_string())?
-        .to_string();
+    let root_uri = format!("file://{}", vault_path.display());
     let resolved_binary = if binary_path.is_empty() {
         "iwes".to_string()
     } else {

@@ -115,10 +115,7 @@ import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import { as_asset_path } from "$lib/shared/types/ids";
 import { resolve_relative_asset_path } from "$lib/features/note";
-import {
-  normalize_markdown_line_breaks,
-  prepare_markdown_line_breaks_for_visual_editor,
-} from "$lib/features/editor/domain/markdown_line_breaks";
+import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import {
   prose_cursor_to_md_offset,
   md_offset_to_prose_pos,
@@ -493,7 +490,7 @@ export function create_prosemirror_editor_port(args?: {
       }
 
       function prepare_markdown_for_editor(raw: string): string {
-        return prepare_markdown_line_breaks_for_visual_editor(raw);
+        return normalize_markdown_line_breaks(raw);
       }
 
       const plugins: Plugin[] = [];
