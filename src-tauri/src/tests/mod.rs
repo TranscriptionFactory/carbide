@@ -13,6 +13,9 @@ mod vault_settings_service_parse;
 #[path = "../../tests/link_rewrite.rs"]
 mod link_rewrite;
 
+#[path = "../../tests/link_validation.rs"]
+mod link_validation;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};

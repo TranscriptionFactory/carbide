@@ -514,12 +514,37 @@ fn handle_upsert_with_content(
 ) -> Result<crate::shared::markdown_doc::ParseResult, String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let result = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
+    let mut result = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
     meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
 
     search_db::upsert_note_parsed(conn, &meta, markdown, &result.note)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
     let _ = vector_db::remove_embedding(conn, note_id);
+
+    let all_links = result
+        .note
+        .links
+        .wiki_targets
+        .iter()
+        .chain(result.note.links.markdown_targets.iter());
+    for link in all_links {
+        if link.target_path.is_empty() || link.target_path == meta.path {
+            continue;
+        }
+        if !notes_cache.contains_key(&link.target_path) {
+            result
+                .diagnostics
+                .push(crate::shared::markdown_doc::ParseDiagnostic {
+                    line: link.line as u32,
+                    column: 0,
+                    end_line: link.line as u32,
+                    end_column: 0,
+                    severity: "warning".to_string(),
+                    message: format!("Unresolved link: {}", link.target_path),
+                    rule_id: Some("link/unresolved".to_string()),
+                });
+        }
+    }
 
     let targets = result.note.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
