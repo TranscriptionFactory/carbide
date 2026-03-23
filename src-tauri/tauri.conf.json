@@ -4,15 +4,14 @@
   "version": "1.1.0",
   "identifier": "com.badgerly.desktop",
   "build": {
-    "beforeDevCommand": "pnpm sidecar && pnpm dev",
-    "beforeBuildCommand": "pnpm sidecar && svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/rumdl"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
