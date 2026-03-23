@@ -33,7 +33,8 @@ import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_m
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
-import { create_iwe_document_sync_reactor } from "$lib/reactors/iwe_document_sync.reactor.svelte";
+import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
+import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
@@ -70,6 +71,7 @@ import type { LintStore, LintService } from "$lib/features/lint";
 import type { IweStore, IweService } from "$lib/features/iwe";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { PluginService } from "$lib/features/plugin";
+import type { ToolchainService } from "$lib/features/toolchain";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -109,6 +111,7 @@ export type ReactorContext = {
   iwe_service: IweService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
+  toolchain_service: ToolchainService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -278,10 +281,36 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.plugin_service,
     ),
     create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
-    create_iwe_document_sync_reactor(
-      context.editor_store,
-      context.iwe_store,
-      context.iwe_service,
+    create_lsp_document_sync_reactor(context.editor_store, [
+      {
+        is_ready: () => context.iwe_store.status === "running",
+        debounce_ms: 500,
+        skip_draft: true,
+        on_open: (path, content) =>
+          void context.iwe_service.did_open(path, content),
+        on_change: (path, content) =>
+          void context.iwe_service.did_change(path, content),
+        on_save: (path, content) =>
+          void context.iwe_service.did_save(path, content),
+      },
+      {
+        is_ready: () => context.lint_store.is_running,
+        debounce_ms: 300,
+        on_open: (path, content) => {
+          context.lint_store.set_active_file(path);
+          void context.lint_service.notify_file_opened(path, content);
+        },
+        on_change: (path, content) =>
+          void context.lint_service.notify_file_changed(path, content),
+        on_close: (path) => {
+          context.lint_store.set_active_file(null);
+          void context.lint_service.notify_file_closed(path);
+        },
+      },
+    ]),
+    create_toolchain_lifecycle_reactor(
+      context.vault_store,
+      context.toolchain_service,
     ),
   ];
 
