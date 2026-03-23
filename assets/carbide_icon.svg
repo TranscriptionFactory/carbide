@@ -1,27 +1,27 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="40" fill="#0a001a" />
+  
   <defs>
-    <!-- Background depth -->
-    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1a0033" />
-      <stop offset="100%" stop-color="#05000a" />
-    </radialGradient>
-    
-    <!-- Bold Flame Gradient -->
-    <radialGradient id="flameGrad" cx="50%" cy="75%" r="65%" fx="50%" fy="85%">
+    <!-- Vibrant Blue-Cyan-Purple Gradient -->
+    <linearGradient id="flameGrad" x1="0" y1="1" x2="0" y2="0">
       <stop offset="0%" stop-color="#00ffff" />
-      <stop offset="25%" stop-color="#0088ff" />
-      <stop offset="60%" stop-color="#8000ff" />
-      <stop offset="100%" stop-color="#400080" />
-    </radialGradient>
+      <stop offset="30%" stop-color="#0066ff" />
+      <stop offset="70%" stop-color="#8000ff" />
+      <stop offset="100%" stop-color="#ff00ff" />
+    </linearGradient>
 
-    <!-- Outer Glow -->
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <!-- Strong Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="15" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
     </filter>
 
-    <!-- Symbol Glow -->
-    <filter id="symbolGlow" x="-20%" y="-20%" width="140%" height="140%">
+    <!-- Symbol Highlight -->
+    <filter id="whiteGlow">
       <feGaussianBlur stdDeviation="5" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
@@ -30,42 +30,39 @@
     </filter>
   </defs>
 
-  <!-- Dark Background -->
-  <rect width="512" height="512" rx="40" fill="url(#bgGrad)" />
-
-  <!-- Simplified Bold Flame Shape -->
-  <path d="M256 20 
-           C 256 20 310 120 360 180 
-           C 430 260 440 340 440 380 
-           C 440 460 360 500 256 500 
-           C 152 500 72 460 72 380 
-           C 72 340 82 260 152 180 
-           C 202 120 256 20 256 20 Z" 
+  <!-- Flame Shape -->
+  <path d="M256 30 
+           L 300 120 
+           C 380 180 420 280 420 360 
+           C 420 460 350 500 256 500 
+           C 162 500 92 460 92 360 
+           C 92 280 132 180 212 120 
+           L 256 30 Z" 
         fill="url(#flameGrad)" 
         filter="url(#glow)" />
 
-  <!-- Inner Flame Detail (Bright Core) -->
+  <!-- Inner Bright Core -->
   <path d="M256 120 
            C 280 180 340 240 340 320 
            C 340 400 300 440 256 440 
            C 212 440 172 400 172 320 
            C 172 240 232 180 256 120 Z" 
-        fill="#00ffff" opacity="0.3" filter="url(#glow)" />
+        fill="#00ffff" opacity="0.4" filter="url(#glow)" />
 
-  <!-- Symbols -->
-  <g transform="translate(256, 320)" filter="url(#symbolGlow)">
+  <!-- Symbols Group -->
+  <g transform="translate(256, 330)" filter="url(#whiteGlow)">
     <!-- Bold 'Greater Than' symbol (>) -->
     <path d="M-80 -70 L 40 0 L -80 70" 
-          stroke="#000" stroke-width="45" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          stroke="black" stroke-width="45" stroke-linecap="round" stroke-linejoin="round" fill="none" />
     <path d="M-80 -70 L 40 0 L -80 70" 
-          stroke="#00ffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8" />
+          stroke="#00ffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9" />
     
     <!-- Bold Asterisk (*) -->
-    <g transform="translate(75, -90) scale(0.7) rotate(15)">
+    <g transform="translate(80, -90) scale(0.7) rotate(15)">
        <path d="M0 -60 L 0 60 M-52 -30 L 52 30 M-52 30 L 52 -30" 
-             stroke="#000" stroke-width="38" stroke-linecap="round" />
+             stroke="black" stroke-width="40" stroke-linecap="round" />
        <path d="M0 -60 L 0 60 M-52 -30 L 52 30 M-52 30 L 52 -30" 
-             stroke="#00ffff" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+             stroke="#00ffff" stroke-width="10" stroke-linecap="round" opacity="0.9" />
     </g>
   </g>
 </svg>
