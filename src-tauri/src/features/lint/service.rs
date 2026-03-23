@@ -4,8 +4,9 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use super::lsp::LspClient;
+use super::lsp::LintLspSession;
 use super::types::*;
+use crate::features::toolchain;
 
 #[derive(Default)]
 pub struct LintState {
@@ -13,7 +14,7 @@ pub struct LintState {
 }
 
 pub struct VaultLintSession {
-    pub client: LspClient,
+    pub client: LintLspSession,
     pub vault_path: PathBuf,
     pub status: LintStatus,
 }
@@ -28,9 +29,16 @@ impl LintState {
     ) -> Result<(), String> {
         self.stop_session(vault_id).await?;
 
-        let client = LspClient::start(vault_id.to_string(), vault_path.clone(), browse_mode, app)
-            .await
-            .map_err(|e| e.to_string())?;
+        let binary_path = toolchain::resolver::resolve(&app, "rumdl", None).await?;
+
+        let client = LintLspSession::start(
+            vault_id.to_string(),
+            vault_path.clone(),
+            binary_path,
+            browse_mode,
+            app,
+        )
+        .await?;
 
         let session = VaultLintSession {
             client,

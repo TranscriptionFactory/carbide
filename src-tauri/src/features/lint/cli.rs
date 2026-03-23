@@ -1,11 +1,12 @@
-use super::lsp::resolve_sidecar_path;
 use super::types::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
-    let binary = resolve_sidecar_path("binaries/rumdl")?;
+pub async fn check_vault(
+    binary: &Path,
+    vault_path: &Path,
+) -> Result<Vec<FileDiagnostics>, anyhow::Error> {
     let config = super::config::config_path(vault_path);
-    let mut cmd = tokio::process::Command::new(&binary);
+    let mut cmd = tokio::process::Command::new(binary);
     cmd.args(["check", ".", "--format", "json"]);
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
@@ -21,16 +22,16 @@ pub async fn check_vault(vault_path: &Path) -> Result<Vec<FileDiagnostics>, anyh
 }
 
 pub async fn format_file_with_rumdl(
+    binary: &Path,
     vault_path: &Path,
     content: &str,
 ) -> Result<String, anyhow::Error> {
-    let binary = resolve_sidecar_path("binaries/rumdl")?;
     let config = super::config::config_path(vault_path);
-    let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
+    let tmp_path = PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
 
     tokio::fs::write(&tmp_path, content).await?;
 
-    let mut cmd = tokio::process::Command::new(&binary);
+    let mut cmd = tokio::process::Command::new(binary);
     cmd.args(["fmt", tmp_path.to_str().unwrap_or("")]);
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
@@ -48,7 +49,7 @@ pub async fn format_file_with_prettier(
     vault_path: &Path,
     content: &str,
 ) -> Result<String, anyhow::Error> {
-    let tmp_path = std::path::PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
+    let tmp_path = PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
     tokio::fs::write(&tmp_path, content).await?;
 
     let output = tokio::process::Command::new("npx")
@@ -75,20 +76,23 @@ pub async fn format_file_with_prettier(
 }
 
 pub async fn format_file_content(
+    binary: &Path,
     vault_path: &Path,
     content: &str,
     formatter: &str,
 ) -> Result<String, anyhow::Error> {
     match formatter {
         "prettier" => format_file_with_prettier(vault_path, content).await,
-        _ => format_file_with_rumdl(vault_path, content).await,
+        _ => format_file_with_rumdl(binary, vault_path, content).await,
     }
 }
 
-pub async fn format_vault(vault_path: &Path) -> Result<Vec<String>, anyhow::Error> {
-    let binary = resolve_sidecar_path("binaries/rumdl")?;
+pub async fn format_vault(
+    binary: &Path,
+    vault_path: &Path,
+) -> Result<Vec<String>, anyhow::Error> {
     let config = super::config::config_path(vault_path);
-    let mut cmd = tokio::process::Command::new(&binary);
+    let mut cmd = tokio::process::Command::new(binary);
     cmd.args(["fmt", "."]);
     if config.exists() {
         cmd.args(["--config", &config.to_string_lossy()]);
