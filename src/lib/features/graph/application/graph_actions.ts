@@ -152,4 +152,16 @@ export function register_graph_actions(
       stores.editor.clear_open_note();
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.graph_load_hierarchy,
+    label: "Load IWE Hierarchy",
+    execute: async (root_key?: unknown) => {
+      graph_store.set_view_mode("hierarchy");
+      stores.ui.set_sidebar_view("graph");
+      await graph_service.load_hierarchy(
+        typeof root_key === "string" ? root_key : null,
+      );
+    },
+  });
 }

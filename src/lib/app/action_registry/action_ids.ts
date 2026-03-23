@@ -110,6 +110,7 @@ export const ACTION_IDS = {
   graph_load_vault_graph: "graph.load_vault_graph",
   graph_toggle_semantic_edges: "graph.toggle_semantic_edges",
   graph_open_as_tab: "graph.open_as_tab",
+  graph_load_hierarchy: "graph.load_hierarchy",
 
   help_open: "help.open",
   help_close: "help.close",
@@ -284,6 +285,8 @@ export const ACTION_IDS = {
   iwe_rename_confirm: "iwe.rename_confirm",
   iwe_code_action_resolve: "iwe.code_action_resolve",
   iwe_toggle_results: "iwe.toggle_results",
+  iwe_document_symbols: "iwe.document_symbols",
+  iwe_open_config: "iwe.open_config",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

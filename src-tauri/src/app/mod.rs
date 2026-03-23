@@ -267,6 +267,8 @@ pub fn run() {
             features::iwe::service::iwe_completion,
             features::iwe::service::iwe_formatting,
             features::iwe::service::iwe_inlay_hints,
+            features::iwe::service::iwe_document_symbols,
+            features::iwe::service::iwe_hierarchy_tree,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

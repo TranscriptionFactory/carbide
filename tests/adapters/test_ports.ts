@@ -132,6 +132,8 @@ export function create_test_ports(): Ports {
       completion: () => Promise.resolve([]),
       formatting: () => Promise.resolve([]),
       inlay_hints: () => Promise.resolve([]),
+      document_symbols: () => Promise.resolve([]),
+      hierarchy_tree: () => Promise.resolve([]),
       subscribe_diagnostics: () => () => {},
     },
     metadata: {

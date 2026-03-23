@@ -222,6 +222,31 @@ export function create_app_context(input: {
         return [];
       }
     },
+    on_iwe_code_actions: async (
+      file_path,
+      start_line,
+      start_character,
+      end_line,
+      end_character,
+    ) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id || stores.iwe.status !== "running") return [];
+      try {
+        return await input.ports.iwe.code_actions(
+          vault_id,
+          file_path,
+          start_line,
+          start_character,
+          end_line,
+          end_character,
+        );
+      } catch {
+        return [];
+      }
+    },
+    on_iwe_code_action_resolve: (action) => {
+      void action_registry.execute(ACTION_IDS.iwe_code_action_resolve, action);
+    },
   };
 
   const editor_service = new EditorService(
@@ -368,12 +393,29 @@ export function create_app_context(input: {
     stores.terminal,
   );
 
+  const lint_service = new LintService(
+    input.ports.lint,
+    stores.lint,
+    stores.vault,
+    stores.editor,
+    stores.op,
+  );
+
+  const iwe_service = new IweService(
+    input.ports.iwe,
+    stores.iwe,
+    stores.vault,
+    stores.ui,
+    stores.lint,
+  );
+
   const graph_service = new GraphService(
     input.ports.graph,
     input.ports.search,
     stores.vault,
     stores.editor,
     stores.graph,
+    iwe_service,
   );
 
   const ai_service = new AiService(input.ports.ai, stores.vault);
@@ -400,22 +442,6 @@ export function create_app_context(input: {
     input.ports.metadata,
     stores.metadata,
     stores.vault,
-  );
-
-  const lint_service = new LintService(
-    input.ports.lint,
-    stores.lint,
-    stores.vault,
-    stores.editor,
-    stores.op,
-  );
-
-  const iwe_service = new IweService(
-    input.ports.iwe,
-    stores.iwe,
-    stores.vault,
-    stores.ui,
-    stores.lint,
   );
 
   const base_action_input = {

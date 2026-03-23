@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 #[derive(Debug, Serialize, Type)]
@@ -42,6 +42,14 @@ pub struct IweSymbol {
 }
 
 #[derive(Debug, Serialize, Type)]
+pub struct IweDocumentSymbol {
+    pub name: String,
+    pub kind: u32,
+    pub container_name: Option<String>,
+    pub location: IweLocation,
+}
+
+#[derive(Debug, Serialize, Type)]
 pub struct IweTextEdit {
     pub range: IweRange,
     pub new_text: String,
@@ -71,4 +79,11 @@ pub struct IweInlayHint {
 #[derive(Debug, Serialize, Type)]
 pub struct IweStartResult {
     pub completion_trigger_characters: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct IweTreeNode {
+    pub name: String,
+    pub key: String,
+    pub children: Vec<IweTreeNode>,
 }

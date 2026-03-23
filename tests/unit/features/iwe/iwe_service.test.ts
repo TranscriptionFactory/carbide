@@ -41,6 +41,8 @@ function create_mock_port(): IwePort {
     completion: vi.fn().mockResolvedValue([]),
     formatting: vi.fn().mockResolvedValue([]),
     inlay_hints: vi.fn().mockResolvedValue([]),
+    document_symbols: vi.fn().mockResolvedValue([]),
+    hierarchy_tree: vi.fn().mockResolvedValue([]),
     subscribe_diagnostics: vi.fn().mockReturnValue(() => {}),
   };
 }

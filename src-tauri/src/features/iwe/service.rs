@@ -9,17 +9,31 @@ use super::types::*;
 
 pub struct IweState {
     clients: Mutex<HashMap<String, LspClient>>,
+    binary_paths: Mutex<HashMap<String, String>>,
 }
 
 impl Default for IweState {
     fn default() -> Self {
         Self {
             clients: Mutex::new(HashMap::new()),
+            binary_paths: Mutex::new(HashMap::new()),
         }
     }
 }
 
 impl IweState {
+    async fn get_cli_binary(&self, vault_id: &str) -> Result<String, String> {
+        let paths = self.binary_paths.lock().await;
+        let lsp_path = paths
+            .get(vault_id)
+            .ok_or_else(|| format!("IWE not started for vault {}", vault_id))?;
+        if lsp_path.ends_with("iwes") {
+            Ok(lsp_path[..lsp_path.len() - 1].to_string())
+        } else {
+            Ok(lsp_path.clone())
+        }
+    }
+
     async fn request(
         &self,
         vault_id: &str,
@@ -172,7 +186,7 @@ pub async fn iwe_start(
         binary_path
     };
     let config = LspClientConfig {
-        binary_path: resolved_binary,
+        binary_path: resolved_binary.clone(),
         args: vec![],
         root_uri,
         capabilities: serde_json::json!({}),
@@ -196,6 +210,7 @@ pub async fn iwe_start(
     }
 
     let state = iwe_state(&app);
+    state.binary_paths.lock().await.insert(vault_id.clone(), resolved_binary.clone());
     state.clients.lock().await.insert(vault_id, client);
     Ok(IweStartResult {
         completion_trigger_characters: trigger_characters,
@@ -209,6 +224,7 @@ pub async fn iwe_stop(app: AppHandle, vault_id: String) -> Result<(), String> {
     if let Some(client) = state.clients.lock().await.remove(&vault_id) {
         client.stop().await;
     }
+    state.binary_paths.lock().await.remove(&vault_id);
     Ok(())
 }
 
@@ -699,6 +715,86 @@ pub async fn iwe_inlay_hints(
         .collect();
 
     Ok(hints)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn iwe_document_symbols(
+    app: AppHandle,
+    vault_id: String,
+    file_path: String,
+) -> Result<Vec<IweDocumentSymbol>, String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let uri = file_uri(&vault_path, &file_path);
+    let result = iwe_state(&app)
+        .request(
+            &vault_id,
+            "textDocument/documentSymbol",
+            serde_json::json!({
+                "textDocument": text_document_identifier(&uri)
+            }),
+        )
+        .await?;
+
+    let symbols = result
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|s| {
+            let loc = s.get("location")?;
+            Some(IweDocumentSymbol {
+                name: s.get("name")?.as_str()?.to_string(),
+                kind: s.get("kind")?.as_u64()? as u32,
+                container_name: s.get("containerName").and_then(|c| c.as_str()).map(String::from),
+                location: parse_location_obj(loc)?,
+            })
+        })
+        .collect();
+
+    Ok(symbols)
+}
+
+// --- CLI commands ---
+
+#[tauri::command]
+#[specta::specta]
+pub async fn iwe_hierarchy_tree(
+    app: AppHandle,
+    vault_id: String,
+    root_key: Option<String>,
+    depth: Option<u8>,
+) -> Result<Vec<IweTreeNode>, String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let state = iwe_state(&app);
+    let cli_binary = state.get_cli_binary(&vault_id).await?;
+
+    let mut cmd = tokio::process::Command::new(&cli_binary);
+    cmd.arg("tree").arg("-f").arg("json");
+    if let Some(key) = &root_key {
+        cmd.arg("-k").arg(key);
+    }
+    if let Some(d) = depth {
+        cmd.arg("-d").arg(d.to_string());
+    }
+    cmd.current_dir(&vault_path);
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run IWE CLI: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("IWE tree command failed: {}", stderr));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let nodes: Vec<IweTreeNode> = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse IWE tree output: {}", e))?;
+
+    Ok(nodes)
 }
 
 // --- Helpers ---

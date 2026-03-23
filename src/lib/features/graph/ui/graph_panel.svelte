@@ -13,6 +13,7 @@
   import { Input } from "$lib/components/ui/input";
   import GraphCanvas from "$lib/features/graph/ui/graph_canvas.svelte";
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
+  import HierarchyTreeView from "$lib/features/graph/ui/hierarchy_tree_view.svelte";
 
   const { stores, action_registry } = use_app_context();
 
@@ -25,6 +26,7 @@
   const has_snapshot = $derived(snapshot !== null);
   const has_vault_snapshot = $derived(vault_snapshot !== null);
   const is_vault_mode = $derived(view_mode === "vault");
+  const is_hierarchy_mode = $derived(view_mode === "hierarchy");
   const semantic_edges = $derived(stores.graph.semantic_edges);
   const show_semantic_edges = $derived(stores.graph.show_semantic_edges);
   const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
@@ -67,6 +69,8 @@
     <div class="GraphPanel__title_group">
       {#if is_vault_mode}
         <h2 class="GraphPanel__title">Full vault</h2>
+      {:else if is_hierarchy_mode}
+        <h2 class="GraphPanel__title">Hierarchy</h2>
       {:else if snapshot}
         <h2 class="GraphPanel__title">{snapshot.center.title}</h2>
       {:else}
@@ -79,14 +83,16 @@
         variant="ghost"
         size="icon"
         title={is_vault_mode
-          ? "Switch to neighborhood"
-          : "Switch to full vault"}
+          ? "Switch to hierarchy"
+          : is_hierarchy_mode
+            ? "Switch to neighborhood"
+            : "Switch to full vault"}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_view_mode)}
       >
         <Globe size={14} />
       </Button>
-      {#if !is_vault_mode}
+      {#if !is_vault_mode && !is_hierarchy_mode}
         <Button
           variant="ghost"
           size="icon"
@@ -165,7 +171,9 @@
   {/if}
 
   <div class="GraphPanel__body" bind:this={container_element}>
-    {#if graph_tab_active && is_vault_mode}
+    {#if is_hierarchy_mode}
+      <HierarchyTreeView />
+    {:else if graph_tab_active && is_vault_mode}
       <p class="GraphPanel__message">Vault graph is open in a tab.</p>
     {:else if is_vault_mode && has_vault_snapshot && vault_snapshot}
       <VaultGraphCanvas

@@ -2,6 +2,7 @@ import type {
   IweCodeAction,
   IweCompletionItem,
   IweDiagnosticsEvent,
+  IweDocumentSymbol,
   IweHoverResult,
   IweInlayHint,
   IweLocation,
@@ -9,6 +10,7 @@ import type {
   IweStartResult,
   IweSymbol,
   IweTextEdit,
+  IweTreeNode,
   IweWorkspaceEditResult,
 } from "$lib/features/iwe/types";
 
@@ -77,6 +79,15 @@ export interface IwePort {
   ): Promise<IweCompletionItem[]>;
   formatting(vault_id: string, file_path: string): Promise<IweTextEdit[]>;
   inlay_hints(vault_id: string, file_path: string): Promise<IweInlayHint[]>;
+  document_symbols(
+    vault_id: string,
+    file_path: string,
+  ): Promise<IweDocumentSymbol[]>;
+  hierarchy_tree(
+    vault_id: string,
+    root_key: string | null,
+    depth: number | null,
+  ): Promise<IweTreeNode[]>;
   subscribe_diagnostics(
     callback: (event: IweDiagnosticsEvent) => void,
   ): () => void;

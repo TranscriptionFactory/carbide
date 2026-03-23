@@ -158,6 +158,18 @@ export function register_iwe_actions(input: {
   });
 
   registry.register({
+    id: ACTION_IDS.iwe_document_symbols,
+    label: "IWE: Document Symbols",
+    when: () => iwe_store.status === "running",
+    execute: async () => {
+      const note = editor_store.open_note;
+      if (!note) return;
+      await iwe_service.document_symbols(note.meta.path);
+      open_results_panel();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.iwe_toggle_results,
     label: "IWE: Toggle Results Panel",
     execute: () => {
@@ -169,6 +181,14 @@ export function register_iwe_actions(input: {
       } else {
         open_results_panel();
       }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.iwe_open_config,
+    label: "IWE: Open Configuration",
+    execute: () => {
+      void registry.execute(ACTION_IDS.note_open, ".iwe/config.toml");
     },
   });
 }

@@ -7,6 +7,7 @@ import type {
   IweDiagnosticsEvent,
   IwePrepareRenameResult,
   IweTextEdit,
+  IweTreeNode,
 } from "$lib/features/iwe/types";
 import type {
   LintDiagnostic,
@@ -418,6 +419,36 @@ export class IweService {
       if (!this.handle_channel_closed(e))
         log.from_error("inlay_hints failed", e);
       this.store.set_inlay_hints([]);
+    }
+  }
+
+  async document_symbols(file_path: string): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || this.store.status !== "running") return;
+
+    try {
+      const symbols = await this.port.document_symbols(vault_id, file_path);
+      this.store.set_document_symbols(symbols);
+    } catch (e) {
+      if (!this.handle_channel_closed(e))
+        log.from_error("document_symbols failed", e);
+      this.store.set_document_symbols([]);
+    }
+  }
+
+  async hierarchy_tree(
+    root_key: string | null = null,
+    depth: number | null = null,
+  ): Promise<IweTreeNode[]> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || this.store.status !== "running") return [];
+
+    try {
+      return await this.port.hierarchy_tree(vault_id, root_key, depth);
+    } catch (e) {
+      if (!this.handle_channel_closed(e))
+        log.from_error("hierarchy_tree failed", e);
+      return [];
     }
   }
 

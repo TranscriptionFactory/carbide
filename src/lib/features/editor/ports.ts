@@ -101,6 +101,19 @@ export type EditorEventHandlers = {
       label: string;
     }>
   >;
+  on_iwe_code_actions?: (
+    start_line: number,
+    start_character: number,
+    end_line: number,
+    end_character: number,
+  ) => Promise<
+    Array<{ title: string; kind: string | null; data: string | null }>
+  >;
+  on_iwe_code_action_resolve?: (action: {
+    title: string;
+    kind: string | null;
+    data: string | null;
+  }) => void;
 };
 
 export type EditorSessionConfig = {

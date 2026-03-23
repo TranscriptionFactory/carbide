@@ -1,10 +1,18 @@
 <script lang="ts">
-  import { Link, Sparkles, ListTree, FileText, Play } from "@lucide/svelte";
+  import {
+    Link,
+    Sparkles,
+    ListTree,
+    FileText,
+    Play,
+    MapPin,
+  } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type {
     IweLocation,
     IweCodeAction,
+    IweDocumentSymbol,
     IweSymbol,
   } from "$lib/features/iwe";
 
@@ -13,6 +21,7 @@
   const references = $derived(stores.iwe.references);
   const code_actions = $derived(stores.iwe.code_actions);
   const symbols = $derived(stores.iwe.symbols);
+  const document_symbols = $derived(stores.iwe.document_symbols);
   const loading = $derived(stores.iwe.loading);
   const iwe_error = $derived(stores.iwe.error);
   const vault_uri_prefix = $derived.by(() => {
@@ -20,13 +29,18 @@
     return vault_path ? `file://${vault_path}/` : null;
   });
 
-  type ResultTab = "references" | "code_actions" | "symbols";
+  type ResultTab =
+    | "references"
+    | "code_actions"
+    | "symbols"
+    | "document_symbols";
   let active_tab = $state<ResultTab>("references");
 
   const tab_counts = $derived({
     references: references.length,
     code_actions: code_actions.length,
     symbols: symbols.length,
+    document_symbols: document_symbols.length,
   });
 
   function strip_vault_prefix(uri: string): string | null {
@@ -46,6 +60,10 @@
   }
 
   function navigate_to_symbol(symbol: IweSymbol) {
+    navigate_to_location(symbol.location);
+  }
+
+  function navigate_to_document_symbol(symbol: IweDocumentSymbol) {
     navigate_to_location(symbol.location);
   }
 
@@ -91,6 +109,18 @@
         Symbols
         {#if tab_counts.symbols > 0}
           <span class="IweResults__badge">{tab_counts.symbols}</span>
+        {/if}
+      </button>
+      <button
+        type="button"
+        class="IweResults__tab"
+        class:IweResults__tab--active={active_tab === "document_symbols"}
+        onclick={() => (active_tab = "document_symbols")}
+      >
+        <MapPin class="IweResults__tab-icon" />
+        Doc Symbols
+        {#if tab_counts.document_symbols > 0}
+          <span class="IweResults__badge">{tab_counts.document_symbols}</span>
         {/if}
       </button>
     </div>
@@ -179,6 +209,39 @@
           >
             <ListTree class="IweResults__row-icon" />
             <span class="IweResults__row-label">{symbol.name}</span>
+            <span class="IweResults__row-path"
+              >{format_uri(symbol.location.uri)}</span
+            >
+            <span class="IweResults__row-location">
+              Ln {symbol.location.range.start_line + 1}
+            </span>
+          </div>
+        {/each}
+      {/if}
+    {:else if active_tab === "document_symbols"}
+      {#if document_symbols.length === 0}
+        <div class="IweResults__empty">
+          No document symbols found. Use "IWE: Document Symbols" from the
+          command palette.
+        </div>
+      {:else}
+        {#each document_symbols as symbol, i (`dsym-${symbol.name}-${i}`)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="IweResults__row"
+            onclick={() => navigate_to_document_symbol(symbol)}
+            onkeydown={(e: KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ")
+                navigate_to_document_symbol(symbol);
+            }}
+            role="button"
+            tabindex="0"
+          >
+            <MapPin class="IweResults__row-icon" />
+            <span class="IweResults__row-label">{symbol.name}</span>
+            {#if symbol.container_name}
+              <span class="IweResults__row-kind">{symbol.container_name}</span>
+            {/if}
             <span class="IweResults__row-path"
               >{format_uri(symbol.location.uri)}</span
             >

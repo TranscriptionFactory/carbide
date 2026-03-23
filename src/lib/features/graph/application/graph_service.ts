@@ -8,6 +8,7 @@ import {
 } from "$lib/features/graph/domain/semantic_edges";
 import type { SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
+import type { IweService } from "$lib/features/iwe";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -17,6 +18,7 @@ export class GraphService {
   private neighborhood_load_revision = 0;
   private vault_load_revision = 0;
   private semantic_load_revision = 0;
+  private hierarchy_load_revision = 0;
 
   constructor(
     private readonly graph_port: GraphPort,
@@ -24,6 +26,7 @@ export class GraphService {
     private readonly vault_store: VaultStore,
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
+    private readonly iwe_service?: IweService,
   ) {}
 
   private get_active_vault_id() {
@@ -118,11 +121,35 @@ export class GraphService {
     }
   }
 
+  async load_hierarchy(root_key: string | null = null): Promise<void> {
+    if (!this.iwe_service) {
+      this.graph_store.set_error("hierarchy", "IWE not available");
+      return;
+    }
+
+    const revision = ++this.hierarchy_load_revision;
+    this.graph_store.start_loading_hierarchy();
+
+    try {
+      const tree = await this.iwe_service.hierarchy_tree(root_key);
+      if (revision !== this.hierarchy_load_revision) return;
+      this.graph_store.set_hierarchy_tree(tree, root_key);
+    } catch (error) {
+      if (revision !== this.hierarchy_load_revision) return;
+      const message = error_message(error);
+      log.error("Load hierarchy failed", { error: message });
+      this.graph_store.set_error("hierarchy", message);
+    }
+  }
+
   async toggle_view_mode(): Promise<void> {
     const current = this.graph_store.view_mode;
     if (current === "neighborhood") {
       this.graph_store.set_view_mode("vault");
       await this.load_vault_graph();
+    } else if (current === "vault") {
+      this.graph_store.set_view_mode("hierarchy");
+      await this.load_hierarchy();
     } else {
       this.graph_store.set_view_mode("neighborhood");
       await this.focus_active_note();
@@ -135,6 +162,11 @@ export class GraphService {
       if (!vault_id) return;
       await this.invalidate_cache();
       await this.load_vault_graph();
+      return;
+    }
+
+    if (this.graph_store.view_mode === "hierarchy") {
+      await this.load_hierarchy(this.graph_store.hierarchy_root_key);
       return;
     }
 

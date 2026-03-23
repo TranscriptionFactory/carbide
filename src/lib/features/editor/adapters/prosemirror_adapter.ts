@@ -105,6 +105,7 @@ import { create_iwe_hover_plugin } from "$lib/features/editor/adapters/iwe_hover
 import { create_iwe_definition_plugin } from "$lib/features/editor/adapters/iwe_definition_plugin";
 import { create_iwe_completion_plugin } from "$lib/features/editor/adapters/iwe_completion_plugin";
 import { create_iwe_inlay_hints_plugin } from "$lib/features/editor/adapters/iwe_inlay_hints_plugin";
+import { create_iwe_code_action_plugin } from "$lib/features/editor/adapters/iwe_code_action_plugin";
 import { init_highlighter } from "./shiki_highlighter";
 import {
   create_math_view_prose_plugin,
@@ -461,6 +462,8 @@ export function create_prosemirror_editor_port(args?: {
         on_iwe_completion,
         get_iwe_completion_trigger_characters,
         on_iwe_inlay_hints,
+        on_iwe_code_actions,
+        on_iwe_code_action_resolve,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -789,6 +792,15 @@ export function create_prosemirror_editor_port(args?: {
         plugins.push(
           create_iwe_inlay_hints_plugin({
             on_inlay_hints: on_iwe_inlay_hints,
+          }),
+        );
+      }
+
+      if (on_iwe_code_actions) {
+        plugins.push(
+          create_iwe_code_action_plugin({
+            on_code_actions: on_iwe_code_actions,
+            on_resolve: on_iwe_code_action_resolve ?? (() => {}),
           }),
         );
       }

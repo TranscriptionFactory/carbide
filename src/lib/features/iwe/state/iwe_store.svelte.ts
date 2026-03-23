@@ -1,6 +1,7 @@
 import type {
   IweCodeAction,
   IweCompletionItem,
+  IweDocumentSymbol,
   IweHoverResult,
   IweInlayHint,
   IweLocation,
@@ -16,6 +17,7 @@ export class IweStore {
   symbols = $state<IweSymbol[]>([]);
   completions = $state<IweCompletionItem[]>([]);
   inlay_hints = $state<IweInlayHint[]>([]);
+  document_symbols = $state<IweDocumentSymbol[]>([]);
   completion_trigger_characters = $state<string[]>([]);
   error = $state<string | null>(null);
   loading = $state(false);
@@ -56,6 +58,10 @@ export class IweStore {
     this.inlay_hints = hints;
   }
 
+  set_document_symbols(symbols: IweDocumentSymbol[]) {
+    this.document_symbols = symbols;
+  }
+
   set_completion_trigger_characters(chars: string[]) {
     this.completion_trigger_characters = chars;
   }
@@ -73,6 +79,7 @@ export class IweStore {
     this.completions = [];
     this.completion_trigger_characters = [];
     this.inlay_hints = [];
+    this.document_symbols = [];
     this.error = null;
     this.loading = false;
   }

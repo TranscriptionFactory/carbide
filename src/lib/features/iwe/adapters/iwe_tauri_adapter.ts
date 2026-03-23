@@ -5,6 +5,7 @@ import type {
   IweCodeAction,
   IweCompletionItem,
   IweDiagnosticsEvent,
+  IweDocumentSymbol,
   IweHoverResult,
   IweInlayHint,
   IweLocation,
@@ -12,6 +13,7 @@ import type {
   IweStartResult,
   IweSymbol,
   IweTextEdit,
+  IweTreeNode,
   IweWorkspaceEditResult,
 } from "$lib/features/iwe/types";
 
@@ -135,6 +137,19 @@ export function create_iwe_tauri_adapter(): IwePort {
       tauri_invoke<IweInlayHint[]>("iwe_inlay_hints", {
         vaultId: vault_id,
         filePath: file_path,
+      }),
+
+    document_symbols: (vault_id, file_path) =>
+      tauri_invoke<IweDocumentSymbol[]>("iwe_document_symbols", {
+        vaultId: vault_id,
+        filePath: file_path,
+      }),
+
+    hierarchy_tree: (vault_id, root_key, depth) =>
+      tauri_invoke<IweTreeNode[]>("iwe_hierarchy_tree", {
+        vaultId: vault_id,
+        rootKey: root_key,
+        depth,
       }),
 
     subscribe_diagnostics(callback: (event: IweDiagnosticsEvent) => void) {

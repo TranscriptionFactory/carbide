@@ -13,7 +13,9 @@ export type {
   IweStartResult,
   IweSymbol,
   IweTextEdit,
+  IweTreeNode,
   IweWorkspaceEditResult,
   IwePrepareRenameResult,
   IweInlayHint,
+  IweDocumentSymbol,
 } from "$lib/features/iwe/types";

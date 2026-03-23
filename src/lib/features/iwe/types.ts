@@ -1,5 +1,11 @@
 export type IweStatus = "idle" | "starting" | "running" | "error" | "stopped";
 
+export type IweTreeNode = {
+  name: string;
+  key: string;
+  children: IweTreeNode[];
+};
+
 export type IweHoverResult = {
   contents: string | null;
 };
@@ -59,6 +65,13 @@ export type IweInlayHint = {
   position_line: number;
   position_character: number;
   label: string;
+};
+
+export type IweDocumentSymbol = {
+  name: string;
+  kind: number;
+  container_name: string | null;
+  location: IweLocation;
 };
 
 export type IweLspDiagnostic = {
