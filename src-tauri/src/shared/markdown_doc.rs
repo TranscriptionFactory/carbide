@@ -192,6 +192,12 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParseResult {
     let (yaml_slice, body) = frontmatter::split_frontmatter(markdown);
     let mut diagnostics = Vec::new();
 
+    let fm_line_offset = if body.len() < markdown.len() {
+        markdown[..markdown.len() - body.len()].lines().count()
+    } else {
+        0
+    };
+
     let fm = match yaml_slice {
         Some(yaml) => {
             let (fm, error) = frontmatter::parse_yaml_frontmatter(yaml);
@@ -199,10 +205,7 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParseResult {
                 diagnostics.push(ParseDiagnostic {
                     line: 2,
                     column: 1,
-                    end_line: markdown[..markdown.len() - body.len()]
-                        .lines()
-                        .count()
-                        .saturating_sub(1) as u32,
+                    end_line: fm_line_offset.saturating_sub(1) as u32,
                     end_column: 1,
                     severity: "error".to_string(),
                     message: msg,
@@ -216,12 +219,6 @@ pub fn parse_note(markdown: &str, source_path: &str) -> ParseResult {
 
     let word_count = body.split_whitespace().count() as i64;
     let char_count = body.len() as i64;
-
-    let fm_line_offset = if body.len() < markdown.len() {
-        markdown[..markdown.len() - body.len()].lines().count()
-    } else {
-        0
-    };
 
     // Parse stripped body (not full markdown) to avoid comrak misinterpreting
     // frontmatter `---` as setext heading underlines
