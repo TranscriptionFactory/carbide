@@ -288,7 +288,7 @@ describe("note_open in browse window context", () => {
     expect(stores.tab.active_tab_id).toBe("docs/report.pdf");
   });
 
-  it("opens unknown file types in the document viewer as text", async () => {
+  it("opens unknown file types externally via shell", async () => {
     const { registry, stores, services } = create_harness();
     stores.vault.set_vault(make_vault());
     services.search.resolve_note_link.mockResolvedValue("docs/archive.docx");
@@ -300,13 +300,10 @@ describe("note_open in browse window context", () => {
     });
 
     expect(services.note.open_note).not.toHaveBeenCalled();
-    expect(services.document.open_document).toHaveBeenCalledWith(
-      "docs/archive.docx",
-      "docs/archive.docx",
-      "text",
-      undefined,
+    expect(services.document.open_document).not.toHaveBeenCalled();
+    expect(services.shell.open_path).toHaveBeenCalledWith(
+      "/vaults/v1/docs/archive.docx",
     );
-    expect(stores.tab.tabs).toHaveLength(1);
   });
 
   it("passes pdf page fragments through to the document viewer", async () => {

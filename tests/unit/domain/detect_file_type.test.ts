@@ -60,8 +60,12 @@ describe("detect_file_type", () => {
   });
 
   describe("unknown / edge cases", () => {
-    it("returns text for unknown extension", () => {
-      expect(detect_file_type("file.xyz")).toBe("text");
+    it("returns null for unknown extension", () => {
+      expect(detect_file_type("file.xyz")).toBeNull();
+    });
+
+    it("returns null for markdown files", () => {
+      expect(detect_file_type("note.md")).toBeNull();
     });
 
     it("returns null for no extension", () => {
