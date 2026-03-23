@@ -598,10 +598,20 @@ export function create_mock_watcher_port(): WatcherPort & {
   return mock;
 }
 
+export function create_mock_saved_query_port() {
+  return {
+    list: () => Promise.resolve([]),
+    read: () => Promise.resolve(""),
+    write: () => Promise.resolve(),
+    remove: () => Promise.resolve(),
+  };
+}
+
 export function create_mock_ports() {
   return {
     vault: create_mock_vault_port(),
     notes: create_mock_notes_port(),
     index: create_mock_index_port(),
+    saved_query: create_mock_saved_query_port(),
   };
 }

@@ -295,6 +295,11 @@ export const ACTION_IDS = {
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",
   query_open: "query.open",
+  query_save: "query.save",
+  query_save_cancel: "query.save_cancel",
+  query_load: "query.load",
+  query_delete_saved: "query.delete_saved",
+  query_list_saved: "query.list_saved",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

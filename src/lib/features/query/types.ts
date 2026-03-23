@@ -61,3 +61,10 @@ export type QueryError = {
 export type ParseResult =
   | { ok: true; query: ParsedQuery }
   | { ok: false; error: QueryError };
+
+export type SavedQueryMeta = {
+  path: string;
+  name: string;
+  mtime_ms: number;
+  size_bytes: number;
+};

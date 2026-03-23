@@ -21,6 +21,7 @@ import type { LintPort } from "$lib/features/lint";
 import type { IwePort } from "$lib/features/iwe";
 import type { MetadataPort } from "$lib/features/metadata";
 import type { ToolchainPort } from "$lib/features/toolchain";
+import type { SavedQueryPort } from "$lib/features/query";
 
 export type Ports = {
   vault: VaultPort;
@@ -50,4 +51,5 @@ export type Ports = {
   iwe: IwePort;
   metadata: MetadataPort;
   toolchain: ToolchainPort;
+  saved_query: SavedQueryPort;
 };

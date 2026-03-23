@@ -199,6 +199,8 @@ pub fn run() {
             features::notes::service::get_folder_stats,
             features::notes::service::read_vault_file,
             features::notes::service::write_vault_file,
+            features::notes::service::delete_vault_file,
+            features::notes::service::list_vault_files_by_extension,
             features::notes::service::search_vault_assets,
             features::settings::service::get_setting,
             features::settings::service::set_setting,
