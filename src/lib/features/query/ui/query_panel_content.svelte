@@ -2,12 +2,21 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { query_name_from_path } from "../domain/saved_query";
+  import QueryResultList from "./query_result_list.svelte";
+  import QueryResultCards from "./query_result_cards.svelte";
+  import QueryResultFeed from "./query_result_feed.svelte";
+  import LayoutList from "@lucide/svelte/icons/layout-list";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import Rows from "@lucide/svelte/icons/rows-3";
 
   const { stores, action_registry } = use_app_context();
+
+  type ResultViewMode = "list" | "cards" | "feed";
 
   let input_value = $state(stores.query.query_text || "");
   let save_name = $state("");
   let show_save_input = $state(false);
+  let view_mode: ResultViewMode = $state("list");
   const status = $derived(stores.query.status);
   const result = $derived(stores.query.result);
   const error = $derived(stores.query.error);
@@ -78,6 +87,16 @@
     event.stopPropagation();
     void action_registry.execute(ACTION_IDS.query_delete_saved, path);
   }
+
+  const view_modes: {
+    mode: ResultViewMode;
+    icon: typeof LayoutList;
+    title: string;
+  }[] = [
+    { mode: "list", icon: LayoutList, title: "List" },
+    { mode: "cards", icon: LayoutGrid, title: "Cards" },
+    { mode: "feed", icon: Rows, title: "Feed" },
+  ];
 </script>
 
 <div class="QueryPanel">
@@ -176,23 +195,32 @@
   {/if}
 
   {#if result}
-    <div class="QueryPanel__meta">
-      {result.total} result{result.total === 1 ? "" : "s"} in {result.elapsed_ms}ms
+    <div class="QueryPanel__results-header">
+      <span class="QueryPanel__meta">
+        {result.total} result{result.total === 1 ? "" : "s"} in {result.elapsed_ms}ms
+      </span>
+      <div class="QueryPanel__view-toggle">
+        {#each view_modes as vm (vm.mode)}
+          <button
+            type="button"
+            class="QueryPanel__view-btn"
+            class:QueryPanel__view-btn--active={view_mode === vm.mode}
+            onclick={() => (view_mode = vm.mode)}
+            title={vm.title}
+          >
+            <vm.icon size={14} />
+          </button>
+        {/each}
+      </div>
     </div>
     <div class="QueryPanel__results">
-      {#each result.items as item (item.note.path)}
-        <button
-          type="button"
-          class="QueryPanel__result"
-          onclick={() => open_note(item.note.path)}
-          title={item.note.path}
-        >
-          <span class="QueryPanel__result-title">{item.note.title}</span>
-          <span class="QueryPanel__result-path">{item.note.path}</span>
-        </button>
-      {:else}
-        <div class="QueryPanel__empty">No results</div>
-      {/each}
+      {#if view_mode === "list"}
+        <QueryResultList items={result.items} onopen={open_note} />
+      {:else if view_mode === "cards"}
+        <QueryResultCards items={result.items} onopen={open_note} />
+      {:else if view_mode === "feed"}
+        <QueryResultFeed items={result.items} onopen={open_note} />
+      {/if}
     </div>
   {/if}
 </div>
@@ -366,54 +394,45 @@
     color: var(--destructive);
   }
 
+  .QueryPanel__results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
   .QueryPanel__meta {
     font-size: var(--text-xs);
     color: var(--muted-foreground);
-    flex-shrink: 0;
+  }
+
+  .QueryPanel__view-toggle {
+    display: flex;
+    gap: 2px;
+  }
+
+  .QueryPanel__view-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+  }
+
+  .QueryPanel__view-btn:hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .QueryPanel__view-btn--active {
+    background-color: var(--muted);
+    color: var(--foreground);
   }
 
   .QueryPanel__results {
     flex: 1;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .QueryPanel__result {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-sm);
-    text-align: left;
-    border-radius: var(--radius-sm);
-    color: var(--foreground);
-  }
-
-  .QueryPanel__result:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-  }
-
-  .QueryPanel__result-title {
-    font-weight: 500;
-    flex-shrink: 0;
-  }
-
-  .QueryPanel__result-path {
-    color: var(--muted-foreground);
-    font-size: var(--text-xs);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .QueryPanel__empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--muted-foreground);
-    font-size: var(--text-sm);
   }
 </style>
