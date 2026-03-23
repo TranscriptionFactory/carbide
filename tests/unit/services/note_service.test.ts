@@ -767,13 +767,11 @@ describe("NoteService", () => {
 
     const disk_mtime = 1_700_000_010_000;
     const notes_port = create_mock_notes_port();
-    notes_port.write_and_index_note = vi
-      .fn()
-      .mockResolvedValue({
-        new_mtime: disk_mtime,
-        parsed: null,
-        diagnostics: [],
-      });
+    notes_port.write_and_index_note = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: [],
+    });
     const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
@@ -879,13 +877,11 @@ describe("NoteService", () => {
 
     const notes_port = create_mock_notes_port();
     const disk_mtime = 1_700_000_000_500;
-    const write_and_index = vi
-      .fn()
-      .mockResolvedValue({
-        new_mtime: disk_mtime,
-        parsed: null,
-        diagnostics: [],
-      });
+    const write_and_index = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: [],
+    });
     notes_port.write_and_index_note = write_and_index;
     const index_port = create_mock_index_port();
     const assets_port = {
