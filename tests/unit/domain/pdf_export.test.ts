@@ -1,29 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const mock_text = vi.fn();
-const mock_split_text_to_size = vi.fn((text: string) => [text]);
-const mock_set_font_size = vi.fn();
-const mock_set_font = vi.fn();
-const mock_add_page = vi.fn();
+const mock_html = vi.fn();
 const mock_save = vi.fn();
-const mock_output = vi.fn(() => new ArrayBuffer(8));
 
-const mock_internal = {
-  pageSize: {
-    getHeight: () => 297,
+const mockjspdf_instance = {
+  internal: {
+    pageSize: {
+      getHeight: () => 297,
+    },
   },
+  html: mock_html,
+  save: mock_save,
 };
 
-const MockJsPDF = vi.fn(() => ({
-  internal: mock_internal,
-  text: mock_text,
-  splitTextToSize: mock_split_text_to_size,
-  setFontSize: mock_set_font_size,
-  setFont: mock_set_font,
-  addPage: mock_add_page,
-  save: mock_save,
-  output: mock_output,
-}));
+const MockJsPDF = vi.fn(() => mockjspdf_instance);
 
 vi.mock("jspdf", () => ({
   jsPDF: MockJsPDF,
@@ -31,10 +22,30 @@ vi.mock("jspdf", () => ({
 
 import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
 
+function getContainer(): HTMLElement {
+  const calls = mock_html.mock.calls;
+  if (calls.length === 0 || !calls[0]?.[0]) {
+    throw new Error("No mock calls found");
+  }
+  return calls[0][0] as HTMLElement;
+}
+
 describe("export_note_as_pdf", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mock_split_text_to_size.mockImplementation((text: string) => [text]);
+    mock_html.mockImplementation(
+      async (
+        _element: unknown,
+        options: { callback: (doc: unknown) => void },
+      ) => {
+        options.callback(mockjspdf_instance);
+        return Promise.resolve();
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   it("calls jsPDF save with the note title as filename", async () => {
@@ -42,95 +53,118 @@ describe("export_note_as_pdf", () => {
     expect(mock_save).toHaveBeenCalledWith("My Note.pdf");
   });
 
-  it("renders h1 headings with bold font and larger size", async () => {
+  it("converts h1 headings to HTML", async () => {
     await export_note_as_pdf("Test", "# Heading One");
-    expect(mock_set_font).toHaveBeenCalledWith("helvetica", "bold");
-    expect(mock_set_font_size).toHaveBeenCalledWith(20);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading One",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<h1>");
+    expect(container.innerHTML).toContain("Heading One");
+    expect(container.innerHTML).toContain("</h1>");
   });
 
-  it("renders h2 headings with correct font size", async () => {
+  it("converts h2 headings to HTML", async () => {
     await export_note_as_pdf("Test", "## Heading Two");
-    expect(mock_set_font_size).toHaveBeenCalledWith(16);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading Two",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<h2>");
+    expect(container.innerHTML).toContain("Heading Two");
+    expect(container.innerHTML).toContain("</h2>");
   });
 
-  it("renders h3 headings with correct font size", async () => {
+  it("converts h3 headings to HTML", async () => {
     await export_note_as_pdf("Test", "### Heading Three");
-    expect(mock_set_font_size).toHaveBeenCalledWith(13);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading Three",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<h3>");
+    expect(container.innerHTML).toContain("Heading Three");
+    expect(container.innerHTML).toContain("</h3>");
   });
 
-  it("strips bold markdown before rendering text", async () => {
+  it("preserves bold markdown as strong tags", async () => {
     await export_note_as_pdf("Test", "This is **bold** text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "This is bold text",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<strong>");
+    expect(container.innerHTML).toContain("bold");
+    expect(container.innerHTML).toContain("</strong>");
   });
 
-  it("strips italic markdown before rendering text", async () => {
+  it("preserves italic markdown as em tags", async () => {
     await export_note_as_pdf("Test", "This is *italic* text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "This is italic text",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<em>");
+    expect(container.innerHTML).toContain("italic");
+    expect(container.innerHTML).toContain("</em>");
   });
 
-  it("strips inline code markdown before rendering text", async () => {
+  it("preserves inline code as code tags", async () => {
     await export_note_as_pdf("Test", "Use `const x = 1` here");
-    expect(mock_text).toHaveBeenCalledWith(
-      "Use const x = 1 here",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<code>");
+    expect(container.innerHTML).toContain("const x = 1");
+    expect(container.innerHTML).toContain("</code>");
   });
 
-  it("strips strikethrough markdown before rendering text", async () => {
+  it("preserves strikethrough markdown as s tags (strikethrough)", async () => {
     await export_note_as_pdf("Test", "~~deleted~~ text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "deleted text",
-      expect.any(Number),
-      expect.any(Number),
-    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<s>");
+    expect(container.innerHTML).toContain("deleted");
+    expect(container.innerHTML).toContain("</s>");
   });
 
-  it("adds a new page when content exceeds page height", async () => {
-    const many_lines = Array.from(
-      { length: 50 },
-      (_, i) => `Line ${String(i + 1)}`,
-    ).join("\n");
-    await export_note_as_pdf("Test", many_lines);
-    expect(mock_add_page).toHaveBeenCalled();
+  it("converts links to anchor tags", async () => {
+    await export_note_as_pdf("Test", "[example](https://example.com)");
+    const container = getContainer();
+    expect(container.innerHTML).toContain('<a href="https://example.com"');
+    expect(container.innerHTML).toContain("example");
+    expect(container.innerHTML).toContain("</a>");
   });
 
-  it("skips empty lines without calling text", async () => {
-    await export_note_as_pdf("Test", "\n\n");
-    expect(mock_text).not.toHaveBeenCalled();
+  it("converts lists to ul/li tags", async () => {
+    await export_note_as_pdf("Test", "- item one\n- item two");
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<ul>");
+    expect(container.innerHTML).toContain("<li>");
+    expect(container.innerHTML).toContain("item one");
+    expect(container.innerHTML).toContain("</ul>");
+  });
+
+  it("converts code blocks to pre/code tags", async () => {
+    await export_note_as_pdf("Test", "```\ncode here\n```");
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<pre>");
+    expect(container.innerHTML).toContain("<code>");
+    expect(container.innerHTML).toContain("code here");
+    expect(container.innerHTML).toContain("</code>");
+    expect(container.innerHTML).toContain("</pre>");
   });
 
   it("handles mixed content with headings and paragraphs", async () => {
-    const content = "# Title\n\nSome body text.\n\n## Section\n\nMore text.";
-    await export_note_as_pdf("Test", content);
+    await export_note_as_pdf(
+      "Test",
+      "# Title\n\nSome body text.\n\n## Section\n\nMore text.",
+    );
+    const container = getContainer();
+    expect(container.innerHTML).toContain("<h1>");
+    expect(container.innerHTML).toContain("Title");
+    expect(container.innerHTML).toContain("<h2>");
+    expect(container.innerHTML).toContain("Section");
+    expect(container.innerHTML).toContain("Some body text");
+    expect(container.innerHTML).toContain("More text");
+  });
 
-    const text_calls = mock_text.mock.calls.map((call: unknown[]) => call[0]);
-    expect(text_calls).toContain("Title");
-    expect(text_calls).toContain("Some body text.");
-    expect(text_calls).toContain("Section");
-    expect(text_calls).toContain("More text.");
+  it("calls jsPDF.html with correct options", async () => {
+    await export_note_as_pdf("Test", "Content");
+    expect(mock_html).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({
+        width: 170,
+        windowWidth: 800,
+      }),
+    );
+  });
+
+  it("removes container after export", async () => {
+    const removeSpy = vi.spyOn(Element.prototype, "remove");
+    await export_note_as_pdf("Test", "Content");
+    expect(removeSpy).toHaveBeenCalled();
+    removeSpy.mockRestore();
   });
 });
