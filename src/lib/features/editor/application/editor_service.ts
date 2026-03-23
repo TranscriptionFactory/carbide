@@ -19,6 +19,7 @@ import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort } from "$lib/features/note";
+import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import { is_draft_note_path } from "$lib/features/note";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -122,6 +123,7 @@ export class EditorService {
     private readonly search_service?: SearchService,
     private readonly outline_store?: OutlineStore,
     private readonly assets_port?: AssetsPort,
+    private readonly tag_port?: TagPort,
   ) {}
 
   is_mounted(): boolean {
@@ -498,6 +500,23 @@ export class EditorService {
     });
   }
 
+  private handle_tag_suggest_query(generation: number, query: string): void {
+    if (!this.is_generation_current(generation)) return;
+    const tag_port = this.tag_port;
+    if (!tag_port) return;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    void tag_port.list_all_tags(vault_id).then((tags) => {
+      if (!this.is_generation_current(generation)) return;
+      const lower_query = query.toLowerCase();
+      const filtered = tags.filter((t) =>
+        t.tag.toLowerCase().startsWith(lower_query),
+      );
+      this.session?.set_tag_suggestions?.(filtered);
+    });
+  }
+
   private create_session_events(generation: number): EditorSessionEvents {
     const events: EditorSessionEvents = {
       on_markdown_change: (markdown: string) => {
@@ -553,6 +572,12 @@ export class EditorService {
     if (this.assets_port) {
       events.on_image_suggest_query = (query: string) => {
         this.handle_image_suggest_query(generation, query);
+      };
+    }
+
+    if (this.tag_port) {
+      events.on_tag_suggest_query = (query: string) => {
+        this.handle_tag_suggest_query(generation, query);
       };
     }
 
