@@ -51,6 +51,11 @@ import {
   type WikiSuggestPluginConfig,
 } from "./wiki_suggest_plugin";
 import {
+  set_tag_suggestions,
+  create_tag_suggest_prose_plugin,
+  type TagSuggestPluginConfig,
+} from "./tag_suggest_plugin";
+import {
   set_image_suggestions,
   create_image_suggest_prose_plugin,
   type ImageSuggestPluginConfig,
@@ -455,6 +460,7 @@ export function create_prosemirror_editor_port(args?: {
         on_file_drop_requested,
         on_wiki_suggest_query,
         on_image_suggest_query,
+        on_tag_suggest_query,
         on_outline_change,
         on_iwe_hover,
         on_iwe_definition,
@@ -487,6 +493,7 @@ export function create_prosemirror_editor_port(args?: {
 
       let wiki_suggest_config: WikiSuggestPluginConfig | null = null;
       let image_suggest_config: ImageSuggestPluginConfig | null = null;
+      let tag_suggest_config: TagSuggestPluginConfig | null = null;
 
       function normalize_markdown(raw: string): string {
         return normalize_markdown_line_breaks(raw);
@@ -758,6 +765,16 @@ export function create_prosemirror_editor_port(args?: {
         };
         plugins.push(
           create_image_suggest_prose_plugin(image_suggest_config) as Plugin,
+        );
+      }
+
+      if (on_tag_suggest_query) {
+        tag_suggest_config = {
+          on_query: on_tag_suggest_query,
+          on_dismiss: () => {},
+        };
+        plugins.push(
+          create_tag_suggest_prose_plugin(tag_suggest_config) as Plugin,
         );
       }
 
@@ -1172,6 +1189,10 @@ export function create_prosemirror_editor_port(args?: {
         set_image_suggestions(items: Array<{ path: string; name: string }>) {
           if (!view) return;
           set_image_suggestions(view, items);
+        },
+        set_tag_suggestions(items: Array<{ tag: string; count: number }>) {
+          if (!view) return;
+          set_tag_suggestions(view, items);
         },
         update_find_state(query: string, selected_index: number) {
           run_view_action((v) => {

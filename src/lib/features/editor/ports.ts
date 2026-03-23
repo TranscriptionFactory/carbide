@@ -37,6 +37,7 @@ export type EditorSession = {
   set_image_suggestions?: (
     items: Array<{ path: string; name: string }>,
   ) => void;
+  set_tag_suggestions?: (items: Array<{ tag: string; count: number }>) => void;
   open_buffer: (config: BufferConfig) => void;
   rename_buffer: (old_note_path: string, new_note_path: string) => void;
   close_buffer: (note_path: string) => void;
@@ -67,6 +68,7 @@ export type EditorEventHandlers = {
   on_file_drop_requested?: (payload: PastedImagePayload) => void;
   on_wiki_suggest_query?: (query: string) => void;
   on_image_suggest_query?: (query: string) => void;
+  on_tag_suggest_query?: (query: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
   on_iwe_hover?: (
     line: number,

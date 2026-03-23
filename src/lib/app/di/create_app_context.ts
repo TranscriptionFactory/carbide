@@ -273,6 +273,7 @@ export function create_app_context(input: {
     search_service,
     stores.outline,
     input.ports.assets,
+    input.ports.tag,
   );
 
   const settings_service = new SettingsService(
