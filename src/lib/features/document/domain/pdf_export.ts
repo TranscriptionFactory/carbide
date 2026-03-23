@@ -122,14 +122,14 @@ async function render_html_export(
     try {
       const result = doc.html(container, {
         width: 210,
-        windowWidth: 800,
+        windowWidth: 1200,
         callback: () => {
           finalize(() => resolve());
         },
         html2canvas: {
           logging: false,
           onclone: prune_clone_styles,
-          scale: 1,
+          scale: 2,
         },
       });
 
@@ -151,8 +151,8 @@ function create_export_container(title: string, html: string): HTMLDivElement {
     position: fixed;
     left: 0;
     top: 0;
-    width: 800px;
-    padding: 60px;
+    width: 1200px;
+    padding: 120px;
     font-family: Arial, sans-serif;
     font-size: 14px;
     line-height: 1.6;
