@@ -1,6 +1,10 @@
 import { vi } from "vitest";
 import type { ReferenceStoragePort } from "$lib/features/reference/ports";
-import type { CslItem, ReferenceLibrary } from "$lib/features/reference/types";
+import type {
+  CslItem,
+  PdfAnnotation,
+  ReferenceLibrary,
+} from "$lib/features/reference/types";
 
 export function make_item(id: string, overrides?: Partial<CslItem>): CslItem {
   return {
@@ -21,6 +25,7 @@ export function make_mock_storage(
   initial_items: CslItem[] = [],
 ): ReferenceStoragePort {
   let items = [...initial_items];
+  const annotation_notes = new Map<string, string>();
   return {
     load_library: vi.fn(async () => make_library(items)),
     save_library: vi.fn(async (_vault_id, library) => {
@@ -39,6 +44,24 @@ export function make_mock_storage(
       items = items.filter((i) => i.id !== citekey);
       return make_library(items);
     }),
+    save_annotation_note: vi.fn(async (_vault_id, citekey, markdown) => {
+      annotation_notes.set(citekey, markdown);
+    }),
+    read_annotation_note: vi.fn(
+      async (_vault_id, citekey) => annotation_notes.get(citekey) ?? null,
+    ),
+  };
+}
+
+export function make_annotation(
+  overrides?: Partial<PdfAnnotation>,
+): PdfAnnotation {
+  return {
+    citekey: "smith2024",
+    page: 1,
+    text: "highlighted text",
+    type: "highlight",
+    ...overrides,
   };
 }
 

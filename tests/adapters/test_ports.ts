@@ -166,6 +166,8 @@ export function create_test_ports(): Ports {
       add_item: (_vault_id: string, item: unknown) =>
         Promise.resolve({ schema_version: 1, items: [item] as never[] }),
       remove_item: () => Promise.resolve({ schema_version: 1, items: [] }),
+      save_annotation_note: () => Promise.resolve(),
+      read_annotation_note: () => Promise.resolve(null),
     },
     citation: {
       parse_bibtex: () => Promise.resolve([]),
@@ -184,6 +186,7 @@ export function create_test_ports(): Ports {
       get_collections: () => Promise.resolve([]),
       get_collection_items: () => Promise.resolve([]),
       get_bibliography: () => Promise.resolve(""),
+      get_item_annotations: () => Promise.resolve([]),
     },
   };
 }

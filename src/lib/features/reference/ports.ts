@@ -1,10 +1,24 @@
-import type { ReferenceLibrary, CslItem, ZoteroCollection } from "./types";
+import type {
+  ReferenceLibrary,
+  CslItem,
+  ZoteroCollection,
+  PdfAnnotation,
+} from "./types";
 
 export interface ReferenceStoragePort {
   load_library(vault_id: string): Promise<ReferenceLibrary>;
   save_library(vault_id: string, library: ReferenceLibrary): Promise<void>;
   add_item(vault_id: string, item: CslItem): Promise<ReferenceLibrary>;
   remove_item(vault_id: string, citekey: string): Promise<ReferenceLibrary>;
+  save_annotation_note(
+    vault_id: string,
+    citekey: string,
+    markdown: string,
+  ): Promise<void>;
+  read_annotation_note(
+    vault_id: string,
+    citekey: string,
+  ): Promise<string | null>;
 }
 
 export interface CitationPort {
@@ -34,4 +48,5 @@ export interface ZoteroPort {
   get_collections(): Promise<ZoteroCollection[]>;
   get_collection_items(collection_key: string): Promise<CslItem[]>;
   get_bibliography(citekeys: string[], style?: string): Promise<string>;
+  get_item_annotations(citekey: string): Promise<PdfAnnotation[]>;
 }

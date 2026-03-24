@@ -36,5 +36,27 @@ export function create_reference_tauri_adapter(): ReferenceStoragePort {
         citekey,
       });
     },
+
+    async save_annotation_note(
+      vault_id: string,
+      citekey: string,
+      markdown: string,
+    ): Promise<void> {
+      await tauri_invoke<void>("reference_save_annotation_note", {
+        vaultId: vault_id,
+        citekey,
+        markdown,
+      });
+    },
+
+    async read_annotation_note(
+      vault_id: string,
+      citekey: string,
+    ): Promise<string | null> {
+      return tauri_invoke<string | null>("reference_read_annotation_note", {
+        vaultId: vault_id,
+        citekey,
+      });
+    },
   };
 }

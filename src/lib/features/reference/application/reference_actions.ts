@@ -149,6 +149,15 @@ export function register_reference_actions(input: {
   });
 
   registry.register({
+    id: "reference.sync_annotations",
+    label: "References: Sync Annotations",
+    execute: async (citekey: unknown) => {
+      if (typeof citekey !== "string") return;
+      await reference_service.sync_annotations(citekey);
+    },
+  });
+
+  registry.register({
     id: "reference.open_picker",
     label: "References: Open Citation Picker",
     execute: async () => {

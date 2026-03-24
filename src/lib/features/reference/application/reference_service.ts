@@ -5,10 +5,14 @@ import type {
   ZoteroPort,
 } from "../ports";
 import type { ReferenceStore } from "../state/reference_store.svelte";
-import type { CslItem, ReferenceSource } from "../types";
+import type { CslItem, PdfAnnotation, ReferenceSource } from "../types";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { generate_citekey, match_query } from "../domain/csl_utils";
+import {
+  annotations_to_markdown,
+  merge_annotations,
+} from "../domain/annotation_to_markdown";
 import { error_message } from "$lib/shared/utils/error_message";
 
 export class ReferenceService {
@@ -271,5 +275,27 @@ export class ReferenceService {
 
   find_in_library(citekey: string): CslItem | null {
     return this.store.library_items.find((i) => i.id === citekey) ?? null;
+  }
+
+  async sync_annotations(citekey: string): Promise<PdfAnnotation[]> {
+    const port = this.require_zotero_port();
+    const vault_id = this.require_vault_id();
+    const op_key = "reference.sync_annotations";
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const annotations = await port.get_item_annotations(citekey);
+      const deduped = merge_annotations([], annotations);
+      const markdown = annotations_to_markdown(deduped, citekey);
+      await this.storage_port.save_annotation_note(vault_id, citekey, markdown);
+      this.store.set_annotations(citekey, deduped);
+      this.store.set_error(null);
+      this.op_store.succeed(op_key);
+      return deduped;
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+      return [];
+    }
   }
 }

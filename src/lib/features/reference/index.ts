@@ -36,3 +36,7 @@ export {
   sync_reference_to_markdown,
   extract_frontmatter,
 } from "./domain/frontmatter_sync";
+export {
+  annotations_to_markdown,
+  merge_annotations,
+} from "./domain/annotation_to_markdown";

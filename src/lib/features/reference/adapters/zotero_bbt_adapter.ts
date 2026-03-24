@@ -1,6 +1,6 @@
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import type { ZoteroPort } from "../ports";
-import type { CslItem, ZoteroCollection } from "../types";
+import type { CslItem, PdfAnnotation, ZoteroCollection } from "../types";
 
 const DEFAULT_BBT_URL = "http://localhost:23119/better-bibtex/json-rpc";
 
@@ -52,5 +52,29 @@ export function create_zotero_bbt_adapter(
         style: style ?? null,
       });
     },
+
+    async get_item_annotations(citekey: string): Promise<PdfAnnotation[]> {
+      const raw = await tauri_invoke<Record<string, unknown>[]>(
+        "reference_bbt_annotations",
+        { bbtUrl: bbt_url, citekey },
+      );
+      return raw.map((entry) => {
+        const annotation: PdfAnnotation = {
+          citekey,
+          page: typeof entry.page === "number" ? entry.page : 0,
+          text: typeof entry.text === "string" ? entry.text : "",
+          type: normalize_annotation_type(entry.type),
+        };
+        if (typeof entry.comment === "string")
+          annotation.comment = entry.comment;
+        if (typeof entry.color === "string") annotation.color = entry.color;
+        return annotation;
+      });
+    },
   };
+}
+
+function normalize_annotation_type(raw: unknown): PdfAnnotation["type"] {
+  if (raw === "highlight" || raw === "note" || raw === "underline") return raw;
+  return "highlight";
 }

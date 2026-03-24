@@ -19,6 +19,7 @@ function make_mock_zotero(items: CslItem[] = []): ZoteroPort {
     get_collections: vi.fn(async () => []),
     get_collection_items: vi.fn(async () => []),
     get_bibliography: vi.fn(async () => "<bib>"),
+    get_item_annotations: vi.fn(async () => []),
   };
 }
 

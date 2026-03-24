@@ -1,10 +1,11 @@
-import type { CslItem } from "../types";
+import type { CslItem, PdfAnnotation } from "../types";
 
 export class ReferenceStore {
   library_items = $state<CslItem[]>([]);
   search_results = $state<CslItem[]>([]);
   connection_status = $state<"idle" | "connected" | "disconnected">("idle");
   selected_citekeys = $state<string[]>([]);
+  annotations_by_citekey = $state<Map<string, PdfAnnotation[]>>(new Map());
   loading = $state(false);
   error = $state<string | null>(null);
 
@@ -33,6 +34,16 @@ export class ReferenceStore {
       next.push(citekey);
     }
     this.selected_citekeys = next;
+  }
+
+  set_annotations(citekey: string, annotations: PdfAnnotation[]) {
+    const next = new Map(this.annotations_by_citekey);
+    next.set(citekey, annotations);
+    this.annotations_by_citekey = next;
+  }
+
+  get_annotations(citekey: string): PdfAnnotation[] {
+    return this.annotations_by_citekey.get(citekey) ?? [];
   }
 
   set_loading(loading: boolean) {
@@ -66,6 +77,7 @@ export class ReferenceStore {
     this.search_results = [];
     this.connection_status = "idle";
     this.selected_citekeys = [];
+    this.annotations_by_citekey = new Map();
     this.loading = false;
     this.error = null;
   }

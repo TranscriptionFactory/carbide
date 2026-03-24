@@ -294,6 +294,9 @@ pub fn run() {
             features::reference::service::reference_bbt_collections,
             features::reference::service::reference_bbt_collection_items,
             features::reference::service::reference_bbt_bibliography,
+            features::reference::service::reference_bbt_annotations,
+            features::reference::service::reference_save_annotation_note,
+            features::reference::service::reference_read_annotation_note,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

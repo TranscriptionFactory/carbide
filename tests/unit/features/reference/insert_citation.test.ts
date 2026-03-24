@@ -53,6 +53,7 @@ describe("ReferenceService.ensure_in_library", () => {
       get_collections: vi.fn(),
       get_collection_items: vi.fn(),
       get_bibliography: vi.fn(),
+      get_item_annotations: vi.fn(),
     };
     const { service } = make_service(undefined, zotero_port);
     const result = await service.ensure_in_library("smith2024");
@@ -70,6 +71,7 @@ describe("ReferenceService.ensure_in_library", () => {
       get_collections: vi.fn(),
       get_collection_items: vi.fn(),
       get_bibliography: vi.fn(),
+      get_item_annotations: vi.fn(),
     };
     const { service, store } = make_service([], zotero_port);
     const result = await service.ensure_in_library("remote2024");
@@ -93,6 +95,7 @@ describe("ReferenceService.ensure_in_library", () => {
       get_collections: vi.fn(),
       get_collection_items: vi.fn(),
       get_bibliography: vi.fn(),
+      get_item_annotations: vi.fn(),
     };
     const { service } = make_service([], zotero_port);
     const result = await service.ensure_in_library("missing");

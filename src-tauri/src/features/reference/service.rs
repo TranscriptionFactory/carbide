@@ -7,6 +7,7 @@ use tauri::AppHandle;
 const CROSSREF_CSL_BASE: &str = "https://api.crossref.org/works";
 
 const LIBRARY_RELATIVE_PATH: &str = ".carbide/references/library.json";
+const ANNOTATIONS_RELATIVE_DIR: &str = ".carbide/references/annotations";
 const CURRENT_SCHEMA_VERSION: u64 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -310,4 +311,70 @@ pub async fn reference_bbt_bibliography(
         .as_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "BBT bibliography result is not a string".to_string())
+}
+
+fn annotation_dir(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
+    let root = storage::vault_path(app, vault_id)?;
+    Ok(root.join(ANNOTATIONS_RELATIVE_DIR))
+}
+
+fn annotation_path(app: &AppHandle, vault_id: &str, citekey: &str) -> Result<PathBuf, String> {
+    let dir = annotation_dir(app, vault_id)?;
+    Ok(dir.join(format!("{citekey}.md")))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn reference_save_annotation_note(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+    markdown: String,
+) -> Result<(), String> {
+    let path = annotation_path(&app, &vault_id, &citekey)?;
+    io_utils::atomic_write(&path, markdown.as_bytes())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn reference_read_annotation_note(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+) -> Result<Option<String>, String> {
+    let path = annotation_path(&app, &vault_id, &citekey)?;
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Ok(Some(content)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_annotations(
+    bbt_url: String,
+    citekey: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    // BBT item.attachments returns attachment metadata including PDF annotation data
+    let result = bbt_rpc(
+        &bbt_url,
+        "item.attachments",
+        serde_json::json!([citekey]),
+    )
+    .await?;
+
+    let attachments = match result {
+        serde_json::Value::Array(arr) => arr,
+        _ => return Ok(vec![]),
+    };
+
+    // Extract annotations array from each attachment that has them
+    let mut annotations = Vec::new();
+    for attachment in attachments {
+        if let Some(serde_json::Value::Array(ann_list)) = attachment.get("annotations") {
+            annotations.extend(ann_list.into_iter().cloned());
+        }
+    }
+    Ok(annotations)
 }
