@@ -130,6 +130,18 @@ pub(crate) fn list_indexable_files(
     Ok(scan_vault(app, vault_id, root)?.indexable_files)
 }
 
+fn resolve_snippet_page_from_json(
+    snippet: Option<&str>,
+    body: Option<&str>,
+    offsets_json: Option<&str>,
+) -> Option<u32> {
+    let snippet = snippet?;
+    let body = body?;
+    let offsets_json = offsets_json?;
+    let offsets: Vec<usize> = serde_json::from_str(offsets_json).ok()?;
+    crate::features::search::text_extractor::resolve_snippet_page(snippet, body, &offsets)
+}
+
 fn file_stem_string(abs: &Path) -> String {
     abs.file_stem()
         .and_then(|s| s.to_str())
@@ -379,6 +391,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "reading_time_secs INTEGER DEFAULT 0",
         "last_indexed_at INTEGER DEFAULT 0",
         "file_type TEXT DEFAULT 'markdown'",
+        "page_offsets TEXT DEFAULT NULL",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
@@ -666,6 +679,7 @@ fn upsert_plain_content(
     conn: &Connection,
     meta: &IndexNoteMeta,
     body: &str,
+    page_offsets: &[usize],
 ) -> Result<(), String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -675,10 +689,15 @@ fn upsert_plain_content(
     let file_type = meta.file_type.as_deref().unwrap_or("text");
     let word_count = body.split_whitespace().count() as i64;
     let char_count = body.len() as i64;
+    let offsets_json: Option<String> = if page_offsets.is_empty() {
+        None
+    } else {
+        serde_json::to_string(page_offsets).ok()
+    };
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type],
+        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8, ?9)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json],
     )
     .map_err(|e| e.to_string())?;
 
@@ -1074,19 +1093,19 @@ fn index_single_file_from_disk(
             if content.body.is_empty() {
                 log::warn!("PDF extraction empty for {}", abs.display());
             }
-            upsert_plain_content(conn, meta, &content.body)?;
+            upsert_plain_content(conn, meta, &content.body, &content.page_offsets)?;
             pending_links.push((meta.path.clone(), vec![]));
             Ok(())
         }
         FileCategory::Code | FileCategory::Text => {
             let bytes = std::fs::read(abs).unwrap_or_default();
             let content = extract_content(abs, &bytes);
-            upsert_plain_content(conn, meta, &content.body)?;
+            upsert_plain_content(conn, meta, &content.body, &content.page_offsets)?;
             pending_links.push((meta.path.clone(), vec![]));
             Ok(())
         }
         FileCategory::Binary => {
-            upsert_plain_content(conn, meta, "")?;
+            upsert_plain_content(conn, meta, "", &[])?;
             pending_links.push((meta.path.clone(), vec![]));
             Ok(())
         }
@@ -1317,10 +1336,10 @@ fn resolve_git_head(vault_root: &Path) -> Result<String, String> {
 
 pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, IndexNoteMeta>, String> {
     let mut stmt = conn
-        .prepare("SELECT path, title, mtime_ms, size_bytes FROM notes")
+        .prepare("SELECT path, title, mtime_ms, size_bytes, file_type FROM notes")
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| note_meta_from_row(row))
+        .query_map([], |row| note_meta_from_row_cols(row, Some(4)))
         .map_err(|e| e.to_string())?;
     let mut map = BTreeMap::new();
     for row in rows {
@@ -1357,10 +1376,10 @@ pub fn get_all_notes_chunked(
 ) -> Result<usize, String> {
     let total = get_note_count(conn)?;
     let mut stmt = conn
-        .prepare("SELECT path, title, mtime_ms, size_bytes FROM notes")
+        .prepare("SELECT path, title, mtime_ms, size_bytes, file_type FROM notes")
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| note_meta_from_row(row))
+        .query_map([], |row| note_meta_from_row_cols(row, Some(4)))
         .map_err(|e| e.to_string())?;
 
     let mut chunk = Vec::with_capacity(chunk_size);
@@ -1454,10 +1473,14 @@ fn like_contains_pattern(query: &str) -> String {
     format!("%{escaped}%")
 }
 
-fn note_meta_from_row(row: &rusqlite::Row) -> rusqlite::Result<IndexNoteMeta> {
+fn note_meta_from_row_cols(
+    row: &rusqlite::Row,
+    file_type_col: Option<usize>,
+) -> rusqlite::Result<IndexNoteMeta> {
     let path: String = row.get(0)?;
     let title: String = row.get(1)?;
     let name = file_stem_string(Path::new(&path));
+    let file_type: Option<String> = file_type_col.and_then(|col| row.get(col).ok());
     Ok(IndexNoteMeta {
         id: path.clone(),
         path,
@@ -1465,7 +1488,7 @@ fn note_meta_from_row(row: &rusqlite::Row) -> rusqlite::Result<IndexNoteMeta> {
         name,
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
-        file_type: None,
+        file_type,
     })
 }
 
@@ -1482,7 +1505,7 @@ fn note_meta_with_stats_from_row(
         name,
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
-        file_type: None,
+        file_type: row.get(10).ok(),
     };
     let stats = crate::features::search::model::NoteStats {
         word_count: row.get(4).unwrap_or(0),
@@ -1516,7 +1539,10 @@ pub fn search(
 
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
                       snippet(notes_fts, 3, '<b>', '</b>', '...', 30) as snippet,
-                      bm25(notes_fts, 10.0, 12.0, 5.0, 1.0) as rank
+                      bm25(notes_fts, 10.0, 12.0, 5.0, 1.0) as rank,
+                      n.file_type,
+                      n.page_offsets,
+                      notes_fts.body
                FROM notes_fts
                JOIN notes n ON n.path = notes_fts.path
                WHERE notes_fts MATCH ?1
@@ -1526,10 +1552,19 @@ pub fn search(
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![match_expr, limit], |row| {
+            let snippet: Option<String> = row.get(4)?;
+            let offsets_json: Option<String> = row.get(7)?;
+            let body: Option<String> = row.get(8)?;
+            let snippet_page = resolve_snippet_page_from_json(
+                snippet.as_deref(),
+                body.as_deref(),
+                offsets_json.as_deref(),
+            );
             Ok(SearchHit {
-                note: note_meta_from_row(row)?,
+                note: note_meta_from_row_cols(row, Some(6))?,
                 score: row.get(5)?,
-                snippet: row.get(4)?,
+                snippet,
+                snippet_page,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -1551,7 +1586,8 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
     let match_expr = format!("{{title name path}} : {escaped}");
 
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
-                      bm25(notes_fts, 15.0, 20.0, 5.0, 0.0) as rank
+                      bm25(notes_fts, 15.0, 20.0, 5.0, 0.0) as rank,
+                      n.file_type
                FROM notes_fts
                JOIN notes n ON n.path = notes_fts.path
                WHERE notes_fts MATCH ?1
@@ -1562,7 +1598,7 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
     let rows = stmt
         .query_map(params![match_expr, limit], |row| {
             Ok(SuggestionHit {
-                note: note_meta_from_row(row)?,
+                note: note_meta_from_row_cols(row, Some(5))?,
                 score: row.get(4)?,
             })
         })
@@ -1582,7 +1618,7 @@ pub fn fuzzy_suggest(
         return Ok(Vec::new());
     }
 
-    let sql = "SELECT path, title, mtime_ms, size_bytes FROM notes";
+    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type FROM notes";
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
     let matcher = SkimMatcherV2::default();
@@ -1595,12 +1631,14 @@ pub fn fuzzy_suggest(
             let name = file_stem_string(Path::new(&path));
             let mtime_ms: i64 = row.get(2)?;
             let size_bytes: i64 = row.get(3)?;
-            Ok((path, title, name, mtime_ms, size_bytes))
+            let file_type: Option<String> = row.get(4).ok();
+            Ok((path, title, name, mtime_ms, size_bytes, file_type))
         })
         .map_err(|e| e.to_string())?;
 
     for row in rows {
-        let (path, title, name, mtime_ms, size_bytes) = row.map_err(|e| e.to_string())?;
+        let (path, title, name, mtime_ms, size_bytes, file_type) =
+            row.map_err(|e| e.to_string())?;
 
         let best_score = [&title, &name, &path]
             .iter()
@@ -1617,7 +1655,7 @@ pub fn fuzzy_suggest(
                     name,
                     mtime_ms,
                     size_bytes,
-                    file_type: None,
+                    file_type,
                 },
                 score: best_score as f64,
             });
@@ -1742,12 +1780,12 @@ pub fn get_note_count(conn: &Connection) -> Result<usize, String> {
 }
 
 pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMeta>, String> {
-    let sql = "SELECT path, title, mtime_ms, size_bytes
+    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type
                FROM notes
                WHERE path = ?1";
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-    match stmt.query_row(params![path], note_meta_from_row) {
+    match stmt.query_row(params![path], |row| note_meta_from_row_cols(row, Some(4))) {
         Ok(note) => Ok(Some(note)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(error) => Err(error.to_string()),
@@ -1755,7 +1793,7 @@ pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMe
 }
 
 pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
-    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes
+    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type
                FROM outlinks o
                JOIN notes n ON n.path = o.target_path
                WHERE o.source_path = ?1
@@ -1763,7 +1801,7 @@ pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>,
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![path], |row| note_meta_from_row(row))
+        .query_map(params![path], |row| note_meta_from_row_cols(row, Some(4)))
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -3202,7 +3240,7 @@ pub fn get_linked_paths_batch(
 }
 
 pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
-    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes
+    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type
                FROM outlinks o
                JOIN notes n ON n.path = o.source_path
                WHERE o.target_path = ?1
@@ -3210,7 +3248,7 @@ pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![path], |row| note_meta_from_row(row))
+        .query_map(params![path], |row| note_meta_from_row_cols(row, Some(4)))
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -3387,7 +3425,7 @@ pub fn query_bases(
     }
 
     let sql = format!(
-        "SELECT path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at FROM notes {} {} LIMIT {} OFFSET {}",
+        "SELECT path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type FROM notes {} {} LIMIT {} OFFSET {}",
         where_sql, order_sql, query.limit, query.offset
     );
 
