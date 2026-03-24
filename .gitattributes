@@ -1,2 +1,4 @@
 carbide/** filter=git-crypt diff=git-crypt
 .gitattributes !filter !diff
+carbide/.badgerly/** !filter !diff
+carbide/.git-crypt/** !filter !diff
