@@ -27,6 +27,8 @@ function make_mock_citation_port(): CitationPort {
     render_bibliography: vi.fn(
       async () => "Smith, J. (2024). Title for smith2024.",
     ),
+    format_bibtex: vi.fn(async () => "@article{smith2024, title={Title}}"),
+    format_ris: vi.fn(async () => "TY  - JOUR\nAU  - Smith\nER  -\n"),
     list_styles: vi.fn(() => ["apa", "vancouver", "harvard1"]),
   };
 }

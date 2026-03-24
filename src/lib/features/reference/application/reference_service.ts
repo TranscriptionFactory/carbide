@@ -180,8 +180,7 @@ export class ReferenceService {
     const op_key = "reference.render_bibliography";
     this.op_store.start(op_key, this.now_ms());
     try {
-      const key_set = new Set(citekeys);
-      const items = this.store.library_items.filter((i) => key_set.has(i.id));
+      const items = this.resolve_items(citekeys);
       if (items.length === 0) {
         this.op_store.succeed(op_key);
         return "";
@@ -195,6 +194,69 @@ export class ReferenceService {
       this.op_store.fail(op_key, msg);
       return "";
     }
+  }
+
+  async export_bibliography_html(
+    citekeys: string[],
+    style: string,
+  ): Promise<void> {
+    const html = await this.render_bibliography(citekeys, style);
+    if (!html) return;
+    await save_text_file(
+      "Export Bibliography as HTML",
+      "bibliography.html",
+      html,
+      [{ name: "HTML", extensions: ["html", "htm"] }],
+    );
+  }
+
+  async export_bibtex(citekeys: string[]): Promise<void> {
+    const port = this.require_citation_port();
+    const op_key = "reference.export_bibtex";
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const items = this.resolve_items(citekeys);
+      if (items.length === 0) {
+        this.op_store.succeed(op_key);
+        return;
+      }
+      const bibtex = await port.format_bibtex(items);
+      this.op_store.succeed(op_key);
+      await save_text_file("Export as BibTeX", "references.bib", bibtex, [
+        { name: "BibTeX", extensions: ["bib"] },
+      ]);
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+    }
+  }
+
+  async export_ris(citekeys: string[]): Promise<void> {
+    const port = this.require_citation_port();
+    const op_key = "reference.export_ris";
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const items = this.resolve_items(citekeys);
+      if (items.length === 0) {
+        this.op_store.succeed(op_key);
+        return;
+      }
+      const ris = await port.format_ris(items);
+      this.op_store.succeed(op_key);
+      await save_text_file("Export as RIS", "references.ris", ris, [
+        { name: "RIS", extensions: ["ris"] },
+      ]);
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+    }
+  }
+
+  private resolve_items(citekeys: string[]): CslItem[] {
+    const key_set = new Set(citekeys);
+    return this.store.library_items.filter((i) => key_set.has(i.id));
   }
 
   list_citation_styles(): string[] {
@@ -298,4 +360,23 @@ export class ReferenceService {
       return [];
     }
   }
+}
+
+async function save_text_file(
+  title: string,
+  default_name: string,
+  content: string,
+  filters: Array<{ name: string; extensions: string[] }>,
+): Promise<void> {
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  const { invoke } = await import("@tauri-apps/api/core");
+
+  const file_path = await save({ title, defaultPath: default_name, filters });
+  if (!file_path) return;
+
+  const bytes = new TextEncoder().encode(content);
+  await invoke("write_bytes_to_path", {
+    path: file_path,
+    data: Array.from(bytes),
+  });
 }

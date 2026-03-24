@@ -34,6 +34,8 @@ export interface CitationPort {
     style: string,
     format?: "text" | "html",
   ): Promise<string>;
+  format_bibtex(items: CslItem[]): Promise<string>;
+  format_ris(items: CslItem[]): Promise<string>;
   list_styles(): string[];
 }
 

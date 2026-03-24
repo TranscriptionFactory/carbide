@@ -158,6 +158,38 @@ export function register_reference_actions(input: {
   });
 
   registry.register({
+    id: "reference.export_bibliography_html",
+    label: "References: Export Bibliography as HTML",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { citekeys, style } = args as {
+        citekeys: string[];
+        style: string;
+      };
+      if (!Array.isArray(citekeys) || typeof style !== "string") return;
+      await reference_service.export_bibliography_html(citekeys, style);
+    },
+  });
+
+  registry.register({
+    id: "reference.export_bibtex",
+    label: "References: Export as BibTeX",
+    execute: async (citekeys: unknown) => {
+      if (!Array.isArray(citekeys)) return;
+      await reference_service.export_bibtex(citekeys as string[]);
+    },
+  });
+
+  registry.register({
+    id: "reference.export_ris",
+    label: "References: Export as RIS",
+    execute: async (citekeys: unknown) => {
+      if (!Array.isArray(citekeys)) return;
+      await reference_service.export_ris(citekeys as string[]);
+    },
+  });
+
+  registry.register({
     id: "reference.open_picker",
     label: "References: Open Citation Picker",
     execute: async () => {

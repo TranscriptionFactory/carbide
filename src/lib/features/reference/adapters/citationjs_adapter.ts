@@ -54,6 +54,16 @@ export function create_citationjs_adapter(): CitationPort {
       return render("bibliography", items, style, format);
     },
 
+    async format_bibtex(items: CslItem[]): Promise<string> {
+      const cite = await Cite.async(items);
+      return cite.format("bibtex");
+    },
+
+    async format_ris(items: CslItem[]): Promise<string> {
+      const cite = await Cite.async(items);
+      return cite.format("ris");
+    },
+
     list_styles(): string[] {
       return [...BUILTIN_STYLES];
     },

@@ -174,6 +174,8 @@ export function create_test_ports(): Ports {
       parse_ris: () => Promise.resolve([]),
       render_citation: () => Promise.resolve(""),
       render_bibliography: () => Promise.resolve(""),
+      format_bibtex: () => Promise.resolve(""),
+      format_ris: () => Promise.resolve(""),
       list_styles: () => [],
     },
     doi_lookup: {
