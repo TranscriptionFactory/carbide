@@ -121,15 +121,14 @@ async function render_html_export(
 
     try {
       const result = doc.html(container, {
-        width: 210,
-        windowWidth: 1200,
+        width: 170,
+        windowWidth: 800,
         callback: () => {
           finalize(() => resolve());
         },
         html2canvas: {
           logging: false,
           onclone: prune_clone_styles,
-          scale: 2,
         },
       });
 
@@ -151,8 +150,8 @@ function create_export_container(title: string, html: string): HTMLDivElement {
     position: fixed;
     left: 0;
     top: 0;
-    width: 1200px;
-    padding: 120px;
+    width: 800px;
+    padding: 40px;
     font-family: Arial, sans-serif;
     font-size: 14px;
     line-height: 1.6;
@@ -161,7 +160,7 @@ function create_export_container(title: string, html: string): HTMLDivElement {
     isolation: isolate;
     z-index: -9999;
     pointer-events: none;
-    clip-path: inset(0 0 100% 100%);
+    opacity: 0;
   `;
 
   const style = document.createElement("style");
