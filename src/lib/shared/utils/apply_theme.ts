@@ -101,7 +101,11 @@ function build_token_entries(theme: Theme): [string, string][] {
   apply_optional(entries, "--editor-mark-text", theme.highlight_text_color);
 
   apply_optional(entries, "--graph-node", theme.graph_node_color);
-  apply_optional(entries, "--graph-node-primary", theme.graph_node_primary_color);
+  apply_optional(
+    entries,
+    "--graph-node-primary",
+    theme.graph_node_primary_color,
+  );
   apply_optional(entries, "--graph-edge", theme.graph_edge_color);
   apply_optional(
     entries,

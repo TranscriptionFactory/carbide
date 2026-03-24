@@ -28,7 +28,7 @@ describe("ReferenceStore", () => {
     const store = new ReferenceStore();
     store.add_item(make_item("a"));
     expect(store.library_items).toHaveLength(1);
-    expect(store.library_items[0].id).toBe("a");
+    expect(store.library_items[0]!.id).toBe("a");
   });
 
   it("updates existing item on duplicate citekey", () => {
@@ -36,7 +36,7 @@ describe("ReferenceStore", () => {
     store.add_item(make_item("a"));
     store.add_item({ ...make_item("a"), title: "Updated" });
     expect(store.library_items).toHaveLength(1);
-    expect(store.library_items[0].title).toBe("Updated");
+    expect(store.library_items[0]!.title).toBe("Updated");
   });
 
   it("removes item by citekey", () => {
@@ -45,7 +45,7 @@ describe("ReferenceStore", () => {
     store.add_item(make_item("b"));
     store.remove_item("a");
     expect(store.library_items).toHaveLength(1);
-    expect(store.library_items[0].id).toBe("b");
+    expect(store.library_items[0]!.id).toBe("b");
   });
 
   it("removes citekey from selection when item is removed", () => {

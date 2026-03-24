@@ -29,6 +29,10 @@
     "version": "changeset version && node scripts/sync-versions.mjs && pnpm install"
   },
   "dependencies": {
+    "@citation-js/core": "0.7.21",
+    "@citation-js/plugin-bibtex": "0.7.21",
+    "@citation-js/plugin-csl": "0.7.22",
+    "@citation-js/plugin-ris": "0.7.21",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.2",

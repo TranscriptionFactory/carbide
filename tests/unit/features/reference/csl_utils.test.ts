@@ -57,8 +57,8 @@ describe("extract_year", () => {
   });
 
   it("returns null when no issued date", () => {
-    const item = make_item({ issued: undefined });
-    expect(extract_year(item)).toBeNull();
+    const { issued: _, ...rest } = make_item();
+    expect(extract_year(rest as CslItem)).toBeNull();
   });
 
   it("returns null for empty date-parts", () => {
@@ -73,8 +73,8 @@ describe("generate_citekey", () => {
   });
 
   it("uses 'nd' when no year is available", () => {
-    const item = make_item({ issued: undefined });
-    expect(generate_citekey(item)).toBe("smithnd");
+    const { issued: _, ...rest } = make_item();
+    expect(generate_citekey(rest as CslItem)).toBe("smithnd");
   });
 
   it("uses literal name if no family name", () => {
@@ -83,8 +83,8 @@ describe("generate_citekey", () => {
   });
 
   it("uses 'unknown' when no author", () => {
-    const item = make_item({ author: undefined });
-    expect(generate_citekey(item)).toBe("unknown2024");
+    const { author: _, ...rest } = make_item();
+    expect(generate_citekey(rest as CslItem)).toBe("unknown2024");
   });
 
   it("strips non-alphanumeric chars from family name", () => {

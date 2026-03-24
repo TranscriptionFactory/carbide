@@ -71,7 +71,7 @@ describe("ReferenceService", () => {
     it("loads items into store", async () => {
       await service.load_library();
       expect(store.library_items).toHaveLength(2);
-      expect(store.library_items[0].id).toBe("a");
+      expect(store.library_items[0]!.id).toBe("a");
       expect(store.loading).toBe(false);
       expect(store.error).toBeNull();
     });
@@ -116,7 +116,7 @@ describe("ReferenceService", () => {
       await service.load_library();
       await service.remove_reference("a");
       expect(store.library_items).toHaveLength(1);
-      expect(store.library_items[0].id).toBe("b");
+      expect(store.library_items[0]!.id).toBe("b");
     });
   });
 

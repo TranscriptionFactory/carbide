@@ -51,4 +51,44 @@ export function register_reference_actions(input: {
       reference_store.set_selected_citekeys([]);
     },
   });
+
+  registry.register({
+    id: "reference.import_bibtex",
+    label: "References: Import BibTeX",
+    execute: async (bibtex: unknown) => {
+      if (typeof bibtex !== "string") return;
+      await reference_service.import_bibtex(bibtex);
+    },
+  });
+
+  registry.register({
+    id: "reference.import_ris",
+    label: "References: Import RIS",
+    execute: async (ris: unknown) => {
+      if (typeof ris !== "string") return;
+      await reference_service.import_ris(ris);
+    },
+  });
+
+  registry.register({
+    id: "reference.lookup_doi",
+    label: "References: Lookup DOI",
+    execute: async (doi: unknown) => {
+      if (typeof doi !== "string") return;
+      await reference_service.lookup_doi(doi);
+    },
+  });
+
+  registry.register({
+    id: "reference.render_bibliography",
+    label: "References: Render Bibliography",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { citekeys, style } = args as {
+        citekeys: string[];
+        style: string;
+      };
+      await reference_service.render_bibliography(citekeys, style);
+    },
+  });
 }

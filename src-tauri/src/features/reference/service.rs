@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::AppHandle;
 
+const CROSSREF_CSL_BASE: &str = "https://api.crossref.org/works";
+
 const LIBRARY_RELATIVE_PATH: &str = ".carbide/references/library.json";
 const CURRENT_SCHEMA_VERSION: u64 = 1;
 
@@ -108,4 +110,55 @@ pub fn reference_remove_item(
     });
     write_library(&app, &vault_id, &library)?;
     Ok(library)
+}
+
+fn http_client() -> &'static reqwest::Client {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(reqwest::Client::new)
+}
+
+fn encode_doi_path(doi: &str) -> String {
+    url::form_urlencoded::byte_serialize(doi.trim().as_bytes()).collect()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_doi_lookup(
+    doi: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let encoded = encode_doi_path(&doi);
+    let url = format!(
+        "{}/{}/transform/application/vnd.citationstyles.csl+json",
+        CROSSREF_CSL_BASE, encoded
+    );
+
+    let response = http_client()
+        .get(&url)
+        .header("Accept", "application/vnd.citationstyles.csl+json")
+        .header(
+            "User-Agent",
+            "Carbide/1.0 (mailto:support@carbide.app)",
+        )
+        .send()
+        .await
+        .map_err(|e| format!("DOI lookup failed: {e}"))?;
+
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "CrossRef returned status {}",
+            response.status()
+        ));
+    }
+
+    let csl: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse CrossRef response: {e}"))?;
+
+    Ok(Some(csl))
 }

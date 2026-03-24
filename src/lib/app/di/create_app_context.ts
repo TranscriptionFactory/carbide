@@ -502,6 +502,8 @@ export function create_app_context(input: {
     stores.vault,
     stores.op,
     now_ms,
+    input.ports.citation,
+    input.ports.doi_lookup,
   );
 
   const base_action_input = {
