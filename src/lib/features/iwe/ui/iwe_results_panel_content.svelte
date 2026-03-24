@@ -24,6 +24,8 @@
   const document_symbols = $derived(stores.iwe.document_symbols);
   const loading = $derived(stores.iwe.loading);
   const iwe_error = $derived(stores.iwe.error);
+  const iwe_status = $derived(stores.iwe.status);
+  const is_connected = $derived(iwe_status === "running");
   const vault_uri_prefix = $derived.by(() => {
     const vault_path = stores.vault.vault?.path;
     return vault_path ? `file://${vault_path}/` : null;
@@ -134,7 +136,17 @@
   </div>
 
   <div class="IweResults__body">
-    {#if active_tab === "references"}
+    {#if !is_connected}
+      <div class="IweResults__empty">
+        {#if iwe_status === "starting"}
+          IWE is starting…
+        {:else if iwe_status === "error"}
+          IWE encountered an error. Check Settings &gt; Tools.
+        {:else}
+          IWE is not connected. Enable it in Settings &gt; Tools.
+        {/if}
+      </div>
+    {:else if active_tab === "references"}
       {#if references.length === 0}
         <div class="IweResults__empty">
           No references found. Use "IWE: Find References" from the command
