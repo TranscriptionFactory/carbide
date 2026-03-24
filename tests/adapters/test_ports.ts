@@ -146,6 +146,14 @@ export function create_test_ports(): Ports {
       resolve: () => Promise.resolve(""),
       subscribe_events: () => () => {},
     },
+    code_lsp: {
+      open_file: () => Promise.resolve(),
+      close_file: () => Promise.resolve(),
+      stop_vault: () => Promise.resolve(),
+      available_languages: () => Promise.resolve([]),
+      get_status: () => Promise.resolve("stopped" as const),
+      subscribe_events: () => () => {},
+    },
     saved_query: {
       list: () => Promise.resolve([]),
       read: () => Promise.resolve(""),

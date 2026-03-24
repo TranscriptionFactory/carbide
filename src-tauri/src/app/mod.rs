@@ -76,6 +76,7 @@ pub fn run() {
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
+        .manage(features::code_lsp::CodeLspState::default())
         .manage(features::iwe::IweState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -254,6 +255,11 @@ pub fn run() {
             features::lint::lint_check_vault,
             features::lint::lint_format_vault,
             features::lint::lint_get_status,
+            features::code_lsp::code_lsp_open_file,
+            features::code_lsp::code_lsp_close_file,
+            features::code_lsp::code_lsp_stop_vault,
+            features::code_lsp::code_lsp_available_languages,
+            features::code_lsp::code_lsp_get_status,
             features::iwe::service::iwe_start,
             features::iwe::service::iwe_stop,
             features::iwe::service::iwe_did_open,

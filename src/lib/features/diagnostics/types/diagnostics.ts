@@ -2,6 +2,7 @@ export type DiagnosticSource =
   | "lint"
   | "iwe"
   | "ast"
+  | "code_lsp"
   | "plugin"
   | `plugin:${string}`;
 

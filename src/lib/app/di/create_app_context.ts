@@ -50,6 +50,7 @@ import {
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
+import { CodeLspService } from "$lib/features/code_lsp";
 import { IweService, register_iwe_actions } from "$lib/features/iwe";
 import {
   ToolchainService,
@@ -420,6 +421,13 @@ export function create_app_context(input: {
     stores.diagnostics,
   );
 
+  const code_lsp_service = new CodeLspService(
+    input.ports.code_lsp,
+    stores.code_lsp,
+    stores.diagnostics,
+  );
+  code_lsp_service.start();
+
   const iwe_service = new IweService(
     input.ports.iwe,
     stores.iwe,
@@ -719,6 +727,8 @@ export function create_app_context(input: {
     metadata_store: stores.metadata,
     metadata_service,
     toolchain_service,
+    document_store: stores.document,
+    code_lsp_service,
   });
 
   return {

@@ -34,6 +34,7 @@ import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
+import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
@@ -75,6 +76,8 @@ import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
+import type { DocumentStore } from "$lib/features/document";
+import type { CodeLspService } from "$lib/features/code_lsp";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -116,6 +119,8 @@ export type ReactorContext = {
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
   toolchain_service: ToolchainService;
+  document_store: DocumentStore;
+  code_lsp_service: CodeLspService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -317,6 +322,15 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_diagnostics_active_file_reactor(
       context.editor_store,
       context.diagnostics_store,
+    ),
+    create_code_lsp_document_sync_reactor(
+      context.document_store,
+      context.code_lsp_service,
+      () => {
+        const vault = context.vault_store.vault;
+        if (!vault) return null;
+        return { id: vault.id, path: vault.path };
+      },
     ),
     create_toolchain_lifecycle_reactor(
       context.vault_store,
