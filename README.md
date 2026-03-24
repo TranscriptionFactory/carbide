@@ -229,6 +229,3 @@ Carbide uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md
 
 Fork of [Otterly](https://github.com/ajkdrag/otterly). File management architecture from [Ferrite](https://github.com/jrmoulton/ferrite).
 
-## License
-
-MIT — See [LICENSE](./LICENSE).
