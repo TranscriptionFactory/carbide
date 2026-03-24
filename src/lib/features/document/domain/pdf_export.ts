@@ -58,7 +58,7 @@ function prepare_clone_for_capture(cloned_doc: HTMLDocument): void {
     return;
   }
 
-  export_container.style.opacity = "1";
+  export_container.style.left = "0";
 
   const allowed_style_nodes = new Set(
     Array.from(
@@ -150,7 +150,7 @@ function create_export_container(title: string, html: string): HTMLDivElement {
   container.id = "pdf-export-container";
   container.style.cssText = `
     position: fixed;
-    left: 0;
+    left: -9999px;
     top: 0;
     width: 800px;
     padding: 40px;
@@ -159,10 +159,7 @@ function create_export_container(title: string, html: string): HTMLDivElement {
     line-height: 1.6;
     color: #24292f;
     background: #ffffff;
-    isolation: isolate;
-    z-index: -9999;
     pointer-events: none;
-    opacity: 0;
   `;
 
   const style = document.createElement("style");
