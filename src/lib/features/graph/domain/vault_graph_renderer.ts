@@ -240,6 +240,20 @@ export class VaultGraphRenderer {
     this.request_render();
   }
 
+  update_colors(): void {
+    if (!this.container_el || !this.app) return;
+    this.read_theme_colors(this.container_el);
+    this.app.renderer.background.color = this.colors.bg;
+
+    for (const entry of this.node_map.values()) {
+      entry.circle.tint = this.colors.node;
+      entry.label.style.fill = this.colors.label_fill;
+    }
+
+    this.edges_dirty = true;
+    this.request_render();
+  }
+
   select_node(id: string | null): void {
     this.selected_id = id;
     this.request_render();
@@ -536,16 +550,32 @@ export class VaultGraphRenderer {
   }
 
   private read_theme_colors(el: HTMLElement): void {
-    this.colors.node = resolve_css_color(el, "--muted-foreground", 0x888888);
-    this.colors.primary = resolve_css_color(el, "--primary", 0x6366f1);
-    this.colors.edge = resolve_css_color(el, "--muted-foreground", 0x888888);
+    this.colors.node = resolve_css_color(
+      el,
+      "--graph-node",
+      resolve_css_color(el, "--muted-foreground", 0x888888),
+    );
+    this.colors.primary = resolve_css_color(
+      el,
+      "--graph-node-primary",
+      resolve_css_color(el, "--primary", 0x6366f1),
+    );
+    this.colors.edge = resolve_css_color(
+      el,
+      "--graph-edge",
+      resolve_css_color(el, "--muted-foreground", 0x888888),
+    );
     this.colors.semantic_edge = resolve_css_color(
       el,
-      "--semantic-edge",
-      0xf59e0b,
+      "--graph-edge-semantic",
+      resolve_css_color(el, "--semantic-edge", 0xf59e0b),
     );
     this.colors.bg = resolve_css_color(el, "--background", 0x1a1a2e);
-    this.colors.label_fill = resolve_css_color(el, "--foreground", 0xffffff);
+    this.colors.label_fill = resolve_css_color(
+      el,
+      "--graph-label",
+      resolve_css_color(el, "--foreground", 0xffffff),
+    );
   }
 }
 

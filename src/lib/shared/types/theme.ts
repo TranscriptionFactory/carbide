@@ -54,6 +54,12 @@ export type Theme = {
   shiki_theme_light: string;
   shiki_theme_dark: string;
 
+  graph_node_color: string | null;
+  graph_node_primary_color: string | null;
+  graph_edge_color: string | null;
+  graph_edge_semantic_color: string | null;
+  graph_label_color: string | null;
+
   token_overrides: Record<string, string>;
   auto_palette: boolean;
 };
@@ -88,6 +94,11 @@ const SHARED_DEFAULTS: Omit<
   highlight_text_color: null,
   shiki_theme_light: "github-light",
   shiki_theme_dark: "github-dark",
+  graph_node_color: null,
+  graph_node_primary_color: null,
+  graph_edge_color: null,
+  graph_edge_semantic_color: null,
+  graph_label_color: null,
   token_overrides: {},
   auto_palette: true,
 };

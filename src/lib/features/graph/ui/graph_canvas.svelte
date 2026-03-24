@@ -103,7 +103,7 @@
   }
 
   .GraphCanvas__edge {
-    stroke: var(--muted-foreground);
+    stroke: var(--graph-edge, var(--muted-foreground));
     stroke-width: 1.5;
     opacity: 0.75;
   }
@@ -123,20 +123,20 @@
     padding-inline: var(--space-3);
     border-radius: var(--radius);
     border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--card-foreground);
+    background: var(--graph-node, var(--card));
+    color: var(--graph-label, var(--card-foreground));
     text-align: left;
     box-shadow: var(--shadow-sm, none);
   }
 
   .GraphCanvas__node:hover,
   .GraphCanvas__node:focus-visible {
-    border-color: var(--primary);
+    border-color: var(--graph-node-primary, var(--primary));
   }
 
   .GraphCanvas__node--selected {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 1px var(--primary);
+    border-color: var(--graph-node-primary, var(--primary));
+    box-shadow: 0 0 0 1px var(--graph-node-primary, var(--primary));
   }
 
   .GraphCanvas__node--hovered {
@@ -145,7 +145,7 @@
   }
 
   .GraphCanvas__node--center {
-    background: var(--primary);
+    background: var(--graph-node-primary, var(--primary));
     color: var(--primary-foreground);
   }
 

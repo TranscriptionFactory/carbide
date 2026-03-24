@@ -91,6 +91,7 @@
         hovered_node_id={stores.graph.hovered_node_id}
         {semantic_edges}
         {show_semantic_edges}
+        theme={stores.ui.active_theme}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>
