@@ -299,8 +299,8 @@ export function mount_reactors(context: ReactorContext): () => void {
         is_ready: () => context.iwe_store.status === "running",
         debounce_ms: 500,
         skip_draft: true,
-        on_open: (path, content) => {
-          void context.iwe_service.did_open(path, content);
+        on_open: async (path, content) => {
+          await context.iwe_service.did_open(path, content);
           void context.iwe_service.document_symbols(path);
         },
         on_change: (path, content) =>

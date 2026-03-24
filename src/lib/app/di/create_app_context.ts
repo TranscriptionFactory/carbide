@@ -248,7 +248,7 @@ export function create_app_context(input: {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];
       try {
-        return await input.ports.iwe.code_actions(
+        const actions = await input.ports.iwe.code_actions(
           vault_id,
           file_path,
           start_line,
@@ -256,7 +256,10 @@ export function create_app_context(input: {
           end_line,
           end_character,
         );
+        stores.iwe.set_code_actions(actions);
+        return actions;
       } catch {
+        stores.iwe.set_code_actions([]);
         return [];
       }
     },
