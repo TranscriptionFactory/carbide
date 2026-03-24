@@ -59,6 +59,16 @@ describe("detect_file_type", () => {
     });
   });
 
+  describe("html type", () => {
+    it("maps .html to html", () => {
+      expect(detect_file_type("page.html")).toBe("html");
+    });
+
+    it("maps .htm to html", () => {
+      expect(detect_file_type("page.htm")).toBe("html");
+    });
+  });
+
   describe("unknown / edge cases", () => {
     it("returns null for unknown extension", () => {
       expect(detect_file_type("file.xyz")).toBeNull();

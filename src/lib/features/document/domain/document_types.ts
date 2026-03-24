@@ -23,6 +23,8 @@ const DOCUMENT_TYPE_MAP: Record<string, DocumentFileType> = {
   ".toml": "code",
   ".sh": "code",
   ".bash": "code",
+  ".html": "html",
+  ".htm": "html",
   ".txt": "text",
   ".log": "text",
   ".ini": "text",

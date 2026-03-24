@@ -8,6 +8,7 @@
   import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import CodeViewer from "$lib/features/document/ui/code_viewer.svelte";
+  import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
 
   interface Props {
@@ -44,6 +45,8 @@
       src={asset_url}
       background_style={stores.ui.editor_settings.document_image_background}
     />
+  {:else if viewer_state.file_type === "html" && content !== null}
+    <HtmlViewer {content} />
   {:else if viewer_state.file_type === "csv" && content !== null}
     <CsvViewer {content} />
   {:else if (viewer_state.file_type === "code" || viewer_state.file_type === "text") && (content !== null || buffer_id !== null)}

@@ -4,5 +4,6 @@ export type DocumentFileType =
   | "csv"
   | "code"
   | "text"
+  | "html"
   | "canvas"
   | "excalidraw";

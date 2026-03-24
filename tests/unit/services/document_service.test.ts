@@ -42,6 +42,29 @@ describe("DocumentService", () => {
     );
   });
 
+  it("reads file content for html documents", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/page.html", "html");
+
+    expect(document_port.read_file).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      "docs/page.html",
+    );
+    expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
+    expect(document_store.get_content_state("tab-1")?.content).toBe(
+      "file content here",
+    );
+  });
+
   it("reads file content for code documents", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
