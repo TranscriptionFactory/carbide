@@ -513,6 +513,8 @@ export function create_app_context(input: {
     input.ports.citation,
     input.ports.doi_lookup,
     input.ports.zotero,
+    input.ports.linked_source,
+    input.ports.vault_settings,
   );
 
   const base_action_input = {
