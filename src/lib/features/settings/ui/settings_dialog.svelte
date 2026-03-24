@@ -3136,6 +3136,24 @@
                 placeholder={"MD013 = false\nMD040 = true"}
               ></textarea>
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">rumdl Binary Path</span>
+                <span class="SettingsDialog__description"
+                  >Custom path to the rumdl binary. Leave empty to auto-download</span
+                >
+              </div>
+              <Input
+                type="text"
+                class="w-64"
+                placeholder="/usr/local/bin/rumdl"
+                value={editor_settings.rumdl_binary_path}
+                oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                  update("rumdl_binary_path", e.currentTarget.value);
+                }}
+              />
+            </div>
           </div>
         {:else if active_category === "toolchain"}
           <h2 class="SettingsDialog__content-header">Tools</h2>

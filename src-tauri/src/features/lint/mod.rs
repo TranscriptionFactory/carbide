@@ -10,6 +10,7 @@ use types::*;
 use std::path::Path;
 use tauri::{AppHandle, State};
 
+use super::settings;
 use super::toolchain;
 
 fn resolve_uri(vault_path: &Path, rel_path: &str) -> String {
@@ -18,7 +19,12 @@ fn resolve_uri(vault_path: &Path, rel_path: &str) -> String {
 }
 
 async fn resolve_rumdl_binary(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    toolchain::resolver::resolve(app, "rumdl", None).await
+    let custom_path = settings::service::load_settings(app)
+        .ok()
+        .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .filter(|s| !s.is_empty());
+    toolchain::resolver::resolve(app, "rumdl", custom_path.as_deref()).await
 }
 
 #[tauri::command]

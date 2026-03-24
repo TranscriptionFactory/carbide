@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 use super::lsp::LintLspSession;
 use super::types::*;
+use crate::features::settings;
 use crate::features::toolchain;
 
 #[derive(Default)]
@@ -29,7 +30,13 @@ impl LintState {
     ) -> Result<(), String> {
         self.stop_session(vault_id).await?;
 
-        let binary_path = toolchain::resolver::resolve(&app, "rumdl", None).await?;
+        let custom_path = settings::service::load_settings(&app)
+            .ok()
+            .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .filter(|s| !s.is_empty());
+        let binary_path =
+            toolchain::resolver::resolve(&app, "rumdl", custom_path.as_deref()).await?;
 
         let client = LintLspSession::start(
             vault_id.to_string(),

@@ -209,6 +209,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "rumdl_binary_path",
+    label: "rumdl Binary Path",
+    description:
+      "Path to the rumdl binary. Leave empty to use the bundled version",
+    category: "Misc",
+    keywords: ["rumdl", "lint", "binary", "path", "executable", "markdown"],
+  },
+  {
     key: "file_tree_style",
     label: "File Tree Style",
     description:
