@@ -66,7 +66,7 @@ describe("ToolchainStore", () => {
 
     const hover_tools = store.tools_with_capability("hover");
     expect(hover_tools).toHaveLength(1);
-    expect(hover_tools[0].id).toBe("editor");
+    expect(hover_tools[0]?.id).toBe("editor");
 
     const format_tools = store.tools_with_capability("formatting");
     expect(format_tools).toHaveLength(2);

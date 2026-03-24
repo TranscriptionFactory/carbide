@@ -3037,6 +3037,19 @@
                 }}
               />
             </div>
+          </div>
+        {:else if active_category === "toolchain"}
+          <h2 class="SettingsDialog__content-header">Tools</h2>
+          <div class="SettingsDialog__section-content">
+            <p class="SettingsDialog__description">
+              External tools are downloaded automatically when needed. You can
+              also configure custom binary paths below.
+            </p>
+
+            <div class="SettingsDialog__section-divider"></div>
+            <h3 class="SettingsDialog__section-subheader">
+              Markdown Linting (rumdl)
+            </h3>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
@@ -3154,14 +3167,6 @@
                 }}
               />
             </div>
-          </div>
-        {:else if active_category === "toolchain"}
-          <h2 class="SettingsDialog__content-header">Tools</h2>
-          <div class="SettingsDialog__section-content">
-            <p class="SettingsDialog__description">
-              External tools are downloaded automatically when needed. You can
-              also manage them manually below.
-            </p>
 
             <div class="SettingsDialog__section-divider"></div>
             <h3 class="SettingsDialog__section-subheader">
