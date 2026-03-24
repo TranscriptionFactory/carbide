@@ -58,18 +58,30 @@ function prepare_clone_for_capture(cloned_doc: HTMLDocument): void {
     return;
   }
 
-  export_container.style.left = "0";
+  const body = cloned_doc.body;
+  for (const child of Array.from(body.children)) {
+    if (child !== export_container) {
+      (child as HTMLElement).style.display = "none";
+    }
+  }
 
-  const allowed_style_nodes = new Set(
-    Array.from(
-      export_container.querySelectorAll("style, link[rel='stylesheet']"),
-    ),
-  );
+  body.style.cssText = "margin: 0; padding: 0; background: #ffffff;";
+
+  export_container.style.cssText = `
+    position: static;
+    width: 800px;
+    padding: 40px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #24292f;
+    background: #ffffff;
+  `;
 
   for (const node of Array.from(
     cloned_doc.querySelectorAll("style, link[rel='stylesheet']"),
   )) {
-    if (!allowed_style_nodes.has(node)) {
+    if (!export_container.contains(node) && node.parentNode) {
       node.remove();
     }
   }
