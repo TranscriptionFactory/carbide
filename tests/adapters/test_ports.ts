@@ -160,5 +160,12 @@ export function create_test_ports(): Ports {
       write: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
+    reference_storage: {
+      load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
+      save_library: () => Promise.resolve(),
+      add_item: (_vault_id: string, item: unknown) =>
+        Promise.resolve({ schema_version: 1, items: [item] as never[] }),
+      remove_item: () => Promise.resolve({ schema_version: 1, items: [] }),
+    },
   };
 }
