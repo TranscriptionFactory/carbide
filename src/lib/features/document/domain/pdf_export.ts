@@ -51,7 +51,7 @@ export function create_md(): MarkdownIt {
   return new MarkdownIt({
     html: false,
     linkify: true,
-    typographer: true,
+    typographer: false,
   }).enable(["table", "strikethrough"]);
 }
 
