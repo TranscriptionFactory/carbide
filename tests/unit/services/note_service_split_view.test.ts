@@ -37,6 +37,7 @@ function create_note_meta(id: string) {
     title: id,
     mtime_ms: 1000,
     size_bytes: 0,
+    file_type: null,
   };
 }
 
@@ -131,7 +132,7 @@ describe("NoteService split-view mtime propagation", () => {
     const fixed_mtime = 9999;
     notes_port.write_and_index_note = vi
       .fn()
-      .mockResolvedValue({ new_mtime: fixed_mtime });
+      .mockResolvedValue({ new_mtime: fixed_mtime, parsed: null });
 
     const result = await service.save_note(null, true, "primary");
 
@@ -186,7 +187,7 @@ describe("NoteService split-view mtime propagation", () => {
     const fixed_mtime = 7777;
     notes_port.write_and_index_note = vi
       .fn()
-      .mockResolvedValue({ new_mtime: fixed_mtime });
+      .mockResolvedValue({ new_mtime: fixed_mtime, parsed: null });
 
     await service.save_note(null, true, "secondary");
 
@@ -237,7 +238,7 @@ describe("NoteService split-view mtime propagation", () => {
 
     notes_port.write_and_index_note = vi
       .fn()
-      .mockResolvedValue({ new_mtime: Date.now() });
+      .mockResolvedValue({ new_mtime: Date.now(), parsed: null });
 
     const result = await service.save_note(null, true, "primary");
 
@@ -290,7 +291,7 @@ describe("NoteService split-view mtime propagation", () => {
 
     notes_port.write_and_index_note = vi
       .fn()
-      .mockResolvedValue({ new_mtime: Date.now() });
+      .mockResolvedValue({ new_mtime: Date.now(), parsed: null });
 
     const primary_result = await service.save_note(null, true, "primary");
     const secondary_result = await service.save_note(null, true, "secondary");

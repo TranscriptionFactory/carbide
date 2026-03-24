@@ -37,6 +37,11 @@
     inline_code_text_color: "Inline code text",
     highlight_bg: "Highlight background",
     highlight_text_color: "Highlight text",
+    graph_node_color: "Graph node color",
+    graph_node_primary_color: "Graph node primary color",
+    graph_edge_color: "Graph edge color",
+    graph_edge_semantic_color: "Graph edge semantic color",
+    graph_label_color: "Graph label color",
     token_overrides: "CSS variable overrides",
     auto_palette: "Auto-generate from accent",
   };

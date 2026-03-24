@@ -32,6 +32,15 @@ import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
 import { create_iwe_tauri_adapter } from "$lib/features/iwe";
 import { create_metadata_tauri_adapter } from "$lib/features/metadata";
+import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
+import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
+import { create_saved_query_tauri_adapter } from "$lib/features/query";
+import {
+  create_reference_tauri_adapter,
+  create_citationjs_adapter,
+  create_doi_tauri_adapter,
+  create_zotero_bbt_adapter,
+} from "$lib/features/reference";
 import type { Ports } from "$lib/app/di/app_ports";
 
 export function create_prod_ports(): Ports {
@@ -86,5 +95,12 @@ export function create_prod_ports(): Ports {
     lint: create_lint_tauri_adapter(),
     iwe: create_iwe_tauri_adapter(),
     metadata: create_metadata_tauri_adapter(),
+    toolchain: create_toolchain_tauri_adapter(),
+    code_lsp: create_code_lsp_tauri_adapter(),
+    saved_query: create_saved_query_tauri_adapter(),
+    reference_storage: create_reference_tauri_adapter(),
+    citation: create_citationjs_adapter(),
+    doi_lookup: create_doi_tauri_adapter(),
+    zotero: create_zotero_bbt_adapter(),
   };
 }

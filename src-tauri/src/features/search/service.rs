@@ -93,7 +93,7 @@ enum DbCommand {
         vault_root: PathBuf,
         note_id: String,
         markdown: String,
-        reply: SyncSender<Result<(), String>>,
+        reply: SyncSender<Result<crate::shared::markdown_doc::ParseResult, String>>,
     },
     RemoveNote {
         note_id: String,
@@ -488,14 +488,14 @@ fn handle_upsert(
         Err(e) => return Err(e.to_string()),
     };
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let parsed = crate::shared::markdown_doc::parse_note(&markdown, &meta.path);
-    meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
+    let result = crate::shared::markdown_doc::parse_note(&markdown, &meta.path);
+    meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
 
-    search_db::upsert_note_parsed(conn, &meta, &markdown, &parsed)?;
+    search_db::upsert_note_parsed(conn, &meta, &markdown, &result.note)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
     let _ = vector_db::remove_embedding(conn, note_id);
 
-    let targets = parsed.links.all_internal_targets();
+    let targets = result.note.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
     for target in targets {
         if target != meta.path {
@@ -511,24 +511,50 @@ fn handle_upsert_with_content(
     note_id: &str,
     markdown: &str,
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
-) -> Result<(), String> {
+) -> Result<crate::shared::markdown_doc::ParseResult, String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let parsed = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
-    meta.title = parsed.title.clone().unwrap_or_else(|| meta.name.clone());
+    let mut result = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
+    meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
 
-    search_db::upsert_note_parsed(conn, &meta, markdown, &parsed)?;
+    search_db::upsert_note_parsed(conn, &meta, markdown, &result.note)?;
     notes_cache.insert(meta.path.clone(), meta.clone());
     let _ = vector_db::remove_embedding(conn, note_id);
 
-    let targets = parsed.links.all_internal_targets();
+    let all_links = result
+        .note
+        .links
+        .wiki_targets
+        .iter()
+        .chain(result.note.links.markdown_targets.iter());
+    for link in all_links {
+        if link.target_path.is_empty() || link.target_path == meta.path {
+            continue;
+        }
+        if !notes_cache.contains_key(&link.target_path) {
+            result
+                .diagnostics
+                .push(crate::shared::markdown_doc::ParseDiagnostic {
+                    line: link.line as u32,
+                    column: 0,
+                    end_line: link.line as u32,
+                    end_column: 0,
+                    severity: "warning".to_string(),
+                    message: format!("Unresolved link: {}", link.target_path),
+                    rule_id: Some("link/unresolved".to_string()),
+                });
+        }
+    }
+
+    let targets = result.note.links.all_internal_targets();
     let mut resolved: BTreeSet<String> = BTreeSet::new();
     for target in targets {
         if target != meta.path {
             resolved.insert(target);
         }
     }
-    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())
+    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())?;
+    Ok(result)
 }
 
 type IndexFn = fn(
@@ -1212,9 +1238,9 @@ pub fn index_upsert_note_with_content(
     vault_id: &str,
     note_id: &str,
     markdown: String,
-) -> Result<(), String> {
+) -> Result<crate::shared::markdown_doc::ParseResult, String> {
     let vault_root = storage::vault_path(app, vault_id)?;
-    send_write_blocking(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
+    send_write_reply(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
         vault_root,
         note_id: note_id.to_string(),
         markdown,

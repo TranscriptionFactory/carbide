@@ -139,5 +139,54 @@ export function create_test_ports(): Ports {
     metadata: {
       get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
     },
+    toolchain: {
+      list_tools: () => Promise.resolve([]),
+      install: () => Promise.resolve(),
+      uninstall: () => Promise.resolve(),
+      resolve: () => Promise.resolve(""),
+      subscribe_events: () => () => {},
+    },
+    code_lsp: {
+      open_file: () => Promise.resolve(),
+      close_file: () => Promise.resolve(),
+      stop_vault: () => Promise.resolve(),
+      available_languages: () => Promise.resolve([]),
+      get_status: () => Promise.resolve("stopped" as const),
+      subscribe_events: () => () => {},
+    },
+    saved_query: {
+      list: () => Promise.resolve([]),
+      read: () => Promise.resolve(""),
+      write: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+    reference_storage: {
+      load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
+      save_library: () => Promise.resolve(),
+      add_item: (_vault_id: string, item: unknown) =>
+        Promise.resolve({ schema_version: 1, items: [item] as never[] }),
+      remove_item: () => Promise.resolve({ schema_version: 1, items: [] }),
+      save_annotation_note: () => Promise.resolve(),
+      read_annotation_note: () => Promise.resolve(null),
+    },
+    citation: {
+      parse_bibtex: () => Promise.resolve([]),
+      parse_ris: () => Promise.resolve([]),
+      render_citation: () => Promise.resolve(""),
+      render_bibliography: () => Promise.resolve(""),
+      list_styles: () => [],
+    },
+    doi_lookup: {
+      lookup_doi: () => Promise.resolve(null),
+    },
+    zotero: {
+      test_connection: () => Promise.resolve(true),
+      search_items: () => Promise.resolve([]),
+      get_item: () => Promise.resolve(null),
+      get_collections: () => Promise.resolve([]),
+      get_collection_items: () => Promise.resolve([]),
+      get_bibliography: () => Promise.resolve(""),
+      get_item_annotations: () => Promise.resolve([]),
+    },
   };
 }

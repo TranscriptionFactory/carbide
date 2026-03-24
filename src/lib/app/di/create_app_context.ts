@@ -50,18 +50,30 @@ import {
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
+import { CodeLspService } from "$lib/features/code_lsp";
 import { IweService, register_iwe_actions } from "$lib/features/iwe";
+import {
+  ToolchainService,
+  register_toolchain_actions,
+} from "$lib/features/toolchain";
+import { QueryService, register_query_actions } from "$lib/features/query";
 import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
   register_metadata_actions,
 } from "$lib/features/metadata";
+import {
+  ReferenceService,
+  register_reference_actions,
+  CitationPicker,
+} from "$lib/features/reference";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PencilRuler } from "@lucide/svelte";
+import { Blocks, PencilRuler, BookMarked } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import type { DiagnosticSource } from "$lib/features/diagnostics";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -72,6 +84,11 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
+  function require_vault() {
+    const vault = stores.vault.vault;
+    if (!vault) throw new Error("No active vault");
+    return vault;
+  }
   set_log_entry_callback((entry) => stores.log.push(entry));
   const action_registry = new ActionRegistry();
   const workspace_reconcile = create_workspace_reconcile(
@@ -96,6 +113,10 @@ export function create_app_context(input: {
     stores.plugin_settings,
   );
 
+  plugin_service.on_plugin_cleanup((plugin_id) => {
+    stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
+  });
+
   plugin_service.register_sidebar_view({
     id: "canvases",
     label: "Canvases",
@@ -108,6 +129,13 @@ export function create_app_context(input: {
     label: "Plugins",
     icon: Blocks,
     panel: PluginManager,
+  });
+
+  plugin_service.register_sidebar_view({
+    id: "references",
+    label: "References",
+    icon: BookMarked,
+    panel: CitationPicker,
   });
 
   const search_service = new SearchService(
@@ -232,7 +260,7 @@ export function create_app_context(input: {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.iwe.status !== "running") return [];
       try {
-        return await input.ports.iwe.code_actions(
+        const actions = await input.ports.iwe.code_actions(
           vault_id,
           file_path,
           start_line,
@@ -240,7 +268,10 @@ export function create_app_context(input: {
           end_line,
           end_character,
         );
+        stores.iwe.set_code_actions(actions);
+        return actions;
       } catch {
+        stores.iwe.set_code_actions([]);
         return [];
       }
     },
@@ -258,6 +289,7 @@ export function create_app_context(input: {
     search_service,
     stores.outline,
     input.ports.assets,
+    input.ports.tag,
   );
 
   const settings_service = new SettingsService(
@@ -371,6 +403,8 @@ export function create_app_context(input: {
       watcher_service.suppress_next(path);
     },
     split_view_service,
+    stores.parsed_note_cache,
+    stores.diagnostics,
   );
 
   const tab_service = new TabService(
@@ -399,14 +433,22 @@ export function create_app_context(input: {
     stores.vault,
     stores.editor,
     stores.op,
+    stores.diagnostics,
   );
+
+  const code_lsp_service = new CodeLspService(
+    input.ports.code_lsp,
+    stores.code_lsp,
+    stores.diagnostics,
+  );
+  code_lsp_service.start();
 
   const iwe_service = new IweService(
     input.ports.iwe,
     stores.iwe,
     stores.vault,
     stores.ui,
-    stores.lint,
+    stores.diagnostics,
   );
 
   const graph_service = new GraphService(
@@ -444,6 +486,35 @@ export function create_app_context(input: {
     stores.vault,
   );
 
+  const toolchain_service = new ToolchainService(
+    input.ports.toolchain,
+    stores.toolchain,
+  );
+
+  const query_service = new QueryService(
+    {
+      search: input.ports.search,
+      index: input.ports.index,
+      tags: input.ports.tag,
+      bases: input.ports.bases,
+    },
+    stores.query,
+    stores.vault,
+    input.ports.saved_query,
+    stores.op,
+  );
+
+  const reference_service = new ReferenceService(
+    input.ports.reference_storage,
+    stores.reference,
+    stores.vault,
+    stores.op,
+    now_ms,
+    input.ports.citation,
+    input.ports.doi_lookup,
+    input.ports.zotero,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -461,6 +532,8 @@ export function create_app_context(input: {
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
+      parsed_note_cache: stores.parsed_note_cache,
+      reference: stores.reference,
     },
     services: {
       vault: vault_service,
@@ -479,6 +552,7 @@ export function create_app_context(input: {
       task: task_service,
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
+      reference: reference_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -530,6 +604,37 @@ export function create_app_context(input: {
     stores: {
       notes: stores.notes,
       editor: stores.editor,
+    },
+    search: {
+      async fts(query, limit) {
+        const vault = require_vault();
+        const hits = await input.ports.search.search_notes(
+          vault.id,
+          { raw: query, text: query, scope: "content", domain: "notes" },
+          limit,
+        );
+        return hits.map((h) => ({ path: h.note.path, score: h.score }));
+      },
+      async tags() {
+        return input.ports.tag.list_all_tags(require_vault().id);
+      },
+      async notes_for_tag(tag) {
+        return input.ports.tag.get_notes_for_tag(require_vault().id, tag);
+      },
+    },
+    diagnostics: {
+      push(source_id, file_path, diagnostics) {
+        const source = source_id as DiagnosticSource;
+        stores.diagnostics.push(source, file_path, diagnostics);
+      },
+      clear(source_id, file_path) {
+        const source = source_id as DiagnosticSource;
+        if (file_path) {
+          stores.diagnostics.clear_file(source, file_path);
+        } else {
+          stores.diagnostics.clear_source(source);
+        }
+      },
     },
   });
 
@@ -584,6 +689,14 @@ export function create_app_context(input: {
     stores.ui,
   );
 
+  register_reference_actions({
+    registry: action_registry,
+    reference_service,
+    reference_store: stores.reference,
+    editor_service,
+    ui_store: stores.ui,
+  });
+
   register_lint_actions({
     registry: action_registry,
     lint_service,
@@ -591,6 +704,7 @@ export function create_app_context(input: {
     editor_store: stores.editor,
     editor_service,
     ui_store: stores.ui,
+    diagnostics_store: stores.diagnostics,
   });
 
   register_iwe_actions({
@@ -601,6 +715,13 @@ export function create_app_context(input: {
     editor_service,
     ui_store: stores.ui,
   });
+
+  register_toolchain_actions({
+    registry: action_registry,
+    toolchain_service,
+  });
+
+  register_query_actions(action_registry, query_service, stores.ui);
 
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,
@@ -638,8 +759,12 @@ export function create_app_context(input: {
     lint_service,
     iwe_store: stores.iwe,
     iwe_service,
+    diagnostics_store: stores.diagnostics,
     metadata_store: stores.metadata,
     metadata_service,
+    toolchain_service,
+    document_store: stores.document,
+    code_lsp_service,
   });
 
   return {
@@ -657,6 +782,7 @@ export function create_app_context(input: {
       void watcher_service.stop();
       void lint_service.stop();
       void iwe_service.stop();
+      toolchain_service.dispose();
     },
   };
 }

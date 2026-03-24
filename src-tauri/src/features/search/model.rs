@@ -28,6 +28,8 @@ pub struct HybridSearchHit {
     pub note: IndexNoteMeta,
     pub score: f32,
     pub snippet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snippet_page: Option<u32>,
     pub source: HitSource,
 }
 
@@ -47,6 +49,8 @@ pub struct IndexNoteMeta {
     pub name: String,
     pub mtime_ms: i64,
     pub size_bytes: i64,
+    #[serde(default)]
+    pub file_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, Type)]
@@ -63,6 +67,8 @@ pub struct SearchHit {
     pub note: IndexNoteMeta,
     pub score: f32,
     pub snippet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snippet_page: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]

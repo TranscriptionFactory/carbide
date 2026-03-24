@@ -18,6 +18,7 @@ function create_note(path: string, title: string = ""): NoteMeta {
     title: title || path.replace(/\.md$/, ""),
     mtime_ms: 0,
     size_bytes: 0,
+    file_type: null,
   };
 }
 

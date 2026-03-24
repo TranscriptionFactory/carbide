@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Terminal, CircleAlert, Braces } from "@lucide/svelte";
+  import { Terminal, CircleAlert, Braces, Search } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -7,8 +7,8 @@
   const { stores, action_registry } = use_app_context();
 
   const active_tab = $derived(stores.ui.bottom_panel_tab);
-  const error_count = $derived(stores.lint.error_count);
-  const warning_count = $derived(stores.lint.warning_count);
+  const error_count = $derived(stores.diagnostics.error_count);
+  const warning_count = $derived(stores.diagnostics.warning_count);
   const has_issues = $derived(error_count + warning_count > 0);
 
   function set_tab(tab: BottomPanelTab) {
@@ -39,6 +39,10 @@
     import("$lib/features/lint/ui/problems_panel_content.svelte");
   const load_iwe_results = () =>
     import("$lib/features/iwe/ui/iwe_results_panel_content.svelte");
+  const load_query = () =>
+    import("$lib/features/query/ui/query_panel_content.svelte");
+
+  const query_result_count = $derived(stores.query.result?.total ?? 0);
 </script>
 
 <div class="BottomPanel">
@@ -77,6 +81,18 @@
         <span class="BottomPanel__badge">{iwe_result_count}</span>
       {/if}
     </button>
+    <button
+      type="button"
+      class="BottomPanel__tab"
+      class:BottomPanel__tab--active={active_tab === "query"}
+      onclick={() => set_tab("query")}
+    >
+      <Search class="BottomPanel__tab-icon" />
+      Query
+      {#if query_result_count > 0}
+        <span class="BottomPanel__badge">{query_result_count}</span>
+      {/if}
+    </button>
     <div class="BottomPanel__spacer"></div>
     <button
       type="button"
@@ -97,6 +113,12 @@
       {/await}
     {:else if active_tab === "iwe_results"}
       {#await load_iwe_results() then mod}
+        <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load panel</div>
+      {/await}
+    {:else if active_tab === "query"}
+      {#await load_query() then mod}
         <mod.default />
       {:catch}
         <div class="BottomPanel__error">Failed to load panel</div>

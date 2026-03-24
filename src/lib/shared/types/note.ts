@@ -7,6 +7,7 @@ export type NoteMeta = {
   title: string;
   mtime_ms: number;
   size_bytes: number;
+  file_type: string | null;
 };
 
 export type NoteDoc = {

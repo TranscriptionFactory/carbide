@@ -80,11 +80,13 @@ fn rrf_merge(
             }
 
             let snippet = fts_hit.and_then(|h| h.snippet.clone());
+            let snippet_page = fts_hit.and_then(|h| h.snippet_page);
 
             Some(HybridSearchHit {
                 note,
                 score: final_score as f32,
                 snippet,
+                snippet_page,
                 source,
             })
         })

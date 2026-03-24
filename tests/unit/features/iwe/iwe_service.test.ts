@@ -61,7 +61,7 @@ describe("IweService", () => {
 
     await service.start();
 
-    expect(port.start).toHaveBeenCalledWith("vault-1", "");
+    expect(port.start).toHaveBeenCalledWith("vault-1");
     expect(store.status).toBe("running");
   });
 
@@ -115,7 +115,7 @@ describe("IweService", () => {
     await service.restart();
 
     expect(port.stop).toHaveBeenCalledWith("vault-1");
-    expect(port.start).toHaveBeenCalledWith("vault-1", "");
+    expect(port.start).toHaveBeenCalledWith("vault-1");
     expect(store.status).toBe("running");
   });
 
@@ -432,7 +432,7 @@ describe("IweService", () => {
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(port.stop).toHaveBeenCalledWith("vault-1");
-      expect(port.start).toHaveBeenCalledWith("vault-1", "");
+      expect(port.start).toHaveBeenCalledWith("vault-1");
     });
 
     it("does not schedule multiple restarts for consecutive failures", async () => {

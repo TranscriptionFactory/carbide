@@ -33,11 +33,15 @@ import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_m
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
-import { create_iwe_document_sync_reactor } from "$lib/reactors/iwe_document_sync.reactor.svelte";
+import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
+import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
+import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
+import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
+import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -69,7 +73,11 @@ import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type { IweStore, IweService } from "$lib/features/iwe";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
+import type { ToolchainService } from "$lib/features/toolchain";
+import type { DocumentStore } from "$lib/features/document";
+import type { CodeLspService } from "$lib/features/code_lsp";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -106,15 +114,23 @@ export type ReactorContext = {
   lint_store: LintStore;
   lint_service: LintService;
   iwe_store: IweStore;
+  diagnostics_store: DiagnosticsStore;
   iwe_service: IweService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
+  toolchain_service: ToolchainService;
+  document_store: DocumentStore;
+  code_lsp_service: CodeLspService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
   const unmounts = [
+    create_plugin_note_indexed_reactor(
+      context.search_store,
+      context.plugin_service,
+    ),
     create_editor_sync_reactor(context.editor_store, context.editor_service),
     create_editor_appearance_reactor(context.ui_store),
     create_editor_width_reactor(context.ui_store),
@@ -278,10 +294,47 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.plugin_service,
     ),
     create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
-    create_iwe_document_sync_reactor(
+    create_lsp_document_sync_reactor(context.editor_store, [
+      {
+        is_ready: () => context.iwe_store.status === "running",
+        debounce_ms: 500,
+        skip_draft: true,
+        on_open: async (path, content) => {
+          await context.iwe_service.did_open(path, content);
+          void context.iwe_service.document_symbols(path);
+        },
+        on_change: (path, content) =>
+          void context.iwe_service.did_change(path, content),
+        on_save: (path, content) =>
+          void context.iwe_service.did_save(path, content),
+        on_close: (path) => context.diagnostics_store.clear_file("iwe", path),
+      },
+      {
+        is_ready: () => context.lint_store.is_running,
+        debounce_ms: 300,
+        on_open: (path, content) =>
+          void context.lint_service.notify_file_opened(path, content),
+        on_change: (path, content) =>
+          void context.lint_service.notify_file_changed(path, content),
+        on_close: (path) => void context.lint_service.notify_file_closed(path),
+      },
+    ]),
+    create_diagnostics_active_file_reactor(
       context.editor_store,
-      context.iwe_store,
-      context.iwe_service,
+      context.diagnostics_store,
+    ),
+    create_code_lsp_document_sync_reactor(
+      context.document_store,
+      context.code_lsp_service,
+      () => {
+        const vault = context.vault_store.vault;
+        if (!vault) return null;
+        return { id: vault.id, path: vault.path };
+      },
+    ),
+    create_toolchain_lifecycle_reactor(
+      context.vault_store,
+      context.toolchain_service,
     ),
   ];
 

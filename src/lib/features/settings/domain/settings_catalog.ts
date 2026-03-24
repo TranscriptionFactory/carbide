@@ -166,7 +166,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Enable Markdown Linting",
     description:
       "Run rumdl in the background to check markdown files for style and formatting issues",
-    category: "Misc",
+    category: "Tools",
     keywords: [
       "lint",
       "markdown",
@@ -181,7 +181,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "lint_format_on_save",
     label: "Format on Save",
     description: "Automatically format the current markdown file when saving",
-    category: "Misc",
+    category: "Tools",
     keywords: ["lint", "format", "save", "auto", "markdown", "prettier"],
   },
   {
@@ -189,7 +189,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Formatter",
     description:
       "Which tool to use for markdown formatting. Prettier is recommended for most users",
-    category: "Misc",
+    category: "Tools",
     keywords: ["lint", "formatter", "format", "prettier", "rumdl", "markdown"],
   },
   {
@@ -197,7 +197,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Rule Overrides (TOML)",
     description:
       "Custom rumdl rule configuration in TOML format, merged with defaults. Example: MD013 = false",
-    category: "Misc",
+    category: "Tools",
     keywords: [
       "lint",
       "rules",
@@ -207,6 +207,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "override",
       "custom",
     ],
+  },
+  {
+    key: "rumdl_binary_path",
+    label: "rumdl Binary Path",
+    description:
+      "Path to the rumdl binary. Leave empty to use the bundled version",
+    category: "Tools",
+    keywords: ["rumdl", "lint", "binary", "path", "executable", "markdown"],
   },
   {
     key: "file_tree_style",
@@ -545,7 +553,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Enable IWE Integration",
     description:
       "Enable the IWE language server for workspace-level refactoring, outline, and code actions",
-    category: "Misc",
+    category: "Tools",
     keywords: [
       "iwe",
       "lsp",
@@ -561,7 +569,56 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "IWE Binary Path",
     description:
       "Path to the IWE language server binary. Leave empty to use the bundled version",
-    category: "Misc",
+    category: "Tools",
     keywords: ["iwe", "lsp", "binary", "path", "executable"],
+  },
+  {
+    key: "reference_enabled",
+    label: "Enable References",
+    description:
+      "Enable the reference manager for citing papers, books, and articles in your notes",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "citation",
+      "zotero",
+      "bibliography",
+      "academic",
+      "papers",
+      "doi",
+    ],
+  },
+  {
+    key: "reference_bbt_url",
+    label: "Zotero BBT URL",
+    description:
+      "JSON-RPC endpoint for the Better BibTeX Zotero plugin. Requires Zotero + BBT running locally",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "zotero",
+      "bbt",
+      "better bibtex",
+      "url",
+      "endpoint",
+      "connection",
+    ],
+  },
+  {
+    key: "reference_citation_style",
+    label: "Citation Style",
+    description:
+      "Default CSL citation style for rendering bibliographies (e.g. apa, vancouver, harvard1)",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "citation",
+      "style",
+      "csl",
+      "apa",
+      "vancouver",
+      "harvard",
+      "bibliography",
+    ],
   },
 ];

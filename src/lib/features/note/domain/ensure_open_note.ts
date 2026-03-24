@@ -73,6 +73,7 @@ export function create_untitled_open_note(args: {
       title,
       mtime_ms: args.now_ms,
       size_bytes: 0,
+      file_type: null,
     },
     markdown: as_markdown_text(frontmatter),
     buffer_id: `untitled:${String(args.now_ms)}:${title}`,

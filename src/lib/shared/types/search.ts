@@ -26,6 +26,7 @@ export type NoteSearchHit = {
   note: NoteMeta;
   score: number;
   snippet?: string | undefined;
+  snippet_page?: number | undefined;
 };
 
 export type PlannedLinkSuggestion = {
@@ -90,6 +91,7 @@ export type HybridSearchHit = {
   note: NoteMeta;
   score: number;
   snippet?: string | undefined;
+  snippet_page?: number | undefined;
   source: HitSource;
 };
 
@@ -122,6 +124,7 @@ export type OmnibarItem =
       note: NoteMeta;
       score: number;
       snippet?: string | undefined;
+      snippet_page?: number | undefined;
       source?: HitSource | undefined;
     }
   | {
@@ -134,6 +137,7 @@ export type OmnibarItem =
       vault_is_available?: boolean;
       score: number;
       snippet?: string | undefined;
+      snippet_page?: number | undefined;
     }
   | {
       kind: "planned_note";

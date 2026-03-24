@@ -12,21 +12,24 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type {
-    LintDiagnostic,
-    LintSeverity,
-  } from "$lib/features/lint/types/lint";
+    DiagnosticSeverity,
+    DiagnosticSource,
+    Diagnostic,
+  } from "$lib/features/diagnostics";
   import type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
 
   const { stores, action_registry } = use_app_context();
 
-  const diagnostics = $derived(stores.lint.active_diagnostics);
-  const active_path = $derived(stores.lint.active_file_path);
-  const error_count = $derived(stores.lint.error_count);
-  const warning_count = $derived(stores.lint.warning_count);
+  const diagnostics = $derived(stores.diagnostics.active_diagnostics);
+  const active_path = $derived(stores.diagnostics.active_file_path);
+  const error_count = $derived(stores.diagnostics.error_count);
+  const warning_count = $derived(stores.diagnostics.warning_count);
+  const active_sources = $derived(stores.diagnostics.active_sources);
   const log_entries = $derived(stores.log.entries);
   const log_count = $derived(stores.log.entry_count);
 
-  let severity_filter = $state<LintSeverity | "all" | "log">("all");
+  let severity_filter = $state<DiagnosticSeverity | "all" | "log">("all");
+  let source_filter = $state<DiagnosticSource | "all">("all");
   let search_query = $state("");
   let log_viewport: HTMLElement | undefined = $state();
 
@@ -34,6 +37,9 @@
     let items = diagnostics;
     if (severity_filter !== "all" && severity_filter !== "log") {
       items = items.filter((d) => d.severity === severity_filter);
+    }
+    if (source_filter !== "all") {
+      items = items.filter((d) => d.source === source_filter);
     }
     if (search_query) {
       const q = search_query.toLowerCase();
@@ -53,7 +59,7 @@
   });
 
   const grouped = $derived.by(() => {
-    const groups: Record<LintSeverity, LintDiagnostic[]> = {
+    const groups: Record<DiagnosticSeverity, Diagnostic[]> = {
       error: [],
       warning: [],
       info: [],
@@ -65,9 +71,14 @@
     return groups;
   });
 
-  const severity_order: LintSeverity[] = ["error", "warning", "info", "hint"];
+  const severity_order: DiagnosticSeverity[] = [
+    "error",
+    "warning",
+    "info",
+    "hint",
+  ];
 
-  function severity_icon(severity: LintSeverity) {
+  function severity_icon(severity: DiagnosticSeverity) {
     switch (severity) {
       case "error":
         return CircleAlert;
@@ -80,11 +91,11 @@
     }
   }
 
-  function navigate_to(diagnostic: LintDiagnostic) {
+  function navigate_to(diagnostic: Diagnostic) {
     void diagnostic;
   }
 
-  function fix_diagnostic(diagnostic: LintDiagnostic) {
+  function fix_diagnostic(diagnostic: Diagnostic) {
     if (!diagnostic.fixable) return;
     void action_registry.execute(ACTION_IDS.lint_fix_all);
   }
@@ -109,6 +120,14 @@
       )
       .join("\n");
     void navigator.clipboard.writeText(text);
+  }
+
+  function source_label(source: DiagnosticSource): string {
+    if (source === "lint") return "Lint";
+    if (source === "iwe") return "IWE";
+    if (source === "ast") return "AST";
+    if (source.startsWith("plugin:")) return source.slice("plugin:".length);
+    return source;
   }
 
   function format_timestamp(ts: number): string {
@@ -192,6 +211,18 @@
         <option value="hint">Hints</option>
         <option value="log">Log</option>
       </select>
+      {#if severity_filter !== "log"}
+        <select
+          class="ProblemsPanel__filter"
+          bind:value={source_filter}
+          aria-label="Filter by source"
+        >
+          <option value="all">All Sources</option>
+          {#each active_sources as source (source)}
+            <option value={source}>{source_label(source)}</option>
+          {/each}
+        </select>
+      {/if}
       {#if severity_filter !== "log"}
         <button
           type="button"

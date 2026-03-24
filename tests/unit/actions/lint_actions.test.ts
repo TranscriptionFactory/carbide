@@ -6,6 +6,7 @@ import type { LintService } from "$lib/features/lint/application/lint_service";
 import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
 
 function create_mock_registry() {
   const actions = new Map<string, any>();
@@ -24,6 +25,14 @@ function create_mock_registry() {
 function create_mock_lint_store(overrides: Partial<LintStore> = {}): LintStore {
   return {
     is_running: false,
+    ...overrides,
+  } as any;
+}
+
+function create_mock_diagnostics_store(
+  overrides: Partial<DiagnosticsStore> = {},
+): DiagnosticsStore {
+  return {
     active_diagnostics: [],
     active_file_path: null,
     error_count: 0,
@@ -52,6 +61,7 @@ describe("register_lint_actions", () => {
         sync_visual_from_markdown: vi.fn(),
       } as unknown as EditorService,
       ui_store: ui_store as any,
+      diagnostics_store: create_mock_diagnostics_store(),
     });
   });
 

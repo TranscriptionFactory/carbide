@@ -24,12 +24,14 @@ type TauriNoteMeta = {
   name: string;
   mtime_ms: number;
   size_bytes: number;
+  file_type: string | null;
 };
 
 type TauriSearchHit = {
   note: TauriNoteMeta;
   score: number;
   snippet: string | null;
+  snippet_page: number | null;
 };
 
 type TauriSuggestionHit = {
@@ -62,6 +64,7 @@ type TauriHybridSearchHit = {
   note: TauriNoteMeta;
   score: number;
   snippet: string | null;
+  snippet_page: number | null;
   source: HitSource;
 };
 
@@ -90,6 +93,7 @@ function to_note_meta(hit: TauriNoteMeta) {
     name: hit.name,
     mtime_ms: hit.mtime_ms,
     size_bytes: hit.size_bytes,
+    file_type: hit.file_type,
   };
 }
 
@@ -157,6 +161,7 @@ export function create_search_tauri_adapter(): SearchPort {
         note: to_note_meta(hit.note),
         score: hit.score,
         snippet: hit.snippet ?? undefined,
+        snippet_page: hit.snippet_page ?? undefined,
       }));
     },
 
@@ -302,6 +307,7 @@ export function create_search_tauri_adapter(): SearchPort {
         note: to_note_meta(hit.note),
         score: hit.score,
         snippet: hit.snippet ?? undefined,
+        snippet_page: hit.snippet_page ?? undefined,
         source: hit.source,
       }));
     },

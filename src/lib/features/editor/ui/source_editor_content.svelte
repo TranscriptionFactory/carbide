@@ -16,7 +16,7 @@
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
   import type { EditorView } from "@codemirror/view";
-  import type { LintDiagnostic } from "$lib/features/lint";
+  import type { Diagnostic } from "$lib/features/diagnostics";
 
   interface Props {
     initial_markdown: string;
@@ -135,11 +135,11 @@
     }
   });
 
-  let prev_diagnostics: LintDiagnostic[] = [];
+  let prev_diagnostics: Diagnostic[] = [];
 
   $effect(() => {
     if (!view_mounted || !view) return;
-    const diagnostics = stores.lint.active_diagnostics;
+    const diagnostics = stores.diagnostics.active_diagnostics;
     if (diagnostics === prev_diagnostics) return;
     prev_diagnostics = diagnostics;
 

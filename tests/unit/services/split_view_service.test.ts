@@ -60,6 +60,7 @@ function make_open_note(id: string) {
       title: id,
       mtime_ms: 1000,
       size_bytes: 0,
+      file_type: null,
     },
     markdown: as_markdown_text("content"),
     buffer_id: note_id,

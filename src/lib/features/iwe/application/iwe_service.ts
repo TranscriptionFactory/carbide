@@ -1,7 +1,6 @@
 import type { IwePort } from "$lib/features/iwe/ports";
 import type { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
-import type { LintStore } from "$lib/features/lint";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type {
   IweDiagnosticsEvent,
@@ -10,9 +9,10 @@ import type {
   IweTreeNode,
 } from "$lib/features/iwe/types";
 import type {
-  LintDiagnostic,
-  LintSeverity,
-} from "$lib/features/lint/types/lint";
+  DiagnosticsStore,
+  Diagnostic,
+  DiagnosticSeverity,
+} from "$lib/features/diagnostics";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("iwe_service");
@@ -24,7 +24,7 @@ function is_channel_closed_error(e: unknown): boolean {
   return msg.toLowerCase().includes(CHANNEL_CLOSED_PATTERN);
 }
 
-function to_lint_severity(s: string): LintSeverity {
+function to_diagnostic_severity(s: string): DiagnosticSeverity {
   if (s === "error" || s === "warning" || s === "info" || s === "hint")
     return s;
   return "hint";
@@ -54,20 +54,18 @@ export class IweService {
     private readonly store: IweStore,
     private readonly vault_store: VaultStore,
     private readonly ui_store: UIStore,
-    private readonly lint_store?: LintStore,
+    private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
   async start(): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
-    const binary_path = this.ui_store.editor_settings.iwe_binary_path;
-
     await this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
         this.subscribe_diagnostics();
-        const result = await this.port.start(vault_id, binary_path);
+        const result = await this.port.start(vault_id);
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
@@ -98,11 +96,12 @@ export class IweService {
       }
       this.doc_versions.clear();
       this.store.reset();
+      this.diagnostics_store?.clear_source("iwe");
     });
   }
 
   private subscribe_diagnostics(): void {
-    if (!this.lint_store) return;
+    if (!this.diagnostics_store) return;
     this.unsubscribe_diagnostics = this.port.subscribe_diagnostics(
       (event: IweDiagnosticsEvent) => this.handle_diagnostics(event),
     );
@@ -116,25 +115,26 @@ export class IweService {
   }
 
   private handle_diagnostics(event: IweDiagnosticsEvent): void {
-    if (!this.lint_store) return;
+    if (!this.diagnostics_store) return;
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) return;
 
     const relative_path = uri_to_relative_path(event.uri, vault_path);
     if (!relative_path) return;
 
-    const diagnostics: LintDiagnostic[] = event.diagnostics.map((d) => ({
+    const diagnostics: Diagnostic[] = event.diagnostics.map((d) => ({
+      source: "iwe" as const,
       line: d.line + 1,
       column: d.character + 1,
       end_line: d.end_line + 1,
       end_column: d.end_character + 1,
-      severity: to_lint_severity(d.severity),
+      severity: to_diagnostic_severity(d.severity),
       message: d.message,
       rule_id: "iwe",
       fixable: false,
     }));
 
-    this.lint_store.set_diagnostics(relative_path, diagnostics);
+    this.diagnostics_store.push("iwe", relative_path, diagnostics);
   }
 
   async did_open(file_path: string, content: string): Promise<void> {

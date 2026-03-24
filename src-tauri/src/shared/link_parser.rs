@@ -16,7 +16,7 @@ pub struct LocalLinksSnapshot {
     pub external_links: Vec<ExternalLink>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Type)]
 pub struct ParsedInternalLink {
     pub target_path: String,
     pub anchor: Option<String>,

@@ -13,6 +13,9 @@ mod vault_settings_service_parse;
 #[path = "../../tests/link_rewrite.rs"]
 mod link_rewrite;
 
+#[path = "../../tests/link_validation.rs"]
+mod link_validation;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
@@ -158,6 +161,11 @@ mod specta_export {
                 crate::features::iwe::service::iwe_completion,
                 crate::features::iwe::service::iwe_formatting,
                 crate::features::iwe::service::iwe_inlay_hints,
+                crate::features::code_lsp::code_lsp_open_file,
+                crate::features::code_lsp::code_lsp_close_file,
+                crate::features::code_lsp::code_lsp_stop_vault,
+                crate::features::code_lsp::code_lsp_available_languages,
+                crate::features::code_lsp::code_lsp_get_status,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

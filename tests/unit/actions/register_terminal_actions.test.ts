@@ -19,6 +19,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 
 function create_harness() {
   const registry = new ActionRegistry();
@@ -55,6 +56,7 @@ function create_harness() {
       graph: new GraphStore(),
       outline: new OutlineStore(),
       split_view: new SplitViewStore(),
+      parsed_note_cache: new ParsedNoteCache(),
     },
     services: {} as never,
     default_mount_config: {

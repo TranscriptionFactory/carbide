@@ -37,29 +37,29 @@
   });
 </script>
 
+<button
+  type="button"
+  class="LintIndicator"
+  class:LintIndicator--clean={!has_issues}
+  class:LintIndicator--errors={has_errors}
+  class:LintIndicator--warnings={has_warnings && !has_errors}
+  onclick={on_click}
+  aria-label={label}
+  title={label}
+>
+  {#if has_errors}
+    <CircleAlert class="LintIndicator__icon" />
+    <span>{error_count}</span>
+  {/if}
+  {#if has_warnings}
+    <TriangleAlert class="LintIndicator__icon" />
+    <span>{warning_count}</span>
+  {/if}
+  {#if !has_issues}
+    <CircleCheck class="LintIndicator__icon" />
+  {/if}
+</button>
 {#if is_running}
-  <button
-    type="button"
-    class="LintIndicator"
-    class:LintIndicator--clean={!has_issues}
-    class:LintIndicator--errors={has_errors}
-    class:LintIndicator--warnings={has_warnings && !has_errors}
-    onclick={on_click}
-    aria-label={label}
-    title={label}
-  >
-    {#if has_errors}
-      <CircleAlert class="LintIndicator__icon" />
-      <span>{error_count}</span>
-    {/if}
-    {#if has_warnings}
-      <TriangleAlert class="LintIndicator__icon" />
-      <span>{warning_count}</span>
-    {/if}
-    {#if !has_issues}
-      <CircleCheck class="LintIndicator__icon" />
-    {/if}
-  </button>
   <button
     type="button"
     class="LintIndicator LintIndicator--format"

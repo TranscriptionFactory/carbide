@@ -6,6 +6,7 @@
   import { VaultGraphRenderer } from "$lib/features/graph/domain/vault_graph_renderer";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
+  import type { Theme } from "$lib/shared/types/theme";
 
   type Props = {
     snapshot: VaultGraphSnapshot;
@@ -14,6 +15,7 @@
     hovered_node_id: string | null;
     semantic_edges: SemanticEdge[];
     show_semantic_edges: boolean;
+    theme?: Theme;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
@@ -32,6 +34,7 @@
     hovered_node_id,
     semantic_edges,
     show_semantic_edges,
+    theme,
     on_select_node,
     on_hover_node,
     on_open_node,
@@ -141,6 +144,13 @@
 
   $effect(() => {
     renderer?.set_filter(compute_filter_set(filter_query, snapshot));
+  });
+
+  $effect(() => {
+    // Re-read colors and re-render when theme object changes
+    if (theme) {
+      renderer?.update_colors();
+    }
   });
 
   $effect(() => {

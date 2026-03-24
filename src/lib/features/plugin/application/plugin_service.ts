@@ -34,6 +34,7 @@ export class PluginService {
   private event_bus = new PluginEventBus();
   private settings_service: PluginSettingsService | null = null;
   private iframe_post_message_map = new Map<string, (msg: unknown) => void>();
+  private cleanup_callbacks: ((plugin_id: string) => void)[] = [];
 
   constructor(
     private store: PluginStore,
@@ -70,6 +71,10 @@ export class PluginService {
         "events:subscribe",
       );
     });
+  }
+
+  on_plugin_cleanup(callback: (plugin_id: string) => void) {
+    this.cleanup_callbacks.push(callback);
   }
 
   get_event_bus(): PluginEventBus {
@@ -344,6 +349,9 @@ export class PluginService {
       this.store.unregister_ribbon_icon(rid);
     }
     this.store.unregister_settings_tab(id);
+    for (const callback of this.cleanup_callbacks) {
+      callback(id);
+    }
   }
 
   async load_and_activate(id: string) {

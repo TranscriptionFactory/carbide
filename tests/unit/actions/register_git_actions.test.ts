@@ -15,6 +15,7 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { SplitViewStore } from "$lib/features/split_view";
+import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { toast } from "svelte-sonner";
 
@@ -44,6 +45,7 @@ function create_harness() {
     task: new TaskStore(),
     outline: new OutlineStore(),
     split_view: new SplitViewStore(),
+    parsed_note_cache: new ParsedNoteCache(),
   };
 
   const services = {
@@ -135,6 +137,7 @@ describe("register_git_actions", () => {
         title: "a",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text(""),
       buffer_id: "notes/a.md",
@@ -158,6 +161,7 @@ describe("register_git_actions", () => {
         title: "a",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text(""),
       buffer_id: "notes/a.md",
@@ -184,6 +188,7 @@ describe("register_git_actions", () => {
         title: "a",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text(""),
       buffer_id: "notes/a.md",
@@ -332,6 +337,7 @@ describe("register_git_actions", () => {
         title: "a",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# old"),
       buffer_id: "notes/a.md",

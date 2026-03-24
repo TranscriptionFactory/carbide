@@ -14,6 +14,7 @@ export type SettingsCategory =
   | "graph"
   | "semantic"
   | "misc"
+  | "toolchain"
   | "hotkeys";
 
 export type GitAutocommitMode = "off" | "on_save" | "interval";
@@ -104,8 +105,12 @@ export type EditorSettings = {
   lint_format_on_save: boolean;
   lint_formatter: LintFormatter;
   lint_rules_toml: string;
+  rumdl_binary_path: string;
   iwe_enabled: boolean;
   iwe_binary_path: string;
+  reference_enabled: boolean;
+  reference_bbt_url: string;
+  reference_citation_style: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -169,8 +174,12 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_format_on_save: false,
   lint_formatter: "prettier",
   lint_rules_toml: "",
+  rumdl_binary_path: "",
   iwe_enabled: false,
   iwe_binary_path: "",
+  reference_enabled: false,
+  reference_bbt_url: "http://localhost:23119/better-bibtex/json-rpc",
+  reference_citation_style: "apa",
 };
 
 export const SETTINGS_KEY = "editor" as const;

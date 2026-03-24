@@ -14,6 +14,7 @@ function open_note(buffer_id: string) {
       title: "a",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     },
     markdown: as_markdown_text("# A"),
     buffer_id,

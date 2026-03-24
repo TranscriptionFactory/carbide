@@ -896,8 +896,8 @@
         on_sync_click={() =>
           void action_registry.execute(ACTION_IDS.vault_sync_index)}
         lint_is_running={stores.lint.is_running}
-        lint_error_count={stores.lint.error_count}
-        lint_warning_count={stores.lint.warning_count}
+        lint_error_count={stores.diagnostics.error_count}
+        lint_warning_count={stores.diagnostics.warning_count}
         on_lint_click={() =>
           void action_registry.execute(ACTION_IDS.lint_toggle_problems)}
         on_lint_format_click={() =>

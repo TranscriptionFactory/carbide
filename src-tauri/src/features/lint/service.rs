@@ -4,8 +4,10 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
-use super::lsp::LspClient;
+use super::lsp::LintLspSession;
 use super::types::*;
+use crate::features::settings;
+use crate::features::toolchain;
 
 #[derive(Default)]
 pub struct LintState {
@@ -13,7 +15,7 @@ pub struct LintState {
 }
 
 pub struct VaultLintSession {
-    pub client: LspClient,
+    pub client: LintLspSession,
     pub vault_path: PathBuf,
     pub status: LintStatus,
 }
@@ -28,9 +30,22 @@ impl LintState {
     ) -> Result<(), String> {
         self.stop_session(vault_id).await?;
 
-        let client = LspClient::start(vault_id.to_string(), vault_path.clone(), browse_mode, app)
-            .await
-            .map_err(|e| e.to_string())?;
+        let custom_path = settings::service::load_settings(&app)
+            .ok()
+            .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .filter(|s| !s.is_empty());
+        let binary_path =
+            toolchain::resolver::resolve(&app, "rumdl", custom_path.as_deref()).await?;
+
+        let client = LintLspSession::start(
+            vault_id.to_string(),
+            vault_path.clone(),
+            binary_path,
+            browse_mode,
+            app,
+        )
+        .await?;
 
         let session = VaultLintSession {
             client,

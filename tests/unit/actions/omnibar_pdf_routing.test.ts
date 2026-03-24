@@ -82,6 +82,7 @@ function make_note_item(path: string): OmnibarItem {
       title: path,
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     },
     score: 1,
     snippet: undefined,
@@ -98,6 +99,7 @@ function make_recent_note_item(path: string): OmnibarItem {
       title: path,
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     },
   };
 }

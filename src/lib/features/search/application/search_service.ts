@@ -63,6 +63,7 @@ function merge_fts_with_hybrid(
       note: hit.note,
       score: hit.score,
       snippet: hit.snippet,
+      snippet_page: hit.snippet_page,
       source: hit.source,
     }));
 
@@ -545,6 +546,7 @@ export class SearchService {
       note: r.note,
       score: r.score,
       snippet: r.snippet,
+      snippet_page: r.snippet_page,
     }));
 
     const fallback_enabled = semantic_fallback?.enabled ?? true;

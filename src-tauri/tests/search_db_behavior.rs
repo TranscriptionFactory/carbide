@@ -81,6 +81,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
             name: name.to_string(),
             mtime_ms: 100,
             size_bytes: 10,
+            file_type: None,
         };
         upsert_note(&conn, &meta, body).expect("upsert should succeed");
     }
@@ -113,6 +114,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         name: "old".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     let b = IndexNoteMeta {
         id: "docs/source.md".to_string(),
@@ -121,6 +123,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         name: "source".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     upsert_note(&conn, &a, "body a").expect("upsert should succeed");
     upsert_note(&conn, &b, "body b").expect("upsert should succeed");
@@ -156,6 +159,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         name: "source-a".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     let source_b = IndexNoteMeta {
         id: "docs/source-b.md".to_string(),
@@ -164,6 +168,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         name: "source-b".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     let existing = IndexNoteMeta {
         id: "docs/existing.md".to_string(),
@@ -172,6 +177,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         name: "existing".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
 
     upsert_note(&conn, &source_a, "body").expect("upsert should succeed");
@@ -306,6 +312,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         name: "a".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     let b = IndexNoteMeta {
         id: "old_500/b.md".to_string(),
@@ -314,6 +321,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         name: "b".to_string(),
         mtime_ms: 100,
         size_bytes: 10,
+        file_type: None,
     };
     upsert_note(&conn, &a, "body a").expect("upsert should succeed");
     upsert_note(&conn, &b, "body b").expect("upsert should succeed");
@@ -345,6 +353,7 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
             name: name.to_string(),
             mtime_ms: 100,
             size_bytes: 10,
+            file_type: None,
         };
         upsert_note(&conn, &meta, body).expect("upsert should succeed");
     }
@@ -369,6 +378,7 @@ fn upsert_note_populates_note_headings() {
         name: "test".into(),
         mtime_ms: 100,
         size_bytes: 50,
+        file_type: None,
     };
     upsert_note(&conn, &meta, "# Title\n## Sub\n### Deep").expect("upsert");
 
@@ -404,6 +414,7 @@ fn upsert_note_populates_note_links() {
         name: "test".into(),
         mtime_ms: 100,
         size_bytes: 100,
+        file_type: None,
     };
     upsert_note(
         &conn,
@@ -451,6 +462,7 @@ fn upsert_note_populates_target_anchor_and_section_heading() {
         name: "test".into(),
         mtime_ms: 100,
         size_bytes: 200,
+        file_type: None,
     };
     let md =
         "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
@@ -492,6 +504,7 @@ fn remove_note_clears_headings_and_links() {
         name: "test".into(),
         mtime_ms: 100,
         size_bytes: 50,
+        file_type: None,
     };
     upsert_note(&conn, &meta, "# Title\n[[Other]]").expect("upsert");
 
@@ -518,6 +531,27 @@ fn remove_note_clears_headings_and_links() {
 }
 
 #[test]
+fn search_returns_file_type_from_db() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let meta = IndexNoteMeta {
+        id: "docs/report.pdf".to_string(),
+        path: "docs/report.pdf".to_string(),
+        title: "Report".to_string(),
+        name: "report".to_string(),
+        mtime_ms: 100,
+        size_bytes: 1000,
+        file_type: Some("pdf".to_string()),
+    };
+    upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
+
+    let results = search(&conn, "quarterly", SearchScope::All, 10).expect("search should succeed");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].note.file_type, Some("pdf".to_string()));
+}
+
+#[test]
 fn rename_note_propagates_to_headings_and_links() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");
@@ -530,6 +564,7 @@ fn rename_note_propagates_to_headings_and_links() {
         name: "old".into(),
         mtime_ms: 100,
         size_bytes: 50,
+        file_type: None,
     };
     upsert_note(&conn, &meta, "# Title\n[[Target]]").expect("upsert");
 

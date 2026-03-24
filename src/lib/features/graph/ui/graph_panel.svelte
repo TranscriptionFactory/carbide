@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     Globe,
+    FolderTree,
     Maximize2,
     RefreshCw,
     Sparkles,
@@ -83,14 +84,18 @@
         variant="ghost"
         size="icon"
         title={is_vault_mode
-          ? "Switch to hierarchy"
+          ? "Switch to hierarchy (IWE)"
           : is_hierarchy_mode
             ? "Switch to neighborhood"
             : "Switch to full vault"}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_view_mode)}
       >
-        <Globe size={14} />
+        {#if is_hierarchy_mode}
+          <FolderTree size={14} />
+        {:else}
+          <Globe size={14} />
+        {/if}
       </Button>
       {#if !is_vault_mode && !is_hierarchy_mode}
         <Button
@@ -102,22 +107,19 @@
           <Target size={14} />
         </Button>
       {/if}
-      {#if is_vault_mode && vault_node_count > 0 && vault_node_count <= max_vault_size}
-        <Button
-          variant="ghost"
-          size="icon"
-          title={show_semantic_edges
-            ? "Hide semantic connections"
-            : "Show semantic connections"}
-          aria-pressed={show_semantic_edges}
-          onclick={() =>
-            void action_registry.execute(
-              ACTION_IDS.graph_toggle_semantic_edges,
-            )}
-        >
-          <Sparkles size={14} />
-        </Button>
-      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        title={show_semantic_edges
+          ? "Hide semantic connections"
+          : "Show semantic connections"}
+        aria-pressed={show_semantic_edges}
+        disabled={vault_node_count === 0 || vault_node_count > max_vault_size}
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_toggle_semantic_edges)}
+      >
+        <Sparkles size={14} />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
@@ -183,6 +185,7 @@
         hovered_node_id={stores.graph.hovered_node_id}
         {semantic_edges}
         {show_semantic_edges}
+        theme={stores.ui.active_theme}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>

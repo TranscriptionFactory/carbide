@@ -44,6 +44,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -106,6 +107,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -161,6 +163,7 @@ describe("NoteService", () => {
       title: "missing",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const notes_port = create_mock_notes_port();
@@ -213,6 +216,7 @@ describe("NoteService", () => {
       title: "stale",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([stale_meta]);
     notes_store.add_recent_note(stale_meta);
@@ -280,6 +284,7 @@ describe("NoteService", () => {
       title: "missing",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([stale_meta]);
 
@@ -335,6 +340,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     editor_store.set_open_note({
       meta: note_meta,
@@ -349,6 +355,7 @@ describe("NoteService", () => {
       title: "other",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     });
 
     const notes_port = create_mock_notes_port();
@@ -395,6 +402,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     editor_store.set_open_note({
       meta: note_meta,
@@ -459,6 +467,7 @@ describe("NoteService", () => {
       title: "remove-me",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
@@ -508,6 +517,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
@@ -564,6 +574,7 @@ describe("NoteService", () => {
       title: "old",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -624,6 +635,7 @@ describe("NoteService", () => {
       title: "has spaces",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -699,6 +711,7 @@ describe("NoteService", () => {
       title: "already-there",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const notes_port = create_mock_notes_port();
@@ -759,6 +772,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -767,9 +781,11 @@ describe("NoteService", () => {
 
     const disk_mtime = 1_700_000_010_000;
     const notes_port = create_mock_notes_port();
-    notes_port.write_and_index_note = vi
-      .fn()
-      .mockResolvedValue({ new_mtime: disk_mtime });
+    notes_port.write_and_index_note = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: [],
+    });
     const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
@@ -813,6 +829,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -867,6 +884,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -875,9 +893,11 @@ describe("NoteService", () => {
 
     const notes_port = create_mock_notes_port();
     const disk_mtime = 1_700_000_000_500;
-    const write_and_index = vi
-      .fn()
-      .mockResolvedValue({ new_mtime: disk_mtime });
+    const write_and_index = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: [],
+    });
     notes_port.write_and_index_note = write_and_index;
     const index_port = create_mock_index_port();
     const assets_port = {
@@ -934,6 +954,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -1006,6 +1027,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("draft"),
       buffer_id: "untitled-test",
@@ -1140,6 +1162,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -1206,24 +1229,33 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 100,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
       is_dirty: true,
     });
 
-    const first_write = create_deferred<{ new_mtime: number }>();
+    const first_write = create_deferred<{
+      new_mtime: number;
+      parsed: null;
+      diagnostics: never[];
+    }>();
     const notes_port = create_mock_notes_port();
     const write_and_index = vi
       .fn()
       .mockImplementationOnce(async () => {
-        first_write.resolve({ new_mtime: 200 });
+        first_write.resolve({ new_mtime: 200, parsed: null, diagnostics: [] });
         return await first_write.promise;
       })
       .mockImplementationOnce(
         (_vault_id, _note_id, _markdown, expected_mtime_ms?: number) => {
           expect(expected_mtime_ms).toBe(200);
-          return Promise.resolve({ new_mtime: 300 });
+          return Promise.resolve({
+            new_mtime: 300,
+            parsed: null,
+            diagnostics: [],
+          });
         },
       );
     notes_port.write_and_index_note = write_and_index;
@@ -1287,6 +1319,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -1342,6 +1375,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("draft"),
       buffer_id: "untitled-buffer",
@@ -1397,6 +1431,7 @@ describe("NoteService", () => {
       title: "new-from-link",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const dom_error = new DOMException(
@@ -1497,6 +1532,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -1553,6 +1589,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const beta_note = {
@@ -1562,6 +1599,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "beta",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     notes_store.set_notes([alpha_note, beta_note]);
@@ -1598,5 +1636,164 @@ describe("NoteService rename case-insensitive handling", () => {
     );
 
     expect(result.status).toBe("conflict");
+  });
+
+  it("pushes AST diagnostics to diagnostics store on save", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    const disk_mtime = Date.now();
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("docs/alpha.md"),
+        path: as_note_path("docs/alpha.md"),
+        name: "alpha",
+        title: "alpha",
+        mtime_ms: disk_mtime,
+        size_bytes: 0,
+        file_type: null,
+      },
+      markdown: as_markdown_text("---\n: bad yaml\n---\n# Title"),
+      buffer_id: "alpha-buffer",
+      is_dirty: true,
+    });
+
+    const notes_port = create_mock_notes_port();
+    const mock_diagnostics = [
+      {
+        line: 2,
+        column: 1,
+        end_line: 3,
+        end_column: 1,
+        severity: "error",
+        message: "invalid YAML",
+        rule_id: "frontmatter/invalid-yaml",
+      },
+    ];
+    notes_port.write_and_index_note = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: mock_diagnostics,
+    });
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const diagnostics_store = {
+      push: vi.fn(),
+      clear_file: vi.fn(),
+    };
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => disk_mtime,
+      null,
+      undefined,
+      undefined,
+      undefined,
+      diagnostics_store as any,
+    );
+
+    await service.save_note(null, true);
+
+    expect(diagnostics_store.push).toHaveBeenCalledWith(
+      "ast",
+      as_note_path("docs/alpha.md"),
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "ast",
+          severity: "error",
+          rule_id: "frontmatter/invalid-yaml",
+        }),
+      ]),
+    );
+  });
+
+  it("clears AST diagnostics when save has no parse errors", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    const disk_mtime = Date.now();
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("docs/alpha.md"),
+        path: as_note_path("docs/alpha.md"),
+        name: "alpha",
+        title: "alpha",
+        mtime_ms: disk_mtime,
+        size_bytes: 0,
+        file_type: null,
+      },
+      markdown: as_markdown_text("---\ntags: [valid]\n---\n# Title"),
+      buffer_id: "alpha-buffer",
+      is_dirty: true,
+    });
+
+    const notes_port = create_mock_notes_port();
+    notes_port.write_and_index_note = vi.fn().mockResolvedValue({
+      new_mtime: disk_mtime,
+      parsed: null,
+      diagnostics: [],
+    });
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const diagnostics_store = {
+      push: vi.fn(),
+      clear_file: vi.fn(),
+    };
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => disk_mtime,
+      null,
+      undefined,
+      undefined,
+      undefined,
+      diagnostics_store as any,
+    );
+
+    await service.save_note(null, true);
+
+    expect(diagnostics_store.clear_file).toHaveBeenCalledWith(
+      "ast",
+      as_note_path("docs/alpha.md"),
+    );
+    expect(diagnostics_store.push).not.toHaveBeenCalled();
   });
 });

@@ -25,6 +25,7 @@ const SOURCE_NOTE = {
   title: "source",
   mtime_ms: 0,
   size_bytes: 0,
+  file_type: null,
 };
 
 const BACKLINKS_SNAPSHOT = {
@@ -255,6 +256,7 @@ describe("LinkRepairService", () => {
       title: "noteA",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     editor_store.set_open_note({

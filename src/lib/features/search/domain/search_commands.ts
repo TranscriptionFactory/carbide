@@ -391,8 +391,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
   {
     id: "iwe_document_symbols",
     label: "IWE: Document Symbols",
-    description:
-      "Show graph navigation paths for the current document via IWE",
+    description: "Show graph navigation paths for the current document via IWE",
     keywords: ["iwe", "document", "symbols", "outline", "graph", "paths"],
     icon: "list-tree",
   },
@@ -406,9 +405,22 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
   {
     id: "graph_load_hierarchy",
     label: "Load IWE Hierarchy",
-    description:
-      "Show the IWE inclusion hierarchy tree in the graph panel",
+    description: "Show the IWE inclusion hierarchy tree in the graph panel",
     keywords: ["iwe", "hierarchy", "tree", "graph", "inclusion", "structure"],
     icon: "list-tree",
+  },
+  {
+    id: "query_open",
+    label: "Query Notes",
+    description: "Open the query panel to search notes with structured queries",
+    keywords: ["query", "search", "filter", "find", "structured", "compose"],
+    icon: "search",
+  },
+  {
+    id: "query_toggle_panel",
+    label: "Toggle Query Panel",
+    description: "Show or hide the query panel",
+    keywords: ["query", "panel", "toggle"],
+    icon: "search",
   },
 ];

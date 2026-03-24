@@ -170,6 +170,7 @@ export function create_mock_notes_port(): NotesPort & {
           title: "",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
         markdown: "" as MarkdownText,
       });
@@ -208,7 +209,11 @@ export function create_mock_notes_port(): NotesPort & {
         entry.expected_mtime_ms = expected_mtime_ms;
       }
       mock._calls.write_note.push(entry);
-      return Promise.resolve({ new_mtime: Date.now() });
+      return Promise.resolve({
+        new_mtime: Date.now(),
+        parsed: null,
+        diagnostics: [],
+      });
     },
     create_note(
       vault_id: VaultId,
@@ -225,6 +230,7 @@ export function create_mock_notes_port(): NotesPort & {
         title: note_path.replace(".md", ""),
         mtime_ms: Date.now(),
         size_bytes: markdown.length,
+        file_type: null,
       };
       const current = mock._mock_notes.get(vault_id) || [];
       mock._mock_notes.set(vault_id, [...current, new_note]);
@@ -598,10 +604,20 @@ export function create_mock_watcher_port(): WatcherPort & {
   return mock;
 }
 
+export function create_mock_saved_query_port() {
+  return {
+    list: () => Promise.resolve([]),
+    read: () => Promise.resolve(""),
+    write: () => Promise.resolve(),
+    remove: () => Promise.resolve(),
+  };
+}
+
 export function create_mock_ports() {
   return {
     vault: create_mock_vault_port(),
     notes: create_mock_notes_port(),
     index: create_mock_index_port(),
+    saved_query: create_mock_saved_query_port(),
   };
 }

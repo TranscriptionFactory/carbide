@@ -12,6 +12,7 @@ describe("resolve_graph_canvas_view", () => {
       name: "center",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     },
     backlinks: [
       {
@@ -21,6 +22,7 @@ describe("resolve_graph_canvas_view", () => {
         name: "back",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
     ],
     outlinks: [
@@ -31,6 +33,7 @@ describe("resolve_graph_canvas_view", () => {
         name: "out",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       {
         id: "id-both" as NoteId,
@@ -39,6 +42,7 @@ describe("resolve_graph_canvas_view", () => {
         name: "both",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
     ],
     orphan_links: [
@@ -65,6 +69,7 @@ describe("resolve_graph_canvas_view", () => {
     name: "both",
     mtime_ms: 0,
     size_bytes: 0,
+    file_type: null,
   });
 
   it("builds a layout with center, backlinks, outlinks, both and orphans", () => {

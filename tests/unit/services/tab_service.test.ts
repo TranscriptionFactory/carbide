@@ -56,6 +56,7 @@ describe("TabService", () => {
           title: "alpha",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
         {
           id: beta,
@@ -64,6 +65,7 @@ describe("TabService", () => {
           title: "beta",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
       ]);
 
@@ -100,6 +102,7 @@ describe("TabService", () => {
           title: "alpha",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
         {
           id: beta,
@@ -108,6 +111,7 @@ describe("TabService", () => {
           title: "beta",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
       ]);
 
@@ -176,6 +180,7 @@ describe("TabService", () => {
           title: "known",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
       ]);
 
@@ -210,6 +215,7 @@ describe("TabService", () => {
           title: "alpha",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
         {
           id: beta,
@@ -218,6 +224,7 @@ describe("TabService", () => {
           title: "beta",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
       ]);
 
@@ -374,6 +381,7 @@ describe("TabService", () => {
           title: "alpha",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
       ]);
 

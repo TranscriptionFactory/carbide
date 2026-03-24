@@ -76,7 +76,9 @@ pub fn run() {
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
+        .manage(features::code_lsp::CodeLspState::default())
         .manage(features::iwe::IweState::default())
+        .manage(features::toolchain::service::ToolchainState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -198,6 +200,9 @@ pub fn run() {
             features::notes::service::get_folder_stats,
             features::notes::service::read_vault_file,
             features::notes::service::write_vault_file,
+            features::notes::service::write_bytes_to_path,
+            features::notes::service::delete_vault_file,
+            features::notes::service::list_vault_files_by_extension,
             features::notes::service::search_vault_assets,
             features::settings::service::get_setting,
             features::settings::service::set_setting,
@@ -251,6 +256,11 @@ pub fn run() {
             features::lint::lint_check_vault,
             features::lint::lint_format_vault,
             features::lint::lint_get_status,
+            features::code_lsp::code_lsp_open_file,
+            features::code_lsp::code_lsp_close_file,
+            features::code_lsp::code_lsp_stop_vault,
+            features::code_lsp::code_lsp_available_languages,
+            features::code_lsp::code_lsp_get_status,
             features::iwe::service::iwe_start,
             features::iwe::service::iwe_stop,
             features::iwe::service::iwe_did_open,
@@ -269,6 +279,24 @@ pub fn run() {
             features::iwe::service::iwe_inlay_hints,
             features::iwe::service::iwe_document_symbols,
             features::iwe::service::iwe_hierarchy_tree,
+            features::toolchain::service::toolchain_list_tools,
+            features::toolchain::service::toolchain_install,
+            features::toolchain::service::toolchain_uninstall,
+            features::toolchain::service::toolchain_resolve,
+            features::reference::service::reference_load_library,
+            features::reference::service::reference_save_library,
+            features::reference::service::reference_add_item,
+            features::reference::service::reference_remove_item,
+            features::reference::service::reference_doi_lookup,
+            features::reference::service::reference_bbt_test_connection,
+            features::reference::service::reference_bbt_search,
+            features::reference::service::reference_bbt_get_item,
+            features::reference::service::reference_bbt_collections,
+            features::reference::service::reference_bbt_collection_items,
+            features::reference::service::reference_bbt_bibliography,
+            features::reference::service::reference_bbt_annotations,
+            features::reference::service::reference_save_annotation_note,
+            features::reference::service::reference_read_annotation_note,
         ])
         .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

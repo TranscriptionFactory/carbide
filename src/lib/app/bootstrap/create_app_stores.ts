@@ -20,7 +20,13 @@ import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
 import { LintStore, LogStore } from "$lib/features/lint";
 import { IweStore } from "$lib/features/iwe";
+import { DiagnosticsStore } from "$lib/features/diagnostics";
 import { MetadataStore } from "$lib/features/metadata";
+import { ToolchainStore } from "$lib/features/toolchain";
+import { CodeLspStore } from "$lib/features/code_lsp";
+import { QueryStore } from "$lib/features/query";
+import { ParsedNoteCache } from "$lib/features/note";
+import { ReferenceStore } from "$lib/features/reference";
 
 export type AppStores = {
   vault: VaultStore;
@@ -47,7 +53,13 @@ export type AppStores = {
   lint: LintStore;
   log: LogStore;
   iwe: IweStore;
+  diagnostics: DiagnosticsStore;
   metadata: MetadataStore;
+  toolchain: ToolchainStore;
+  code_lsp: CodeLspStore;
+  query: QueryStore;
+  parsed_note_cache: ParsedNoteCache;
+  reference: ReferenceStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -76,6 +88,12 @@ export function create_app_stores(): AppStores {
     lint: new LintStore(),
     log: new LogStore(),
     iwe: new IweStore(),
+    diagnostics: new DiagnosticsStore(),
     metadata: new MetadataStore(),
+    toolchain: new ToolchainStore(),
+    code_lsp: new CodeLspStore(),
+    query: new QueryStore(),
+    parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 }

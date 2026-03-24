@@ -1,136 +1,273 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  create_md,
+  render_tokens_to_pdf,
+  sanitize_for_pdf,
+  export_note_as_pdf,
+} from "$lib/features/document/domain/pdf_export";
 
-const mock_text = vi.fn();
-const mock_split_text_to_size = vi.fn((text: string) => [text]);
-const mock_set_font_size = vi.fn();
-const mock_set_font = vi.fn();
-const mock_add_page = vi.fn();
-const mock_save = vi.fn();
-const mock_output = vi.fn(() => new ArrayBuffer(8));
+function create_mock_doc() {
+  const calls: { method: string; args: unknown[] }[] = [];
 
-const mock_internal = {
-  pageSize: {
-    getHeight: () => 297,
-  },
-};
+  const doc = {
+    calls,
+    text: vi.fn((...args: unknown[]) => calls.push({ method: "text", args })),
+    setFont: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFont", args }),
+    ),
+    setFontSize: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFontSize", args }),
+    ),
+    setTextColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setTextColor", args }),
+    ),
+    setDrawColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setDrawColor", args }),
+    ),
+    setFillColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFillColor", args }),
+    ),
+    setLineWidth: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setLineWidth", args }),
+    ),
+    splitTextToSize: vi.fn((text: string) => [text]),
+    line: vi.fn((...args: unknown[]) => calls.push({ method: "line", args })),
+    rect: vi.fn((...args: unknown[]) => calls.push({ method: "rect", args })),
+    addPage: vi.fn(() => calls.push({ method: "addPage", args: [] })),
+    save: vi.fn(),
+    internal: { pageSize: { getHeight: () => 297 } },
+  };
 
-const MockJsPDF = vi.fn(() => ({
-  internal: mock_internal,
-  text: mock_text,
-  splitTextToSize: mock_split_text_to_size,
-  setFontSize: mock_set_font_size,
-  setFont: mock_set_font,
-  addPage: mock_add_page,
-  save: mock_save,
-  output: mock_output,
-}));
+  return doc;
+}
 
-vi.mock("jspdf", () => ({
-  jsPDF: MockJsPDF,
-}));
+function text_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
+  return doc.text.mock.calls.map((c) => {
+    const arg = c[0];
+    return Array.isArray(arg) ? arg.join(" ") : String(arg);
+  });
+}
 
-import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
+function parse(content: string) {
+  return create_md().parse(content, {});
+}
+
+describe("sanitize_for_pdf", () => {
+  it("replaces Unicode right arrow with ASCII", () => {
+    expect(sanitize_for_pdf("A \u2192 B")).toBe("A -> B");
+  });
+
+  it("replaces Unicode left arrow with ASCII", () => {
+    expect(sanitize_for_pdf("A \u2190 B")).toBe("A <- B");
+  });
+
+  it("replaces em dash with double hyphen", () => {
+    expect(sanitize_for_pdf("A \u2014 B")).toBe("A -- B");
+  });
+
+  it("replaces en dash with hyphen", () => {
+    expect(sanitize_for_pdf("A \u2013 B")).toBe("A - B");
+  });
+
+  it("replaces smart quotes with ASCII quotes", () => {
+    expect(sanitize_for_pdf("\u201Chello\u201D")).toBe('"hello"');
+    expect(sanitize_for_pdf("\u2018hi\u2019")).toBe("'hi'");
+  });
+
+  it("replaces ellipsis with three dots", () => {
+    expect(sanitize_for_pdf("wait\u2026")).toBe("wait...");
+  });
+
+  it("leaves ASCII text unchanged", () => {
+    expect(sanitize_for_pdf("normal --> text")).toBe("normal --> text");
+  });
+
+  it("handles multiple replacements in one string", () => {
+    expect(sanitize_for_pdf("A \u2192 B \u2190 C")).toBe("A -> B <- C");
+  });
+});
+
+describe("render_tokens_to_pdf", () => {
+  let doc: ReturnType<typeof create_mock_doc>;
+
+  beforeEach(() => {
+    doc = create_mock_doc();
+  });
+
+  it("renders the title", () => {
+    render_tokens_to_pdf(doc, "My Title", []);
+    expect(text_calls(doc)).toContain("My Title");
+  });
+
+  it("renders h1 heading with bold font", () => {
+    render_tokens_to_pdf(doc, "T", parse("# Heading One"));
+    expect(text_calls(doc)).toContain("Heading One");
+    expect(doc.setFont).toHaveBeenCalledWith("helvetica", "bold");
+  });
+
+  it("renders h2 heading", () => {
+    render_tokens_to_pdf(doc, "T", parse("## Heading Two"));
+    expect(text_calls(doc)).toContain("Heading Two");
+  });
+
+  it("renders h3 heading", () => {
+    render_tokens_to_pdf(doc, "T", parse("### Heading Three"));
+    expect(text_calls(doc)).toContain("Heading Three");
+  });
+
+  it("renders paragraph text", () => {
+    render_tokens_to_pdf(doc, "T", parse("Hello world paragraph."));
+    expect(text_calls(doc)).toContain("Hello world paragraph.");
+  });
+
+  it("strips inline formatting to plain text", () => {
+    render_tokens_to_pdf(doc, "T", parse("This is **bold** and *italic*"));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("bold") && t.includes("italic"))).toBe(
+      true,
+    );
+  });
+
+  it("renders code blocks with courier font", () => {
+    render_tokens_to_pdf(doc, "T", parse("```\nconst x = 1;\n```"));
+    expect(doc.setFont).toHaveBeenCalledWith("courier", "normal");
+    expect(text_calls(doc)).toContain("const x = 1;");
+  });
+
+  it("renders code blocks with background rect", () => {
+    render_tokens_to_pdf(doc, "T", parse("```\ncode\n```"));
+    expect(doc.rect).toHaveBeenCalled();
+    expect(doc.setFillColor).toHaveBeenCalledWith(246, 248, 250);
+  });
+
+  it("renders bullet list items with bullet marker", () => {
+    render_tokens_to_pdf(doc, "T", parse("- item one\n- item two"));
+    const texts = text_calls(doc);
+    expect(texts).toContain("\u2022");
+    expect(texts.some((t) => t.includes("item one"))).toBe(true);
+    expect(texts.some((t) => t.includes("item two"))).toBe(true);
+  });
+
+  it("renders ordered list items with numbers", () => {
+    render_tokens_to_pdf(doc, "T", parse("1. first\n2. second"));
+    const texts = text_calls(doc);
+    expect(texts).toContain("1.");
+    expect(texts).toContain("2.");
+  });
+
+  it("renders horizontal rule as a line", () => {
+    render_tokens_to_pdf(doc, "T", parse("---"));
+    expect(doc.line).toHaveBeenCalled();
+  });
+
+  it("renders tables with rect cells", () => {
+    render_tokens_to_pdf(doc, "T", parse("| A | B |\n|---|---|\n| 1 | 2 |"));
+    expect(doc.rect).toHaveBeenCalled();
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("A"))).toBe(true);
+    expect(texts.some((t) => t.includes("1"))).toBe(true);
+  });
+
+  it("renders h1 with underline", () => {
+    render_tokens_to_pdf(doc, "T", parse("# Title"));
+    expect(doc.line).toHaveBeenCalled();
+  });
+
+  it("handles mixed content correctly", () => {
+    const md =
+      "# Title\n\nParagraph.\n\n## Section\n\n- item\n\n```\ncode\n```";
+    render_tokens_to_pdf(doc, "T", parse(md));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("Title"))).toBe(true);
+    expect(texts.some((t) => t.includes("Paragraph"))).toBe(true);
+    expect(texts.some((t) => t.includes("Section"))).toBe(true);
+    expect(texts.some((t) => t.includes("item"))).toBe(true);
+    expect(texts.some((t) => t.includes("code"))).toBe(true);
+  });
+
+  it("sanitizes Unicode arrows in rendered text", () => {
+    render_tokens_to_pdf(doc, "T", parse("oral gavage \u2192 acute model"));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("oral gavage -> acute model"))).toBe(
+      true,
+    );
+    expect(texts.every((t) => !t.includes("\u2192"))).toBe(true);
+  });
+
+  it("adds page when content exceeds page height", () => {
+    const long_content = Array.from(
+      { length: 100 },
+      (_, i) => `Line ${i}`,
+    ).join("\n\n");
+    render_tokens_to_pdf(doc, "T", parse(long_content));
+    expect(doc.addPage).toHaveBeenCalled();
+  });
+});
 
 describe("export_note_as_pdf", () => {
+  const mock_invoke = vi.fn();
+  const mock_dialog_save = vi.fn();
+  const mock_output = vi.fn(() => new ArrayBuffer(10));
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mock_split_text_to_size.mockImplementation((text: string) => [text]);
+    mock_dialog_save.mockResolvedValue("/tmp/test.pdf");
+
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({
+      save: mock_dialog_save,
+    }));
+
+    vi.doMock("@tauri-apps/api/core", () => ({
+      invoke: mock_invoke,
+    }));
+
+    vi.doMock("jspdf", () => ({
+      jsPDF: vi.fn(() => ({
+        text: vi.fn(),
+        setFont: vi.fn(),
+        setFontSize: vi.fn(),
+        setTextColor: vi.fn(),
+        setDrawColor: vi.fn(),
+        setFillColor: vi.fn(),
+        setLineWidth: vi.fn(),
+        splitTextToSize: vi.fn((text: string) => [text]),
+        line: vi.fn(),
+        rect: vi.fn(),
+        addPage: vi.fn(),
+        output: mock_output,
+        internal: { pageSize: { getHeight: () => 297 } },
+      })),
+    }));
   });
 
-  it("calls jsPDF save with the note title as filename", async () => {
-    await export_note_as_pdf("My Note", "Hello world");
-    expect(mock_save).toHaveBeenCalledWith("My Note.pdf");
-  });
-
-  it("renders h1 headings with bold font and larger size", async () => {
-    await export_note_as_pdf("Test", "# Heading One");
-    expect(mock_set_font).toHaveBeenCalledWith("helvetica", "bold");
-    expect(mock_set_font_size).toHaveBeenCalledWith(20);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading One",
-      expect.any(Number),
-      expect.any(Number),
+  it("shows save dialog with pdf filter", async () => {
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_dialog_save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: "My Note.pdf",
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      }),
     );
   });
 
-  it("renders h2 headings with correct font size", async () => {
-    await export_note_as_pdf("Test", "## Heading Two");
-    expect(mock_set_font_size).toHaveBeenCalledWith(16);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading Two",
-      expect.any(Number),
-      expect.any(Number),
-    );
+  it("writes pdf bytes to chosen path", async () => {
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_invoke).toHaveBeenCalledWith("write_bytes_to_path", {
+      path: "/tmp/test.pdf",
+      data: expect.any(Array),
+    });
   });
 
-  it("renders h3 headings with correct font size", async () => {
-    await export_note_as_pdf("Test", "### Heading Three");
-    expect(mock_set_font_size).toHaveBeenCalledWith(13);
-    expect(mock_text).toHaveBeenCalledWith(
-      "Heading Three",
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
-  it("strips bold markdown before rendering text", async () => {
-    await export_note_as_pdf("Test", "This is **bold** text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "This is bold text",
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
-  it("strips italic markdown before rendering text", async () => {
-    await export_note_as_pdf("Test", "This is *italic* text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "This is italic text",
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
-  it("strips inline code markdown before rendering text", async () => {
-    await export_note_as_pdf("Test", "Use `const x = 1` here");
-    expect(mock_text).toHaveBeenCalledWith(
-      "Use const x = 1 here",
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
-  it("strips strikethrough markdown before rendering text", async () => {
-    await export_note_as_pdf("Test", "~~deleted~~ text");
-    expect(mock_text).toHaveBeenCalledWith(
-      "deleted text",
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
-  it("adds a new page when content exceeds page height", async () => {
-    const many_lines = Array.from(
-      { length: 50 },
-      (_, i) => `Line ${String(i + 1)}`,
-    ).join("\n");
-    await export_note_as_pdf("Test", many_lines);
-    expect(mock_add_page).toHaveBeenCalled();
-  });
-
-  it("skips empty lines without calling text", async () => {
-    await export_note_as_pdf("Test", "\n\n");
-    expect(mock_text).not.toHaveBeenCalled();
-  });
-
-  it("handles mixed content with headings and paragraphs", async () => {
-    const content = "# Title\n\nSome body text.\n\n## Section\n\nMore text.";
-    await export_note_as_pdf("Test", content);
-
-    const text_calls = mock_text.mock.calls.map((call: unknown[]) => call[0]);
-    expect(text_calls).toContain("Title");
-    expect(text_calls).toContain("Some body text.");
-    expect(text_calls).toContain("Section");
-    expect(text_calls).toContain("More text.");
+  it("does nothing when save dialog is cancelled", async () => {
+    mock_dialog_save.mockResolvedValue(null);
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_invoke).not.toHaveBeenCalled();
   });
 });

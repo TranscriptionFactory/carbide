@@ -12,8 +12,6 @@ export {
   create_lint_extensions,
 } from "$lib/features/lint/editor/cm_lint_source";
 export type {
-  LintDiagnostic,
-  LintSeverity,
   LintTextEdit,
   LintStatus,
   LintEvent,

@@ -276,6 +276,9 @@ export const ACTION_IDS = {
   lint_next_diagnostic: "lint.next_diagnostic",
   lint_prev_diagnostic: "lint.prev_diagnostic",
 
+  toolchain_install: "toolchain.install",
+  toolchain_manage: "toolchain.manage",
+
   iwe_restart: "iwe.restart",
   iwe_references: "iwe.references",
   iwe_code_actions: "iwe.code_actions",
@@ -287,6 +290,16 @@ export const ACTION_IDS = {
   iwe_toggle_results: "iwe.toggle_results",
   iwe_document_symbols: "iwe.document_symbols",
   iwe_open_config: "iwe.open_config",
+
+  query_execute: "query.execute",
+  query_clear: "query.clear",
+  query_toggle_panel: "query.toggle_panel",
+  query_open: "query.open",
+  query_save: "query.save",
+  query_save_cancel: "query.save_cancel",
+  query_load: "query.load",
+  query_delete_saved: "query.delete_saved",
+  query_list_saved: "query.list_saved",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

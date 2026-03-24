@@ -163,7 +163,8 @@ export type PluginEventType =
   | "active-file-changed"
   | "editor-selection-changed"
   | "vault-opened"
-  | "layout-changed";
+  | "layout-changed"
+  | "note-indexed";
 
 export interface PluginNotificationPort {
   notify_plugin_unstable(plugin_id: string, plugin_name: string): void;

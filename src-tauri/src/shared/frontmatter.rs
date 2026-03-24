@@ -31,11 +31,12 @@ pub fn split_frontmatter(markdown: &str) -> (Option<&str>, &str) {
     (Some(yaml_str), body)
 }
 
-pub fn parse_yaml_frontmatter(yaml_str: &str) -> Frontmatter {
+pub fn parse_yaml_frontmatter(yaml_str: &str) -> (Frontmatter, Option<String>) {
     let mut frontmatter = Frontmatter::default();
 
-    let Ok(value): Result<serde_yml::Value, _> = serde_yml::from_str(yaml_str) else {
-        return frontmatter;
+    let value: serde_yml::Value = match serde_yml::from_str(yaml_str) {
+        Ok(v) => v,
+        Err(e) => return (frontmatter, Some(e.to_string())),
     };
 
     if let Some(map) = value.as_mapping() {
@@ -62,13 +63,13 @@ pub fn parse_yaml_frontmatter(yaml_str: &str) -> Frontmatter {
         }
     }
 
-    frontmatter
+    (frontmatter, None)
 }
 
 #[allow(dead_code)]
 pub fn extract_frontmatter(markdown: &str) -> Frontmatter {
     match split_frontmatter(markdown).0 {
-        Some(yaml_str) => parse_yaml_frontmatter(yaml_str),
+        Some(yaml_str) => parse_yaml_frontmatter(yaml_str).0,
         None => Frontmatter::default(),
     }
 }
@@ -241,5 +242,27 @@ mod tests {
         assert_eq!(fm.tags, vec!["x", "y"]);
         assert_eq!(fm.properties.len(), 1);
         assert_eq!(fm.properties["status"].as_str(), Some("done"));
+    }
+
+    #[test]
+    fn parse_valid_yaml_returns_no_error() {
+        let (fm, err) = parse_yaml_frontmatter("tags: [a, b]\nstatus: draft");
+        assert!(err.is_none());
+        assert_eq!(fm.tags, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn parse_invalid_yaml_returns_error_and_default() {
+        let (fm, err) = parse_yaml_frontmatter(": bad yaml [");
+        assert!(err.is_some());
+        assert!(fm.tags.is_empty());
+        assert!(fm.properties.is_empty());
+    }
+
+    #[test]
+    fn parse_empty_yaml_returns_no_error() {
+        let (fm, err) = parse_yaml_frontmatter("");
+        assert!(err.is_none());
+        assert!(fm.tags.is_empty());
     }
 }

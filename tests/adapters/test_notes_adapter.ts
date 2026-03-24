@@ -28,6 +28,7 @@ function derive_note_meta(
     title,
     mtime_ms: data.mtime_ms,
     size_bytes: new Blob([data.markdown]).size,
+    file_type: null,
   };
 }
 
@@ -127,11 +128,15 @@ export function create_test_notes_adapter(): NotesPort {
       _vault_id: VaultId,
       note_id: NoteId,
       markdown: MarkdownText,
-    ): Promise<{ new_mtime: number }> {
+    ) {
       const note_path = as_note_path(note_id);
       const mtime = Date.now();
       user_notes.set(note_path, { markdown, mtime_ms: mtime });
-      return Promise.resolve({ new_mtime: mtime });
+      return Promise.resolve({
+        new_mtime: mtime,
+        parsed: null,
+        diagnostics: [],
+      });
     },
 
     create_note(

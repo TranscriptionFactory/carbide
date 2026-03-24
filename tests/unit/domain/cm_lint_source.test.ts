@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Text } from "@codemirror/state";
 import { map_lint_diagnostics } from "$lib/features/lint/editor/cm_lint_source";
-import type { LintDiagnostic } from "$lib/features/lint/types/lint";
+import type { Diagnostic } from "$lib/features/diagnostics/types/diagnostics";
 
 function make_doc(content: string): Text {
   return Text.of(content.split("\n"));
@@ -15,7 +15,8 @@ describe("map_lint_diagnostics", () => {
 
   it("maps a single diagnostic with correct positions", () => {
     const doc = make_doc("# Hello\n\nWorld");
-    const diag: LintDiagnostic = {
+    const diag: Diagnostic = {
+      source: "lint",
       line: 3,
       column: 1,
       end_line: 3,
@@ -37,7 +38,8 @@ describe("map_lint_diagnostics", () => {
 
   it("maps severity correctly", () => {
     const doc = make_doc("test");
-    const base: LintDiagnostic = {
+    const base: Diagnostic = {
+      source: "lint",
       line: 1,
       column: 1,
       end_line: 1,
@@ -71,7 +73,8 @@ describe("map_lint_diagnostics", () => {
 
   it("omits source when rule_id is null", () => {
     const doc = make_doc("test");
-    const diag: LintDiagnostic = {
+    const diag: Diagnostic = {
+      source: "lint",
       line: 1,
       column: 1,
       end_line: 1,
@@ -88,7 +91,8 @@ describe("map_lint_diagnostics", () => {
   it("adds Fix All action for fixable diagnostics", () => {
     const doc = make_doc("test");
     const on_fix_all = vi.fn();
-    const diag: LintDiagnostic = {
+    const diag: Diagnostic = {
+      source: "lint",
       line: 1,
       column: 1,
       end_line: 1,
@@ -106,7 +110,8 @@ describe("map_lint_diagnostics", () => {
 
   it("skips diagnostics with out-of-range lines", () => {
     const doc = make_doc("line1\nline2");
-    const diag: LintDiagnostic = {
+    const diag: Diagnostic = {
+      source: "lint",
       line: 5,
       column: 1,
       end_line: 5,
@@ -121,7 +126,8 @@ describe("map_lint_diagnostics", () => {
 
   it("clamps positions to document length", () => {
     const doc = make_doc("ab");
-    const diag: LintDiagnostic = {
+    const diag: Diagnostic = {
+      source: "lint",
       line: 1,
       column: 1,
       end_line: 1,
@@ -137,8 +143,9 @@ describe("map_lint_diagnostics", () => {
 
   it("maps multiple diagnostics", () => {
     const doc = make_doc("# Hello\n\n## World");
-    const diags: LintDiagnostic[] = [
+    const diags: Diagnostic[] = [
       {
+        source: "lint",
         line: 1,
         column: 1,
         end_line: 1,
@@ -149,6 +156,7 @@ describe("map_lint_diagnostics", () => {
         fixable: false,
       },
       {
+        source: "lint",
         line: 3,
         column: 1,
         end_line: 3,
