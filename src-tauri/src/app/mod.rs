@@ -72,6 +72,7 @@ pub fn run() {
         .manage(features::search::embeddings::EmbeddingServiceState::default())
         .manage(features::plugin::service::PluginService::new())
         .manage(features::plugin::watcher::PluginWatcherState::default())
+        .manage(features::reference::linked_source::LinkedSourceWatcherState::default())
         .manage(shared::buffer::BufferManager::new())
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
@@ -297,6 +298,11 @@ pub fn run() {
             features::reference::service::reference_bbt_annotations,
             features::reference::service::reference_save_annotation_note,
             features::reference::service::reference_read_annotation_note,
+            features::reference::linked_source::linked_source_scan_folder,
+            features::reference::linked_source::linked_source_extract_file,
+            features::reference::linked_source::linked_source_watch,
+            features::reference::linked_source::linked_source_unwatch,
+            features::reference::linked_source::linked_source_unwatch_all,
         ])
         .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
