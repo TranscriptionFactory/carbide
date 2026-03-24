@@ -59,7 +59,7 @@ importers:
       '@xterm/xterm':
         specifier: ^6.0.0
         version: 6.0.0
-      badgerly:
+      carbide:
         specifier: 'link:'
         version: 'link:'
       clsx:

@@ -98,7 +98,7 @@ function make_mock_file(name: string, size: number, type: string): File {
 function make_drop_event(files: File[], extra_mime?: string): DragEvent {
   const data_map = new Map<string, string>();
   if (extra_mime) {
-    data_map.set("application/x-badgerly-filetree-count", extra_mime);
+    data_map.set("application/x-carbide-filetree-count", extra_mime);
   }
 
   const dt = {
@@ -219,7 +219,7 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     expect(result).toBe(false);
   });
 
-  it("returns false when drop has badgerly custom mime type", () => {
+  it("returns false when drop has carbide custom mime type", () => {
     const received: PastedImagePayload[] = [];
     const plugin = create_file_drop_prose_plugin((p) => received.push(p));
 

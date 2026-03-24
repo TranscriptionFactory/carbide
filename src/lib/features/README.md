@@ -1,6 +1,6 @@
 # Feature-First Organization
 
-Badgerly uses capability-first organization for frontend modules.
+Carbide uses capability-first organization for frontend modules.
 
 ## Rule of thumb
 

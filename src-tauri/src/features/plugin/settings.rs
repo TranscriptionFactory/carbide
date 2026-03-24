@@ -64,7 +64,7 @@ impl Default for PluginSettingsEntry {
 }
 
 fn settings_path(vault_path: &Path) -> PathBuf {
-    vault_path.join(".badgerly").join("plugin_settings.json")
+    vault_path.join(".carbide").join("plugin_settings.json")
 }
 
 pub fn read_settings(vault_path: &Path) -> Result<PluginSettings, String> {
@@ -118,7 +118,7 @@ mod tests {
     use tempfile::TempDir;
 
     fn write_raw_settings(vault_root: &TempDir, content: &str) {
-        let settings_dir = vault_root.path().join(".badgerly");
+        let settings_dir = vault_root.path().join(".carbide");
         fs::create_dir_all(&settings_dir).unwrap();
         fs::write(settings_dir.join("plugin_settings.json"), content).unwrap();
     }
@@ -155,7 +155,7 @@ mod tests {
         let written = fs::read_to_string(
             vault_root
                 .path()
-                .join(".badgerly")
+                .join(".carbide")
                 .join("plugin_settings.json"),
         )
         .unwrap();

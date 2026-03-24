@@ -35,11 +35,11 @@ function mock_tab(title: string, is_dirty = false): Tab {
 describe("window_title.reactor", () => {
   describe("resolve_window_title", () => {
     it("returns app name when no vault is open", () => {
-      expect(resolve_window_title(null, null)).toBe("badgerly");
+      expect(resolve_window_title(null, null)).toBe("carbide");
     });
 
     it("returns app name when no vault is open even with active tab", () => {
-      expect(resolve_window_title(null, mock_tab("notes"))).toBe("badgerly");
+      expect(resolve_window_title(null, mock_tab("notes"))).toBe("carbide");
     });
 
     it("returns vault name when vault is open but no note", () => {

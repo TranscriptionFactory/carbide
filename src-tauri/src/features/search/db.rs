@@ -188,7 +188,7 @@ fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .home_dir()
         .map_err(|e| e.to_string())?
-        .join(".badgerly")
+        .join(".carbide")
         .join("caches")
         .join("vaults"))
 }

@@ -167,7 +167,7 @@ describe("CanvasService", () => {
     const scene = {
       type: "excalidraw",
       version: 2,
-      source: "badgerly",
+      source: "carbide",
       elements: [],
       appState: {},
     };
@@ -195,7 +195,7 @@ describe("CanvasService", () => {
     const scene = {
       type: "excalidraw",
       version: 2,
-      source: "badgerly",
+      source: "carbide",
       elements: [],
       appState: {},
     };

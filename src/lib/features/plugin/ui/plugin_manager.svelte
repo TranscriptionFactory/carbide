@@ -100,7 +100,7 @@
       <div class="text-center py-8 text-muted-foreground">
         <p class="text-sm">No plugins discovered.</p>
         <p class="text-xs">
-          Place plugins in <code>.badgerly/plugins/</code> and click refresh.
+          Place plugins in <code>.carbide/plugins/</code> and click refresh.
         </p>
       </div>
     {:else}

@@ -15,7 +15,7 @@ describe("build_terminal_spawn_options", () => {
       env: {
         COLORTERM: "truecolor",
         TERM: "xterm-256color",
-        TERM_PROGRAM: "badgerly",
+        TERM_PROGRAM: "carbide",
       },
     });
   });

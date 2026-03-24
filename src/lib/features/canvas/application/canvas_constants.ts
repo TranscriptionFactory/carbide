@@ -9,7 +9,7 @@ export const EMPTY_CANVAS: CanvasData = { nodes: [], edges: [] };
 export const EMPTY_EXCALIDRAW_SCENE = {
   type: "excalidraw",
   version: 2,
-  source: "badgerly",
+  source: "carbide",
   elements: [],
   appState: {},
   files: {},

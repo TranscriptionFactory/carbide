@@ -12,10 +12,10 @@
   let sandboxed_iframe: SandboxedIframe | undefined = $state();
 
   const src = $derived(
-    `badgerly-plugin://${plugin_id}/index.html?vault=${encodeURIComponent(vault_path)}`,
+    `carbide-plugin://${plugin_id}/index.html?vault=${encodeURIComponent(vault_path)}`,
   );
 
-  const expected_origin = $derived(`badgerly-plugin://${plugin_id}`);
+  const expected_origin = $derived(`carbide-plugin://${plugin_id}`);
 
   $effect(() => {
     const handle_plugin_command = (event: any) => {
@@ -29,13 +29,13 @@
     };
 
     window.addEventListener(
-      "badgerly:plugin-command" as any,
+      "carbide:plugin-command" as any,
       handle_plugin_command,
     );
 
     return () => {
       window.removeEventListener(
-        "badgerly:plugin-command" as any,
+        "carbide:plugin-command" as any,
         handle_plugin_command,
       );
     };

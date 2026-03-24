@@ -291,7 +291,7 @@
       items.map((item) => item.path).join("\n"),
     );
     event.dataTransfer?.setData(
-      "application/x-badgerly-filetree-count",
+      "application/x-carbide-filetree-count",
       String(items.length),
     );
     if (event.dataTransfer) {

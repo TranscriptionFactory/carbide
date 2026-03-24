@@ -146,7 +146,7 @@ jobs:
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Badgerly ${{ github.ref_name }}"
+          releaseName: "Carbide ${{ github.ref_name }}"
           includeUpdaterJson: true
           args: ${{ matrix.args }}
         env:
@@ -165,16 +165,16 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           gh release download "$GITHUB_REF_NAME" \
-            --repo TranscriptionFactory/badgerly \
-            --pattern "badgerly_${VERSION}_aarch64.dmg" \
-            --pattern "badgerly_${VERSION}_x64.dmg" \
+            --repo TranscriptionFactory/carbide \
+            --pattern "carbide_${VERSION}_aarch64.dmg" \
+            --pattern "carbide_${VERSION}_x64.dmg" \
             --dir ./artifacts
 
       - name: Compute SHA256 checksums
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          echo "SHA256_ARM64=$(sha256sum artifacts/badgerly_${VERSION}_aarch64.dmg | awk '{print $1}')" >> "$GITHUB_ENV"
-          echo "SHA256_X64=$(sha256sum artifacts/badgerly_${VERSION}_x64.dmg | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "SHA256_ARM64=$(sha256sum artifacts/carbide_${VERSION}_aarch64.dmg | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "SHA256_X64=$(sha256sum artifacts/carbide_${VERSION}_x64.dmg | awk '{print $1}')" >> "$GITHUB_ENV"
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Clone homebrew-tap
@@ -185,7 +185,7 @@ jobs:
 
       - name: Update cask version and SHAs
         run: |
-          CASK="tap/Casks/badgerly.rb"
+          CASK="tap/Casks/carbide.rb"
           awk -v ver="${VERSION}" -v arm="${SHA256_ARM64}" -v x64="${SHA256_X64}" '
             /^\s*version / { sub(/"[^"]*"/, "\"" ver "\"") }
             /on_arm/       { in_arm=1;   in_intel=0 }
@@ -201,6 +201,6 @@ jobs:
           cd tap
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add Casks/badgerly.rb
-          git commit -m "Update badgerly cask to v${VERSION}"
+          git add Casks/carbide.rb
+          git commit -m "Update carbide cask to v${VERSION}"
           git push

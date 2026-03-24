@@ -1,6 +1,6 @@
 # UI Design System
 
-This document defines the design system, conventions, and standards for badgerly's user interface. Follow these guidelines when adding or updating UI components.
+This document defines the design system, conventions, and standards for carbide's user interface. Follow these guidelines when adding or updating UI components.
 
 ---
 

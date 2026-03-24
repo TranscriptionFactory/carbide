@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-1. Create a folder at `<vault>/.badgerly/plugins/<your-plugin-id>/`
+1. Create a folder at `<vault>/.carbide/plugins/<your-plugin-id>/`
 2. Add a `manifest.json` (plugin metadata + permissions)
 3. Add an `index.html` (plugin code, runs in a sandboxed iframe)
 4. Open the plugin manager (sidebar > Blocks icon) and enable your plugin
@@ -301,14 +301,14 @@ The plugin manager sidebar provides these controls per plugin:
 ## File Layout
 
 ```
-<vault>/.badgerly/plugins/<id>/
+<vault>/.carbide/plugins/<id>/
   manifest.json    — metadata, permissions, contributions
   index.html       — plugin entry point (runs in iframe)
   styles.css       — optional styles (for sidebar panels, etc.)
   assets/          — optional static files
 ```
 
-All files are served via the `badgerly-plugin://<id>/` URI scheme.
+All files are served via the `carbide-plugin://<id>/` URI scheme.
 
 ---
 

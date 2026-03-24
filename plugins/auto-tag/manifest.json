@@ -2,7 +2,7 @@
   "id": "auto-tag",
   "name": "Auto-Tag",
   "version": "1.0.0",
-  "author": "Badgerly",
+  "author": "Carbide",
   "description": "Automatically prefixes configured words with # to create inline tags. Uses a TOML config for allow/deny lists.",
   "api_version": "1",
   "permissions": [

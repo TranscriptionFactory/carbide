@@ -156,7 +156,7 @@
         <span class="font-medium text-foreground">{plugin_name}</span>
         <span class="mx-1">v{plugin_version}</span>
         settings save automatically to
-        <code>.badgerly/plugin_settings.json</code>.
+        <code>.carbide/plugin_settings.json</code>.
       </Dialog.Description>
     </Dialog.Header>
 

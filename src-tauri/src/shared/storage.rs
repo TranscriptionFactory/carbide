@@ -67,7 +67,7 @@ pub fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .home_dir()
         .map_err(|e| e.to_string())?
-        .join(".badgerly");
+        .join(".carbide");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("vaults.json"))
 }
@@ -150,8 +150,8 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
     let without_scheme = uri
-        .trim_start_matches("badgerly-plugin://")
-        .trim_start_matches("badgerly-plugin:");
+        .trim_start_matches("carbide-plugin://")
+        .trim_start_matches("carbide-plugin:");
 
     let query_start = without_scheme.find('?');
     let (path_part, query_part) = if let Some(pos) = query_start {
@@ -188,7 +188,7 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     };
 
     let vault_root = std::path::Path::new(&vault_path);
-    let plugin_dir = vault_root.join(".badgerly").join("plugins").join(plugin_id);
+    let plugin_dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
 
     let canonical_plugin_dir = match plugin_dir.canonicalize() {
         Ok(p) => p,
@@ -226,8 +226,8 @@ pub fn handle_excalidraw_request(
     let uri = req.uri().to_string();
 
     let without_scheme = uri
-        .trim_start_matches("badgerly-excalidraw://")
-        .trim_start_matches("badgerly-excalidraw:");
+        .trim_start_matches("carbide-excalidraw://")
+        .trim_start_matches("carbide-excalidraw:");
 
     let query_start = without_scheme.find('?');
     let path_part = if let Some(pos) = query_start {
@@ -294,8 +294,8 @@ pub fn handle_excalidraw_request(
 pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
     let rel = uri
-        .trim_start_matches("badgerly-asset://")
-        .trim_start_matches("badgerly-asset:")
+        .trim_start_matches("carbide-asset://")
+        .trim_start_matches("carbide-asset:")
         .trim_start_matches('/');
 
     let parts: Vec<&str> = rel.splitn(3, '/').collect();
