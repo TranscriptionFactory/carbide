@@ -149,7 +149,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           gh release download "$GITHUB_REF_NAME" \
-            --repo TranscriptionFactory/badgerly \
+            --repo TranscriptionFactory/carbide \
             --pattern "badgerly_${VERSION}_aarch64.dmg" \
             --pattern "badgerly_${VERSION}_x64.dmg" \
             --dir ./artifacts
