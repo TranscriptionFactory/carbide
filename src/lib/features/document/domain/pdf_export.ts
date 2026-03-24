@@ -379,11 +379,27 @@ export async function export_note_as_pdf(
   title: string,
   content: string,
 ): Promise<void> {
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  const { invoke } = await import("@tauri-apps/api/core");
+
+  const file_path = await save({
+    title: "Export as PDF",
+    defaultPath: `${title}.pdf`,
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+
+  if (!file_path) return;
+
   const { jsPDF } = await import("jspdf");
   const md = create_md();
   const tokens = md.parse(content, {});
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   render_tokens_to_pdf(doc, title, tokens);
-  doc.save(`${title}.pdf`);
+
+  const pdf_bytes = doc.output("arraybuffer");
+  await invoke("write_bytes_to_path", {
+    path: file_path,
+    data: Array.from(new Uint8Array(pdf_bytes)),
+  });
 }
