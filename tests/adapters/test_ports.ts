@@ -177,5 +177,13 @@ export function create_test_ports(): Ports {
     doi_lookup: {
       lookup_doi: () => Promise.resolve(null),
     },
+    zotero: {
+      test_connection: () => Promise.resolve(true),
+      search_items: () => Promise.resolve([]),
+      get_item: () => Promise.resolve(null),
+      get_collections: () => Promise.resolve([]),
+      get_collection_items: () => Promise.resolve([]),
+      get_bibliography: () => Promise.resolve(""),
+    },
   };
 }

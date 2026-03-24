@@ -504,6 +504,7 @@ export function create_app_context(input: {
     now_ms,
     input.ports.citation,
     input.ports.doi_lookup,
+    input.ports.zotero,
   );
 
   const base_action_input = {

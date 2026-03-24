@@ -37,3 +37,33 @@ export type ReferenceSource =
   | "citationjs"
   | "manual"
   | "translation_server";
+
+export type ZoteroCollection = {
+  key: string;
+  name: string;
+  parent_key?: string;
+};
+
+export type ZoteroAttachment = {
+  key: string;
+  title: string;
+  mime_type: string;
+  path?: string;
+};
+
+export type PdfAnnotation = {
+  citekey: string;
+  page: number;
+  text: string;
+  comment?: string;
+  color?: string;
+  type: "highlight" | "note" | "underline";
+};
+
+export type ZoteroConnectionConfig = {
+  mode: "bbt" | "web_api";
+  bbt_url?: string;
+  api_key?: string;
+  user_id?: string;
+  group_id?: string;
+};

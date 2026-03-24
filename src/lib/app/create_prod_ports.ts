@@ -39,6 +39,7 @@ import {
   create_reference_tauri_adapter,
   create_citationjs_adapter,
   create_doi_tauri_adapter,
+  create_zotero_bbt_adapter,
 } from "$lib/features/reference";
 import type { Ports } from "$lib/app/di/app_ports";
 
@@ -100,5 +101,6 @@ export function create_prod_ports(): Ports {
     reference_storage: create_reference_tauri_adapter(),
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),
+    zotero: create_zotero_bbt_adapter(),
   };
 }
