@@ -183,16 +183,14 @@
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <span class="StatusBar__item StatusBar__item--saved">{saved_label}</span>
     {/if}
-    {#if lint_is_running}
-      <span class="StatusBar__separator" aria-hidden="true"></span>
-      <LintStatusIndicator
-        error_count={lint_error_count}
-        warning_count={lint_warning_count}
-        is_running={lint_is_running}
-        on_click={on_lint_click}
-        on_format_click={on_lint_format_click}
-      />
-    {/if}
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <LintStatusIndicator
+      error_count={lint_error_count}
+      warning_count={lint_warning_count}
+      is_running={lint_is_running}
+      on_click={on_lint_click}
+      on_format_click={on_lint_format_click}
+    />
     {#if iwe_status !== "idle"}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <IweStatusIndicator
