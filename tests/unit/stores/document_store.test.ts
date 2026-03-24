@@ -30,6 +30,7 @@ function make_content_state(tab_id: string): DocumentContentState {
     line_count: null,
     asset_url: `asset://${tab_id}`,
     last_accessed_at: 1,
+    pdf_metadata: null,
   };
 }
 

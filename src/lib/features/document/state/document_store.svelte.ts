@@ -1,4 +1,7 @@
-import type { DocumentFileType } from "$lib/features/document/types/document";
+import type {
+  DocumentFileType,
+  PdfMetadata,
+} from "$lib/features/document/types/document";
 
 export type DocumentViewerState = {
   tab_id: string;
@@ -22,6 +25,7 @@ export type DocumentContentState = {
   line_count: number | null;
   asset_url: string | null;
   last_accessed_at: number;
+  pdf_metadata: PdfMetadata | null;
 };
 
 export class DocumentStore {
@@ -69,6 +73,15 @@ export class DocumentStore {
 
   get_content_state(tab_id: string): DocumentContentState | undefined {
     return this.content_states.get(tab_id);
+  }
+
+  set_pdf_metadata(tab_id: string, metadata: PdfMetadata): void {
+    const state = this.content_states.get(tab_id);
+    if (!state) return;
+    this.content_states = new Map(this.content_states).set(tab_id, {
+      ...state,
+      pdf_metadata: metadata,
+    });
   }
 
   touch_content_state(tab_id: string, now_ms: number): void {

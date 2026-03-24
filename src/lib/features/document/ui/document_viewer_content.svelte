@@ -10,6 +10,7 @@
   import CodeViewer from "$lib/features/document/ui/code_viewer.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
+  import type { PdfMetadata } from "$lib/features/document/types/document";
 
   interface Props {
     viewer_state: DocumentViewerState;
@@ -22,6 +23,10 @@
   const content = $derived(content_state?.content ?? null);
   const buffer_id = $derived(content_state?.buffer_id ?? null);
   const line_count = $derived(content_state?.line_count ?? null);
+
+  function handle_pdf_metadata(metadata: PdfMetadata): void {
+    stores.document.set_pdf_metadata(viewer_state.tab_id, metadata);
+  }
 </script>
 
 <div class="DocumentViewer">
@@ -38,6 +43,7 @@
         initial_page={viewer_state.pdf_page}
         default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
         scroll_mode={stores.ui.editor_settings.document_pdf_scroll_mode}
+        on_metadata={handle_pdf_metadata}
       />
     {/key}
   {:else if viewer_state.file_type === "image" && asset_url}

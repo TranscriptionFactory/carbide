@@ -20,15 +20,19 @@
     DocumentPdfZoomMode,
     DocumentPdfScrollMode,
   } from "$lib/shared/types/editor_settings";
+  import { parse_pdf_metadata } from "$lib/features/document/domain/parse_pdf_metadata";
+  import type { PdfMetadata } from "$lib/features/document/types/document";
 
   interface Props {
     src: string;
     initial_page: number;
     default_zoom: DocumentPdfZoomMode;
     scroll_mode: DocumentPdfScrollMode;
+    on_metadata?: (metadata: PdfMetadata) => void;
   }
 
-  let { src, initial_page, default_zoom, scroll_mode }: Props = $props();
+  let { src, initial_page, default_zoom, scroll_mode, on_metadata }: Props =
+    $props();
 
   type PDFDocumentProxy = PDFJSType.PDFDocumentProxy;
   type PDFJSModule = typeof import("pdfjs-dist");
@@ -52,6 +56,7 @@
   let zoom_level = $state(1.0);
   let loading = $state(true);
   let error_msg = $state<string | null>(null);
+  let pdf_metadata = $state<PdfMetadata | null>(null);
   let page_input_value = $state("1");
   let page_infos: PageInfo[] = $state([]);
 
@@ -118,6 +123,16 @@
       const doc = await pdfjs.getDocument({ data }).promise;
       pdf_doc = doc;
       num_pages = doc.numPages;
+
+      try {
+        const meta = await doc.getMetadata();
+        const info = (meta?.info ?? {}) as Record<string, unknown>;
+        const metadata = parse_pdf_metadata(info, doc.numPages);
+        pdf_metadata = metadata;
+        on_metadata?.(metadata);
+      } catch {
+        pdf_metadata = { page_count: doc.numPages };
+      }
 
       const infos: PageInfo[] = [];
       for (let i = 1; i <= doc.numPages; i++) {
@@ -674,6 +689,12 @@
       </button>
     </div>
 
+    {#if pdf_metadata?.title}
+      <span class="PdfViewer__metadata-title" title={pdf_metadata.title}>
+        {pdf_metadata.title}
+      </span>
+    {/if}
+
     <div class="PdfViewer__toolbar-group">
       <button
         class="PdfViewer__toolbar-btn"
@@ -834,6 +855,17 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
+  }
+
+  .PdfViewer__metadata-title {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--muted-foreground);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .PdfViewer__toolbar-btn {
