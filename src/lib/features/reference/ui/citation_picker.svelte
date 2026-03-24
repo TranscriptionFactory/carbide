@@ -1,13 +1,13 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { Button } from "$lib/components/ui/button";
   import { Search, BookOpen, Plug, PlugZap } from "@lucide/svelte";
   import { format_authors, extract_year } from "../domain/csl_utils";
+  import { match_query } from "../domain/csl_utils";
   import type { CslItem } from "../types";
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
-  const services = ctx.services;
 
   let query = $state("");
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
@@ -27,12 +27,16 @@
     }
     searching = true;
     debounce_timer = setTimeout(async () => {
-      local_results = services.reference.search_library(q);
+      debounce_timer = null;
+      local_results = ref_store.library_items.filter((item) =>
+        match_query(item, q),
+      );
       if (is_connected) {
         try {
-          zotero_results = await services.reference.search_zotero(q);
+          await ctx.action_registry.execute("reference.search_zotero", q);
+          const remote = ref_store.search_results;
           const local_ids = new Set(local_results.map((i) => i.id));
-          zotero_results = zotero_results.filter((i) => !local_ids.has(i.id));
+          zotero_results = remote.filter((i) => !local_ids.has(i.id));
         } catch {
           zotero_results = [];
         }
@@ -60,8 +64,12 @@
   }
 
   async function test_connection() {
-    await services.reference.test_zotero_connection();
+    await ctx.action_registry.execute("reference.test_zotero_connection");
   }
+
+  onDestroy(() => {
+    if (debounce_timer) clearTimeout(debounce_timer);
+  });
 </script>
 
 <div class="CitationPicker">
