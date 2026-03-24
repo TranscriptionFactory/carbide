@@ -382,6 +382,10 @@ export class ReferenceService {
   // Linked sources
   // ---------------------------------------------------------------------------
 
+  get_linked_sources_snapshot(): LinkedSource[] {
+    return this.store.linked_sources;
+  }
+
   private require_linked_source_port(): LinkedSourcePort {
     if (!this.linked_source_port)
       throw new Error("Linked source port not available");

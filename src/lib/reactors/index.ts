@@ -36,6 +36,7 @@ import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reacto
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
+import { create_linked_source_sync_reactor } from "$lib/reactors/linked_source_sync.reactor.svelte";
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
@@ -78,6 +79,7 @@ import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
 import type { CodeLspService } from "$lib/features/code_lsp";
+import type { ReferenceService } from "$lib/features/reference";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -121,6 +123,7 @@ export type ReactorContext = {
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
+  reference_service: ReferenceService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -335,6 +338,10 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_toolchain_lifecycle_reactor(
       context.vault_store,
       context.toolchain_service,
+    ),
+    create_linked_source_sync_reactor(
+      context.vault_store,
+      context.reference_service,
     ),
   ];
 

@@ -767,6 +767,7 @@ export function create_app_context(input: {
     toolchain_service,
     document_store: stores.document,
     code_lsp_service,
+    reference_service,
   });
 
   return {
