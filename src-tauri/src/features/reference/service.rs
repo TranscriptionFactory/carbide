@@ -162,3 +162,144 @@ pub async fn reference_doi_lookup(
 
     Ok(Some(csl))
 }
+
+async fn bbt_rpc(
+    url: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": method,
+        "params": params,
+        "id": 1
+    });
+
+    let response = http_client()
+        .post(url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("BBT RPC request failed: {e}"))?;
+
+    let payload: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse BBT response: {e}"))?;
+
+    if let Some(error) = payload.get("error") {
+        return Err(format!("BBT RPC error: {error}"));
+    }
+
+    payload
+        .get("result")
+        .cloned()
+        .ok_or_else(|| "BBT response missing 'result' field".to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_test_connection(
+    bbt_url: String,
+) -> Result<bool, String> {
+    match bbt_rpc(&bbt_url, "db.test", serde_json::json!([])).await {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_search(
+    bbt_url: String,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let result = bbt_rpc(&bbt_url, "item.search", serde_json::json!([query])).await?;
+
+    let mut items: Vec<serde_json::Value> = result
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+
+    if let Some(n) = limit {
+        items.truncate(n as usize);
+    }
+
+    Ok(items)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_get_item(
+    bbt_url: String,
+    citekey: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let result = bbt_rpc(
+        &bbt_url,
+        "item.export",
+        serde_json::json!([citekey, "csljson"]),
+    )
+    .await?;
+
+    let csl_str = result
+        .as_str()
+        .ok_or_else(|| "BBT item.export result is not a string".to_string())?;
+
+    let parsed: serde_json::Value = serde_json::from_str(csl_str)
+        .map_err(|e| format!("Failed to parse CSL JSON from BBT: {e}"))?;
+
+    let first = parsed
+        .as_array()
+        .and_then(|arr| arr.first())
+        .cloned();
+
+    Ok(first)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_collections(
+    bbt_url: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let result = bbt_rpc(&bbt_url, "collection.list", serde_json::json!([])).await?;
+
+    Ok(result.as_array().cloned().unwrap_or_default())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_collection_items(
+    bbt_url: String,
+    collection_key: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let result = bbt_rpc(
+        &bbt_url,
+        "collection.items",
+        serde_json::json!([collection_key]),
+    )
+    .await?;
+
+    Ok(result.as_array().cloned().unwrap_or_default())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reference_bbt_bibliography(
+    bbt_url: String,
+    citekeys: Vec<String>,
+    style: Option<String>,
+) -> Result<String, String> {
+    let style_id = style.unwrap_or_else(|| "apa".to_string());
+    let result = bbt_rpc(
+        &bbt_url,
+        "item.bibliography",
+        serde_json::json!([citekeys, { "id": style_id }]),
+    )
+    .await?;
+
+    result
+        .as_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "BBT bibliography result is not a string".to_string())
+}

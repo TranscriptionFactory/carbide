@@ -91,4 +91,30 @@ export function register_reference_actions(input: {
       await reference_service.render_bibliography(citekeys, style);
     },
   });
+
+  registry.register({
+    id: "reference.test_zotero_connection",
+    label: "References: Test Zotero Connection",
+    execute: async () => {
+      await reference_service.test_zotero_connection();
+    },
+  });
+
+  registry.register({
+    id: "reference.search_zotero",
+    label: "References: Search Zotero",
+    execute: async (query: unknown) => {
+      if (typeof query !== "string") return;
+      await reference_service.search_zotero(query);
+    },
+  });
+
+  registry.register({
+    id: "reference.import_from_zotero",
+    label: "References: Import from Zotero",
+    execute: async (citekeys: unknown) => {
+      if (!Array.isArray(citekeys)) return;
+      await reference_service.import_from_zotero(citekeys as string[]);
+    },
+  });
 }
