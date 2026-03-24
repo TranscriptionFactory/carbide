@@ -1,0 +1,88 @@
+{
+  "recent_notes": [
+    {
+      "id": "2026-03-21_markdown_emojis.md",
+      "mtime_ms": 1774148292936,
+      "name": "2026-03-21_markdown_emojis",
+      "path": "2026-03-21_markdown_emojis.md",
+      "size_bytes": 54292,
+      "title": "2026-03-21_markdown_emojis"
+    },
+    {
+      "id": "20260323_toolchain_manager_CRITICAL.md",
+      "mtime_ms": 1774260288272,
+      "name": "20260323_toolchain_manager_CRITICAL",
+      "path": "20260323_toolchain_manager_CRITICAL.md",
+      "size_bytes": 16263,
+      "title": "Generalized Toolchain Manager — Unbundle Sidecars, Add On-Demand Download"
+    },
+    {
+      "id": "2026-03-23_integration_architecture_assessment.md",
+      "mtime_ms": 1774257285075,
+      "name": "2026-03-23_integration_architecture_assessment",
+      "path": "2026-03-23_integration_architecture_assessment.md",
+      "size_bytes": 25035,
+      "title": "Integration Architecture Assessment: LSPs, Linters, AST, Database, and Extensibility"
+    },
+    {
+      "id": "2026-03-22_iwe_dynamic_completion_triggers.md",
+      "mtime_ms": 1774221762981,
+      "name": "2026-03-22_iwe_dynamic_completion_triggers",
+      "path": "2026-03-22_iwe_dynamic_completion_triggers.md",
+      "size_bytes": 8681,
+      "title": "IWE Dynamic Completion Triggers"
+    },
+    {
+      "id": "research/rebrand.md",
+      "mtime_ms": 1774256411541,
+      "name": "rebrand",
+      "path": "research/rebrand.md",
+      "size_bytes": 9140,
+      "title": "Carbide Rebrand Ideas"
+    },
+    {
+      "id": "archive/suggest_dropdown_utils_extraction.md",
+      "mtime_ms": 1774256522437,
+      "name": "suggest_dropdown_utils_extraction",
+      "path": "archive/suggest_dropdown_utils_extraction.md",
+      "size_bytes": 12708,
+      "title": "Implementation Plan: Extract `suggest_dropdown_utils.ts`"
+    },
+    {
+      "id": "2026-03-19_ast_indexed_schema_plan.md",
+      "mtime_ms": 1774052853824,
+      "name": "2026-03-19_ast_indexed_schema_plan",
+      "path": "2026-03-19_ast_indexed_schema_plan.md",
+      "size_bytes": 10169,
+      "title": "2026-03-19_ast_indexed_schema_plan"
+    },
+    {
+      "id": "research/suggest_dropdown_utils_extraction.md",
+      "mtime_ms": 1774051815762,
+      "name": "suggest_dropdown_utils_extraction",
+      "path": "research/suggest_dropdown_utils_extraction.md",
+      "size_bytes": 16649,
+      "title": "Implementation Plan: Extract `suggest_dropdown_utils.ts`"
+    }
+  ],
+  "starred_paths": [],
+  "editor": {
+    "attachment_folder": ".assets",
+    "default_note_name_template": "",
+    "ignored_folders": [],
+    "iwe_binary_path": "",
+    "iwe_enabled": true,
+    "lint_enabled": true,
+    "lint_format_on_save": false,
+    "lint_formatter": "prettier",
+    "lint_rules_toml": "",
+    "max_open_tabs": 5,
+    "semantic_graph_edges_per_note": 3,
+    "semantic_graph_max_vault_size": 200,
+    "semantic_omnibar_fallback_enabled": true,
+    "semantic_omnibar_min_words": 3,
+    "semantic_similarity_threshold": 0.5,
+    "semantic_suggested_links_limit": 5,
+    "show_hidden_files": false
+  }
+}
