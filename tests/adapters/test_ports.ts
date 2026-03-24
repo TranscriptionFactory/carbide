@@ -167,5 +167,15 @@ export function create_test_ports(): Ports {
         Promise.resolve({ schema_version: 1, items: [item] as never[] }),
       remove_item: () => Promise.resolve({ schema_version: 1, items: [] }),
     },
+    citation: {
+      parse_bibtex: () => Promise.resolve([]),
+      parse_ris: () => Promise.resolve([]),
+      render_citation: () => Promise.resolve(""),
+      render_bibliography: () => Promise.resolve(""),
+      list_styles: () => [],
+    },
+    doi_lookup: {
+      lookup_doi: () => Promise.resolve(null),
+    },
   };
 }

@@ -287,6 +287,7 @@ pub fn run() {
             features::reference::service::reference_save_library,
             features::reference::service::reference_add_item,
             features::reference::service::reference_remove_item,
+            features::reference::service::reference_doi_lookup,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

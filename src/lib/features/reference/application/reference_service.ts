@@ -1,9 +1,14 @@
-import type { ReferenceStoragePort } from "../ports";
+import type {
+  ReferenceStoragePort,
+  CitationPort,
+  DoiLookupPort,
+} from "../ports";
 import type { ReferenceStore } from "../state/reference_store.svelte";
 import type { CslItem, ReferenceSource } from "../types";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
-import { match_query } from "../domain/csl_utils";
+import { generate_citekey, match_query } from "../domain/csl_utils";
+import { error_message } from "$lib/shared/utils/error_message";
 
 export class ReferenceService {
   constructor(
@@ -12,6 +17,8 @@ export class ReferenceService {
     private vault_store: VaultStore,
     private op_store: OpStore,
     private now_ms: () => number,
+    private citation_port: CitationPort | null = null,
+    private doi_port: DoiLookupPort | null = null,
   ) {}
 
   private require_vault_id(): string {
@@ -31,7 +38,7 @@ export class ReferenceService {
       this.store.set_error(null);
       this.op_store.succeed(op_key);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = error_message(e);
       this.store.set_error(msg);
       this.op_store.fail(op_key, msg);
     } finally {
@@ -49,7 +56,7 @@ export class ReferenceService {
       this.store.set_error(null);
       this.op_store.succeed(op_key);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = error_message(e);
       this.store.set_error(msg);
       this.op_store.fail(op_key, msg);
     }
@@ -65,7 +72,7 @@ export class ReferenceService {
       this.store.set_error(null);
       this.op_store.succeed(op_key);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = error_message(e);
       this.store.set_error(msg);
       this.op_store.fail(op_key, msg);
     }
@@ -81,5 +88,111 @@ export class ReferenceService {
     );
     this.store.set_search_results(results);
     return results;
+  }
+
+  private require_citation_port(): CitationPort {
+    if (!this.citation_port) throw new Error("Citation port not available");
+    return this.citation_port;
+  }
+
+  private require_doi_port(): DoiLookupPort {
+    if (!this.doi_port) throw new Error("DOI lookup port not available");
+    return this.doi_port;
+  }
+
+  private ensure_citekey(item: CslItem): CslItem {
+    if (item.id) return item;
+    return { ...item, id: generate_citekey(item) };
+  }
+
+  private async import_parsed(
+    op_key: string,
+    parse: () => Promise<CslItem[]>,
+  ): Promise<CslItem[]> {
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const vault_id = this.require_vault_id();
+      const items = await parse();
+      const keyed = items.map((i) => this.ensure_citekey(i));
+      const current = await this.storage_port.load_library(vault_id);
+      const merged = new Map(current.items.map((i: CslItem) => [i.id, i]));
+      for (const item of keyed) merged.set(item.id, item);
+      const updated = { ...current, items: [...merged.values()] };
+      await this.storage_port.save_library(vault_id, updated);
+      this.store.set_library_items(updated.items);
+      this.store.set_error(null);
+      this.op_store.succeed(op_key);
+      return keyed;
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+      return [];
+    }
+  }
+
+  async import_bibtex(bibtex: string): Promise<CslItem[]> {
+    return this.import_parsed("reference.import_bibtex", () =>
+      this.require_citation_port().parse_bibtex(bibtex),
+    );
+  }
+
+  async import_ris(ris: string): Promise<CslItem[]> {
+    return this.import_parsed("reference.import_ris", () =>
+      this.require_citation_port().parse_ris(ris),
+    );
+  }
+
+  async lookup_doi(doi: string): Promise<CslItem | null> {
+    const port = this.require_doi_port();
+    const op_key = "reference.lookup_doi";
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const item = await port.lookup_doi(doi);
+      if (item) {
+        const keyed = this.ensure_citekey(item);
+        this.store.set_search_results([keyed]);
+        this.op_store.succeed(op_key);
+        return keyed;
+      }
+      this.store.set_search_results([]);
+      this.op_store.succeed(op_key);
+      return null;
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+      return null;
+    }
+  }
+
+  async render_bibliography(
+    citekeys: string[],
+    style: string,
+  ): Promise<string> {
+    const port = this.require_citation_port();
+    const op_key = "reference.render_bibliography";
+    this.op_store.start(op_key, this.now_ms());
+    try {
+      const key_set = new Set(citekeys);
+      const items = this.store.library_items.filter((i) => key_set.has(i.id));
+      if (items.length === 0) {
+        this.op_store.succeed(op_key);
+        return "";
+      }
+      const result = await port.render_bibliography(items, style);
+      this.op_store.succeed(op_key);
+      return result;
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+      return "";
+    }
+  }
+
+  list_citation_styles(): string[] {
+    if (!this.citation_port) return [];
+    return this.citation_port.list_styles();
   }
 }
