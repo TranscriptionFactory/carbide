@@ -92,6 +92,7 @@ function map_cross_vault_items(
       vault_is_available: group.vault_is_available,
       score: entry.score,
       snippet: entry.snippet,
+      snippet_page: entry.snippet_page,
     })),
   );
 }

@@ -26,6 +26,7 @@ impl FileCategory {
 pub struct ExtractedContent {
     pub category: FileCategory,
     pub body: String,
+    pub page_offsets: Vec<usize>,
 }
 
 pub fn classify_file(path: &Path) -> FileCategory {
@@ -77,29 +78,44 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
         FileCategory::Markdown | FileCategory::Canvas => ExtractedContent {
             category,
             body: String::new(), // handled by existing pipelines
+            page_offsets: vec![],
         },
         FileCategory::Pdf => {
-            let body = extract_pdf_text(bytes).unwrap_or_default();
+            let (body, page_offsets) = extract_pdf_text(bytes).unwrap_or_default();
             ExtractedContent {
                 category: FileCategory::Pdf,
                 body,
+                page_offsets,
             }
         }
         FileCategory::Code | FileCategory::Text => {
             let body = decode_text_body(bytes);
-            ExtractedContent { category, body }
+            ExtractedContent {
+                category,
+                body,
+                page_offsets: vec![],
+            }
         }
         FileCategory::Binary => ExtractedContent {
             category: FileCategory::Binary,
             body: String::new(),
+            page_offsets: vec![],
         },
     }
 }
 
-fn extract_pdf_text(bytes: &[u8]) -> Result<String, String> {
-    let text =
-        pdf_extract::extract_text_from_mem(bytes).map_err(|e| format!("PDF extraction: {e}"))?;
-    Ok(truncate_body(text))
+fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
+    let pages = pdf_extract::extract_text_from_mem_by_pages(bytes)
+        .map_err(|e| format!("PDF extraction: {e}"))?;
+    let mut body = String::new();
+    let mut offsets = Vec::with_capacity(pages.len());
+    for page_text in &pages {
+        offsets.push(body.len());
+        body.push_str(page_text);
+        body.push('\n');
+    }
+    let body = truncate_body(body);
+    Ok((body, offsets))
 }
 
 fn decode_text_body(bytes: &[u8]) -> String {
@@ -123,6 +139,23 @@ fn truncate_body(text: String) -> String {
         }
         text[..end].to_string()
     }
+}
+
+pub fn resolve_snippet_page(snippet: &str, body: &str, page_offsets: &[usize]) -> Option<u32> {
+    if page_offsets.is_empty() {
+        return None;
+    }
+    let clean: String = snippet
+        .replace("<b>", "")
+        .replace("</b>", "")
+        .replace("...", "");
+    let fragment = clean.split_whitespace().take(5).collect::<Vec<_>>().join(" ");
+    if fragment.is_empty() {
+        return None;
+    }
+    let pos = body.find(&fragment)?;
+    let page_idx = page_offsets.partition_point(|&o| o <= pos).saturating_sub(1);
+    Some(page_idx as u32 + 1) // 1-indexed
 }
 
 #[cfg(test)]
@@ -209,5 +242,42 @@ mod tests {
         let result = extract_content(&PathBuf::from("photo.png"), &[0xFF, 0xD8, 0xFF]);
         assert_eq!(result.category, FileCategory::Binary);
         assert!(result.body.is_empty());
+    }
+
+    #[test]
+    fn resolve_snippet_page_finds_correct_page() {
+        let body = "Page one content\nPage two content\nPage three content\n";
+        let offsets = vec![0, 17, 34];
+        assert_eq!(
+            resolve_snippet_page("Page one", body, &offsets),
+            Some(1)
+        );
+        assert_eq!(
+            resolve_snippet_page("<b>Page</b> two", body, &offsets),
+            Some(2)
+        );
+        assert_eq!(
+            resolve_snippet_page("...Page three...", body, &offsets),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn resolve_snippet_page_empty_offsets() {
+        assert_eq!(resolve_snippet_page("text", "text", &[]), None);
+    }
+
+    #[test]
+    fn resolve_snippet_page_no_match() {
+        assert_eq!(
+            resolve_snippet_page("nonexistent", "some body", &[0]),
+            None
+        );
+    }
+
+    #[test]
+    fn extract_content_code_has_no_page_offsets() {
+        let result = extract_content(&PathBuf::from("main.rs"), b"fn main() {}");
+        assert!(result.page_offsets.is_empty());
     }
 }

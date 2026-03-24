@@ -311,7 +311,8 @@ mod tests {
                 path TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 mtime_ms INTEGER NOT NULL,
-                size_bytes INTEGER NOT NULL
+                size_bytes INTEGER NOT NULL,
+                file_type TEXT DEFAULT 'markdown'
             );
             CREATE TABLE outlinks (
                 source_path TEXT NOT NULL,

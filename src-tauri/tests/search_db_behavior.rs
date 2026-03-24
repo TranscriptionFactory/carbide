@@ -531,6 +531,27 @@ fn remove_note_clears_headings_and_links() {
 }
 
 #[test]
+fn search_returns_file_type_from_db() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let meta = IndexNoteMeta {
+        id: "docs/report.pdf".to_string(),
+        path: "docs/report.pdf".to_string(),
+        title: "Report".to_string(),
+        name: "report".to_string(),
+        mtime_ms: 100,
+        size_bytes: 1000,
+        file_type: Some("pdf".to_string()),
+    };
+    upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
+
+    let results = search(&conn, "quarterly", SearchScope::All, 10).expect("search should succeed");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].note.file_type, Some("pdf".to_string()));
+}
+
+#[test]
 fn rename_note_propagates_to_headings_and_links() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");

@@ -4,6 +4,7 @@
   import { Input } from "$lib/components/ui/input";
   import SearchIcon from "@lucide/svelte/icons/search";
   import FileIcon from "@lucide/svelte/icons/file-text";
+  import FileCodeIcon from "@lucide/svelte/icons/file-code-2";
   import ClockIcon from "@lucide/svelte/icons/clock";
   import CommandIcon from "@lucide/svelte/icons/terminal";
   import SettingsIcon from "@lucide/svelte/icons/settings";
@@ -48,6 +49,30 @@
     blocks: BlocksIcon,
     maximize: MaximizeIcon,
   };
+
+  function note_icon(file_type: string | null): Component {
+    switch (file_type) {
+      case "pdf":
+        return FileDownIcon;
+      case "code":
+        return FileCodeIcon;
+      default:
+        return FileIcon;
+    }
+  }
+
+  function file_type_label(file_type: string | null): string | null {
+    switch (file_type) {
+      case "pdf":
+        return "PDF";
+      case "code":
+        return "Code";
+      case "text":
+        return "Text";
+      default:
+        return null;
+    }
+  }
 
   const SCOPES: OmnibarScope[] = ["current_vault", "all_vaults"];
 
@@ -432,19 +457,29 @@
                   }}
                 >
                   {#if item.kind === "cross_vault_note"}
+                    {@const CrossIcon = note_icon(item.note.file_type)}
+                    {@const cross_badge = file_type_label(item.note.file_type)}
                     <div class="Omnibar__item-row">
-                      <FileIcon />
+                      <CrossIcon />
                       <div class="Omnibar__item-content">
                         <span class="Omnibar__item-title"
                           >{item.note.title}</span
                         >
                         <span class="Omnibar__item-path">{item.note.path}</span>
                         {#if item.snippet}
-                          <span class="Omnibar__item-snippet"
-                            >{item.snippet}</span
-                          >
+                          <span class="Omnibar__item-snippet">
+                            {#if item.snippet_page}
+                              <span class="Omnibar__page-ref"
+                                >p.{item.snippet_page}</span
+                              >
+                            {/if}
+                            {item.snippet}
+                          </span>
                         {/if}
                       </div>
+                      {#if cross_badge}
+                        <span class="Omnibar__badge">{cross_badge}</span>
+                      {/if}
                       <span class="Omnibar__vault-badge">{item.vault_name}</span
                       >
                     </div>
@@ -494,15 +529,27 @@
             }}
           >
             {#if item.kind === "note"}
+              {@const NoteItemIcon = note_icon(item.note.file_type)}
+              {@const badge = file_type_label(item.note.file_type)}
               <div class="Omnibar__item-row">
-                <FileIcon />
+                <NoteItemIcon />
                 <div class="Omnibar__item-content">
                   <span class="Omnibar__item-title">{item.note.title}</span>
                   <span class="Omnibar__item-path">{item.note.path}</span>
                   {#if item.snippet}
-                    <span class="Omnibar__item-snippet">{item.snippet}</span>
+                    <span class="Omnibar__item-snippet">
+                      {#if item.snippet_page}
+                        <span class="Omnibar__page-ref"
+                          >p.{item.snippet_page}</span
+                        >
+                      {/if}
+                      {item.snippet}
+                    </span>
                   {/if}
                 </div>
+                {#if badge}
+                  <span class="Omnibar__badge">{badge}</span>
+                {/if}
                 {#if item.source === "vector" || item.source === "both"}
                   <span class="Omnibar__badge Omnibar__badge--semantic"
                     >Semantic</span
@@ -936,6 +983,12 @@
     border-radius: var(--radius-sm);
     background-color: var(--muted);
     color: var(--muted-foreground);
+  }
+
+  .Omnibar__page-ref {
+    font-weight: 600;
+    color: var(--foreground);
+    margin-right: var(--space-1);
   }
 
   .Omnibar__badge--semantic {

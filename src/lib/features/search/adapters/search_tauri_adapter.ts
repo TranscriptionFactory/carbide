@@ -31,6 +31,7 @@ type TauriSearchHit = {
   note: TauriNoteMeta;
   score: number;
   snippet: string | null;
+  snippet_page: number | null;
 };
 
 type TauriSuggestionHit = {
@@ -63,6 +64,7 @@ type TauriHybridSearchHit = {
   note: TauriNoteMeta;
   score: number;
   snippet: string | null;
+  snippet_page: number | null;
   source: HitSource;
 };
 
@@ -159,6 +161,7 @@ export function create_search_tauri_adapter(): SearchPort {
         note: to_note_meta(hit.note),
         score: hit.score,
         snippet: hit.snippet ?? undefined,
+        snippet_page: hit.snippet_page ?? undefined,
       }));
     },
 
@@ -304,6 +307,7 @@ export function create_search_tauri_adapter(): SearchPort {
         note: to_note_meta(hit.note),
         score: hit.score,
         snippet: hit.snippet ?? undefined,
+        snippet_page: hit.snippet_page ?? undefined,
         source: hit.source,
       }));
     },
