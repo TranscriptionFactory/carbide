@@ -36,7 +36,7 @@ fn local_state_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .home_dir()
         .map_err(|e| e.to_string())?
-        .join(".badgerly")
+        .join(".carbide")
         .join("local_state"))
 }
 

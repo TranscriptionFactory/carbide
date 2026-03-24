@@ -75,5 +75,5 @@ impl PluginService {
 }
 
 fn plugins_dir(vault_path: &Path) -> PathBuf {
-    vault_path.join(".badgerly").join("plugins")
+    vault_path.join(".carbide").join("plugins")
 }

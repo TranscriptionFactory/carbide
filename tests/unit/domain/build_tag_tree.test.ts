@@ -46,7 +46,7 @@ describe("build_tag_tree", () => {
     const tree = build_tag_tree([
       tag("rust", 10),
       tag("project/carbide", 5),
-      tag("project/badgerly", 3),
+      tag("project/carbide", 3),
     ]);
 
     expect(tree).toHaveLength(2);

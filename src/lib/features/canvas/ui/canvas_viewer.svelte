@@ -41,7 +41,7 @@
         : (canvas_state?.excalidraw_scene ?? {
             type: "excalidraw",
             version: 2,
-            source: "badgerly",
+            source: "carbide",
             elements: [],
             appState: {},
           });

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DocumentPort } from "$lib/features/document/ports";
-import { badgerly_asset_url } from "$lib/features/note";
+import { carbide_asset_url } from "$lib/features/note";
 
 export function create_document_tauri_adapter(): DocumentPort {
   return {
@@ -11,7 +11,7 @@ export function create_document_tauri_adapter(): DocumentPort {
       });
     },
     resolve_asset_url(vault_id: string, relative_path: string): string {
-      return badgerly_asset_url(vault_id, relative_path);
+      return carbide_asset_url(vault_id, relative_path);
     },
     async open_buffer(
       id: string,

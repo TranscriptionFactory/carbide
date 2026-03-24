@@ -215,7 +215,7 @@ async function execute_command(
     // Dispatch to plugin via broadcast or a service that the iframe host listens to
     // For now, we'll use a simple custom event that PluginIframeHost can listen to
     window.dispatchEvent(
-      new CustomEvent("badgerly:plugin-command", {
+      new CustomEvent("carbide:plugin-command", {
         detail: { plugin_id, command_id },
       }),
     );

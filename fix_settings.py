@@ -1,6 +1,6 @@
 import json, pathlib
 
-p = pathlib.Path.home() / "Library/Application Support/com.badgerly.desktop/badgerly/settings.json"
+p = pathlib.Path.home() / "Library/Application Support/com.carbide.desktop/carbide/settings.json"
 data = json.loads(p.read_text())
 
 # Walk down to find the deepest "settings" object that contains real keys

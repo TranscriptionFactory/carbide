@@ -1,4 +1,4 @@
-pub const APP_DIR: &str = ".badgerly";
+pub const APP_DIR: &str = ".carbide";
 pub const GIT_DIR: &str = ".git";
 
 pub const EXCLUDED_FOLDERS: &[&str] = &[APP_DIR, GIT_DIR];

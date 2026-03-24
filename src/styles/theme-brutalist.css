@@ -28,7 +28,7 @@
   --sidebar-foreground: oklch(0.1 0 0);
   --sidebar-border: oklch(0.1 0 0);
 
-  /* Badgerly Specific */
+  /* Carbide Specific */
   --background-surface-2: oklch(0.95 0 0);
   --background-surface-3: oklch(0.93 0 0);
   --border-strong: oklch(0.1 0 0);
@@ -85,7 +85,7 @@
   --sidebar-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.95 0 0);
 
-  /* Badgerly Specific */
+  /* Carbide Specific */
   --background-surface-2: oklch(0.1 0 0);
   --background-surface-3: oklch(0.14 0 0);
   --border-strong: oklch(0.95 0 0);

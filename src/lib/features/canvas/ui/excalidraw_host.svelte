@@ -19,8 +19,8 @@
   let is_ready = $state(false);
   let pending_scene: ExcalidrawScene | null = $state(null);
 
-  const src = "badgerly-excalidraw://localhost/index.html";
-  const origin = "badgerly-excalidraw://localhost";
+  const src = "carbide-excalidraw://localhost/index.html";
+  const origin = "carbide-excalidraw://localhost";
 
   let resolve_scene: ((scene: ExcalidrawScene) => void) | null = null;
   let resolve_svg: ((svg: string) => void) | null = null;

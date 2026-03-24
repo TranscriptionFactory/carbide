@@ -40,7 +40,7 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
 
 pub fn run() {
     let _ = ICON_STAMP;
-    log::info!("Badgerly starting");
+    log::info!("Carbide starting");
 
     let log_level = if cfg!(debug_assertions) {
         log::LevelFilter::Debug
@@ -54,7 +54,7 @@ pub fn run() {
         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
     ]);
 
-    if std::env::var("BADGERLY_LOG_FORMAT").as_deref() == Ok("json") {
+    if std::env::var("CARBIDE_LOG_FORMAT").as_deref() == Ok("json") {
         log_builder = log_builder.format(|callback, message, record| {
             callback.finish(format_args!(
                 r#"{{"level":"{}","target":"{}","message":"{}"}}"#,
@@ -270,13 +270,13 @@ pub fn run() {
             features::iwe::service::iwe_document_symbols,
             features::iwe::service::iwe_hierarchy_tree,
         ])
-        .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
+        .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
         })
-        .register_uri_scheme_protocol("badgerly-plugin", |_ctx, req| {
+        .register_uri_scheme_protocol("carbide-plugin", |_ctx, req| {
             shared::storage::handle_plugin_request(req)
         })
-        .register_uri_scheme_protocol("badgerly-excalidraw", |ctx, req| {
+        .register_uri_scheme_protocol("carbide-excalidraw", |ctx, req| {
             shared::storage::handle_excalidraw_request(ctx.app_handle(), req)
         })
         .build(tauri::generate_context!())

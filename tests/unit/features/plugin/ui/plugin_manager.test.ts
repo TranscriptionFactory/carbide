@@ -47,7 +47,7 @@ function make_manifest(overrides?: Partial<PluginManifest>): PluginManifest {
 function make_plugin(overrides?: Partial<PluginInfo>): PluginInfo {
   return {
     manifest: make_manifest(),
-    path: "/vault/.badgerly/plugins/plugin-a",
+    path: "/vault/.carbide/plugins/plugin-a",
     enabled: true,
     status: "active",
     ...overrides,
@@ -147,7 +147,7 @@ describe("plugin_manager.svelte", () => {
           name: "Settings Plugin",
           contributes: { settings: schema },
         }),
-        path: "/vault/.badgerly/plugins/settings-plugin",
+        path: "/vault/.carbide/plugins/settings-plugin",
       }),
     );
 
@@ -180,7 +180,7 @@ describe("plugin_manager.svelte", () => {
           id: "plain-plugin",
           name: "Plain Plugin",
         }),
-        path: "/vault/.badgerly/plugins/plain-plugin",
+        path: "/vault/.carbide/plugins/plain-plugin",
       }),
     );
 

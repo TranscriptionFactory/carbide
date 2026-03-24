@@ -1,4 +1,4 @@
-export const APP_DIR = ".badgerly" as const;
+export const APP_DIR = ".carbide" as const;
 
 export const EXCLUDED_FOLDERS = [APP_DIR, ".git"] as const;
 

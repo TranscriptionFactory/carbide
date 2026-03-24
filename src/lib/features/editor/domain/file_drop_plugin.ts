@@ -52,7 +52,7 @@ export function create_file_drop_prose_plugin(
         const dt = event.dataTransfer;
         if (!dt) return false;
 
-        const count_str = dt.getData("application/x-badgerly-filetree-count");
+        const count_str = dt.getData("application/x-carbide-filetree-count");
 
         if (!count_str) {
           if (!on_external_file_drop || dt.files.length === 0) return false;

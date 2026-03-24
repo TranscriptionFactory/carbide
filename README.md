@@ -1,8 +1,10 @@
-<img src="./src-tauri/icons/Square310x310Logo.png" alt="Badgerly" width="235">
+<img src="./assets/carbide_icon.jpg" alt="Carbide" width="235">
 
-[![Release](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/badgerly/actions/workflows/release.yml)
+[![Release](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml)
 
-# Badgerly
+# Carbide
+
+> **Fork of [Otterly](https://github.com/ajkdrag/otterly)** — Carbide builds on Otterly's foundation with additional features, plugins, and a redesigned UI.
 
 A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Notes are plain Markdown files—no proprietary formats, no cloud dependency, no vendor lock-in.
 
@@ -22,12 +24,12 @@ A fast, local-first Markdown knowledge base built with [Tauri 2](https://tauri.a
 ### Homebrew (macOS)
 
 ```bash
-brew install --cask TranscriptionFactory/tap/badgerly
+brew install --cask TranscriptionFactory/tap/carbide
 ```
 
 ### GitHub Releases
 
-Download pre-built binaries from the [Releases](https://github.com/TranscriptionFactory/badgerly/releases) page:
+Download pre-built binaries from the [Releases](https://github.com/TranscriptionFactory/carbide/releases) page:
 
 | Platform              | Format              |
 | --------------------- | ------------------- |
@@ -36,7 +38,7 @@ Download pre-built binaries from the [Releases](https://github.com/Transcription
 | Windows               | `.msi`              |
 | Linux                 | `.deb`, `.AppImage` |
 
-Badgerly includes a built-in auto-updater—once installed, updates are applied automatically on startup with an option to skip specific versions.
+Carbide includes a built-in auto-updater—once installed, updates are applied automatically on startup with an option to skip specific versions.
 
 ## Tech Stack
 
@@ -213,7 +215,7 @@ See [Plugin How-To](./docs/plugin_howto.md) for the full API.
 
 ## Contributing
 
-Badgerly uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md](./docs/architecture.md) for the decision tree and rules.
+Carbide uses a Ports and Adapters (Hexagonal) architecture. See [architecture.md](./docs/architecture.md) for the decision tree and rules.
 
 | Command                       | Check                           |
 | ----------------------------- | ------------------------------- |
@@ -225,7 +227,7 @@ Badgerly uses a Ports and Adapters (Hexagonal) architecture. See [architecture.m
 
 ## Acknowledgments
 
-Fork of [Otterly](https://github.com/TranscriptionFactory/otterly). File management architecture from [Ferrite](https://github.com/jrmoulton/ferrite).
+Fork of [Otterly](https://github.com/ajkdrag/otterly). File management architecture from [Ferrite](https://github.com/jrmoulton/ferrite).
 
 ## License
 
