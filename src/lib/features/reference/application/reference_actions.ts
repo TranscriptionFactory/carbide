@@ -196,4 +196,67 @@ export function register_reference_actions(input: {
       ui_store.set_sidebar_view("references");
     },
   });
+
+  // Linked source actions
+  registry.register({
+    id: "reference.add_linked_source",
+    label: "References: Add Linked Source Folder",
+    execute: async () => {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        directory: true,
+        title: "Select folder to link",
+      });
+      if (!selected || typeof selected !== "string") return;
+      const name = selected.split("/").pop() ?? selected;
+      await reference_service.add_linked_source(selected, name);
+    },
+  });
+
+  registry.register({
+    id: "reference.remove_linked_source",
+    label: "References: Remove Linked Source",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { id, remove_references } = args as {
+        id: string;
+        remove_references: boolean;
+      };
+      if (typeof id !== "string") return;
+      await reference_service.remove_linked_source(
+        id,
+        remove_references ?? true,
+      );
+    },
+  });
+
+  registry.register({
+    id: "reference.scan_linked_source",
+    label: "References: Rescan Linked Source",
+    execute: async (source_id: unknown) => {
+      if (typeof source_id !== "string") return;
+      await reference_service.scan_linked_source(source_id);
+    },
+  });
+
+  registry.register({
+    id: "reference.scan_all_linked_sources",
+    label: "References: Rescan All Linked Sources",
+    execute: async () => {
+      for (const source of reference_store.linked_sources) {
+        if (source.enabled) {
+          void reference_service.scan_linked_source(source.id);
+        }
+      }
+    },
+  });
+
+  registry.register({
+    id: "reference.toggle_linked_source",
+    label: "References: Toggle Linked Source",
+    execute: async (source_id: unknown) => {
+      if (typeof source_id !== "string") return;
+      await reference_service.toggle_linked_source(source_id);
+    },
+  });
 }

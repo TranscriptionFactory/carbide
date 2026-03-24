@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { Search, BookOpen, Plug, PlugZap } from "@lucide/svelte";
+  import { Search, BookOpen, Plug, PlugZap, Link } from "@lucide/svelte";
   import { format_authors, extract_year } from "../domain/csl_utils";
   import { match_query } from "../domain/csl_utils";
   import type { CslItem } from "../types";
+  import LinkedSourceManager from "./linked_source_manager.svelte";
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
@@ -61,6 +62,10 @@
     if (authors) parts.push(authors);
     if (year) parts.push(String(year));
     return parts.join(" · ");
+  }
+
+  function is_linked(item: CslItem): boolean {
+    return item._source === "linked_source";
   }
 
   async function test_connection() {
@@ -174,8 +179,13 @@
             onclick={() => insert(item)}
             title="Insert [@{item.id}]"
           >
-            <div class="text-sm font-medium truncate">
-              {item.title ?? item.id}
+            <div class="flex items-center gap-1.5">
+              {#if is_linked(item)}
+                <Link class="w-3 h-3 text-muted-foreground shrink-0" />
+              {/if}
+              <span class="text-sm font-medium truncate">
+                {item.title ?? item.id}
+              </span>
             </div>
             <div class="text-xs text-muted-foreground truncate">
               {format_item_line(item)}
@@ -184,6 +194,8 @@
         {/each}
       {/if}
     {/if}
+
+    <LinkedSourceManager />
   </div>
 </div>
 
