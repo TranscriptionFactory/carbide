@@ -52,11 +52,13 @@ function normalize_pdf_error(error: unknown): Error {
   return new Error("Unknown PDF export error");
 }
 
-function prune_clone_styles(cloned_doc: HTMLDocument): void {
+function prepare_clone_for_capture(cloned_doc: HTMLDocument): void {
   const export_container = cloned_doc.getElementById("pdf-export-container");
   if (!export_container) {
     return;
   }
+
+  export_container.style.opacity = "1";
 
   const allowed_style_nodes = new Set(
     Array.from(
@@ -128,7 +130,7 @@ async function render_html_export(
         },
         html2canvas: {
           logging: false,
-          onclone: prune_clone_styles,
+          onclone: prepare_clone_for_capture,
         },
       });
 
