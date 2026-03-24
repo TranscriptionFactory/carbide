@@ -1443,6 +1443,74 @@
 }
 
 /* ============================================
+   TAG SUGGEST DROPDOWN
+   ============================================ */
+
+.TagSuggest {
+  position: absolute;
+  z-index: 50;
+  min-width: 160px;
+  max-width: 280px;
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: calc(var(--radius) * 0.5);
+  border: 1px solid var(--border);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1) 0;
+}
+
+.TagSuggest[data-show="false"] {
+  display: none;
+}
+
+.TagSuggest__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.TagSuggest__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.TagSuggest__badge {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.TagSuggest__item:hover {
+  background: var(--muted);
+}
+
+.TagSuggest__item--selected {
+  background: var(--interactive-bg);
+  color: var(--interactive);
+}
+
+.TagSuggest__item--selected .TagSuggest__badge {
+  color: inherit;
+  border-color: currentColor;
+}
+
+/* ============================================
    IMAGE SUGGEST DROPDOWN
    ============================================ */
 
