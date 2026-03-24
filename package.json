@@ -84,7 +84,8 @@
     "prosemirror-view": "^1.41.6",
     "shiki": "^4.0.2",
     "svelte-themes": "^2.0.10",
-    "tauri-pty": "^0.2.1"
+    "tauri-pty": "^0.2.1",
+    "yaml": "2.8.3"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

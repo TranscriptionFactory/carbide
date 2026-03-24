@@ -572,4 +572,53 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "Tools",
     keywords: ["iwe", "lsp", "binary", "path", "executable"],
   },
+  {
+    key: "reference_enabled",
+    label: "Enable References",
+    description:
+      "Enable the reference manager for citing papers, books, and articles in your notes",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "citation",
+      "zotero",
+      "bibliography",
+      "academic",
+      "papers",
+      "doi",
+    ],
+  },
+  {
+    key: "reference_bbt_url",
+    label: "Zotero BBT URL",
+    description:
+      "JSON-RPC endpoint for the Better BibTeX Zotero plugin. Requires Zotero + BBT running locally",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "zotero",
+      "bbt",
+      "better bibtex",
+      "url",
+      "endpoint",
+      "connection",
+    ],
+  },
+  {
+    key: "reference_citation_style",
+    label: "Citation Style",
+    description:
+      "Default CSL citation style for rendering bibliographies (e.g. apa, vancouver, harvard1)",
+    category: "Tools",
+    keywords: [
+      "reference",
+      "citation",
+      "style",
+      "csl",
+      "apa",
+      "vancouver",
+      "harvard",
+      "bibliography",
+    ],
+  },
 ];

@@ -28,3 +28,8 @@ export {
   generate_citekey,
   match_query,
 } from "./domain/csl_utils";
+export type { FrontmatterReference } from "./domain/frontmatter_sync";
+export {
+  sync_reference_to_frontmatter,
+  remove_reference_from_frontmatter,
+} from "./domain/frontmatter_sync";
