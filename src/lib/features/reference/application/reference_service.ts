@@ -245,27 +245,11 @@ export class ReferenceService {
 
   async import_from_zotero(citekeys: string[]): Promise<void> {
     const port = this.require_zotero_port();
-    const vault_id = this.require_vault_id();
-    const op_key = "reference.import_from_zotero";
-    this.op_store.start(op_key, this.now_ms());
-    try {
-      const items: CslItem[] = [];
-      for (const key of citekeys) {
-        const item = await port.get_item(key);
-        if (item) items.push(this.ensure_citekey(item));
-      }
-      const current = await this.storage_port.load_library(vault_id);
-      const merged = new Map(current.items.map((i: CslItem) => [i.id, i]));
-      for (const item of items) merged.set(item.id, item);
-      const updated = { ...current, items: [...merged.values()] };
-      await this.storage_port.save_library(vault_id, updated);
-      this.store.set_library_items(updated.items);
-      this.store.set_error(null);
-      this.op_store.succeed(op_key);
-    } catch (e) {
-      const msg = error_message(e);
-      this.store.set_error(msg);
-      this.op_store.fail(op_key, msg);
-    }
+    await this.import_parsed("reference.import_from_zotero", async () => {
+      const results = await Promise.all(
+        citekeys.map((key) => port.get_item(key)),
+      );
+      return results.filter((item): item is CslItem => item !== null);
+    });
   }
 }

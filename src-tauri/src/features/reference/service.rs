@@ -191,10 +191,12 @@ async fn bbt_rpc(
         return Err(format!("BBT RPC error: {error}"));
     }
 
-    payload
-        .get("result")
-        .cloned()
-        .ok_or_else(|| "BBT response missing 'result' field".to_string())
+    match payload {
+        serde_json::Value::Object(mut map) => map
+            .remove("result")
+            .ok_or_else(|| "BBT response missing 'result' field".to_string()),
+        _ => Err("BBT response is not a JSON object".to_string()),
+    }
 }
 
 #[tauri::command]
@@ -217,10 +219,10 @@ pub async fn reference_bbt_search(
 ) -> Result<Vec<serde_json::Value>, String> {
     let result = bbt_rpc(&bbt_url, "item.search", serde_json::json!([query])).await?;
 
-    let mut items: Vec<serde_json::Value> = result
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
+    let mut items: Vec<serde_json::Value> = match result {
+        serde_json::Value::Array(arr) => arr,
+        _ => vec![],
+    };
 
     if let Some(n) = limit {
         items.truncate(n as usize);
@@ -249,10 +251,10 @@ pub async fn reference_bbt_get_item(
     let parsed: serde_json::Value = serde_json::from_str(csl_str)
         .map_err(|e| format!("Failed to parse CSL JSON from BBT: {e}"))?;
 
-    let first = parsed
-        .as_array()
-        .and_then(|arr| arr.first())
-        .cloned();
+    let first = match parsed {
+        serde_json::Value::Array(mut arr) if !arr.is_empty() => Some(arr.swap_remove(0)),
+        _ => None,
+    };
 
     Ok(first)
 }
@@ -264,7 +266,10 @@ pub async fn reference_bbt_collections(
 ) -> Result<Vec<serde_json::Value>, String> {
     let result = bbt_rpc(&bbt_url, "collection.list", serde_json::json!([])).await?;
 
-    Ok(result.as_array().cloned().unwrap_or_default())
+    Ok(match result {
+        serde_json::Value::Array(arr) => arr,
+        _ => vec![],
+    })
 }
 
 #[tauri::command]
@@ -280,7 +285,10 @@ pub async fn reference_bbt_collection_items(
     )
     .await?;
 
-    Ok(result.as_array().cloned().unwrap_or_default())
+    Ok(match result {
+        serde_json::Value::Array(arr) => arr,
+        _ => vec![],
+    })
 }
 
 #[tauri::command]

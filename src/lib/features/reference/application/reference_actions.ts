@@ -88,6 +88,7 @@ export function register_reference_actions(input: {
         citekeys: string[];
         style: string;
       };
+      if (!Array.isArray(citekeys) || typeof style !== "string") return;
       await reference_service.render_bibliography(citekeys, style);
     },
   });
