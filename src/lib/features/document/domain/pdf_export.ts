@@ -24,6 +24,28 @@ const COLOR_MUTED = [87, 96, 106] as const;
 const COLOR_BORDER = [208, 215, 222] as const;
 const COLOR_CODE_BG = [246, 248, 250] as const;
 
+const UNICODE_TO_ASCII: [RegExp, string][] = [
+  [/[\u2192\u2794\u279C\u21D2]/g, "->"],
+  [/[\u2190\u21D0]/g, "<-"],
+  [/[\u2194\u21D4]/g, "<->"],
+  [/[\u2014]/g, "--"],
+  [/[\u2013]/g, "-"],
+  [/[\u2018\u2019\u201B]/g, "'"],
+  [/[\u201C\u201D\u201F]/g, '"'],
+  [/[\u2026]/g, "..."],
+  [/[\u2022]/g, "-"],
+  [/[\u2023]/g, ">"],
+  [/[\u00A0]/g, " "],
+];
+
+export function sanitize_for_pdf(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of UNICODE_TO_ASCII) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
 type JsPDFDoc = {
   text(text: string | string[], x: number, y: number): void;
   setFont(family: string, style: string): void;
@@ -56,13 +78,15 @@ export function create_md(): MarkdownIt {
 }
 
 function extract_inline_text(token: Token): string {
-  if (!token.children) return token.content;
-  return token.children
-    .map((c: Token) => {
-      if (c.type === "softbreak") return " ";
-      return c.content;
-    })
-    .join("");
+  if (!token.children) return sanitize_for_pdf(token.content);
+  return sanitize_for_pdf(
+    token.children
+      .map((c: Token) => {
+        if (c.type === "softbreak") return " ";
+        return c.content;
+      })
+      .join(""),
+  );
 }
 
 function usable_width(ctx: PdfContext): number {
@@ -146,7 +170,7 @@ function render_paragraph(ctx: PdfContext, token: Token): void {
 }
 
 function render_fence(ctx: PdfContext, token: Token): void {
-  const code_text = token.content.trimEnd();
+  const code_text = sanitize_for_pdf(token.content.trimEnd());
   const lines = ctx.doc.splitTextToSize(
     code_text,
     usable_width(ctx) - CODE_BLOCK_PADDING * 2,
@@ -269,7 +293,10 @@ export function render_tokens_to_pdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(HEADING_CONFIG.h1!.size);
   doc.setTextColor(...COLOR_BODY);
-  const title_lines = doc.splitTextToSize(title, USABLE_WIDTH);
+  const title_lines = doc.splitTextToSize(
+    sanitize_for_pdf(title),
+    USABLE_WIDTH,
+  );
   for (const line of title_lines) {
     doc.text(line, MARGIN, ctx.y);
     ctx.y += 10;

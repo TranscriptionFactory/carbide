@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   create_md,
   render_tokens_to_pdf,
+  sanitize_for_pdf,
   export_note_as_pdf,
 } from "$lib/features/document/domain/pdf_export";
 
@@ -51,6 +52,41 @@ function text_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
 function parse(content: string) {
   return create_md().parse(content, {});
 }
+
+describe("sanitize_for_pdf", () => {
+  it("replaces Unicode right arrow with ASCII", () => {
+    expect(sanitize_for_pdf("A \u2192 B")).toBe("A -> B");
+  });
+
+  it("replaces Unicode left arrow with ASCII", () => {
+    expect(sanitize_for_pdf("A \u2190 B")).toBe("A <- B");
+  });
+
+  it("replaces em dash with double hyphen", () => {
+    expect(sanitize_for_pdf("A \u2014 B")).toBe("A -- B");
+  });
+
+  it("replaces en dash with hyphen", () => {
+    expect(sanitize_for_pdf("A \u2013 B")).toBe("A - B");
+  });
+
+  it("replaces smart quotes with ASCII quotes", () => {
+    expect(sanitize_for_pdf("\u201Chello\u201D")).toBe('"hello"');
+    expect(sanitize_for_pdf("\u2018hi\u2019")).toBe("'hi'");
+  });
+
+  it("replaces ellipsis with three dots", () => {
+    expect(sanitize_for_pdf("wait\u2026")).toBe("wait...");
+  });
+
+  it("leaves ASCII text unchanged", () => {
+    expect(sanitize_for_pdf("normal --> text")).toBe("normal --> text");
+  });
+
+  it("handles multiple replacements in one string", () => {
+    expect(sanitize_for_pdf("A \u2192 B \u2190 C")).toBe("A -> B <- C");
+  });
+});
 
 describe("render_tokens_to_pdf", () => {
   let doc: ReturnType<typeof create_mock_doc>;
@@ -148,6 +184,15 @@ describe("render_tokens_to_pdf", () => {
     expect(texts.some((t) => t.includes("Section"))).toBe(true);
     expect(texts.some((t) => t.includes("item"))).toBe(true);
     expect(texts.some((t) => t.includes("code"))).toBe(true);
+  });
+
+  it("sanitizes Unicode arrows in rendered text", () => {
+    render_tokens_to_pdf(doc, "T", parse("oral gavage \u2192 acute model"));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("oral gavage -> acute model"))).toBe(
+      true,
+    );
+    expect(texts.every((t) => !t.includes("\u2192"))).toBe(true);
   });
 
   it("adds page when content exceeds page height", () => {
