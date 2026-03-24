@@ -107,22 +107,19 @@
           <Target size={14} />
         </Button>
       {/if}
-      {#if is_vault_mode && vault_node_count > 0 && vault_node_count <= max_vault_size}
-        <Button
-          variant="ghost"
-          size="icon"
-          title={show_semantic_edges
-            ? "Hide semantic connections"
-            : "Show semantic connections"}
-          aria-pressed={show_semantic_edges}
-          onclick={() =>
-            void action_registry.execute(
-              ACTION_IDS.graph_toggle_semantic_edges,
-            )}
-        >
-          <Sparkles size={14} />
-        </Button>
-      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        title={show_semantic_edges
+          ? "Hide semantic connections"
+          : "Show semantic connections"}
+        aria-pressed={show_semantic_edges}
+        disabled={vault_node_count === 0 || vault_node_count > max_vault_size}
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_toggle_semantic_edges)}
+      >
+        <Sparkles size={14} />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
