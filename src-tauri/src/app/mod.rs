@@ -283,6 +283,10 @@ pub fn run() {
             features::toolchain::service::toolchain_install,
             features::toolchain::service::toolchain_uninstall,
             features::toolchain::service::toolchain_resolve,
+            features::reference::service::reference_load_library,
+            features::reference::service::reference_save_library,
+            features::reference::service::reference_add_item,
+            features::reference::service::reference_remove_item,
         ])
         .register_uri_scheme_protocol("badgerly-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

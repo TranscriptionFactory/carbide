@@ -26,6 +26,7 @@ import { ToolchainStore } from "$lib/features/toolchain";
 import { CodeLspStore } from "$lib/features/code_lsp";
 import { QueryStore } from "$lib/features/query";
 import { ParsedNoteCache } from "$lib/features/note";
+import { ReferenceStore } from "$lib/features/reference";
 
 export type AppStores = {
   vault: VaultStore;
@@ -58,6 +59,7 @@ export type AppStores = {
   code_lsp: CodeLspStore;
   query: QueryStore;
   parsed_note_cache: ParsedNoteCache;
+  reference: ReferenceStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -92,5 +94,6 @@ export function create_app_stores(): AppStores {
     code_lsp: new CodeLspStore(),
     query: new QueryStore(),
     parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 }

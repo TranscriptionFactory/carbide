@@ -62,6 +62,10 @@ import {
   MetadataService,
   register_metadata_actions,
 } from "$lib/features/metadata";
+import {
+  ReferenceService,
+  register_reference_actions,
+} from "$lib/features/reference";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -492,6 +496,14 @@ export function create_app_context(input: {
     stores.op,
   );
 
+  const reference_service = new ReferenceService(
+    input.ports.reference_storage,
+    stores.reference,
+    stores.vault,
+    stores.op,
+    now_ms,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -663,6 +675,12 @@ export function create_app_context(input: {
     stores.metadata,
     stores.ui,
   );
+
+  register_reference_actions({
+    registry: action_registry,
+    reference_service,
+    reference_store: stores.reference,
+  });
 
   register_lint_actions({
     registry: action_registry,

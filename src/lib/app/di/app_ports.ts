@@ -23,6 +23,7 @@ import type { MetadataPort } from "$lib/features/metadata";
 import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
 import type { SavedQueryPort } from "$lib/features/query";
+import type { ReferenceStoragePort } from "$lib/features/reference";
 
 export type Ports = {
   vault: VaultPort;
@@ -54,4 +55,5 @@ export type Ports = {
   toolchain: ToolchainPort;
   code_lsp: CodeLspPort;
   saved_query: SavedQueryPort;
+  reference_storage: ReferenceStoragePort;
 };
