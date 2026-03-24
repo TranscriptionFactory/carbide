@@ -11,6 +11,8 @@ const PARAGRAPH_GAP = 4;
 const LIST_INDENT = 8;
 const BLOCKQUOTE_INDENT = 8;
 const CODE_BLOCK_PADDING = 4;
+const FONT_BODY = "Inter";
+const FONT_CODE = "courier";
 
 const HEADING_CONFIG: Record<string, { size: number; spacing: number }> = {
   h1: { size: 20, spacing: 10 },
@@ -20,33 +22,10 @@ const HEADING_CONFIG: Record<string, { size: number; spacing: number }> = {
 };
 
 const COLOR_BODY = [36, 41, 47] as const;
-const COLOR_MUTED = [87, 96, 106] as const;
 const COLOR_BORDER = [208, 215, 222] as const;
 const COLOR_CODE_BG = [246, 248, 250] as const;
 
-const UNICODE_TO_ASCII: [RegExp, string][] = [
-  [/[\u2192\u2794\u279C\u21D2]/g, "->"],
-  [/[\u2190\u21D0]/g, "<-"],
-  [/[\u2194\u21D4]/g, "<->"],
-  [/[\u2014]/g, "--"],
-  [/[\u2013]/g, "-"],
-  [/[\u2018\u2019\u201B]/g, "'"],
-  [/[\u201C\u201D\u201F]/g, '"'],
-  [/[\u2026]/g, "..."],
-  [/[\u2022]/g, "-"],
-  [/[\u2023]/g, ">"],
-  [/[\u00A0]/g, " "],
-];
-
-export function sanitize_for_pdf(text: string): string {
-  let result = text;
-  for (const [pattern, replacement] of UNICODE_TO_ASCII) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
-}
-
-type JsPDFDoc = {
+export type JsPDFDoc = {
   text(text: string | string[], x: number, y: number): void;
   setFont(family: string, style: string): void;
   setFontSize(size: number): void;
@@ -54,10 +33,13 @@ type JsPDFDoc = {
   setDrawColor(r: number, g: number, b: number): void;
   setFillColor(r: number, g: number, b: number): void;
   setLineWidth(w: number): void;
+  getTextWidth(text: string): number;
   splitTextToSize(text: string, maxWidth: number): string[];
   line(x1: number, y1: number, x2: number, y2: number): void;
   rect(x: number, y: number, w: number, h: number, style: string): void;
   addPage(): void;
+  addFileToVFS(filename: string, data: string): void;
+  addFont(postScriptName: string, fontName: string, style: string): void;
   save(filename: string): void;
   internal: { pageSize: { getHeight(): number } };
 };
@@ -69,6 +51,13 @@ type PdfContext = {
   indent: number;
 };
 
+export type InlineSpan = {
+  text: string;
+  bold: boolean;
+  italic: boolean;
+  code: boolean;
+};
+
 export function create_md(): MarkdownIt {
   return new MarkdownIt({
     html: false,
@@ -77,16 +66,52 @@ export function create_md(): MarkdownIt {
   }).enable(["table", "strikethrough"]);
 }
 
+export function extract_inline_spans(token: Token): InlineSpan[] {
+  if (!token.children) {
+    return [{ text: token.content, bold: false, italic: false, code: false }];
+  }
+  const spans: InlineSpan[] = [];
+  let bold = false;
+  let italic = false;
+  for (const child of token.children) {
+    switch (child.type) {
+      case "strong_open":
+        bold = true;
+        break;
+      case "strong_close":
+        bold = false;
+        break;
+      case "em_open":
+        italic = true;
+        break;
+      case "em_close":
+        italic = false;
+        break;
+      case "code_inline":
+        spans.push({
+          text: child.content,
+          bold: false,
+          italic: false,
+          code: true,
+        });
+        break;
+      case "softbreak":
+        spans.push({ text: " ", bold, italic, code: false });
+        break;
+      default:
+        if (child.content) {
+          spans.push({ text: child.content, bold, italic, code: false });
+        }
+        break;
+    }
+  }
+  return spans;
+}
+
 function extract_inline_text(token: Token): string {
-  if (!token.children) return sanitize_for_pdf(token.content);
-  return sanitize_for_pdf(
-    token.children
-      .map((c: Token) => {
-        if (c.type === "softbreak") return " ";
-        return c.content;
-      })
-      .join(""),
-  );
+  return extract_inline_spans(token)
+    .map((s) => s.text)
+    .join("");
 }
 
 function usable_width(ctx: PdfContext): number {
@@ -105,36 +130,83 @@ function ensure_space(ctx: PdfContext, needed: number): void {
 }
 
 function set_body_font(doc: JsPDFDoc): void {
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT_BODY, "normal");
   doc.setFontSize(BODY_FONT_SIZE);
   doc.setTextColor(...COLOR_BODY);
 }
 
-function draw_wrapped_text(
+function apply_span_font(
+  doc: JsPDFDoc,
+  span: InlineSpan,
+  base_size: number,
+  base_bold: boolean,
+): void {
+  if (span.code) {
+    doc.setFont(FONT_CODE, "normal");
+    doc.setFontSize(CODE_FONT_SIZE);
+  } else {
+    const bold = span.bold || base_bold;
+    const style =
+      bold && span.italic
+        ? "bolditalic"
+        : bold
+          ? "bold"
+          : span.italic
+            ? "italic"
+            : "normal";
+    doc.setFont(FONT_BODY, style);
+    doc.setFontSize(base_size);
+  }
+}
+
+function render_inline_spans(
   ctx: PdfContext,
-  text: string,
+  spans: InlineSpan[],
   {
-    font_style = "normal",
     font_size = BODY_FONT_SIZE,
     color = COLOR_BODY,
-    font_family = "helvetica",
+    base_bold = false,
   }: {
-    font_style?: string;
     font_size?: number;
     color?: readonly [number, number, number];
-    font_family?: string;
+    base_bold?: boolean;
   } = {},
 ): void {
-  ctx.doc.setFont(font_family, font_style);
-  ctx.doc.setFontSize(font_size);
+  const words: { text: string; span: InlineSpan }[] = [];
+  for (const span of spans) {
+    for (const part of span.text.split(/( +)/)) {
+      if (part.length > 0) words.push({ text: part, span });
+    }
+  }
+  if (words.length === 0) return;
+
+  let x = left_x(ctx);
+  const max_x = left_x(ctx) + usable_width(ctx);
+  let line_has_content = false;
+
+  ensure_space(ctx, LINE_HEIGHT);
   ctx.doc.setTextColor(...color);
 
-  const lines = ctx.doc.splitTextToSize(text, usable_width(ctx));
-  for (const line of lines) {
-    ensure_space(ctx, LINE_HEIGHT);
-    ctx.doc.text(line, left_x(ctx), ctx.y);
-    ctx.y += LINE_HEIGHT;
+  for (const { text, span } of words) {
+    apply_span_font(ctx.doc, span, font_size, base_bold);
+    const w = ctx.doc.getTextWidth(text);
+    const is_space = text.trim() === "";
+
+    if (line_has_content && !is_space && x + w > max_x) {
+      ctx.y += LINE_HEIGHT;
+      ensure_space(ctx, LINE_HEIGHT);
+      x = left_x(ctx);
+      line_has_content = false;
+    }
+
+    if (!line_has_content && is_space) continue;
+
+    ctx.doc.text(text, x, ctx.y);
+    x += w;
+    if (!is_space) line_has_content = true;
   }
+
+  ctx.y += LINE_HEIGHT;
 }
 
 function render_heading(ctx: PdfContext, tag: string, token: Token): void {
@@ -142,10 +214,10 @@ function render_heading(ctx: PdfContext, tag: string, token: Token): void {
   ctx.y += config.spacing * 0.6;
   ensure_space(ctx, config.spacing + 2);
 
-  const text = extract_inline_text(token);
-  draw_wrapped_text(ctx, text, {
-    font_style: "bold",
+  const spans = extract_inline_spans(token);
+  render_inline_spans(ctx, spans, {
     font_size: config.size,
+    base_bold: true,
   });
 
   if (tag === "h1") {
@@ -163,14 +235,14 @@ function render_heading(ctx: PdfContext, tag: string, token: Token): void {
 }
 
 function render_paragraph(ctx: PdfContext, token: Token): void {
-  const text = extract_inline_text(token);
-  if (text.trim() === "") return;
-  draw_wrapped_text(ctx, text);
+  const spans = extract_inline_spans(token);
+  if (spans.every((s) => s.text.trim() === "")) return;
+  render_inline_spans(ctx, spans);
   ctx.y += PARAGRAPH_GAP;
 }
 
 function render_fence(ctx: PdfContext, token: Token): void {
-  const code_text = sanitize_for_pdf(token.content.trimEnd());
+  const code_text = token.content.trimEnd();
   const lines = ctx.doc.splitTextToSize(
     code_text,
     usable_width(ctx) - CODE_BLOCK_PADDING * 2,
@@ -185,7 +257,7 @@ function render_fence(ctx: PdfContext, token: Token): void {
   ctx.doc.setLineWidth(0.2);
   ctx.doc.rect(left_x(ctx), ctx.y - 3, usable_width(ctx), block_height, "FD");
 
-  ctx.doc.setFont("courier", "normal");
+  ctx.doc.setFont(FONT_CODE, "normal");
   ctx.doc.setFontSize(CODE_FONT_SIZE);
   ctx.doc.setTextColor(...COLOR_BODY);
 
@@ -240,23 +312,26 @@ function render_table(ctx: PdfContext, tokens: Token[], start: number): number {
 
   const col_count = Math.max(...rows.map((r) => r.cells.length));
   const col_width = usable_width(ctx) / col_count;
-  const row_height = LINE_HEIGHT + 4;
-  const table_height = rows.length * row_height;
-
-  ensure_space(ctx, Math.min(table_height, ctx.page_height - MARGIN * 2));
 
   ctx.doc.setDrawColor(...COLOR_BORDER);
   ctx.doc.setLineWidth(0.2);
 
   for (const row of rows) {
-    ensure_space(ctx, row_height);
+    const wrapped = Array.from({ length: col_count }, (_, c) => {
+      const text = row.cells[c] ?? "";
+      return ctx.doc.splitTextToSize(text, col_width - 4);
+    });
+    const max_lines = Math.max(1, ...wrapped.map((l) => l.length));
+    const row_h = max_lines * (LINE_HEIGHT - 1) + 5;
+
+    ensure_space(ctx, row_h);
 
     if (row.is_header) {
       ctx.doc.setFillColor(...COLOR_CODE_BG);
-      ctx.doc.rect(left_x(ctx), ctx.y - 3, usable_width(ctx), row_height, "F");
-      ctx.doc.setFont("helvetica", "bold");
+      ctx.doc.rect(left_x(ctx), ctx.y - 3, usable_width(ctx), row_h, "F");
+      ctx.doc.setFont(FONT_BODY, "bold");
     } else {
-      ctx.doc.setFont("helvetica", "normal");
+      ctx.doc.setFont(FONT_BODY, "normal");
     }
 
     ctx.doc.setFontSize(BODY_FONT_SIZE);
@@ -264,13 +339,16 @@ function render_table(ctx: PdfContext, tokens: Token[], start: number): number {
 
     for (let c = 0; c < col_count; c++) {
       const cell_x = left_x(ctx) + c * col_width;
-      ctx.doc.rect(cell_x, ctx.y - 3, col_width, row_height, "S");
-      const cell_text = row.cells[c] ?? "";
-      const truncated = ctx.doc.splitTextToSize(cell_text, col_width - 4);
-      ctx.doc.text(truncated[0] ?? "", cell_x + 2, ctx.y + 2);
+      ctx.doc.rect(cell_x, ctx.y - 3, col_width, row_h, "S");
+      const lines = wrapped[c] ?? [];
+      let cell_y = ctx.y + 2;
+      for (const line of lines) {
+        ctx.doc.text(line, cell_x + 2, cell_y);
+        cell_y += LINE_HEIGHT - 1;
+      }
     }
 
-    ctx.y += row_height;
+    ctx.y += row_h;
   }
 
   ctx.y += PARAGRAPH_GAP;
@@ -290,13 +368,10 @@ export function render_tokens_to_pdf(
     indent: 0,
   };
 
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT_BODY, "bold");
   doc.setFontSize(HEADING_CONFIG.h1!.size);
   doc.setTextColor(...COLOR_BODY);
-  const title_lines = doc.splitTextToSize(
-    sanitize_for_pdf(title),
-    USABLE_WIDTH,
-  );
+  const title_lines = doc.splitTextToSize(title, USABLE_WIDTH);
   for (const line of title_lines) {
     doc.text(line, MARGIN, ctx.y);
     ctx.y += 10;
@@ -373,7 +448,7 @@ export function render_tokens_to_pdf(
         list_item_index++;
         const bullet = ordered ? `${list_item_index}.` : "\u2022";
         ensure_space(ctx, LINE_HEIGHT);
-        doc.setFont("helvetica", "normal");
+        doc.setFont(FONT_BODY, "normal");
         doc.setFontSize(BODY_FONT_SIZE);
         doc.setTextColor(...COLOR_BODY);
         doc.text(bullet, left_x(ctx) - 5, ctx.y);
@@ -402,6 +477,27 @@ export function render_tokens_to_pdf(
   }
 }
 
+const FONT_FILES = [
+  { file: "Inter-Regular.ttf", style: "normal" },
+  { file: "Inter-Bold.ttf", style: "bold" },
+  { file: "Inter-Italic.ttf", style: "italic" },
+  { file: "Inter-BoldItalic.ttf", style: "bolditalic" },
+] as const;
+
+async function load_fonts(doc: JsPDFDoc): Promise<void> {
+  for (const { file, style } of FONT_FILES) {
+    const res = await fetch(`/fonts/${file}`);
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    doc.addFileToVFS(file, btoa(binary));
+    doc.addFont(file, FONT_BODY, style);
+  }
+}
+
 export async function export_note_as_pdf(
   title: string,
   content: string,
@@ -422,6 +518,7 @@ export async function export_note_as_pdf(
   const tokens = md.parse(content, {});
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await load_fonts(doc);
   render_tokens_to_pdf(doc, title, tokens);
 
   const pdf_bytes = doc.output("arraybuffer");
