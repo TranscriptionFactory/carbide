@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     Globe,
+    FolderTree,
     Maximize2,
     RefreshCw,
     Sparkles,
@@ -83,14 +84,18 @@
         variant="ghost"
         size="icon"
         title={is_vault_mode
-          ? "Switch to hierarchy"
+          ? "Switch to hierarchy (IWE)"
           : is_hierarchy_mode
             ? "Switch to neighborhood"
             : "Switch to full vault"}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_view_mode)}
       >
-        <Globe size={14} />
+        {#if is_hierarchy_mode}
+          <FolderTree size={14} />
+        {:else}
+          <Globe size={14} />
+        {/if}
       </Button>
       {#if !is_vault_mode && !is_hierarchy_mode}
         <Button

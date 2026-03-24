@@ -14,6 +14,8 @@
   const tree = $derived(stores.graph.hierarchy_tree);
   const status = $derived(stores.graph.status);
   const root_key = $derived(stores.graph.hierarchy_root_key);
+  const iwe_status = $derived(stores.iwe.status);
+  const is_iwe_connected = $derived(iwe_status === "running");
 
   let collapsed = $state(new Set<string>());
 
@@ -38,13 +40,23 @@
 
 {#if status === "loading"}
   <div class="HierarchyTree__empty">Loading hierarchy...</div>
+{:else if !is_iwe_connected}
+  <div class="HierarchyTree__empty">
+    <FolderTree class="HierarchyTree__empty-icon" />
+    <span>
+      {#if iwe_status === "starting"}
+        IWE is starting…
+      {:else if iwe_status === "error"}
+        IWE encountered an error. Check Settings &gt; Tools.
+      {:else}
+        Hierarchy view requires IWE. Enable it in Settings &gt; Tools.
+      {/if}
+    </span>
+  </div>
 {:else if !tree || tree.length === 0}
   <div class="HierarchyTree__empty">
     <FolderTree class="HierarchyTree__empty-icon" />
-    <span
-      >No hierarchy data. Ensure IWE is running and documents have inclusion
-      links.</span
-    >
+    <span>No hierarchy data. Ensure documents have inclusion links.</span>
   </div>
 {:else}
   {#if root_key}
