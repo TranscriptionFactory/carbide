@@ -254,7 +254,7 @@ export class ReferenceService {
   }
 
   async ensure_in_library(citekey: string): Promise<CslItem | null> {
-    const existing = this.store.library_items.find((i) => i.id === citekey);
+    const existing = this.find_in_library(citekey);
     if (existing) return existing;
     if (!this.zotero_port) return null;
     try {
@@ -263,7 +263,8 @@ export class ReferenceService {
       const keyed = this.ensure_citekey(item);
       await this.add_reference(keyed, "zotero_bbt");
       return keyed;
-    } catch {
+    } catch (e) {
+      this.store.set_error(error_message(e));
       return null;
     }
   }
