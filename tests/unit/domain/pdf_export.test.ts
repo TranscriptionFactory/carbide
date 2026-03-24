@@ -1,184 +1,194 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  export_note_as_pdf,
-  build_print_document,
   create_md,
+  render_tokens_to_pdf,
+  export_note_as_pdf,
 } from "$lib/features/document/domain/pdf_export";
 
-function render_markdown(content: string): string {
-  const md = create_md();
-  return build_print_document("Test", md.render(content));
+function create_mock_doc() {
+  const calls: { method: string; args: unknown[] }[] = [];
+
+  const doc = {
+    calls,
+    text: vi.fn((...args: unknown[]) => calls.push({ method: "text", args })),
+    setFont: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFont", args }),
+    ),
+    setFontSize: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFontSize", args }),
+    ),
+    setTextColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setTextColor", args }),
+    ),
+    setDrawColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setDrawColor", args }),
+    ),
+    setFillColor: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setFillColor", args }),
+    ),
+    setLineWidth: vi.fn((...args: unknown[]) =>
+      calls.push({ method: "setLineWidth", args }),
+    ),
+    splitTextToSize: vi.fn((text: string) => [text]),
+    line: vi.fn((...args: unknown[]) => calls.push({ method: "line", args })),
+    rect: vi.fn((...args: unknown[]) => calls.push({ method: "rect", args })),
+    addPage: vi.fn(() => calls.push({ method: "addPage", args: [] })),
+    save: vi.fn(),
+    internal: { pageSize: { getHeight: () => 297 } },
+  };
+
+  return doc;
 }
 
-describe("build_print_document", () => {
-  it("renders title as h1", () => {
-    const html = build_print_document("My Note", "<p>body</p>");
-    expect(html).toContain("<h1>My Note</h1>");
+function text_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
+  return doc.text.mock.calls.map((c) => {
+    const arg = c[0];
+    return Array.isArray(arg) ? arg.join(" ") : String(arg);
+  });
+}
+
+function parse(content: string) {
+  return create_md().parse(content, {});
+}
+
+describe("render_tokens_to_pdf", () => {
+  let doc: ReturnType<typeof create_mock_doc>;
+
+  beforeEach(() => {
+    doc = create_mock_doc();
   });
 
-  it("escapes HTML in the title", () => {
-    const html = build_print_document("<script>alert(1)</script>", "");
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
+  it("renders the title", () => {
+    render_tokens_to_pdf(doc, "My Title", []);
+    expect(text_calls(doc)).toContain("My Title");
   });
 
-  it("includes body HTML", () => {
-    const html = build_print_document("T", "<p>hello world</p>");
-    expect(html).toContain("<p>hello world</p>");
+  it("renders h1 heading with bold font", () => {
+    render_tokens_to_pdf(doc, "T", parse("# Heading One"));
+    expect(text_calls(doc)).toContain("Heading One");
+    expect(doc.setFont).toHaveBeenCalledWith("helvetica", "bold");
   });
 
-  it("includes print styles", () => {
-    const html = build_print_document("T", "");
-    expect(html).toContain("@page");
-    expect(html).toContain("size: A4");
-  });
-});
-
-describe("markdown rendering", () => {
-  it("converts h1 headings", () => {
-    const html = render_markdown("# Heading One");
-    expect(html).toContain("<h1>Heading One</h1>");
+  it("renders h2 heading", () => {
+    render_tokens_to_pdf(doc, "T", parse("## Heading Two"));
+    expect(text_calls(doc)).toContain("Heading Two");
   });
 
-  it("converts h2 headings", () => {
-    const html = render_markdown("## Heading Two");
-    expect(html).toContain("<h2>Heading Two</h2>");
+  it("renders h3 heading", () => {
+    render_tokens_to_pdf(doc, "T", parse("### Heading Three"));
+    expect(text_calls(doc)).toContain("Heading Three");
   });
 
-  it("converts h3 headings", () => {
-    const html = render_markdown("### Heading Three");
-    expect(html).toContain("<h3>Heading Three</h3>");
+  it("renders paragraph text", () => {
+    render_tokens_to_pdf(doc, "T", parse("Hello world paragraph."));
+    expect(text_calls(doc)).toContain("Hello world paragraph.");
   });
 
-  it("preserves bold as strong tags", () => {
-    const html = render_markdown("This is **bold** text");
-    expect(html).toContain("<strong>bold</strong>");
-  });
-
-  it("preserves italic as em tags", () => {
-    const html = render_markdown("This is *italic* text");
-    expect(html).toContain("<em>italic</em>");
-  });
-
-  it("preserves inline code", () => {
-    const html = render_markdown("Use `const x = 1` here");
-    expect(html).toContain("<code>const x = 1</code>");
-  });
-
-  it("preserves strikethrough as s tags", () => {
-    const html = render_markdown("~~deleted~~ text");
-    expect(html).toContain("<s>deleted</s>");
-  });
-
-  it("converts links to anchor tags", () => {
-    const html = render_markdown("[example](https://example.com)");
-    expect(html).toContain('href="https://example.com"');
-    expect(html).toContain("example</a>");
-  });
-
-  it("converts lists to ul/li", () => {
-    const html = render_markdown("- item one\n- item two");
-    expect(html).toContain("<ul>");
-    expect(html).toContain("<li>item one</li>");
-    expect(html).toContain("<li>item two</li>");
-  });
-
-  it("converts code blocks to pre/code", () => {
-    const html = render_markdown("```\ncode here\n```");
-    expect(html).toContain("<pre>");
-    expect(html).toContain("<code>");
-    expect(html).toContain("code here");
-  });
-
-  it("handles mixed content", () => {
-    const html = render_markdown(
-      "# Title\n\nSome body text.\n\n## Section\n\nMore text.",
+  it("strips inline formatting to plain text", () => {
+    render_tokens_to_pdf(doc, "T", parse("This is **bold** and *italic*"));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("bold") && t.includes("italic"))).toBe(
+      true,
     );
-    expect(html).toContain("<h1>Title</h1>");
-    expect(html).toContain("<h2>Section</h2>");
-    expect(html).toContain("Some body text.");
-    expect(html).toContain("More text.");
+  });
+
+  it("renders code blocks with courier font", () => {
+    render_tokens_to_pdf(doc, "T", parse("```\nconst x = 1;\n```"));
+    expect(doc.setFont).toHaveBeenCalledWith("courier", "normal");
+    expect(text_calls(doc)).toContain("const x = 1;");
+  });
+
+  it("renders code blocks with background rect", () => {
+    render_tokens_to_pdf(doc, "T", parse("```\ncode\n```"));
+    expect(doc.rect).toHaveBeenCalled();
+    expect(doc.setFillColor).toHaveBeenCalledWith(246, 248, 250);
+  });
+
+  it("renders bullet list items with bullet marker", () => {
+    render_tokens_to_pdf(doc, "T", parse("- item one\n- item two"));
+    const texts = text_calls(doc);
+    expect(texts).toContain("\u2022");
+    expect(texts.some((t) => t.includes("item one"))).toBe(true);
+    expect(texts.some((t) => t.includes("item two"))).toBe(true);
+  });
+
+  it("renders ordered list items with numbers", () => {
+    render_tokens_to_pdf(doc, "T", parse("1. first\n2. second"));
+    const texts = text_calls(doc);
+    expect(texts).toContain("1.");
+    expect(texts).toContain("2.");
+  });
+
+  it("renders horizontal rule as a line", () => {
+    render_tokens_to_pdf(doc, "T", parse("---"));
+    expect(doc.line).toHaveBeenCalled();
+  });
+
+  it("renders tables with rect cells", () => {
+    render_tokens_to_pdf(doc, "T", parse("| A | B |\n|---|---|\n| 1 | 2 |"));
+    expect(doc.rect).toHaveBeenCalled();
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("A"))).toBe(true);
+    expect(texts.some((t) => t.includes("1"))).toBe(true);
+  });
+
+  it("renders h1 with underline", () => {
+    render_tokens_to_pdf(doc, "T", parse("# Title"));
+    expect(doc.line).toHaveBeenCalled();
+  });
+
+  it("handles mixed content correctly", () => {
+    const md =
+      "# Title\n\nParagraph.\n\n## Section\n\n- item\n\n```\ncode\n```";
+    render_tokens_to_pdf(doc, "T", parse(md));
+    const texts = text_calls(doc);
+    expect(texts.some((t) => t.includes("Title"))).toBe(true);
+    expect(texts.some((t) => t.includes("Paragraph"))).toBe(true);
+    expect(texts.some((t) => t.includes("Section"))).toBe(true);
+    expect(texts.some((t) => t.includes("item"))).toBe(true);
+    expect(texts.some((t) => t.includes("code"))).toBe(true);
+  });
+
+  it("adds page when content exceeds page height", () => {
+    const long_content = Array.from(
+      { length: 100 },
+      (_, i) => `Line ${i}`,
+    ).join("\n\n");
+    render_tokens_to_pdf(doc, "T", parse(long_content));
+    expect(doc.addPage).toHaveBeenCalled();
   });
 });
 
 describe("export_note_as_pdf", () => {
-  let captured_html: string | null = null;
+  const mock_save = vi.fn();
 
-  afterEach(() => {
-    captured_html = null;
-    document.querySelectorAll("iframe").forEach((el) => el.remove());
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.doMock("jspdf", () => ({
+      jsPDF: vi.fn(() => ({
+        text: vi.fn(),
+        setFont: vi.fn(),
+        setFontSize: vi.fn(),
+        setTextColor: vi.fn(),
+        setDrawColor: vi.fn(),
+        setFillColor: vi.fn(),
+        setLineWidth: vi.fn(),
+        splitTextToSize: vi.fn((text: string) => [text]),
+        line: vi.fn(),
+        rect: vi.fn(),
+        addPage: vi.fn(),
+        save: mock_save,
+        internal: { pageSize: { getHeight: () => 297 } },
+      })),
+    }));
   });
 
-  async function run_export(title: string, content: string): Promise<void> {
-    const original_create = document.createElement.bind(document);
-    const create_spy = vi
-      .spyOn(document, "createElement")
-      .mockImplementation((tag: string, options?: ElementCreationOptions) => {
-        const el = original_create(tag, options);
-        if (tag === "iframe") {
-          const real_content_doc =
-            Object.getOwnPropertyDescriptor(
-              HTMLIFrameElement.prototype,
-              "contentDocument",
-            ) ??
-            Object.getOwnPropertyDescriptor(
-              Object.getPrototypeOf(HTMLIFrameElement.prototype),
-              "contentDocument",
-            );
-
-          const real_content_window = Object.getOwnPropertyDescriptor(
-            HTMLIFrameElement.prototype,
-            "contentWindow",
-          );
-
-          Object.defineProperty(el, "contentWindow", {
-            get() {
-              const win = real_content_window?.get?.call(el);
-              if (!win) return null;
-              const original_print = win.print.bind(win);
-              return new Proxy(win, {
-                get(target, prop) {
-                  if (prop === "print") {
-                    return () => {
-                      const doc = real_content_doc?.get?.call(el);
-                      if (doc) {
-                        captured_html = doc.documentElement.innerHTML;
-                      }
-                      target.dispatchEvent(new Event("afterprint"));
-                    };
-                  }
-                  const val = Reflect.get(target, prop);
-                  return typeof val === "function" ? val.bind(target) : val;
-                },
-              });
-            },
-          });
-        }
-        return el;
-      });
-
-    try {
-      await export_note_as_pdf(title, content);
-    } finally {
-      create_spy.mockRestore();
-    }
-  }
-
-  it("calls print on the iframe", async () => {
-    await run_export("Test", "Hello");
-    expect(captured_html).not.toBeNull();
-  });
-
-  it("renders markdown content in the print document", async () => {
-    await run_export("My Note", "# Heading\n\nParagraph text.");
-    expect(captured_html).toContain("<h1>My Note</h1>");
-    expect(captured_html).toContain("<h1>Heading</h1>");
-    expect(captured_html).toContain("Paragraph text.");
-  });
-
-  it("removes iframe after export completes", async () => {
-    await run_export("Test", "Content");
-    expect(document.querySelector("iframe")).toBeNull();
+  it("saves with the note title as filename", async () => {
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_save).toHaveBeenCalledWith("My Note.pdf");
   });
 });
