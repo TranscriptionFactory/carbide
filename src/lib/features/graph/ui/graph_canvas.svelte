@@ -105,7 +105,7 @@
   .GraphCanvas__edge {
     stroke: var(--muted-foreground);
     stroke-width: 1.5;
-    opacity: 0.5;
+    opacity: 0.75;
   }
 
   .GraphCanvas__edge--dashed {
@@ -156,7 +156,7 @@
 
   .GraphCanvas__node--orphan {
     border-style: dashed;
-    opacity: 0.9;
+    opacity: 0.8;
   }
 
   .GraphCanvas__label {
@@ -167,7 +167,7 @@
 
   .GraphCanvas__meta {
     font-size: var(--text-xs);
-    opacity: 0.8;
+    opacity: 0.9;
     line-height: 1.2;
   }
 </style>
