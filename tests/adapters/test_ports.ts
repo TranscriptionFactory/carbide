@@ -190,5 +190,27 @@ export function create_test_ports(): Ports {
       get_bibliography: () => Promise.resolve(""),
       get_item_annotations: () => Promise.resolve([]),
     },
+    linked_source: {
+      scan_folder: () => Promise.resolve([]),
+      extract_file: () =>
+        Promise.resolve({
+          file_path: "",
+          file_name: "",
+          file_type: "",
+          title: null,
+          author: null,
+          subject: null,
+          keywords: null,
+          doi: null,
+          creation_date: null,
+          body_text: "",
+          page_offsets: [],
+          modified_at: 0,
+        }),
+      watch: () => Promise.resolve(),
+      unwatch: () => Promise.resolve(),
+      unwatch_all: () => Promise.resolve(),
+      subscribe_events: () => () => {},
+    },
   };
 }

@@ -3,6 +3,8 @@ import type {
   CslItem,
   ZoteroCollection,
   PdfAnnotation,
+  ScanEntry,
+  LinkedSourceFsEvent,
 } from "./types";
 
 export interface ReferenceStoragePort {
@@ -51,4 +53,13 @@ export interface ZoteroPort {
   get_collection_items(collection_key: string): Promise<CslItem[]>;
   get_bibliography(citekeys: string[], style?: string): Promise<string>;
   get_item_annotations(citekey: string): Promise<PdfAnnotation[]>;
+}
+
+export interface LinkedSourcePort {
+  scan_folder(path: string): Promise<ScanEntry[]>;
+  extract_file(path: string): Promise<ScanEntry>;
+  watch(path: string): Promise<void>;
+  unwatch(path: string): Promise<void>;
+  unwatch_all(): Promise<void>;
+  subscribe_events(callback: (event: LinkedSourceFsEvent) => void): () => void;
 }

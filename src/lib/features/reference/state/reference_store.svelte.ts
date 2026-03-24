@@ -1,4 +1,6 @@
-import type { CslItem, PdfAnnotation } from "../types";
+import type { CslItem, LinkedSource, PdfAnnotation } from "../types";
+
+export type LinkedSourceSyncStatus = "idle" | "scanning" | "error";
 
 export class ReferenceStore {
   library_items = $state<CslItem[]>([]);
@@ -8,6 +10,11 @@ export class ReferenceStore {
   annotations_by_citekey = $state<Map<string, PdfAnnotation[]>>(new Map());
   loading = $state(false);
   error = $state<string | null>(null);
+
+  linked_sources = $state<LinkedSource[]>([]);
+  linked_source_sync_status = $state<Record<string, LinkedSourceSyncStatus>>(
+    {},
+  );
 
   set_library_items(items: CslItem[]) {
     this.library_items = items;
@@ -72,6 +79,43 @@ export class ReferenceStore {
     );
   }
 
+  set_linked_sources(sources: LinkedSource[]) {
+    this.linked_sources = sources;
+  }
+
+  add_linked_source(source: LinkedSource) {
+    this.linked_sources = [...this.linked_sources, source];
+  }
+
+  update_linked_source(id: string, patch: Partial<LinkedSource>) {
+    this.linked_sources = this.linked_sources.map((s) =>
+      s.id === id ? { ...s, ...patch } : s,
+    );
+  }
+
+  remove_linked_source(id: string) {
+    this.linked_sources = this.linked_sources.filter((s) => s.id !== id);
+  }
+
+  set_linked_source_sync_status(id: string, status: LinkedSourceSyncStatus) {
+    this.linked_source_sync_status = {
+      ...this.linked_source_sync_status,
+      [id]: status,
+    };
+  }
+
+  get_linked_source_items(source_id: string): CslItem[] {
+    return this.library_items.filter(
+      (item) => item._linked_source_id === source_id,
+    );
+  }
+
+  get_all_linked_items(): CslItem[] {
+    return this.library_items.filter(
+      (item) => item._source === "linked_source",
+    );
+  }
+
   reset() {
     this.library_items = [];
     this.search_results = [];
@@ -80,5 +124,7 @@ export class ReferenceStore {
     this.annotations_by_citekey = new Map();
     this.loading = false;
     this.error = null;
+    this.linked_sources = [];
+    this.linked_source_sync_status = {};
   }
 }

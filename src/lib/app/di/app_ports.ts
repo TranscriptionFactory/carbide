@@ -28,6 +28,7 @@ import type {
   CitationPort,
   DoiLookupPort,
   ZoteroPort,
+  LinkedSourcePort,
 } from "$lib/features/reference";
 
 export type Ports = {
@@ -64,4 +65,5 @@ export type Ports = {
   citation: CitationPort;
   doi_lookup: DoiLookupPort;
   zotero: ZoteroPort;
+  linked_source: LinkedSourcePort;
 };

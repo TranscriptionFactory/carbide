@@ -4,6 +4,9 @@ export type {
   CslDate,
   ReferenceLibrary,
   ReferenceSource,
+  LinkedSource,
+  ScanEntry,
+  LinkedSourceFsEvent,
   ZoteroCollection,
   ZoteroAttachment,
   PdfAnnotation,
@@ -14,6 +17,7 @@ export type {
   CitationPort,
   DoiLookupPort,
   ZoteroPort,
+  LinkedSourcePort,
 } from "./ports";
 export { ReferenceStore } from "./state/reference_store.svelte";
 export { ReferenceService } from "./application/reference_service";
@@ -22,12 +26,19 @@ export { create_reference_tauri_adapter } from "./adapters/reference_tauri_adapt
 export { create_citationjs_adapter } from "./adapters/citationjs_adapter";
 export { create_doi_tauri_adapter } from "./adapters/doi_tauri_adapter";
 export { create_zotero_bbt_adapter } from "./adapters/zotero_bbt_adapter";
+export { create_linked_source_tauri_adapter } from "./adapters/linked_source_tauri_adapter";
 export {
   format_authors,
   extract_year,
   generate_citekey,
   match_query,
 } from "./domain/csl_utils";
+export {
+  scan_entry_to_csl_item,
+  derive_title_from_filename,
+  parse_author_string,
+  generate_linked_source_id,
+} from "./domain/linked_source_utils";
 export { default as CitationPicker } from "./ui/citation_picker.svelte";
 export type { FrontmatterReference } from "./domain/frontmatter_sync";
 export {
