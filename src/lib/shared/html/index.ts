@@ -6,3 +6,4 @@ export type {
   HtmlHeading,
   HtmlLink,
 } from "./parse_html_metadata";
+export { html_to_markdown } from "./html_to_markdown";

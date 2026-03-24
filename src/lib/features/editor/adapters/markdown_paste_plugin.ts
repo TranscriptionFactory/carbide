@@ -2,6 +2,7 @@ import { Plugin } from "prosemirror-state";
 import { Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import { pick_paste_mode } from "./markdown_paste_utils";
+import { html_to_markdown } from "$lib/shared/html";
 
 function is_list_node(node: Node): boolean {
   return node.type.name === "bullet_list" || node.type.name === "ordered_list";
@@ -39,11 +40,20 @@ export function create_markdown_paste_prose_plugin(
         const text_html = clipboardData.getData("text/html");
 
         const mode = pick_paste_mode({ text_markdown, text_plain, text_html });
-        if (mode !== "markdown") return false;
+        if (mode !== "markdown" && mode !== "html") return false;
 
-        const source = (
-          text_markdown.trim() !== "" ? text_markdown : text_plain
-        ).replace(/\r\n/g, "\n");
+        let source: string;
+        if (mode === "html") {
+          try {
+            source = html_to_markdown(text_html).replace(/\r\n/g, "\n");
+          } catch {
+            return false;
+          }
+        } else {
+          source = (
+            text_markdown.trim() !== "" ? text_markdown : text_plain
+          ).replace(/\r\n/g, "\n");
+        }
         if (source.trim() === "") return false;
 
         let doc: ReturnType<typeof parse_fn>;
