@@ -65,11 +65,12 @@ import {
 import {
   ReferenceService,
   register_reference_actions,
+  CitationPicker,
 } from "$lib/features/reference";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PencilRuler } from "@lucide/svelte";
+import { Blocks, PencilRuler, BookMarked } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
@@ -128,6 +129,13 @@ export function create_app_context(input: {
     label: "Plugins",
     icon: Blocks,
     panel: PluginManager,
+  });
+
+  plugin_service.register_sidebar_view({
+    id: "references",
+    label: "References",
+    icon: BookMarked,
+    panel: CitationPicker,
   });
 
   const search_service = new SearchService(
@@ -525,6 +533,7 @@ export function create_app_context(input: {
       bases: stores.bases,
       task: stores.task,
       parsed_note_cache: stores.parsed_note_cache,
+      reference: stores.reference,
     },
     services: {
       vault: vault_service,
@@ -543,6 +552,7 @@ export function create_app_context(input: {
       task: task_service,
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
+      reference: reference_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -683,6 +693,8 @@ export function create_app_context(input: {
     registry: action_registry,
     reference_service,
     reference_store: stores.reference,
+    editor_service,
+    ui_store: stores.ui,
   });
 
   register_lint_actions({

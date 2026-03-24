@@ -252,4 +252,23 @@ export class ReferenceService {
       return results.filter((item): item is CslItem => item !== null);
     });
   }
+
+  async ensure_in_library(citekey: string): Promise<CslItem | null> {
+    const existing = this.store.library_items.find((i) => i.id === citekey);
+    if (existing) return existing;
+    if (!this.zotero_port) return null;
+    try {
+      const item = await this.zotero_port.get_item(citekey);
+      if (!item) return null;
+      const keyed = this.ensure_citekey(item);
+      await this.add_reference(keyed, "zotero_bbt");
+      return keyed;
+    } catch {
+      return null;
+    }
+  }
+
+  find_in_library(citekey: string): CslItem | null {
+    return this.store.library_items.find((i) => i.id === citekey) ?? null;
+  }
 }

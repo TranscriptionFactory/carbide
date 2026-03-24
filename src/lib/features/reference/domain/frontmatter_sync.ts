@@ -43,6 +43,41 @@ export function sync_reference_to_frontmatter(
   return YAML.stringify(doc, { lineWidth: 0 }).trimEnd();
 }
 
+export function sync_reference_to_markdown(
+  markdown: string,
+  item: CslItem,
+): string {
+  const { yaml, body } = extract_frontmatter(markdown);
+  const updated_yaml = sync_reference_to_frontmatter(yaml, item);
+  return rebuild_markdown(updated_yaml, body);
+}
+
+export function extract_frontmatter(markdown: string): {
+  yaml: string;
+  body: string;
+} {
+  if (!markdown.startsWith("---\n") && !markdown.startsWith("---\r\n")) {
+    return { yaml: "", body: markdown };
+  }
+  const end = markdown.indexOf("\n---\n", 4);
+  if (end === -1) {
+    const end_eof = markdown.indexOf("\n---", 4);
+    if (end_eof !== -1 && end_eof + 4 >= markdown.length) {
+      return { yaml: markdown.substring(4, end_eof).trimEnd(), body: "" };
+    }
+    return { yaml: "", body: markdown };
+  }
+  return {
+    yaml: markdown.substring(4, end).trimEnd(),
+    body: markdown.substring(end + 5),
+  };
+}
+
+function rebuild_markdown(yaml: string, body: string): string {
+  if (!yaml.trim()) return body;
+  return `---\n${yaml}\n---\n${body}`;
+}
+
 export function remove_reference_from_frontmatter(
   yaml_str: string,
   citekey: string,

@@ -28,8 +28,11 @@ export {
   generate_citekey,
   match_query,
 } from "./domain/csl_utils";
+export { default as CitationPicker } from "./ui/citation_picker.svelte";
 export type { FrontmatterReference } from "./domain/frontmatter_sync";
 export {
   sync_reference_to_frontmatter,
   remove_reference_from_frontmatter,
+  sync_reference_to_markdown,
+  extract_frontmatter,
 } from "./domain/frontmatter_sync";
