@@ -83,6 +83,7 @@ export class DocumentService {
       line_count: null,
       asset_url: null,
       last_accessed_at: this.now_ms(),
+      pdf_metadata: null,
     };
 
     this.document_store.set_content_state(tab_id, loading_state);
