@@ -161,10 +161,21 @@ describe("render_tokens_to_pdf", () => {
 });
 
 describe("export_note_as_pdf", () => {
-  const mock_save = vi.fn();
+  const mock_invoke = vi.fn();
+  const mock_dialog_save = vi.fn();
+  const mock_output = vi.fn(() => new ArrayBuffer(10));
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mock_dialog_save.mockResolvedValue("/tmp/test.pdf");
+
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({
+      save: mock_dialog_save,
+    }));
+
+    vi.doMock("@tauri-apps/api/core", () => ({
+      invoke: mock_invoke,
+    }));
 
     vi.doMock("jspdf", () => ({
       jsPDF: vi.fn(() => ({
@@ -179,16 +190,39 @@ describe("export_note_as_pdf", () => {
         line: vi.fn(),
         rect: vi.fn(),
         addPage: vi.fn(),
-        save: mock_save,
+        output: mock_output,
         internal: { pageSize: { getHeight: () => 297 } },
       })),
     }));
   });
 
-  it("saves with the note title as filename", async () => {
+  it("shows save dialog with pdf filter", async () => {
     const { export_note_as_pdf: export_fn } =
       await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
-    expect(mock_save).toHaveBeenCalledWith("My Note.pdf");
+    expect(mock_dialog_save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: "My Note.pdf",
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      }),
+    );
+  });
+
+  it("writes pdf bytes to chosen path", async () => {
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_invoke).toHaveBeenCalledWith("write_bytes_to_path", {
+      path: "/tmp/test.pdf",
+      data: expect.any(Array),
+    });
+  });
+
+  it("does nothing when save dialog is cancelled", async () => {
+    mock_dialog_save.mockResolvedValue(null);
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+    expect(mock_invoke).not.toHaveBeenCalled();
   });
 });

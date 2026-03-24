@@ -1432,6 +1432,12 @@ pub fn write_vault_file(
 
 #[tauri::command]
 #[specta::specta]
+pub fn write_bytes_to_path(path: String, data: Vec<u8>) -> Result<(), String> {
+    io_utils::atomic_write(&path, &data)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn delete_vault_file(
     app: AppHandle,
     vault_id: String,
