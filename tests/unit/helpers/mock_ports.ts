@@ -170,6 +170,7 @@ export function create_mock_notes_port(): NotesPort & {
           title: "",
           mtime_ms: 0,
           size_bytes: 0,
+          file_type: null,
         },
         markdown: "" as MarkdownText,
       });
@@ -229,6 +230,7 @@ export function create_mock_notes_port(): NotesPort & {
         title: note_path.replace(".md", ""),
         mtime_ms: Date.now(),
         size_bytes: markdown.length,
+        file_type: null,
       };
       const current = mock._mock_notes.get(vault_id) || [];
       mock._mock_notes.set(vault_id, [...current, new_note]);

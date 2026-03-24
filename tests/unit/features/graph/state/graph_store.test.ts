@@ -40,6 +40,7 @@ describe("GraphStore", () => {
         name: "test",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       backlinks: [],
       outlinks: [],

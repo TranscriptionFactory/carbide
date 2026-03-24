@@ -28,6 +28,7 @@ export function create_test_note(id: string, title: string): NoteMeta {
     title,
     mtime_ms: 0,
     size_bytes: 0,
+    file_type: null,
   };
 }
 

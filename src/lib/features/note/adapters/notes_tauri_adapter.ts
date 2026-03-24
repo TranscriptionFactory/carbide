@@ -37,6 +37,7 @@ function to_note_meta(meta: {
   title: string;
   mtime_ms: number;
   size_bytes: number;
+  file_type?: string | null;
 }): NoteMeta {
   return {
     id: meta.id as NoteId,
@@ -45,6 +46,7 @@ function to_note_meta(meta: {
     title: meta.title,
     mtime_ms: meta.mtime_ms,
     size_bytes: meta.size_bytes,
+    file_type: meta.file_type ?? null,
   };
 }
 

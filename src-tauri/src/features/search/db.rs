@@ -173,6 +173,7 @@ pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNo
         name,
         mtime_ms,
         size_bytes,
+        file_type: None,
     })
 }
 
@@ -377,6 +378,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "outlink_count INTEGER DEFAULT 0",
         "reading_time_secs INTEGER DEFAULT 0",
         "last_indexed_at INTEGER DEFAULT 0",
+        "file_type TEXT DEFAULT 'markdown'",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
@@ -515,9 +517,10 @@ pub(crate) fn upsert_note_parsed_inner(
         .unwrap_or_default()
         .as_millis() as i64;
 
+    let file_type = meta.file_type.as_deref().unwrap_or("markdown");
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, parsed.word_count, parsed.char_count, parsed.heading_count, parsed.reading_time_secs, now_ms],
+        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, parsed.word_count, parsed.char_count, parsed.heading_count, parsed.reading_time_secs, now_ms, file_type],
     )
     .map_err(|e| e.to_string())?;
 
@@ -657,6 +660,38 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
 fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
     let result = markdown_doc::parse_note(body, &meta.path);
     upsert_note_parsed_inner(conn, meta, body, &result.note)
+}
+
+fn upsert_plain_content(
+    conn: &Connection,
+    meta: &IndexNoteMeta,
+    body: &str,
+) -> Result<(), String> {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+
+    let file_type = meta.file_type.as_deref().unwrap_or("text");
+    let word_count = body.split_whitespace().count() as i64;
+    let char_count = body.len() as i64;
+
+    conn.execute(
+        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute("DELETE FROM notes_fts WHERE path = ?1", params![meta.path])
+        .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO notes_fts (title, name, path, body) VALUES (?1, ?2, ?3, ?4)",
+        params![meta.title, meta.name, meta.path, body],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
@@ -993,7 +1028,6 @@ pub fn rebuild_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = io_utils::read_file_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
@@ -1002,7 +1036,7 @@ pub fn rebuild_index(
                 }
             };
 
-            index_single_file(conn, abs, &raw, &mut meta, &mut pending_links)?;
+            index_single_file_from_disk(conn, abs, &mut meta, &mut pending_links)?;
         }
 
         resolve_batch_outlinks(conn, &pending_links)?;
@@ -1018,7 +1052,48 @@ pub fn rebuild_index(
     })
 }
 
-fn index_single_file(
+fn index_single_file_from_disk(
+    conn: &Connection,
+    abs: &Path,
+    meta: &mut IndexNoteMeta,
+    pending_links: &mut Vec<(String, Vec<String>)>,
+) -> Result<(), String> {
+    use crate::features::search::text_extractor::{classify_file, extract_content, FileCategory};
+
+    let category = classify_file(abs);
+    meta.file_type = Some(category.as_str().to_string());
+
+    match category {
+        FileCategory::Markdown | FileCategory::Canvas => {
+            let raw = io_utils::read_file_to_string(abs).unwrap_or_default();
+            index_single_file_text(conn, abs, &raw, meta, pending_links)
+        }
+        FileCategory::Pdf => {
+            let bytes = std::fs::read(abs).unwrap_or_default();
+            let content = extract_content(abs, &bytes);
+            if content.body.is_empty() {
+                log::warn!("PDF extraction empty for {}", abs.display());
+            }
+            upsert_plain_content(conn, meta, &content.body)?;
+            pending_links.push((meta.path.clone(), vec![]));
+            Ok(())
+        }
+        FileCategory::Code | FileCategory::Text => {
+            let bytes = std::fs::read(abs).unwrap_or_default();
+            let content = extract_content(abs, &bytes);
+            upsert_plain_content(conn, meta, &content.body)?;
+            pending_links.push((meta.path.clone(), vec![]));
+            Ok(())
+        }
+        FileCategory::Binary => {
+            upsert_plain_content(conn, meta, "")?;
+            pending_links.push((meta.path.clone(), vec![]));
+            Ok(())
+        }
+    }
+}
+
+fn index_single_file_text(
     conn: &Connection,
     abs: &Path,
     raw: &str,
@@ -1037,9 +1112,6 @@ fn index_single_file(
         upsert_note_parsed_inner(conn, meta, raw, &result.note)?;
         let targets = result.note.links.all_internal_targets();
         pending_links.push((meta.path.clone(), targets));
-    } else {
-        upsert_note_inner(conn, meta, "")?;
-        pending_links.push((meta.path.clone(), vec![]));
     }
     Ok(())
 }
@@ -1120,7 +1192,6 @@ pub fn sync_index(
 
         for abs in batch {
             indexed += 1;
-            let raw = io_utils::read_file_to_string(abs).unwrap_or_default();
             let mut meta = match extract_file_meta(abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
@@ -1129,7 +1200,7 @@ pub fn sync_index(
                 }
             };
 
-            index_single_file(conn, abs, &raw, &mut meta, &mut pending_links)?;
+            index_single_file_from_disk(conn, abs, &mut meta, &mut pending_links)?;
         }
 
         resolve_batch_outlinks(conn, &pending_links)?;
@@ -1208,7 +1279,6 @@ pub fn sync_index_paths(
                 indexed += 1;
                 continue;
             }
-            let raw = io_utils::read_file_to_string(&abs).unwrap_or_default();
             let mut meta = match extract_file_meta(&abs, vault_root) {
                 Ok(m) => m,
                 Err(e) => {
@@ -1217,7 +1287,7 @@ pub fn sync_index_paths(
                     continue;
                 }
             };
-            index_single_file(conn, &abs, &raw, &mut meta, &mut pending_links)?;
+            index_single_file_from_disk(conn, &abs, &mut meta, &mut pending_links)?;
             indexed += 1;
         }
 
@@ -1395,6 +1465,7 @@ fn note_meta_from_row(row: &rusqlite::Row) -> rusqlite::Result<IndexNoteMeta> {
         name,
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
+        file_type: None,
     })
 }
 
@@ -1411,6 +1482,7 @@ fn note_meta_with_stats_from_row(
         name,
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
+        file_type: None,
     };
     let stats = crate::features::search::model::NoteStats {
         word_count: row.get(4).unwrap_or(0),
@@ -1545,6 +1617,7 @@ pub fn fuzzy_suggest(
                     name,
                     mtime_ms,
                     size_bytes,
+                    file_type: None,
                 },
                 score: best_score as f64,
             });
@@ -1709,6 +1782,7 @@ mod tests {
             name: file_stem_string(Path::new(path)),
             mtime_ms: 100,
             size_bytes: 10,
+            file_type: None,
         }
     }
 

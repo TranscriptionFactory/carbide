@@ -190,6 +190,7 @@ describe("register_omnibar_actions", () => {
                 title: "ML",
                 mtime_ms: 0,
                 size_bytes: 0,
+                file_type: null,
               },
               score: 0.9,
               snippet: "machine learning",

@@ -44,6 +44,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -106,6 +107,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -161,6 +163,7 @@ describe("NoteService", () => {
       title: "missing",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const notes_port = create_mock_notes_port();
@@ -213,6 +216,7 @@ describe("NoteService", () => {
       title: "stale",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([stale_meta]);
     notes_store.add_recent_note(stale_meta);
@@ -280,6 +284,7 @@ describe("NoteService", () => {
       title: "missing",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([stale_meta]);
 
@@ -335,6 +340,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     editor_store.set_open_note({
       meta: note_meta,
@@ -349,6 +355,7 @@ describe("NoteService", () => {
       title: "other",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     });
 
     const notes_port = create_mock_notes_port();
@@ -395,6 +402,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     editor_store.set_open_note({
       meta: note_meta,
@@ -459,6 +467,7 @@ describe("NoteService", () => {
       title: "remove-me",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
@@ -508,6 +517,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
@@ -564,6 +574,7 @@ describe("NoteService", () => {
       title: "old",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -624,6 +635,7 @@ describe("NoteService", () => {
       title: "has spaces",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -699,6 +711,7 @@ describe("NoteService", () => {
       title: "already-there",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const notes_port = create_mock_notes_port();
@@ -759,6 +772,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -815,6 +829,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -869,6 +884,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -938,6 +954,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 1_700_000_000_000,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -1010,6 +1027,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("draft"),
       buffer_id: "untitled-test",
@@ -1144,6 +1162,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -1210,6 +1229,7 @@ describe("NoteService", () => {
         title: "alpha",
         mtime_ms: 100,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# Alpha"),
       buffer_id: "alpha-buffer",
@@ -1299,6 +1319,7 @@ describe("NoteService", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -1354,6 +1375,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("draft"),
       buffer_id: "untitled-buffer",
@@ -1409,6 +1431,7 @@ describe("NoteService", () => {
       title: "new-from-link",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const dom_error = new DOMException(
@@ -1509,6 +1532,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
     notes_store.set_notes([note_meta]);
 
@@ -1565,6 +1589,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     const beta_note = {
@@ -1574,6 +1599,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "beta",
       mtime_ms: 0,
       size_bytes: 0,
+      file_type: null,
     };
 
     notes_store.set_notes([alpha_note, beta_note]);
@@ -1628,6 +1654,7 @@ describe("NoteService rename case-insensitive handling", () => {
         title: "alpha",
         mtime_ms: disk_mtime,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("---\n: bad yaml\n---\n# Title"),
       buffer_id: "alpha-buffer",
@@ -1715,6 +1742,7 @@ describe("NoteService rename case-insensitive handling", () => {
         title: "alpha",
         mtime_ms: disk_mtime,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("---\ntags: [valid]\n---\n# Title"),
       buffer_id: "alpha-buffer",

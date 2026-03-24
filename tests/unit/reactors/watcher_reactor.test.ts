@@ -349,6 +349,7 @@ describe("watcher_reactor", () => {
         title: "A",
         mtime_ms: 0,
         size_bytes: 0,
+        file_type: null,
       },
       markdown: as_markdown_text("# A"),
       buffer_id: "notes/a.md",

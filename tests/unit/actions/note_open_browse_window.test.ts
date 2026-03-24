@@ -49,6 +49,7 @@ function make_note(path: string): OpenNoteState {
       title,
       mtime_ms: 0,
       size_bytes: 100,
+      file_type: null,
     },
     markdown: as_markdown_text(`# ${title}`),
     buffer_id: path,

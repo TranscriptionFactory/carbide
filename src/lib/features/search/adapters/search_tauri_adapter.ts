@@ -24,6 +24,7 @@ type TauriNoteMeta = {
   name: string;
   mtime_ms: number;
   size_bytes: number;
+  file_type: string | null;
 };
 
 type TauriSearchHit = {
@@ -90,6 +91,7 @@ function to_note_meta(hit: TauriNoteMeta) {
     name: hit.name,
     mtime_ms: hit.mtime_ms,
     size_bytes: hit.size_bytes,
+    file_type: hit.file_type,
   };
 }
 

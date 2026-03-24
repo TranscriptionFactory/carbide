@@ -37,6 +37,7 @@ function create_note_meta(id: string) {
     title: id,
     mtime_ms: 1000,
     size_bytes: 0,
+    file_type: null,
   };
 }
 

@@ -262,10 +262,16 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
         };
         return;
       }
-      await registry.execute(ACTION_IDS.note_open, {
-        note_path: item.note.id,
-        cleanup_if_missing: true,
-      });
+      if (detect_file_type(item.note.id)) {
+        await registry.execute(ACTION_IDS.document_open, {
+          file_path: item.note.id,
+        });
+      } else {
+        await registry.execute(ACTION_IDS.note_open, {
+          note_path: item.note.id,
+          cleanup_if_missing: true,
+        });
+      }
       break;
     case "command":
       close_omnibar(input);

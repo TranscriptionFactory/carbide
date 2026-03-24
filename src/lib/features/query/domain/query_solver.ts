@@ -306,5 +306,6 @@ function path_to_meta(path: string): NoteMeta {
     title: path_to_title(path),
     mtime_ms: 0,
     size_bytes: 0,
+    file_type: null,
   };
 }

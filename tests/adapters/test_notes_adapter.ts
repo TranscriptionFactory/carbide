@@ -28,6 +28,7 @@ function derive_note_meta(
     title,
     mtime_ms: data.mtime_ms,
     size_bytes: new Blob([data.markdown]).size,
+    file_type: null,
   };
 }
 

@@ -13,6 +13,7 @@ function make_editor_store(path: string | null) {
             title: path.split("/").pop()!.replace(".md", ""),
             mtime_ms: 0,
             size_bytes: 0,
+            file_type: null,
           },
           markdown: as_markdown_text("# Test"),
           buffer_id: path,

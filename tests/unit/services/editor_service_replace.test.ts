@@ -18,6 +18,7 @@ function create_open_note(note_path: string, markdown: string): OpenNoteState {
       title: note_path.replace(/\.md$/i, ""),
       mtime_ms: 0,
       size_bytes: markdown.length,
+      file_type: null,
     },
     markdown: as_markdown_text(markdown),
     buffer_id: path,

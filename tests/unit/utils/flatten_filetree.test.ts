@@ -12,6 +12,7 @@ function make_note(path: string, title?: string): NoteMeta {
     title: title ?? path.replace(/\.md$/, "").split("/").pop() ?? "",
     mtime_ms: Date.now(),
     size_bytes: 100,
+    file_type: null,
   };
 }
 

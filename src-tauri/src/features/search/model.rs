@@ -47,6 +47,8 @@ pub struct IndexNoteMeta {
     pub name: String,
     pub mtime_ms: i64,
     pub size_bytes: i64,
+    #[serde(default)]
+    pub file_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, Type)]
