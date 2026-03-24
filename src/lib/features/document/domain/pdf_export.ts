@@ -75,7 +75,7 @@ export async function export_note_as_pdf(
   const doc_html = build_print_document(title, body_html);
 
   const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position: fixed; left: -9999px; width: 0; height: 0;";
+  iframe.style.cssText = "position: fixed; left: -9999px; top: 0; width: 800px; height: 600px; border: none;";
   document.body.appendChild(iframe);
 
   try {
