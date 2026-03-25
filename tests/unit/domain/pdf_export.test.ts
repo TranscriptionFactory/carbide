@@ -72,9 +72,7 @@ function text_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
 }
 
 function font_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
-  return doc.setFont.mock.calls.map(
-    (c: unknown[]) => `${c[0]}:${c[1]}`,
-  );
+  return doc.setFont.mock.calls.map((c: unknown[]) => `${c[0]}:${c[1]}`);
 }
 
 function parse(content: string) {
@@ -371,9 +369,8 @@ describe("export_note_as_pdf", () => {
   });
 
   it("shows save dialog with pdf filter", async () => {
-    const { export_note_as_pdf: export_fn } = await import(
-      "$lib/features/document/domain/pdf_export"
-    );
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
     expect(mock_dialog_save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -384,9 +381,8 @@ describe("export_note_as_pdf", () => {
   });
 
   it("writes pdf bytes to chosen path", async () => {
-    const { export_note_as_pdf: export_fn } = await import(
-      "$lib/features/document/domain/pdf_export"
-    );
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
     expect(mock_invoke).toHaveBeenCalledWith("write_bytes_to_path", {
       path: "/tmp/test.pdf",
@@ -396,17 +392,15 @@ describe("export_note_as_pdf", () => {
 
   it("does nothing when save dialog is cancelled", async () => {
     mock_dialog_save.mockResolvedValue(null);
-    const { export_note_as_pdf: export_fn } = await import(
-      "$lib/features/document/domain/pdf_export"
-    );
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
     expect(mock_invoke).not.toHaveBeenCalled();
   });
 
   it("loads Inter fonts before rendering", async () => {
-    const { export_note_as_pdf: export_fn } = await import(
-      "$lib/features/document/domain/pdf_export"
-    );
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
     expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Regular.ttf");
     expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Bold.ttf");
