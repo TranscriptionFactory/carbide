@@ -13,8 +13,7 @@ export function build_source_editor_base_theme_spec(): CodeMirrorThemeSpec {
     },
     ".cm-scroller": {
       overflow: "auto",
-      fontFamily:
-        '"SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace',
+      fontFamily: "var(--font-mono)",
       padding: "2rem clamp(1rem, 4%, 3rem)",
     },
     ".cm-content": {

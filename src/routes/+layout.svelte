@@ -2,6 +2,9 @@
   import type { Snippet } from "svelte";
   import "../app.css";
   import "../styles/design_tokens.css";
+  import "../styles/theme-monolith.css";
+  import "../styles/theme-workbench.css";
+  import "../styles/theme-command-deck.css";
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";
