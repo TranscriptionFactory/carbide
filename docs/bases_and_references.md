@@ -76,13 +76,13 @@ References is a citation manager built into Carbide. Import academic references,
 
 ### Adding References
 
-| Method | How |
-|---|---|
-| **Zotero / Better BibTeX** | Connect via extension — searches your Zotero library in real time |
-| **DOI lookup** | Run `Reference: Lookup DOI` from command palette — fetches metadata from CrossRef |
-| **BibTeX import** | Run `Reference: Import BibTeX` — paste BibTeX text |
-| **RIS import** | Run `Reference: Import RIS` — paste RIS text |
-| **Linked sources** | Register a folder of PDFs — metadata extracted automatically |
+| Method                     | How                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| **Zotero / Better BibTeX** | Connect via extension — searches your Zotero library in real time                 |
+| **DOI lookup**             | Run `Reference: Lookup DOI` from command palette — fetches metadata from CrossRef |
+| **BibTeX import**          | Run `Reference: Import BibTeX` — paste BibTeX text                                |
+| **RIS import**             | Run `Reference: Import RIS` — paste RIS text                                      |
+| **Linked sources**         | Register a folder of PDFs — metadata extracted automatically                      |
 
 All references are stored locally in `<vault>/.carbide/references/library.json`.
 
@@ -161,10 +161,10 @@ Pull PDF highlights and notes from Zotero into your note:
 
 Export selected references in multiple formats:
 
-| Format | Action |
-|---|---|
-| **BibTeX** (`.bib`) | `Reference: Export as BibTeX` |
-| **RIS** (`.ris`) | `Reference: Export as RIS` |
+| Format                | Action                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| **BibTeX** (`.bib`)   | `Reference: Export as BibTeX`                                       |
+| **RIS** (`.ris`)      | `Reference: Export as RIS`                                          |
 | **HTML Bibliography** | `Reference: Export Bibliography as HTML` (with CSL style selection) |
 
 ### Bibliography Rendering
@@ -180,7 +180,7 @@ Set your preferred style in **Settings > References > Citation Style**.
 
 ### Settings
 
-| Setting | Default | Description |
-|---|---|---|
-| `reference_enabled` | `false` | Enable/disable the references feature |
-| `reference_citation_style` | `apa` | CSL style for bibliography rendering |
+| Setting                    | Default | Description                           |
+| -------------------------- | ------- | ------------------------------------- |
+| `reference_enabled`        | `false` | Enable/disable the references feature |
+| `reference_citation_style` | `apa`   | CSL style for bibliography rendering  |
