@@ -167,12 +167,17 @@ export function register_note_actions(input: ActionRegistrationInput) {
   async function handle_resolved_internal_target(
     resolved: string,
     suffix: InternalLinkSuffix,
+    raw_path?: string,
   ): Promise<"note" | "handled"> {
     const filename = filename_from_path(resolved);
     const file_type = detect_file_type(filename);
     if (file_type) {
+      const file_path =
+        raw_path?.startsWith("/") && !resolved.startsWith("/")
+          ? `/${resolved}`
+          : resolved;
       await registry.execute(ACTION_IDS.document_open, {
-        file_path: resolved,
+        file_path,
         initial_pdf_page:
           file_type === "pdf" ? parse_pdf_page_suffix(suffix) : undefined,
       });
@@ -429,7 +434,11 @@ export function register_note_actions(input: ActionRegistrationInput) {
         }
         const suffix = parse_internal_link_suffix(parsed.raw_path);
         if (
-          (await handle_resolved_internal_target(resolved, suffix)) ===
+          (await handle_resolved_internal_target(
+            resolved,
+            suffix,
+            parsed.raw_path,
+          )) ===
           "handled"
         ) {
           return;
