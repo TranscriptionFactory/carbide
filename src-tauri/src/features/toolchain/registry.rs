@@ -68,7 +68,7 @@ pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "iwes",
         display_name: "IWE",
-        github_repo: "iwe-org/iwe",
+        github_repo: "TranscriptionFactory/iwe",
         version: IWE_VERSION,
         platform_binaries: IWE_BINARIES,
         binary_name: "iwes",

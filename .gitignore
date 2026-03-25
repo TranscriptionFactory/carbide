@@ -23,8 +23,9 @@ devlog/
 opencode.json
 .eslintcache
 
-# rumdl sidecar binaries (downloaded via scripts/download_rumdl.sh)
+# sidecar binaries (built/downloaded at build time)
 src-tauri/binaries/rumdl*
+src-tauri/binaries/iwes*
 !src-tauri/binaries/.gitkeep
 .shiftlog/
 .rumdl.toml

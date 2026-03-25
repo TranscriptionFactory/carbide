@@ -1,5 +1,5 @@
 ---
-"badgerly": minor
+"carbide": minor
 ---
 
 ### Toolchain Manager
