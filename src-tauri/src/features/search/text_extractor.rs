@@ -1,4 +1,6 @@
 use std::path::Path;
+use std::sync::mpsc;
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FileCategory {
@@ -104,9 +106,22 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
     }
 }
 
+const PDF_EXTRACT_TIMEOUT: Duration = Duration::from_secs(15);
+
 fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
-    let pages = pdf_extract::extract_text_from_mem_by_pages(bytes)
-        .map_err(|e| format!("PDF extraction: {e}"))?;
+    let owned = bytes.to_vec();
+    let (tx, rx) = mpsc::channel();
+
+    std::thread::spawn(move || {
+        let result = pdf_extract::extract_text_from_mem_by_pages(&owned)
+            .map_err(|e| format!("PDF extraction: {e}"));
+        let _ = tx.send(result);
+    });
+
+    let pages = rx
+        .recv_timeout(PDF_EXTRACT_TIMEOUT)
+        .map_err(|_| "PDF extraction timed out".to_string())??;
+
     let mut body = String::new();
     let mut offsets = Vec::with_capacity(pages.len());
     for page_text in &pages {
