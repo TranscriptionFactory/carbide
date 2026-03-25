@@ -173,10 +173,15 @@ fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
 // ---------------------------------------------------------------------------
 
 fn extract_html_meta(content: &str, name: &str) -> Option<String> {
-    let lower = content.to_lowercase();
+    // ascii_lowercase preserves byte offsets (only ASCII bytes change)
+    let lower = content.to_ascii_lowercase();
     let pattern = format!("name=\"{}\"", name);
     let pos = lower.find(&pattern)?;
-    let region = &content[pos..std::cmp::min(pos + 500, content.len())];
+    let end = std::cmp::min(pos + 500, content.len());
+    if !content.is_char_boundary(pos) || !content.is_char_boundary(end) {
+        return None;
+    }
+    let region = &content[pos..end];
     let content_start = region.find("content=\"")? + 9;
     let content_end = region[content_start..].find('"')?;
     let value = region[content_start..content_start + content_end].to_string();
@@ -188,9 +193,15 @@ fn extract_html_meta(content: &str, name: &str) -> Option<String> {
 }
 
 fn extract_html_title(content: &str) -> Option<String> {
-    let lower = content.to_lowercase();
-    let start = lower.find("<title")? ;
+    let lower = content.to_ascii_lowercase();
+    let start = lower.find("<title")?;
+    if !content.is_char_boundary(start) {
+        return None;
+    }
     let tag_end = content[start..].find('>')? + start + 1;
+    if !content.is_char_boundary(tag_end) {
+        return None;
+    }
     let close = lower[tag_end..].find("</title")?;
     let title = content[tag_end..tag_end + close].trim().to_string();
     if title.is_empty() { None } else { Some(title) }
@@ -198,39 +209,41 @@ fn extract_html_title(content: &str) -> Option<String> {
 
 fn strip_html_tags(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
-    let lower = html.to_lowercase();
+    // ascii_lowercase preserves byte length and boundaries
+    let lower = html.to_ascii_lowercase();
     let bytes = lower.as_bytes();
-    let orig = html.as_bytes();
     let len = bytes.len();
 
     let mut i = 0;
     while i < len {
-        // Check for <script or <style opening tags
         if bytes[i] == b'<'
             && (lower[i..].starts_with("<script") || lower[i..].starts_with("<style"))
         {
             let is_script = lower[i..].starts_with("<script");
             let end_tag = if is_script { "</script>" } else { "</style>" };
-            // Skip to closing tag
             if let Some(close_pos) = lower[i..].find(end_tag) {
                 i += close_pos + end_tag.len();
                 result.push(' ');
             } else {
-                // No closing tag found, skip rest
                 break;
             }
         } else if bytes[i] == b'<' {
-            // Skip regular tag
             while i < len && bytes[i] != b'>' {
                 i += 1;
             }
             if i < len {
-                i += 1; // skip '>'
+                i += 1;
             }
             result.push(' ');
         } else {
-            result.push(orig[i] as char);
-            i += 1;
+            // Properly handle multi-byte UTF-8 characters
+            if html.is_char_boundary(i) {
+                let ch = html[i..].chars().next().unwrap();
+                result.push(ch);
+                i += ch.len_utf8();
+            } else {
+                i += 1;
+            }
         }
     }
     if result.len() > MAX_INDEXABLE_BYTES {
@@ -628,6 +641,25 @@ mod tests {
         assert_eq!(entry.author, Some("Jane Smith".to_string()));
         assert_eq!(entry.keywords, Some("rust, testing".to_string()));
         assert!(entry.body_text.contains("Body text here"));
+    }
+
+    #[test]
+    fn extract_html_file_multibyte_utf8() {
+        let dir = tempfile::tempdir().unwrap();
+        let html_path = dir.path().join("utf8.html");
+        std::fs::write(
+            &html_path,
+            "<html><head><title>Ünïcödé Tïtlé</title>\
+             <meta name=\"author\" content=\"José García\">\
+             </head><body><p>日本語テキスト with émojis 🎉</p></body></html>",
+        )
+        .unwrap();
+
+        let entry = extract_file(&html_path).unwrap();
+        assert_eq!(entry.title, Some("Ünïcödé Tïtlé".to_string()));
+        assert_eq!(entry.author, Some("José García".to_string()));
+        assert!(entry.body_text.contains("日本語テキスト"));
+        assert!(entry.body_text.contains("🎉"));
     }
 
     #[test]
