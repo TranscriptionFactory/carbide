@@ -438,8 +438,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
             resolved,
             suffix,
             parsed.raw_path,
-          )) ===
-          "handled"
+          )) === "handled"
         ) {
           return;
         }

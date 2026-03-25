@@ -21,7 +21,8 @@ export type ThemeLayoutVariant =
   | "default"
   | "monolith"
   | "terminal"
-  | "workbench";
+  | "workbench"
+  | "command_deck";
 
 export type Theme = {
   id: string;
@@ -817,7 +818,7 @@ export const BUILTIN_LINEAR_DARK: Theme = {
     "--border": "oklch(1 0 0 / 8%)",
     "--input": "oklch(1 0 0 / 12%)",
     "--ring": "oklch(1 0 0 / 20%)",
-    "--sidebar": "oklch(0.13 0 0)",
+    "--sidebar": "oklch(1 0 0 / 0%)",
     "--sidebar-foreground": "oklch(0.985 0 0)",
     "--sidebar-border": "oklch(1 0 0 / 8%)",
     "--background-surface-2": "oklch(0.14 0 0)",
@@ -833,11 +834,155 @@ export const BUILTIN_LINEAR_DARK: Theme = {
     "--selection-bg": "oklch(0.22 0 0)",
     "--border-width-default": "1px",
     "--shadow-sm":
-      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 15%, transparent)",
+      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
     "--shadow-md":
       "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
     "--size-activity-bar": "2.5rem",
     "--size-activity-icon": "1.125rem",
+  },
+};
+
+export const BUILTIN_MONOLITH_LIGHT: Theme = {
+  id: "monolith-light",
+  name: "Monolith Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "monolith",
+  font_family_sans: "Newsreader",
+  font_family_mono: "JetBrains Mono",
+  font_size: 1.125,
+  line_height: 1.8,
+  spacing: "spacious",
+  token_overrides: {
+    "--background": "oklch(0.98 0.005 80)",
+    "--foreground": "oklch(0.25 0.01 60)",
+    "--card": "oklch(1 0 0 / 80%)",
+    "--primary": "oklch(0.3 0.02 60)",
+    "--muted": "oklch(0.95 0.005 80)",
+    "--border": "oklch(0 0 0 / 5%)",
+    "--radius": "0.75rem",
+    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 8%)",
+    "--editor-max-width": "70ch",
+    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
+    "--font-mono": '"JetBrains Mono", monospace',
+  },
+};
+
+export const BUILTIN_MONOLITH_DARK: Theme = {
+  id: "monolith-dark",
+  name: "Monolith Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "monolith",
+  font_family_sans: "Newsreader",
+  font_family_mono: "JetBrains Mono",
+  font_size: 1.125,
+  line_height: 1.8,
+  spacing: "spacious",
+  token_overrides: {
+    "--background": "oklch(0.12 0 0)",
+    "--foreground": "oklch(0.85 0 0)",
+    "--card": "oklch(0.15 0 0 / 80%)",
+    "--primary": "oklch(0.9 0 0)",
+    "--muted": "oklch(0.18 0 0)",
+    "--border": "oklch(1 0 0 / 5%)",
+    "--radius": "0.75rem",
+    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 50%)",
+    "--editor-max-width": "70ch",
+    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
+    "--font-mono": '"JetBrains Mono", monospace',
+  },
+};
+
+export const BUILTIN_WORKBENCH_LIGHT: Theme = {
+  id: "workbench-light",
+  name: "Workbench Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "workbench",
+  accent_hue: 25,
+  accent_chroma: 0.2,
+  token_overrides: {
+    "--background": "oklch(0.9 0.01 250)",
+    "--foreground": "oklch(0.2 0.01 250)",
+    "--card": "oklch(0.94 0.01 250)",
+    "--muted": "oklch(0.85 0.01 250)",
+    "--border": "oklch(0.75 0.01 250)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.6 0.2 25)",
+    "--sidebar": "oklch(0.88 0.01 250)",
+    "--sidebar-border": "oklch(0.7 0.01 250)",
+    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 10%)",
+    "--shadow-md":
+      "0 4px 6px -1px oklch(0 0 0 / 10%), 0 2px 4px -1px oklch(0 0 0 / 6%)",
+    "--shadow-lg":
+      "0 10px 15px -3px oklch(0 0 0 / 10%), 0 4px 6px -2px oklch(0 0 0 / 5%)",
+    "--border-width-default": "2px",
+  },
+};
+
+export const BUILTIN_WORKBENCH_DARK: Theme = {
+  id: "workbench-dark",
+  name: "Workbench Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "workbench",
+  accent_hue: 25,
+  accent_chroma: 0.2,
+  token_overrides: {
+    "--background": "oklch(0.15 0.01 250)",
+    "--foreground": "oklch(0.9 0.01 250)",
+    "--card": "oklch(0.18 0.01 250)",
+    "--muted": "oklch(0.12 0.01 250)",
+    "--border": "oklch(0.25 0.01 250)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.7 0.2 25)",
+    "--sidebar": "oklch(0.13 0.01 250)",
+    "--sidebar-border": "oklch(0.1 0.01 250)",
+    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 40%)",
+    "--shadow-md": "0 4px 6px -1px oklch(0 0 0 / 40%)",
+    "--shadow-lg": "0 10px 15px -3px oklch(0 0 0 / 50%)",
+    "--border-width-default": "2px",
+  },
+};
+
+export const BUILTIN_COMMAND_DECK_LIGHT: Theme = {
+  id: "command-deck-light",
+  name: "Command Deck Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "command_deck",
+  accent_hue: 200,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.98 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0.9 0 0)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.5 0.15 200)",
+  },
+};
+
+export const BUILTIN_COMMAND_DECK_DARK: Theme = {
+  id: "command-deck-dark",
+  name: "Command Deck Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "command_deck",
+  accent_hue: 200,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.14 0 0)",
+    "--border": "oklch(0.2 0 0)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.7 0.15 200)",
   },
 };
 
@@ -858,6 +1003,12 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_DENSE_DARK,
   BUILTIN_LINEAR_LIGHT,
   BUILTIN_LINEAR_DARK,
+  BUILTIN_MONOLITH_LIGHT,
+  BUILTIN_MONOLITH_DARK,
+  BUILTIN_WORKBENCH_LIGHT,
+  BUILTIN_WORKBENCH_DARK,
+  BUILTIN_COMMAND_DECK_LIGHT,
+  BUILTIN_COMMAND_DECK_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {
