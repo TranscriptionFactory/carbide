@@ -342,6 +342,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_linked_source_sync_reactor(
       context.vault_store,
       context.reference_service,
+      context.search_store,
     ),
   ];
 

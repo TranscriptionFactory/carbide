@@ -5,7 +5,7 @@ use specta::Type;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
 use walkdir::WalkDir;
@@ -130,14 +130,20 @@ fn extract_pdf_metadata(path: &Path) -> (Option<String>, Option<String>, Option<
 // DOI extraction from text
 // ---------------------------------------------------------------------------
 
+static DOI_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"10\.\d{4,}/[^\s\]>)]+").unwrap());
+
 fn extract_doi_from_text(text: &str, max_chars: usize) -> Option<String> {
     let search_text: &str = if text.len() > max_chars {
-        &text[..max_chars]
+        let mut end = max_chars;
+        while end > 0 && !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        &text[..end]
     } else {
         text
     };
-    let re = Regex::new(r"10\.\d{4,}/[^\s\]>)]+").ok()?;
-    let m = re.find(search_text)?;
+    let m = DOI_REGEX.find(search_text)?;
     let doi = m.as_str().trim_end_matches(|c: char| c == '.' || c == ',');
     Some(doi.to_string())
 }
@@ -147,10 +153,93 @@ fn extract_doi_from_text(text: &str, max_chars: usize) -> Option<String> {
 // ---------------------------------------------------------------------------
 
 const MAX_INDEXABLE_BYTES: usize = 512 * 1024;
+const MAX_PDF_BYTES: usize = 100 * 1024 * 1024; // 100 MB
+const PDF_EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
-    let pages = pdf_extract::extract_text_from_mem_by_pages(bytes)
-        .map_err(|e| format!("PDF text extraction: {e}"))?;
+#[derive(Deserialize)]
+struct PdfTextResult {
+    text: String,
+    offsets: Vec<usize>,
+}
+
+/// Extract PDF text in a subprocess to isolate OOM from pdf_extract::make_font().
+/// If the subprocess crashes (OOM on malformed fonts), only it dies — the app survives.
+fn extract_pdf_text_subprocess(path: &Path) -> Result<(String, Vec<usize>), String> {
+    let file_len = std::fs::metadata(path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    if file_len > MAX_PDF_BYTES as u64 {
+        return Err(format!(
+            "PDF too large for text extraction ({} MB, limit {} MB)",
+            file_len / (1024 * 1024),
+            MAX_PDF_BYTES / (1024 * 1024)
+        ));
+    }
+
+    let exe = std::env::current_exe()
+        .map_err(|e| format!("current_exe: {e}"))?;
+
+    let mut child = std::process::Command::new(exe)
+        .arg("--extract-pdf-text")
+        .arg(path.as_os_str())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("spawn extraction subprocess: {e}"))?;
+
+    // Wait with timeout to prevent hanging on degenerate PDFs
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        std::thread::sleep(PDF_EXTRACT_TIMEOUT);
+        let _ = tx.send(());
+    });
+
+    let output = loop {
+        match child.try_wait() {
+            Ok(Some(_status)) => break child.wait_with_output(),
+            Ok(None) => {
+                if rx.try_recv().is_ok() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err("PDF text extraction timed out".to_string());
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => return Err(format!("wait: {e}")),
+        }
+    }
+    .map_err(|e| format!("wait_with_output: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("PDF extraction subprocess failed: {stderr}"));
+    }
+
+    let result: PdfTextResult = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("parse extraction result: {e}"))?;
+
+    Ok((result.text, result.offsets))
+}
+
+/// Entry point for the --extract-pdf-text subprocess mode.
+/// Extracts text from a PDF and writes JSON to stdout, then exits.
+pub fn run_extract_pdf_text(file_path: &str) {
+    let bytes = match std::fs::read(file_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("read {file_path}: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let pages = match pdf_extract::extract_text_from_mem_by_pages(&bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("PDF text extraction: {e}");
+            std::process::exit(1);
+        }
+    };
+
     let mut body = String::new();
     let mut offsets = Vec::with_capacity(pages.len());
     for page_text in &pages {
@@ -165,7 +254,12 @@ fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
         }
         body.truncate(end);
     }
-    Ok((body, offsets))
+
+    let result = serde_json::json!({
+        "text": body,
+        "offsets": offsets
+    });
+    println!("{result}");
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +319,13 @@ fn strip_html_tags(html: &str) -> String {
                 i += close_pos + end_tag.len();
                 result.push(' ');
             } else {
-                break;
+                while i < len && bytes[i] != b'>' {
+                    i += 1;
+                }
+                if i < len {
+                    i += 1;
+                }
+                result.push(' ');
             }
         } else if bytes[i] == b'<' {
             while i < len && bytes[i] != b'>' {
@@ -280,8 +380,7 @@ fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
 
     let (title, author, subject, keywords, creation_date) = extract_pdf_metadata(path);
 
-    let bytes = std::fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?;
-    let (body_text, page_offsets) = extract_pdf_text(&bytes).unwrap_or_default();
+    let (body_text, page_offsets) = extract_pdf_text_subprocess(path).unwrap_or_default();
 
     let doi = extract_doi_from_text(&body_text, 5000);
 
@@ -348,10 +447,8 @@ fn extract_file(path: &Path) -> Result<ScanEntry, String> {
 // Tauri commands
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_scan_folder(folder_path: String) -> Result<Vec<ScanEntry>, String> {
-    let root = PathBuf::from(&folder_path);
+fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
+    let root = PathBuf::from(folder_path);
     if !root.is_dir() {
         return Err(format!("not a directory: {folder_path}"));
     }
@@ -380,12 +477,24 @@ pub fn linked_source_scan_folder(folder_path: String) -> Result<Vec<ScanEntry>, 
 
 #[tauri::command]
 #[specta::specta]
-pub fn linked_source_extract_file(file_path: String) -> Result<ScanEntry, String> {
-    let path = PathBuf::from(&file_path);
-    if !path.is_file() {
-        return Err(format!("not a file: {file_path}"));
-    }
-    extract_file(&path)
+pub async fn linked_source_scan_folder(folder_path: String) -> Result<Vec<ScanEntry>, String> {
+    tokio::task::spawn_blocking(move || scan_folder_sync(&folder_path))
+        .await
+        .map_err(|e| format!("spawn_blocking: {e}"))?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn linked_source_extract_file(file_path: String) -> Result<ScanEntry, String> {
+    tokio::task::spawn_blocking(move || {
+        let path = PathBuf::from(&file_path);
+        if !path.is_file() {
+            return Err(format!("not a file: {file_path}"));
+        }
+        extract_file(&path)
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 #[tauri::command]
@@ -621,6 +730,27 @@ mod tests {
     }
 
     #[test]
+    fn doi_extraction_utf8_boundary() {
+        let text = "日本語テキスト 10.1234/test.5678 more text";
+        assert_eq!(
+            extract_doi_from_text(text, 10),
+            None
+        );
+        assert_eq!(
+            extract_doi_from_text(text, 100),
+            Some("10.1234/test.5678".to_string())
+        );
+    }
+
+    #[test]
+    fn strip_tags_unclosed_script() {
+        let html = "<p>Before</p><script>alert('xss')<p>After the script</p>";
+        let text = strip_html_tags(html);
+        assert!(text.contains("Before"), "Content before script should be preserved");
+        assert!(text.contains("After the script"), "Content after unclosed script should be preserved");
+    }
+
+    #[test]
     fn extract_html_file() {
         let dir = tempfile::tempdir().unwrap();
         let html_path = dir.path().join("test.html");
@@ -669,7 +799,7 @@ mod tests {
         std::fs::write(dir.path().join("b.txt"), "plain text").unwrap();
         std::fs::write(dir.path().join("c.png"), &[0xFF, 0xD8]).unwrap();
 
-        let entries = linked_source_scan_folder(dir.path().to_string_lossy().into_owned()).unwrap();
+        let entries = scan_folder_sync(&dir.path().to_string_lossy()).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].file_type, "html");
     }
