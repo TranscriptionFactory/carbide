@@ -1511,6 +1511,97 @@
 }
 
 /* ============================================
+   CITE SUGGEST DROPDOWN
+   ============================================ */
+
+.CiteSuggest {
+  position: absolute;
+  z-index: 50;
+  min-width: 240px;
+  max-width: 380px;
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: calc(var(--radius) * 0.5);
+  border: 1px solid var(--border);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1) 0;
+}
+
+.CiteSuggest[data-show="false"] {
+  display: none;
+}
+
+.CiteSuggest__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.CiteSuggest__content {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.CiteSuggest__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.CiteSuggest__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.CiteSuggest__badge {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.CiteSuggest__item:hover {
+  background: var(--muted);
+}
+
+.CiteSuggest__item--selected {
+  background: var(--interactive-bg);
+  color: var(--interactive);
+}
+
+.CiteSuggest__item--selected .CiteSuggest__badge {
+  color: inherit;
+  border-color: currentColor;
+}
+
+.CiteSuggest__item--selected .CiteSuggest__meta {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* ============================================
    IMAGE SUGGEST DROPDOWN
    ============================================ */
 

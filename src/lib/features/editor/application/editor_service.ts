@@ -4,6 +4,14 @@ import type {
   EditorPort,
   EditorSession,
 } from "$lib/features/editor/ports";
+import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import {
+  match_query,
+  format_authors,
+  extract_year,
+  sync_reference_to_markdown,
+} from "$lib/features/reference";
+import type { CslItem } from "$lib/features/reference";
 import type {
   OpenNoteState,
   CursorInfo,
@@ -130,6 +138,7 @@ export class EditorService {
     private readonly outline_store?: OutlineStore,
     private readonly assets_port?: AssetsPort,
     private readonly tag_port?: TagPort,
+    private readonly reference_store?: { library_items: CslItem[] },
   ) {}
 
   is_mounted(): boolean {
@@ -523,6 +532,54 @@ export class EditorService {
     });
   }
 
+  private handle_cite_suggest_query(query: string): void {
+    const reference_store = this.reference_store;
+    if (!reference_store) return;
+
+    const all = reference_store.library_items;
+    const filtered = query
+      ? all.filter((item) => match_query(item, query))
+      : all;
+
+    const vault_path = this.vault_store.vault?.path ?? null;
+
+    const items: CiteSuggestionItem[] = filtered.slice(0, 20).map((item) => {
+      let linked_file_path: string | null = null;
+      const raw_path = item._linked_file_path;
+      if (typeof raw_path === "string" && raw_path && vault_path) {
+        const prefix = vault_path.endsWith("/") ? vault_path : `${vault_path}/`;
+        linked_file_path = raw_path.startsWith(prefix)
+          ? raw_path.slice(prefix.length)
+          : raw_path;
+      }
+      return {
+        citekey: item.id,
+        title: item.title ?? "",
+        authors: format_authors(item.author),
+        year: String(extract_year(item) ?? ""),
+        linked_file_path,
+      };
+    });
+
+    this.session?.set_cite_suggestions?.(items);
+  }
+
+  private handle_cite_accept(citekey: string): void {
+    const reference_store = this.reference_store;
+    if (!reference_store) return;
+
+    const item = reference_store.library_items.find((i) => i.id === citekey);
+    if (!item) return;
+
+    const markdown = this.get_markdown();
+    if (!markdown) return;
+
+    const updated = sync_reference_to_markdown(markdown, item);
+    if (updated !== markdown) {
+      this.sync_visual_from_markdown(updated);
+    }
+  }
+
   private create_session_events(generation: number): EditorSessionEvents {
     const events: EditorSessionEvents = {
       on_markdown_change: (markdown: string) => {
@@ -584,6 +641,15 @@ export class EditorService {
     if (this.tag_port) {
       events.on_tag_suggest_query = (query: string) => {
         this.handle_tag_suggest_query(generation, query);
+      };
+    }
+
+    if (this.reference_store) {
+      events.on_cite_suggest_query = (query: string) => {
+        this.handle_cite_suggest_query(query);
+      };
+      events.on_cite_accept = (citekey: string) => {
+        this.handle_cite_accept(citekey);
       };
     }
 

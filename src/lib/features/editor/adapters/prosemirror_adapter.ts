@@ -56,6 +56,12 @@ import {
   type TagSuggestPluginConfig,
 } from "./tag_suggest_plugin";
 import {
+  set_cite_suggestions,
+  create_cite_suggest_prose_plugin,
+  type CiteSuggestPluginConfig,
+  type CiteSuggestionItem,
+} from "./cite_suggest_plugin";
+import {
   set_image_suggestions,
   create_image_suggest_prose_plugin,
   type ImageSuggestPluginConfig,
@@ -461,6 +467,8 @@ export function create_prosemirror_editor_port(args?: {
         on_wiki_suggest_query,
         on_image_suggest_query,
         on_tag_suggest_query,
+        on_cite_suggest_query,
+        on_cite_accept,
         on_outline_change,
         on_iwe_hover,
         on_iwe_definition,
@@ -494,6 +502,7 @@ export function create_prosemirror_editor_port(args?: {
       let wiki_suggest_config: WikiSuggestPluginConfig | null = null;
       let image_suggest_config: ImageSuggestPluginConfig | null = null;
       let tag_suggest_config: TagSuggestPluginConfig | null = null;
+      let cite_suggest_config: CiteSuggestPluginConfig | null = null;
 
       function normalize_markdown(raw: string): string {
         return normalize_markdown_line_breaks(raw);
@@ -773,6 +782,17 @@ export function create_prosemirror_editor_port(args?: {
         };
         plugins.push(
           create_tag_suggest_prose_plugin(tag_suggest_config) as Plugin,
+        );
+      }
+
+      if (on_cite_suggest_query) {
+        cite_suggest_config = {
+          on_query: on_cite_suggest_query,
+          on_dismiss: () => {},
+          on_accept: on_cite_accept ?? (() => {}),
+        };
+        plugins.push(
+          create_cite_suggest_prose_plugin(cite_suggest_config) as Plugin,
         );
       }
 
@@ -1191,6 +1211,10 @@ export function create_prosemirror_editor_port(args?: {
         set_tag_suggestions(items: Array<{ tag: string; count: number }>) {
           if (!view) return;
           set_tag_suggestions(view, items);
+        },
+        set_cite_suggestions(items: CiteSuggestionItem[]) {
+          if (!view) return;
+          set_cite_suggestions(view, items);
         },
         update_find_state(query: string, selected_index: number) {
           run_view_action((v) => {

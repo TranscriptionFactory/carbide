@@ -5,6 +5,7 @@ import type {
   EditorSelectionSnapshot,
 } from "$lib/shared/types/editor";
 import type { OutlineHeading } from "$lib/features/outline";
+import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 
 export type BufferConfig = {
   note_path: string;
@@ -38,6 +39,7 @@ export type EditorSession = {
     items: Array<{ path: string; name: string }>,
   ) => void;
   set_tag_suggestions?: (items: Array<{ tag: string; count: number }>) => void;
+  set_cite_suggestions?: (items: CiteSuggestionItem[]) => void;
   open_buffer: (config: BufferConfig) => void;
   rename_buffer: (old_note_path: string, new_note_path: string) => void;
   close_buffer: (note_path: string) => void;
@@ -69,6 +71,8 @@ export type EditorEventHandlers = {
   on_wiki_suggest_query?: (query: string) => void;
   on_image_suggest_query?: (query: string) => void;
   on_tag_suggest_query?: (query: string) => void;
+  on_cite_suggest_query?: (query: string) => void;
+  on_cite_accept?: (citekey: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
   on_iwe_hover?: (
     line: number,
