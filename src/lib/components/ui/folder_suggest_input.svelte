@@ -9,6 +9,7 @@
     value: string;
     folder_paths: string[];
     on_change: (path: string) => void;
+    on_shift_tab?: () => void;
     disabled?: boolean;
     placeholder?: string;
   };
@@ -17,6 +18,7 @@
     value,
     folder_paths,
     on_change,
+    on_shift_tab,
     disabled = false,
     placeholder = "Folder path...",
   }: Props = $props();
@@ -39,6 +41,14 @@
   }
 
   function on_keydown(e: KeyboardEvent) {
+    if (e.key === "Tab" && e.shiftKey) {
+      if (on_shift_tab) {
+        e.preventDefault();
+        on_shift_tab();
+      }
+      return;
+    }
+
     if (!show_dropdown && e.key !== "Tab") return;
 
     if (e.key === "ArrowDown") {

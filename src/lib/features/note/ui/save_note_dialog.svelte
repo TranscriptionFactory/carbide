@@ -113,6 +113,7 @@
             value={folder_path}
             {folder_paths}
             on_change={on_update_folder}
+            on_shift_tab={() => input_el?.focus()}
             disabled={is_busy}
             placeholder="(vault root)"
           />
