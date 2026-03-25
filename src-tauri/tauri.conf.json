@@ -20,9 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/iwes"
-    ],
+    "externalBin": ["binaries/iwes"],
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
