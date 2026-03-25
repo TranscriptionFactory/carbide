@@ -96,12 +96,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          RELEASE_URL=$(gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Carbide $GITHUB_REF_NAME" \
             --draft \
-            --generate-notes
-          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq '.id')
+            --generate-notes)
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name==\"$GITHUB_REF_NAME\" and .draft==true) | .id")
           echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
   release:
