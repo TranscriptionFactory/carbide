@@ -11,7 +11,8 @@ describe("ReferenceStore", () => {
     const store = new ReferenceStore();
     expect(store.library_items).toEqual([]);
     expect(store.search_results).toEqual([]);
-    expect(store.connection_status).toBe("idle");
+    expect(store.get_extension_status("any")).toBe("idle");
+    expect(store.get_connected_extensions()).toEqual([]);
     expect(store.selected_citekeys).toEqual([]);
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
@@ -68,13 +69,14 @@ describe("ReferenceStore", () => {
     store.add_item(make_item("a"));
     store.set_loading(true);
     store.set_error("oops");
-    store.set_connection_status("connected");
+    store.set_extension_status("ext1", "connected");
     store.set_selected_citekeys(["a"]);
     store.reset();
     expect(store.library_items).toEqual([]);
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
-    expect(store.connection_status).toBe("idle");
+    expect(store.get_extension_status("ext1")).toBe("idle");
+    expect(store.get_connected_extensions()).toEqual([]);
     expect(store.selected_citekeys).toEqual([]);
   });
 });

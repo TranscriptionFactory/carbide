@@ -32,12 +32,11 @@ export type ReferenceLibrary = {
 };
 
 export type ReferenceSource =
-  | "zotero_bbt"
-  | "zotero_web"
   | "citationjs"
   | "manual"
   | "translation_server"
-  | "linked_source";
+  | "linked_source"
+  | "extension";
 
 export type LinkedSource = {
   id: string;
@@ -67,19 +66,6 @@ export type LinkedSourceFsEvent =
   | { type: "removed"; folder_path: string; file_path: string }
   | { type: "modified"; folder_path: string; file_path: string };
 
-export type ZoteroCollection = {
-  key: string;
-  name: string;
-  parent_key?: string;
-};
-
-export type ZoteroAttachment = {
-  key: string;
-  title: string;
-  mime_type: string;
-  path?: string;
-};
-
 export type PdfAnnotation = {
   citekey: string;
   page: number;
@@ -87,12 +73,4 @@ export type PdfAnnotation = {
   comment?: string;
   color?: string;
   type: "highlight" | "note" | "underline";
-};
-
-export type ZoteroConnectionConfig = {
-  mode: "bbt" | "web_api";
-  bbt_url?: string;
-  api_key?: string;
-  user_id?: string;
-  group_id?: string;
 };

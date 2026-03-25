@@ -9,20 +9,28 @@
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
+  const ref_service = ctx.services.reference;
 
   let query = $state("");
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let local_results = $state<CslItem[]>([]);
-  let zotero_results = $state<CslItem[]>([]);
+  let extension_results = $state<Array<{ label: string; items: CslItem[] }>>(
+    [],
+  );
   let searching = $state(false);
 
-  const is_connected = $derived(ref_store.connection_status === "connected");
+  const has_connected_extensions = $derived(
+    ref_store.get_connected_extensions().length > 0,
+  );
+  const has_extensions = $derived(
+    ref_service.get_registered_extensions().length > 0,
+  );
 
   function debounced_search(q: string) {
     if (debounce_timer) clearTimeout(debounce_timer);
     if (!q.trim()) {
       local_results = [];
-      zotero_results = [];
+      extension_results = [];
       searching = false;
       return;
     }
@@ -32,16 +40,27 @@
       local_results = ref_store.library_items.filter((item) =>
         match_query(item, q),
       );
-      if (is_connected) {
+      const local_ids = new Set(local_results.map((i) => i.id));
+      const ext_groups: Array<{ label: string; items: CslItem[] }> = [];
+      for (const ext of ref_service.get_registered_extensions()) {
+        const status = ref_store.get_extension_status(ext.id);
+        if (status !== "connected") continue;
         try {
-          await ctx.action_registry.execute("reference.search_zotero", q);
+          await ctx.action_registry.execute("reference.search_extension", {
+            ext_id: ext.id,
+            query: q,
+          });
           const remote = ref_store.search_results;
-          const local_ids = new Set(local_results.map((i) => i.id));
-          zotero_results = remote.filter((i) => !local_ids.has(i.id));
+          const unique = remote.filter((i) => !local_ids.has(i.id));
+          if (unique.length > 0) {
+            ext_groups.push({ label: ext.label, items: unique });
+            for (const item of unique) local_ids.add(item.id);
+          }
         } catch {
-          zotero_results = [];
+          // extension search failed, skip
         }
       }
+      extension_results = ext_groups;
       searching = false;
     }, 250);
   }
@@ -68,8 +87,13 @@
     return item._source === "linked_source";
   }
 
-  async function test_connection() {
-    await ctx.action_registry.execute("reference.test_zotero_connection");
+  async function test_connections() {
+    for (const ext of ref_service.get_registered_extensions()) {
+      await ctx.action_registry.execute(
+        "reference.test_extension_connection",
+        ext.id,
+      );
+    }
   }
 
   onDestroy(() => {
@@ -81,19 +105,21 @@
   <div class="CitationPicker__header">
     <div class="flex items-center justify-between px-3 py-2 border-b">
       <h2 class="text-sm font-semibold">References</h2>
-      <button
-        class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
-        onclick={test_connection}
-        title={is_connected
-          ? "Zotero connected"
-          : "Click to test Zotero connection"}
-      >
-        {#if is_connected}
-          <PlugZap class="w-3 h-3 text-green-500" />
-        {:else}
-          <Plug class="w-3 h-3 text-muted-foreground" />
-        {/if}
-      </button>
+      {#if has_extensions}
+        <button
+          class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
+          onclick={test_connections}
+          title={has_connected_extensions
+            ? "Extensions connected"
+            : "Click to test extension connections"}
+        >
+          {#if has_connected_extensions}
+            <PlugZap class="w-3 h-3 text-green-500" />
+          {:else}
+            <Plug class="w-3 h-3 text-muted-foreground" />
+          {/if}
+        </button>
+      {/if}
     </div>
     <div class="relative px-3 py-2">
       <Search
@@ -141,11 +167,13 @@
         {/each}
       {/if}
 
-      {#if zotero_results.length > 0}
+      {#each extension_results as group (group.label)}
         <div class="px-3 pt-2">
-          <p class="text-xs text-muted-foreground font-medium mb-1">Zotero</p>
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            {group.label}
+          </p>
         </div>
-        {#each zotero_results as item (item.id)}
+        {#each group.items as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() => insert(item)}
@@ -159,9 +187,9 @@
             </div>
           </button>
         {/each}
-      {/if}
+      {/each}
 
-      {#if query.trim() && local_results.length === 0 && zotero_results.length === 0 && !searching}
+      {#if query.trim() && local_results.length === 0 && extension_results.length === 0 && !searching}
         <div class="text-center py-4 text-muted-foreground">
           <p class="text-sm">No results found.</p>
         </div>

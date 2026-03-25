@@ -7,16 +7,13 @@ export type {
   LinkedSource,
   ScanEntry,
   LinkedSourceFsEvent,
-  ZoteroCollection,
-  ZoteroAttachment,
   PdfAnnotation,
-  ZoteroConnectionConfig,
 } from "./types";
 export type {
   ReferenceStoragePort,
   CitationPort,
   DoiLookupPort,
-  ZoteroPort,
+  ReferenceSearchExtension,
   LinkedSourcePort,
 } from "./ports";
 export { ReferenceStore } from "./state/reference_store.svelte";
@@ -25,7 +22,6 @@ export { register_reference_actions } from "./application/reference_actions";
 export { create_reference_tauri_adapter } from "./adapters/reference_tauri_adapter";
 export { create_citationjs_adapter } from "./adapters/citationjs_adapter";
 export { create_doi_tauri_adapter } from "./adapters/doi_tauri_adapter";
-export { create_zotero_bbt_adapter } from "./adapters/zotero_bbt_adapter";
 export { create_linked_source_tauri_adapter } from "./adapters/linked_source_tauri_adapter";
 export {
   format_authors,

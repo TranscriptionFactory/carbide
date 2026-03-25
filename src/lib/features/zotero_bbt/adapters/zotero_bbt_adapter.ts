@@ -1,6 +1,7 @@
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import type { ZoteroPort } from "../ports";
-import type { CslItem, PdfAnnotation, ZoteroCollection } from "../types";
+import type { CslItem, PdfAnnotation } from "$lib/features/reference";
+import type { ZoteroCollection } from "../types";
 
 const DEFAULT_BBT_URL = "http://localhost:23119/better-bibtex/json-rpc";
 

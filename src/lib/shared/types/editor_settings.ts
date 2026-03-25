@@ -109,7 +109,6 @@ export type EditorSettings = {
   iwe_enabled: boolean;
   iwe_binary_path: string;
   reference_enabled: boolean;
-  reference_bbt_url: string;
   reference_citation_style: string;
 };
 
@@ -178,7 +177,6 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   iwe_enabled: false,
   iwe_binary_path: "",
   reference_enabled: false,
-  reference_bbt_url: "http://localhost:23119/better-bibtex/json-rpc",
   reference_citation_style: "apa",
 };
 

@@ -5,7 +5,9 @@ export type LinkedSourceSyncStatus = "idle" | "scanning" | "error";
 export class ReferenceStore {
   library_items = $state<CslItem[]>([]);
   search_results = $state<CslItem[]>([]);
-  connection_status = $state<"idle" | "connected" | "disconnected">("idle");
+  extension_status = $state<Map<string, "idle" | "connected" | "disconnected">>(
+    new Map(),
+  );
   selected_citekeys = $state<string[]>([]);
   annotations_by_citekey = $state<Map<string, PdfAnnotation[]>>(new Map());
   loading = $state(false);
@@ -24,8 +26,23 @@ export class ReferenceStore {
     this.search_results = results;
   }
 
-  set_connection_status(status: "idle" | "connected" | "disconnected") {
-    this.connection_status = status;
+  set_extension_status(
+    ext_id: string,
+    status: "idle" | "connected" | "disconnected",
+  ) {
+    const next = new Map(this.extension_status);
+    next.set(ext_id, status);
+    this.extension_status = next;
+  }
+
+  get_extension_status(ext_id: string): "idle" | "connected" | "disconnected" {
+    return this.extension_status.get(ext_id) ?? "idle";
+  }
+
+  get_connected_extensions(): string[] {
+    return [...this.extension_status.entries()]
+      .filter(([, status]) => status === "connected")
+      .map(([id]) => id);
   }
 
   set_selected_citekeys(citekeys: string[]) {
@@ -119,7 +136,7 @@ export class ReferenceStore {
   reset() {
     this.library_items = [];
     this.search_results = [];
-    this.connection_status = "idle";
+    this.extension_status = new Map();
     this.selected_citekeys = [];
     this.annotations_by_citekey = new Map();
     this.loading = false;

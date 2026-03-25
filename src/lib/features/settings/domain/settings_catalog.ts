@@ -589,22 +589,6 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
-    key: "reference_bbt_url",
-    label: "Zotero BBT URL",
-    description:
-      "JSON-RPC endpoint for the Better BibTeX Zotero plugin. Requires Zotero + BBT running locally",
-    category: "Tools",
-    keywords: [
-      "reference",
-      "zotero",
-      "bbt",
-      "better bibtex",
-      "url",
-      "endpoint",
-      "connection",
-    ],
-  },
-  {
     key: "reference_citation_style",
     label: "Citation Style",
     description:
