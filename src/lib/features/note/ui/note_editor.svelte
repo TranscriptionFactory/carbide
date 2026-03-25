@@ -7,9 +7,10 @@
   import { HotkeyKey } from "$lib/features/hotkey";
   import { Button } from "$lib/components/ui/button";
   import { DocumentViewer } from "$lib/features/document";
-  import { CanvasViewer } from "$lib/features/canvas";
+  // PHASE 2 FREEZE: canvas and graph views disabled during refactor
+  // import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
-  import { GraphTabView } from "$lib/features/graph";
+  // import { GraphTabView } from "$lib/features/graph";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
   const { stores, action_registry } = use_app_context();
@@ -51,14 +52,15 @@
 </script>
 
 <div class="NoteEditor">
+  <!-- PHASE 2 FREEZE: graph and canvas views disabled during refactor -->
   {#if active_tab?.kind === "graph"}
-    <GraphTabView />
+    <div class="NoteEditor__empty">
+      <p class="NoteEditor__empty-hint">Graph view frozen during refactor</p>
+    </div>
   {:else if is_canvas_tab && active_tab?.kind === "document"}
-    <CanvasViewer
-      tab_id={active_tab.id}
-      file_path={active_tab.file_path}
-      file_type={active_tab.file_type as "canvas" | "excalidraw"}
-    />
+    <div class="NoteEditor__empty">
+      <p class="NoteEditor__empty-hint">Canvas view frozen during refactor</p>
+    </div>
   {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer
       viewer_state={document_viewer_state}
