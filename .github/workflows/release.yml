@@ -67,6 +67,14 @@ jobs:
           touch src-tauri/excalidraw-dist/index.html
           touch src-tauri/excalidraw-dist/assets/.gitkeep
 
+      - name: Stub sidecar binaries for build
+        run: |
+          triple="x86_64-unknown-linux-gnu"
+          for bin in iwes rumdl; do
+            touch "src-tauri/binaries/${bin}-${triple}"
+            chmod +x "src-tauri/binaries/${bin}-${triple}"
+          done
+
       - name: Generate TypeScript bindings
         run: cd src-tauri && cargo test specta_export::export_bindings -- --nocapture
 
@@ -85,12 +93,16 @@ jobs:
         include:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
+            triple: aarch64-apple-darwin
           - platform: macos-latest
             args: --target x86_64-apple-darwin
+            triple: x86_64-apple-darwin
           - platform: ubuntu-22.04
             args: ""
+            triple: x86_64-unknown-linux-gnu
           - platform: windows-latest
             args: ""
+            triple: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -130,6 +142,14 @@ jobs:
         with:
           name: ts-bindings
           path: src/lib/generated
+
+      - name: Stub sidecar binaries for build
+        shell: bash
+        run: |
+          for bin in iwes rumdl; do
+            touch "src-tauri/binaries/${bin}-${{ matrix.triple }}"
+            chmod +x "src-tauri/binaries/${bin}-${{ matrix.triple }}"
+          done
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
