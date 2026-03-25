@@ -25,6 +25,7 @@ pub struct IweCodeAction {
     pub title: String,
     pub kind: Option<String>,
     pub data: Option<String>,
+    pub raw_json: String,
 }
 
 #[derive(Debug, Serialize, Type)]

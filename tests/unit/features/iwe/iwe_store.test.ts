@@ -57,7 +57,12 @@ describe("IweStore", () => {
   it("set_code_actions stores actions", () => {
     const store = new IweStore();
     const actions = [
-      { title: "Extract Section", kind: "refactor", data: null },
+      {
+        title: "Extract Section",
+        kind: "refactor",
+        data: null,
+        raw_json: "{}",
+      },
     ];
     store.set_code_actions(actions);
     expect(store.code_actions).toEqual(actions);
@@ -125,7 +130,9 @@ describe("IweStore", () => {
         },
       },
     ]);
-    store.set_code_actions([{ title: "X", kind: null, data: null }]);
+    store.set_code_actions([
+      { title: "X", kind: null, data: null, raw_json: "{}" },
+    ]);
     store.set_loading(true);
     store.set_error("err");
 

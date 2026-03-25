@@ -413,6 +413,7 @@ pub async fn iwe_code_actions(
                 title: a.get("title")?.as_str()?.to_string(),
                 kind: a.get("kind").and_then(|k| k.as_str()).map(String::from),
                 data: a.get("data").map(|d| d.to_string()),
+                raw_json: a.to_string(),
             })
         })
         .collect();
@@ -564,7 +565,7 @@ pub async fn iwe_completion(
 ) -> Result<Vec<IweCompletionItem>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    log::info!("IWE completion request uri={}", uri);
+    log::trace!("IWE completion request uri={}", uri);
     let result = iwe_state(&app)
         .request(
             &vault_id,
@@ -584,7 +585,7 @@ pub async fn iwe_completion(
     let empty_vec = vec![];
     let raw_items = items_val.and_then(|v| v.as_array()).unwrap_or(&empty_vec);
     for item in raw_items.iter() {
-        log::info!(
+        log::trace!(
             "IWE completion item: label={:?} insertText={:?} detail={:?}",
             item.get("label").and_then(|v| v.as_str()),
             item.get("insertText").and_then(|v| v.as_str()),
@@ -655,7 +656,7 @@ pub async fn iwe_formatting(
             let range = parse_range_obj(edit.get("range")?)?;
             Some(IweTextEdit {
                 range,
-                new_text: edit.get("newText")?.as_str()?.to_string(),
+                new_text: edit.get("newText")?.as_str()?.replace('\t', "    "),
             })
         })
         .collect();

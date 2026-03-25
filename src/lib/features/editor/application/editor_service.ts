@@ -92,12 +92,18 @@ export type EditorServiceCallbacks = {
     end_line: number,
     end_character: number,
   ) => Promise<
-    Array<{ title: string; kind: string | null; data: string | null }>
+    Array<{
+      title: string;
+      kind: string | null;
+      data: string | null;
+      raw_json: string;
+    }>
   >;
   on_iwe_code_action_resolve?: (action: {
     title: string;
     kind: string | null;
     data: string | null;
+    raw_json: string;
   }) => void;
 };
 

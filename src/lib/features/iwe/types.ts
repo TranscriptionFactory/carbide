@@ -26,6 +26,7 @@ export type IweCodeAction = {
   title: string;
   kind: string | null;
   data: string | null;
+  raw_json: string;
 };
 
 export type IweCompletionItem = {

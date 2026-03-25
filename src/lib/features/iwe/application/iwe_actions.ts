@@ -153,7 +153,7 @@ export function register_iwe_actions(input: {
     execute: async (...args: unknown[]) => {
       const action = args[0] as IweCodeAction | undefined;
       if (!action?.data) return;
-      await iwe_service.code_action_resolve(action.data);
+      await iwe_service.code_action_resolve(action.raw_json);
     },
   });
 
