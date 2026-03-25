@@ -39,7 +39,11 @@ import {
 import { GraphService, register_graph_actions } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
-import { BasesService } from "$lib/features/bases";
+import {
+  BasesService,
+  BasesPanel,
+  register_bases_actions,
+} from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService } from "$lib/features/task";
 import {
@@ -74,7 +78,7 @@ import {
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PencilRuler, BookMarked } from "@lucide/svelte";
+import { Blocks, PencilRuler, BookMarked, Table } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
@@ -140,6 +144,13 @@ export function create_app_context(input: {
     label: "References",
     icon: BookMarked,
     panel: CitationPicker,
+  });
+
+  plugin_service.register_sidebar_view({
+    id: "bases",
+    label: "Bases",
+    icon: Table,
+    panel: BasesPanel,
   });
 
   const search_service = new SearchService(
@@ -731,6 +742,14 @@ export function create_app_context(input: {
     registry: action_registry,
     toolchain_service,
   });
+
+  register_bases_actions(
+    action_registry,
+    bases_service,
+    stores.bases,
+    stores.vault,
+    stores.ui,
+  );
 
   register_query_actions(action_registry, query_service, stores.ui);
 

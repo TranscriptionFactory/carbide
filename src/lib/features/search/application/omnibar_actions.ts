@@ -29,6 +29,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   toggle_outline_panel: ACTION_IDS.ui_toggle_outline_panel,
   toggle_tasks_panel: ACTION_IDS.ui_toggle_tasks_panel,
   toggle_metadata_panel: ACTION_IDS.metadata_toggle_panel,
+  toggle_bases_panel: ACTION_IDS.bases_toggle_panel,
   quick_capture_task: ACTION_IDS.ui_quick_capture,
   show_tasks_list: ACTION_IDS.ui_show_tasks_list,
   show_tasks_kanban: ACTION_IDS.ui_show_tasks_kanban,
