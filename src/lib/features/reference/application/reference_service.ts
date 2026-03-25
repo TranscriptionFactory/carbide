@@ -2,7 +2,7 @@ import type {
   ReferenceStoragePort,
   CitationPort,
   DoiLookupPort,
-  ZoteroPort,
+  ReferenceSearchExtension,
   LinkedSourcePort,
 } from "../ports";
 import type { ReferenceStore } from "../state/reference_store.svelte";
@@ -39,10 +39,29 @@ export class ReferenceService {
     private now_ms: () => number,
     private citation_port: CitationPort | null = null,
     private doi_port: DoiLookupPort | null = null,
-    private zotero_port: ZoteroPort | null = null,
     private linked_source_port: LinkedSourcePort | null = null,
     private vault_settings_port: VaultSettingsPort | null = null,
   ) {}
+
+  private extensions = new Map<string, ReferenceSearchExtension>();
+
+  register_extension(ext: ReferenceSearchExtension): void {
+    this.extensions.set(ext.id, ext);
+  }
+
+  unregister_extension(id: string): void {
+    this.extensions.delete(id);
+  }
+
+  get_registered_extensions(): ReferenceSearchExtension[] {
+    return [...this.extensions.values()];
+  }
+
+  private require_extension(ext_id: string): ReferenceSearchExtension {
+    const ext = this.extensions.get(ext_id);
+    if (!ext) throw new Error(`Extension "${ext_id}" not registered`);
+    return ext;
+  }
 
   private require_vault_id(): string {
     const vault = this.vault_store.vault;
@@ -281,18 +300,14 @@ export class ReferenceService {
     return this.citation_port.list_styles();
   }
 
-  private require_zotero_port(): ZoteroPort {
-    if (!this.zotero_port) throw new Error("Zotero port not available");
-    return this.zotero_port;
-  }
-
-  async test_zotero_connection(): Promise<boolean> {
-    const port = this.require_zotero_port();
-    const op_key = "reference.test_zotero_connection";
+  async test_extension_connection(ext_id: string): Promise<boolean> {
+    const ext = this.require_extension(ext_id);
+    const op_key = `reference.test_extension_connection.${ext_id}`;
     this.op_store.start(op_key, this.now_ms());
     try {
-      const connected = await port.test_connection();
-      this.store.set_connection_status(
+      const connected = await ext.test_connection();
+      this.store.set_extension_status(
+        ext_id,
         connected ? "connected" : "disconnected",
       );
       this.store.set_error(null);
@@ -300,19 +315,19 @@ export class ReferenceService {
       return connected;
     } catch (e) {
       const msg = error_message(e);
-      this.store.set_connection_status("disconnected");
+      this.store.set_extension_status(ext_id, "disconnected");
       this.store.set_error(msg);
       this.op_store.fail(op_key, msg);
       return false;
     }
   }
 
-  async search_zotero(query: string): Promise<CslItem[]> {
-    const port = this.require_zotero_port();
-    const op_key = "reference.search_zotero";
+  async search_extension(ext_id: string, query: string): Promise<CslItem[]> {
+    const ext = this.require_extension(ext_id);
+    const op_key = `reference.search_extension.${ext_id}`;
     this.op_store.start(op_key, this.now_ms());
     try {
-      const items = await port.search_items(query);
+      const items = await ext.search(query);
       const keyed = items.map((i) => this.ensure_citekey(i));
       this.store.set_search_results(keyed);
       this.store.set_error(null);
@@ -326,43 +341,55 @@ export class ReferenceService {
     }
   }
 
-  async import_from_zotero(citekeys: string[]): Promise<void> {
-    const port = this.require_zotero_port();
-    await this.import_parsed("reference.import_from_zotero", async () => {
-      const results = await Promise.all(
-        citekeys.map((key) => port.get_item(key)),
-      );
-      return results.filter((item): item is CslItem => item !== null);
-    });
+  async import_from_extension(
+    ext_id: string,
+    citekeys: string[],
+  ): Promise<void> {
+    const ext = this.require_extension(ext_id);
+    await this.import_parsed(
+      `reference.import_from_extension.${ext_id}`,
+      async () => {
+        const results = await Promise.all(
+          citekeys.map((key) => ext.get_item(key)),
+        );
+        return results.filter((item): item is CslItem => item !== null);
+      },
+    );
   }
 
   async ensure_in_library(citekey: string): Promise<CslItem | null> {
     const existing = this.find_in_library(citekey);
     if (existing) return existing;
-    if (!this.zotero_port) return null;
-    try {
-      const item = await this.zotero_port.get_item(citekey);
-      if (!item) return null;
-      const keyed = this.ensure_citekey(item);
-      await this.add_reference(keyed, "zotero_bbt");
-      return keyed;
-    } catch (e) {
-      this.store.set_error(error_message(e));
-      return null;
+    for (const ext of this.extensions.values()) {
+      try {
+        const item = await ext.get_item(citekey);
+        if (!item) continue;
+        const keyed = this.ensure_citekey(item);
+        await this.add_reference(keyed, "extension");
+        return keyed;
+      } catch {
+        continue;
+      }
     }
+    return null;
   }
 
   find_in_library(citekey: string): CslItem | null {
     return this.store.library_items.find((i) => i.id === citekey) ?? null;
   }
 
-  async sync_annotations(citekey: string): Promise<PdfAnnotation[]> {
-    const port = this.require_zotero_port();
+  async sync_annotations(
+    ext_id: string,
+    citekey: string,
+  ): Promise<PdfAnnotation[]> {
+    const ext = this.require_extension(ext_id);
+    if (!ext.get_annotations)
+      throw new Error(`Extension "${ext_id}" does not support annotations`);
     const vault_id = this.require_vault_id();
-    const op_key = "reference.sync_annotations";
+    const op_key = `reference.sync_annotations.${ext_id}`;
     this.op_store.start(op_key, this.now_ms());
     try {
-      const annotations = await port.get_item_annotations(citekey);
+      const annotations = await ext.get_annotations(citekey);
       const deduped = merge_annotations([], annotations);
       const markdown = annotations_to_markdown(deduped, citekey);
       await this.storage_port.save_annotation_note(vault_id, citekey, markdown);
@@ -435,8 +462,9 @@ export class ReferenceService {
     await this.save_linked_sources();
 
     const ls_port = this.require_linked_source_port();
-    await ls_port.watch(path);
-    void this.scan_linked_source(source.id);
+    void this.scan_linked_source(source.id).then(() =>
+      ls_port.watch(source.path),
+    );
 
     return source;
   }
@@ -489,8 +517,7 @@ export class ReferenceService {
     await this.save_linked_sources();
 
     if (new_enabled) {
-      await ls_port.watch(source.path);
-      void this.scan_linked_source(id);
+      void this.scan_linked_source(id).then(() => ls_port.watch(source.path));
     } else {
       await ls_port.unwatch(source.path);
     }
@@ -534,11 +561,15 @@ export class ReferenceService {
       // FTS: clear stale, then index all entries
       try {
         await ls_port.clear_source(vault_id, source_id);
-        await Promise.all(
-          entries.map((entry) =>
-            ls_port.index_content(vault_id, source_id, entry),
-          ),
-        );
+        const batch_size = 5;
+        for (let i = 0; i < entries.length; i += batch_size) {
+          const batch = entries.slice(i, i + batch_size);
+          await Promise.all(
+            batch.map((entry) =>
+              ls_port.index_content(vault_id, source_id, entry),
+            ),
+          );
+        }
       } catch (e) {
         console.error("FTS indexing failed during scan:", error_message(e));
       }

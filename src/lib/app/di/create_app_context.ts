@@ -67,6 +67,10 @@ import {
   register_reference_actions,
   CitationPicker,
 } from "$lib/features/reference";
+import {
+  ZoteroBbtExtension,
+  create_zotero_bbt_adapter,
+} from "$lib/features/zotero_bbt";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
@@ -512,10 +516,14 @@ export function create_app_context(input: {
     now_ms,
     input.ports.citation,
     input.ports.doi_lookup,
-    input.ports.zotero,
     input.ports.linked_source,
     input.ports.vault_settings,
   );
+
+  const zotero_bbt_extension = new ZoteroBbtExtension(
+    create_zotero_bbt_adapter(),
+  );
+  reference_service.register_extension(zotero_bbt_extension);
 
   const base_action_input = {
     registry: action_registry,

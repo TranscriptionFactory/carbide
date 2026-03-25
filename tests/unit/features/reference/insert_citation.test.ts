@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { ReferenceService } from "$lib/features/reference/application/reference_service";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
-import type { ZoteroPort } from "$lib/features/reference/ports";
+import type { ReferenceSearchExtension } from "$lib/features/reference/ports";
 import {
   sync_reference_to_markdown,
   extract_frontmatter,
@@ -11,7 +11,7 @@ import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 
 function make_service(
   initial_items = [make_item("smith2024"), make_item("doe2023")],
-  zotero_port: ZoteroPort | null = null,
+  extension: ReferenceSearchExtension | null = null,
 ) {
   const store = new ReferenceStore();
   const storage = make_mock_storage(initial_items);
@@ -22,10 +22,8 @@ function make_service(
     make_vault_store(),
     op_store,
     () => Date.now(),
-    null,
-    null,
-    zotero_port,
   );
+  if (extension) service.register_extension(extension);
   store.set_library_items(initial_items);
   return { service, store, storage };
 }
@@ -45,59 +43,53 @@ describe("ReferenceService.find_in_library", () => {
 });
 
 describe("ReferenceService.ensure_in_library", () => {
-  it("returns existing item without Zotero call", async () => {
-    const zotero_port = {
+  it("returns existing item without extension call", async () => {
+    const extension: ReferenceSearchExtension = {
+      id: "test_ext",
+      label: "Test",
       test_connection: vi.fn(),
-      search_items: vi.fn(),
-      get_item: vi.fn(),
-      get_collections: vi.fn(),
-      get_collection_items: vi.fn(),
-      get_bibliography: vi.fn(),
-      get_item_annotations: vi.fn(),
+      search: vi.fn(async () => []),
+      get_item: vi.fn(async () => null),
     };
-    const { service } = make_service(undefined, zotero_port);
+    const { service } = make_service(undefined, extension);
     const result = await service.ensure_in_library("smith2024");
     expect(result).not.toBeNull();
     expect(result!.id).toBe("smith2024");
-    expect(zotero_port.get_item).not.toHaveBeenCalled();
+    expect(extension.get_item).not.toHaveBeenCalled();
   });
 
-  it("fetches from Zotero when not in library", async () => {
+  it("fetches from extension when not in library", async () => {
     const remote_item = make_item("remote2024", { title: "Remote Paper" });
-    const zotero_port = {
+    const extension: ReferenceSearchExtension = {
+      id: "test_ext",
+      label: "Test",
       test_connection: vi.fn(),
-      search_items: vi.fn(),
+      search: vi.fn(async () => []),
       get_item: vi.fn(async () => remote_item),
-      get_collections: vi.fn(),
-      get_collection_items: vi.fn(),
-      get_bibliography: vi.fn(),
-      get_item_annotations: vi.fn(),
     };
-    const { service, store } = make_service([], zotero_port);
+    const { service, store } = make_service([], extension);
     const result = await service.ensure_in_library("remote2024");
     expect(result).not.toBeNull();
     expect(result!.title).toBe("Remote Paper");
-    expect(zotero_port.get_item).toHaveBeenCalledWith("remote2024");
+    expect(extension.get_item).toHaveBeenCalledWith("remote2024");
     expect(store.library_items.some((i) => i.id === "remote2024")).toBe(true);
   });
 
-  it("returns null when Zotero not available", async () => {
+  it("returns null when no extensions registered", async () => {
     const { service } = make_service([]);
     const result = await service.ensure_in_library("missing");
     expect(result).toBeNull();
   });
 
-  it("returns null when Zotero returns null", async () => {
-    const zotero_port = {
+  it("returns null when extension returns null", async () => {
+    const extension: ReferenceSearchExtension = {
+      id: "test_ext",
+      label: "Test",
       test_connection: vi.fn(),
-      search_items: vi.fn(),
+      search: vi.fn(async () => []),
       get_item: vi.fn(async () => null),
-      get_collections: vi.fn(),
-      get_collection_items: vi.fn(),
-      get_bibliography: vi.fn(),
-      get_item_annotations: vi.fn(),
     };
-    const { service } = make_service([], zotero_port);
+    const { service } = make_service([], extension);
     const result = await service.ensure_in_library("missing");
     expect(result).toBeNull();
   });

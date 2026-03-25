@@ -105,28 +105,36 @@ export function register_reference_actions(input: {
   });
 
   registry.register({
-    id: "reference.test_zotero_connection",
-    label: "References: Test Zotero Connection",
-    execute: async () => {
-      await reference_service.test_zotero_connection();
+    id: "reference.test_extension_connection",
+    label: "References: Test Extension Connection",
+    execute: async (ext_id: unknown) => {
+      if (typeof ext_id !== "string") return;
+      await reference_service.test_extension_connection(ext_id);
     },
   });
 
   registry.register({
-    id: "reference.search_zotero",
-    label: "References: Search Zotero",
-    execute: async (query: unknown) => {
-      if (typeof query !== "string") return;
-      await reference_service.search_zotero(query);
+    id: "reference.search_extension",
+    label: "References: Search Extension",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { ext_id, query } = args as { ext_id: string; query: string };
+      if (typeof ext_id !== "string" || typeof query !== "string") return;
+      await reference_service.search_extension(ext_id, query);
     },
   });
 
   registry.register({
-    id: "reference.import_from_zotero",
-    label: "References: Import from Zotero",
-    execute: async (citekeys: unknown) => {
-      if (!Array.isArray(citekeys)) return;
-      await reference_service.import_from_zotero(citekeys as string[]);
+    id: "reference.import_from_extension",
+    label: "References: Import from Extension",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { ext_id, citekeys } = args as {
+        ext_id: string;
+        citekeys: string[];
+      };
+      if (typeof ext_id !== "string" || !Array.isArray(citekeys)) return;
+      await reference_service.import_from_extension(ext_id, citekeys);
     },
   });
 
@@ -151,9 +159,11 @@ export function register_reference_actions(input: {
   registry.register({
     id: "reference.sync_annotations",
     label: "References: Sync Annotations",
-    execute: async (citekey: unknown) => {
-      if (typeof citekey !== "string") return;
-      await reference_service.sync_annotations(citekey);
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { ext_id, citekey } = args as { ext_id: string; citekey: string };
+      if (typeof ext_id !== "string" || typeof citekey !== "string") return;
+      await reference_service.sync_annotations(ext_id, citekey);
     },
   });
 
