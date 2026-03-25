@@ -125,4 +125,75 @@ describe("BasesStore", () => {
     expect(store.query.limit).toBe(50);
     expect(store.query.offset).toBe(10);
   });
+
+  it("add_filter appends a filter and resets offset", () => {
+    const store = new BasesStore();
+    store.query = { ...store.query, offset: 50 };
+
+    store.add_filter({ property: "status", operator: "eq", value: "done" });
+
+    expect(store.query.filters).toHaveLength(1);
+    expect(store.query.filters[0]).toEqual({
+      property: "status",
+      operator: "eq",
+      value: "done",
+    });
+    expect(store.query.offset).toBe(0);
+  });
+
+  it("add_filter preserves existing filters", () => {
+    const store = new BasesStore();
+    store.add_filter({ property: "status", operator: "eq", value: "done" });
+
+    store.add_filter({ property: "priority", operator: "gt", value: "3" });
+
+    expect(store.query.filters).toHaveLength(2);
+  });
+
+  it("remove_filter removes by index", () => {
+    const store = new BasesStore();
+    store.add_filter({ property: "a", operator: "eq", value: "1" });
+    store.add_filter({ property: "b", operator: "eq", value: "2" });
+    store.add_filter({ property: "c", operator: "eq", value: "3" });
+
+    store.remove_filter(1);
+
+    expect(store.query.filters).toHaveLength(2);
+    expect(store.query.filters[0].property).toBe("a");
+    expect(store.query.filters[1].property).toBe("c");
+    expect(store.query.offset).toBe(0);
+  });
+
+  it("clear_filters removes all filters and resets offset", () => {
+    const store = new BasesStore();
+    store.add_filter({ property: "a", operator: "eq", value: "1" });
+    store.add_filter({ property: "b", operator: "eq", value: "2" });
+    store.query = { ...store.query, offset: 100 };
+
+    store.clear_filters();
+
+    expect(store.query.filters).toEqual([]);
+    expect(store.query.offset).toBe(0);
+  });
+
+  it("set_sort sets a single sort and resets offset", () => {
+    const store = new BasesStore();
+    store.query = { ...store.query, offset: 50 };
+
+    store.set_sort({ property: "title", descending: false });
+
+    expect(store.query.sort).toEqual([
+      { property: "title", descending: false },
+    ]);
+    expect(store.query.offset).toBe(0);
+  });
+
+  it("set_sort with null clears sort", () => {
+    const store = new BasesStore();
+    store.set_sort({ property: "title", descending: false });
+
+    store.set_sort(null);
+
+    expect(store.query.sort).toEqual([]);
+  });
 });

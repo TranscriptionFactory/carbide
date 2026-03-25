@@ -191,6 +191,21 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "list-tree",
   },
   {
+    id: "toggle_bases_panel",
+    label: "Toggle Bases Panel",
+    description: "Show or hide the Bases database view",
+    keywords: [
+      "bases",
+      "database",
+      "properties",
+      "frontmatter",
+      "table",
+      "query",
+      "filter",
+    ],
+    icon: "list-tree",
+  },
+  {
     id: "quick_capture_task",
     label: "Quick Capture Task",
     description: "Rapidly add a new task to your vault",

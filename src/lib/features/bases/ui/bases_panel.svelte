@@ -3,12 +3,32 @@
   import Table from "@lucide/svelte/icons/table";
   import List from "@lucide/svelte/icons/list";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import Plus from "@lucide/svelte/icons/plus";
+  import X from "@lucide/svelte/icons/x";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
+  import Filter from "@lucide/svelte/icons/filter";
   import BasesTable from "./bases_table.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+
+  const OPERATORS = [
+    { value: "eq", label: "=" },
+    { value: "neq", label: "!=" },
+    { value: "contains", label: "contains" },
+    { value: "gt", label: ">" },
+    { value: "lt", label: "<" },
+    { value: "gte", label: ">=" },
+    { value: "lte", label: "<=" },
+  ];
 
   const { stores, services, action_registry } = use_app_context();
   const bases_store = stores.bases;
   const vault_store = stores.vault;
+
+  let filters_open = $state(false);
+  let draft_property = $state("");
+  let draft_operator = $state("eq");
+  let draft_value = $state("");
 
   function refresh() {
     const vault_id = vault_store.active_vault_id;
@@ -21,13 +41,58 @@
   function handle_note_click(path: string) {
     void action_registry.execute(ACTION_IDS.note_open, { note_path: path });
   }
+
+  function add_filter() {
+    if (!draft_property) return;
+    bases_store.add_filter({
+      property: draft_property,
+      operator: draft_operator,
+      value: draft_value,
+    });
+    draft_value = "";
+    run_query();
+  }
+
+  function remove_filter(index: number) {
+    bases_store.remove_filter(index);
+    run_query();
+  }
+
+  function clear_filters() {
+    bases_store.clear_filters();
+    run_query();
+  }
+
+  function toggle_sort(property: string) {
+    const current = bases_store.query.sort[0];
+    if (current?.property === property) {
+      if (current.descending) {
+        bases_store.set_sort(null);
+      } else {
+        bases_store.set_sort({ property, descending: true });
+      }
+    } else {
+      bases_store.set_sort({ property, descending: false });
+    }
+    run_query();
+  }
+
+  function run_query() {
+    const vault_id = vault_store.active_vault_id;
+    if (vault_id) {
+      void services.bases.run_query(vault_id);
+    }
+  }
+
+  const active_sort = $derived(bases_store.query.sort[0] ?? null);
+  const has_filters = $derived(bases_store.query.filters.length > 0);
 </script>
 
 <div class="h-full flex flex-col bg-white dark:bg-zinc-950">
   <div
     class="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-800"
   >
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-3">
       <h2 class="text-sm font-semibold">Bases</h2>
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
@@ -50,14 +115,185 @@
         </button>
       </div>
     </div>
-    <button
-      class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
-      onclick={refresh}
-      disabled={bases_store.loading}
-    >
-      <RefreshCw size={14} class={bases_store.loading ? "animate-spin" : ""} />
-    </button>
+    <div class="flex items-center gap-1">
+      <button
+        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {filters_open ||
+        has_filters
+          ? 'text-blue-500'
+          : ''}"
+        onclick={() => (filters_open = !filters_open)}
+        aria-label="Toggle filters"
+      >
+        <Filter size={14} />
+      </button>
+      <button
+        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
+        onclick={refresh}
+        disabled={bases_store.loading}
+      >
+        <RefreshCw
+          size={14}
+          class={bases_store.loading ? "animate-spin" : ""}
+        />
+      </button>
+    </div>
   </div>
+
+  {#if filters_open}
+    <div
+      class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30"
+    >
+      {#if bases_store.query.filters.length > 0}
+        <div class="space-y-1.5">
+          {#each bases_store.query.filters as filter, i}
+            <div class="flex items-center gap-2 text-xs">
+              <span
+                class="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded font-medium truncate max-w-[120px]"
+                >{filter.property}</span
+              >
+              <span class="text-zinc-500"
+                >{OPERATORS.find((o) => o.value === filter.operator)?.label ??
+                  filter.operator}</span
+              >
+              <span
+                class="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded truncate max-w-[120px]"
+                >{filter.value || '""'}</span
+              >
+              <button
+                class="p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+                onclick={() => remove_filter(i)}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          {/each}
+          <button
+            class="text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            onclick={clear_filters}
+          >
+            Clear all
+          </button>
+        </div>
+      {/if}
+
+      <div class="flex items-end gap-2">
+        <div class="flex-1 min-w-0">
+          <label
+            for="filter-property"
+            class="block text-[10px] text-zinc-500 mb-0.5">Property</label
+          >
+          <select
+            id="filter-property"
+            bind:value={draft_property}
+            class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+          >
+            <option value="">Select...</option>
+            {#each bases_store.available_properties as prop}
+              <option value={prop.name}>{prop.name} ({prop.count})</option>
+            {/each}
+          </select>
+        </div>
+        <div class="w-20">
+          <label
+            for="filter-operator"
+            class="block text-[10px] text-zinc-500 mb-0.5">Op</label
+          >
+          <select
+            id="filter-operator"
+            bind:value={draft_operator}
+            class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+          >
+            {#each OPERATORS as op}
+              <option value={op.value}>{op.label}</option>
+            {/each}
+          </select>
+        </div>
+        <div class="flex-1 min-w-0">
+          <label
+            for="filter-value"
+            class="block text-[10px] text-zinc-500 mb-0.5">Value</label
+          >
+          <input
+            id="filter-value"
+            type="text"
+            bind:value={draft_value}
+            placeholder="value"
+            class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+            onkeydown={(e) => e.key === "Enter" && add_filter()}
+          />
+        </div>
+        <button
+          class="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50"
+          disabled={!draft_property}
+          onclick={add_filter}
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <ArrowUpDown size={12} class="text-zinc-400" />
+        <select
+          class="text-xs px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+          value={active_sort?.property ?? ""}
+          onchange={(e) => {
+            const val = (e.target as HTMLSelectElement).value;
+            if (val) {
+              bases_store.set_sort({
+                property: val,
+                descending: active_sort?.descending ?? false,
+              });
+              run_query();
+            } else {
+              bases_store.set_sort(null);
+              run_query();
+            }
+          }}
+        >
+          <option value="">No sort</option>
+          <option value="title">Title</option>
+          <option value="mtime_ms">Modified</option>
+          {#each bases_store.available_properties as prop}
+            <option value={prop.name}>{prop.name}</option>
+          {/each}
+        </select>
+        {#if active_sort}
+          <button
+            class="text-xs px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700"
+            onclick={() => {
+              if (active_sort) {
+                bases_store.set_sort({
+                  property: active_sort.property,
+                  descending: !active_sort.descending,
+                });
+                run_query();
+              }
+            }}
+          >
+            {active_sort.descending ? "DESC" : "ASC"}
+          </button>
+        {/if}
+      </div>
+    </div>
+  {/if}
+
+  {#if has_filters && !filters_open}
+    <div
+      class="px-4 py-1.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2"
+    >
+      <Filter size={12} class="text-blue-500" />
+      <span class="text-[11px] text-zinc-500"
+        >{bases_store.query.filters.length} filter{bases_store.query.filters
+          .length > 1
+          ? "s"
+          : ""} active</span
+      >
+      <button
+        class="text-[11px] text-blue-500 hover:text-blue-600"
+        onclick={() => (filters_open = true)}>Edit</button
+      >
+    </div>
+  {/if}
 
   <div class="flex-1 overflow-auto">
     {#if bases_store.loading && bases_store.result_set.length === 0}
@@ -80,6 +316,8 @@
       <BasesTable
         rows={bases_store.result_set}
         on_note_click={handle_note_click}
+        {active_sort}
+        on_sort_toggle={toggle_sort}
       />
     {:else}
       <div class="p-4 space-y-4">
@@ -124,4 +362,45 @@
       </div>
     {/if}
   </div>
+
+  {#if bases_store.total_count > bases_store.query.limit}
+    <div
+      class="flex items-center justify-between px-4 py-2 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500"
+    >
+      <span
+        >{bases_store.query.offset + 1}–{Math.min(
+          bases_store.query.offset + bases_store.query.limit,
+          bases_store.total_count,
+        )} of {bases_store.total_count}</span
+      >
+      <div class="flex items-center gap-2">
+        <button
+          class="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50"
+          disabled={bases_store.query.offset === 0}
+          onclick={() => {
+            bases_store.query = {
+              ...bases_store.query,
+              offset: Math.max(
+                0,
+                bases_store.query.offset - bases_store.query.limit,
+              ),
+            };
+            run_query();
+          }}>Prev</button
+        >
+        <button
+          class="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50"
+          disabled={bases_store.query.offset + bases_store.query.limit >=
+            bases_store.total_count}
+          onclick={() => {
+            bases_store.query = {
+              ...bases_store.query,
+              offset: bases_store.query.offset + bases_store.query.limit,
+            };
+            run_query();
+          }}>Next</button
+        >
+      </div>
+    </div>
+  {/if}
 </div>

@@ -291,6 +291,9 @@ export const ACTION_IDS = {
   iwe_document_symbols: "iwe.document_symbols",
   iwe_open_config: "iwe.open_config",
 
+  bases_toggle_panel: "bases.toggle_panel",
+  bases_refresh: "bases.refresh",
+
   query_execute: "query.execute",
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",
