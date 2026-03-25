@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Terminal, CircleAlert, Braces, Search } from "@lucide/svelte";
+  import { Terminal, CircleAlert, Braces, Search, Zap } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -33,6 +33,8 @@
       stores.iwe.document_symbols.length,
   );
 
+  const lsp_result_count = $derived(stores.lsp.code_actions.length);
+
   const load_terminal = () =>
     import("$lib/features/terminal/ui/terminal_panel_content.svelte");
   const load_problems = () =>
@@ -41,6 +43,8 @@
     import("$lib/features/iwe/ui/iwe_results_panel_content.svelte");
   const load_query = () =>
     import("$lib/features/query/ui/query_panel_content.svelte");
+  const load_lsp_results = () =>
+    import("$lib/features/lsp/ui/lsp_results_panel_content.svelte");
 
   const query_result_count = $derived(stores.query.result?.total ?? 0);
 </script>
@@ -84,6 +88,18 @@
     <button
       type="button"
       class="BottomPanel__tab"
+      class:BottomPanel__tab--active={active_tab === "lsp_results"}
+      onclick={() => set_tab("lsp_results")}
+    >
+      <Zap class="BottomPanel__tab-icon" />
+      LSP
+      {#if lsp_result_count > 0}
+        <span class="BottomPanel__badge">{lsp_result_count}</span>
+      {/if}
+    </button>
+    <button
+      type="button"
+      class="BottomPanel__tab"
       class:BottomPanel__tab--active={active_tab === "query"}
       onclick={() => set_tab("query")}
     >
@@ -113,6 +129,12 @@
       {/await}
     {:else if active_tab === "iwe_results"}
       {#await load_iwe_results() then mod}
+        <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load panel</div>
+      {/await}
+    {:else if active_tab === "lsp_results"}
+      {#await load_lsp_results() then mod}
         <mod.default />
       {:catch}
         <div class="BottomPanel__error">Failed to load panel</div>

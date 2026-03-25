@@ -42,7 +42,12 @@ type ContextRailTab =
   | "graph"
   | "tasks"
   | "metadata";
-export type BottomPanelTab = "terminal" | "problems" | "iwe_results" | "query";
+export type BottomPanelTab =
+  | "terminal"
+  | "problems"
+  | "iwe_results"
+  | "lsp_results"
+  | "query";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 

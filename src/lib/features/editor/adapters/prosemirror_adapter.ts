@@ -478,6 +478,8 @@ export function create_prosemirror_editor_port(args?: {
         on_iwe_inlay_hints,
         on_iwe_code_actions,
         on_iwe_code_action_resolve,
+        on_lsp_code_actions,
+        on_lsp_code_action_resolve,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -836,6 +838,8 @@ export function create_prosemirror_editor_port(args?: {
           create_iwe_code_action_plugin({
             on_code_actions: on_iwe_code_actions,
             on_resolve: on_iwe_code_action_resolve ?? (() => {}),
+            on_lsp_code_actions,
+            on_lsp_resolve: on_lsp_code_action_resolve,
           }),
         );
       }

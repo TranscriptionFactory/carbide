@@ -56,6 +56,7 @@ import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
 import { IweService, register_iwe_actions } from "$lib/features/iwe";
+import { register_lsp_actions } from "$lib/features/lsp";
 import {
   ToolchainService,
   register_toolchain_actions,
@@ -292,6 +293,46 @@ export function create_app_context(input: {
     },
     on_iwe_code_action_resolve: (action) => {
       void action_registry.execute(ACTION_IDS.iwe_code_action_resolve, action);
+    },
+    on_lsp_code_actions: async (
+      file_path,
+      start_line,
+      start_character,
+      end_line,
+      end_character,
+    ) => {
+      const all_actions: Array<{
+        title: string;
+        kind: string | null;
+        data: string | null;
+        raw_json: string;
+        source: string;
+      }> = [];
+
+      const vault_id = stores.vault.vault?.id;
+      if (vault_id && stores.iwe.status === "running") {
+        try {
+          const iwe_actions = await input.ports.iwe.code_actions(
+            vault_id,
+            file_path,
+            start_line,
+            start_character,
+            end_line,
+            end_character,
+          );
+          all_actions.push(
+            ...iwe_actions.map((a) => ({ ...a, source: "iwes" })),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+
+      stores.lsp.set_code_actions(all_actions);
+      return all_actions;
+    },
+    on_lsp_code_action_resolve: (action) => {
+      void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
     },
   };
 
@@ -735,6 +776,15 @@ export function create_app_context(input: {
     iwe_store: stores.iwe,
     editor_store: stores.editor,
     editor_service,
+    ui_store: stores.ui,
+  });
+
+  register_lsp_actions({
+    registry: action_registry,
+    lsp_store: stores.lsp,
+    editor_store: stores.editor,
+    iwe_service,
+    iwe_store: stores.iwe,
     ui_store: stores.ui,
   });
 
