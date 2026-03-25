@@ -10,7 +10,8 @@
     VaultSwitcherDropdown,
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
-  import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
+  // PHASE 2 FREEZE: split view disabled during refactor
+  // import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
   import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
@@ -825,13 +826,14 @@
                           <NoteEditor />
                           <FloatingOutline />
                         </div>
-                        {#if split_view_active}
+                        <!-- PHASE 2 FREEZE: split view disabled during refactor -->
+                        <!-- {#if split_view_active}
                           <div class="SplitViewContainer__handle"></div>
                           <div class="SplitViewContainer__secondary">
                             <SplitNoteEditor />
                           </div>
                         {/if}
-                        <SplitDropZone />
+                        <SplitDropZone /> -->
                       </div>
                     </div>
                   </div>

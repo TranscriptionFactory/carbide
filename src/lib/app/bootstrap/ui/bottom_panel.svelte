@@ -51,7 +51,8 @@
 
 <div class="BottomPanel">
   <div class="BottomPanel__tabs">
-    <button
+    <!-- PHASE 2 FREEZE: terminal and IWE tabs disabled during refactor -->
+    <!-- <button
       type="button"
       class="BottomPanel__tab"
       class:BottomPanel__tab--active={active_tab === "terminal"}
@@ -59,7 +60,7 @@
     >
       <Terminal class="BottomPanel__tab-icon" />
       Terminal
-    </button>
+    </button> -->
     <button
       type="button"
       class="BottomPanel__tab"
@@ -73,7 +74,7 @@
         <span class="BottomPanel__badge">{error_count + warning_count}</span>
       {/if}
     </button>
-    <button
+    <!-- <button
       type="button"
       class="BottomPanel__tab"
       class:BottomPanel__tab--active={active_tab === "iwe_results"}
@@ -84,7 +85,7 @@
       {#if iwe_result_count > 0}
         <span class="BottomPanel__badge">{iwe_result_count}</span>
       {/if}
-    </button>
+    </button> -->
     <button
       type="button"
       class="BottomPanel__tab"
@@ -121,18 +122,11 @@
     </button>
   </div>
   <div class="BottomPanel__content">
+    <!-- PHASE 2 FREEZE: terminal and IWE content disabled -->
     {#if active_tab === "terminal"}
-      {#await load_terminal() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load panel</div>
-      {/await}
+      <div class="BottomPanel__error">Terminal frozen during refactor</div>
     {:else if active_tab === "iwe_results"}
-      {#await load_iwe_results() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load panel</div>
-      {/await}
+      <div class="BottomPanel__error">IWE frozen during refactor</div>
     {:else if active_tab === "lsp_results"}
       {#await load_lsp_results() then mod}
         <mod.default />
