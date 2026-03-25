@@ -1,0 +1,122 @@
+/* ============================================
+   MONOLITH LAYOUT OVERRIDES
+   ============================================ */
+
+[data-layout-variant="monolith"] .WorkspaceLayout--monolith {
+  --editor-max-width: 72ch;
+  --editor-shell-padding-inline: clamp(var(--space-4), 6vw, var(--space-16));
+  --editor-shell-padding-block: clamp(var(--space-8), 8vh, var(--space-20));
+
+  position: relative;
+  background-color: var(--background);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        circle at 50% 15%,
+        color-mix(in oklch, var(--foreground) 4%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        circle at 50% 120%,
+        color-mix(in oklch, var(--foreground) 6%, transparent),
+        transparent 60%
+      );
+    z-index: 0;
+  }
+
+  .ActivityBar,
+  .TabBar,
+  .StatusBar {
+    display: none;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child,
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane-resizer] {
+    display: none;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  [data-slot="sidebar-inset"] {
+    background-color: transparent;
+  }
+
+  .SplitViewContainer {
+    height: 100%;
+    padding-inline: var(--editor-shell-padding-inline);
+    padding-block: var(--editor-shell-padding-block);
+    background-color: var(--background);
+    position: relative;
+    z-index: 1;
+  }
+
+  .SplitViewContainer--split {
+    gap: var(--space-6);
+  }
+
+  .SplitViewContainer__handle {
+    opacity: 0.18;
+    width: 1px;
+    background-color: var(--border-subtle);
+  }
+
+  .NoteEditor {
+    background-color: transparent;
+    padding: 0;
+    scroll-behavior: smooth;
+    --font-sans: "Newsreader", "Charter", Georgia, serif;
+    --font-family-sans: "Newsreader", "Charter", Georgia, serif;
+  }
+
+  .NoteEditor__content,
+  .SourceEditor {
+    width: min(100%, var(--editor-max-width));
+    max-width: var(--editor-max-width);
+    margin-inline: auto;
+    margin-block: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    background-color: var(--card);
+  }
+
+  .NoteEditor__content {
+    padding: var(--space-12) var(--space-8);
+    min-height: min(80vh, 60rem);
+    line-height: 1.85;
+  }
+
+  .SourceEditor {
+    min-height: min(80vh, 60rem);
+    overflow: hidden;
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--muted) 18%, transparent),
+      transparent 16%
+    );
+  }
+
+  .SourceEditor .cm-scroller {
+    padding: var(--space-12) var(--space-8) !important;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}

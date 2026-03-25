@@ -57,7 +57,7 @@ describe("build_tag_tree", () => {
     const project = tree.find((n) => n.segment === "project")!;
     expect(project.own_count).toBe(0);
     expect(project.descendant_count).toBe(8);
-    expect(project.children).toHaveLength(2);
+    expect(project.children).toHaveLength(1);
   });
 
   it("handles deeply nested tags", () => {

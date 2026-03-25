@@ -159,8 +159,8 @@ describe("BasesStore", () => {
     store.remove_filter(1);
 
     expect(store.query.filters).toHaveLength(2);
-    expect(store.query.filters[0].property).toBe("a");
-    expect(store.query.filters[1].property).toBe("c");
+    expect(store.query.filters[0]!.property).toBe("a");
+    expect(store.query.filters[1]!.property).toBe("c");
     expect(store.query.offset).toBe(0);
   });
 

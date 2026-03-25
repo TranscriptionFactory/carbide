@@ -1,0 +1,164 @@
+/* ============================================
+   COMMAND DECK LAYOUT OVERRIDES
+   ============================================ */
+
+[data-layout-variant="command_deck"] .WorkspaceLayout--command-deck {
+  --command-deck-rail-height: var(--size-touch-lg);
+  --command-deck-rail-offset: var(--space-2);
+  --command-deck-sidebar-width: 18rem;
+  --command-deck-status-width: clamp(24rem, 32vw, 40rem);
+
+  position: relative;
+  background-image:
+    radial-gradient(
+      circle at 15% -20%,
+      color-mix(in oklch, var(--primary) 12%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--background-surface-2) 90%, transparent),
+      var(--background)
+    );
+
+  .ActivityBar {
+    position: absolute;
+    top: var(--command-deck-rail-offset);
+    left: var(--space-2);
+    height: var(--command-deck-rail-height);
+    width: auto;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: var(--space-1);
+    padding-inline: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 90%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ActivityBar__section:first-child {
+    margin-inline-end: var(--space-1);
+    padding-inline-end: var(--space-1);
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  .ActivityBar__button--active::before {
+    inset-inline-start: var(--space-1);
+    inset-inline-end: var(--space-1);
+    inset-block-start: auto;
+    inset-block-end: var(--space-0-5);
+    width: auto;
+    height: 2px;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    position: absolute;
+    top: calc(var(--command-deck-rail-height) + var(--space-4));
+    left: var(--space-2);
+    bottom: var(--space-2);
+    width: var(--command-deck-sidebar-width);
+    min-width: var(--command-deck-sidebar-width);
+    max-width: var(--command-deck-sidebar-width);
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    padding-top: calc(var(--command-deck-rail-height) + var(--space-4));
+  }
+
+  .TabBar {
+    position: absolute;
+    top: var(--command-deck-rail-offset);
+    left: calc(var(--command-deck-sidebar-width) + var(--space-8));
+    right: calc(var(--command-deck-status-width) + var(--space-4));
+    height: var(--command-deck-rail-height);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .TabBar__tab {
+    margin-block: var(--space-1);
+    height: calc(100% - var(--space-2));
+    border-radius: var(--radius-sm);
+    border-inline-end: none;
+  }
+
+  .TabBar__tab--active {
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+  }
+
+  .TabBar__tab--active::after {
+    inset-inline: var(--space-1);
+  }
+
+  .StatusBar {
+    position: absolute;
+    top: var(--command-deck-rail-offset);
+    right: var(--space-2);
+    width: var(--command-deck-status-width);
+    height: var(--command-deck-rail-height);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    border-top: 1px solid var(--border);
+    background-color: color-mix(in oklch, var(--card) 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .StatusBar__section {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .StatusBar__item {
+    white-space: nowrap;
+  }
+
+  .NoteEditor {
+    background-color: var(--background);
+  }
+
+  .SplitViewContainer {
+    height: 100%;
+  }
+}

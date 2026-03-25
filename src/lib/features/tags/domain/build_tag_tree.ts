@@ -32,7 +32,7 @@ export function build_tag_tree(tags: TagInfo[]): TagTreeNode[] {
 
       const node = node_map.get(current_path)!;
       if (i === segments.length - 1) {
-        node.own_count = count;
+        node.own_count += count;
       }
     }
   }
