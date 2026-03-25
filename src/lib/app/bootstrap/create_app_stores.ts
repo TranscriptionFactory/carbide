@@ -20,6 +20,7 @@ import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
 import { LintStore, LogStore } from "$lib/features/lint";
 import { IweStore } from "$lib/features/iwe";
+import { LspStore } from "$lib/features/lsp";
 import { DiagnosticsStore } from "$lib/features/diagnostics";
 import { MetadataStore } from "$lib/features/metadata";
 import { ToolchainStore } from "$lib/features/toolchain";
@@ -53,6 +54,7 @@ export type AppStores = {
   lint: LintStore;
   log: LogStore;
   iwe: IweStore;
+  lsp: LspStore;
   diagnostics: DiagnosticsStore;
   metadata: MetadataStore;
   toolchain: ToolchainStore;
@@ -88,6 +90,7 @@ export function create_app_stores(): AppStores {
     lint: new LintStore(),
     log: new LogStore(),
     iwe: new IweStore(),
+    lsp: new LspStore(),
     diagnostics: new DiagnosticsStore(),
     metadata: new MetadataStore(),
     toolchain: new ToolchainStore(),

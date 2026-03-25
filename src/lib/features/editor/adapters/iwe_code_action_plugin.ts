@@ -18,6 +18,14 @@ type PluginMeta =
   | { type: "set_actions"; actions: IweCodeAction[]; widget_pos: number }
   | { type: "clear" };
 
+type LspAction = {
+  title: string;
+  kind: string | null;
+  data: string | null;
+  raw_json: string;
+  source: string;
+};
+
 export function create_iwe_code_action_plugin(input: {
   on_code_actions: (
     start_line: number,
@@ -26,6 +34,15 @@ export function create_iwe_code_action_plugin(input: {
     end_character: number,
   ) => Promise<IweCodeAction[]>;
   on_resolve: (action: IweCodeAction) => void;
+  on_lsp_code_actions?:
+    | ((
+        start_line: number,
+        start_character: number,
+        end_line: number,
+        end_character: number,
+      ) => Promise<LspAction[]>)
+    | undefined;
+  on_lsp_resolve?: ((action: LspAction) => void) | undefined;
 }): Plugin {
   let current_actions: IweCodeAction[] = [];
   let dropdown: HTMLElement | null = null;
@@ -66,6 +83,66 @@ export function create_iwe_code_action_plugin(input: {
         e.preventDefault();
         hide_dropdown();
         input.on_resolve(action);
+        view.focus();
+      });
+      dropdown.appendChild(item);
+    }
+  }
+
+  function fetch_and_show_lsp(view: EditorView) {
+    if (!input.on_lsp_code_actions) return;
+    const { from, to } = view.state.selection;
+    const from_coords = line_and_character_from_pos(view, from);
+    const to_coords = line_and_character_from_pos(view, to);
+
+    void input
+      .on_lsp_code_actions(
+        from_coords.line,
+        from_coords.character,
+        to_coords.line,
+        to_coords.character,
+      )
+      .then((actions) => {
+        current_actions = actions as IweCodeAction[];
+        if (actions.length === 0) {
+          view.dispatch(
+            view.state.tr.setMeta(iwe_code_action_plugin_key, {
+              type: "clear",
+            }),
+          );
+          return;
+        }
+        view.dispatch(
+          view.state.tr.setMeta(iwe_code_action_plugin_key, {
+            type: "set_actions",
+            actions: actions as IweCodeAction[],
+            widget_pos: view.state.selection.from,
+          }),
+        );
+        requestAnimationFrame(() => {
+          const lightbulb = view.dom.querySelector(
+            ".iwe-lightbulb",
+          ) as HTMLElement | null;
+          if (lightbulb) {
+            render_dropdown_lsp(view, actions);
+            show_dropdown(lightbulb);
+          }
+        });
+      });
+  }
+
+  function render_dropdown_lsp(view: EditorView, actions: LspAction[]) {
+    if (!dropdown) return;
+    dropdown.innerHTML = "";
+    for (const action of actions) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "IweCodeAction__item";
+      item.textContent = action.title;
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        hide_dropdown();
+        input.on_lsp_resolve?.(action);
         view.focus();
       });
       dropdown.appendChild(item);
@@ -196,7 +273,11 @@ export function create_iwe_code_action_plugin(input: {
         }
         if (event.key === "." && (event.metaKey || event.ctrlKey)) {
           event.preventDefault();
-          fetch_and_show(view);
+          if (input.on_lsp_code_actions) {
+            fetch_and_show_lsp(view);
+          } else {
+            fetch_and_show(view);
+          }
           return true;
         }
         return false;

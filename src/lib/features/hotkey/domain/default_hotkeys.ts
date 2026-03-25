@@ -331,10 +331,10 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "general",
   },
   {
-    action_id: ACTION_IDS.iwe_code_actions,
+    action_id: ACTION_IDS.lsp_code_actions,
     key: "CmdOrCtrl+.",
     phase: "bubble",
-    label: "IWE: Code Actions",
+    label: "Code Actions",
     description: "Show available code actions at cursor position",
     category: "general",
   },

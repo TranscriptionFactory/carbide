@@ -126,6 +126,27 @@ export type EditorEventHandlers = {
     data: string | null;
     raw_json: string;
   }) => void;
+  on_lsp_code_actions?: (
+    start_line: number,
+    start_character: number,
+    end_line: number,
+    end_character: number,
+  ) => Promise<
+    Array<{
+      title: string;
+      kind: string | null;
+      data: string | null;
+      raw_json: string;
+      source: string;
+    }>
+  >;
+  on_lsp_code_action_resolve?: (action: {
+    title: string;
+    kind: string | null;
+    data: string | null;
+    raw_json: string;
+    source: string;
+  }) => void;
 };
 
 export type EditorSessionConfig = {

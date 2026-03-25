@@ -113,6 +113,28 @@ export type EditorServiceCallbacks = {
     data: string | null;
     raw_json: string;
   }) => void;
+  on_lsp_code_actions?: (
+    file_path: string,
+    start_line: number,
+    start_character: number,
+    end_line: number,
+    end_character: number,
+  ) => Promise<
+    Array<{
+      title: string;
+      kind: string | null;
+      data: string | null;
+      raw_json: string;
+      source: string;
+    }>
+  >;
+  on_lsp_code_action_resolve?: (action: {
+    title: string;
+    kind: string | null;
+    data: string | null;
+    raw_json: string;
+    source: string;
+  }) => void;
 };
 
 type EditorFlushResult = {
@@ -760,6 +782,37 @@ export class EditorService {
     if (this.callbacks.on_iwe_code_action_resolve) {
       events.on_iwe_code_action_resolve =
         this.callbacks.on_iwe_code_action_resolve;
+    }
+
+    if (this.callbacks.on_lsp_code_actions) {
+      const lsp_code_actions_cb = this.callbacks.on_lsp_code_actions;
+      events.on_lsp_code_actions = (
+        start_line,
+        start_character,
+        end_line,
+        end_character,
+      ) => {
+        const note = this.active_note;
+        if (
+          !note ||
+          !this.is_generation_current(generation) ||
+          is_draft_note_path(note.meta.path)
+        ) {
+          return Promise.resolve([]);
+        }
+        return lsp_code_actions_cb(
+          note.meta.path,
+          start_line,
+          start_character,
+          end_line,
+          end_character,
+        );
+      };
+    }
+
+    if (this.callbacks.on_lsp_code_action_resolve) {
+      events.on_lsp_code_action_resolve =
+        this.callbacks.on_lsp_code_action_resolve;
     }
 
     return events;

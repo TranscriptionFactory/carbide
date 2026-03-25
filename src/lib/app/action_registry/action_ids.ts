@@ -291,6 +291,10 @@ export const ACTION_IDS = {
   iwe_document_symbols: "iwe.document_symbols",
   iwe_open_config: "iwe.open_config",
 
+  lsp_code_actions: "lsp.code_actions",
+  lsp_code_action_resolve: "lsp.code_action_resolve",
+  lsp_toggle_results: "lsp.toggle_results",
+
   bases_toggle_panel: "bases.toggle_panel",
   bases_refresh: "bases.refresh",
 
