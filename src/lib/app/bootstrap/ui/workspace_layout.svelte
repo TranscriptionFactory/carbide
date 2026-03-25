@@ -44,6 +44,10 @@
   const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
   const zen_mode = $derived(stores.ui.zen_mode);
+  const layout_variant = $derived(stores.ui.active_theme.layout_variant);
+  const is_monolith = $derived(layout_variant === "monolith");
+  const is_workbench = $derived(layout_variant === "workbench");
+  const is_command_deck = $derived(layout_variant === "command_deck");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -216,6 +220,9 @@
   <div
     class="flex h-screen flex-col"
     class:WorkspaceLayout--zen={zen_mode}
+    class:WorkspaceLayout--monolith={is_monolith}
+    class:WorkspaceLayout--workbench={is_workbench}
+    class:WorkspaceLayout--command-deck={is_command_deck}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
       const target = e.target as HTMLElement;
@@ -321,11 +328,11 @@
         open={stores.ui.sidebar_open && !zen_mode}
         class="flex-1 min-h-0"
       >
-        <Resizable.PaneGroup direction="horizontal" class="h-full">
+        <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
           {#if stores.ui.sidebar_open && !zen_mode}
             <Resizable.Pane
-              defaultSize={22}
-              minSize={10}
+              defaultSize={20}
+              minSize={15}
               maxSize={40}
               order={1}
             >
