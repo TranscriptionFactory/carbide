@@ -10,8 +10,6 @@ import {
   attach_outside_dismiss,
 } from "./suggest_dropdown_utils";
 
-const DEBOUNCE_MS = 300;
-
 const iwe_code_action_plugin_key = new PluginKey<DecorationSet>(
   "iwe-code-actions",
 );
@@ -29,7 +27,6 @@ export function create_iwe_code_action_plugin(input: {
   ) => Promise<IweCodeAction[]>;
   on_resolve: (action: IweCodeAction) => void;
 }): Plugin {
-  let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let current_actions: IweCodeAction[] = [];
   let dropdown: HTMLElement | null = null;
   let detach_dismiss: (() => void) | null = null;
@@ -75,41 +72,45 @@ export function create_iwe_code_action_plugin(input: {
     }
   }
 
-  function schedule_fetch(view: EditorView) {
-    if (debounce_timer) clearTimeout(debounce_timer);
+  function fetch_and_show(view: EditorView) {
+    const { from, to } = view.state.selection;
+    const from_coords = line_and_character_from_pos(view, from);
+    const to_coords = line_and_character_from_pos(view, to);
 
-    debounce_timer = setTimeout(() => {
-      debounce_timer = null;
-      const { from, to } = view.state.selection;
-      const from_coords = line_and_character_from_pos(view, from);
-      const to_coords = line_and_character_from_pos(view, to);
-
-      void input
-        .on_code_actions(
-          from_coords.line,
-          from_coords.character,
-          to_coords.line,
-          to_coords.character,
-        )
-        .then((actions) => {
-          current_actions = actions;
-          if (actions.length === 0) {
-            view.dispatch(
-              view.state.tr.setMeta(iwe_code_action_plugin_key, {
-                type: "clear",
-              }),
-            );
-            return;
-          }
+    void input
+      .on_code_actions(
+        from_coords.line,
+        from_coords.character,
+        to_coords.line,
+        to_coords.character,
+      )
+      .then((actions) => {
+        current_actions = actions;
+        if (actions.length === 0) {
           view.dispatch(
             view.state.tr.setMeta(iwe_code_action_plugin_key, {
-              type: "set_actions",
-              actions,
-              widget_pos: view.state.selection.from,
+              type: "clear",
             }),
           );
+          return;
+        }
+        view.dispatch(
+          view.state.tr.setMeta(iwe_code_action_plugin_key, {
+            type: "set_actions",
+            actions,
+            widget_pos: view.state.selection.from,
+          }),
+        );
+        requestAnimationFrame(() => {
+          const lightbulb = view.dom.querySelector(
+            ".iwe-lightbulb",
+          ) as HTMLElement | null;
+          if (lightbulb) {
+            render_dropdown(view);
+            show_dropdown(lightbulb);
+          }
         });
-    }, DEBOUNCE_MS);
+      });
   }
 
   return new Plugin<DecorationSet>({
@@ -166,12 +167,14 @@ export function create_iwe_code_action_plugin(input: {
           const prev_sel = prev_state.selection;
           if (sel.from !== prev_sel.from || sel.to !== prev_sel.to) {
             hide_dropdown();
-            schedule_fetch(view);
+            view.dispatch(
+              view.state.tr.setMeta(iwe_code_action_plugin_key, {
+                type: "clear",
+              }),
+            );
           }
         },
         destroy() {
-          if (debounce_timer) clearTimeout(debounce_timer);
-          debounce_timer = null;
           destroy_dropdown(dropdown, detach_dismiss);
           dropdown = null;
           detach_dismiss = null;
@@ -186,9 +189,14 @@ export function create_iwe_code_action_plugin(input: {
           iwe_code_action_plugin_key.getState(state) ?? DecorationSet.empty
         );
       },
-      handleKeyDown(_view, event) {
+      handleKeyDown(view, event) {
         if (event.key === "Escape" && is_dropdown_visible) {
           hide_dropdown();
+          return true;
+        }
+        if (event.key === "." && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          fetch_and_show(view);
           return true;
         }
         return false;

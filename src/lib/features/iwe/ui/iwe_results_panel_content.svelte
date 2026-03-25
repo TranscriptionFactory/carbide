@@ -57,7 +57,6 @@
   }
 
   function resolve_code_action(action: IweCodeAction) {
-    if (!action.data) return;
     void action_registry.execute(ACTION_IDS.iwe_code_action_resolve, action);
   }
 
@@ -186,17 +185,15 @@
             {#if action.kind}
               <span class="IweResults__row-kind">{action.kind}</span>
             {/if}
-            {#if action.data}
-              <button
-                type="button"
-                class="IweResults__apply-btn"
-                onclick={() => resolve_code_action(action)}
-                title="Apply this action"
-                aria-label="Apply {action.title}"
-              >
-                <Play />
-              </button>
-            {/if}
+            <button
+              type="button"
+              class="IweResults__apply-btn"
+              onclick={() => resolve_code_action(action)}
+              title="Apply this action"
+              aria-label="Apply {action.title}"
+            >
+              <Play />
+            </button>
           </div>
         {/each}
       {/if}
