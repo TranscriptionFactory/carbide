@@ -299,21 +299,40 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
         .trim_start_matches('/');
 
     let parts: Vec<&str> = rel.splitn(3, '/').collect();
-    if parts.len() != 3 || parts[0] != "vault" {
+    if parts.len() < 2 {
         return Response::builder().status(400).body(Vec::new()).unwrap();
     }
 
-    let vault_id = parts[1];
-    let asset_rel = url_decode(parts[2]);
-
-    let vault_path = match vault_path(app, vault_id) {
-        Ok(p) => p,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
-    };
-
-    let abs = match crate::features::notes::service::safe_vault_abs(&vault_path, &asset_rel) {
-        Ok(p) => p,
-        Err(_) => return Response::builder().status(403).body(Vec::new()).unwrap(),
+    let abs = match parts[0] {
+        "vault" => {
+            if parts.len() != 3 {
+                return Response::builder().status(400).body(Vec::new()).unwrap();
+            }
+            let vault_id = parts[1];
+            let asset_rel = url_decode(parts[2]);
+            let vault_path = match vault_path(app, vault_id) {
+                Ok(p) => p,
+                Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+            };
+            match crate::features::notes::service::safe_vault_abs(&vault_path, &asset_rel) {
+                Ok(p) => p,
+                Err(_) => return Response::builder().status(403).body(Vec::new()).unwrap(),
+            }
+        }
+        "file" => {
+            let encoded_path = if parts.len() == 3 {
+                format!("{}/{}", parts[1], parts[2])
+            } else {
+                parts[1].to_string()
+            };
+            let decoded = url_decode(&encoded_path);
+            let path = PathBuf::from(&decoded);
+            match path.canonicalize() {
+                Ok(p) if p.is_file() => p,
+                _ => return Response::builder().status(404).body(Vec::new()).unwrap(),
+            }
+        }
+        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
     };
 
     let bytes = match std::fs::read(&abs) {

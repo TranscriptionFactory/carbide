@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DocumentPort } from "$lib/features/document/ports";
-import { carbide_asset_url } from "$lib/features/note";
+import { carbide_asset_url, carbide_file_asset_url } from "$lib/features/note";
+
+function is_absolute_path(path: string): boolean {
+  return path.startsWith("/");
+}
 
 export function create_document_tauri_adapter(): DocumentPort {
   return {
@@ -10,8 +14,11 @@ export function create_document_tauri_adapter(): DocumentPort {
         relativePath: relative_path,
       });
     },
-    resolve_asset_url(vault_id: string, relative_path: string): string {
-      return carbide_asset_url(vault_id, relative_path);
+    resolve_asset_url(vault_id: string, file_path: string): string {
+      if (is_absolute_path(file_path)) {
+        return carbide_file_asset_url(file_path);
+      }
+      return carbide_asset_url(vault_id, file_path);
     },
     async open_buffer(
       id: string,
