@@ -3,7 +3,6 @@ import type {
   CslItem,
   PdfAnnotation,
   ScanEntry,
-  LinkedSourceFsEvent,
 } from "./types";
 
 export interface ReferenceStoragePort {
@@ -56,10 +55,9 @@ export interface ReferenceSearchExtension {
 export interface LinkedSourcePort {
   scan_folder(path: string): Promise<ScanEntry[]>;
   extract_file(path: string): Promise<ScanEntry>;
-  watch(path: string): Promise<void>;
-  unwatch(path: string): Promise<void>;
-  unwatch_all(): Promise<void>;
-  subscribe_events(callback: (event: LinkedSourceFsEvent) => void): () => void;
+  list_files(
+    path: string,
+  ): Promise<{ file_path: string; modified_at: number }[]>;
   index_content(
     vault_id: string,
     source_id: string,

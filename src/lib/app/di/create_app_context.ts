@@ -776,16 +776,22 @@ export function create_app_context(input: {
     iwe_store: stores.iwe,
     editor_store: stores.editor,
     editor_service,
+    note_service,
     ui_store: stores.ui,
+    op_store: stores.op,
   });
 
   register_lsp_actions({
     registry: action_registry,
     lsp_store: stores.lsp,
     editor_store: stores.editor,
+    editor_service,
+    note_service,
+    diagnostics_store: stores.diagnostics,
     iwe_service,
     iwe_store: stores.iwe,
     ui_store: stores.ui,
+    op_store: stores.op,
   });
 
   register_toolchain_actions({

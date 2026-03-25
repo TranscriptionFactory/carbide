@@ -8,6 +8,9 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
   import Filter from "@lucide/svelte/icons/filter";
+  import Save from "@lucide/svelte/icons/save";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import BasesTable from "./bases_table.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
@@ -29,6 +32,9 @@
   let draft_property = $state("");
   let draft_operator = $state("eq");
   let draft_value = $state("");
+  let views_open = $state(false);
+  let save_name = $state("");
+  let saving = $state(false);
 
   function refresh() {
     const vault_id = vault_store.active_vault_id;
@@ -36,6 +42,31 @@
       void services.bases.refresh_properties(vault_id);
       void services.bases.run_query(vault_id);
     }
+  }
+
+  function toggle_views() {
+    views_open = !views_open;
+    if (views_open) {
+      void action_registry.execute(ACTION_IDS.bases_list_views);
+    }
+  }
+
+  async function save_view() {
+    const name = save_name.trim();
+    if (!name) return;
+    saving = true;
+    await action_registry.execute(ACTION_IDS.bases_save_view, name);
+    save_name = "";
+    saving = false;
+  }
+
+  function load_view(path: string) {
+    void action_registry.execute(ACTION_IDS.bases_load_view, path);
+    views_open = false;
+  }
+
+  function delete_view(path: string) {
+    void action_registry.execute(ACTION_IDS.bases_delete_view, path);
   }
 
   function handle_note_click(path: string) {
@@ -93,7 +124,13 @@
     class="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-800"
   >
     <div class="flex items-center gap-3">
-      <h2 class="text-sm font-semibold">Bases</h2>
+      <h2 class="text-sm font-semibold">
+        Bases{#if bases_store.active_view_name}<span
+            class="font-normal text-zinc-500"
+          >
+            — {bases_store.active_view_name}</span
+          >{/if}
+      </h2>
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
       >
@@ -117,6 +154,16 @@
     </div>
     <div class="flex items-center gap-1">
       <button
+        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {views_open
+          ? 'text-blue-500'
+          : ''}"
+        onclick={toggle_views}
+        aria-label="Saved views"
+        title="Saved views"
+      >
+        <FolderOpen size={14} />
+      </button>
+      <button
         class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {filters_open ||
         has_filters
           ? 'text-blue-500'
@@ -138,6 +185,67 @@
       </button>
     </div>
   </div>
+
+  {#if views_open}
+    <div
+      class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30"
+    >
+      <div class="flex items-end gap-2">
+        <div class="flex-1 min-w-0">
+          <label
+            for="save-view-name"
+            class="block text-[10px] text-zinc-500 mb-0.5"
+            >Save current view</label
+          >
+          <input
+            id="save-view-name"
+            type="text"
+            bind:value={save_name}
+            placeholder="View name..."
+            class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+            onkeydown={(e) => e.key === "Enter" && save_view()}
+          />
+        </div>
+        <button
+          class="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50"
+          disabled={!save_name.trim() || saving}
+          onclick={save_view}
+          title="Save view"
+        >
+          <Save size={14} />
+        </button>
+      </div>
+
+      {#if bases_store.saved_views.length > 0}
+        <div class="space-y-1">
+          <span class="text-[10px] text-zinc-500">Saved views</span>
+          {#each bases_store.saved_views as view}
+            <div class="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                class="flex-1 text-left px-2 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate {bases_store.active_view_name ===
+                view.name
+                  ? 'ring-1 ring-blue-500'
+                  : ''}"
+                onclick={() => load_view(view.path)}
+              >
+                {view.name}
+              </button>
+              <button
+                class="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-zinc-400 hover:text-red-500"
+                onclick={() => delete_view(view.path)}
+                title="Delete view"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="text-xs text-zinc-500">No saved views yet.</div>
+      {/if}
+    </div>
+  {/if}
 
   {#if filters_open}
     <div

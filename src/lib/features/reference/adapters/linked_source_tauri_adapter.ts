@@ -1,7 +1,6 @@
 import type { LinkedSourcePort } from "../ports";
-import type { ScanEntry, LinkedSourceFsEvent } from "../types";
+import type { ScanEntry } from "../types";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
-import { listen } from "@tauri-apps/api/event";
 import type { VaultId } from "$lib/shared/types/ids";
 
 export function create_linked_source_tauri_adapter(): LinkedSourcePort {
@@ -18,58 +17,13 @@ export function create_linked_source_tauri_adapter(): LinkedSourcePort {
       });
     },
 
-    async watch(path: string): Promise<void> {
-      await tauri_invoke<void>("linked_source_watch", {
-        folderPath: path,
-      });
-    },
-
-    async unwatch(path: string): Promise<void> {
-      await tauri_invoke<void>("linked_source_unwatch", {
-        folderPath: path,
-      });
-    },
-
-    async unwatch_all(): Promise<void> {
-      await tauri_invoke<void>("linked_source_unwatch_all", {});
-    },
-
-    subscribe_events(
-      callback: (event: LinkedSourceFsEvent) => void,
-    ): () => void {
-      let unlisten_fn: (() => void) | null = null;
-      let is_disposed = false;
-
-      void listen<LinkedSourceFsEvent>("linked-source-fs-event", (event) => {
-        if (is_disposed) return;
-        callback(event.payload);
-      })
-        .then((fn_ref) => {
-          if (is_disposed) {
-            try {
-              void Promise.resolve(fn_ref()).catch(() => {});
-            } catch {
-              // already unregistered
-            }
-            return;
-          }
-          unlisten_fn = fn_ref;
-        })
-        .catch((error: unknown) => {
-          console.error("Failed to subscribe linked source events:", error);
-        });
-
-      return () => {
-        is_disposed = true;
-        if (unlisten_fn) {
-          try {
-            unlisten_fn();
-          } catch {
-            // already unregistered
-          }
-          unlisten_fn = null;
-        }
-      };
+    async list_files(
+      path: string,
+    ): Promise<{ file_path: string; modified_at: number }[]> {
+      return tauri_invoke<{ file_path: string; modified_at: number }[]>(
+        "linked_source_list_files",
+        { folderPath: path },
+      );
     },
 
     async index_content(

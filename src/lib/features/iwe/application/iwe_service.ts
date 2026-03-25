@@ -7,6 +7,7 @@ import type {
   IwePrepareRenameResult,
   IweTextEdit,
   IweTreeNode,
+  IweWorkspaceEditResult,
 } from "$lib/features/iwe/types";
 import type {
   DiagnosticsStore,
@@ -275,9 +276,11 @@ export class IweService {
     }
   }
 
-  async code_action_resolve(code_action_json: string): Promise<void> {
+  async code_action_resolve(
+    code_action_json: string,
+  ): Promise<IweWorkspaceEditResult | null> {
     const vault_id = this.vault_store.vault?.id;
-    if (!vault_id || this.store.status !== "running") return;
+    if (!vault_id || this.store.status !== "running") return null;
 
     this.store.set_loading(true);
     try {
@@ -288,11 +291,13 @@ export class IweService {
       if (result.errors.length > 0) {
         log.warn("Code action resolve had errors", { errors: result.errors });
       }
+      return result;
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("code_action_resolve failed", e);
         this.store.set_error(e instanceof Error ? e.message : String(e));
       }
+      return null;
     } finally {
       this.store.set_loading(false);
     }

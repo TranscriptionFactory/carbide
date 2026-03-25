@@ -293,10 +293,15 @@ export const ACTION_IDS = {
 
   lsp_code_actions: "lsp.code_actions",
   lsp_code_action_resolve: "lsp.code_action_resolve",
+  lsp_refresh_diagnostics: "lsp.refresh_diagnostics",
   lsp_toggle_results: "lsp.toggle_results",
 
   bases_toggle_panel: "bases.toggle_panel",
   bases_refresh: "bases.refresh",
+  bases_save_view: "bases.save_view",
+  bases_load_view: "bases.load_view",
+  bases_list_views: "bases.list_views",
+  bases_delete_view: "bases.delete_view",
 
   query_execute: "query.execute",
   query_clear: "query.clear",

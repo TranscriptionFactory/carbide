@@ -5,6 +5,7 @@ import type {
   BaseQueryResults,
   PropertyInfo,
   BaseViewDefinition,
+  SavedViewInfo,
 } from "../ports";
 import type { VaultId } from "$lib/shared/types/ids";
 
@@ -31,6 +32,12 @@ export function create_bases_tauri_adapter(): BasesPort {
       path: string,
     ): Promise<BaseViewDefinition> {
       return invoke("bases_load_view", { vaultId: vault_id, path });
+    },
+    async list_views(vault_id: VaultId): Promise<SavedViewInfo[]> {
+      return invoke("bases_list_views", { vaultId: vault_id });
+    },
+    async delete_view(vault_id: VaultId, path: string): Promise<void> {
+      return invoke("bases_delete_view", { vaultId: vault_id, path });
     },
   };
 }

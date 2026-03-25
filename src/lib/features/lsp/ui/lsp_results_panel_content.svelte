@@ -1,52 +1,208 @@
 <script lang="ts">
-  import { Sparkles, Play } from "@lucide/svelte";
+  import { Sparkles, Play, CircleAlert } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
-  import type { LspCodeAction } from "$lib/features/lsp";
+  import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp";
 
   const { stores, action_registry } = use_app_context();
 
   const code_actions = $derived(stores.lsp.code_actions);
+  const diagnostics = $derived(stores.lsp.diagnostics);
+
+  type LspTab = "code_actions" | "diagnostics";
+  let active_tab = $state<LspTab>("code_actions");
+
+  const tab_counts = $derived({
+    code_actions: code_actions.length,
+    diagnostics: diagnostics.length,
+  });
 
   function resolve_code_action(action: LspCodeAction) {
     void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
   }
+
+  function refresh_diagnostics() {
+    void action_registry.execute(ACTION_IDS.lsp_refresh_diagnostics);
+  }
+
+  function severity_class(severity: string): string {
+    switch (severity) {
+      case "error":
+        return "LspResults__severity--error";
+      case "warning":
+        return "LspResults__severity--warning";
+      case "info":
+        return "LspResults__severity--info";
+      default:
+        return "LspResults__severity--hint";
+    }
+  }
+
+  $effect(() => {
+    if (active_tab === "diagnostics") {
+      refresh_diagnostics();
+    }
+  });
 </script>
 
 <div class="LspResults">
-  {#if code_actions.length === 0}
-    <div class="LspResults__empty">
-      No code actions available. Press <kbd>Cmd+.</kbd> in the editor or use "Code
-      Actions" from the command palette.
-    </div>
-  {:else}
-    {#each code_actions as action, i (`action-${action.source}-${action.title}-${i}`)}
-      <div class="LspResults__row">
-        <Sparkles class="LspResults__row-icon" />
-        <span class="LspResults__row-label">{action.title}</span>
-        {#if action.kind}
-          <span class="LspResults__row-kind">{action.kind}</span>
+  <div class="LspResults__header">
+    <div class="LspResults__tabs">
+      <button
+        type="button"
+        class="LspResults__tab"
+        class:LspResults__tab--active={active_tab === "code_actions"}
+        onclick={() => (active_tab = "code_actions")}
+      >
+        <Sparkles class="LspResults__tab-icon" />
+        Code Actions
+        {#if tab_counts.code_actions > 0}
+          <span class="LspResults__badge">{tab_counts.code_actions}</span>
         {/if}
-        <span class="LspResults__row-source">{action.source}</span>
-        <button
-          type="button"
-          class="LspResults__apply-btn"
-          onclick={() => resolve_code_action(action)}
-          title="Apply this action"
-          aria-label="Apply {action.title}"
-        >
-          <Play />
-        </button>
-      </div>
-    {/each}
-  {/if}
+      </button>
+      <button
+        type="button"
+        class="LspResults__tab"
+        class:LspResults__tab--active={active_tab === "diagnostics"}
+        onclick={() => (active_tab = "diagnostics")}
+      >
+        <CircleAlert class="LspResults__tab-icon" />
+        Diagnostics
+        {#if tab_counts.diagnostics > 0}
+          <span class="LspResults__badge">{tab_counts.diagnostics}</span>
+        {/if}
+      </button>
+    </div>
+  </div>
+
+  <div class="LspResults__body">
+    {#if active_tab === "code_actions"}
+      {#if code_actions.length === 0}
+        <div class="LspResults__empty">
+          No code actions available. Press <kbd>Cmd+.</kbd> in the editor or use "Code
+          Actions" from the command palette.
+        </div>
+      {:else}
+        {#each code_actions as action, i (`action-${action.source}-${action.title}-${i}`)}
+          <div class="LspResults__row">
+            <Sparkles class="LspResults__row-icon" />
+            <span class="LspResults__row-label">{action.title}</span>
+            {#if action.kind}
+              <span class="LspResults__row-kind">{action.kind}</span>
+            {/if}
+            <span class="LspResults__row-source">{action.source}</span>
+            <button
+              type="button"
+              class="LspResults__apply-btn"
+              onclick={() => resolve_code_action(action)}
+              title="Apply this action"
+              aria-label="Apply {action.title}"
+            >
+              <Play />
+            </button>
+          </div>
+        {/each}
+      {/if}
+    {:else if active_tab === "diagnostics"}
+      {#if diagnostics.length === 0}
+        <div class="LspResults__empty">
+          No LSP diagnostics for the current file.
+        </div>
+      {:else}
+        {#each diagnostics as diag, i (`diag-${diag.source}-${diag.line}-${diag.message}-${i}`)}
+          <div class="LspResults__row">
+            <CircleAlert
+              class="LspResults__row-icon {severity_class(diag.severity)}"
+            />
+            <span class="LspResults__row-label">{diag.message}</span>
+            {#if diag.rule_id}
+              <span class="LspResults__row-kind">{diag.rule_id}</span>
+            {/if}
+            <span class="LspResults__row-source">{diag.source}</span>
+            <span class="LspResults__row-location">
+              Ln {diag.line + 1}, Col {diag.column + 1}
+            </span>
+          </div>
+        {/each}
+      {/if}
+    {/if}
+  </div>
 </div>
 
 <style>
   .LspResults {
+    display: flex;
+    flex-direction: column;
     height: 100%;
-    overflow-y: auto;
+    background-color: var(--background);
+    color: var(--foreground);
     font-size: var(--text-sm);
+  }
+
+  .LspResults__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-1) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .LspResults__tabs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  .LspResults__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-0-5) var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    border-bottom: 2px solid transparent;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    opacity: 0.7;
+    transition:
+      opacity var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  .LspResults__tab:hover {
+    opacity: 1;
+    color: var(--foreground);
+  }
+
+  .LspResults__tab--active {
+    opacity: 1;
+    color: var(--foreground);
+    border-bottom-color: var(--primary);
+  }
+
+  :global(.LspResults__tab-icon) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
+  }
+
+  .LspResults__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1em;
+    padding: 0 var(--space-0-5);
+    font-size: var(--text-xs);
+    font-feature-settings: "tnum" 1;
+    border-radius: var(--radius-full, 9999px);
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+
+  .LspResults__body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .LspResults__empty {
@@ -76,6 +232,7 @@
     padding: var(--space-1) var(--space-3);
     border-bottom: 1px solid var(--border);
     cursor: default;
+    font-size: var(--text-xs);
   }
 
   .LspResults__row:hover {
@@ -87,6 +244,22 @@
     height: var(--size-icon-xs);
     flex-shrink: 0;
     color: var(--muted-foreground);
+  }
+
+  :global(.LspResults__severity--error) {
+    color: var(--destructive) !important;
+  }
+
+  :global(.LspResults__severity--warning) {
+    color: var(--warning, var(--chart-4)) !important;
+  }
+
+  :global(.LspResults__severity--info) {
+    color: var(--primary) !important;
+  }
+
+  :global(.LspResults__severity--hint) {
+    color: var(--muted-foreground) !important;
   }
 
   .LspResults__row-label {
@@ -113,6 +286,13 @@
     color: var(--primary);
     background-color: color-mix(in oklch, var(--primary) 10%, transparent);
     border-radius: var(--radius-sm);
+  }
+
+  .LspResults__row-location {
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+    font-feature-settings: "tnum" 1;
+    opacity: 0.6;
   }
 
   .LspResults__apply-btn {

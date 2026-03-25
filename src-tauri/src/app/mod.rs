@@ -72,7 +72,6 @@ pub fn run() {
         .manage(features::search::embeddings::EmbeddingServiceState::default())
         .manage(features::plugin::service::PluginService::new())
         .manage(features::plugin::watcher::PluginWatcherState::default())
-        .manage(features::reference::linked_source::LinkedSourceWatcherState::default())
         .manage(shared::buffer::BufferManager::new())
         .manage(features::graph::service::GraphCacheState::default())
         .manage(features::graph::service::VaultGraphCacheState::default())
@@ -165,6 +164,8 @@ pub fn run() {
             features::bases::service::bases_query,
             features::bases::service::bases_save_view,
             features::bases::service::bases_load_view,
+            features::bases::service::bases_list_views,
+            features::bases::service::bases_delete_view,
             features::tags::service::tags_list_all,
             features::tags::service::tags_list_all_unified,
             features::tags::service::tags_get_notes_for_tag,
@@ -300,9 +301,7 @@ pub fn run() {
             features::reference::service::reference_read_annotation_note,
             features::reference::linked_source::linked_source_scan_folder,
             features::reference::linked_source::linked_source_extract_file,
-            features::reference::linked_source::linked_source_watch,
-            features::reference::linked_source::linked_source_unwatch,
-            features::reference::linked_source::linked_source_unwatch_all,
+            features::reference::linked_source::linked_source_list_files,
             features::search::service::linked_source_index_content,
             features::search::service::linked_source_remove_content,
             features::search::service::linked_source_clear_source,

@@ -4,9 +4,12 @@ import type { IweService } from "$lib/features/iwe/application/iwe_service";
 import type { IweStore } from "$lib/features/iwe/state/iwe_store.svelte";
 import type { EditorStore } from "$lib/features/editor";
 import type { EditorService } from "$lib/features/editor";
+import type { NoteService } from "$lib/features/note";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { IweCodeAction } from "$lib/features/iwe/types";
 import { apply_text_edits } from "$lib/features/iwe/domain/apply_text_edits";
+import { as_note_path } from "$lib/shared/types/ids";
 
 export function register_iwe_actions(input: {
   registry: ActionRegistry;
@@ -14,7 +17,9 @@ export function register_iwe_actions(input: {
   iwe_store: IweStore;
   editor_store: EditorStore;
   editor_service: EditorService;
+  note_service: NoteService;
   ui_store: UIStore;
+  op_store: OpStore;
 }): void {
   const {
     registry,
@@ -22,7 +27,9 @@ export function register_iwe_actions(input: {
     iwe_store,
     editor_store,
     editor_service,
+    note_service,
     ui_store,
+    op_store,
   } = input;
 
   function open_results_panel() {
@@ -153,7 +160,40 @@ export function register_iwe_actions(input: {
     execute: async (...args: unknown[]) => {
       const action = args[0] as IweCodeAction | undefined;
       if (!action) return;
-      await iwe_service.code_action_resolve(action.raw_json);
+
+      const op_key = "iwe.code_action_resolve";
+      op_store.start(op_key, Date.now());
+
+      const result = await iwe_service.code_action_resolve(action.raw_json);
+
+      if (!result) {
+        op_store.fail(op_key, "Code action failed");
+        return;
+      }
+
+      if (result.errors.length > 0) {
+        op_store.fail(op_key, result.errors.join("; "));
+        return;
+      }
+
+      const open_path = editor_store.open_note?.meta.path;
+      for (const modified_path of result.files_modified) {
+        if (modified_path === open_path) {
+          editor_service.close_buffer(as_note_path(modified_path));
+          await note_service.open_note(modified_path, false, {
+            force_reload: true,
+          });
+        }
+      }
+
+      const total_changes =
+        result.files_created.length +
+        result.files_modified.length +
+        result.files_deleted.length;
+      op_store.succeed(
+        op_key,
+        `Code action applied (${total_changes} file${total_changes !== 1 ? "s" : ""} changed)`,
+      );
     },
   });
 

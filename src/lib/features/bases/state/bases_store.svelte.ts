@@ -4,6 +4,7 @@ import type {
   BaseQuery,
   BaseSort,
   PropertyInfo,
+  SavedViewInfo,
 } from "../ports";
 
 export class BasesStore {
@@ -19,6 +20,8 @@ export class BasesStore {
   total_count = $state(0);
   loading = $state(false);
   error = $state<string | null>(null);
+  saved_views = $state<SavedViewInfo[]>([]);
+  active_view_name = $state<string | null>(null);
 
   set_results(results: { rows: BaseNoteRow[]; total: number }) {
     this.result_set = results.rows;

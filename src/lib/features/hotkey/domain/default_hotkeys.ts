@@ -338,4 +338,28 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Show available code actions at cursor position",
     category: "general",
   },
+  {
+    action_id: ACTION_IDS.iwe_toggle_results,
+    key: "CmdOrCtrl+Shift+R",
+    phase: "capture",
+    label: "Toggle IWE Results",
+    description: "Show or hide the IWE results panel",
+    category: "navigation",
+  },
+  {
+    action_id: ACTION_IDS.lsp_toggle_results,
+    key: "CmdOrCtrl+Shift+.",
+    phase: "capture",
+    label: "Toggle LSP Results",
+    description: "Show or hide the LSP results panel",
+    category: "navigation",
+  },
+  {
+    action_id: ACTION_IDS.lint_toggle_problems,
+    key: "CmdOrCtrl+Shift+M",
+    phase: "capture",
+    label: "Toggle Problems Panel",
+    description: "Show or hide the problems panel",
+    category: "navigation",
+  },
 ];

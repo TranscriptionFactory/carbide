@@ -20,6 +20,8 @@ function make_port(overrides: Partial<BasesPort> = {}): BasesPort {
       query: { filters: [], sort: [], limit: 100, offset: 0 },
       view_mode: "table",
     }),
+    list_views: vi.fn().mockResolvedValue([]),
+    delete_view: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

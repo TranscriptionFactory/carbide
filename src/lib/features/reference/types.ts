@@ -61,11 +61,6 @@ export type ScanEntry = {
   modified_at: number;
 };
 
-export type LinkedSourceFsEvent =
-  | { type: "added"; folder_path: string; file_path: string }
-  | { type: "removed"; folder_path: string; file_path: string }
-  | { type: "modified"; folder_path: string; file_path: string };
-
 export type PdfAnnotation = {
   citekey: string;
   page: number;

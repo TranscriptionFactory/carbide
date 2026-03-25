@@ -11,6 +11,7 @@ import type {
   LinkedSource,
   PdfAnnotation,
   ReferenceSource,
+  ScanEntry,
 } from "../types";
 import type { VaultStore, VaultSettingsPort } from "$lib/features/vault";
 import type { VaultId } from "$lib/shared/types/ids";
@@ -29,8 +30,6 @@ import { error_message } from "$lib/shared/utils/error_message";
 const LINKED_SOURCES_SETTINGS_KEY = "linked_sources";
 
 export class ReferenceService {
-  private unsubscribe_events: (() => void) | null = null;
-
   constructor(
     private storage_port: ReferenceStoragePort,
     private store: ReferenceStore,
@@ -461,10 +460,7 @@ export class ReferenceService {
     this.store.add_linked_source(source);
     await this.save_linked_sources();
 
-    const ls_port = this.require_linked_source_port();
-    void this.scan_linked_source(source.id).then(() =>
-      ls_port.watch(source.path),
-    );
+    void this.scan_linked_source(source.id);
 
     return source;
   }
@@ -477,11 +473,6 @@ export class ReferenceService {
     if (!source) return;
 
     const ls_port = this.require_linked_source_port();
-    try {
-      await ls_port.unwatch(source.path);
-    } catch {
-      // may already be unwatched
-    }
 
     if (remove_references) {
       const linked_items = this.store.get_linked_source_items(id);
@@ -510,16 +501,13 @@ export class ReferenceService {
     const source = this.store.linked_sources.find((s) => s.id === id);
     if (!source) return;
 
-    const ls_port = this.require_linked_source_port();
     const new_enabled = !source.enabled;
 
     this.store.update_linked_source(id, { enabled: new_enabled });
     await this.save_linked_sources();
 
     if (new_enabled) {
-      void this.scan_linked_source(id).then(() => ls_port.watch(source.path));
-    } else {
-      await ls_port.unwatch(source.path);
+      void this.scan_linked_source(id);
     }
   }
 
@@ -533,37 +521,85 @@ export class ReferenceService {
     this.store.set_linked_source_sync_status(source_id, "scanning");
 
     try {
-      const entries = await ls_port.scan_folder(source.path);
-      const items = entries.map((entry) =>
-        scan_entry_to_csl_item(entry, source_id),
+      const vault_id = this.require_vault_id();
+
+      // Fast stat-only pass to get file paths + mtimes
+      const file_infos = await ls_port.list_files(source.path);
+      const current_files = new Map(
+        file_infos.map((f) => [f.file_path, f.modified_at]),
       );
 
-      // Bulk merge into library
-      const vault_id = this.require_vault_id();
-      const current = await this.storage_port.load_library(vault_id);
-      const merged = new Map(current.items.map((i: CslItem) => [i.id, i]));
+      // Build lookup of existing library items for this source
+      const existing_items = new Map(
+        this.store.library_items
+          .filter((i) => i._linked_source_id === source_id)
+          .map((i) => [i._linked_file_path as string, i]),
+      );
 
-      // Remove stale items from this source
-      for (const [key, val] of merged) {
-        if (val._linked_source_id === source_id) {
-          merged.delete(key);
+      // Determine which files need extraction (new or modified)
+      const needs_extraction: string[] = [];
+      for (const [file_path, modified_at] of current_files) {
+        const existing = existing_items.get(file_path);
+        if (!existing || existing._linked_file_modified_at !== modified_at) {
+          needs_extraction.push(file_path);
         }
       }
 
-      for (const item of items) {
+      // Detect removed files
+      const removed_paths: string[] = [];
+      for (const file_path of existing_items.keys()) {
+        if (!current_files.has(file_path)) {
+          removed_paths.push(file_path);
+        }
+      }
+
+      // Extract only changed files in batches
+      const new_items: CslItem[] = [];
+      const new_entries: ScanEntry[] = [];
+      const batch_size = 5;
+      for (let i = 0; i < needs_extraction.length; i += batch_size) {
+        const batch = needs_extraction.slice(i, i + batch_size);
+        const results = await Promise.allSettled(
+          batch.map((fp) => ls_port.extract_file(fp)),
+        );
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            new_entries.push(result.value);
+            new_items.push(scan_entry_to_csl_item(result.value, source_id));
+          }
+        }
+      }
+
+      // Merge into library: keep unchanged, add new, remove deleted
+      const current_library = await this.storage_port.load_library(vault_id);
+      const merged = new Map(
+        current_library.items.map((i: CslItem) => [i.id, i]),
+      );
+
+      // Remove deleted items
+      for (const removed_path of removed_paths) {
+        const item = existing_items.get(removed_path);
+        if (item) merged.delete(item.id);
+      }
+
+      // Remove items being re-extracted (will be replaced)
+      for (const item of new_items) {
+        const old_item = existing_items.get(item._linked_file_path as string);
+        if (old_item) merged.delete(old_item.id);
         merged.set(item.id, item);
       }
 
-      const updated = { ...current, items: [...merged.values()] };
+      const updated = { ...current_library, items: [...merged.values()] };
       await this.storage_port.save_library(vault_id, updated);
       this.store.set_library_items(updated.items);
 
-      // FTS: clear stale, then index all entries
+      // FTS: only update changed entries, remove deleted
       try {
-        await ls_port.clear_source(vault_id, source_id);
-        const batch_size = 5;
-        for (let i = 0; i < entries.length; i += batch_size) {
-          const batch = entries.slice(i, i + batch_size);
+        for (const removed_path of removed_paths) {
+          await ls_port.remove_content(vault_id, source_id, removed_path);
+        }
+        for (let i = 0; i < new_entries.length; i += batch_size) {
+          const batch = new_entries.slice(i, i + batch_size);
           await Promise.all(
             batch.map((entry) =>
               ls_port.index_content(vault_id, source_id, entry),
@@ -582,11 +618,11 @@ export class ReferenceService {
 
       // Async DOI enrichment (non-blocking)
       void this.enrich_dois(
-        items.filter((i) => i.DOI),
+        new_items.filter((i) => i.DOI),
         source_id,
       );
 
-      return { added: items.length, errors: [] };
+      return { added: new_items.length, errors: [] };
     } catch (e) {
       const msg = error_message(e);
       this.store.set_linked_source_sync_status(source_id, "error");
@@ -687,59 +723,6 @@ export class ReferenceService {
         `Failed to unindex linked file ${file_path}:`,
         error_message(e),
       );
-    }
-  }
-
-  async start_linked_source_watchers(): Promise<void> {
-    const ls_port = this.linked_source_port;
-    if (!ls_port) return;
-
-    // Subscribe to FS events
-    this.unsubscribe_events = ls_port.subscribe_events((event) => {
-      const source = this.store.linked_sources.find(
-        (s) => s.path === event.folder_path && s.enabled,
-      );
-      if (!source) return;
-
-      switch (event.type) {
-        case "added":
-        case "modified":
-          void this.index_linked_pdf(source.id, event.file_path);
-          break;
-        case "removed":
-          void this.unindex_linked_pdf(source.id, event.file_path);
-          break;
-      }
-    });
-
-    // Start watchers for enabled sources
-    for (const source of this.store.linked_sources) {
-      if (!source.enabled) continue;
-      try {
-        await ls_port.watch(source.path);
-      } catch (e) {
-        console.error(
-          `Failed to watch linked source ${source.path}:`,
-          error_message(e),
-        );
-        this.store.set_linked_source_sync_status(source.id, "error");
-      }
-    }
-  }
-
-  async stop_linked_source_watchers(): Promise<void> {
-    if (this.unsubscribe_events) {
-      this.unsubscribe_events();
-      this.unsubscribe_events = null;
-    }
-
-    const ls_port = this.linked_source_port;
-    if (!ls_port) return;
-
-    try {
-      await ls_port.unwatch_all();
-    } catch {
-      // best effort
     }
   }
 }

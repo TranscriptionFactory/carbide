@@ -1,17 +1,9 @@
 <script lang="ts">
-  import {
-    Link,
-    Sparkles,
-    ListTree,
-    FileText,
-    Play,
-    MapPin,
-  } from "@lucide/svelte";
+  import { Link, ListTree, FileText, MapPin } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type {
     IweLocation,
-    IweCodeAction,
     IweDocumentSymbol,
     IweSymbol,
   } from "$lib/features/iwe";
@@ -19,7 +11,6 @@
   const { stores, action_registry } = use_app_context();
 
   const references = $derived(stores.iwe.references);
-  const code_actions = $derived(stores.iwe.code_actions);
   const symbols = $derived(stores.iwe.symbols);
   const document_symbols = $derived(stores.iwe.document_symbols);
   const loading = $derived(stores.iwe.loading);
@@ -31,16 +22,11 @@
     return vault_path ? `file://${vault_path}/` : null;
   });
 
-  type ResultTab =
-    | "references"
-    | "code_actions"
-    | "symbols"
-    | "document_symbols";
+  type ResultTab = "references" | "symbols" | "document_symbols";
   let active_tab = $state<ResultTab>("references");
 
   const tab_counts = $derived({
     references: references.length,
-    code_actions: code_actions.length,
     symbols: symbols.length,
     document_symbols: document_symbols.length,
   });
@@ -54,10 +40,6 @@
     const relative_path = strip_vault_prefix(location.uri);
     if (!relative_path) return;
     void action_registry.execute(ACTION_IDS.note_open, relative_path);
-  }
-
-  function resolve_code_action(action: IweCodeAction) {
-    void action_registry.execute(ACTION_IDS.iwe_code_action_resolve, action);
   }
 
   function navigate_to_symbol(symbol: IweSymbol) {
@@ -86,18 +68,6 @@
         References
         {#if tab_counts.references > 0}
           <span class="IweResults__badge">{tab_counts.references}</span>
-        {/if}
-      </button>
-      <button
-        type="button"
-        class="IweResults__tab"
-        class:IweResults__tab--active={active_tab === "code_actions"}
-        onclick={() => (active_tab = "code_actions")}
-      >
-        <Sparkles class="IweResults__tab-icon" />
-        Code Actions
-        {#if tab_counts.code_actions > 0}
-          <span class="IweResults__badge">{tab_counts.code_actions}</span>
         {/if}
       </button>
       <button
@@ -168,32 +138,6 @@
             <span class="IweResults__row-location">
               Ln {ref.range.start_line + 1}, Col {ref.range.start_character + 1}
             </span>
-          </div>
-        {/each}
-      {/if}
-    {:else if active_tab === "code_actions"}
-      {#if code_actions.length === 0}
-        <div class="IweResults__empty">
-          No code actions available. Use "IWE: Code Actions" from the command
-          palette.
-        </div>
-      {:else}
-        {#each code_actions as action, i (`action-${action.title}-${i}`)}
-          <div class="IweResults__row IweResults__row--action">
-            <Sparkles class="IweResults__row-icon" />
-            <span class="IweResults__row-label">{action.title}</span>
-            {#if action.kind}
-              <span class="IweResults__row-kind">{action.kind}</span>
-            {/if}
-            <button
-              type="button"
-              class="IweResults__apply-btn"
-              onclick={() => resolve_code_action(action)}
-              title="Apply this action"
-              aria-label="Apply {action.title}"
-            >
-              <Play />
-            </button>
           </div>
         {/each}
       {/if}
@@ -433,32 +377,5 @@
     color: var(--muted-foreground);
     font-feature-settings: "tnum" 1;
     opacity: 0.6;
-  }
-
-  .IweResults__apply-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--size-touch-xs);
-    height: var(--size-touch-xs);
-    border-radius: var(--radius-sm);
-    color: var(--muted-foreground);
-    opacity: 0;
-    flex-shrink: 0;
-    transition: opacity var(--duration-fast) var(--ease-default);
-  }
-
-  .IweResults__row:hover .IweResults__apply-btn {
-    opacity: 0.7;
-  }
-
-  .IweResults__apply-btn:hover {
-    opacity: 1;
-    color: var(--interactive);
-  }
-
-  :global(.IweResults__apply-btn svg) {
-    width: var(--size-icon-xs);
-    height: var(--size-icon-xs);
   }
 </style>

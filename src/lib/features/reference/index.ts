@@ -6,7 +6,6 @@ export type {
   ReferenceSource,
   LinkedSource,
   ScanEntry,
-  LinkedSourceFsEvent,
   PdfAnnotation,
 } from "./types";
 export type {

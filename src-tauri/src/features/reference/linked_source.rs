@@ -1,14 +1,11 @@
-use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::LazyLock;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, State};
 use walkdir::WalkDir;
 
 // ---------------------------------------------------------------------------
@@ -31,30 +28,10 @@ pub struct ScanEntry {
     pub modified_at: u64,
 }
 
-#[derive(Debug, Serialize, Clone, Type)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum LinkedSourceFsEvent {
-    Added {
-        folder_path: String,
-        file_path: String,
-    },
-    Removed {
-        folder_path: String,
-        file_path: String,
-    },
-    Modified {
-        folder_path: String,
-        file_path: String,
-    },
-}
-
-// ---------------------------------------------------------------------------
-// Watcher state
-// ---------------------------------------------------------------------------
-
-#[derive(Default)]
-pub struct LinkedSourceWatcherState {
-    watchers: Arc<Mutex<HashMap<String, mpsc::Sender<()>>>>,
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LinkedSourceFileInfo {
+    pub file_path: String,
+    pub modified_at: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -508,131 +485,42 @@ pub async fn linked_source_extract_file(file_path: String) -> Result<ScanEntry, 
 
 #[tauri::command]
 #[specta::specta]
-pub fn linked_source_watch(
-    app: AppHandle,
-    state: State<LinkedSourceWatcherState>,
+pub async fn linked_source_list_files(
     folder_path: String,
-) -> Result<(), String> {
-    log::info!("Watching linked source: {folder_path}");
-    let root = PathBuf::from(&folder_path);
-    if !root.is_dir() {
-        return Err(format!("not a directory: {folder_path}"));
-    }
-
-    let mut watchers = state
-        .watchers
-        .lock()
-        .map_err(|_| "watcher lock poisoned")?;
-
-    // Stop existing watcher for this folder if any
-    if let Some(stop_tx) = watchers.remove(&folder_path) {
-        let _ = stop_tx.send(());
-    }
-
-    let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let folder_path_clone = folder_path.clone();
-
-    std::thread::spawn(move || {
-        let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
-
-        let mut watcher = match RecommendedWatcher::new(
-            move |res| {
-                let _ = tx.send(res);
-            },
-            Config::default(),
-        ) {
-            Ok(w) => w,
-            Err(e) => {
-                log::error!("Failed to create linked source watcher: {e}");
-                return;
-            }
-        };
-
-        if let Err(e) = watcher.watch(&root, RecursiveMode::Recursive) {
-            log::error!("Failed to watch {}: {e}", root.display());
-            return;
+) -> Result<Vec<LinkedSourceFileInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let root = PathBuf::from(&folder_path);
+        if !root.is_dir() {
+            return Err(format!("not a directory: {folder_path}"));
         }
 
-        loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
+        let entries: Vec<LinkedSourceFileInfo> = WalkDir::new(&root)
+            .follow_links(false)
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file() && is_supported_extension(e.path()))
+            .filter_map(|e| {
+                let path = e.path();
+                let modified_at = path
+                    .metadata()
+                    .ok()?
+                    .modified()
+                    .ok()?
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()?
+                    .as_secs();
+                Some(LinkedSourceFileInfo {
+                    file_path: path.to_string_lossy().into_owned(),
+                    modified_at,
+                })
+            })
+            .collect();
 
-            let res = match rx.recv_timeout(Duration::from_millis(200)) {
-                Ok(r) => r,
-                Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(_) => break,
-            };
-
-            let event = match res {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
-            for p in event.paths.iter() {
-                if !is_supported_extension(p) {
-                    continue;
-                }
-
-                let file_path_str = p.to_string_lossy().into_owned();
-                let fs_event = match &event.kind {
-                    EventKind::Create(_) => Some(LinkedSourceFsEvent::Added {
-                        folder_path: folder_path_clone.clone(),
-                        file_path: file_path_str,
-                    }),
-                    EventKind::Remove(_) => Some(LinkedSourceFsEvent::Removed {
-                        folder_path: folder_path_clone.clone(),
-                        file_path: file_path_str,
-                    }),
-                    EventKind::Modify(_) => Some(LinkedSourceFsEvent::Modified {
-                        folder_path: folder_path_clone.clone(),
-                        file_path: file_path_str,
-                    }),
-                    _ => None,
-                };
-
-                if let Some(evt) = fs_event {
-                    let _ = app.emit("linked-source-fs-event", &evt);
-                }
-            }
-        }
-    });
-
-    watchers.insert(folder_path, stop_tx);
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_unwatch(
-    state: State<LinkedSourceWatcherState>,
-    folder_path: String,
-) -> Result<(), String> {
-    log::info!("Unwatching linked source: {folder_path}");
-    let mut watchers = state
-        .watchers
-        .lock()
-        .map_err(|_| "watcher lock poisoned")?;
-    if let Some(stop_tx) = watchers.remove(&folder_path) {
-        let _ = stop_tx.send(());
-    }
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_unwatch_all(
-    state: State<LinkedSourceWatcherState>,
-) -> Result<(), String> {
-    log::info!("Unwatching all linked sources");
-    let mut watchers = state
-        .watchers
-        .lock()
-        .map_err(|_| "watcher lock poisoned")?;
-    for (_, stop_tx) in watchers.drain() {
-        let _ = stop_tx.send(());
-    }
-    Ok(())
+        Ok(entries)
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 // ---------------------------------------------------------------------------
