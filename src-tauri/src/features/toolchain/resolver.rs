@@ -67,10 +67,21 @@ fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
 
     let candidates = [&with_triple, &without_triple];
 
-    let resource_dir = app.path().resource_dir().ok().map(|d| d.join("binaries"));
-    let manifest_dir = Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries"));
+    let dirs: Vec<PathBuf> = [
+        // Bundled app: externalBin sits next to the main executable
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("binaries"))),
+        // Bundled app: resource_dir (fallback)
+        app.path().resource_dir().ok().map(|d| d.join("binaries")),
+        // Dev mode: source directory
+        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
-    for dir in resource_dir.iter().chain(manifest_dir.iter()) {
+    for dir in &dirs {
         for name in &candidates {
             let path = dir.join(name);
             if path.exists() {
