@@ -23,6 +23,10 @@ pub async fn resolve(
     let spec = registry::get(tool_id)
         .ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
+    if let Some(sidecar) = sidecar_path(app, spec.binary_name) {
+        return Ok(sidecar);
+    }
+
     let downloaded = downloaded_path(app, tool_id, spec.version, spec.binary_name)?;
     if downloaded.exists() {
         return Ok(downloaded);
@@ -36,6 +40,21 @@ pub async fn resolve(
         "{} not found — install via Settings > Tools or place on PATH",
         spec.display_name
     ))
+}
+
+fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
+    let bin = if cfg!(target_os = "windows") {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name.to_string()
+    };
+    let path = app
+        .path()
+        .resource_dir()
+        .ok()?
+        .join("binaries")
+        .join(&bin);
+    if path.exists() { Some(path) } else { None }
 }
 
 pub fn downloaded_path(
