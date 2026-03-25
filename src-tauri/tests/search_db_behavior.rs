@@ -82,6 +82,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
             mtime_ms: 100,
             size_bytes: 10,
             file_type: None,
+            source: None,
         };
         upsert_note(&conn, &meta, body).expect("upsert should succeed");
     }
@@ -115,6 +116,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     let b = IndexNoteMeta {
         id: "docs/source.md".to_string(),
@@ -124,6 +126,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     upsert_note(&conn, &a, "body a").expect("upsert should succeed");
     upsert_note(&conn, &b, "body b").expect("upsert should succeed");
@@ -160,6 +163,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     let source_b = IndexNoteMeta {
         id: "docs/source-b.md".to_string(),
@@ -169,6 +173,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     let existing = IndexNoteMeta {
         id: "docs/existing.md".to_string(),
@@ -178,6 +183,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
 
     upsert_note(&conn, &source_a, "body").expect("upsert should succeed");
@@ -313,6 +319,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     let b = IndexNoteMeta {
         id: "old_500/b.md".to_string(),
@@ -322,6 +329,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         mtime_ms: 100,
         size_bytes: 10,
         file_type: None,
+        source: None,
     };
     upsert_note(&conn, &a, "body a").expect("upsert should succeed");
     upsert_note(&conn, &b, "body b").expect("upsert should succeed");
@@ -354,6 +362,7 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
             mtime_ms: 100,
             size_bytes: 10,
             file_type: None,
+            source: None,
         };
         upsert_note(&conn, &meta, body).expect("upsert should succeed");
     }
@@ -379,6 +388,7 @@ fn upsert_note_populates_note_headings() {
         mtime_ms: 100,
         size_bytes: 50,
         file_type: None,
+        source: None,
     };
     upsert_note(&conn, &meta, "# Title\n## Sub\n### Deep").expect("upsert");
 
@@ -415,6 +425,7 @@ fn upsert_note_populates_note_links() {
         mtime_ms: 100,
         size_bytes: 100,
         file_type: None,
+        source: None,
     };
     upsert_note(
         &conn,
@@ -463,6 +474,7 @@ fn upsert_note_populates_target_anchor_and_section_heading() {
         mtime_ms: 100,
         size_bytes: 200,
         file_type: None,
+        source: None,
     };
     let md =
         "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
@@ -505,6 +517,7 @@ fn remove_note_clears_headings_and_links() {
         mtime_ms: 100,
         size_bytes: 50,
         file_type: None,
+        source: None,
     };
     upsert_note(&conn, &meta, "# Title\n[[Other]]").expect("upsert");
 
@@ -543,6 +556,7 @@ fn search_returns_file_type_from_db() {
         mtime_ms: 100,
         size_bytes: 1000,
         file_type: Some("pdf".to_string()),
+        source: None,
     };
     upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
 
@@ -565,6 +579,7 @@ fn rename_note_propagates_to_headings_and_links() {
         mtime_ms: 100,
         size_bytes: 50,
         file_type: None,
+        source: None,
     };
     upsert_note(&conn, &meta, "# Title\n[[Target]]").expect("upsert");
 

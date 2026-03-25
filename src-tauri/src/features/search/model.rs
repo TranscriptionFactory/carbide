@@ -51,6 +51,8 @@ pub struct IndexNoteMeta {
     pub size_bytes: i64,
     #[serde(default)]
     pub file_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, Type)]

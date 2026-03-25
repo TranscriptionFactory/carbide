@@ -466,6 +466,12 @@ export class ReferenceService {
           (item) => item._linked_source_id !== id,
         ),
       );
+
+      try {
+        await ls_port.clear_source(vault_id, id);
+      } catch {
+        // best-effort FTS cleanup
+      }
     }
 
     this.store.remove_linked_source(id);
@@ -524,6 +530,18 @@ export class ReferenceService {
       const updated = { ...current, items: [...merged.values()] };
       await this.storage_port.save_library(vault_id, updated);
       this.store.set_library_items(updated.items);
+
+      // FTS: clear stale, then index all entries
+      try {
+        await ls_port.clear_source(vault_id, source_id);
+        await Promise.all(
+          entries.map((entry) =>
+            ls_port.index_content(vault_id, source_id, entry),
+          ),
+        );
+      } catch (e) {
+        console.error("FTS indexing failed during scan:", error_message(e));
+      }
 
       this.store.update_linked_source(source_id, {
         last_scan_at: this.now_ms(),
@@ -595,6 +613,12 @@ export class ReferenceService {
       await this.storage_port.add_item(vault_id, item);
       this.store.add_item(item);
 
+      try {
+        await ls_port.index_content(vault_id, source_id, entry);
+      } catch {
+        // best-effort FTS
+      }
+
       if (item.DOI) {
         void this.enrich_dois([item], source_id);
       }
@@ -616,10 +640,17 @@ export class ReferenceService {
     );
     if (!item) return;
 
+    const ls_port = this.require_linked_source_port();
     const vault_id = this.require_vault_id();
     try {
       await this.storage_port.remove_item(vault_id, item.id);
       this.store.remove_item(item.id);
+
+      try {
+        await ls_port.remove_content(vault_id, source_id, file_path);
+      } catch {
+        // best-effort FTS cleanup
+      }
     } catch (e) {
       console.error(
         `Failed to unindex linked file ${file_path}:`,

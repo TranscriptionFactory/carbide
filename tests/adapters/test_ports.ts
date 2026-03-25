@@ -211,6 +211,9 @@ export function create_test_ports(): Ports {
       unwatch: () => Promise.resolve(),
       unwatch_all: () => Promise.resolve(),
       subscribe_events: () => () => {},
+      index_content: () => Promise.resolve(),
+      remove_content: () => Promise.resolve(),
+      clear_source: () => Promise.resolve(),
     },
   };
 }

@@ -2,6 +2,7 @@ import type { LinkedSourcePort } from "../ports";
 import type { ScanEntry, LinkedSourceFsEvent } from "../types";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
+import type { VaultId } from "$lib/shared/types/ids";
 
 export function create_linked_source_tauri_adapter(): LinkedSourcePort {
   return {
@@ -69,6 +70,42 @@ export function create_linked_source_tauri_adapter(): LinkedSourcePort {
           unlisten_fn = null;
         }
       };
+    },
+
+    async index_content(
+      vault_id: VaultId,
+      source_id: string,
+      entry: ScanEntry,
+    ): Promise<void> {
+      await tauri_invoke<void>("linked_source_index_content", {
+        vaultId: vault_id,
+        sourceId: source_id,
+        filePath: entry.file_path,
+        title: entry.title ?? entry.file_name,
+        body: entry.body_text,
+        pageOffsets: entry.page_offsets,
+        fileType: entry.file_type,
+        modifiedAt: entry.modified_at,
+      });
+    },
+
+    async remove_content(
+      vault_id: VaultId,
+      source_id: string,
+      file_path: string,
+    ): Promise<void> {
+      await tauri_invoke<void>("linked_source_remove_content", {
+        vaultId: vault_id,
+        sourceId: source_id,
+        filePath: file_path,
+      });
+    },
+
+    async clear_source(vault_id: VaultId, source_id: string): Promise<void> {
+      await tauri_invoke<void>("linked_source_clear_source", {
+        vaultId: vault_id,
+        sourceId: source_id,
+      });
     },
   };
 }

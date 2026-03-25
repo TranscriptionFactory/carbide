@@ -62,4 +62,15 @@ export interface LinkedSourcePort {
   unwatch(path: string): Promise<void>;
   unwatch_all(): Promise<void>;
   subscribe_events(callback: (event: LinkedSourceFsEvent) => void): () => void;
+  index_content(
+    vault_id: string,
+    source_id: string,
+    entry: ScanEntry,
+  ): Promise<void>;
+  remove_content(
+    vault_id: string,
+    source_id: string,
+    file_path: string,
+  ): Promise<void>;
+  clear_source(vault_id: string, source_id: string): Promise<void>;
 }

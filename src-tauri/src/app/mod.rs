@@ -303,6 +303,9 @@ pub fn run() {
             features::reference::linked_source::linked_source_watch,
             features::reference::linked_source::linked_source_unwatch,
             features::reference::linked_source::linked_source_unwatch_all,
+            features::search::service::linked_source_index_content,
+            features::search::service::linked_source_remove_content,
+            features::search::service::linked_source_clear_source,
         ])
         .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)

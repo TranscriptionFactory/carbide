@@ -149,6 +149,25 @@ enum DbCommand {
         new_path: String,
         reply: SyncSender<Result<(), String>>,
     },
+    UpsertLinkedContent {
+        source_id: String,
+        file_path: String,
+        title: String,
+        body: String,
+        page_offsets: Vec<usize>,
+        file_type: String,
+        modified_at: u64,
+        reply: SyncSender<Result<(), String>>,
+    },
+    ClearLinkedSource {
+        source_id: String,
+        reply: SyncSender<Result<(), String>>,
+    },
+    RemoveLinkedContent {
+        source_id: String,
+        file_path: String,
+        reply: SyncSender<Result<(), String>>,
+    },
     Shutdown,
 }
 
@@ -464,6 +483,42 @@ fn dispatch_command(
                 true,
             );
         }
+        DbCommand::UpsertLinkedContent {
+            source_id,
+            file_path,
+            title,
+            body,
+            page_offsets,
+            file_type,
+            modified_at,
+            reply,
+        } => {
+            let result = search_db::upsert_linked_content(
+                conn, &source_id, &file_path, &title, &body, &page_offsets, &file_type, modified_at,
+            );
+            if let Err(ref e) = result {
+                log::error!("upsert_linked_content failed: {e}");
+            }
+            let _ = reply.send(result);
+        }
+        DbCommand::RemoveLinkedContent {
+            source_id,
+            file_path,
+            reply,
+        } => {
+            let result = search_db::remove_linked_content(conn, &source_id, &file_path);
+            if let Err(ref e) = result {
+                log::error!("remove_linked_content failed: {e}");
+            }
+            let _ = reply.send(result);
+        }
+        DbCommand::ClearLinkedSource { source_id, reply } => {
+            let result = search_db::clear_linked_source(conn, &source_id);
+            if let Err(ref e) = result {
+                log::error!("clear_linked_source failed: {e}");
+            }
+            let _ = reply.send(result);
+        }
         DbCommand::Shutdown => {
             return LoopAction::Break;
         }
@@ -606,7 +661,10 @@ fn run_index_op(
                     | DbCommand::RemoveNotes { .. }
                     | DbCommand::RemoveNotesByPrefix { .. }
                     | DbCommand::RenamePaths { .. }
-                    | DbCommand::RenamePath { .. } => {
+                    | DbCommand::RenamePath { .. }
+                    | DbCommand::UpsertLinkedContent { .. }
+                    | DbCommand::RemoveLinkedContent { .. }
+                    | DbCommand::ClearLinkedSource { .. } => {
                         cancel.store(true, Ordering::Relaxed);
                         dispatch_command(conn, cmd, notes_cache, rx);
 
@@ -1309,6 +1367,59 @@ pub fn index_rename_note(
     send_write_blocking(&app, &vault_id, |reply| DbCommand::RenamePath {
         old_path,
         new_path,
+        reply,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn linked_source_index_content(
+    app: AppHandle,
+    vault_id: String,
+    source_id: String,
+    file_path: String,
+    title: String,
+    body: String,
+    page_offsets: Vec<usize>,
+    file_type: String,
+    modified_at: u64,
+) -> Result<(), String> {
+    send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertLinkedContent {
+        source_id,
+        file_path,
+        title,
+        body,
+        page_offsets,
+        file_type,
+        modified_at,
+        reply,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn linked_source_remove_content(
+    app: AppHandle,
+    vault_id: String,
+    source_id: String,
+    file_path: String,
+) -> Result<(), String> {
+    send_write_blocking(&app, &vault_id, |reply| DbCommand::RemoveLinkedContent {
+        source_id,
+        file_path,
+        reply,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn linked_source_clear_source(
+    app: AppHandle,
+    vault_id: String,
+    source_id: String,
+) -> Result<(), String> {
+    send_write_blocking(&app, &vault_id, |reply| DbCommand::ClearLinkedSource {
+        source_id,
         reply,
     })
 }

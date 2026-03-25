@@ -186,6 +186,7 @@ pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNo
         mtime_ms,
         size_bytes,
         file_type: None,
+        source: None,
     })
 }
 
@@ -392,6 +393,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "last_indexed_at INTEGER DEFAULT 0",
         "file_type TEXT DEFAULT 'markdown'",
         "page_offsets TEXT DEFAULT NULL",
+        "source TEXT DEFAULT 'vault'",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
@@ -687,6 +689,7 @@ fn upsert_plain_content(
         .as_millis() as i64;
 
     let file_type = meta.file_type.as_deref().unwrap_or("text");
+    let source = meta.source.as_deref().unwrap_or("vault");
     let word_count = body.split_whitespace().count() as i64;
     let char_count = body.len() as i64;
     let offsets_json: Option<String> = if page_offsets.is_empty() {
@@ -696,8 +699,8 @@ fn upsert_plain_content(
     };
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8, ?9)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json],
+        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8, ?9, ?10)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
     )
     .map_err(|e| e.to_string())?;
 
@@ -711,6 +714,52 @@ fn upsert_plain_content(
     .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+pub fn upsert_linked_content(
+    conn: &Connection,
+    source_id: &str,
+    file_path: &str,
+    title: &str,
+    body: &str,
+    page_offsets: &[usize],
+    file_type: &str,
+    modified_at: u64,
+) -> Result<(), String> {
+    let synthetic_path = format!("linked:{source_id}/{}", file_name_from_path(file_path));
+    let name = file_stem_string(Path::new(file_path));
+    let meta = IndexNoteMeta {
+        id: synthetic_path.clone(),
+        path: synthetic_path,
+        title: title.to_string(),
+        name,
+        mtime_ms: modified_at as i64,
+        size_bytes: body.len() as i64,
+        file_type: Some(file_type.to_string()),
+        source: Some(format!("linked:{source_id}")),
+    };
+    upsert_plain_content(conn, &meta, body, page_offsets)
+}
+
+pub fn remove_linked_content(
+    conn: &Connection,
+    source_id: &str,
+    file_path: &str,
+) -> Result<(), String> {
+    let synthetic_path = format!("linked:{source_id}/{}", file_name_from_path(file_path));
+    remove_note(conn, &synthetic_path)
+}
+
+pub fn clear_linked_source(conn: &Connection, source_id: &str) -> Result<(), String> {
+    let prefix = format!("linked:{source_id}/");
+    remove_notes_by_prefix(conn, &prefix)
+}
+
+fn file_name_from_path(path: &str) -> &str {
+    Path::new(path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(path)
 }
 
 pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
@@ -1489,6 +1538,7 @@ fn note_meta_from_row_cols(
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
         file_type,
+        source: None,
     })
 }
 
@@ -1506,6 +1556,7 @@ fn note_meta_with_stats_from_row(
         mtime_ms: row.get(2)?,
         size_bytes: row.get(3)?,
         file_type: row.get(10).ok(),
+        source: None,
     };
     let stats = crate::features::search::model::NoteStats {
         word_count: row.get(4).unwrap_or(0),
@@ -1542,7 +1593,8 @@ pub fn search(
                       bm25(notes_fts, 10.0, 12.0, 5.0, 1.0) as rank,
                       n.file_type,
                       n.page_offsets,
-                      notes_fts.body
+                      notes_fts.body,
+                      n.source
                FROM notes_fts
                JOIN notes n ON n.path = notes_fts.path
                WHERE notes_fts MATCH ?1
@@ -1555,13 +1607,16 @@ pub fn search(
             let snippet: Option<String> = row.get(4)?;
             let offsets_json: Option<String> = row.get(7)?;
             let body: Option<String> = row.get(8)?;
+            let source: Option<String> = row.get(9)?;
             let snippet_page = resolve_snippet_page_from_json(
                 snippet.as_deref(),
                 body.as_deref(),
                 offsets_json.as_deref(),
             );
+            let mut note = note_meta_from_row_cols(row, Some(6))?;
+            note.source = source;
             Ok(SearchHit {
-                note: note_meta_from_row_cols(row, Some(6))?,
+                note,
                 score: row.get(5)?,
                 snippet,
                 snippet_page,
@@ -1656,6 +1711,7 @@ pub fn fuzzy_suggest(
                     mtime_ms,
                     size_bytes,
                     file_type,
+                    source: None,
                 },
                 score: best_score as f64,
             });
@@ -1821,6 +1877,7 @@ mod tests {
             mtime_ms: 100,
             size_bytes: 10,
             file_type: None,
+            source: None,
         }
     }
 
