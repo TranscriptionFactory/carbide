@@ -53,7 +53,6 @@ pub async fn resolve(
 }
 
 fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
-    let dir = app.path().resource_dir().ok()?.join("binaries");
     let (with_triple, without_triple) = if cfg!(target_os = "windows") {
         (
             format!("{}-{}.exe", binary_name, TARGET_TRIPLE),
@@ -65,13 +64,19 @@ fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
             binary_name.to_string(),
         )
     };
-    let path = dir.join(&with_triple);
-    if path.exists() {
-        return Some(path);
-    }
-    let path = dir.join(&without_triple);
-    if path.exists() {
-        return Some(path);
+
+    let candidates = [&with_triple, &without_triple];
+
+    let resource_dir = app.path().resource_dir().ok().map(|d| d.join("binaries"));
+    let manifest_dir = Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries"));
+
+    for dir in resource_dir.iter().chain(manifest_dir.iter()) {
+        for name in &candidates {
+            let path = dir.join(name);
+            if path.exists() {
+                return Some(path);
+            }
+        }
     }
     None
 }
