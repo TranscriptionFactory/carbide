@@ -17,11 +17,19 @@ export type ThemeBlockquoteStyle = "default" | "minimal" | "accent-bar";
 
 export type ThemeCodeBlockStyle = "default" | "borderless" | "filled";
 
+export type ThemeLayoutVariant =
+  | "default"
+  | "monolith"
+  | "terminal"
+  | "workbench";
+
 export type Theme = {
   id: string;
   name: string;
   color_scheme: ThemeColorScheme;
   is_builtin: boolean;
+
+  layout_variant: ThemeLayoutVariant;
 
   accent_hue: number;
   accent_chroma: number;
@@ -68,6 +76,7 @@ const SHARED_DEFAULTS: Omit<
   Theme,
   "id" | "name" | "color_scheme" | "is_builtin"
 > = {
+  layout_variant: "default",
   accent_hue: 155,
   accent_chroma: 0.11,
   font_family_sans: "Inter",
