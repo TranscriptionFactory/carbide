@@ -65,6 +65,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 url = "2.5.8"
 pdf-extract = "0.10.0"
 lopdf = "0.34"
+rayon = "1.10"
 
 [dev-dependencies]
 filetime = "0.2"

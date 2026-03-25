@@ -74,6 +74,12 @@
     await ctx.action_registry.execute("reference.insert_citation", item.id);
   }
 
+  async function open_linked_source(item: CslItem) {
+    await ctx.action_registry.execute("document.open", {
+      file_path: item._linked_file_path,
+    });
+  }
+
   function format_item_line(item: CslItem): string {
     const year = extract_year(item);
     const authors = format_authors(item.author);
@@ -154,8 +160,9 @@
         {#each local_results as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => insert(item)}
-            title="Insert [@{item.id}]"
+            onclick={() =>
+              is_linked(item) ? open_linked_source(item) : insert(item)}
+            title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="text-sm font-medium truncate">
               {item.title ?? item.id}
@@ -176,8 +183,11 @@
         {#each group.items as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => insert(item)}
-            title="Import and insert [@{item.id}]"
+            onclick={() =>
+              is_linked(item) ? open_linked_source(item) : insert(item)}
+            title={is_linked(item)
+              ? "Open linked file"
+              : "Import and insert [@{item.id}]"}
           >
             <div class="text-sm font-medium truncate">
               {item.title ?? item.id}
@@ -204,8 +214,9 @@
         {#each ref_store.library_items as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => insert(item)}
-            title="Insert [@{item.id}]"
+            onclick={() =>
+              is_linked(item) ? open_linked_source(item) : insert(item)}
+            title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="flex items-center gap-1.5">
               {#if is_linked(item)}

@@ -756,6 +756,7 @@ dependencies = [
  "notify",
  "openssl",
  "pdf-extract",
+ "rayon",
  "regex",
  "reqwest 0.12.28",
  "ropey",

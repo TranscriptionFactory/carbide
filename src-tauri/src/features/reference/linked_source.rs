@@ -1,4 +1,5 @@
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -453,24 +454,32 @@ fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
         return Err(format!("not a directory: {folder_path}"));
     }
 
-    let mut entries = Vec::new();
-    for entry in WalkDir::new(&root)
+    let paths: Vec<PathBuf> = WalkDir::new(&root)
         .follow_links(false)
         .max_depth(3)
         .into_iter()
         .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if !path.is_file() || !is_supported_extension(path) {
-            continue;
-        }
-        match extract_file(path) {
-            Ok(scan_entry) => entries.push(scan_entry),
-            Err(e) => {
-                log::warn!("Skipping {}: {e}", path.display());
-            }
-        }
-    }
+        .filter(|e| e.path().is_file() && is_supported_extension(e.path()))
+        .map(|e| e.path().to_path_buf())
+        .collect();
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build()
+        .map_err(|e| format!("rayon pool: {e}"))?;
+
+    let entries: Vec<ScanEntry> = pool.install(|| {
+        paths
+            .par_iter()
+            .filter_map(|path| match extract_file(path) {
+                Ok(entry) => Some(entry),
+                Err(e) => {
+                    log::warn!("Skipping {}: {e}", path.display());
+                    None
+                }
+            })
+            .collect()
+    });
 
     Ok(entries)
 }
