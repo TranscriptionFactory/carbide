@@ -661,10 +661,7 @@ fn run_index_op(
                     | DbCommand::RemoveNotes { .. }
                     | DbCommand::RemoveNotesByPrefix { .. }
                     | DbCommand::RenamePaths { .. }
-                    | DbCommand::RenamePath { .. }
-                    | DbCommand::UpsertLinkedContent { .. }
-                    | DbCommand::RemoveLinkedContent { .. }
-                    | DbCommand::ClearLinkedSource { .. } => {
+                    | DbCommand::RenamePath { .. } => {
                         cancel.store(true, Ordering::Relaxed);
                         dispatch_command(conn, cmd, notes_cache, rx);
 
@@ -688,6 +685,11 @@ fn run_index_op(
                                 );
                             }
                         }
+                    }
+                    DbCommand::UpsertLinkedContent { .. }
+                    | DbCommand::RemoveLinkedContent { .. }
+                    | DbCommand::ClearLinkedSource { .. } => {
+                        dispatch_command(conn, cmd, notes_cache, rx);
                     }
                 }
             }
@@ -848,8 +850,6 @@ fn handle_sync_paths(
     removed_paths: &[String],
 ) {
     let start = Instant::now();
-    let vid = vault_id.to_string();
-    let app = app_handle.clone();
     let deferred: RefCell<Vec<DbCommand>> = RefCell::new(Vec::new());
 
     let mut drain_pending = || {
@@ -864,16 +864,7 @@ fn handle_sync_paths(
         conn,
         vault_root,
         cancel,
-        &|indexed, total| {
-            let _ = app.emit(
-                "index_progress",
-                IndexProgressEvent::Progress {
-                    vault_id: vid.clone(),
-                    indexed,
-                    total,
-                },
-            );
-        },
+        &|_indexed, _total| {},
         &mut drain_pending,
         changed_paths,
         removed_paths,
