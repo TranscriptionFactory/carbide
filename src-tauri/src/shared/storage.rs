@@ -326,7 +326,12 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
                 parts[1].to_string()
             };
             let decoded = url_decode(&encoded_path);
-            let path = PathBuf::from(&decoded);
+            let abs_decoded = if decoded.starts_with('/') {
+                decoded
+            } else {
+                format!("/{decoded}")
+            };
+            let path = PathBuf::from(&abs_decoded);
             match path.canonicalize() {
                 Ok(p) if p.is_file() => p,
                 _ => return Response::builder().status(404).body(Vec::new()).unwrap(),
