@@ -1193,10 +1193,19 @@ pub fn sync_index(
     on_progress: &dyn Fn(usize, usize),
     yield_fn: &mut dyn FnMut(),
 ) -> Result<IndexResult, String> {
-    let manifest = get_manifest(conn).unwrap_or_default();
+    let manifest = get_manifest(conn).unwrap_or_else(|e| {
+        log::warn!("sync_index: get_manifest failed, treating as empty: {e}");
+        BTreeMap::new()
+    });
+    log::info!(
+        "sync_index: manifest has {} entries, vault_root={}",
+        manifest.len(),
+        vault_root.display()
+    );
     let scan = scan_vault(app, vault_id, vault_root)?;
     let vault_stats = Some(scan.stats);
     let disk_files = scan.indexable_files;
+    log::info!("sync_index: scanned {} disk files", disk_files.len());
     let plan = compute_sync_plan(vault_root, &manifest, &disk_files);
 
     let change_count = plan.added.len() + plan.modified.len() + plan.removed.len();
