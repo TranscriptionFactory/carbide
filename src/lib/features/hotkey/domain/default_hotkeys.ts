@@ -330,4 +330,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Restart the IWE language server to re-index the vault",
     category: "general",
   },
+  {
+    action_id: ACTION_IDS.iwe_code_actions,
+    key: "CmdOrCtrl+.",
+    phase: "bubble",
+    label: "IWE: Code Actions",
+    description: "Show available code actions at cursor position",
+    category: "general",
+  },
 ];
