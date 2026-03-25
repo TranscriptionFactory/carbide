@@ -16,3 +16,12 @@ fs.writeFileSync(
   "src-tauri/Cargo.toml",
   cargoToml.replace(/^version\s*=\s*"[^"]*"/m, `version = "${pkg.version}"`),
 );
+
+const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
+fs.writeFileSync(
+  "src-tauri/Cargo.lock",
+  cargoLock.replace(
+    /^(name = "carbide"\nversion = )"[^"]*"/m,
+    `$1"${pkg.version}"`,
+  ),
+);
