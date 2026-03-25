@@ -143,24 +143,15 @@ pub async fn toolchain_resolve(
     tool_id: String,
     custom_path: Option<String>,
 ) -> Result<String, String> {
-    match resolver::resolve(&app, &tool_id, custom_path.as_deref()).await {
-        Ok(path) => Ok(path.to_string_lossy().to_string()),
-        Err(_) => {
-            log::info!(
-                "Tool {} not found, attempting auto-download",
-                tool_id
-            );
-            let path = downloader::download_tool(&app, &tool_id).await?;
-            let spec = registry::get(&tool_id).unwrap();
-            let mut statuses = state.statuses.lock().await;
-            statuses.insert(
-                tool_id,
-                ToolStatus::Installed {
-                    version: spec.version.to_string(),
-                    path: path.to_string_lossy().to_string(),
-                },
-            );
-            Ok(path.to_string_lossy().to_string())
-        }
-    }
+    let path = resolver::resolve(&app, &tool_id, custom_path.as_deref()).await?;
+    let spec = registry::get(&tool_id).unwrap();
+    let mut statuses = state.statuses.lock().await;
+    statuses.insert(
+        tool_id,
+        ToolStatus::Installed {
+            version: spec.version.to_string(),
+            path: path.to_string_lossy().to_string(),
+        },
+    );
+    Ok(path.to_string_lossy().to_string())
 }

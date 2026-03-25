@@ -34,6 +34,13 @@ pub struct ToolSpec {
     pub capabilities: &'static [ToolCapability],
 }
 
+impl ToolSpec {
+    pub fn downloadable(&self) -> bool {
+        !self.github_repo.is_empty()
+            && self.platform_binaries.iter().any(|p| p.asset_template != "")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ToolStatus {

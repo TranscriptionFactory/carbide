@@ -4,6 +4,8 @@ use tauri::Manager;
 
 use super::registry;
 
+const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
+
 pub async fn resolve(
     app: &AppHandle,
     tool_id: &str,
@@ -36,6 +38,14 @@ pub async fn resolve(
         return Ok(found);
     }
 
+    if spec.downloadable() {
+        log::info!(
+            "{} not found locally, attempting auto-download",
+            spec.display_name
+        );
+        return super::downloader::download_tool(app, tool_id).await;
+    }
+
     Err(format!(
         "{} not found — install via Settings > Tools or place on PATH",
         spec.display_name
@@ -43,18 +53,27 @@ pub async fn resolve(
 }
 
 fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
-    let bin = if cfg!(target_os = "windows") {
-        format!("{}.exe", binary_name)
+    let dir = app.path().resource_dir().ok()?.join("binaries");
+    let (with_triple, without_triple) = if cfg!(target_os = "windows") {
+        (
+            format!("{}-{}.exe", binary_name, TARGET_TRIPLE),
+            format!("{}.exe", binary_name),
+        )
     } else {
-        binary_name.to_string()
+        (
+            format!("{}-{}", binary_name, TARGET_TRIPLE),
+            binary_name.to_string(),
+        )
     };
-    let path = app
-        .path()
-        .resource_dir()
-        .ok()?
-        .join("binaries")
-        .join(&bin);
-    if path.exists() { Some(path) } else { None }
+    let path = dir.join(&with_triple);
+    if path.exists() {
+        return Some(path);
+    }
+    let path = dir.join(&without_triple);
+    if path.exists() {
+        return Some(path);
+    }
+    None
 }
 
 pub fn downloaded_path(
