@@ -3,7 +3,7 @@
    ============================================ */
 
 .WorkspaceLayout--zen-deck {
-  --zen-max-width: 85ch;
+  --zen-max-width: 100ch;
   --zen-dock-height: 4rem;
   --zen-sidebar-width: 20rem;
 
@@ -14,8 +14,8 @@
   .ActivityBar {
     position: absolute;
     bottom: var(--space-4);
-    left: 50%;
-    transform: translateX(-50%);
+    left: 25%;
+    transform: translateX(50%);
     height: var(--zen-dock-height);
     width: auto;
     align-items: center;

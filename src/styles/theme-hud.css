@@ -103,7 +103,9 @@
     flex: none !important;
   }
 
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
     border-inline-start: none;
     background-color: transparent;
   }

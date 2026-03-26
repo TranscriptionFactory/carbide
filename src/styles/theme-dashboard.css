@@ -61,7 +61,9 @@
     flex: none !important;
   }
 
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
     border-inline-start: none;
   }
 
@@ -75,7 +77,8 @@
   }
 
   /* We use a data attribute or class on the parent to handle the editor offset when rail is open */
-  &.WorkspaceLayout--dashboard:has([order="3"]:not([style*="display: none"])) [data-slot="sidebar-inset"] {
+  &.WorkspaceLayout--dashboard:has([order="3"]:not([style*="display: none"]))
+    [data-slot="sidebar-inset"] {
     padding-inline-start: var(--dashboard-sidebar-width);
   }
 
