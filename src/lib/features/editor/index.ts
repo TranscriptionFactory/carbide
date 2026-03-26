@@ -27,3 +27,4 @@ export {
   insert_markdown_hard_break,
   normalize_markdown_line_breaks,
 } from "$lib/features/editor/domain/markdown_line_breaks";
+export { parse_to_mdast } from "$lib/features/editor/adapters/markdown_pipeline";

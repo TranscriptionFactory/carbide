@@ -35,7 +35,7 @@ import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
 import { create_iwe_tauri_adapter } from "$lib/features/iwe";
 import { create_marksman_tauri_adapter } from "$lib/features/marksman";
-import { create_metadata_tauri_adapter } from "$lib/features/metadata";
+
 import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
@@ -100,7 +100,7 @@ export function create_prod_ports(): Ports {
     lint: create_lint_tauri_adapter(),
     iwe: create_iwe_tauri_adapter(),
     marksman: create_marksman_tauri_adapter(),
-    metadata: create_metadata_tauri_adapter(),
+
     toolchain: create_toolchain_tauri_adapter(),
     code_lsp: create_code_lsp_tauri_adapter(),
     saved_query: create_saved_query_tauri_adapter(),

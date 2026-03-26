@@ -20,7 +20,7 @@ import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
 import type { IwePort } from "$lib/features/iwe";
 import type { MarksmanPort } from "$lib/features/marksman";
-import type { MetadataPort } from "$lib/features/metadata";
+
 import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
 import type { SavedQueryPort } from "$lib/features/query";
@@ -58,7 +58,7 @@ export type Ports = {
   lint: LintPort;
   iwe: IwePort;
   marksman: MarksmanPort;
-  metadata: MetadataPort;
+
   toolchain: ToolchainPort;
   code_lsp: CodeLspPort;
   saved_query: SavedQueryPort;
