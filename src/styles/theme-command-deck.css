@@ -101,8 +101,8 @@
   .TabBar {
     position: absolute;
     top: var(--command-deck-rail-offset);
-    left: calc(var(--command-deck-sidebar-width) + var(--space-8));
-    right: calc(var(--command-deck-status-width) + var(--space-4));
+    left: calc(var(--command-deck-sidebar-width) + var(--space-0));
+    right: calc(var(--command-deck-status-width) + var(--space-8));
     height: var(--command-deck-rail-height);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -131,8 +131,8 @@
   .StatusBar {
     position: absolute;
     top: var(--command-deck-rail-offset);
-    right: var(--space-2);
-    width: var(--command-deck-status-width);
+    right: var(--space-4);
+    /* width: var(--command-deck-status-width); */
     height: var(--command-deck-rail-height);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -154,9 +154,11 @@
     white-space: nowrap;
   }
 
-  .NoteEditor {
+  /* .NoteEditor {
     background-color: var(--background);
-  }
+    position: relative;
+
+  } */
 
   .SplitViewContainer {
     height: 100%;
@@ -185,7 +187,9 @@
     flex: none !important;
   }
 
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
     border-inline-start: none;
     background-color: transparent;
   }
