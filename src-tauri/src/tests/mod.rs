@@ -10,12 +10,6 @@ mod search_db_behavior;
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
 
-#[path = "../../tests/link_rewrite.rs"]
-mod link_rewrite;
-
-#[path = "../../tests/link_validation.rs"]
-mod link_validation;
-
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
@@ -58,11 +52,6 @@ mod specta_export {
                 crate::features::search::service::index_remove_notes_by_prefix,
                 crate::features::search::service::index_rename_folder,
                 crate::features::search::service::index_rename_note,
-                crate::features::search::service::index_note_links_snapshot,
-                crate::features::search::service::index_extract_local_note_links,
-                crate::features::search::service::rewrite_note_links,
-                crate::features::search::service::resolve_note_link,
-                crate::features::search::service::resolve_wiki_link,
                 crate::features::search::service::semantic_search,
                 crate::features::search::service::find_similar_notes,
                 crate::features::search::service::semantic_search_batch,
@@ -99,12 +88,6 @@ mod specta_export {
                 crate::features::vault::service::get_last_vault_id,
                 crate::features::vault::service::resolve_file_to_vault,
                 crate::features::vault::service::refresh_note_count,
-                // Graph commands (5)
-                crate::features::graph::service::graph_load_note_neighborhood,
-                crate::features::graph::service::graph_invalidate_cache,
-                crate::features::graph::service::graph_cache_stats,
-                crate::features::graph::service::graph_load_vault_graph,
-                crate::features::graph::service::graph_load_vault_graph_streamed,
                 // Bases commands (4)
                 crate::features::bases::service::bases_list_properties,
                 crate::features::bases::service::bases_query,
@@ -113,14 +96,6 @@ mod specta_export {
                 // Watcher commands (2)
                 crate::features::watcher::service::watch_vault,
                 crate::features::watcher::service::unwatch_vault,
-                // Tags commands (6)
-                crate::features::tags::service::tags_list_all,
-                crate::features::tags::service::tags_list_all_unified,
-                crate::features::tags::service::tags_get_notes_for_tag,
-                crate::features::tags::service::tags_get_notes_for_tag_prefix,
-                crate::features::tags::service::notes_with_code_language,
-                crate::features::tags::service::property_registry_list,
-                crate::features::tags::service::section_get_range,
                 // AI commands (2)
                 crate::features::ai::service::ai_check_cli,
                 crate::features::ai::service::ai_execute_cli,

@@ -1,9 +1,9 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, get_backlinks, get_manifest, get_orphan_outlinks, get_outlinks,
-    gfm_link_targets, internal_link_targets, list_note_paths_by_prefix, open_search_db_at_path,
-    rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path, search,
-    set_outlinks, suggest_planned, sync_index, upsert_note, wiki_link_targets,
+    list_note_paths_by_prefix, open_search_db_at_path, rebuild_index, remove_notes_by_prefix,
+    rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
+    upsert_note,
 };
 use crate::features::search::model::{IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
@@ -249,61 +249,35 @@ fn sync_progress_advances_when_some_files_are_unreadable() {
 }
 
 #[test]
-fn rebuild_resolves_batch_outlinks_before_yield() {
+fn rebuild_indexes_all_files() {
     let tmp = TempDir::new().expect("temp dir should be created");
+    let db_dir = TempDir::new().expect("db temp dir should be created");
     let root = tmp.path();
-    let conn = open_search_db_at_path(&root.join("test.db")).expect("db should open");
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db should open");
 
     write_md(root, "notes/000-target.md", "# target");
-    write_md(root, "notes/001-source.md", "[target](./000-target.md)");
+    write_md(root, "notes/001-source.md", "some content");
     for i in 0..100 {
         write_md(root, &format!("notes/{:03}-filler.md", i + 2), "# filler");
     }
 
     let cancel = AtomicBool::new(false);
-    let mut first_yield_checked = false;
-    rebuild_index(
+    let result = rebuild_index(
         None,
         "test-vault",
         &conn,
         root,
         &cancel,
         &|_, _| {},
-        &mut || {
-            if first_yield_checked {
-                return;
-            }
-            let outlinks =
-                get_outlinks(&conn, "notes/001-source.md").expect("outlinks should load");
-            assert_eq!(outlinks.len(), 1);
-            assert_eq!(outlinks[0].path, "notes/000-target.md");
-            first_yield_checked = true;
-        },
+        &mut || {},
     )
     .expect("rebuild should succeed");
 
-    assert!(first_yield_checked);
-}
-
-#[test]
-fn link_target_parsers_cover_spaces_aliases_and_wikilinks() {
-    let gfm = gfm_link_targets("[Doc](<Folder Name/child note.md>)", "root.md");
-    assert_eq!(gfm, vec!["Folder Name/child note.md".to_string()]);
-
-    let wiki = wiki_link_targets("[[Folder Name/child note#Heading|Alias Label]]", "root.md");
-    assert_eq!(wiki, vec!["Folder Name/child note.md".to_string()]);
-
-    let combined = internal_link_targets(
-        "[A](./gfm%20target.md) [[wiki target]] ![[embedded]]",
-        "docs/source.md",
-    );
-    assert_eq!(
-        combined,
-        vec![
-            "docs/gfm target.md".to_string(),
-            "wiki target.md".to_string()
-        ]
-    );
+    assert_eq!(result.total, 102);
+    assert_eq!(result.indexed, 102);
+    let manifest = get_manifest(&conn).expect("manifest should load");
+    assert!(manifest.contains_key("notes/000-target.md"));
+    assert!(manifest.contains_key("notes/001-source.md"));
 }
 
 #[test]
@@ -375,7 +349,7 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
 }
 
 #[test]
-fn upsert_note_populates_note_headings() {
+fn upsert_note_indexes_basic_metadata() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");
     let conn = open_search_db_at_path(&db).expect("open db");
@@ -392,119 +366,15 @@ fn upsert_note_populates_note_headings() {
     };
     upsert_note(&conn, &meta, "# Title\n## Sub\n### Deep").expect("upsert");
 
-    let rows: Vec<(String, i64, String, i64)> = conn
-        .prepare("SELECT note_path, level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
-        .unwrap()
-        .query_map(rusqlite::params!["test.md"], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM notes WHERE path = ?1", rusqlite::params!["test.md"], |r| r.get(0))
         .unwrap();
-
-    assert_eq!(rows.len(), 3);
-    assert_eq!(rows[0].1, 1);
-    assert_eq!(rows[0].2, "Title");
-    assert_eq!(rows[1].1, 2);
-    assert_eq!(rows[1].2, "Sub");
-    assert_eq!(rows[2].1, 3);
-    assert_eq!(rows[2].2, "Deep");
+    assert_eq!(count, 1);
 }
 
-#[test]
-fn upsert_note_populates_note_links() {
-    let tmp = TempDir::new().expect("temp dir");
-    let db = tmp.path().join("test.db");
-    let conn = open_search_db_at_path(&db).expect("open db");
-
-    let meta = IndexNoteMeta {
-        id: "notes/test.md".into(),
-        path: "notes/test.md".into(),
-        title: "Test".into(),
-        name: "test".into(),
-        mtime_ms: 100,
-        size_bytes: 100,
-        file_type: None,
-        source: None,
-    };
-    upsert_note(
-        &conn,
-        &meta,
-        "[[Other]] and [link](./local.md) and [ext](https://example.com)",
-    )
-    .expect("upsert");
-
-    let rows: Vec<(String, String, Option<String>, String)> = conn
-        .prepare("SELECT source_path, target_path, link_text, link_type FROM note_links WHERE source_path = ?1 ORDER BY link_type")
-        .unwrap()
-        .query_map(rusqlite::params!["notes/test.md"], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-
-    assert_eq!(rows.len(), 3);
-
-    let external: Vec<_> = rows.iter().filter(|r| r.3 == "external").collect();
-    assert_eq!(external.len(), 1);
-    assert_eq!(external[0].1, "https://example.com");
-    assert_eq!(external[0].2.as_deref(), Some("ext"));
-
-    let wiki: Vec<_> = rows.iter().filter(|r| r.3 == "wiki").collect();
-    assert_eq!(wiki.len(), 1);
-    assert_eq!(wiki[0].1, "Other.md");
-
-    let md: Vec<_> = rows.iter().filter(|r| r.3 == "markdown").collect();
-    assert_eq!(md.len(), 1);
-    assert_eq!(md[0].1, "notes/local.md");
-}
 
 #[test]
-fn upsert_note_populates_target_anchor_and_section_heading() {
-    let tmp = TempDir::new().expect("temp dir");
-    let db = tmp.path().join("test.db");
-    let conn = open_search_db_at_path(&db).expect("open db");
-
-    let meta = IndexNoteMeta {
-        id: "notes/test.md".into(),
-        path: "notes/test.md".into(),
-        title: "Test".into(),
-        name: "test".into(),
-        mtime_ms: 100,
-        size_bytes: 200,
-        file_type: None,
-        source: None,
-    };
-    let md =
-        "# Intro\n\n[[Other#design]] is relevant.\n\n## Details\n\n[link](./local.md#setup) here.";
-    upsert_note(&conn, &meta, md).expect("upsert");
-
-    let rows: Vec<(String, Option<String>, Option<String>, String)> = conn
-        .prepare("SELECT target_path, target_anchor, section_heading, link_type FROM note_links WHERE source_path = ?1 ORDER BY link_type")
-        .unwrap()
-        .query_map(rusqlite::params!["notes/test.md"], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-
-    assert_eq!(rows.len(), 2);
-
-    let md_link: Vec<_> = rows.iter().filter(|r| r.3 == "markdown").collect();
-    assert_eq!(md_link.len(), 1);
-    assert_eq!(md_link[0].1.as_deref(), Some("setup"));
-    assert_eq!(md_link[0].2.as_deref(), Some("Details"));
-
-    let wiki_link: Vec<_> = rows.iter().filter(|r| r.3 == "wiki").collect();
-    assert_eq!(wiki_link.len(), 1);
-    assert_eq!(wiki_link[0].1.as_deref(), Some("design"));
-    assert_eq!(wiki_link[0].2.as_deref(), Some("Intro"));
-}
-
-#[test]
-fn remove_note_clears_headings_and_links() {
+fn remove_note_clears_note_record() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");
     let conn = open_search_db_at_path(&db).expect("open db");
@@ -524,23 +394,10 @@ fn remove_note_clears_headings_and_links() {
     use crate::features::search::db::remove_note;
     remove_note(&conn, "test.md").expect("remove");
 
-    let h_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM note_headings WHERE note_path = 'test.md'",
-            [],
-            |r| r.get(0),
-        )
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'test.md'", [], |r| r.get(0))
         .unwrap();
-    let l_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM note_links WHERE source_path = 'test.md'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-
-    assert_eq!(h_count, 0);
-    assert_eq!(l_count, 0);
+    assert_eq!(count, 0);
 }
 
 #[test]
@@ -566,7 +423,7 @@ fn search_returns_file_type_from_db() {
 }
 
 #[test]
-fn rename_note_propagates_to_headings_and_links() {
+fn rename_note_path_moves_note_record() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");
     let conn = open_search_db_at_path(&db).expect("open db");
@@ -585,29 +442,13 @@ fn rename_note_propagates_to_headings_and_links() {
 
     rename_note_path(&conn, "old.md", "new.md").expect("rename");
 
-    let h_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM note_headings WHERE note_path = 'new.md'",
-            [],
-            |r| r.get(0),
-        )
+    let new_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'new.md'", [], |r| r.get(0))
         .unwrap();
-    let l_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM note_links WHERE source_path = 'new.md'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    let old_h: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM note_headings WHERE note_path = 'old.md'",
-            [],
-            |r| r.get(0),
-        )
+    let old_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'old.md'", [], |r| r.get(0))
         .unwrap();
 
-    assert_eq!(h_count, 1);
-    assert_eq!(l_count, 1);
-    assert_eq!(old_h, 0);
+    assert_eq!(new_count, 1);
+    assert_eq!(old_count, 0);
 }

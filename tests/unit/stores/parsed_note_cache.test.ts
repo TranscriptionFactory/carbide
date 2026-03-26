@@ -1,19 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
-import type { ParsedNoteDto } from "$lib/generated/bindings";
-
-function make_parsed(title: string): ParsedNoteDto {
-  return {
-    title,
-    headings: [{ level: 1, text: title, line: 1 }],
-    links: { wiki_targets: [], markdown_targets: [], external_links: [] },
-    tasks: [],
-    inline_tags: [],
-    sections: [],
-    code_blocks: [],
-    word_count: 42,
-    reading_time_secs: 1,
-  };
+function make_parsed(title: string): Record<string, unknown> {
+  return { title };
 }
 
 describe("ParsedNoteCache", () => {

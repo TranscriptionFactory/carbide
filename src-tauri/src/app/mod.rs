@@ -73,8 +73,6 @@ pub fn run() {
         .manage(features::plugin::service::PluginService::new())
         .manage(features::plugin::watcher::PluginWatcherState::default())
         .manage(shared::buffer::BufferManager::new())
-        .manage(features::graph::service::GraphCacheState::default())
-        .manage(features::graph::service::VaultGraphCacheState::default())
         .manage(features::lint::service::LintState::default())
         .manage(features::code_lsp::CodeLspState::default())
         .manage(features::iwe::IweState::default())
@@ -146,11 +144,6 @@ pub fn run() {
             features::search::service::index_remove_notes_by_prefix,
             features::search::service::index_rename_note,
             features::search::service::index_rename_folder,
-            features::search::service::index_note_links_snapshot,
-            features::search::service::index_extract_local_note_links,
-            features::search::service::rewrite_note_links,
-            features::search::service::resolve_note_link,
-            features::search::service::resolve_wiki_link,
             features::search::service::semantic_search,
             features::search::service::semantic_search_batch,
             features::search::service::find_similar_notes,
@@ -166,25 +159,10 @@ pub fn run() {
             features::bases::service::bases_load_view,
             features::bases::service::bases_list_views,
             features::bases::service::bases_delete_view,
-            features::tags::service::tags_list_all,
-            features::tags::service::tags_list_all_unified,
-            features::tags::service::tags_get_notes_for_tag,
-            features::tags::service::tags_get_notes_for_tag_prefix,
-            features::tags::service::notes_with_code_language,
-            features::tags::service::property_registry_list,
-            features::tags::service::notes_with_tag_in_section,
-            features::tags::service::notes_by_property_filter,
-            features::tags::service::note_get_metadata,
-            features::tags::service::section_get_range,
             features::tasks::tasks_query,
             features::tasks::tasks_get_for_note,
             features::tasks::tasks_update_state,
             features::tasks::tasks_create,
-            features::graph::service::graph_load_note_neighborhood,
-            features::graph::service::graph_invalidate_cache,
-            features::graph::service::graph_cache_stats,
-            features::graph::service::graph_load_vault_graph,
-            features::graph::service::graph_load_vault_graph_streamed,
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,
@@ -285,26 +263,6 @@ pub fn run() {
             features::toolchain::service::toolchain_install,
             features::toolchain::service::toolchain_uninstall,
             features::toolchain::service::toolchain_resolve,
-            features::reference::service::reference_load_library,
-            features::reference::service::reference_save_library,
-            features::reference::service::reference_add_item,
-            features::reference::service::reference_remove_item,
-            features::reference::service::reference_doi_lookup,
-            features::reference::service::reference_bbt_test_connection,
-            features::reference::service::reference_bbt_search,
-            features::reference::service::reference_bbt_get_item,
-            features::reference::service::reference_bbt_collections,
-            features::reference::service::reference_bbt_collection_items,
-            features::reference::service::reference_bbt_bibliography,
-            features::reference::service::reference_bbt_annotations,
-            features::reference::service::reference_save_annotation_note,
-            features::reference::service::reference_read_annotation_note,
-            features::reference::linked_source::linked_source_scan_folder,
-            features::reference::linked_source::linked_source_extract_file,
-            features::reference::linked_source::linked_source_list_files,
-            features::search::service::linked_source_index_content,
-            features::search::service::linked_source_remove_content,
-            features::search::service::linked_source_clear_source,
         ])
         .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
