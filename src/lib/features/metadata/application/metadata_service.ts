@@ -1,22 +1,23 @@
-import type { MetadataPort } from "../ports";
 import type { MetadataStore } from "../state/metadata_store.svelte";
-import type { VaultStore } from "$lib/features/vault";
+import type { EditorStore } from "$lib/features/editor";
+import { extract_metadata } from "../domain/extract_metadata";
 
 export class MetadataService {
   constructor(
-    private readonly port: MetadataPort,
     private readonly store: MetadataStore,
-    private readonly vault_store: VaultStore,
+    private readonly editor_store: EditorStore,
   ) {}
 
-  async refresh(note_path: string) {
-    const vault = this.vault_store.vault;
-    if (!vault) return;
+  refresh(note_path: string) {
+    const open_note = this.editor_store.open_note;
+    if (!open_note || open_note.meta.path !== note_path) {
+      this.clear();
+      return;
+    }
 
     this.store.set_loading(true);
-    this.store.set_error(null);
     try {
-      const metadata = await this.port.get_note_metadata(vault.id, note_path);
+      const metadata = extract_metadata(open_note.markdown);
       this.store.set_metadata(note_path, metadata.properties, metadata.tags);
     } catch (e) {
       this.store.set_error(e instanceof Error ? e.message : String(e));

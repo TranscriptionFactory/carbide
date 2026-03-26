@@ -1,32 +1,26 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
-import type { SearchStore } from "$lib/features/search";
 import type { MetadataService } from "$lib/features/metadata";
 import type { MetadataStore } from "$lib/features/metadata";
+import { create_debounced_task_controller } from "./debounced_task";
 
 type MetadataSyncState = {
   last_note_path: string | null;
   last_panel_open: boolean;
-  last_index_status: SearchStore["index_progress"]["status"];
-  last_is_dirty: boolean;
-  index_epoch: number;
-  save_epoch: number;
+  last_markdown: string | null;
   loaded_note_path: string | null;
-  loaded_index_epoch: number;
-  loaded_save_epoch: number;
 };
 
 type MetadataSyncInput = {
   open_note_path: string | null;
   panel_open: boolean;
-  index_status: SearchStore["index_progress"]["status"];
-  is_dirty: boolean;
+  markdown: string | null;
   snapshot_note_path: string | null;
   has_error: boolean;
 };
 
 type MetadataSyncDecision = {
-  action: "clear" | "load" | "noop";
+  action: "clear" | "load_now" | "load_debounced" | "noop";
   note_path: string | null;
   next_state: MetadataSyncState;
 };
@@ -35,69 +29,53 @@ export function resolve_metadata_sync_decision(
   state: MetadataSyncState,
   input: MetadataSyncInput,
 ): MetadataSyncDecision {
-  const index_completed =
-    input.index_status === "completed" &&
-    state.last_index_status !== "completed";
-  const save_completed =
-    !input.is_dirty &&
-    state.last_is_dirty &&
-    input.open_note_path === state.last_note_path;
-
-  const next_index_epoch = state.index_epoch + (index_completed ? 1 : 0);
-  const next_save_epoch = state.save_epoch + (save_completed ? 1 : 0);
-
   const next_state: MetadataSyncState = {
     last_note_path: input.open_note_path,
     last_panel_open: input.panel_open,
-    last_index_status: input.index_status,
-    last_is_dirty: input.is_dirty,
-    index_epoch: next_index_epoch,
-    save_epoch: next_save_epoch,
+    last_markdown: input.markdown,
     loaded_note_path: state.loaded_note_path,
-    loaded_index_epoch: state.loaded_index_epoch,
-    loaded_save_epoch: state.loaded_save_epoch,
   };
 
-  if (!input.open_note_path) {
+  if (!input.open_note_path || !input.markdown) {
     next_state.loaded_note_path = null;
     return { action: "clear", note_path: null, next_state };
   }
 
-  const path_changed = input.open_note_path !== state.last_note_path;
-  const panel_opened = input.panel_open && !state.last_panel_open;
-  const has_loaded_current = state.loaded_note_path === input.open_note_path;
-  const has_ready_snapshot =
-    input.snapshot_note_path === input.open_note_path && !input.has_error;
-  const stale_from_index = next_index_epoch > state.loaded_index_epoch;
-  const stale_from_save = next_save_epoch > state.loaded_save_epoch;
-  const stale_or_unloaded =
-    !has_loaded_current ||
-    stale_from_index ||
-    stale_from_save ||
-    !has_ready_snapshot;
-
-  const should_load = input.panel_open
-    ? path_changed ||
-      (panel_opened && stale_or_unloaded) ||
-      ((index_completed || save_completed) && stale_or_unloaded)
-    : false;
-
-  if (should_load) {
-    next_state.loaded_note_path = input.open_note_path;
-    next_state.loaded_index_epoch = next_index_epoch;
-    next_state.loaded_save_epoch = next_save_epoch;
+  if (!input.panel_open) {
+    return { action: "noop", note_path: input.open_note_path, next_state };
   }
 
-  return {
-    action: should_load ? "load" : "noop",
-    note_path: input.open_note_path,
-    next_state,
-  };
+  const path_changed = input.open_note_path !== state.last_note_path;
+  const panel_opened = input.panel_open && !state.last_panel_open;
+  const markdown_changed =
+    input.markdown !== state.last_markdown &&
+    state.last_note_path === input.open_note_path;
+
+  const not_loaded = state.loaded_note_path !== input.open_note_path;
+  const has_ready_snapshot =
+    input.snapshot_note_path === input.open_note_path && !input.has_error;
+
+  if (path_changed || (panel_opened && (not_loaded || !has_ready_snapshot))) {
+    next_state.loaded_note_path = input.open_note_path;
+    return { action: "load_now", note_path: input.open_note_path, next_state };
+  }
+
+  if (markdown_changed) {
+    next_state.loaded_note_path = input.open_note_path;
+    return {
+      action: "load_debounced",
+      note_path: input.open_note_path,
+      next_state,
+    };
+  }
+
+  return { action: "noop", note_path: input.open_note_path, next_state };
 }
+
+const DEBOUNCE_MS = 500;
 
 export function create_metadata_sync_reactor(
   editor_store: EditorStore,
-  search_store: SearchStore,
   ui_store: UIStore,
   metadata_store: MetadataStore,
   metadata_service: MetadataService,
@@ -105,14 +83,13 @@ export function create_metadata_sync_reactor(
   let state: MetadataSyncState = {
     last_note_path: null,
     last_panel_open: false,
-    last_index_status: "idle",
-    last_is_dirty: false,
-    index_epoch: 0,
-    save_epoch: 0,
+    last_markdown: null,
     loaded_note_path: null,
-    loaded_index_epoch: 0,
-    loaded_save_epoch: 0,
   };
+
+  const debounced = create_debounced_task_controller<string>({
+    run: (note_path) => metadata_service.refresh(note_path),
+  });
 
   return $effect.root(() => {
     $effect(() => {
@@ -121,14 +98,14 @@ export function create_metadata_sync_reactor(
         panel_open:
           ui_store.context_rail_open &&
           ui_store.context_rail_tab === "metadata",
-        index_status: search_store.index_progress.status,
-        is_dirty: editor_store.open_note?.is_dirty ?? false,
+        markdown: editor_store.open_note?.markdown ?? null,
         snapshot_note_path: metadata_store.note_path,
         has_error: metadata_store.error !== null,
       });
       state = decision.next_state;
 
       if (decision.action === "clear") {
+        debounced.cancel();
         if (
           metadata_store.note_path ||
           metadata_store.error ||
@@ -141,8 +118,14 @@ export function create_metadata_sync_reactor(
         return;
       }
 
-      if (decision.action === "load" && decision.note_path) {
-        void metadata_service.refresh(decision.note_path);
+      if (decision.action === "load_now" && decision.note_path) {
+        debounced.cancel();
+        metadata_service.refresh(decision.note_path);
+        return;
+      }
+
+      if (decision.action === "load_debounced" && decision.note_path) {
+        debounced.schedule(decision.note_path, DEBOUNCE_MS);
       }
     });
   });

@@ -170,9 +170,7 @@ export function create_test_ports(): Ports {
       document_symbols: () => Promise.resolve([]),
       subscribe_diagnostics: () => () => {},
     },
-    metadata: {
-      get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
-    },
+
     toolchain: {
       list_tools: () => Promise.resolve([]),
       install: () => Promise.resolve(),

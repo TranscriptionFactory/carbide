@@ -1,80 +1,119 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { MetadataService } from "$lib/features/metadata/application/metadata_service";
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
-import type { MetadataPort } from "$lib/features/metadata/ports";
-import type { NoteMetadata } from "$lib/features/metadata/types";
-import type { VaultStore } from "$lib/features/vault";
+import type { EditorStore } from "$lib/features/editor";
 
-function create_mock_vault_store(vault_id: string | null): VaultStore {
-  return { vault: vault_id ? { id: vault_id } : null } as VaultStore;
-}
-
-function create_mock_port(
-  metadata: NoteMetadata = { properties: [], tags: [] },
-): MetadataPort {
+function create_mock_editor_store(
+  note_path: string | null,
+  markdown: string = "",
+): EditorStore {
   return {
-    get_note_metadata: vi.fn().mockResolvedValue(metadata),
-  };
+    open_note: note_path
+      ? { meta: { path: note_path }, markdown, is_dirty: false }
+      : null,
+  } as unknown as EditorStore;
 }
 
 describe("MetadataService", () => {
-  it("refreshes metadata for a note", async () => {
+  it("extracts frontmatter properties from markdown", () => {
     const store = new MetadataStore();
-    const metadata = {
-      properties: [{ key: "title", value: "Test", type: "string" }],
-      tags: [{ tag: "svelte", source: "frontmatter" as const }],
-    };
-    const port = create_mock_port(metadata);
-    const vault_store = create_mock_vault_store("vault-1");
-    const service = new MetadataService(port, store, vault_store);
-
-    await service.refresh("notes/test.md");
-
-    expect(port.get_note_metadata).toHaveBeenCalledWith(
-      "vault-1",
+    const editor_store = create_mock_editor_store(
       "notes/test.md",
+      "---\ntitle: Test\nauthor: Alice\n---\n# Hello",
     );
-    expect(store.properties).toEqual(metadata.properties);
-    expect(store.tags).toEqual(metadata.tags);
+    const service = new MetadataService(store, editor_store);
+
+    service.refresh("notes/test.md");
+
+    expect(store.properties).toEqual([
+      { key: "title", value: "Test", type: "string" },
+      { key: "author", value: "Alice", type: "string" },
+    ]);
     expect(store.note_path).toBe("notes/test.md");
     expect(store.loading).toBe(false);
   });
 
-  it("does nothing when no vault is active", async () => {
+  it("extracts frontmatter tags", () => {
     const store = new MetadataStore();
-    const port = create_mock_port();
-    const vault_store = create_mock_vault_store(null);
-    const service = new MetadataService(port, store, vault_store);
+    const editor_store = create_mock_editor_store(
+      "notes/test.md",
+      "---\ntags:\n  - svelte\n  - typescript\n---\n# Hello",
+    );
+    const service = new MetadataService(store, editor_store);
 
-    await service.refresh("notes/test.md");
+    service.refresh("notes/test.md");
 
-    expect(port.get_note_metadata).not.toHaveBeenCalled();
+    expect(store.tags).toEqual([
+      { tag: "svelte", source: "frontmatter" },
+      { tag: "typescript", source: "frontmatter" },
+    ]);
   });
 
-  it("sets error on port failure", async () => {
+  it("extracts inline tags from body text", () => {
     const store = new MetadataStore();
-    const port: MetadataPort = {
-      get_note_metadata: vi.fn().mockRejectedValue(new Error("db error")),
-    };
-    const vault_store = create_mock_vault_store("vault-1");
-    const service = new MetadataService(port, store, vault_store);
+    const editor_store = create_mock_editor_store(
+      "notes/test.md",
+      "# Hello\n\nSome text with #myTag and #another-tag here.",
+    );
+    const service = new MetadataService(store, editor_store);
 
-    await service.refresh("notes/test.md");
+    service.refresh("notes/test.md");
 
-    expect(store.error).toBe("db error");
-    expect(store.loading).toBe(false);
+    const tag_names = store.tags.map((t) => t.tag);
+    expect(tag_names).toContain("myTag");
+    expect(store.tags.every((t) => t.source === "inline")).toBe(true);
   });
 
-  it("clears store state", () => {
+  it("clears when note path does not match open note", () => {
+    const store = new MetadataStore();
+    store.set_metadata(
+      "notes/test.md",
+      [{ key: "k", value: "v", type: "string" }],
+      [],
+    );
+    const editor_store = create_mock_editor_store("notes/other.md", "# Other");
+    const service = new MetadataService(store, editor_store);
+
+    service.refresh("notes/test.md");
+
+    expect(store.note_path).toBeNull();
+    expect(store.properties).toEqual([]);
+  });
+
+  it("clears when no note is open", () => {
     const store = new MetadataStore();
     store.set_metadata("notes/test.md", [], []);
-    const port = create_mock_port();
-    const vault_store = create_mock_vault_store("vault-1");
-    const service = new MetadataService(port, store, vault_store);
+    const editor_store = create_mock_editor_store(null);
+    const service = new MetadataService(store, editor_store);
+
+    service.refresh("notes/test.md");
+
+    expect(store.note_path).toBeNull();
+  });
+
+  it("clears store state via clear()", () => {
+    const store = new MetadataStore();
+    store.set_metadata("notes/test.md", [], []);
+    const editor_store = create_mock_editor_store("notes/test.md");
+    const service = new MetadataService(store, editor_store);
 
     service.clear();
 
     expect(store.note_path).toBeNull();
     expect(store.properties).toEqual([]);
+  });
+
+  it("sets error on malformed frontmatter gracefully", () => {
+    const store = new MetadataStore();
+    const editor_store = create_mock_editor_store(
+      "notes/test.md",
+      "---\n: invalid yaml {{\n---\n# Hello",
+    );
+    const service = new MetadataService(store, editor_store);
+
+    service.refresh("notes/test.md");
+
+    expect(store.loading).toBe(false);
+    expect(store.note_path).toBe("notes/test.md");
   });
 });

@@ -412,6 +412,8 @@ export function create_app_context(input: {
     input.ports.search,
     stores.vault,
     stores.links,
+    input.ports.marksman,
+    stores.marksman,
   );
 
   const hotkey_service = new HotkeyService(
@@ -548,11 +550,7 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
-  const metadata_service = new MetadataService(
-    input.ports.metadata,
-    stores.metadata,
-    stores.vault,
-  );
+  const metadata_service = new MetadataService(stores.metadata, stores.editor);
 
   const toolchain_service = new ToolchainService(
     input.ports.toolchain,

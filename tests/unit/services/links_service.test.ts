@@ -6,6 +6,52 @@ import { as_note_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { OrphanLink, SemanticSearchHit } from "$lib/shared/types/search";
+import type { MarksmanPort } from "$lib/features/marksman";
+import type { MarksmanStore } from "$lib/features/marksman";
+
+function make_marksman_port(
+  overrides: Partial<MarksmanPort> = {},
+): MarksmanPort {
+  return {
+    start: vi.fn().mockResolvedValue({ completion_trigger_characters: [] }),
+    stop: vi.fn().mockResolvedValue(undefined),
+    did_open: vi.fn().mockResolvedValue(undefined),
+    did_change: vi.fn().mockResolvedValue(undefined),
+    did_save: vi.fn().mockResolvedValue(undefined),
+    hover: vi.fn().mockResolvedValue({ contents: null }),
+    references: vi.fn().mockResolvedValue([]),
+    definition: vi.fn().mockResolvedValue([]),
+    code_actions: vi.fn().mockResolvedValue([]),
+    code_action_resolve: vi
+      .fn()
+      .mockResolvedValue({
+        files_created: [],
+        files_deleted: [],
+        files_modified: [],
+        errors: [],
+      }),
+    workspace_symbols: vi.fn().mockResolvedValue([]),
+    rename: vi
+      .fn()
+      .mockResolvedValue({
+        files_created: [],
+        files_deleted: [],
+        files_modified: [],
+        errors: [],
+      }),
+    prepare_rename: vi.fn().mockResolvedValue(null),
+    completion: vi.fn().mockResolvedValue([]),
+    formatting: vi.fn().mockResolvedValue([]),
+    inlay_hints: vi.fn().mockResolvedValue([]),
+    document_symbols: vi.fn().mockResolvedValue([]),
+    subscribe_diagnostics: vi.fn().mockReturnValue(() => {}),
+    ...overrides,
+  } as MarksmanPort;
+}
+
+function make_marksman_store(status = "running"): MarksmanStore {
+  return { status } as MarksmanStore;
+}
 
 function note(path: string): NoteMeta {
   return {
@@ -41,83 +87,57 @@ function create_deferred<T>() {
 }
 
 describe("LinksService", () => {
-  it("loads note links snapshot from port", async () => {
-    const snapshot = {
-      backlinks: [note("a.md")],
-      outlinks: [note("b.md")],
-      orphan_links: [orphan("missing/c.md")],
-    };
-    const search_port = {
-      search_notes: vi.fn().mockResolvedValue([]),
-      suggest_wiki_links: vi.fn().mockResolvedValue([]),
-      suggest_planned_links: vi.fn().mockResolvedValue([]),
-      get_note_links_snapshot: vi.fn().mockResolvedValue(snapshot),
-      extract_local_note_links: vi.fn().mockResolvedValue(local_snapshot()),
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
+  it("loads backlinks from Marksman references", async () => {
+    const vault = create_test_vault();
+    const marksman_port = make_marksman_port({
+      references: vi.fn().mockResolvedValue([
+        {
+          uri: `file://${vault.path}/a.md`,
+          range: {
+            start_line: 0,
+            start_character: 0,
+            end_line: 0,
+            end_character: 5,
+          },
+        },
+        {
+          uri: `file://${vault.path}/b.md`,
+          range: {
+            start_line: 2,
+            start_character: 0,
+            end_line: 2,
+            end_character: 5,
+          },
+        },
+      ]),
+    });
 
+    const search_port = make_search_port();
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
     const links_store = new LinksStore();
 
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      marksman_port,
+      make_marksman_store(),
+    );
     await service.load_note_links("target.md");
 
-    expect(search_port.get_note_links_snapshot).toHaveBeenCalledWith(
+    expect(marksman_port.references).toHaveBeenCalledWith(
       "vault-1",
       "target.md",
+      0,
+      0,
     );
     expect(links_store.active_note_path).toBe("target.md");
     expect(links_store.global_status).toBe("ready");
-    expect(links_store.backlinks).toEqual(snapshot.backlinks);
-    expect(links_store.outlinks).toEqual(snapshot.outlinks);
-    expect(links_store.orphan_links).toEqual(snapshot.orphan_links);
+    expect(links_store.backlinks.map((b) => b.path)).toEqual(["a.md", "b.md"]);
   });
 
   it("clears state when no vault is selected", async () => {
-    const search_port = {
-      search_notes: vi.fn(),
-      suggest_wiki_links: vi.fn(),
-      suggest_planned_links: vi.fn(),
-      get_note_links_snapshot: vi.fn(),
-      extract_local_note_links: vi.fn().mockResolvedValue(local_snapshot()),
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
-
     const vault_store = new VaultStore();
     const links_store = new LinksStore();
     links_store.set_snapshot("old.md", {
@@ -126,10 +146,17 @@ describe("LinksService", () => {
       orphan_links: [orphan("missing/z.md")],
     });
 
-    const service = new LinksService(search_port, vault_store, links_store);
+    const marksman_port = make_marksman_port();
+    const service = new LinksService(
+      make_search_port(),
+      vault_store,
+      links_store,
+      marksman_port,
+      make_marksman_store(),
+    );
     await service.load_note_links("target.md");
 
-    expect(search_port.get_note_links_snapshot).not.toHaveBeenCalled();
+    expect(marksman_port.references).not.toHaveBeenCalled();
     expect(links_store.active_note_path).toBeNull();
     expect(links_store.global_status).toBe("idle");
     expect(links_store.backlinks).toEqual([]);
@@ -137,247 +164,181 @@ describe("LinksService", () => {
     expect(links_store.orphan_links).toEqual([]);
   });
 
-  it("ignores stale out-of-order responses", async () => {
-    const first = create_deferred<{
-      backlinks: NoteMeta[];
-      outlinks: NoteMeta[];
-      orphan_links: OrphanLink[];
-    }>();
-    const second = create_deferred<{
-      backlinks: NoteMeta[];
-      outlinks: NoteMeta[];
-      orphan_links: OrphanLink[];
-    }>();
+  it("ignores stale out-of-order Marksman responses", async () => {
+    const first =
+      create_deferred<
+        Array<{
+          uri: string;
+          range: {
+            start_line: number;
+            start_character: number;
+            end_line: number;
+            end_character: number;
+          };
+        }>
+      >();
+    const second =
+      create_deferred<
+        Array<{
+          uri: string;
+          range: {
+            start_line: number;
+            start_character: number;
+            end_line: number;
+            end_character: number;
+          };
+        }>
+      >();
     let call_count = 0;
 
-    const search_port = {
-      search_notes: vi.fn(),
-      suggest_wiki_links: vi.fn(),
-      suggest_planned_links: vi.fn(),
-      get_note_links_snapshot: vi.fn().mockImplementation(() => {
+    const vault = create_test_vault();
+    const marksman_port = make_marksman_port({
+      references: vi.fn().mockImplementation(() => {
         call_count += 1;
         return call_count === 1 ? first.promise : second.promise;
       }),
-      extract_local_note_links: vi.fn().mockResolvedValue(local_snapshot()),
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
+    });
 
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      make_search_port(),
+      vault_store,
+      links_store,
+      marksman_port,
+      make_marksman_store(),
+    );
 
     const first_load = service.load_note_links("a.md");
     const second_load = service.load_note_links("b.md");
 
-    second.resolve({
-      backlinks: [note("b/back.md")],
-      outlinks: [note("b/out.md")],
-      orphan_links: [orphan("b/missing.md")],
-    });
+    const range = {
+      start_line: 0,
+      start_character: 0,
+      end_line: 0,
+      end_character: 5,
+    };
+    second.resolve([{ uri: `file://${vault.path}/b-ref.md`, range }]);
     await second_load;
 
-    first.resolve({
-      backlinks: [note("a/back.md")],
-      outlinks: [note("a/out.md")],
-      orphan_links: [orphan("a/missing.md")],
-    });
+    first.resolve([{ uri: `file://${vault.path}/a-ref.md`, range }]);
     await first_load;
 
     expect(links_store.active_note_path).toBe("b.md");
     expect(links_store.global_status).toBe("ready");
-    expect(links_store.backlinks.map((entry) => entry.path)).toEqual([
-      "b/back.md",
-    ]);
-    expect(links_store.outlinks.map((entry) => entry.path)).toEqual([
-      "b/out.md",
-    ]);
-    expect(links_store.orphan_links).toEqual([orphan("b/missing.md")]);
+    expect(links_store.backlinks.map((b) => b.path)).toEqual(["b-ref.md"]);
   });
 
   it("invalidates in-flight loads on clear()", async () => {
-    const deferred = create_deferred<{
-      backlinks: NoteMeta[];
-      outlinks: NoteMeta[];
-      orphan_links: OrphanLink[];
-    }>();
-    const search_port = {
-      search_notes: vi.fn(),
-      suggest_wiki_links: vi.fn(),
-      suggest_planned_links: vi.fn(),
-      get_note_links_snapshot: vi.fn().mockReturnValue(deferred.promise),
-      extract_local_note_links: vi.fn().mockResolvedValue(local_snapshot()),
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
+    const deferred =
+      create_deferred<
+        Array<{
+          uri: string;
+          range: {
+            start_line: number;
+            start_character: number;
+            end_line: number;
+            end_character: number;
+          };
+        }>
+      >();
+    const vault = create_test_vault();
+    const marksman_port = make_marksman_port({
+      references: vi.fn().mockReturnValue(deferred.promise),
+    });
 
     const vault_store = new VaultStore();
-    vault_store.set_vault(create_test_vault());
+    vault_store.set_vault(vault);
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      make_search_port(),
+      vault_store,
+      links_store,
+      marksman_port,
+      make_marksman_store(),
+    );
 
     const inflight = service.load_note_links("target.md");
     service.clear();
 
-    deferred.resolve({
-      backlinks: [note("x.md")],
-      outlinks: [note("y.md")],
-      orphan_links: [orphan("missing/z.md")],
-    });
+    const range = {
+      start_line: 0,
+      start_character: 0,
+      end_line: 0,
+      end_character: 5,
+    };
+    deferred.resolve([{ uri: `file://${vault.path}/x.md`, range }]);
     await inflight;
 
     expect(links_store.active_note_path).toBeNull();
     expect(links_store.global_status).toBe("idle");
     expect(links_store.backlinks).toEqual([]);
-    expect(links_store.outlinks).toEqual([]);
-    expect(links_store.orphan_links).toEqual([]);
   });
 
-  it("updates local links snapshot with memoized markdown checks", async () => {
-    const extract_local_note_links = vi
-      .fn()
-      .mockResolvedValue(local_snapshot());
-    const search_port = {
-      search_notes: vi.fn(),
-      suggest_wiki_links: vi.fn(),
-      suggest_planned_links: vi.fn(),
-      get_note_links_snapshot: vi.fn(),
-      extract_local_note_links,
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
+  it("extracts local links from markdown using frontend mdast traversal", () => {
+    const search_port = make_search_port();
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
     const markdown = "[[target]] [site](https://example.com)";
 
-    await service.update_local_note_links("docs/a.md", markdown);
+    service.update_local_note_links("docs/a.md", markdown);
 
-    expect(links_store.local_outlink_paths).toEqual(["docs/target.md"]);
+    expect(links_store.local_outlink_paths).toContain("target");
     expect(links_store.external_links).toEqual([
       { url: "https://example.com", text: "site" },
     ]);
-    expect(extract_local_note_links).toHaveBeenCalledTimes(1);
-
-    await service.update_local_note_links("docs/a.md", markdown);
-    expect(extract_local_note_links).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores stale local extraction responses", async () => {
-    const first = create_deferred<{
-      outlink_paths: string[];
-      external_links: Array<{ url: string; text: string }>;
-    }>();
-    const second = create_deferred<{
-      outlink_paths: string[];
-      external_links: Array<{ url: string; text: string }>;
-    }>();
-
-    const extract_local_note_links = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise);
-
-    const search_port = {
-      search_notes: vi.fn(),
-      suggest_wiki_links: vi.fn(),
-      suggest_planned_links: vi.fn(),
-      get_note_links_snapshot: vi.fn(),
-      extract_local_note_links,
-      rewrite_note_links: vi
-        .fn()
-        .mockImplementation((markdown: string) =>
-          Promise.resolve({ markdown, changed: false }),
-        ),
-      resolve_note_link: vi.fn().mockResolvedValue(null),
-      resolve_wiki_link: vi.fn().mockResolvedValue(null),
-      semantic_search: vi.fn().mockResolvedValue([]),
-      hybrid_search: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
-      find_similar_notes: vi.fn().mockResolvedValue([]),
-      semantic_search_batch: vi.fn().mockResolvedValue([]),
-      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
-    };
-
+  it("memoizes local link extraction for identical markdown", () => {
+    const search_port = make_search_port();
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
+    const markdown = "[[target]] [site](https://example.com)";
 
-    const first_load = service.update_local_note_links("docs/a.md", "first");
-    const second_load = service.update_local_note_links("docs/a.md", "second");
+    service.update_local_note_links("docs/a.md", markdown);
+    const first_outlinks = [...links_store.local_outlink_paths];
 
-    second.resolve({
-      outlink_paths: ["docs/new.md"],
-      external_links: [{ url: "https://new.example.com", text: "new" }],
-    });
-    await second_load;
+    service.update_local_note_links("docs/a.md", markdown);
 
-    first.resolve({
-      outlink_paths: ["docs/old.md"],
-      external_links: [{ url: "https://old.example.com", text: "old" }],
-    });
-    await first_load;
+    expect(links_store.local_outlink_paths).toEqual(first_outlinks);
+  });
 
-    expect(links_store.local_outlink_paths).toEqual(["docs/new.md"]);
-    expect(links_store.external_links).toEqual([
-      { url: "https://new.example.com", text: "new" },
-    ]);
+  it("updates local links when markdown changes", () => {
+    const search_port = make_search_port();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
+
+    service.update_local_note_links("docs/a.md", "[[first]]");
+    expect(links_store.local_outlink_paths).toContain("first");
+
+    service.update_local_note_links("docs/a.md", "[[second]]");
+    expect(links_store.local_outlink_paths).toContain("second");
+    expect(links_store.local_outlink_paths).not.toContain("first");
   });
 });
 
@@ -429,7 +390,13 @@ describe("LinksService.load_suggested_links", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
 
     await service.load_suggested_links("note.md");
 
@@ -460,7 +427,13 @@ describe("LinksService.load_suggested_links", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
 
     await service.load_suggested_links("note.md");
 
@@ -472,7 +445,13 @@ describe("LinksService.load_suggested_links", () => {
     const search_port = make_search_port();
     const vault_store = new VaultStore();
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
 
     await service.load_suggested_links("note.md");
 
@@ -489,7 +468,13 @@ describe("LinksService.load_suggested_links", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
 
     await service.load_suggested_links("note.md");
 
@@ -513,7 +498,13 @@ describe("LinksService.load_suggested_links", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
     const links_store = new LinksStore();
-    const service = new LinksService(search_port, vault_store, links_store);
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_marksman_port(),
+      make_marksman_store(),
+    );
 
     const first_load = service.load_suggested_links("a.md");
     const second_load = service.load_suggested_links("b.md");

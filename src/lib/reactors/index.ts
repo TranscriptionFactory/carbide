@@ -212,7 +212,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_backlinks_sync_reactor(
       context.editor_store,
       context.ui_store,
-      context.search_store,
+      context.marksman_store,
       context.links_store,
       context.links_service,
     ),
@@ -294,7 +294,6 @@ export function mount_reactors(context: ReactorContext): () => void {
     // PHASE 5 DELETE: split_view_content_sync replaced by Yjs shared Y.XmlFragment
     create_metadata_sync_reactor(
       context.editor_store,
-      context.search_store,
       context.ui_store,
       context.metadata_store,
       context.metadata_service,
