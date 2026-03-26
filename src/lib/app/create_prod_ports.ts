@@ -11,7 +11,10 @@ import {
   create_search_tauri_adapter,
   create_workspace_index_tauri_adapter,
 } from "$lib/features/search";
-import { create_milkdown_editor_port } from "$lib/features/editor";
+import {
+  create_milkdown_editor_port,
+  create_ydoc_manager,
+} from "$lib/features/editor";
 import { create_clipboard_tauri_adapter } from "$lib/features/clipboard";
 import { create_shell_tauri_adapter } from "$lib/features/shell";
 import { create_git_tauri_adapter } from "$lib/features/git";
@@ -76,6 +79,7 @@ export function create_prod_ports(): Ports {
         assets.resolve_asset_url(vault_id, asset_path),
       load_svg_preview: (vault_id, path) =>
         canvas.read_svg_preview(vault_id, path),
+      ydoc_manager: create_ydoc_manager(),
     }),
     clipboard,
     shell,
