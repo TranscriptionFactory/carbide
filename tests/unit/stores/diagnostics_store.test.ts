@@ -44,21 +44,21 @@ describe("DiagnosticsStore", () => {
     store.push("lint", "a.md", [
       make_diagnostic({ source: "lint", message: "lint issue" }),
     ]);
-    store.push("iwe", "a.md", [
-      make_diagnostic({ source: "iwe", message: "iwe issue" }),
+    store.push("marksman", "a.md", [
+      make_diagnostic({ source: "marksman", message: "marksman issue" }),
     ]);
     store.set_active_file("a.md");
 
     expect(store.active_diagnostics).toHaveLength(2);
     const sources = store.active_diagnostics.map((d) => d.source);
     expect(sources).toContain("lint");
-    expect(sources).toContain("iwe");
+    expect(sources).toContain("marksman");
   });
 
-  it("lint and iwe diagnostics do not overwrite each other", () => {
+  it("lint and marksman diagnostics do not overwrite each other", () => {
     const store = new DiagnosticsStore();
     store.push("lint", "a.md", [make_diagnostic({ source: "lint" })]);
-    store.push("iwe", "a.md", [make_diagnostic({ source: "iwe" })]);
+    store.push("marksman", "a.md", [make_diagnostic({ source: "marksman" })]);
 
     store.push("lint", "a.md", [
       make_diagnostic({ source: "lint", message: "updated" }),
@@ -83,8 +83,8 @@ describe("DiagnosticsStore", () => {
       make_diagnostic({ source: "lint", severity: "error" }),
       make_diagnostic({ source: "lint", severity: "warning" }),
     ]);
-    store.push("iwe", "b.md", [
-      make_diagnostic({ source: "iwe", severity: "error" }),
+    store.push("marksman", "b.md", [
+      make_diagnostic({ source: "marksman", severity: "error" }),
     ]);
 
     expect(store.error_count).toBe(2);
@@ -95,14 +95,14 @@ describe("DiagnosticsStore", () => {
   it("clears all diagnostics for a source", () => {
     const store = new DiagnosticsStore();
     store.push("lint", "a.md", [make_diagnostic()]);
-    store.push("iwe", "a.md", [make_diagnostic({ source: "iwe" })]);
+    store.push("marksman", "a.md", [make_diagnostic({ source: "marksman" })]);
 
     store.clear_source("lint");
     store.set_active_file("a.md");
 
     const sources = store.active_diagnostics.map((d) => d.source);
     expect(sources).not.toContain("lint");
-    expect(sources).toContain("iwe");
+    expect(sources).toContain("marksman");
   });
 
   it("clears diagnostics for a specific source and file — cleared file is empty", () => {
@@ -155,7 +155,7 @@ describe("DiagnosticsStore", () => {
   it("reset clears all state", () => {
     const store = new DiagnosticsStore();
     store.push("lint", "a.md", [make_diagnostic({ severity: "error" })]);
-    store.push("iwe", "b.md", [make_diagnostic({ source: "iwe" })]);
+    store.push("marksman", "b.md", [make_diagnostic({ source: "marksman" })]);
     store.set_active_file("a.md");
 
     store.reset();
@@ -170,7 +170,7 @@ describe("DiagnosticsStore", () => {
     const store = new DiagnosticsStore();
     store.push("lint", "a.md", [make_diagnostic()]);
 
-    store.clear_file("iwe", "a.md");
+    store.clear_file("marksman", "a.md");
 
     store.set_active_file("a.md");
     expect(store.active_diagnostics).toHaveLength(1);

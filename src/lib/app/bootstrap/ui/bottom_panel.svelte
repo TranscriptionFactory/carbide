@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Terminal, CircleAlert, Braces, Search, Zap } from "@lucide/svelte";
+  import { Terminal, CircleAlert, Search, Zap } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -26,21 +26,12 @@
     }
   }
 
-  const iwe_result_count = $derived(
-    stores.iwe.references.length +
-      stores.iwe.code_actions.length +
-      stores.iwe.symbols.length +
-      stores.iwe.document_symbols.length,
-  );
-
   const lsp_result_count = $derived(stores.lsp.code_actions.length);
 
   const load_terminal = () =>
     import("$lib/features/terminal/ui/terminal_panel_content.svelte");
   const load_problems = () =>
     import("$lib/features/lint/ui/problems_panel_content.svelte");
-  const load_iwe_results = () =>
-    import("$lib/features/iwe/ui/iwe_results_panel_content.svelte");
   const load_query = () =>
     import("$lib/features/query/ui/query_panel_content.svelte");
   const load_lsp_results = () =>
@@ -73,18 +64,6 @@
         <span class="BottomPanel__badge">{error_count + warning_count}</span>
       {/if}
     </button>
-    <!-- <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "iwe_results"}
-      onclick={() => set_tab("iwe_results")}
-    >
-      <Braces class="BottomPanel__tab-icon" />
-      IWE
-      {#if iwe_result_count > 0}
-        <span class="BottomPanel__badge">{iwe_result_count}</span>
-      {/if}
-    </button> -->
     <button
       type="button"
       class="BottomPanel__tab"
@@ -127,8 +106,6 @@
       {:catch}
         <div class="BottomPanel__error">Failed to load terminal</div>
       {/await}
-    {:else if active_tab === "iwe_results"}
-      <div class="BottomPanel__error">IWE panel deprecated — use LSP tab</div>
     {:else if active_tab === "lsp_results"}
       {#await load_lsp_results() then mod}
         <mod.default />

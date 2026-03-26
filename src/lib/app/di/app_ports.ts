@@ -18,7 +18,6 @@ import type { PluginHostPort, PluginSettingsPort } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
-import type { IwePort } from "$lib/features/iwe";
 import type { MarksmanPort } from "$lib/features/marksman";
 
 import type { ToolchainPort } from "$lib/features/toolchain";
@@ -56,7 +55,6 @@ export type Ports = {
   canvas: CanvasPort;
   tag: TagPort;
   lint: LintPort;
-  iwe: IwePort;
   marksman: MarksmanPort;
 
   toolchain: ToolchainPort;

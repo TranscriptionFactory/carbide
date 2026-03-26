@@ -5,7 +5,7 @@
     FileText,
     FolderTree,
   } from "@lucide/svelte";
-  import type { IweTreeNode } from "$lib/features/iwe";
+  import type { HierarchyTreeNode } from "$lib/features/graph";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
 
@@ -14,8 +14,6 @@
   const tree = $derived(stores.graph.hierarchy_tree);
   const status = $derived(stores.graph.status);
   const root_key = $derived(stores.graph.hierarchy_root_key);
-  const iwe_status = $derived(stores.iwe.status);
-  const is_iwe_connected = $derived(iwe_status === "running");
 
   let collapsed = $state(new Set<string>());
 
@@ -40,19 +38,6 @@
 
 {#if status === "loading"}
   <div class="HierarchyTree__empty">Loading hierarchy...</div>
-{:else if !is_iwe_connected}
-  <div class="HierarchyTree__empty">
-    <FolderTree class="HierarchyTree__empty-icon" />
-    <span>
-      {#if iwe_status === "starting"}
-        IWE is starting…
-      {:else if iwe_status === "error"}
-        IWE encountered an error. Check Settings &gt; Tools.
-      {:else}
-        Hierarchy view requires IWE. Enable it in Settings &gt; Tools.
-      {/if}
-    </span>
-  </div>
 {:else if !tree || tree.length === 0}
   <div class="HierarchyTree__empty">
     <FolderTree class="HierarchyTree__empty-icon" />
@@ -76,7 +61,7 @@
   </div>
 {/if}
 
-{#snippet tree_node(node: IweTreeNode, depth: number)}
+{#snippet tree_node(node: HierarchyTreeNode, depth: number)}
   <div class="HierarchyTree__node" style:padding-left="{depth * 16}px">
     {#if node.children.length > 0}
       <button

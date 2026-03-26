@@ -1,13 +1,16 @@
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { IweLocation } from "$lib/features/iwe";
-import { line_and_character_from_pos } from "./iwe_plugin_utils";
+import type { MarksmanLocation } from "$lib/features/marksman";
+import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
-export function create_iwe_definition_plugin(input: {
-  on_definition: (line: number, character: number) => Promise<IweLocation[]>;
+export function create_lsp_definition_plugin(input: {
+  on_definition: (
+    line: number,
+    character: number,
+  ) => Promise<MarksmanLocation[]>;
   on_navigate: (uri: string) => void;
 }): Plugin {
   return new Plugin({
-    key: new PluginKey("iwe-definition"),
+    key: new PluginKey("lsp-definition"),
     props: {
       handleDOMEvents: {
         click: (view, event) => {

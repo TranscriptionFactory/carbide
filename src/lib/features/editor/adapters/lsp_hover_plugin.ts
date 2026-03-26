@@ -1,10 +1,10 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
-import type { IweHoverResult } from "$lib/features/iwe";
-import { line_and_character_from_pos } from "./iwe_plugin_utils";
+import type { MarksmanHoverResult } from "$lib/features/marksman";
+import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
-const iwe_hover_plugin_key = new PluginKey("iwe-hover");
+const lsp_hover_plugin_key = new PluginKey("lsp-hover");
 
 function pos_to_dom_rect(view: EditorView, from: number, to: number): DOMRect {
   const start = view.coordsAtPos(from);
@@ -16,18 +16,21 @@ function pos_to_dom_rect(view: EditorView, from: number, to: number): DOMRect {
   return new DOMRect(left, top, right - left, bottom - top);
 }
 
-export function create_iwe_hover_plugin(input: {
-  on_hover: (line: number, character: number) => Promise<IweHoverResult | null>;
+export function create_lsp_hover_plugin(input: {
+  on_hover: (
+    line: number,
+    character: number,
+  ) => Promise<MarksmanHoverResult | null>;
 }): Plugin {
   return new Plugin({
-    key: iwe_hover_plugin_key,
+    key: lsp_hover_plugin_key,
     view(editor_view) {
       let hover_timeout: ReturnType<typeof setTimeout> | null = null;
       let active_pos: number | null = null;
       let hovering_tooltip = false;
 
       const container = document.createElement("div");
-      container.className = "iwe-hover-tooltip";
+      container.className = "lsp-hover-tooltip";
       container.style.display = "none";
       container.style.position = "fixed";
       container.style.zIndex = "9999";

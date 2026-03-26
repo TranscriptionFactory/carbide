@@ -3,8 +3,6 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { LintStatusIndicator } from "$lib/features/lint";
-  import { IweStatusIndicator } from "$lib/features/iwe";
-  import type { IweStatus } from "$lib/features/iwe";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
@@ -36,9 +34,6 @@
     lint_warning_count: number;
     on_lint_click: () => void;
     on_lint_format_click: () => void;
-    iwe_status: IweStatus;
-    iwe_error: string | null;
-    on_iwe_click?: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -79,9 +74,6 @@
     lint_warning_count,
     on_lint_click,
     on_lint_format_click,
-    iwe_status,
-    iwe_error,
-    on_iwe_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -191,14 +183,6 @@
       on_click={on_lint_click}
       on_format_click={on_lint_format_click}
     />
-    {#if iwe_status !== "idle"}
-      <span class="StatusBar__separator" aria-hidden="true"></span>
-      <IweStatusIndicator
-        status={iwe_status}
-        error={iwe_error}
-        {...on_iwe_click ? { onclick: on_iwe_click } : {}}
-      />
-    {/if}
   </div>
   <div class="StatusBar__section">
     {#if is_repairing_links}

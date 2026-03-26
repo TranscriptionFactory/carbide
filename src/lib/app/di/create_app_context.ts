@@ -55,7 +55,6 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
-import { IweService, register_iwe_actions } from "$lib/features/iwe";
 import { MarksmanService } from "$lib/features/marksman";
 import { register_lsp_actions } from "$lib/features/lsp";
 import {
@@ -506,14 +505,6 @@ export function create_app_context(input: {
   );
   code_lsp_service.start();
 
-  const iwe_service = new IweService(
-    input.ports.iwe,
-    stores.iwe,
-    stores.vault,
-    stores.ui,
-    stores.diagnostics,
-  );
-
   const marksman_service = new MarksmanService(
     input.ports.marksman,
     stores.marksman,
@@ -778,18 +769,6 @@ export function create_app_context(input: {
     diagnostics_store: stores.diagnostics,
   });
 
-  // PHASE 6: IWE actions unwired — Marksman is now the active markdown LSP
-  // register_iwe_actions({
-  //   registry: action_registry,
-  //   iwe_service,
-  //   iwe_store: stores.iwe,
-  //   editor_store: stores.editor,
-  //   editor_service,
-  //   note_service,
-  //   ui_store: stores.ui,
-  //   op_store: stores.op,
-  // });
-
   action_registry.register({
     id: ACTION_IDS.marksman_code_action_resolve,
     label: "Marksman: Resolve Code Action",
@@ -807,8 +786,6 @@ export function create_app_context(input: {
     editor_service,
     note_service,
     diagnostics_store: stores.diagnostics,
-    iwe_service,
-    iwe_store: stores.iwe,
     ui_store: stores.ui,
     op_store: stores.op,
   });
@@ -862,8 +839,6 @@ export function create_app_context(input: {
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
-    iwe_store: stores.iwe,
-    iwe_service,
     marksman_store: stores.marksman,
     marksman_service,
     diagnostics_store: stores.diagnostics,
@@ -872,7 +847,6 @@ export function create_app_context(input: {
     toolchain_service,
     document_store: stores.document,
     code_lsp_service,
-    reference_service,
   });
 
   return {
@@ -889,7 +863,6 @@ export function create_app_context(input: {
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();
-      void iwe_service.stop();
       void marksman_service.stop();
       toolchain_service.dispose();
     },

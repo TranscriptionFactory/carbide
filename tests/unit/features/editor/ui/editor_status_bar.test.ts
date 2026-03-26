@@ -19,7 +19,6 @@ function render_editor_status_bar(props?: {
   lint_is_running?: boolean;
   lint_error_count?: number;
   lint_warning_count?: number;
-  iwe_status?: "idle" | "starting" | "running" | "error" | "stopped";
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -51,8 +50,6 @@ function render_editor_status_bar(props?: {
       lint_warning_count: props?.lint_warning_count ?? 0,
       on_lint_click: vi.fn(),
       on_lint_format_click: vi.fn(),
-      iwe_status: props?.iwe_status ?? "idle",
-      iwe_error: null,
       status_bar_items: [],
       on_vault_click: vi.fn(),
       on_info_click: vi.fn(),
@@ -94,7 +91,6 @@ describe("editor_status_bar.svelte", () => {
   it("shows problems indicator even when lint is not running", () => {
     const view = render_editor_status_bar({
       lint_is_running: false,
-      iwe_status: "idle",
     });
 
     const problems_button = get_button_by_title("Lint stopped");
@@ -111,7 +107,6 @@ describe("editor_status_bar.svelte", () => {
       lint_is_running: true,
       lint_error_count: 1,
       lint_warning_count: 2,
-      iwe_status: "idle",
     });
 
     const problems_button = get_button_by_title("1 error, 2 warnings");

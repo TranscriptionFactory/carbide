@@ -279,18 +279,7 @@ export const ACTION_IDS = {
   toolchain_install: "toolchain.install",
   toolchain_manage: "toolchain.manage",
 
-  iwe_restart: "iwe.restart",
-  iwe_references: "iwe.references",
-  iwe_code_actions: "iwe.code_actions",
-  iwe_workspace_symbols: "iwe.workspace_symbols",
-  iwe_formatting: "iwe.formatting",
-  iwe_rename: "iwe.rename",
-  iwe_rename_confirm: "iwe.rename_confirm",
-  iwe_code_action_resolve: "iwe.code_action_resolve",
   marksman_code_action_resolve: "marksman.code_action_resolve",
-  iwe_toggle_results: "iwe.toggle_results",
-  iwe_document_symbols: "iwe.document_symbols",
-  iwe_open_config: "iwe.open_config",
 
   lsp_code_actions: "lsp.code_actions",
   lsp_code_action_resolve: "lsp.code_action_resolve",

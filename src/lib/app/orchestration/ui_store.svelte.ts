@@ -42,23 +42,9 @@ type ContextRailTab =
   | "graph"
   | "tasks"
   | "metadata";
-export type BottomPanelTab =
-  | "terminal"
-  | "problems"
-  | "iwe_results"
-  | "lsp_results"
-  | "query";
+export type BottomPanelTab = "terminal" | "problems" | "lsp_results" | "query";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
-
-const INITIAL_IWE_RENAME_DIALOG = {
-  open: false,
-  file_path: "",
-  line: 0,
-  character: 0,
-  placeholder: "",
-  new_name: "",
-} as const;
 
 const INITIAL_RENAME_NOTE_DIALOG = {
   open: false,
@@ -279,15 +265,6 @@ export class UIStore {
     is_checking_existence: boolean;
     source: "manual" | "tab_close";
   }>({ ...INITIAL_SAVE_NOTE_DIALOG });
-
-  iwe_rename_dialog = $state<{
-    open: boolean;
-    file_path: string;
-    line: number;
-    character: number;
-    placeholder: string;
-    new_name: string;
-  }>({ ...INITIAL_IWE_RENAME_DIALOG });
 
   create_folder_dialog = $state<{
     open: boolean;
@@ -573,7 +550,6 @@ export class UIStore {
     this.selected_folder_path = "";
     this.filetree_revealed_note_path = "";
     this.delete_note_dialog = { ...INITIAL_DELETE_NOTE_DIALOG };
-    this.iwe_rename_dialog = { ...INITIAL_IWE_RENAME_DIALOG };
     this.rename_note_dialog = { ...INITIAL_RENAME_NOTE_DIALOG };
     this.save_note_dialog = { ...INITIAL_SAVE_NOTE_DIALOG };
     this.create_folder_dialog = { ...INITIAL_CREATE_FOLDER_DIALOG };
