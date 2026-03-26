@@ -5,26 +5,23 @@
 .WorkspaceLayout--grounded-heavy {
   --grounded-heavy-deck-height: var(--size-touch-lg);
   --grounded-heavy-deck-offset: var(--space-2);
-  --grounded-heavy-activity-width: var(--size-touch-lg);
   --grounded-heavy-sidebar-width: 18rem;
 
   position: relative;
   background-color: var(--background);
 
-  /* Activity strip on the left */
+  /* Bottom deck: ActivityBar on the left */
   .ActivityBar {
     position: absolute;
-    top: var(--space-2);
+    bottom: var(--grounded-heavy-deck-offset);
     left: var(--space-2);
-    bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
-    height: auto;
-    width: var(--grounded-heavy-activity-width);
+    height: var(--grounded-heavy-deck-height);
+    width: auto;
     align-items: center;
     justify-content: flex-start;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--space-1);
-    padding-block: var(--space-2);
-    padding-inline: 0;
+    padding-inline: var(--space-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
@@ -34,18 +31,15 @@
   }
 
   .ActivityBar__section {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     gap: var(--space-1);
   }
 
   .ActivityBar__section:first-child {
-    margin-inline-end: 0;
-    padding-inline-end: 0;
-    border-inline-end: none;
-    margin-block-end: var(--space-1);
-    padding-block-end: var(--space-1);
-    border-block-end: 1px solid var(--border);
+    margin-inline-end: var(--space-1);
+    padding-inline-end: var(--space-1);
+    border-inline-end: 1px solid var(--border);
   }
 
   .StatusBar {
@@ -77,9 +71,7 @@
     > [data-pane]:has([data-slot="sidebar"]) {
     position: absolute;
     top: var(--space-2);
-    left: calc(
-      var(--space-2) + var(--grounded-heavy-activity-width) + var(--space-2)
-    );
+    left: var(--space-2);
     bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
     width: var(--grounded-heavy-sidebar-width) !important;
     min-width: var(--grounded-heavy-sidebar-width) !important;
