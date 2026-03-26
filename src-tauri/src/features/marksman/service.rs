@@ -154,8 +154,6 @@ fn spawn_notification_forwarder(
     });
 }
 
-// --- Lifecycle commands ---
-
 #[tauri::command]
 #[specta::specta]
 pub async fn marksman_start(
@@ -207,8 +205,6 @@ pub async fn marksman_stop(app: AppHandle, vault_id: String) -> Result<(), Strin
     }
     Ok(())
 }
-
-// --- Document sync notifications ---
 
 #[tauri::command]
 #[specta::specta]
@@ -280,8 +276,6 @@ pub async fn marksman_did_save(
         )
         .await
 }
-
-// --- LSP request commands ---
 
 #[tauri::command]
 #[specta::specta]
@@ -516,6 +510,36 @@ pub async fn marksman_prepare_rename(
     Ok(Some(MarksmanPrepareRenameResult { range, placeholder }))
 }
 
+fn normalize_completion_item(item: &serde_json::Value) -> Option<MarksmanCompletionItem> {
+    let raw_label = item.get("label")?.as_str()?.to_string();
+    let title_part = raw_label.trim().trim_start_matches("🔗").trim();
+    let raw_insert = item
+        .get("insertText")
+        .and_then(|t| t.as_str())
+        .map(String::from);
+    let (label, insert_text) = if title_part.is_empty() {
+        let fallback = label_from_insert_text(item)?;
+        let fixed_insert = raw_insert.map(|t| {
+            if t.starts_with("[](") {
+                format!("[{}]({}", &fallback, &t[3..])
+            } else {
+                t
+            }
+        });
+        (fallback, fixed_insert)
+    } else {
+        (raw_label, raw_insert)
+    };
+    Some(MarksmanCompletionItem {
+        label,
+        detail: item
+            .get("detail")
+            .and_then(|d| d.as_str())
+            .map(String::from),
+        insert_text,
+    })
+}
+
 fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
     let text = item.get("insertText")?.as_str()?;
     let dest = text
@@ -575,35 +599,7 @@ pub async fn marksman_completion(
     }
     let items = raw_items
         .iter()
-        .filter_map(|item| {
-            let raw_label = item.get("label")?.as_str()?.to_string();
-            let title_part = raw_label.trim().trim_start_matches("🔗").trim();
-            let raw_insert = item
-                .get("insertText")
-                .and_then(|t| t.as_str())
-                .map(String::from);
-            let (label, insert_text) = if title_part.is_empty() {
-                let fallback = label_from_insert_text(item)?;
-                let fixed_insert = raw_insert.map(|t| {
-                    if t.starts_with("[](") {
-                        format!("[{}]({}", &fallback, &t[3..])
-                    } else {
-                        t
-                    }
-                });
-                (fallback, fixed_insert)
-            } else {
-                (raw_label, raw_insert)
-            };
-            Some(MarksmanCompletionItem {
-                label,
-                detail: item
-                    .get("detail")
-                    .and_then(|d| d.as_str())
-                    .map(String::from),
-                insert_text,
-            })
-        })
+        .filter_map(normalize_completion_item)
         .collect();
 
     Ok(items)
@@ -733,8 +729,6 @@ pub async fn marksman_document_symbols(
     Ok(symbols)
 }
 
-// --- Helpers ---
-
 fn parse_range_obj(v: &serde_json::Value) -> Option<MarksmanRange> {
     let start = v.get("start")?;
     let end = v.get("end")?;
@@ -778,20 +772,20 @@ fn uri_to_path(uri: &str) -> Result<std::path::PathBuf, String> {
 }
 
 fn percent_decode(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.bytes();
-    while let Some(b) = chars.next() {
+    let mut bytes = Vec::with_capacity(s.len());
+    let mut iter = s.bytes();
+    while let Some(b) = iter.next() {
         if b == b'%' {
-            let hi = chars.next().and_then(|c| (c as char).to_digit(16));
-            let lo = chars.next().and_then(|c| (c as char).to_digit(16));
+            let hi = iter.next().and_then(|c| (c as char).to_digit(16));
+            let lo = iter.next().and_then(|c| (c as char).to_digit(16));
             if let (Some(h), Some(l)) = (hi, lo) {
-                result.push((h * 16 + l) as u8 as char);
+                bytes.push((h * 16 + l) as u8);
             }
         } else {
-            result.push(b as char);
+            bytes.push(b);
         }
     }
-    result
+    String::from_utf8(bytes).unwrap_or_else(|_| s.to_string())
 }
 
 async fn apply_workspace_edit(
@@ -950,61 +944,36 @@ async fn apply_edits_to_file(uri: &str, edits: &[serde_json::Value]) -> Result<(
 
     let lines: Vec<&str> = content.lines().collect();
 
-    let mut sorted_edits: Vec<&serde_json::Value> = edits.iter().collect();
-    sorted_edits.sort_by(|a, b| {
-        let a_line = a
-            .get("range")
-            .and_then(|r| r.get("start"))
-            .and_then(|s| s.get("line"))
-            .and_then(|l| l.as_u64())
-            .unwrap_or(0);
-        let a_char = a
-            .get("range")
-            .and_then(|r| r.get("start"))
-            .and_then(|s| s.get("character"))
-            .and_then(|c| c.as_u64())
-            .unwrap_or(0);
-        let b_line = b
-            .get("range")
-            .and_then(|r| r.get("start"))
-            .and_then(|s| s.get("line"))
-            .and_then(|l| l.as_u64())
-            .unwrap_or(0);
-        let b_char = b
-            .get("range")
-            .and_then(|r| r.get("start"))
-            .and_then(|s| s.get("character"))
-            .and_then(|c| c.as_u64())
-            .unwrap_or(0);
-        (b_line, b_char).cmp(&(a_line, a_char))
-    });
+    let mut sorted_edits: Vec<(&serde_json::Value, usize, usize)> = edits
+        .iter()
+        .filter_map(|edit| {
+            let range = edit.get("range")?;
+            let start = range.get("start")?;
+            let end = range.get("end")?;
+            let start_line = start.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
+            let start_char = start.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
+            let end_line = end.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
+            let end_char = end.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
+            let start_offset = line_col_to_offset(&lines, start_line, start_char);
+            let end_offset = line_col_to_offset(&lines, end_line, end_char);
+            Some((edit, start_offset, end_offset))
+        })
+        .collect();
 
-    let mut result = content.clone();
-    for edit in sorted_edits {
-        let range = edit.get("range").ok_or("edit missing range")?;
+    sorted_edits.sort_by(|a, b| a.1.cmp(&b.1));
+
+    let mut result = String::with_capacity(content.len());
+    let mut cursor = 0;
+    for (edit, start_offset, end_offset) in &sorted_edits {
         let new_text = edit
             .get("newText")
             .and_then(|t| t.as_str())
-            .ok_or("edit missing newText")?;
-
-        let start = range.get("start").ok_or("range missing start")?;
-        let end = range.get("end").ok_or("range missing end")?;
-
-        let start_line = start.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
-        let start_char = start.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
-        let end_line = end.get("line").and_then(|l| l.as_u64()).unwrap_or(0) as usize;
-        let end_char = end.get("character").and_then(|c| c.as_u64()).unwrap_or(0) as usize;
-
-        let start_offset = line_col_to_offset(&lines, start_line, start_char);
-        let end_offset = line_col_to_offset(&lines, end_line, end_char);
-
-        result = format!(
-            "{}{}{}",
-            &result[..start_offset],
-            new_text,
-            &result[end_offset..]
-        );
+            .unwrap_or("");
+        result.push_str(&content[cursor..*start_offset]);
+        result.push_str(new_text);
+        cursor = *end_offset;
     }
+    result.push_str(&content[cursor..]);
 
     tokio::fs::write(&path, result)
         .await

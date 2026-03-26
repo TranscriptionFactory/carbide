@@ -329,8 +329,9 @@ export function mount_reactors(context: ReactorContext): () => void {
         is_ready: () => context.marksman_store.status === "running",
         debounce_ms: 300,
         on_open: (path, content) => {
-          void context.marksman_service.did_open(path, content);
-          void context.marksman_service.document_symbols(path);
+          void context.marksman_service
+            .did_open(path, content)
+            .then(() => context.marksman_service.document_symbols(path));
         },
         on_change: (path, content) =>
           void context.marksman_service.did_change(path, content),
