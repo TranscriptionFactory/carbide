@@ -51,8 +51,7 @@
 
 <div class="BottomPanel">
   <div class="BottomPanel__tabs">
-    <!-- PHASE 2 FREEZE: terminal and IWE tabs disabled during refactor -->
-    <!-- <button
+    <button
       type="button"
       class="BottomPanel__tab"
       class:BottomPanel__tab--active={active_tab === "terminal"}
@@ -60,7 +59,7 @@
     >
       <Terminal class="BottomPanel__tab-icon" />
       Terminal
-    </button> -->
+    </button>
     <button
       type="button"
       class="BottomPanel__tab"
@@ -122,11 +121,14 @@
     </button>
   </div>
   <div class="BottomPanel__content">
-    <!-- PHASE 2 FREEZE: terminal and IWE content disabled -->
     {#if active_tab === "terminal"}
-      <div class="BottomPanel__error">Terminal frozen during refactor</div>
+      {#await load_terminal() then mod}
+        <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load terminal</div>
+      {/await}
     {:else if active_tab === "iwe_results"}
-      <div class="BottomPanel__error">IWE frozen during refactor</div>
+      <div class="BottomPanel__error">IWE panel deprecated — use LSP tab</div>
     {:else if active_tab === "lsp_results"}
       {#await load_lsp_results() then mod}
         <mod.default />

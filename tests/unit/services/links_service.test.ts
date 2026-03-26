@@ -22,23 +22,19 @@ function make_marksman_port(
     references: vi.fn().mockResolvedValue([]),
     definition: vi.fn().mockResolvedValue([]),
     code_actions: vi.fn().mockResolvedValue([]),
-    code_action_resolve: vi
-      .fn()
-      .mockResolvedValue({
-        files_created: [],
-        files_deleted: [],
-        files_modified: [],
-        errors: [],
-      }),
+    code_action_resolve: vi.fn().mockResolvedValue({
+      files_created: [],
+      files_deleted: [],
+      files_modified: [],
+      errors: [],
+    }),
     workspace_symbols: vi.fn().mockResolvedValue([]),
-    rename: vi
-      .fn()
-      .mockResolvedValue({
-        files_created: [],
-        files_deleted: [],
-        files_modified: [],
-        errors: [],
-      }),
+    rename: vi.fn().mockResolvedValue({
+      files_created: [],
+      files_deleted: [],
+      files_modified: [],
+      errors: [],
+    }),
     prepare_rename: vi.fn().mockResolvedValue(null),
     completion: vi.fn().mockResolvedValue([]),
     formatting: vi.fn().mockResolvedValue([]),
@@ -165,30 +161,28 @@ describe("LinksService", () => {
   });
 
   it("ignores stale out-of-order Marksman responses", async () => {
-    const first =
-      create_deferred<
-        Array<{
-          uri: string;
-          range: {
-            start_line: number;
-            start_character: number;
-            end_line: number;
-            end_character: number;
-          };
-        }>
-      >();
-    const second =
-      create_deferred<
-        Array<{
-          uri: string;
-          range: {
-            start_line: number;
-            start_character: number;
-            end_line: number;
-            end_character: number;
-          };
-        }>
-      >();
+    const first = create_deferred<
+      Array<{
+        uri: string;
+        range: {
+          start_line: number;
+          start_character: number;
+          end_line: number;
+          end_character: number;
+        };
+      }>
+    >();
+    const second = create_deferred<
+      Array<{
+        uri: string;
+        range: {
+          start_line: number;
+          start_character: number;
+          end_line: number;
+          end_character: number;
+        };
+      }>
+    >();
     let call_count = 0;
 
     const vault = create_test_vault();
@@ -231,18 +225,17 @@ describe("LinksService", () => {
   });
 
   it("invalidates in-flight loads on clear()", async () => {
-    const deferred =
-      create_deferred<
-        Array<{
-          uri: string;
-          range: {
-            start_line: number;
-            start_character: number;
-            end_line: number;
-            end_character: number;
-          };
-        }>
-      >();
+    const deferred = create_deferred<
+      Array<{
+        uri: string;
+        range: {
+          start_line: number;
+          start_character: number;
+          end_line: number;
+          end_character: number;
+        };
+      }>
+    >();
     const vault = create_test_vault();
     const marksman_port = make_marksman_port({
       references: vi.fn().mockReturnValue(deferred.promise),

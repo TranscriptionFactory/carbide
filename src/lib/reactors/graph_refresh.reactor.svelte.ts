@@ -3,12 +3,10 @@ import type {
   GraphService,
   GraphViewMode,
 } from "$lib/features/graph";
-import type { SearchStore } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
 
 type GraphRefreshState = {
   last_panel_open: boolean;
-  last_index_status: SearchStore["index_progress"]["status"];
   last_vault_id: string | null;
 };
 
@@ -24,7 +22,6 @@ export function resolve_graph_refresh_decision(
     panel_open: boolean;
     center_note_path: string | null;
     vault_id: string | null;
-    index_status: SearchStore["index_progress"]["status"];
     snapshot_note_path: string | null;
     status: GraphStore["status"];
     view_mode: GraphViewMode;
@@ -32,7 +29,6 @@ export function resolve_graph_refresh_decision(
 ): GraphRefreshDecision {
   const next_state: GraphRefreshState = {
     last_panel_open: input.panel_open,
-    last_index_status: input.index_status,
     last_vault_id: input.vault_id,
   };
 
@@ -49,12 +45,9 @@ export function resolve_graph_refresh_decision(
   }
 
   const panel_opened = input.panel_open && !state.last_panel_open;
-  const index_completed =
-    input.index_status === "completed" &&
-    state.last_index_status !== "completed";
 
   if (input.view_mode === "vault") {
-    if (panel_opened || index_completed) {
+    if (panel_opened) {
       return { action: "load_vault", note_path: null, next_state };
     }
     return { action: "noop", note_path: null, next_state };
@@ -69,7 +62,7 @@ export function resolve_graph_refresh_decision(
     input.snapshot_note_path !== input.center_note_path &&
     input.status !== "loading";
 
-  if (panel_opened || index_completed || note_path_changed) {
+  if (panel_opened || note_path_changed) {
     return {
       action: "load",
       note_path: input.center_note_path,
@@ -82,13 +75,11 @@ export function resolve_graph_refresh_decision(
 
 export function create_graph_refresh_reactor(
   graph_store: GraphStore,
-  search_store: SearchStore,
   vault_store: VaultStore,
   graph_service: GraphService,
 ): () => void {
   let state: GraphRefreshState = {
     last_panel_open: false,
-    last_index_status: "idle",
     last_vault_id: null,
   };
 
@@ -98,7 +89,6 @@ export function create_graph_refresh_reactor(
         panel_open: graph_store.panel_open,
         center_note_path: graph_store.center_note_path,
         vault_id: vault_store.vault?.id ?? null,
-        index_status: search_store.index_progress.status,
         snapshot_note_path: graph_store.snapshot?.center.path ?? null,
         status: graph_store.status,
         view_mode: graph_store.view_mode,

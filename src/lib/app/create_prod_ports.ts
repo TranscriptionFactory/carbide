@@ -23,7 +23,7 @@ import { create_terminal_tauri_adapter } from "$lib/features/terminal";
 import { create_window_tauri_adapter } from "$lib/features/window";
 import { create_watcher_tauri_adapter } from "$lib/features/watcher";
 import { create_ai_tauri_adapter } from "$lib/features/ai";
-import { create_graph_tauri_adapter } from "$lib/features/graph";
+import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_task_tauri_adapter } from "$lib/features/task";
 import {
@@ -60,7 +60,7 @@ export function create_prod_ports(): Ports {
   const git = create_git_tauri_adapter();
   const watcher = create_watcher_tauri_adapter();
   const ai = create_ai_tauri_adapter();
-  const graph = create_graph_tauri_adapter();
+  const graph = create_graph_remark_adapter(notes);
   const bases = create_bases_tauri_adapter();
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();

@@ -11,9 +11,8 @@ import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
 import { create_tab_dirty_sync_reactor } from "$lib/reactors/tab_dirty_sync.reactor.svelte";
 import { create_tab_persist_reactor } from "$lib/reactors/tab_persist.reactor.svelte";
-// PHASE 2 FREEZE
-// import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
-// import { create_git_auto_fetch_reactor } from "$lib/reactors/git_auto_fetch.reactor.svelte";
+import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
+import { create_git_auto_fetch_reactor } from "$lib/reactors/git_auto_fetch.reactor.svelte";
 import { create_recent_commands_persist_reactor } from "$lib/reactors/recent_commands_persist.reactor.svelte";
 import { create_find_in_file_reactor } from "$lib/reactors/find_in_file.reactor.svelte";
 import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reactor.svelte";
@@ -25,10 +24,9 @@ import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reac
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
 import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
-// PHASE 2 FREEZE
-// import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
-// import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
-// import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
+import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
+import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
+import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
@@ -187,18 +185,17 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.tab_service,
     ),
-    // PHASE 2 FREEZE: git autocommit/fetch disabled while editor state is unstable
-    // create_git_autocommit_reactor(
-    //   context.editor_store,
-    //   context.git_store,
-    //   context.ui_store,
-    //   context.git_service,
-    // ),
-    // create_git_auto_fetch_reactor(
-    //   context.git_store,
-    //   context.ui_store,
-    //   context.git_service,
-    // ),
+    create_git_autocommit_reactor(
+      context.editor_store,
+      context.git_store,
+      context.ui_store,
+      context.git_service,
+    ),
+    create_git_auto_fetch_reactor(
+      context.git_store,
+      context.ui_store,
+      context.git_service,
+    ),
     create_recent_commands_persist_reactor(
       context.ui_store,
       context.settings_service,
@@ -248,22 +245,18 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.document_service,
     ),
-    // PHASE 2 FREEZE: terminal reconcile not needed during refactor
-    // create_terminal_reconcile_reactor(
-    //   context.terminal_store,
-    //   context.ui_store,
-    //   context.vault_store,
-    //   context.terminal_service,
-    // ),
-    // PHASE 2 FREEZE: graph depends on Rust link indexing (deleted in Phase 3)
-    // create_graph_refresh_reactor(
-    //   context.graph_store,
-    //   context.search_store,
-    //   context.vault_store,
-    //   context.graph_service,
-    // ),
-    // PHASE 2 FREEZE: peripheral feature, reduces noise
-    // create_bases_refresh_reactor(context.vault_store, context.bases_service),
+    create_terminal_reconcile_reactor(
+      context.terminal_store,
+      context.ui_store,
+      context.vault_store,
+      context.terminal_service,
+    ),
+    create_graph_refresh_reactor(
+      context.graph_store,
+      context.vault_store,
+      context.graph_service,
+    ),
+    create_bases_refresh_reactor(context.vault_store, context.bases_service),
     create_task_sync_reactor(
       context.vault_store,
       context.task_service,

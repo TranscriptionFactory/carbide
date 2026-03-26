@@ -4,7 +4,6 @@ import { resolve_graph_refresh_decision } from "$lib/reactors/graph_refresh.reac
 describe("resolve_graph_refresh_decision", () => {
   const initial_state = {
     last_panel_open: false,
-    last_index_status: "idle" as const,
     last_vault_id: null,
   };
 
@@ -13,7 +12,6 @@ describe("resolve_graph_refresh_decision", () => {
       panel_open: false,
       center_note_path: "note.md",
       vault_id: "vault-1",
-      index_status: "idle",
       snapshot_note_path: null,
       status: "idle",
       view_mode: "neighborhood",
@@ -27,7 +25,6 @@ describe("resolve_graph_refresh_decision", () => {
       panel_open: true,
       center_note_path: "note.md",
       vault_id: "vault-1",
-      index_status: "idle",
       snapshot_note_path: null,
       status: "idle",
       view_mode: "neighborhood",
@@ -48,7 +45,6 @@ describe("resolve_graph_refresh_decision", () => {
       panel_open: true,
       center_note_path: "note.md",
       vault_id: "vault-2",
-      index_status: "idle",
       snapshot_note_path: "note.md",
       status: "ready",
       view_mode: "neighborhood",
@@ -57,33 +53,10 @@ describe("resolve_graph_refresh_decision", () => {
     expect(decision.action).toBe("clear");
   });
 
-  it("returns load when index completes", () => {
-    const state = {
-      ...initial_state,
-      last_panel_open: true,
-      last_index_status: "indexing" as const,
-      last_vault_id: "vault-1",
-    };
-
-    const decision = resolve_graph_refresh_decision(state, {
-      panel_open: true,
-      center_note_path: "note.md",
-      vault_id: "vault-1",
-      index_status: "completed",
-      snapshot_note_path: "note.md",
-      status: "ready",
-      view_mode: "neighborhood",
-    });
-
-    expect(decision.action).toBe("load");
-    expect(decision.note_path).toBe("note.md");
-  });
-
   it("returns load when center_note_path changes but snapshot is still old", () => {
     const state = {
       ...initial_state,
       last_panel_open: true,
-      last_index_status: "completed" as const,
       last_vault_id: "vault-1",
     };
 
@@ -91,7 +64,6 @@ describe("resolve_graph_refresh_decision", () => {
       panel_open: true,
       center_note_path: "new.md",
       vault_id: "vault-1",
-      index_status: "completed",
       snapshot_note_path: "old.md",
       status: "ready",
       view_mode: "neighborhood",

@@ -9,6 +9,7 @@ export type {
   SemanticEdge,
 } from "$lib/features/graph/ports";
 export { create_graph_tauri_adapter } from "$lib/features/graph/adapters/graph_tauri_adapter";
+export { create_graph_remark_adapter } from "$lib/features/graph/adapters/graph_remark_adapter";
 export {
   GraphStore,
   type GraphStatus,

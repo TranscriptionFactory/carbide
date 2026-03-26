@@ -527,7 +527,6 @@ export function create_app_context(input: {
     stores.vault,
     stores.editor,
     stores.graph,
-    iwe_service,
   );
 
   const ai_service = new AiService(input.ports.ai, stores.vault);
