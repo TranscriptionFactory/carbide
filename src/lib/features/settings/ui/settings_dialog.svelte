@@ -3170,41 +3170,42 @@
 
             <div class="SettingsDialog__section-divider"></div>
             <h3 class="SettingsDialog__section-subheader">
-              IWE (Writing Engine)
+              Marksman (Markdown LSP)
             </h3>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label"
-                  >Enable IWE Language Server</span
+                  >Enable Marksman Language Server</span
                 >
                 <span class="SettingsDialog__description"
-                  >Enable IWE for workspace-level refactoring, outline, and code
-                  actions</span
+                  >Enable Marksman for wiki-link completion, go-to-definition,
+                  hover, and diagnostics</span
                 >
               </div>
               <Switch.Root
-                checked={editor_settings.iwe_enabled}
+                checked={editor_settings.marksman_enabled}
                 onCheckedChange={(v: boolean) => {
-                  update("iwe_enabled", v);
+                  update("marksman_enabled", v);
                 }}
               />
             </div>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">IWE Binary Path</span>
+                <span class="SettingsDialog__label">Marksman Binary Path</span>
                 <span class="SettingsDialog__description"
-                  >Custom path to the IWE binary. Leave empty to auto-download</span
+                  >Custom path to the Marksman binary. Leave empty to use the
+                  bundled version</span
                 >
               </div>
               <Input
                 type="text"
                 class="w-64"
-                placeholder="/usr/local/bin/iwes"
-                value={editor_settings.iwe_binary_path}
+                placeholder="/usr/local/bin/marksman"
+                value={editor_settings.marksman_binary_path}
                 oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                  update("iwe_binary_path", e.currentTarget.value);
+                  update("marksman_binary_path", e.currentTarget.value);
                 }}
               />
             </div>

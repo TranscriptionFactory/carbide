@@ -288,6 +288,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_marksman_lifecycle_reactor(
       context.vault_store,
       context.marksman_service,
+      context.ui_store,
     ),
     create_lsp_document_sync_reactor(context.editor_store, [
       {
