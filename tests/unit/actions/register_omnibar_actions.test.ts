@@ -15,7 +15,6 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import {
   as_note_path,
@@ -39,7 +38,6 @@ function create_omnibar_actions_harness() {
     task: new TaskStore(),
     graph: new GraphStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     parsed_note_cache: new ParsedNoteCache(),
   };
   const execute_vault_select = vi.fn((vault_id: unknown) => {

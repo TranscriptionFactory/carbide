@@ -8,7 +8,6 @@ import { TabStore } from "$lib/features/tab";
 import { GitStore } from "$lib/features/git";
 import { LinksStore } from "$lib/features/links";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { TerminalStore } from "$lib/features/terminal";
 import { DocumentStore } from "$lib/features/document";
 import { AiStore } from "$lib/features/ai";
@@ -40,7 +39,6 @@ export type AppStores = {
   git: GitStore;
   links: LinksStore;
   outline: OutlineStore;
-  split_view: SplitViewStore;
   terminal: TerminalStore;
   document: DocumentStore;
   ai: AiStore;
@@ -76,7 +74,6 @@ export function create_app_stores(): AppStores {
     git: new GitStore(),
     links: new LinksStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     terminal: new TerminalStore(),
     document: new DocumentStore(),
     ai: new AiStore(),

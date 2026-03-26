@@ -2,12 +2,14 @@ import type { NotePath } from "$lib/shared/types/ids";
 import type { CursorInfo, OpenNoteState } from "$lib/shared/types/editor";
 
 export type TabId = string;
+export type Pane = "primary" | "secondary";
 
 export type Tab = {
   id: TabId;
   title: string;
   is_pinned: boolean;
   is_dirty: boolean;
+  pane: Pane;
 } & (
   | { kind: "note"; note_path: NotePath }
   | { kind: "document"; file_path: string; file_type: string }
@@ -33,6 +35,7 @@ export type ClosedTabEntry = {
 export type PersistedTab = {
   is_pinned: boolean;
   cursor: CursorInfo | null;
+  pane?: Pane;
 } & (
   | { kind: "note"; note_path: NotePath }
   | { kind: "document"; file_path: string; file_type: string }
@@ -42,4 +45,5 @@ export type PersistedTab = {
 export type PersistedTabState = {
   tabs: PersistedTab[];
   active_tab_path: string | null;
+  active_pane?: Pane;
 };

@@ -29,6 +29,7 @@ function mock_tab(title: string, is_dirty = false): Tab {
     title,
     is_pinned: false,
     is_dirty,
+    pane: "primary",
   };
 }
 

@@ -60,29 +60,3 @@ export function create_autosave_reactor(
     },
   );
 }
-
-export function create_split_view_autosave_reactor(
-  get_secondary_editor_store: () => EditorStore | null,
-  ui_store: UIStore,
-  note_service: NoteService,
-  tab_service: TabService,
-): () => void {
-  return create_note_autosave_reactor(
-    get_secondary_editor_store,
-    ui_store,
-    (note_path) => {
-      void note_service.save_note(null, true, "secondary").then((result) => {
-        if (result.status === "conflict") {
-          tab_service.mark_conflict(note_path);
-        }
-        const secondary_store = get_secondary_editor_store();
-        if (
-          result.status === "saved" &&
-          secondary_store?.open_note?.meta.path === note_path
-        ) {
-          secondary_store.mark_clean(note_path);
-        }
-      });
-    },
-  );
-}

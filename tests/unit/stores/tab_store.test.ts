@@ -731,6 +731,7 @@ describe("TabStore", () => {
           title: "a",
           is_pinned: false,
           is_dirty: false,
+          pane: "primary" as const,
         },
         {
           kind: "note" as const,
@@ -739,6 +740,7 @@ describe("TabStore", () => {
           title: "b",
           is_pinned: true,
           is_dirty: false,
+          pane: "primary" as const,
         },
       ];
 
@@ -758,6 +760,7 @@ describe("TabStore", () => {
           title: "a",
           is_pinned: false,
           is_dirty: false,
+          pane: "primary" as const,
         },
       ];
 
@@ -779,6 +782,7 @@ describe("TabStore", () => {
             title: "b",
             is_pinned: false,
             is_dirty: false,
+            pane: "primary" as const,
           },
         ],
         "b.md",

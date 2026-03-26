@@ -283,7 +283,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
-    action_id: ACTION_IDS.split_view_toggle,
+    action_id: ACTION_IDS.tab_toggle_split,
     key: "CmdOrCtrl+\\",
     phase: "capture",
     label: "Toggle Split View",

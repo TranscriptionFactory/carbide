@@ -15,7 +15,6 @@ import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
@@ -77,7 +76,6 @@ function create_harness(options: HarnessOptions = {}) {
     bases: new BasesStore(),
     task: new TaskStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     parsed_note_cache: new ParsedNoteCache(),
   };
 

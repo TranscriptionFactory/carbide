@@ -14,7 +14,6 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
@@ -38,7 +37,6 @@ function create_vault_actions_harness() {
     task: new TaskStore(),
     graph: new GraphStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     parsed_note_cache: new ParsedNoteCache(),
   };
 
@@ -107,18 +105,6 @@ function create_vault_actions_harness() {
   registry.register({
     id: ACTION_IDS.git_check_repo,
     label: "Check Git Repo",
-    execute: async () => {},
-  });
-
-  registry.register({
-    id: ACTION_IDS.split_view_close,
-    label: "Close Split View",
-    execute: () => {},
-  });
-
-  registry.register({
-    id: ACTION_IDS.split_view_restore,
-    label: "Restore Split View",
     execute: async () => {},
   });
 

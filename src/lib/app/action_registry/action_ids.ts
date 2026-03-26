@@ -228,13 +228,9 @@ export const ACTION_IDS = {
   ai_apply_result: "ai.apply_result",
   ai_clear_result: "ai.clear_result",
 
-  split_view_toggle: "split_view.toggle",
-  split_view_close: "split_view.close",
-  split_view_mount: "split_view.mount",
-  split_view_unmount: "split_view.unmount",
-  split_view_set_active_pane: "split_view.set_active_pane",
-  split_view_open_to_side: "split_view.open_to_side",
-  split_view_restore: "split_view.restore",
+  tab_open_to_side: "tab.open_to_side",
+  tab_toggle_split: "tab.toggle_split",
+  tab_set_active_pane: "tab.set_active_pane",
 
   document_open: "document.open",
   document_close: "document.close",

@@ -24,10 +24,7 @@ import {
   LinksService,
   register_links_actions,
 } from "$lib/features/links";
-import {
-  SplitViewService,
-  register_split_view_actions,
-} from "$lib/features/split_view";
+import { SecondaryEditorManager } from "$lib/features/tab";
 import {
   register_terminal_actions,
   TerminalService,
@@ -441,13 +438,12 @@ export function create_app_context(input: {
     now_ms,
   );
 
-  const split_view_service = new SplitViewService(
+  const secondary_editor_manager = new SecondaryEditorManager(
     input.ports.editor,
     stores.vault,
     stores.op,
-    stores.split_view,
+    stores.tab,
     editor_callbacks,
-    input.ports.vault_settings,
   );
 
   const note_service = new NoteService(
@@ -464,7 +460,7 @@ export function create_app_context(input: {
     (path) => {
       watcher_service.suppress_next(path);
     },
-    split_view_service,
+    secondary_editor_manager,
     stores.parsed_note_cache,
     stores.diagnostics,
   );
@@ -590,7 +586,6 @@ export function create_app_context(input: {
       tab: stores.tab,
       git: stores.git,
       outline: stores.outline,
-      split_view: stores.split_view,
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
@@ -701,13 +696,6 @@ export function create_app_context(input: {
   });
 
   register_plugin_actions(base_action_input, plugin_service);
-
-  register_split_view_actions({
-    ...base_action_input,
-    split_view_store: stores.split_view,
-    split_view_service,
-    notes_port: input.ports.notes,
-  });
 
   register_terminal_actions({
     ...base_action_input,
@@ -831,8 +819,7 @@ export function create_app_context(input: {
     watcher_service,
     action_registry,
     workspace_reconcile,
-    split_view_store: stores.split_view,
-    split_view_service,
+    secondary_editor_manager,
     document_service,
     task_service,
     plugin_service,
@@ -854,12 +841,13 @@ export function create_app_context(input: {
     stores,
     services: base_action_input.services,
     action_registry,
+    secondary_editor_manager,
     terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
       plugin_service.destroy();
       terminal_service.destroy();
-      split_view_service.destroy();
+      secondary_editor_manager.destroy();
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();

@@ -15,7 +15,6 @@ import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -46,7 +45,6 @@ function create_harness() {
     bases: new BasesStore(),
     task: new TaskStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     parsed_note_cache: new ParsedNoteCache(),
   };
   const ai_store = new AiStore();

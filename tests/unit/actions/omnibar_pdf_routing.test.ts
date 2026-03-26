@@ -14,7 +14,6 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import type { OmnibarItem } from "$lib/shared/types/search";
 import { as_note_path } from "$lib/shared/types/ids";
 
@@ -33,7 +32,6 @@ function create_harness() {
     task: new TaskStore(),
     graph: new GraphStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
   };
 
   const services = {

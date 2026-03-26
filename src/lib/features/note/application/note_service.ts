@@ -37,7 +37,7 @@ import {
   type LinkRepairService,
 } from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
-import type { SplitViewService } from "$lib/features/split_view";
+import type { SecondaryEditorManager } from "$lib/features/tab";
 import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import {
@@ -94,7 +94,7 @@ export class NoteService {
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
     private readonly on_file_written?: (path: string) => void,
-    private readonly split_view_service?: SplitViewService,
+    private readonly secondary_editor_manager?: SecondaryEditorManager,
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
@@ -109,10 +109,7 @@ export class NoteService {
 
   skip_mtime_guard(note_id: NoteId) {
     this.editor_store.update_mtime(note_id, 0);
-    this.split_view_service
-      ?.get_secondary_editor_store()
-      ?.update_mtime(note_id, 0);
-    this.split_view_service?.sync_secondary_note_state();
+    this.secondary_editor_manager?.get_editor_store()?.update_mtime(note_id, 0);
   }
 
   private get_active_vault_id(): VaultId | null {
@@ -778,7 +775,7 @@ export class NoteService {
     new_mtime: number,
   ): void {
     if (writing_session.target === "primary") {
-      this.split_view_service?.propagate_mtime_to_secondary(note_id, new_mtime);
+      this.secondary_editor_manager?.propagate_mtime(note_id, new_mtime);
     } else {
       if (this.editor_store.open_note?.meta.id === note_id) {
         this.editor_store.update_mtime(note_id, new_mtime);
@@ -970,9 +967,8 @@ export class NoteService {
     }
 
     if (target === "secondary") {
-      const editor_store =
-        this.split_view_service?.get_secondary_editor_store();
-      const editor_service = this.split_view_service?.get_secondary_editor();
+      const editor_store = this.secondary_editor_manager?.get_editor_store();
+      const editor_service = this.secondary_editor_manager?.get_editor();
       if (!editor_store || !editor_service) {
         return null;
       }
@@ -984,9 +980,9 @@ export class NoteService {
     }
 
     if (
-      this.split_view_service?.is_active() &&
-      this.split_view_service.get_secondary_open_note() &&
-      this.split_view_service.get_active_pane() === "secondary"
+      this.secondary_editor_manager?.is_active() &&
+      this.secondary_editor_manager.get_open_note() &&
+      this.secondary_editor_manager.get_active_pane() === "secondary"
     ) {
       return this.resolve_save_session("secondary");
     }
@@ -994,10 +990,7 @@ export class NoteService {
     return this.resolve_save_session("primary");
   }
 
-  private sync_split_view_session(session: SaveSession): void {
-    if (session.target !== "secondary") {
-      return;
-    }
-    this.split_view_service?.sync_secondary_note_state();
+  private sync_split_view_session(_session: SaveSession): void {
+    // With Yjs, both editors share the same Y.Doc — no manual sync needed
   }
 }

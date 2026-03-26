@@ -20,7 +20,6 @@ import type { SearchStore } from "$lib/features/search";
 import type { TabStore } from "$lib/features/tab";
 import type { GitStore } from "$lib/features/git";
 import type { OutlineStore } from "$lib/features/outline";
-import type { SplitViewStore } from "$lib/features/split_view";
 import type { GraphStore } from "$lib/features/graph";
 import type { BasesStore } from "$lib/features/bases";
 import type { TaskStore } from "$lib/features/task";
@@ -40,7 +39,6 @@ export type ActionRegistrationInput = {
     tab: TabStore;
     git: GitStore;
     outline: OutlineStore;
-    split_view: SplitViewStore;
     graph: GraphStore;
     bases: BasesStore;
     task: TaskStore;
