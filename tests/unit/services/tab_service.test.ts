@@ -79,6 +79,7 @@ describe("TabService", () => {
         as_vault_id("vault-a"),
         "open_tabs",
         {
+          active_pane: "primary",
           tabs: [
             { kind: "note", note_path: beta, is_pinned: true, cursor: null },
             { kind: "note", note_path: alpha, is_pinned: false, cursor: null },
@@ -147,6 +148,7 @@ describe("TabService", () => {
         as_vault_id("vault-a"),
         "open_tabs",
         {
+          active_pane: "primary",
           tabs: [
             {
               kind: "note",
@@ -193,6 +195,7 @@ describe("TabService", () => {
         as_vault_id("vault-a"),
         "open_tabs",
         {
+          active_pane: "primary",
           tabs: [
             { kind: "note", note_path: known, is_pinned: false, cursor: null },
           ],
@@ -238,6 +241,7 @@ describe("TabService", () => {
         as_vault_id("vault-a"),
         "open_tabs",
         {
+          active_pane: "primary",
           tabs: [
             { kind: "note", note_path: alpha, is_pinned: false, cursor: null },
             { kind: "note", note_path: beta, is_pinned: false, cursor: null },

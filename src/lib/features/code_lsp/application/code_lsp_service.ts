@@ -1,12 +1,11 @@
 import type { VaultId, VaultPath } from "$lib/shared/types/ids";
 import type { CodeLspPort } from "$lib/features/code_lsp/ports";
 import type { CodeLspStore } from "$lib/features/code_lsp/state/code_lsp_store.svelte";
-import type { DiagnosticsStore } from "$lib/features/diagnostics/state/diagnostics_store.svelte";
+import type { DiagnosticsStore, Diagnostic } from "$lib/features/diagnostics";
 import type {
   CodeDiagnostic,
   CodeLspEvent,
 } from "$lib/features/code_lsp/types/code_lsp";
-import type { Diagnostic } from "$lib/features/diagnostics/types/diagnostics";
 
 export class CodeLspService {
   private port: CodeLspPort;
