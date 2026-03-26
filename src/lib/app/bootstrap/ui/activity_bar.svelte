@@ -8,6 +8,7 @@
     Network,
     ListChecks,
     Hash,
+    PanelRight,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
 
@@ -25,6 +26,7 @@
     active_view: SidebarView;
     is_vault_mode: boolean;
     dynamic_views?: DynamicSidebarView[];
+    context_rail_open?: boolean;
     on_open_explorer: () => void;
     on_open_dashboard: () => void;
     on_open_starred: () => void;
@@ -34,6 +36,7 @@
     on_open_dynamic: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
+    on_toggle_context_rail?: () => void;
   };
 
   let {
@@ -41,6 +44,7 @@
     active_view,
     is_vault_mode,
     dynamic_views = [],
+    context_rail_open = false,
     on_open_explorer,
     on_open_dashboard,
     on_open_starred,
@@ -50,6 +54,7 @@
     on_open_dynamic,
     on_open_help,
     on_open_settings,
+    on_toggle_context_rail,
   }: Props = $props();
 </script>
 
@@ -153,6 +158,18 @@
     >
       <CircleHelp class="ActivityBar__icon" />
     </button>
+    {#if on_toggle_context_rail}
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={context_rail_open}
+        onclick={on_toggle_context_rail}
+        aria-pressed={context_rail_open}
+        aria-label="Toggle Context Rail"
+      >
+        <PanelRight class="ActivityBar__icon" />
+      </button>
+    {/if}
     <button
       type="button"
       class="ActivityBar__button"

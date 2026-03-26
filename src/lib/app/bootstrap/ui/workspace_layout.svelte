@@ -10,7 +10,7 @@
     VaultSwitcherDropdown,
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
-  import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
+  import { SecondaryNoteEditor, SplitDropZone } from "$lib/features/tab";
   import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
@@ -40,7 +40,7 @@
   const { stores, action_registry, services } = use_app_context();
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
-  const split_view_active = $derived(stores.split_view.active);
+  const split_view_active = $derived(stores.tab.is_split);
   const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
   const zen_mode = $derived(stores.ui.zen_mode);
@@ -242,6 +242,11 @@
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
           dynamic_views={stores.plugin.sidebar_views}
+          context_rail_open={stores.ui.context_rail_open}
+          on_toggle_context_rail={is_command_deck
+            ? () =>
+                void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
+            : undefined}
           on_open_explorer={() => {
             if (
               stores.ui.sidebar_open &&
@@ -492,7 +497,7 @@
                           on_toggle_star={toggle_star_for_selection}
                           on_open_to_side={(path: string) =>
                             void action_registry.execute(
-                              ACTION_IDS.split_view_open_to_side,
+                              ACTION_IDS.tab_open_to_side,
                               path,
                             )}
                           on_open_in_new_window={(file_path: string) =>
@@ -691,7 +696,7 @@
                         on_toggle_star={toggle_star_for_selection}
                         on_open_to_side={(path: string) =>
                           void action_registry.execute(
-                            ACTION_IDS.split_view_open_to_side,
+                            ACTION_IDS.tab_open_to_side,
                             path,
                           )}
                         on_open_in_new_window={(file_path: string) =>
@@ -816,7 +821,7 @@
                           onclick={() => {
                             if (split_view_active) {
                               void action_registry.execute(
-                                ACTION_IDS.split_view_set_active_pane,
+                                ACTION_IDS.tab_set_active_pane,
                                 "primary",
                               );
                             }
@@ -828,7 +833,7 @@
                         {#if split_view_active}
                           <div class="SplitViewContainer__handle"></div>
                           <div class="SplitViewContainer__secondary">
-                            <SplitNoteEditor />
+                            <SecondaryNoteEditor />
                           </div>
                         {/if}
                         <SplitDropZone />

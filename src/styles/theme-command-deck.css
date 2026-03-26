@@ -161,4 +161,32 @@
   .SplitViewContainer {
     height: 100%;
   }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane]:last-child {
+    position: relative;
+    z-index: 10;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute;
+    top: calc(var(--command-deck-rail-height) + var(--space-4));
+    right: var(--space-2);
+    bottom: var(--space-2);
+    width: var(--command-deck-sidebar-width) !important;
+    min-width: var(--command-deck-sidebar-width) !important;
+    max-width: var(--command-deck-sidebar-width) !important;
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-lg);
+    flex: none !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+    border-inline-start: none;
+    background-color: transparent;
+  }
 }

@@ -30,6 +30,8 @@
 
   const tabs = $derived(stores.tab.tabs);
   const active_tab_id = $derived(stores.tab.active_tab_id);
+  const layout_variant = $derived(stores.ui.active_theme.layout_variant);
+  const is_command_deck = $derived(layout_variant === "command_deck");
 
   let scroll_container: HTMLDivElement | undefined = $state();
   let can_scroll_left = $state(false);
@@ -170,7 +172,7 @@
     const split_pane_path = event.dataTransfer.getData(DRAG_MIME.SPLIT_PANE);
     if (split_pane_path) {
       event.preventDefault();
-      void action_registry.execute(ACTION_IDS.split_view_close);
+      stores.tab.unseat_secondary();
       void action_registry.execute(ACTION_IDS.note_open, {
         note_path: split_pane_path,
         cleanup_if_missing: false,
@@ -209,6 +211,7 @@
           <div class="TabBar__pin-divider" aria-hidden="true"></div>
         {/if}
         {@const is_active = tab.id === active_tab_id}
+        {@const is_secondary = tab.pane === "secondary"}
         {@const is_dragging = tab.id === drag_source_id}
         {@const is_drag_over =
           tab.id === drag_over_id && drag_source_id !== tab.id}
@@ -227,6 +230,7 @@
                       class:TabBar__tab--dragging={is_dragging}
                       class:TabBar__tab--drag-over={is_drag_over}
                       class:TabBar__tab--pinned={tab.is_pinned}
+                      class:TabBar__tab--secondary={is_secondary}
                       data-tab-id={tab.id}
                       aria-selected={is_active}
                       tabindex="0"
@@ -248,6 +252,13 @@
                       {#if tab.is_pinned}
                         <span class="TabBar__tab-icon">
                           <Pin class="TabBar__icon TabBar__icon--pin" />
+                        </span>
+                      {/if}
+                      {#if is_secondary}
+                        <span class="TabBar__tab-icon">
+                          <PanelRight
+                            class="TabBar__icon TabBar__icon--secondary"
+                          />
                         </span>
                       {/if}
                       <span class="TabBar__tab-title">{tab.title}</span>
@@ -354,7 +365,7 @@
                 onSelect={() => {
                   if (tab.kind === "note") {
                     void action_registry.execute(
-                      ACTION_IDS.split_view_open_to_side,
+                      ACTION_IDS.tab_open_to_side,
                       tab.note_path,
                     );
                   }
@@ -446,19 +457,21 @@
       </button>
     {/if}
 
-    <div class="TabBar__actions">
-      <button
-        type="button"
-        class="TabBar__action-btn"
-        class:TabBar__action-btn--active={stores.ui.context_rail_open}
-        onclick={() =>
-          void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)}
-        aria-pressed={stores.ui.context_rail_open}
-        aria-label="Toggle context panel"
-      >
-        <PanelRight class="TabBar__action-icon" />
-      </button>
-    </div>
+    {#if !is_command_deck}
+      <div class="TabBar__actions">
+        <button
+          type="button"
+          class="TabBar__action-btn"
+          class:TabBar__action-btn--active={stores.ui.context_rail_open}
+          onclick={() =>
+            void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)}
+          aria-pressed={stores.ui.context_rail_open}
+          aria-label="Toggle context panel"
+        >
+          <PanelRight class="TabBar__action-icon" />
+        </button>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -605,6 +618,15 @@
 
   :global(.TabBar__icon--pin) {
     color: var(--interactive-muted);
+  }
+
+  :global(.TabBar__icon--secondary) {
+    color: var(--interactive-muted);
+  }
+
+  .TabBar__tab--secondary {
+    border-inline-end: 1px solid
+      color-mix(in oklch, var(--interactive) 30%, var(--border));
   }
 
   .TabBar__tab-title {
