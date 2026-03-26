@@ -3,7 +3,7 @@ pub mod bases;
 pub mod canvas;
 pub mod code_lsp;
 pub mod git;
-pub mod iwe;
+pub mod marksman;
 pub mod lint;
 pub mod notes;
 pub mod pipeline;

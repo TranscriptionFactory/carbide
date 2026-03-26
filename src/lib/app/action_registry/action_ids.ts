@@ -287,6 +287,7 @@ export const ACTION_IDS = {
   iwe_rename: "iwe.rename",
   iwe_rename_confirm: "iwe.rename_confirm",
   iwe_code_action_resolve: "iwe.code_action_resolve",
+  marksman_code_action_resolve: "marksman.code_action_resolve",
   iwe_toggle_results: "iwe.toggle_results",
   iwe_document_symbols: "iwe.document_symbols",
   iwe_open_config: "iwe.open_config",

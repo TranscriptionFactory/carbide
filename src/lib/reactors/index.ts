@@ -36,6 +36,7 @@ import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 // PHASE 2 FREEZE
 // import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
+import { create_marksman_lifecycle_reactor } from "$lib/reactors/marksman_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
@@ -77,6 +78,7 @@ import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type { IweStore, IweService } from "$lib/features/iwe";
+import type { MarksmanStore, MarksmanService } from "$lib/features/marksman";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
@@ -120,8 +122,10 @@ export type ReactorContext = {
   lint_store: LintStore;
   lint_service: LintService;
   iwe_store: IweStore;
-  diagnostics_store: DiagnosticsStore;
   iwe_service: IweService;
+  marksman_store: MarksmanStore;
+  marksman_service: MarksmanService;
+  diagnostics_store: DiagnosticsStore;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
   toolchain_service: ToolchainService;
@@ -301,6 +305,10 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
     // PHASE 2 FREEZE: IWE being replaced by Marksman in Phase 6
     // create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
+    create_marksman_lifecycle_reactor(
+      context.vault_store,
+      context.marksman_service,
+    ),
     create_lsp_document_sync_reactor(context.editor_store, [
       // PHASE 2 FREEZE: IWE subscriber disconnected, keep Lint subscriber
       // {
@@ -317,6 +325,20 @@ export function mount_reactors(context: ReactorContext): () => void {
       //     void context.iwe_service.did_save(path, content),
       //   on_close: (path) => context.diagnostics_store.clear_file("iwe", path),
       // },
+      {
+        is_ready: () => context.marksman_store.status === "running",
+        debounce_ms: 300,
+        on_open: (path, content) => {
+          void context.marksman_service.did_open(path, content);
+          void context.marksman_service.document_symbols(path);
+        },
+        on_change: (path, content) =>
+          void context.marksman_service.did_change(path, content),
+        on_save: (path, content) =>
+          void context.marksman_service.did_save(path, content),
+        on_close: (path) =>
+          context.diagnostics_store.clear_file("marksman", path),
+      },
       {
         is_ready: () => context.lint_store.is_running,
         debounce_ms: 300,

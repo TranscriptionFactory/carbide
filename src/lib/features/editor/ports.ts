@@ -74,11 +74,11 @@ export type EditorEventHandlers = {
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
-  on_iwe_hover?: (
+  on_marksman_hover?: (
     line: number,
     character: number,
   ) => Promise<{ contents: string | null } | null>;
-  on_iwe_definition?: (
+  on_marksman_definition?: (
     line: number,
     character: number,
   ) => Promise<
@@ -92,22 +92,22 @@ export type EditorEventHandlers = {
       };
     }>
   >;
-  on_iwe_definition_navigate?: (uri: string) => void;
-  on_iwe_completion?: (
+  on_marksman_definition_navigate?: (uri: string) => void;
+  on_marksman_completion?: (
     line: number,
     character: number,
   ) => Promise<
     Array<{ label: string; detail: string | null; insert_text: string | null }>
   >;
-  get_iwe_completion_trigger_characters?: () => string[];
-  on_iwe_inlay_hints?: () => Promise<
+  get_marksman_completion_trigger_characters?: () => string[];
+  on_marksman_inlay_hints?: () => Promise<
     Array<{
       position_line: number;
       position_character: number;
       label: string;
     }>
   >;
-  on_iwe_code_actions?: (
+  on_marksman_code_actions?: (
     start_line: number,
     start_character: number,
     end_line: number,
@@ -120,7 +120,7 @@ export type EditorEventHandlers = {
       raw_json: string;
     }>
   >;
-  on_iwe_code_action_resolve?: (action: {
+  on_marksman_code_action_resolve?: (action: {
     title: string;
     kind: string | null;
     data: string | null;

@@ -75,13 +75,13 @@ pub fn run() {
         .manage(shared::buffer::BufferManager::new())
         .manage(features::lint::service::LintState::default())
         .manage(features::code_lsp::CodeLspState::default())
-        .manage(features::iwe::IweState::default())
+        .manage(features::marksman::MarksmanState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
-                if arg == "--restart-iwe" {
-                    let _ = app.emit("iwe-restart-requested", ());
+                if arg == "--restart-marksman" {
+                    let _ = app.emit("marksman-restart-requested", ());
                     return;
                 }
                 if !arg.starts_with('-') {
@@ -241,24 +241,23 @@ pub fn run() {
             features::code_lsp::code_lsp_stop_vault,
             features::code_lsp::code_lsp_available_languages,
             features::code_lsp::code_lsp_get_status,
-            features::iwe::service::iwe_start,
-            features::iwe::service::iwe_stop,
-            features::iwe::service::iwe_did_open,
-            features::iwe::service::iwe_did_change,
-            features::iwe::service::iwe_did_save,
-            features::iwe::service::iwe_hover,
-            features::iwe::service::iwe_references,
-            features::iwe::service::iwe_definition,
-            features::iwe::service::iwe_code_actions,
-            features::iwe::service::iwe_code_action_resolve,
-            features::iwe::service::iwe_workspace_symbols,
-            features::iwe::service::iwe_rename,
-            features::iwe::service::iwe_prepare_rename,
-            features::iwe::service::iwe_completion,
-            features::iwe::service::iwe_formatting,
-            features::iwe::service::iwe_inlay_hints,
-            features::iwe::service::iwe_document_symbols,
-            features::iwe::service::iwe_hierarchy_tree,
+            features::marksman::service::marksman_start,
+            features::marksman::service::marksman_stop,
+            features::marksman::service::marksman_did_open,
+            features::marksman::service::marksman_did_change,
+            features::marksman::service::marksman_did_save,
+            features::marksman::service::marksman_hover,
+            features::marksman::service::marksman_references,
+            features::marksman::service::marksman_definition,
+            features::marksman::service::marksman_code_actions,
+            features::marksman::service::marksman_code_action_resolve,
+            features::marksman::service::marksman_workspace_symbols,
+            features::marksman::service::marksman_rename,
+            features::marksman::service::marksman_prepare_rename,
+            features::marksman::service::marksman_completion,
+            features::marksman::service::marksman_formatting,
+            features::marksman::service::marksman_inlay_hints,
+            features::marksman::service::marksman_document_symbols,
             features::toolchain::service::toolchain_list_tools,
             features::toolchain::service::toolchain_install,
             features::toolchain::service::toolchain_uninstall,

@@ -138,6 +138,38 @@ export function create_test_ports(): Ports {
       hierarchy_tree: () => Promise.resolve([]),
       subscribe_diagnostics: () => () => {},
     },
+    marksman: {
+      start: () => Promise.resolve({ completion_trigger_characters: [] }),
+      stop: () => Promise.resolve(),
+      did_open: () => Promise.resolve(),
+      did_change: () => Promise.resolve(),
+      did_save: () => Promise.resolve(),
+      hover: () => Promise.resolve({ contents: null }),
+      references: () => Promise.resolve([]),
+      definition: () => Promise.resolve([]),
+      code_actions: () => Promise.resolve([]),
+      code_action_resolve: () =>
+        Promise.resolve({
+          files_created: [],
+          files_deleted: [],
+          files_modified: [],
+          errors: [],
+        }),
+      workspace_symbols: () => Promise.resolve([]),
+      rename: () =>
+        Promise.resolve({
+          files_created: [],
+          files_deleted: [],
+          files_modified: [],
+          errors: [],
+        }),
+      prepare_rename: () => Promise.resolve(null),
+      completion: () => Promise.resolve([]),
+      formatting: () => Promise.resolve([]),
+      inlay_hints: () => Promise.resolve([]),
+      document_symbols: () => Promise.resolve([]),
+      subscribe_diagnostics: () => () => {},
+    },
     metadata: {
       get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
     },
