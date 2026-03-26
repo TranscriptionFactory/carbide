@@ -32,6 +32,10 @@
   const active_tab_id = $derived(stores.tab.active_tab_id);
   const layout_variant = $derived(stores.ui.active_theme.layout_variant);
   const is_command_deck = $derived(layout_variant === "command_deck");
+  const is_grounded_heavy = $derived(layout_variant === "grounded_heavy");
+  const is_hud = $derived(layout_variant === "hud");
+  const is_zen_deck = $derived(layout_variant === "zen_deck");
+  const is_dashboard = $derived(layout_variant === "dashboard");
 
   let scroll_container: HTMLDivElement | undefined = $state();
   let can_scroll_left = $state(false);
@@ -457,7 +461,7 @@
       </button>
     {/if}
 
-    {#if !is_command_deck}
+    {#if !is_command_deck && !is_grounded_heavy && !is_hud && !is_zen_deck && !is_dashboard}
       <div class="TabBar__actions">
         <button
           type="button"

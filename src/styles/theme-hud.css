@@ -1,0 +1,131 @@
+/* ============================================
+   HUD LAYOUT OVERRIDES (CORNER-FOCUSED)
+   ============================================ */
+
+.WorkspaceLayout--hud {
+  --hud-margin: var(--space-4);
+  --hud-radius: var(--radius-xl);
+  --hud-sidebar-width: 16rem;
+
+  position: relative;
+  background-color: var(--background);
+
+  /* ActivityBar: Bottom-Left Vertical Strip */
+  .ActivityBar {
+    position: absolute;
+    bottom: var(--hud-margin);
+    left: var(--hud-margin);
+    height: auto;
+    width: var(--size-touch-lg);
+    flex-direction: column;
+    padding-block: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--hud-radius);
+    background-color: color-mix(in oklch, var(--card) 90%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ActivityBar__section:first-child {
+    margin-block-end: var(--space-1);
+    padding-block-end: var(--space-1);
+    border-block-end: 1px solid var(--border);
+    border-inline-end: none;
+  }
+
+  /* StatusBar: Bottom-Center Pill */
+  .StatusBar {
+    position: absolute;
+    bottom: var(--hud-margin);
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: var(--size-touch-lg);
+    padding-inline: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--hud-radius);
+    background-color: color-mix(in oklch, var(--card) 90%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+  }
+
+  /* Floating Sidebars in Corners */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  /* Left Sidebar: Top-Left Floating */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    position: absolute;
+    top: var(--hud-margin);
+    left: var(--hud-margin);
+    bottom: calc(var(--hud-margin) * 2 + var(--size-touch-lg) + var(--space-4));
+    width: var(--hud-sidebar-width) !important;
+    min-width: var(--hud-sidebar-width) !important;
+    max-width: var(--hud-sidebar-width) !important;
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--hud-radius);
+    background-color: color-mix(in oklch, var(--card) 85%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-xl);
+    flex: none !important;
+  }
+
+  /* Right Sidebar (Context Rail): Top-Right Floating */
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute;
+    top: var(--hud-margin);
+    right: var(--hud-margin);
+    bottom: calc(var(--hud-margin) * 2 + var(--size-touch-lg) + var(--space-4));
+    width: var(--hud-sidebar-width) !important;
+    min-width: var(--hud-sidebar-width) !important;
+    max-width: var(--hud-sidebar-width) !important;
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--hud-radius);
+    background-color: color-mix(in oklch, var(--card) 85%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-xl);
+    flex: none !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+    border-inline-start: none;
+    background-color: transparent;
+  }
+
+  /* Editor: Full Screen Inset */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    padding: var(--hud-margin);
+    background-color: var(--background);
+  }
+
+  .TabBar {
+    border: 1px solid var(--border);
+    border-radius: var(--hud-radius);
+    margin-block-end: var(--space-4);
+    background-color: color-mix(in oklch, var(--card) 50%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}

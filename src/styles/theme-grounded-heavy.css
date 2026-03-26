@@ -1,0 +1,131 @@
+/* ============================================
+   GROUNDED HEAVY LAYOUT OVERRIDES (BOTTOM-UP)
+   ============================================ */
+
+.WorkspaceLayout--grounded-heavy {
+  --grounded-heavy-deck-height: var(--size-touch-lg);
+  --grounded-heavy-deck-offset: var(--space-2);
+  --grounded-heavy-sidebar-width: 18rem;
+
+  position: relative;
+  background-color: var(--background);
+
+  /* The "Deck" at the bottom containing ActivityBar and StatusBar */
+  .ActivityBar {
+    position: absolute;
+    bottom: var(--grounded-heavy-deck-offset);
+    left: var(--space-2);
+    height: var(--grounded-heavy-deck-height);
+    width: auto;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: var(--space-1);
+    padding-inline: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ActivityBar__section:first-child {
+    margin-inline-end: var(--space-1);
+    padding-inline-end: var(--space-1);
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .StatusBar {
+    position: absolute;
+    bottom: var(--grounded-heavy-deck-offset);
+    right: var(--space-2);
+    left: auto;
+    width: auto;
+    min-width: 300px;
+    height: var(--grounded-heavy-deck-height);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+    padding-inline: var(--space-3);
+  }
+
+  /* Floating Sidebars (Top-Heavy) */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  /* Left Sidebar */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
+    width: var(--grounded-heavy-sidebar-width) !important;
+    min-width: var(--grounded-heavy-sidebar-width) !important;
+    max-width: var(--grounded-heavy-sidebar-width) !important;
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-md);
+    flex: none !important;
+  }
+
+  /* Right Sidebar (Context Rail) */
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
+    width: var(--grounded-heavy-sidebar-width) !important;
+    min-width: var(--grounded-heavy-sidebar-width) !important;
+    max-width: var(--grounded-heavy-sidebar-width) !important;
+    z-index: 90;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-md);
+    flex: none !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+    border-inline-start: none;
+    background-color: transparent;
+  }
+
+  /* Editor Inset */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    padding-bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
+    background-color: var(--background);
+  }
+
+  .TabBar {
+    border-block-end: 1px solid var(--border);
+    background-color: var(--background);
+  }
+
+  /* Hide handles in this layout as panes are absolute */
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}

@@ -5,6 +5,10 @@
   import "../styles/theme-monolith.css";
   import "../styles/theme-workbench.css";
   import "../styles/theme-command-deck.css";
+  import "../styles/theme-grounded-heavy.css";
+  import "../styles/theme-hud.css";
+  import "../styles/theme-zen-deck.css";
+  import "../styles/theme-dashboard.css";
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";

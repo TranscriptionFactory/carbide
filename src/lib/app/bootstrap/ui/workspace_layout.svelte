@@ -48,6 +48,10 @@
   const is_monolith = $derived(layout_variant === "monolith");
   const is_workbench = $derived(layout_variant === "workbench");
   const is_command_deck = $derived(layout_variant === "command_deck");
+  const is_grounded_heavy = $derived(layout_variant === "grounded_heavy");
+  const is_hud = $derived(layout_variant === "hud");
+  const is_zen_deck = $derived(layout_variant === "zen_deck");
+  const is_dashboard = $derived(layout_variant === "dashboard");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -223,6 +227,10 @@
     class:WorkspaceLayout--monolith={is_monolith}
     class:WorkspaceLayout--workbench={is_workbench}
     class:WorkspaceLayout--command-deck={is_command_deck}
+    class:WorkspaceLayout--grounded-heavy={is_grounded_heavy}
+    class:WorkspaceLayout--hud={is_hud}
+    class:WorkspaceLayout--zen-deck={is_zen_deck}
+    class:WorkspaceLayout--dashboard={is_dashboard}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
       const target = e.target as HTMLElement;
@@ -243,7 +251,11 @@
           {is_vault_mode}
           dynamic_views={stores.plugin.sidebar_views}
           context_rail_open={stores.ui.context_rail_open}
-          on_toggle_context_rail={is_command_deck
+          on_toggle_context_rail={is_command_deck ||
+          is_grounded_heavy ||
+          is_hud ||
+          is_zen_deck ||
+          is_dashboard
             ? () =>
                 void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
             : undefined}

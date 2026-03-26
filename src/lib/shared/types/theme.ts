@@ -20,7 +20,10 @@ export type ThemeCodeBlockStyle = "default" | "borderless" | "filled";
 export type ThemeLayoutVariant =
   | "default"
   | "monolith"
-  | "terminal"
+  | "grounded_heavy"
+  | "hud"
+  | "zen_deck"
+  | "dashboard"
   | "workbench"
   | "command_deck";
 
@@ -986,6 +989,60 @@ export const BUILTIN_COMMAND_DECK_DARK: Theme = {
   },
 };
 
+export const BUILTIN_HUD_DARK: Theme = {
+  id: "hud-dark",
+  name: "HUD Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "hud",
+  accent_hue: 280,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.08 0 0)",
+    "--card": "oklch(0.12 0 0 / 0.8)",
+    "--border": "oklch(0.2 0 0 / 0.5)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.7 0.15 280)",
+  },
+};
+
+export const BUILTIN_ZEN_DECK_DARK: Theme = {
+  id: "zen-deck-dark",
+  name: "Zen Deck Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "zen_deck",
+  accent_hue: 180,
+  accent_chroma: 0.05,
+  token_overrides: {
+    "--background": "oklch(0.05 0 0)",
+    "--card": "oklch(0.1 0 0 / 0.9)",
+    "--border": "oklch(0.15 0 0)",
+    "--radius": "2rem",
+    "--primary": "oklch(0.6 0.05 180)",
+  },
+};
+
+export const BUILTIN_DASHBOARD_DARK: Theme = {
+  id: "dashboard-dark",
+  name: "Dashboard Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "dashboard",
+  accent_hue: 220,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.12 0.02 220)",
+    "--border": "oklch(0.18 0.02 220)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.6 0.15 220)",
+  },
+};
+
 export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_NORDIC_LIGHT,
   BUILTIN_NORDIC_DARK,
@@ -1009,6 +1066,10 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_WORKBENCH_DARK,
   BUILTIN_COMMAND_DECK_LIGHT,
   BUILTIN_COMMAND_DECK_DARK,
+  BUILTIN_GROUNDED_HEAVY_DARK,
+  BUILTIN_HUD_DARK,
+  BUILTIN_ZEN_DECK_DARK,
+  BUILTIN_DASHBOARD_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {
