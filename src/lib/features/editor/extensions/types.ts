@@ -15,6 +15,7 @@ export type PluginContext = {
   load_svg_preview?:
     | ((vault_id: string, path: string) => Promise<string | null>)
     | undefined;
+  use_yjs?: boolean;
 };
 
 export type EditorExtension = {

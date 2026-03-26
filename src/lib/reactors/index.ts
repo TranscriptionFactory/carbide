@@ -44,8 +44,7 @@ import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_life
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
-// PHASE 2 FREEZE
-// import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
+// PHASE 5 DELETE: split_view_content_sync replaced by Yjs shared Y.XmlFragment
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -288,13 +287,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_service,
     ),
     create_update_check_reactor(),
-    // PHASE 2 FREEZE: only one editor pane active during Yjs rewrite
-    // create_split_view_content_sync_reactor(
-    //   context.editor_store,
-    //   context.editor_service,
-    //   context.split_view_service,
-    //   context.split_view_store,
-    // ),
+    // PHASE 5 DELETE: split_view_content_sync replaced by Yjs shared Y.XmlFragment
     create_metadata_sync_reactor(
       context.editor_store,
       context.search_store,

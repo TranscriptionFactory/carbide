@@ -12,7 +12,10 @@ import {
   serialize_markdown,
   schema,
 } from "./markdown_pipeline";
+import { ySyncPlugin } from "y-prosemirror";
+import type { XmlFragment as YXmlFragment } from "yjs";
 import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
+import type { YDocManager } from "./ydoc_manager";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import {
@@ -184,9 +187,11 @@ function create_markdown_change_plugin(
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
+  ydoc_manager?: YDocManager;
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
   const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
+  const ydoc_manager = args?.ydoc_manager ?? null;
 
   return {
     start_session: (config) => {
@@ -234,12 +239,45 @@ export function create_prosemirror_editor_port(args?: {
         get_vault_id: () => current_vault_id,
         resolve_asset_url_for_vault,
         load_svg_preview: load_svg_preview_fn,
+        use_yjs: !!ydoc_manager,
       });
 
-      const plugins: Plugin[] = [...assembled.plugins];
+      // --- Yjs integration ---
+
+      let current_xml_fragment: YXmlFragment | null = null;
+
+      function create_yjs_plugins(xml_fragment: YXmlFragment): Plugin[] {
+        return [ySyncPlugin(xml_fragment)];
+      }
+
+      function hydrate_ydoc(
+        note_path_key: string,
+        pm_doc: ProseNode,
+      ): YXmlFragment {
+        if (!ydoc_manager) {
+          throw new Error("ydoc_manager required for Yjs integration");
+        }
+        const entry = ydoc_manager.hydrate_fresh(note_path_key, pm_doc);
+        return entry.xml_fragment;
+      }
+
+      function get_or_create_ydoc(
+        note_path_key: string,
+        pm_doc: ProseNode,
+      ): YXmlFragment {
+        if (!ydoc_manager) {
+          throw new Error("ydoc_manager required for Yjs integration");
+        }
+        const entry = ydoc_manager.get_or_create(note_path_key, pm_doc);
+        return entry.xml_fragment;
+      }
+
+      // --- Build base plugins (without ySyncPlugin — that's per-buffer) ---
+
+      const base_plugins: Plugin[] = [...assembled.plugins];
 
       // Session-specific plugins (tightly coupled to session state)
-      plugins.push(
+      base_plugins.push(
         create_markdown_change_plugin((doc) => {
           const new_md = normalize_markdown(serialize_markdown(doc));
           if (new_md === current_markdown) return;
@@ -263,7 +301,7 @@ export function create_prosemirror_editor_port(args?: {
       );
 
       if (on_cursor_change) {
-        plugins.push(
+        base_plugins.push(
           create_cursor_plugin(on_cursor_change, on_selection_change),
         );
       }
@@ -281,10 +319,21 @@ export function create_prosemirror_editor_port(args?: {
           schema.node("doc", null, schema.node("paragraph"));
       }
 
+      function build_plugins(xml_fragment: YXmlFragment | null): Plugin[] {
+        if (xml_fragment) {
+          return [...create_yjs_plugins(xml_fragment), ...base_plugins];
+        }
+        return [...base_plugins];
+      }
+
+      if (ydoc_manager) {
+        current_xml_fragment = hydrate_ydoc(note_path, parsed_doc);
+      }
+
       const state = EditorState.create({
         schema,
         doc: parsed_doc,
-        plugins,
+        plugins: build_plugins(current_xml_fragment),
       });
 
       let is_editable = true;
@@ -414,6 +463,8 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           clearTimeout(outline_timer);
           buffer_map.clear();
+          ydoc_manager?.clear();
+          current_xml_fragment = null;
           view.destroy();
           view = null;
         },
@@ -430,12 +481,22 @@ export function create_prosemirror_editor_port(args?: {
             return;
           }
 
-          const tr = view.state.tr.replaceWith(
-            0,
-            view.state.doc.content.size,
-            new_doc.content,
-          );
-          view.dispatch(tr);
+          if (ydoc_manager && current_xml_fragment) {
+            current_xml_fragment = hydrate_ydoc(current_note_path, new_doc);
+            const new_state = EditorState.create({
+              schema,
+              doc: new_doc,
+              plugins: build_plugins(current_xml_fragment),
+            });
+            view.updateState(new_state);
+          } else {
+            const tr = view.state.tr.replaceWith(
+              0,
+              view.state.doc.content.size,
+              new_doc.content,
+            );
+            view.dispatch(tr);
+          }
 
           if (!is_large_note) {
             run_view_action((v) => {
@@ -519,11 +580,41 @@ export function create_prosemirror_editor_port(args?: {
           const saved_entry = should_reuse_cache
             ? buffer_map.get(next_config.note_path)
             : null;
-          if (saved_entry) {
+          if (saved_entry && !ydoc_manager) {
             v.updateState(saved_entry.state);
             current_markdown = saved_entry.markdown;
             sync_runtime_dirty_from_buffer(saved_entry);
             is_large_note = is_large_markdown(current_markdown);
+          } else if (saved_entry && ydoc_manager) {
+            current_markdown = saved_entry.markdown;
+            sync_runtime_dirty_from_buffer(saved_entry);
+            is_large_note = is_large_markdown(current_markdown);
+
+            const cached_ydoc = ydoc_manager.get(next_config.note_path);
+            if (cached_ydoc) {
+              current_xml_fragment = cached_ydoc.xml_fragment;
+            } else {
+              let pm_doc: ProseNode;
+              try {
+                pm_doc = parse_markdown(
+                  prepare_markdown_for_editor(current_markdown),
+                );
+              } catch {
+                pm_doc =
+                  v.state.schema.topNodeType.createAndFill() ?? v.state.doc;
+              }
+              current_xml_fragment = get_or_create_ydoc(
+                next_config.note_path,
+                pm_doc,
+              );
+            }
+
+            const new_state = EditorState.create({
+              schema: v.state.schema,
+              doc: saved_entry.state.doc,
+              plugins: build_plugins(current_xml_fragment),
+            });
+            v.updateState(new_state);
           } else {
             const normalized_initial_markdown = normalize_markdown(
               next_config.initial_markdown,
@@ -536,6 +627,13 @@ export function create_prosemirror_editor_port(args?: {
             } catch {
               new_parsed_doc =
                 v.state.schema.topNodeType.createAndFill() ?? v.state.doc;
+            }
+
+            if (ydoc_manager) {
+              current_xml_fragment =
+                restore_policy === "fresh"
+                  ? hydrate_ydoc(next_config.note_path, new_parsed_doc)
+                  : get_or_create_ydoc(next_config.note_path, new_parsed_doc);
             }
 
             let selection: TextSelection | undefined;
@@ -553,7 +651,7 @@ export function create_prosemirror_editor_port(args?: {
             const state_config: Parameters<typeof EditorState.create>[0] = {
               schema: v.state.schema,
               doc: new_parsed_doc,
-              plugins: v.state.plugins,
+              plugins: build_plugins(current_xml_fragment),
             };
             if (selection) {
               state_config.selection = selection;
@@ -596,6 +694,8 @@ export function create_prosemirror_editor_port(args?: {
             });
           }
 
+          ydoc_manager?.rename(old_note_path, new_note_path);
+
           if (current_note_path !== old_note_path) return;
           current_note_path = new_note_path;
           assembled.on_note_path_change(current_note_path);
@@ -610,8 +710,10 @@ export function create_prosemirror_editor_port(args?: {
         },
         close_buffer(note_path_to_close: string) {
           buffer_map.delete(note_path_to_close);
+          ydoc_manager?.evict(note_path_to_close);
           if (current_note_path === note_path_to_close) {
             current_note_path = "";
+            current_xml_fragment = null;
           }
         },
         focus() {

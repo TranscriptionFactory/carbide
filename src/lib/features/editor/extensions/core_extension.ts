@@ -1,6 +1,7 @@
 import { TextSelection, Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
-import { history, undo, redo } from "prosemirror-history";
+import { yUndoPlugin, undo as yUndo, redo as yRedo } from "y-prosemirror";
+import { history, undo as pmUndo, redo as pmRedo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import {
@@ -21,6 +22,9 @@ import type { EditorExtension, PluginContext } from "./types";
 
 export function create_core_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
+  const use_yjs = ctx.use_yjs ?? false;
+  const undo = use_yjs ? yUndo : pmUndo;
+  const redo = use_yjs ? yRedo : pmRedo;
 
   const strikethrough_mark_type = schema.marks.strikethrough;
   const strong_mark_type = schema.marks.strong;
@@ -108,7 +112,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
   }
 
   plugins.push(keymap(baseKeymap));
-  plugins.push(history());
+  plugins.push(use_yjs ? yUndoPlugin() : history());
   plugins.push(dropCursor());
   plugins.push(gapCursor());
   plugins.push(create_emoji_prose_plugin());
