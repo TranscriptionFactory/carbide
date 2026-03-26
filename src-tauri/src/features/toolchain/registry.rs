@@ -1,7 +1,7 @@
 use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 
 const RUMDL_VERSION: &str = "0.1.59";
-const IWE_VERSION: &str = "0.69.0";
+const MARKSMAN_VERSION: &str = "2025-03-01";
 
 static RUMDL_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
@@ -26,8 +26,6 @@ static RUMDL_BINARIES: &[PlatformBinary] = &[
     },
 ];
 
-static IWE_BINARIES: &[PlatformBinary] = &[];
-
 pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "rumdl",
@@ -45,16 +43,15 @@ pub static TOOLS: &[ToolSpec] = &[
         ],
     },
     ToolSpec {
-        id: "iwes",
-        display_name: "IWE",
-        github_repo: "TranscriptionFactory/iwe",
-        version: IWE_VERSION,
-        platform_binaries: IWE_BINARIES,
-        binary_name: "iwes",
+        id: "marksman",
+        display_name: "Marksman",
+        github_repo: "",
+        version: MARKSMAN_VERSION,
+        platform_binaries: &[],
+        binary_name: "marksman",
         default_args: &[],
         capabilities: &[
             ToolCapability::DocumentSync { debounce_ms: 500, skip_draft: true },
-            ToolCapability::Diagnostics,
             ToolCapability::Completion,
             ToolCapability::Hover,
             ToolCapability::References,
