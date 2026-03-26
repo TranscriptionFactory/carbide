@@ -130,3 +130,9 @@ pub struct PropertyInfo {
     pub property_type: String,
     pub count: usize,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct TagInfo {
+    pub tag: String,
+    pub count: usize,
+}

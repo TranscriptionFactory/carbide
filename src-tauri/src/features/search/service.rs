@@ -188,6 +188,15 @@ fn shutdown_worker(worker: &mut VaultWorker) {
 
 #[tauri::command]
 #[specta::specta]
+pub fn tags_list_all(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<crate::features::search::model::TagInfo>, String> {
+    with_read_conn(&app, &vault_id, |conn| search_db::list_all_tags(conn))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;

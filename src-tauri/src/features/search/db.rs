@@ -2631,6 +2631,31 @@ pub fn get_note_tags(conn: &Connection, path: &str) -> Result<Vec<String>, Strin
         .map_err(|e| e.to_string())
 }
 
+pub fn list_all_tags(
+    conn: &Connection,
+) -> Result<Vec<crate::features::search::model::TagInfo>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT tag, COUNT(*) as cnt
+             FROM note_inline_tags
+             GROUP BY tag
+             ORDER BY cnt DESC, tag ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(crate::features::search::model::TagInfo {
+                tag: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 pub fn list_all_properties(
     conn: &Connection,
 ) -> Result<Vec<crate::features::search::model::PropertyInfo>, String> {

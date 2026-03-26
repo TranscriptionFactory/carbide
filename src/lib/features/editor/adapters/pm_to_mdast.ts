@@ -140,6 +140,22 @@ function convert_pm_inline(parent: PmNode): PhrasingContent[] {
   return build_mdast_inline(items);
 }
 
+function trim_trailing_phrasing_whitespace(children: PhrasingContent[]): void {
+  for (let i = children.length - 1; i >= 0; i--) {
+    const child = children[i];
+    if (child && child.type === "text" && "value" in child) {
+      const trimmed = (child as { value: string }).value.replace(/\s+$/, "");
+      if (trimmed.length > 0) {
+        (child as { value: string }).value = trimmed;
+        return;
+      }
+      children.splice(i, 1);
+    } else {
+      return;
+    }
+  }
+}
+
 function convert_block_node(node: PmNode): MdastNode | null {
   switch (node.type.name) {
     case "paragraph": {
@@ -153,6 +169,7 @@ function convert_block_node(node: PmNode): MdastNode | null {
 
     case "heading": {
       const children = convert_pm_inline(node);
+      trim_trailing_phrasing_whitespace(children);
       return {
         type: "heading",
         depth: (node.attrs["level"] as number) || 1,
