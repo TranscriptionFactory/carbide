@@ -32,18 +32,13 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
-// PHASE 2 FREEZE
-// import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
 import { create_marksman_lifecycle_reactor } from "$lib/reactors/marksman_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
-// PHASE 2 FREEZE
-// import { create_linked_source_sync_reactor } from "$lib/reactors/linked_source_sync.reactor.svelte";
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
-// PHASE 5 DELETE: split_view_content_sync replaced by Yjs shared Y.XmlFragment
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -75,7 +70,6 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
-import type { IweStore, IweService } from "$lib/features/iwe";
 import type { MarksmanStore, MarksmanService } from "$lib/features/marksman";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
@@ -83,7 +77,6 @@ import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
 import type { CodeLspService } from "$lib/features/code_lsp";
-import type { ReferenceService } from "$lib/features/reference";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -119,8 +112,6 @@ export type ReactorContext = {
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
-  iwe_store: IweStore;
-  iwe_service: IweService;
   marksman_store: MarksmanStore;
   marksman_service: MarksmanService;
   diagnostics_store: DiagnosticsStore;
@@ -129,7 +120,6 @@ export type ReactorContext = {
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
-  reference_service: ReferenceService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -295,28 +285,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.plugin_service,
     ),
-    // PHASE 2 FREEZE: IWE being replaced by Marksman in Phase 6
-    // create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
     create_marksman_lifecycle_reactor(
       context.vault_store,
       context.marksman_service,
     ),
     create_lsp_document_sync_reactor(context.editor_store, [
-      // PHASE 2 FREEZE: IWE subscriber disconnected, keep Lint subscriber
-      // {
-      //   is_ready: () => context.iwe_store.status === "running",
-      //   debounce_ms: 500,
-      //   skip_draft: true,
-      //   on_open: async (path, content) => {
-      //     await context.iwe_service.did_open(path, content);
-      //     void context.iwe_service.document_symbols(path);
-      //   },
-      //   on_change: (path, content) =>
-      //     void context.iwe_service.did_change(path, content),
-      //   on_save: (path, content) =>
-      //     void context.iwe_service.did_save(path, content),
-      //   on_close: (path) => context.diagnostics_store.clear_file("iwe", path),
-      // },
       {
         is_ready: () => context.marksman_store.status === "running",
         debounce_ms: 300,
@@ -359,12 +332,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.toolchain_service,
     ),
-    // PHASE 2 FREEZE: depends on reference_service (Rust reference feature deleted in Phase 3)
-    // create_linked_source_sync_reactor(
-    //   context.vault_store,
-    //   context.reference_service,
-    //   context.search_store,
-    // ),
   ];
 
   return () => {

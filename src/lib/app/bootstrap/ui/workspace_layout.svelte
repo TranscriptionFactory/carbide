@@ -909,10 +909,6 @@
           void action_registry.execute(ACTION_IDS.lint_toggle_problems)}
         on_lint_format_click={() =>
           void action_registry.execute(ACTION_IDS.lint_format_file)}
-        iwe_status={stores.iwe.status}
-        iwe_error={stores.iwe.error}
-        on_iwe_click={() =>
-          void action_registry.execute(ACTION_IDS.iwe_toggle_results)}
         editor_mode={stores.editor.editor_mode}
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>

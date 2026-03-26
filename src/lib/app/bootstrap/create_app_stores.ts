@@ -19,7 +19,6 @@ import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
 import { LintStore, LogStore } from "$lib/features/lint";
-import { IweStore } from "$lib/features/iwe";
 import { MarksmanStore } from "$lib/features/marksman";
 import { LspStore } from "$lib/features/lsp";
 import { DiagnosticsStore } from "$lib/features/diagnostics";
@@ -54,7 +53,6 @@ export type AppStores = {
   tag: TagStore;
   lint: LintStore;
   log: LogStore;
-  iwe: IweStore;
   marksman: MarksmanStore;
   lsp: LspStore;
   diagnostics: DiagnosticsStore;
@@ -91,7 +89,6 @@ export function create_app_stores(): AppStores {
     tag: new TagStore(),
     lint: new LintStore(),
     log: new LogStore(),
-    iwe: new IweStore(),
     marksman: new MarksmanStore(),
     lsp: new LspStore(),
     diagnostics: new DiagnosticsStore(),

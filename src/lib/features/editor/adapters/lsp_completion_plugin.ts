@@ -1,6 +1,6 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import type { IweCompletionItem } from "$lib/features/iwe";
+import type { MarksmanCompletionItem } from "$lib/features/marksman";
 import {
   create_cursor_anchor,
   position_suggest_dropdown,
@@ -9,22 +9,22 @@ import {
   mount_dropdown,
   destroy_dropdown,
 } from "./suggest_dropdown_utils";
-import { line_and_character_from_pos } from "./iwe_plugin_utils";
+import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import { wiki_suggest_plugin_key } from "./wiki_suggest_plugin";
 
-export const iwe_completion_plugin_key = new PluginKey<IweCompletionState>(
-  "iwe-completion",
+export const lsp_completion_plugin_key = new PluginKey<LspCompletionState>(
+  "lsp-completion",
 );
 
-type IweCompletionState = {
+type LspCompletionState = {
   active: boolean;
-  items: IweCompletionItem[];
+  items: MarksmanCompletionItem[];
   selected_index: number;
   from: number;
   query: string;
 };
 
-const EMPTY_STATE: IweCompletionState = {
+const EMPTY_STATE: LspCompletionState = {
   active: false,
   items: [],
   selected_index: 0,
@@ -34,13 +34,13 @@ const EMPTY_STATE: IweCompletionState = {
 
 function create_dropdown(): HTMLElement {
   const el = document.createElement("div");
-  el.className = "IweCompletion";
+  el.className = "LspCompletion";
   return el;
 }
 
 function render_items(
   dropdown: HTMLElement,
-  items: IweCompletionItem[],
+  items: MarksmanCompletionItem[],
   selected_index: number,
   on_select: (index: number) => void,
 ) {
@@ -50,18 +50,18 @@ function render_items(
     if (!item) continue;
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "IweCompletion__item";
+    row.className = "LspCompletion__item";
     if (i === selected_index)
-      row.classList.add("IweCompletion__item--selected");
+      row.classList.add("LspCompletion__item--selected");
 
     const label = document.createElement("span");
-    label.className = "IweCompletion__label";
+    label.className = "LspCompletion__label";
     label.textContent = item.label;
     row.appendChild(label);
 
     if (item.detail) {
       const detail = document.createElement("span");
-      detail.className = "IweCompletion__detail";
+      detail.className = "LspCompletion__detail";
       detail.textContent = item.detail;
       row.appendChild(detail);
     }
@@ -97,20 +97,20 @@ function trigger_context(
   return { query: match[0], from };
 }
 
-export function create_iwe_completion_plugin(input: {
+export function create_lsp_completion_plugin(input: {
   on_completion: (
     line: number,
     character: number,
-  ) => Promise<IweCompletionItem[]>;
+  ) => Promise<MarksmanCompletionItem[]>;
   get_trigger_characters: () => string[];
-}): Plugin<IweCompletionState> {
+}): Plugin<LspCompletionState> {
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let detach_dismiss: (() => void) | null = null;
 
-  function get_state(view: EditorView): IweCompletionState {
-    return iwe_completion_plugin_key.getState(view.state) ?? EMPTY_STATE;
+  function get_state(view: EditorView): LspCompletionState {
+    return lsp_completion_plugin_key.getState(view.state) ?? EMPTY_STATE;
   }
 
   function show_dropdown(view: EditorView) {
@@ -133,7 +133,7 @@ export function create_iwe_completion_plugin(input: {
     const current = get_state(view);
     if (!current.active) return;
     view.dispatch(
-      view.state.tr.setMeta(iwe_completion_plugin_key, EMPTY_STATE),
+      view.state.tr.setMeta(lsp_completion_plugin_key, EMPTY_STATE),
     );
     hide_dropdown();
   }
@@ -153,13 +153,13 @@ export function create_iwe_completion_plugin(input: {
       view.state.schema.text(insert),
     );
     tr.setSelection(TextSelection.create(tr.doc, from + insert.length));
-    tr.setMeta(iwe_completion_plugin_key, EMPTY_STATE);
+    tr.setMeta(lsp_completion_plugin_key, EMPTY_STATE);
     view.dispatch(tr);
     view.focus();
     hide_dropdown();
   }
 
-  function sync_dropdown(view: EditorView, state: IweCompletionState) {
+  function sync_dropdown(view: EditorView, state: LspCompletionState) {
     if (!dropdown) return;
     if (!state.active || state.items.length === 0) {
       hide_dropdown();
@@ -174,15 +174,15 @@ export function create_iwe_completion_plugin(input: {
     }
   }
 
-  return new Plugin<IweCompletionState>({
-    key: iwe_completion_plugin_key,
+  return new Plugin<LspCompletionState>({
+    key: lsp_completion_plugin_key,
 
     state: {
       init: () => EMPTY_STATE,
       apply(tr, prev) {
-        const meta = tr.getMeta(iwe_completion_plugin_key) as
-          | IweCompletionState
-          | { items: IweCompletionItem[] }
+        const meta = tr.getMeta(lsp_completion_plugin_key) as
+          | LspCompletionState
+          | { items: MarksmanCompletionItem[] }
           | undefined;
         if (meta) {
           if ("active" in meta) return meta;
@@ -219,7 +219,7 @@ export function create_iwe_completion_plugin(input: {
 
           const plugin_state = get_state(view);
           if (context.query !== plugin_state.query || !plugin_state.active) {
-            const new_state: IweCompletionState = {
+            const new_state: LspCompletionState = {
               active: true,
               query: context.query,
               from: context.from,
@@ -227,7 +227,7 @@ export function create_iwe_completion_plugin(input: {
               selected_index: 0,
             };
             view.dispatch(
-              view.state.tr.setMeta(iwe_completion_plugin_key, new_state),
+              view.state.tr.setMeta(lsp_completion_plugin_key, new_state),
             );
 
             if (debounce_timer) clearTimeout(debounce_timer);
@@ -240,7 +240,7 @@ export function create_iwe_completion_plugin(input: {
               void input.on_completion(line, character).then((items) => {
                 if (!get_state(view).active) return;
                 view.dispatch(
-                  view.state.tr.setMeta(iwe_completion_plugin_key, { items }),
+                  view.state.tr.setMeta(lsp_completion_plugin_key, { items }),
                 );
                 sync_dropdown(view, { ...get_state(view), items });
               });
@@ -273,7 +273,7 @@ export function create_iwe_completion_plugin(input: {
             state.items.length - 1,
           );
           view.dispatch(
-            view.state.tr.setMeta(iwe_completion_plugin_key, {
+            view.state.tr.setMeta(lsp_completion_plugin_key, {
               ...state,
               selected_index: next,
             }),
@@ -287,7 +287,7 @@ export function create_iwe_completion_plugin(input: {
           event.stopPropagation();
           const prev = Math.max(state.selected_index - 1, 0);
           view.dispatch(
-            view.state.tr.setMeta(iwe_completion_plugin_key, {
+            view.state.tr.setMeta(lsp_completion_plugin_key, {
               ...state,
               selected_index: prev,
             }),

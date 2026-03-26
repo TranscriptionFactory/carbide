@@ -46,6 +46,12 @@ export type SemanticEdge = {
   distance: number;
 };
 
+export type HierarchyTreeNode = {
+  key: string;
+  name: string;
+  children: HierarchyTreeNode[];
+};
+
 export type GraphCacheStats = {
   size: number;
   hits: number;

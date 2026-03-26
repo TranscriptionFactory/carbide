@@ -1,8 +1,8 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
-import type { IweCodeAction } from "$lib/features/iwe";
-import { line_and_character_from_pos } from "./iwe_plugin_utils";
+import type { MarksmanCodeAction } from "$lib/features/marksman";
+import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import {
   position_suggest_dropdown,
   mount_dropdown,
@@ -10,12 +10,12 @@ import {
   attach_outside_dismiss,
 } from "./suggest_dropdown_utils";
 
-const iwe_code_action_plugin_key = new PluginKey<DecorationSet>(
-  "iwe-code-actions",
+const lsp_code_action_plugin_key = new PluginKey<DecorationSet>(
+  "lsp-code-actions",
 );
 
 type PluginMeta =
-  | { type: "set_actions"; actions: IweCodeAction[]; widget_pos: number }
+  | { type: "set_actions"; actions: MarksmanCodeAction[]; widget_pos: number }
   | { type: "clear" };
 
 type LspAction = {
@@ -26,14 +26,14 @@ type LspAction = {
   source: string;
 };
 
-export function create_iwe_code_action_plugin(input: {
+export function create_lsp_code_action_plugin(input: {
   on_code_actions: (
     start_line: number,
     start_character: number,
     end_line: number,
     end_character: number,
-  ) => Promise<IweCodeAction[]>;
-  on_resolve: (action: IweCodeAction) => void;
+  ) => Promise<MarksmanCodeAction[]>;
+  on_resolve: (action: MarksmanCodeAction) => void;
   on_lsp_code_actions?:
     | ((
         start_line: number,
@@ -44,7 +44,7 @@ export function create_iwe_code_action_plugin(input: {
     | undefined;
   on_lsp_resolve?: ((action: LspAction) => void) | undefined;
 }): Plugin {
-  let current_actions: IweCodeAction[] = [];
+  let current_actions: MarksmanCodeAction[] = [];
   let dropdown: HTMLElement | null = null;
   let detach_dismiss: (() => void) | null = null;
   let is_dropdown_visible = false;
@@ -77,7 +77,7 @@ export function create_iwe_code_action_plugin(input: {
     for (const action of current_actions) {
       const item = document.createElement("button");
       item.type = "button";
-      item.className = "IweCodeAction__item";
+      item.className = "MarksmanCodeAction__item";
       item.textContent = action.title;
       item.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -103,25 +103,25 @@ export function create_iwe_code_action_plugin(input: {
         to_coords.character,
       )
       .then((actions) => {
-        current_actions = actions as IweCodeAction[];
+        current_actions = actions as MarksmanCodeAction[];
         if (actions.length === 0) {
           view.dispatch(
-            view.state.tr.setMeta(iwe_code_action_plugin_key, {
+            view.state.tr.setMeta(lsp_code_action_plugin_key, {
               type: "clear",
             }),
           );
           return;
         }
         view.dispatch(
-          view.state.tr.setMeta(iwe_code_action_plugin_key, {
+          view.state.tr.setMeta(lsp_code_action_plugin_key, {
             type: "set_actions",
-            actions: actions as IweCodeAction[],
+            actions: actions as MarksmanCodeAction[],
             widget_pos: view.state.selection.from,
           }),
         );
         requestAnimationFrame(() => {
           const lightbulb = view.dom.querySelector(
-            ".iwe-lightbulb",
+            ".lsp-lightbulb",
           ) as HTMLElement | null;
           if (lightbulb) {
             render_dropdown_lsp(view, actions);
@@ -137,7 +137,7 @@ export function create_iwe_code_action_plugin(input: {
     for (const action of actions) {
       const item = document.createElement("button");
       item.type = "button";
-      item.className = "IweCodeAction__item";
+      item.className = "MarksmanCodeAction__item";
       item.textContent = action.title;
       item.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -165,14 +165,14 @@ export function create_iwe_code_action_plugin(input: {
         current_actions = actions;
         if (actions.length === 0) {
           view.dispatch(
-            view.state.tr.setMeta(iwe_code_action_plugin_key, {
+            view.state.tr.setMeta(lsp_code_action_plugin_key, {
               type: "clear",
             }),
           );
           return;
         }
         view.dispatch(
-          view.state.tr.setMeta(iwe_code_action_plugin_key, {
+          view.state.tr.setMeta(lsp_code_action_plugin_key, {
             type: "set_actions",
             actions,
             widget_pos: view.state.selection.from,
@@ -180,7 +180,7 @@ export function create_iwe_code_action_plugin(input: {
         );
         requestAnimationFrame(() => {
           const lightbulb = view.dom.querySelector(
-            ".iwe-lightbulb",
+            ".lsp-lightbulb",
           ) as HTMLElement | null;
           if (lightbulb) {
             render_dropdown(view);
@@ -191,12 +191,12 @@ export function create_iwe_code_action_plugin(input: {
   }
 
   return new Plugin<DecorationSet>({
-    key: iwe_code_action_plugin_key,
+    key: lsp_code_action_plugin_key,
 
     state: {
       init: () => DecorationSet.empty,
       apply(tr, prev) {
-        const meta = tr.getMeta(iwe_code_action_plugin_key) as
+        const meta = tr.getMeta(lsp_code_action_plugin_key) as
           | PluginMeta
           | undefined;
         if (meta) {
@@ -207,7 +207,7 @@ export function create_iwe_code_action_plugin(input: {
               (view) => {
                 const el = document.createElement("button");
                 el.type = "button";
-                el.className = "iwe-lightbulb";
+                el.className = "lsp-lightbulb";
                 el.title = `${String(meta.actions.length)} code action${meta.actions.length > 1 ? "s" : ""} available`;
                 el.addEventListener("mousedown", (e) => {
                   e.preventDefault();
@@ -216,7 +216,7 @@ export function create_iwe_code_action_plugin(input: {
                 });
                 return el;
               },
-              { side: -1, key: "iwe-lightbulb" },
+              { side: -1, key: "lsp-lightbulb" },
             );
             return DecorationSet.create(tr.doc, [widget]);
           }
@@ -230,7 +230,7 @@ export function create_iwe_code_action_plugin(input: {
 
     view(editor_view) {
       dropdown = document.createElement("div");
-      dropdown.className = "IweCodeAction";
+      dropdown.className = "MarksmanCodeAction";
       mount_dropdown(dropdown);
       detach_dismiss = attach_outside_dismiss(
         dropdown,
@@ -245,7 +245,7 @@ export function create_iwe_code_action_plugin(input: {
           if (sel.from !== prev_sel.from || sel.to !== prev_sel.to) {
             hide_dropdown();
             view.dispatch(
-              view.state.tr.setMeta(iwe_code_action_plugin_key, {
+              view.state.tr.setMeta(lsp_code_action_plugin_key, {
                 type: "clear",
               }),
             );
@@ -263,7 +263,7 @@ export function create_iwe_code_action_plugin(input: {
     props: {
       decorations(state) {
         return (
-          iwe_code_action_plugin_key.getState(state) ?? DecorationSet.empty
+          lsp_code_action_plugin_key.getState(state) ?? DecorationSet.empty
         );
       },
       handleKeyDown(view, event) {

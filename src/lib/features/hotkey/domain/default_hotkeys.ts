@@ -323,28 +323,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
-    action_id: ACTION_IDS.iwe_restart,
-    key: "CmdOrCtrl+Shift+I",
-    phase: "capture",
-    label: "IWE: Restart Server",
-    description: "Restart the IWE language server to re-index the vault",
-    category: "general",
-  },
-  {
     action_id: ACTION_IDS.lsp_code_actions,
     key: "CmdOrCtrl+.",
     phase: "bubble",
     label: "Code Actions",
     description: "Show available code actions at cursor position",
     category: "general",
-  },
-  {
-    action_id: ACTION_IDS.iwe_toggle_results,
-    key: "CmdOrCtrl+Shift+R",
-    phase: "capture",
-    label: "Toggle IWE Results",
-    description: "Show or hide the IWE results panel",
-    category: "navigation",
   },
   {
     action_id: ACTION_IDS.lsp_toggle_results,

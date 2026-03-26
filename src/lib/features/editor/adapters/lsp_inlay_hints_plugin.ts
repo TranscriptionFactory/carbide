@@ -2,17 +2,17 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
-import type { IweInlayHint } from "$lib/features/iwe";
-import { offset_for_line_character } from "./iwe_plugin_utils";
+import type { MarksmanInlayHint } from "$lib/features/marksman";
+import { offset_for_line_character } from "./lsp_plugin_utils";
 
-const iwe_inlay_hints_plugin_key = new PluginKey<DecorationSet>(
-  "iwe-inlay-hints",
+const lsp_inlay_hints_plugin_key = new PluginKey<DecorationSet>(
+  "lsp-inlay-hints",
 );
 
-function apply_hints(view: EditorView, hints: IweInlayHint[]) {
+function apply_hints(view: EditorView, hints: MarksmanInlayHint[]) {
   if (hints.length === 0) {
     view.dispatch(
-      view.state.tr.setMeta(iwe_inlay_hints_plugin_key, DecorationSet.empty),
+      view.state.tr.setMeta(lsp_inlay_hints_plugin_key, DecorationSet.empty),
     );
     return;
   }
@@ -30,28 +30,28 @@ function apply_hints(view: EditorView, hints: IweInlayHint[]) {
     const pos = Math.min(text_offset + 1, doc.content.size);
 
     const widget = document.createElement("span");
-    widget.className = "iwe-inlay-hint";
+    widget.className = "lsp-inlay-hint";
     widget.textContent = hint.label;
 
     decorations.push(Decoration.widget(pos, widget, { side: 1 }));
   }
 
   const deco_set = DecorationSet.create(doc, decorations);
-  view.dispatch(view.state.tr.setMeta(iwe_inlay_hints_plugin_key, deco_set));
+  view.dispatch(view.state.tr.setMeta(lsp_inlay_hints_plugin_key, deco_set));
 }
 
-export function create_iwe_inlay_hints_plugin(input: {
-  on_inlay_hints: () => Promise<IweInlayHint[]>;
+export function create_lsp_inlay_hints_plugin(input: {
+  on_inlay_hints: () => Promise<MarksmanInlayHint[]>;
 }): Plugin {
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
 
   return new Plugin({
-    key: iwe_inlay_hints_plugin_key,
+    key: lsp_inlay_hints_plugin_key,
 
     state: {
       init: () => DecorationSet.empty,
       apply(tr, prev) {
-        const meta = tr.getMeta(iwe_inlay_hints_plugin_key) as
+        const meta = tr.getMeta(lsp_inlay_hints_plugin_key) as
           | DecorationSet
           | undefined;
         if (meta !== undefined) return meta;
@@ -63,7 +63,7 @@ export function create_iwe_inlay_hints_plugin(input: {
     props: {
       decorations(state) {
         return (
-          iwe_inlay_hints_plugin_key.getState(state) ?? DecorationSet.empty
+          lsp_inlay_hints_plugin_key.getState(state) ?? DecorationSet.empty
         );
       },
     },

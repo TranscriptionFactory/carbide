@@ -1,6 +1,5 @@
 export type DiagnosticSource =
   | "lint"
-  | "iwe"
   | "marksman"
   | "ast"
   | "code_lsp"
