@@ -68,7 +68,7 @@
   /* Left Sidebar */
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:first-child {
+    > [data-pane]:has([data-slot="sidebar"]) {
     position: absolute;
     top: var(--space-2);
     left: var(--space-2);
@@ -87,7 +87,8 @@
   }
 
   /* Right Sidebar (Context Rail) */
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:has(> .ContextRail) {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
@@ -96,7 +97,7 @@
     min-width: var(--grounded-heavy-sidebar-width) !important;
     max-width: var(--grounded-heavy-sidebar-width) !important;
     z-index: 90;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
@@ -105,15 +106,18 @@
     flex: none !important;
   }
 
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] .ContextRail {
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:has(> .ContextRail)
+    .ContextRail {
     border-inline-start: none;
     background-color: transparent;
+    overflow: visible;
   }
 
   /* Editor Inset */
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:last-child
+    > [data-pane]:has([data-slot="sidebar-inset"])
     [data-slot="sidebar-inset"] {
     padding-bottom: calc(var(--grounded-heavy-deck-height) + var(--space-4));
     background-color: var(--background);
