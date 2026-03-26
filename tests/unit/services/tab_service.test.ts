@@ -280,6 +280,7 @@ describe("TabService", () => {
           title: "alpha",
           is_pinned: false,
           is_dirty: false,
+          pane: "primary",
         },
         {
           kind: "note",
@@ -288,6 +289,7 @@ describe("TabService", () => {
           title: "beta",
           is_pinned: true,
           is_dirty: false,
+          pane: "primary",
         },
       ]);
       expect(tab_store.active_tab_id).toBe(as_note_path("docs/alpha.md"));

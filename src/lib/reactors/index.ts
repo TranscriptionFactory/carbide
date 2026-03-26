@@ -2,10 +2,7 @@ import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.sv
 import { create_editor_appearance_reactor } from "$lib/reactors/editor_appearance.reactor.svelte";
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_theme_reactor } from "$lib/reactors/theme.reactor.svelte";
-import {
-  create_autosave_reactor,
-  create_split_view_autosave_reactor,
-} from "$lib/reactors/autosave.reactor.svelte";
+import { create_autosave_reactor } from "$lib/reactors/autosave.reactor.svelte";
 import { create_op_toast_reactor } from "$lib/reactors/op_toast.reactor.svelte";
 import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_persist.reactor.svelte";
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
@@ -22,7 +19,6 @@ import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.
 import { create_file_open_reactor } from "$lib/reactors/file_open.reactor.svelte";
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
-import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
 import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
@@ -61,8 +57,7 @@ import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import type { SplitViewStore } from "$lib/features/split_view";
-import type { SplitViewService } from "$lib/features/split_view";
+import type { SecondaryEditorManager } from "$lib/features/tab";
 import type { DocumentService } from "$lib/features/document";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
@@ -104,8 +99,7 @@ export type ReactorContext = {
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
   workspace_reconcile?: WorkspaceReconcile | undefined;
-  split_view_store: SplitViewStore;
-  split_view_service: SplitViewService;
+  secondary_editor_manager: SecondaryEditorManager;
   document_service: DocumentService;
   task_service: TaskService;
   plugin_service: PluginService;
@@ -139,12 +133,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.tab_service,
       "primary",
-    ),
-    create_split_view_autosave_reactor(
-      () => context.split_view_service.get_secondary_editor_store(),
-      context.ui_store,
-      context.note_service,
-      context.tab_service,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),
@@ -225,11 +213,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.action_registry,
       context.workspace_reconcile,
     ),
-    create_split_view_persist_reactor(
-      context.split_view_store,
-      context.vault_store,
-      context.split_view_service,
-    ),
     create_document_cache_reactor(
       context.tab_store,
       context.ui_store,
@@ -274,7 +257,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_service,
     ),
     create_update_check_reactor(),
-    // PHASE 5 DELETE: split_view_content_sync replaced by Yjs shared Y.XmlFragment
     create_metadata_sync_reactor(
       context.editor_store,
       context.ui_store,

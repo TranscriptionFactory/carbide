@@ -727,11 +727,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       shortcut: "CmdOrCtrl+S",
       when: when_vault_open,
       execute: async (payload?: unknown) => {
-        const open_note =
-          stores.split_view.active &&
-          stores.split_view.active_pane === "secondary"
-            ? stores.split_view.secondary_note
-            : stores.editor.open_note;
+        const open_note = stores.editor.open_note;
         if (!open_note) {
           return;
         }

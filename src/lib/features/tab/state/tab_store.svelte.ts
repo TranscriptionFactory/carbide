@@ -4,6 +4,7 @@ import type {
   TabId,
   TabEditorSnapshot,
   ClosedTabEntry,
+  Pane,
 } from "$lib/features/tab/types/tab";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import {
@@ -20,6 +21,7 @@ function conflict_path_key(note_path: NotePath): string {
 export class TabStore {
   tabs = $state<Tab[]>([]);
   active_tab_id = $state<TabId | null>(null);
+  active_pane = $state<Pane>("primary");
   closed_tab_history = $state<ClosedTabEntry[]>([]);
   editor_snapshots = $state<Map<TabId, TabEditorSnapshot>>(new Map());
   note_cache = $state<Map<TabId, OpenNoteState>>(new Map());
@@ -42,6 +44,14 @@ export class TabStore {
 
   get mru_previous_tab_id(): TabId | null {
     return this.mru_order[1] ?? null;
+  }
+
+  get secondary_tab(): Tab | null {
+    return this.tabs.find((t) => t.pane === "secondary") ?? null;
+  }
+
+  get is_split(): boolean {
+    return this.secondary_tab !== null;
   }
 
   private move_to_front_mru(tab_id: TabId) {
@@ -86,6 +96,7 @@ export class TabStore {
       title,
       is_pinned: false,
       is_dirty: false,
+      pane: "primary",
     };
 
     this.tabs = [...this.tabs, tab];
@@ -112,6 +123,7 @@ export class TabStore {
       title,
       is_pinned: false,
       is_dirty: false,
+      pane: "primary",
     };
 
     this.tabs = [...this.tabs, tab];
@@ -135,6 +147,7 @@ export class TabStore {
       title,
       is_pinned: false,
       is_dirty: false,
+      pane: "primary",
     };
 
     this.tabs = [...this.tabs, tab];
@@ -154,6 +167,9 @@ export class TabStore {
     const index = this.tabs.findIndex((t) => t.id === tab_id);
     if (index === -1) return this.active_tab_id;
     const closing_tab = this.tabs[index];
+    if (closing_tab && closing_tab.pane === "secondary") {
+      this.active_pane = "primary";
+    }
     if (closing_tab && closing_tab.kind === "note") {
       this.clear_conflict(closing_tab.note_path);
     }
@@ -243,6 +259,7 @@ export class TabStore {
   close_all_tabs() {
     this.tabs = [];
     this.active_tab_id = null;
+    this.active_pane = "primary";
     this.editor_snapshots = new Map();
     this.note_cache = new Map();
     this.conflicted_note_paths = new Map();
@@ -504,6 +521,32 @@ export class TabStore {
     return this.tabs.filter((t) => t.is_dirty);
   }
 
+  open_to_side(tab_id: TabId) {
+    const tab = this.tabs.find((t) => t.id === tab_id);
+    if (!tab) return;
+    const current_secondary = this.secondary_tab;
+    this.tabs = this.tabs.map((t) => {
+      if (t.id === tab_id) return { ...t, pane: "secondary" as Pane };
+      if (current_secondary && t.id === current_secondary.id)
+        return { ...t, pane: "primary" as Pane };
+      return t;
+    });
+    this.active_pane = "secondary";
+  }
+
+  unseat_secondary() {
+    const secondary = this.secondary_tab;
+    if (!secondary) return;
+    this.tabs = this.tabs.map((t) =>
+      t.id === secondary.id ? { ...t, pane: "primary" as Pane } : t,
+    );
+    this.active_pane = "primary";
+  }
+
+  set_active_pane(pane: Pane) {
+    this.active_pane = pane;
+  }
+
   restore_tabs(tabs: Tab[], active_tab_id: TabId | null) {
     this.tabs = tabs;
     this.conflicted_note_paths = new Map();
@@ -528,6 +571,7 @@ export class TabStore {
   reset() {
     this.tabs = [];
     this.active_tab_id = null;
+    this.active_pane = "primary";
     this.closed_tab_history = [];
     this.editor_snapshots = new Map();
     this.note_cache = new Map();

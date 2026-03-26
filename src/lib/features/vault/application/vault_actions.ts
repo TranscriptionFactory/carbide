@@ -16,7 +16,6 @@ async function apply_opened_vault(
   input.stores.editor.clear_open_note();
   input.stores.outline.clear();
   input.stores.parsed_note_cache.clear();
-  void input.registry.execute(ACTION_IDS.split_view_close);
   input.stores.ui.reset_for_new_vault();
   input.stores.ui.set_editor_settings(editor_settings);
   input.stores.ui.change_vault = {
@@ -42,8 +41,6 @@ async function apply_opened_vault(
   if (persisted && persisted.tabs.length > 0) {
     await input.services.tab.restore_tabs(persisted);
   }
-
-  await input.registry.execute(ACTION_IDS.split_view_restore);
 }
 
 export function register_vault_actions(input: ActionRegistrationInput) {

@@ -52,31 +52,31 @@ export class TabService {
     return {
       tabs: persistable_tabs.map((tab) => {
         const snapshot = this.tab_store.get_snapshot(tab.id);
+        const base = {
+          is_pinned: tab.is_pinned,
+          cursor: snapshot?.cursor ?? null,
+          ...(tab.pane === "secondary" ? { pane: "secondary" as const } : {}),
+        };
         if (tab.kind === "note") {
-          return {
-            kind: "note" as const,
-            note_path: tab.note_path,
-            is_pinned: tab.is_pinned,
-            cursor: snapshot?.cursor ?? null,
-          };
+          return { ...base, kind: "note" as const, note_path: tab.note_path };
         }
         if (tab.kind === "graph") {
           return {
+            ...base,
             kind: "graph" as const,
             view_mode: tab.view_mode,
-            is_pinned: tab.is_pinned,
             cursor: null,
           };
         }
         return {
+          ...base,
           kind: "document" as const,
           file_path: tab.file_path,
           file_type: tab.file_type,
-          is_pinned: tab.is_pinned,
-          cursor: snapshot?.cursor ?? null,
         };
       }),
       active_tab_path,
+      active_pane: this.tab_store.active_pane,
     };
   }
 
@@ -185,6 +185,7 @@ export class TabService {
 
   async restore_tabs(persisted: PersistedTabState): Promise<void> {
     const restored_tabs: Tab[] = persisted.tabs.flatMap((t): Tab[] => {
+      const pane = t.pane ?? "primary";
       if (t.kind === "graph") {
         return [
           {
@@ -194,6 +195,7 @@ export class TabService {
             title: GRAPH_TAB_TITLE,
             is_pinned: Boolean(t.is_pinned),
             is_dirty: false,
+            pane,
           },
         ];
       }
@@ -208,6 +210,7 @@ export class TabService {
             title: t.file_path.split("/").pop() ?? t.file_path,
             is_pinned: Boolean(t.is_pinned),
             is_dirty: false,
+            pane,
           },
         ];
       }
@@ -222,6 +225,7 @@ export class TabService {
           title: note_name_from_path(t.note_path),
           is_pinned: Boolean(t.is_pinned),
           is_dirty: false,
+          pane,
         },
       ];
     });
@@ -233,6 +237,9 @@ export class TabService {
       persisted.active_tab_path,
     );
     this.tab_store.restore_tabs(restored_tabs, active_id);
+    if (persisted.active_pane) {
+      this.tab_store.set_active_pane(persisted.active_pane);
+    }
     this.restore_cursor_snapshots(restored_tabs, persisted.tabs);
 
     if (!active_id) return;

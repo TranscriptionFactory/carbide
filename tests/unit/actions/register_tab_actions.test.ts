@@ -19,7 +19,6 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
@@ -82,7 +81,6 @@ function create_tab_actions_harness() {
     task: new TaskStore(),
     graph: new GraphStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     parsed_note_cache: new ParsedNoteCache(),
   };
   stores.vault.set_vault(create_test_vault());
@@ -148,14 +146,7 @@ function create_tab_actions_harness() {
     },
   });
 
-  const split_view_close = vi.fn();
-  registry.register({
-    id: ACTION_IDS.split_view_close,
-    label: "Close Split View",
-    execute: split_view_close,
-  });
-
-  return { registry, stores, services, split_view_close };
+  return { registry, stores, services };
 }
 
 describe("register_tab_actions", () => {
@@ -908,39 +899,41 @@ describe("register_tab_actions", () => {
   });
 
   describe("tab_close with split view", () => {
-    it("closes split pane instead of tab when secondary pane is focused", async () => {
-      const { registry, stores, split_view_close } =
-        create_tab_actions_harness();
+    it("closes the secondary tab when secondary pane is focused", async () => {
+      const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "A");
-      stores.split_view.open_secondary(mock_open_note("b.md"));
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side(np("b.md"));
 
       await registry.execute(ACTION_IDS.tab_close);
 
-      expect(split_view_close).toHaveBeenCalledOnce();
+      expect(stores.tab.is_split).toBe(false);
       expect(stores.tab.tabs).toHaveLength(1);
+      expect(stores.tab.tabs[0]?.id).toBe("a.md");
     });
 
     it("closes tab normally when primary pane is focused", async () => {
-      const { registry, stores, split_view_close } =
-        create_tab_actions_harness();
+      const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "A");
-      stores.split_view.open_secondary(mock_open_note("b.md"));
-      stores.split_view.set_active_pane("primary");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side(np("b.md"));
+      stores.tab.activate_tab(np("a.md"));
+      stores.tab.set_active_pane("primary");
 
       await registry.execute(ACTION_IDS.tab_close);
 
-      expect(split_view_close).not.toHaveBeenCalled();
-      expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.tab.is_split).toBe(true);
+      expect(stores.tab.tabs).toHaveLength(1);
+      expect(stores.tab.tabs[0]?.id).toBe("b.md");
     });
 
     it("closes tab when split view is inactive", async () => {
-      const { registry, stores, split_view_close } =
-        create_tab_actions_harness();
+      const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "A");
 
       await registry.execute(ACTION_IDS.tab_close);
 
-      expect(split_view_close).not.toHaveBeenCalled();
+      expect(stores.tab.is_split).toBe(false);
       expect(stores.tab.tabs).toHaveLength(0);
     });
   });

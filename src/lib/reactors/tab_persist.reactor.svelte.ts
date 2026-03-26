@@ -10,8 +10,10 @@ type PersistedTabSnapshot = {
   tabs: {
     p: string;
     pin: boolean;
+    pane?: string;
   }[];
   active: string | null;
+  active_pane: string;
 };
 
 export function create_tab_persist_reactor(
@@ -28,16 +30,21 @@ export function create_tab_persist_reactor(
 
   function current_snapshot(): PersistedTabSnapshot {
     return {
-      tabs: tab_store.tabs.map((t) => ({
-        p:
-          t.kind === "note"
-            ? t.note_path
-            : t.kind === "document"
-              ? t.file_path
-              : t.id,
-        pin: t.is_pinned,
-      })),
+      tabs: tab_store.tabs.map((t) => {
+        const entry: { p: string; pin: boolean; pane?: string } = {
+          p:
+            t.kind === "note"
+              ? t.note_path
+              : t.kind === "document"
+                ? t.file_path
+                : t.id,
+          pin: t.is_pinned,
+        };
+        if (t.pane === "secondary") entry.pane = "secondary";
+        return entry;
+      }),
       active: tab_store.active_tab_id,
+      active_pane: tab_store.active_pane,
     };
   }
 
