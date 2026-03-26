@@ -989,6 +989,24 @@ export const BUILTIN_COMMAND_DECK_DARK: Theme = {
   },
 };
 
+export const BUILTIN_GROUNDED_HEAVY_DARK: Theme = {
+  id: "grounded-heavy-dark",
+  name: "Grounded Heavy Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "grounded_heavy",
+  accent_hue: 240,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.14 0.01 240)",
+    "--border": "oklch(0.22 0.01 240)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.65 0.12 240)",
+  },
+};
+
 export const BUILTIN_HUD_DARK: Theme = {
   id: "hud-dark",
   name: "HUD Dark",

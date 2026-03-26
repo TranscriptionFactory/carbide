@@ -36,7 +36,7 @@
     on_open_dynamic: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
-    on_toggle_context_rail?: () => void;
+    on_toggle_context_rail?: (() => void) | undefined;
   };
 
   let {
