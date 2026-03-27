@@ -13,7 +13,7 @@
 
 - Replaced IWE language server with Marksman LSP
 - Deleted IWE backend, frontend modules, and all related tests
-- Renamed LSP plugins (iwe_* → lsp_*) and cleaned DI wiring
+- Renamed LSP plugins (iwe*\* → lsp*\*) and cleaned DI wiring
 - Unified document sync reactor across all LSP clients
 
 ### Backend Simplification
