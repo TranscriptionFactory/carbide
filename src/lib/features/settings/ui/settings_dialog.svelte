@@ -43,6 +43,7 @@
     DEFAULT_EDITOR_SETTINGS,
     type MarkdownLspProvider,
   } from "$lib/shared/types/editor_settings";
+  import type { IweConfigStatus } from "$lib/features/marksman";
   import type {
     AiProviderConfig,
     AiTransport,
@@ -89,6 +90,9 @@
       light_id?: string;
       dark_id?: string;
     }) => void;
+    iwe_config_status: IweConfigStatus | null;
+    on_iwe_open_config: () => void;
+    on_iwe_reset_config: () => void;
   };
 
   let {
@@ -124,6 +128,9 @@
     system_dark_theme_id,
     on_theme_set_color_scheme_preference,
     on_theme_set_system_themes,
+    iwe_config_status,
+    on_iwe_open_config,
+    on_iwe_reset_config,
   }: Props = $props();
 
   const tab_count_options = Array.from({ length: 10 }, (_, i) => ({
@@ -3239,6 +3246,48 @@
                 }}
               />
             </div>
+
+            {#if editor_settings.markdown_lsp_provider === "iwes"}
+              <h3 class="SettingsDialog__section-subheader">
+                IWE Configuration
+              </h3>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Config File</span>
+                  <span class="SettingsDialog__description">
+                    {#if iwe_config_status?.exists}
+                      {iwe_config_status.action_count} action{iwe_config_status.action_count ===
+                      1
+                        ? ""
+                        : "s"} configured: {iwe_config_status.action_names.join(
+                        ", ",
+                      )}
+                    {:else}
+                      No config file found — will be created on next LSP start
+                    {/if}
+                  </span>
+                </div>
+                <div class="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={on_iwe_open_config}
+                    disabled={!iwe_config_status?.exists}
+                  >
+                    Open Config
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={on_iwe_reset_config}
+                  >
+                    <RotateCcw class="size-3.5 mr-1" />
+                    Reset to Defaults
+                  </Button>
+                </div>
+              </div>
+            {/if}
           </div>
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>

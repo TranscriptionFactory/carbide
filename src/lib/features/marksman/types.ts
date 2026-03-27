@@ -89,3 +89,10 @@ export type MarksmanDiagnosticsEvent = {
   uri: string;
   diagnostics: MarksmanLspDiagnostic[];
 };
+
+export type IweConfigStatus = {
+  exists: boolean;
+  path: string;
+  action_count: number;
+  action_names: string[];
+};

@@ -14,12 +14,19 @@ function create_deps() {
       find_tab_by_path: vi.fn().mockReturnValue(null),
       close_tab: vi.fn(),
     } as any,
+    tab_service: {
+      invalidate_cache: vi.fn(),
+    } as any,
     action_registry: {
       execute: vi.fn().mockResolvedValue(undefined),
     } as any,
     op_store: {
       fail: vi.fn(),
     } as any,
+    watcher_service: {
+      suppress_next: vi.fn(),
+    } as any,
+    is_vault_mode: () => true,
     uri_to_path: (uri: string) => {
       const prefix = "file:///vault/";
       if (!uri.startsWith(prefix)) return null;
@@ -43,6 +50,7 @@ describe("apply_workspace_edit_result", () => {
     expect(deps.note_service.open_note).not.toHaveBeenCalled();
     expect(deps.action_registry.execute).not.toHaveBeenCalled();
     expect(deps.op_store.fail).not.toHaveBeenCalled();
+    expect(deps.watcher_service.suppress_next).not.toHaveBeenCalled();
   });
 
   it("reloads currently open file when modified", async () => {
@@ -65,9 +73,10 @@ describe("apply_workspace_edit_result", () => {
     );
   });
 
-  it("does not reload file that is not currently open", async () => {
+  it("invalidates background tab cache for modified non-open file", async () => {
     const deps = create_deps();
     deps.editor_store.open_note = { meta: { path: "notes/other.md" } };
+    deps.tab_store.find_tab_by_path.mockReturnValue({ id: "tab-1" });
 
     const result: MarksmanWorkspaceEditResult = {
       files_created: [],
@@ -79,9 +88,35 @@ describe("apply_workspace_edit_result", () => {
     await apply_workspace_edit_result(result, deps);
 
     expect(deps.note_service.open_note).not.toHaveBeenCalled();
+    expect(deps.tab_service.invalidate_cache).toHaveBeenCalledWith(
+      "notes/test.md",
+    );
   });
 
-  it("closes tab for deleted files and refreshes tree", async () => {
+  it("suppresses watcher for all affected paths", async () => {
+    const deps = create_deps();
+
+    const result: MarksmanWorkspaceEditResult = {
+      files_created: ["file:///vault/notes/new.md"],
+      files_deleted: ["file:///vault/notes/old.md"],
+      files_modified: ["file:///vault/notes/changed.md"],
+      errors: [],
+    };
+
+    await apply_workspace_edit_result(result, deps);
+
+    expect(deps.watcher_service.suppress_next).toHaveBeenCalledWith(
+      "notes/changed.md",
+    );
+    expect(deps.watcher_service.suppress_next).toHaveBeenCalledWith(
+      "notes/new.md",
+    );
+    expect(deps.watcher_service.suppress_next).toHaveBeenCalledWith(
+      "notes/old.md",
+    );
+  });
+
+  it("closes tab for deleted files and reconciles workspace", async () => {
     const deps = create_deps();
     deps.tab_store.find_tab_by_path.mockReturnValue({ id: "tab-1" });
 
@@ -100,7 +135,7 @@ describe("apply_workspace_edit_result", () => {
     );
   });
 
-  it("refreshes filetree when files are created", async () => {
+  it("reconciles workspace with index sync when files are created", async () => {
     const deps = create_deps();
 
     const result: MarksmanWorkspaceEditResult = {
@@ -114,6 +149,13 @@ describe("apply_workspace_edit_result", () => {
 
     expect(deps.action_registry.execute).toHaveBeenCalledWith(
       "folder.refresh_tree",
+    );
+    expect(deps.action_registry.execute).toHaveBeenCalledWith(
+      "vault.sync_index_paths",
+      expect.objectContaining({
+        changed_paths: ["notes/new.md"],
+        removed_paths: [],
+      }),
     );
   });
 
@@ -149,5 +191,6 @@ describe("apply_workspace_edit_result", () => {
     await apply_workspace_edit_result(result, deps);
 
     expect(deps.note_service.open_note).not.toHaveBeenCalled();
+    expect(deps.watcher_service.suppress_next).not.toHaveBeenCalled();
   });
 });

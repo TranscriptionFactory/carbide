@@ -2,6 +2,7 @@ import type { MarksmanPort } from "$lib/features/marksman/ports";
 import type { MarksmanStore } from "$lib/features/marksman/state/marksman_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type {
+  IweConfigStatus,
   MarksmanCodeAction,
   MarksmanDiagnosticsEvent,
   MarksmanPrepareRenameResult,
@@ -475,6 +476,29 @@ export class MarksmanService {
     this.store.set_error("Marksman process crashed — restarting...");
 
     return true;
+  }
+
+  async iwe_config_status(): Promise<IweConfigStatus | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    try {
+      return await this.port.iwe_config_status(vault_id);
+    } catch (e) {
+      log.from_error("Failed to get IWE config status", e);
+      return null;
+    }
+  }
+
+  async iwe_config_reset(): Promise<boolean> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return false;
+    try {
+      await this.port.iwe_config_reset(vault_id);
+      return true;
+    } catch (e) {
+      log.from_error("Failed to reset IWE config", e);
+      return false;
+    }
   }
 
   private run_lifecycle(operation: () => Promise<void>): Promise<void> {

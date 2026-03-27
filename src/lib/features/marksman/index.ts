@@ -19,4 +19,5 @@ export type {
   MarksmanRange,
   MarksmanLspDiagnostic,
   MarksmanDiagnosticsEvent,
+  IweConfigStatus,
 } from "$lib/features/marksman/types";

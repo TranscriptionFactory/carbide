@@ -1,0 +1,72 @@
+# IWE Transform Action Examples
+#
+# Copy any of these examples into your .iwe/config.toml to enable them.
+# Documentation: https://github.com/iwe-org/iwe
+#
+# Transform actions pipe the selected context through an external command and
+# replace the selection with the command's stdout. Each transform requires:
+#   - A [commands.<name>] entry defining the executable and arguments
+#   - An [actions.<name>] entry wiring the command to a titled action
+#
+# The "{{context}}" template variable expands to the selected text.
+#
+# Prerequisites for the Claude CLI examples: https://claude.ai/download
+
+# -----------------------------------------------------------------------------
+# Commands
+# -----------------------------------------------------------------------------
+
+# [commands.claude_summarize]
+# run = "claude"
+# args = ["--print", "Summarize the following text concisely:\n\n{{context}}"]
+
+# [commands.claude_translate_es]
+# run = "claude"
+# args = ["--print", "Translate the following text to Spanish:\n\n{{context}}"]
+
+# [commands.claude_format_table]
+# run = "claude"
+# args = ["--print", "Format the following content as a Markdown table. Output only the table:\n\n{{context}}"]
+
+# [commands.word_count]
+# run = "sh"
+# args = ["-c", "echo '{{context}}' | wc -w | xargs echo 'Word count:'"]
+# shell = true
+
+# [commands.to_uppercase]
+# run = "tr"
+# args = ["[:lower:]", "[:upper:]"]
+
+# -----------------------------------------------------------------------------
+# Actions
+# -----------------------------------------------------------------------------
+
+# [actions.summarize]
+# type = "transform"
+# title = "Summarize (Claude)"
+# command = "claude_summarize"
+# input_template = "{{context}}"
+
+# [actions.translate_spanish]
+# type = "transform"
+# title = "Translate to Spanish (Claude)"
+# command = "claude_translate_es"
+# input_template = "{{context}}"
+
+# [actions.format_table]
+# type = "transform"
+# title = "Format as table (Claude)"
+# command = "claude_format_table"
+# input_template = "{{context}}"
+
+# [actions.word_count]
+# type = "transform"
+# title = "Word count"
+# command = "word_count"
+# input_template = "{{context}}"
+
+# [actions.uppercase]
+# type = "transform"
+# title = "Convert to uppercase"
+# command = "to_uppercase"
+# input_template = "{{context}}"

@@ -4,9 +4,10 @@ import type { EditorStore } from "$lib/features/editor";
 import type { MarksmanService } from "$lib/features/marksman/application/marksman_service";
 import type { MarksmanStore } from "$lib/features/marksman/state/marksman_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
-import { apply_workspace_edit_result } from "$lib/features/lsp";
-
-type WorkspaceEditDeps = Parameters<typeof apply_workspace_edit_result>[1];
+import {
+  apply_workspace_edit_result,
+  type WorkspaceEditDeps,
+} from "$lib/features/lsp";
 
 const IWE_ACTION_KINDS: Record<string, string> = {
   [ACTION_IDS.iwe_extract_section]: "custom.extract",
@@ -97,4 +98,26 @@ export function register_iwe_actions(input: {
       execute: () => execute_iwe_action(cmd.id),
     });
   }
+
+  registry.register({
+    id: ACTION_IDS.iwe_open_config,
+    label: "IWE: Open Config",
+    execute: async () => {
+      const status = await marksman_service.iwe_config_status();
+      if (status?.exists) {
+        await registry.execute(
+          ACTION_IDS.shell_open_url,
+          `file://${status.path}`,
+        );
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.iwe_reset_config,
+    label: "IWE: Reset Config to Defaults",
+    execute: async () => {
+      await marksman_service.iwe_config_reset();
+    },
+  });
 }

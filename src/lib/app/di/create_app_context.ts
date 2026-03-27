@@ -763,8 +763,12 @@ export function create_app_context(input: {
     note_service,
     editor_store: stores.editor,
     tab_store: stores.tab,
+    tab_service,
     action_registry,
     op_store: stores.op,
+    watcher_service,
+    workspace_reconcile,
+    is_vault_mode: () => stores.vault.is_vault_mode,
     uri_to_path: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return null;

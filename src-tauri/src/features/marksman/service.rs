@@ -1073,3 +1073,64 @@ fn line_col_to_offset(lines: &[&str], line: usize, col: usize) -> usize {
     }
     offset
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn iwe_config_status(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<IweConfigStatus, String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let config_path = vault_path.join(".iwe").join("config.toml");
+    let display_path = config_path.display().to_string();
+
+    if !config_path.exists() {
+        return Ok(IweConfigStatus {
+            exists: false,
+            path: display_path,
+            action_count: 0,
+            action_names: vec![],
+        });
+    }
+
+    let content = tokio::fs::read_to_string(&config_path)
+        .await
+        .map_err(|e| format!("Failed to read IWE config: {}", e))?;
+
+    let mut action_names = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("[actions.") {
+            if let Some(name) = rest.strip_suffix(']') {
+                action_names.push(name.to_string());
+            }
+        }
+    }
+
+    Ok(IweConfigStatus {
+        exists: true,
+        path: display_path,
+        action_count: action_names.len(),
+        action_names,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let iwe_dir = vault_path.join(".iwe");
+    let config_path = iwe_dir.join("config.toml");
+
+    let default_config = app
+        .path()
+        .resolve("resources/iwe-default-config.toml", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve default config: {}", e))?;
+
+    let _ = std::fs::create_dir_all(&iwe_dir);
+    std::fs::copy(&default_config, &config_path)
+        .map_err(|e| format!("Failed to copy default config: {}", e))?;
+
+    log::info!("Reset IWE config at {}", config_path.display());
+    Ok(())
+}

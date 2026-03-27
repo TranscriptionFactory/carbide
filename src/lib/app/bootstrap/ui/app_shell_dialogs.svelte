@@ -40,6 +40,7 @@
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
+  import type { IweConfigStatus } from "$lib/features/marksman";
 
   type Props = {
     hide_choose_vault_button?: boolean;
@@ -47,7 +48,7 @@
 
   let { hide_choose_vault_button = false }: Props = $props();
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, ports } = use_app_context();
 
   const has_vault = $derived(stores.vault.vault !== null);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
@@ -81,6 +82,30 @@
       stores.op.get("settings.load").error,
   );
   const image_paste_error = $derived(stores.op.get("asset.write").error);
+
+  let iwe_config_status: IweConfigStatus | null = $state(null);
+
+  async function fetch_iwe_config_status() {
+    const vault_id = stores.vault.vault?.id;
+    if (!vault_id) {
+      iwe_config_status = null;
+      return;
+    }
+    try {
+      iwe_config_status = await ports.marksman.iwe_config_status(vault_id);
+    } catch {
+      iwe_config_status = null;
+    }
+  }
+
+  $effect(() => {
+    const is_open = stores.ui.settings_dialog.open;
+    const provider =
+      stores.ui.settings_dialog.current_settings.markdown_lsp_provider;
+    if (is_open && provider === "iwes") {
+      void fetch_iwe_config_status();
+    }
+  });
 
   function hotkey_overrides_equal(
     a: HotkeyOverride[],
@@ -367,6 +392,13 @@
     )}
   on_theme_set_system_themes={(args: { light_id?: string; dark_id?: string }) =>
     void action_registry.execute(ACTION_IDS.theme_set_system_themes, args)}
+  {iwe_config_status}
+  on_iwe_open_config={() =>
+    void action_registry.execute(ACTION_IDS.iwe_open_config)}
+  on_iwe_reset_config={async () => {
+    await action_registry.execute(ACTION_IDS.iwe_reset_config);
+    void fetch_iwe_config_status();
+  }}
 />
 
 <CreateFolderDialog

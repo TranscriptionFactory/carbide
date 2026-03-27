@@ -1,4 +1,5 @@
 import type {
+  IweConfigStatus,
   MarksmanCodeAction,
   MarksmanCompletionItem,
   MarksmanDiagnosticsEvent,
@@ -92,4 +93,7 @@ export interface MarksmanPort {
   subscribe_diagnostics(
     callback: (event: MarksmanDiagnosticsEvent) => void,
   ): () => void;
+
+  iwe_config_status(vault_id: string): Promise<IweConfigStatus>;
+  iwe_config_reset(vault_id: string): Promise<void>;
 }

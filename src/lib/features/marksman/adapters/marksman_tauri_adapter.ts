@@ -2,6 +2,7 @@ import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
 import type { MarksmanPort } from "$lib/features/marksman/ports";
 import type {
+  IweConfigStatus,
   MarksmanCodeAction,
   MarksmanCompletionItem,
   MarksmanDiagnosticsEvent,
@@ -150,6 +151,12 @@ export function create_marksman_tauri_adapter(): MarksmanPort {
         vaultId: vault_id,
         filePath: file_path,
       }),
+
+    iwe_config_status: (vault_id) =>
+      tauri_invoke<IweConfigStatus>("iwe_config_status", { vaultId: vault_id }),
+
+    iwe_config_reset: (vault_id) =>
+      tauri_invoke<void>("iwe_config_reset", { vaultId: vault_id }),
 
     subscribe_diagnostics(callback: (event: MarksmanDiagnosticsEvent) => void) {
       let unlisten_fn: (() => void) | null = null;

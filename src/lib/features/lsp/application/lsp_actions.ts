@@ -8,9 +8,10 @@ import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { LspStore } from "$lib/features/lsp/state/lsp_store.svelte";
 import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp/types";
 import type { MarksmanService } from "$lib/features/marksman";
-import { apply_workspace_edit_result } from "$lib/features/lsp/application/apply_workspace_edit_result";
-
-type WorkspaceEditDeps = Parameters<typeof apply_workspace_edit_result>[1];
+import {
+  apply_workspace_edit_result,
+  type WorkspaceEditDeps,
+} from "$lib/features/lsp/application/apply_workspace_edit_result";
 
 export function register_lsp_actions(input: {
   registry: ActionRegistry;
