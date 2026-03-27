@@ -195,12 +195,38 @@ fn spawn_status_forwarder(
 pub async fn marksman_start(
     app: AppHandle,
     vault_id: String,
+    provider: Option<String>,
+    custom_binary_path: Option<String>,
 ) -> Result<MarksmanStartResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let root_uri = tauri::Url::from_file_path(&vault_path)
         .map_err(|_| "invalid vault path for URI".to_string())?
         .to_string();
-    let resolved_path = toolchain::resolver::resolve(&app, "marksman", None).await?;
+
+    let custom_ref = custom_binary_path.as_deref();
+    let preferred = provider.as_deref().unwrap_or("iwes");
+
+    let resolved_path = match preferred {
+        "iwes" => {
+            match toolchain::resolver::resolve(&app, "iwes", custom_ref).await {
+                Ok(path) => {
+                    log::info!("Using IWE language server: {}", path.display());
+                    path
+                }
+                Err(e) => {
+                    log::warn!("IWE not available ({}), falling back to Marksman", e);
+                    toolchain::resolver::resolve(&app, "marksman", None).await?
+                }
+            }
+        }
+        "marksman" => {
+            toolchain::resolver::resolve(&app, "marksman", custom_ref).await?
+        }
+        other => {
+            return Err(format!("Unknown markdown LSP provider: {}", other));
+        }
+    };
+
     let config = LspClientConfig {
         binary_path: resolved_path.to_string_lossy().into_owned(),
         args: vec![],
@@ -217,7 +243,11 @@ pub async fn marksman_start(
 
     let mut client = RestartableLspClient::start(RestartableConfig::new(config)).await;
 
-    let trigger_characters = vec!["[".to_string(), "(".to_string(), "#".to_string()];
+    let trigger_characters = if preferred == "iwes" {
+        vec!["+".to_string(), "[".to_string(), "(".to_string()]
+    } else {
+        vec!["[".to_string(), "(".to_string(), "#".to_string()]
+    };
 
     if let Some(rx) = client.take_notification_rx() {
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);

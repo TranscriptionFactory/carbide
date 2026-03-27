@@ -18,15 +18,19 @@ export function create_marksman_lifecycle_reactor(
     $effect(() => {
       const vault = vault_store.vault;
       const enabled = ui_store.editor_settings.marksman_enabled;
+      const provider = ui_store.editor_settings.markdown_lsp_provider;
+      const custom_path = ui_store.editor_settings.marksman_binary_path;
 
       if (!vault || !enabled) {
         void marksman_service.stop();
         return;
       }
 
-      void marksman_service.start().catch((error: unknown) => {
-        log.from_error("Failed to start Marksman for vault", error);
-      });
+      void marksman_service
+        .start(provider, custom_path || undefined)
+        .catch((error: unknown) => {
+          log.from_error("Failed to start markdown LSP for vault", error);
+        });
 
       return () => {
         void marksman_service.stop().catch((error: unknown) => {

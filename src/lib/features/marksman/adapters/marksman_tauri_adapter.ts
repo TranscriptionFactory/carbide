@@ -18,9 +18,11 @@ import type {
 
 export function create_marksman_tauri_adapter(): MarksmanPort {
   return {
-    start: (vault_id) =>
+    start: (vault_id, provider, custom_binary_path) =>
       tauri_invoke<MarksmanStartResult>("marksman_start", {
         vaultId: vault_id,
+        provider: provider ?? null,
+        customBinaryPath: custom_binary_path ?? null,
       }),
 
     stop: (vault_id) => tauri_invoke("marksman_stop", { vaultId: vault_id }),

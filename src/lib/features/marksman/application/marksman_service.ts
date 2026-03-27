@@ -53,7 +53,7 @@ export class MarksmanService {
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
-  async start(): Promise<void> {
+  async start(provider?: string, custom_binary_path?: string): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
@@ -61,14 +61,18 @@ export class MarksmanService {
       this.store.set_status("starting");
       try {
         this.subscribe_diagnostics();
-        const result = await this.port.start(vault_id);
+        const result = await this.port.start(
+          vault_id,
+          provider,
+          custom_binary_path || undefined,
+        );
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
         this.store.set_status("running");
       } catch (e) {
         this.unsubscribe_all();
-        log.from_error("Failed to start Marksman", e);
+        log.from_error("Failed to start markdown LSP", e);
         this.store.set_error(e instanceof Error ? e.message : String(e));
       }
     });
