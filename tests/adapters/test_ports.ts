@@ -136,6 +136,7 @@ export function create_test_ports(): Ports {
       inlay_hints: () => Promise.resolve([]),
       document_symbols: () => Promise.resolve([]),
       subscribe_diagnostics: () => () => {},
+      subscribe_status: () => () => {},
       iwe_config_status: () =>
         Promise.resolve({
           exists: false,
