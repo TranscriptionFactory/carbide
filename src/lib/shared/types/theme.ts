@@ -27,7 +27,9 @@ export type ThemeLayoutVariant =
   | "workbench"
   | "command_deck"
   | "spotlight"
-  | "cockpit";
+  | "cockpit"
+  | "theater"
+  | "triptych";
 
 export type Theme = {
   id: string;
@@ -1139,6 +1141,84 @@ export const BUILTIN_COCKPIT_DARK: Theme = {
   },
 };
 
+export const BUILTIN_THEATER_LIGHT: Theme = {
+  id: "theater-light",
+  name: "Theater Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "theater",
+  accent_hue: 260,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.99 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0 0 0 / 6%)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.5 0.1 260)",
+    "--interactive": "oklch(0.5 0.12 260)",
+  },
+};
+
+export const BUILTIN_THEATER_DARK: Theme = {
+  id: "theater-dark",
+  name: "Theater Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "theater",
+  accent_hue: 260,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.05 0 0)",
+    "--card": "oklch(0.1 0 0)",
+    "--border": "oklch(1 0 0 / 6%)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.7 0.1 260)",
+    "--interactive": "oklch(0.7 0.12 260)",
+  },
+};
+
+export const BUILTIN_TRIPTYCH_LIGHT: Theme = {
+  id: "triptych-light",
+  name: "Triptych Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "triptych",
+  accent_hue: 145,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.98 0.003 145)",
+    "--card": "oklch(1 0 0)",
+    "--background-surface-2": "oklch(0.96 0.005 145)",
+    "--background-surface-3": "oklch(0.94 0.008 145)",
+    "--border": "oklch(0.88 0.01 145)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.45 0.1 145)",
+  },
+};
+
+export const BUILTIN_TRIPTYCH_DARK: Theme = {
+  id: "triptych-dark",
+  name: "Triptych Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "triptych",
+  accent_hue: 145,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.12 0.003 145)",
+    "--card": "oklch(0.15 0.005 145)",
+    "--background-surface-2": "oklch(0.14 0.005 145)",
+    "--background-surface-3": "oklch(0.17 0.008 145)",
+    "--border": "oklch(0.25 0.008 145)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.65 0.1 145)",
+  },
+};
+
 export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_NORDIC_LIGHT,
   BUILTIN_NORDIC_DARK,
@@ -1170,6 +1250,10 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_SPOTLIGHT_DARK,
   BUILTIN_COCKPIT_LIGHT,
   BUILTIN_COCKPIT_DARK,
+  BUILTIN_THEATER_LIGHT,
+  BUILTIN_THEATER_DARK,
+  BUILTIN_TRIPTYCH_LIGHT,
+  BUILTIN_TRIPTYCH_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {

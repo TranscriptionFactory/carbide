@@ -11,6 +11,8 @@
   import "../styles/theme-dashboard.css";
   import "../styles/theme-spotlight.css";
   import "../styles/theme-cockpit.css";
+  import "../styles/theme-theater.css";
+  import "../styles/theme-triptych.css";
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";
