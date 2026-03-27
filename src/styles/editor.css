@@ -798,6 +798,7 @@
 
 .ProseMirror table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   margin-top: calc(var(--editor-spacing) * 0.75);
@@ -807,7 +808,7 @@
   border-radius: calc(var(--radius) * 0.75);
   border: 1px solid var(--editor-table-border);
   font-size: 0.95em;
-  display: block;
+  display: table;
 }
 
 .ProseMirror th,
