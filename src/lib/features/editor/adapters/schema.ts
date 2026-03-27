@@ -483,7 +483,7 @@ const math_block: NodeSpec = {
 };
 
 const table: NodeSpec = {
-  content: "table_header_row table_row*",
+  content: "table_row+",
   group: "block",
   tableRole: "table",
   isolating: true,
@@ -493,26 +493,8 @@ const table: NodeSpec = {
   },
 };
 
-const table_header_row: NodeSpec = {
-  content: "(table_header)*",
-  tableRole: "row",
-  parseDOM: [
-    { tag: "tr[data-is-header]" },
-    {
-      tag: "tr",
-      getAttrs(dom) {
-        if (!(dom instanceof HTMLElement)) return false;
-        return dom.querySelector("th") ? {} : false;
-      },
-    },
-  ],
-  toDOM() {
-    return ["tr", { "data-is-header": "true" }, 0];
-  },
-};
-
 const table_row: NodeSpec = {
-  content: "(table_cell)*",
+  content: "(table_header | table_cell)*",
   tableRole: "row",
   parseDOM: [{ tag: "tr" }],
   toDOM() {
@@ -720,7 +702,6 @@ export const schema = new Schema({
     math_inline,
     math_block,
     table,
-    table_header_row,
     table_row,
     table_header,
     table_cell,

@@ -266,11 +266,7 @@ function convert_table(node: AnyMdastNode): PmNode {
       }
     });
 
-    if (row_index === 0) {
-      pm_rows.push(schema.nodes.table_header_row.create(null, pm_cells));
-    } else {
-      pm_rows.push(schema.nodes.table_row.create(null, pm_cells));
-    }
+    pm_rows.push(schema.nodes.table_row.create(null, pm_cells));
   });
 
   return schema.nodes.table.create(null, pm_rows);

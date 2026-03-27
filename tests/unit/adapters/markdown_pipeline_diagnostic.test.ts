@@ -54,7 +54,6 @@ describe("markdown pipeline diagnostic", () => {
       "math_inline",
       "math_block",
       "table",
-      "table_header_row",
       "table_row",
       "table_header",
       "table_cell",
