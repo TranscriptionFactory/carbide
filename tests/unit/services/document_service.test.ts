@@ -202,4 +202,57 @@ describe("DocumentService", () => {
 
     expect(document_store.get_viewer_state("tab-1")?.pdf_page).toBe(1);
   });
+
+  it("discards stale ensure_content results when viewer file_path changes", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+
+    let resolve_first!: (value: string) => void;
+    const first_promise = new Promise<string>((r) => {
+      resolve_first = r;
+    });
+
+    let call_count = 0;
+    const document_port = {
+      open_buffer: vi.fn().mockResolvedValue(123),
+      read_buffer_window: vi.fn().mockResolvedValue(""),
+      close_buffer: vi.fn().mockResolvedValue(undefined),
+      resolve_asset_url: vi.fn((_: string, p: string) => `asset://${p}`),
+      read_file: vi.fn().mockImplementation(() => {
+        call_count++;
+        if (call_count === 1) return first_promise;
+        return Promise.resolve("second content");
+      }),
+    };
+
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+      () => 10,
+      5,
+    );
+
+    // Start first open (will block on unresolved read_file)
+    const first_open = service.open_document("tab-1", "docs/first.txt", "text");
+
+    // Simulate tab being reassigned to a different file while first read is in flight
+    // Remove viewer state so open_document creates fresh state for second file
+    document_store.remove_viewer_state("tab-1");
+    document_store.clear_content_state("tab-1");
+
+    // Open second file (resolves immediately)
+    await service.open_document("tab-1", "docs/second.txt", "text");
+    expect(document_store.get_content_state("tab-1")?.content).toBe(
+      "second content",
+    );
+
+    // Now resolve the stale first read — should be discarded
+    resolve_first("first content");
+    await first_open;
+
+    const content_state = document_store.get_content_state("tab-1");
+    expect(content_state?.content).toBe("second content");
+  });
 });

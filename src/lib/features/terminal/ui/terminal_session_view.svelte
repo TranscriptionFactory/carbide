@@ -27,6 +27,8 @@
   let resize_observer = $state<ResizeObserver | undefined>(undefined);
   let destroyed = false;
   let session_syncing = $state(false);
+  let on_focus: (() => void) | undefined;
+  let on_blur: (() => void) | undefined;
   let attached_view_id = $state<string | null>(null);
 
   function get_shell(): string {
@@ -244,14 +246,19 @@
       terminal_runtime.write_session(session_id, data);
     });
 
-    terminal.textarea?.addEventListener("focus", () => {
-      if (!active) return;
-      stores.terminal.set_focused(true);
-    });
-    terminal.textarea?.addEventListener("blur", () => {
-      if (!active) return;
-      stores.terminal.set_focused(false);
-    });
+    const textarea = terminal.textarea;
+    if (textarea) {
+      on_focus = () => {
+        if (!active) return;
+        stores.terminal.set_focused(true);
+      };
+      on_blur = () => {
+        if (!active) return;
+        stores.terminal.set_focused(false);
+      };
+      textarea.addEventListener("focus", on_focus);
+      textarea.addEventListener("blur", on_blur);
+    }
 
     void ensure_terminal_session();
 
@@ -277,6 +284,15 @@
     destroyed = true;
     resize_observer?.disconnect();
     resize_observer = undefined;
+
+    const textarea = terminal?.textarea;
+    if (textarea) {
+      if (on_focus) textarea.removeEventListener("focus", on_focus);
+      if (on_blur) textarea.removeEventListener("blur", on_blur);
+    }
+    on_focus = undefined;
+    on_blur = undefined;
+
     detach_terminal_view();
 
     if (active) {

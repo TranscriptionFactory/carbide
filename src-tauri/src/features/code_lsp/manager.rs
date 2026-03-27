@@ -33,11 +33,7 @@ impl CodeLspManager {
         }
     }
 
-    pub async fn open_file(
-        &mut self,
-        rel_path: &str,
-        content: &str,
-    ) -> Result<(), String> {
+    pub async fn open_file(&mut self, rel_path: &str, content: &str) -> Result<(), String> {
         let ext = Path::new(rel_path)
             .extension()
             .and_then(|s| s.to_str())
@@ -197,7 +193,7 @@ impl CodeLspManager {
         }
     }
 
-    pub async fn stop_all(mut self) {
+    pub async fn stop_all(&mut self) {
         let languages: Vec<String> = self.sessions.keys().cloned().collect();
         for lang in languages {
             self.stop_server(&lang).await;
@@ -245,7 +241,13 @@ async fn forward_notifications(
 ) {
     while let Some(notification) = rx.recv().await {
         if notification.method == "textDocument/publishDiagnostics" {
-            handle_diagnostics(&notification.params, &app, &vault_id, &language, &vault_path);
+            handle_diagnostics(
+                &notification.params,
+                &app,
+                &vault_id,
+                &language,
+                &vault_path,
+            );
         }
     }
 }
@@ -262,11 +264,7 @@ fn handle_diagnostics(
 
     let diagnostics: Vec<CodeDiagnostic> = params["diagnostics"]
         .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|d| parse_diagnostic(d))
-                .collect()
-        })
+        .map(|arr| arr.iter().filter_map(|d| parse_diagnostic(d)).collect())
         .unwrap_or_default();
 
     let _ = app.emit(

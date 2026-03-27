@@ -97,6 +97,10 @@ export class DocumentService {
           vault_id,
           viewer_state.file_path,
         );
+
+        const current_viewer = this.document_store.get_viewer_state(tab_id);
+        if (current_viewer?.file_path !== viewer_state.file_path) return;
+
         next_state = {
           ...loading_state,
           status: "ready",

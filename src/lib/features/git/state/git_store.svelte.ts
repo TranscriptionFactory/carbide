@@ -3,6 +3,7 @@ import type {
   GitCommit,
   GitDiff,
 } from "$lib/features/git/types/git";
+import { LruCache } from "$lib/shared/utils/lru_cache";
 
 export class GitStore {
   enabled = $state(false);
@@ -29,7 +30,7 @@ export class GitStore {
   selected_file_content = $state<string | null>(null);
   is_loading_diff = $state(false);
 
-  private readonly history_cache = new Map<
+  private readonly history_cache = new LruCache<
     string,
     {
       commits: GitCommit[];
@@ -37,7 +38,7 @@ export class GitStore {
       limit: number;
       has_more: boolean;
     }
-  >();
+  >(20);
 
   private history_key_for(note_path: string | null): string {
     return note_path ?? "__vault__";

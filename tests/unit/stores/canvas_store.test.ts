@@ -150,4 +150,22 @@ describe("CanvasStore", () => {
     expect(state.status).toBe("error");
     expect(state.error_message).toBe("Parse failed");
   });
+
+  it("remove_state cleans up scene and SVG export providers", () => {
+    const store = new CanvasStore();
+    store.init_state("tab1", "board.canvas", "excalidraw");
+
+    const scene_provider = async () => ({ elements: [], appState: {} });
+    const svg_provider = async () => "<svg></svg>";
+    store.register_scene_provider("tab1", scene_provider);
+    store.register_svg_export_provider("tab1", svg_provider);
+
+    expect(store.get_scene_provider("tab1")).toBeDefined();
+    expect(store.get_svg_export_provider("tab1")).toBeDefined();
+
+    store.remove_state("tab1");
+
+    expect(store.get_scene_provider("tab1")).toBeUndefined();
+    expect(store.get_svg_export_provider("tab1")).toBeUndefined();
+  });
 });

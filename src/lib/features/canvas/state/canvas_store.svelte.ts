@@ -70,6 +70,8 @@ export class CanvasStore {
     const next = new Map(this.states);
     next.delete(tab_id);
     this.states = next;
+    this.#scene_providers.delete(tab_id);
+    this.#svg_export_providers.delete(tab_id);
   }
 
   init_state(

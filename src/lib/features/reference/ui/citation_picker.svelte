@@ -18,6 +18,7 @@
     [],
   );
   let searching = $state(false);
+  let destroyed = false;
 
   const has_connected_extensions = $derived(
     ref_store.get_connected_extensions().length > 0,
@@ -37,12 +38,14 @@
     searching = true;
     debounce_timer = setTimeout(async () => {
       debounce_timer = null;
+      if (destroyed) return;
       local_results = ref_store.library_items.filter((item) =>
         match_query(item, q),
       );
       const local_ids = new Set(local_results.map((i) => i.id));
       const ext_groups: Array<{ label: string; items: CslItem[] }> = [];
       for (const ext of ref_service.get_registered_extensions()) {
+        if (destroyed) break;
         const status = ref_store.get_extension_status(ext.id);
         if (status !== "connected") continue;
         try {
@@ -50,6 +53,7 @@
             ext_id: ext.id,
             query: q,
           });
+          if (destroyed) break;
           const remote = ref_store.search_results;
           const unique = remote.filter((i) => !local_ids.has(i.id));
           if (unique.length > 0) {
@@ -60,6 +64,7 @@
           // extension search failed, skip
         }
       }
+      if (destroyed) return;
       extension_results = ext_groups;
       searching = false;
     }, 250);
@@ -104,6 +109,7 @@
 
   onDestroy(() => {
     if (debounce_timer) clearTimeout(debounce_timer);
+    destroyed = true;
   });
 </script>
 

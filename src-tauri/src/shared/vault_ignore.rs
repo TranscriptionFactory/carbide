@@ -107,6 +107,15 @@ pub fn load_vault_ignore_matcher(
                 created_at: Instant::now(),
             },
         );
+        if cache.len() > 32 {
+            let oldest = cache
+                .iter()
+                .min_by_key(|(_, v)| v.created_at)
+                .map(|(k, _)| k.clone());
+            if let Some(k) = oldest {
+                cache.remove(&k);
+            }
+        }
     }
 
     Ok(matcher)
