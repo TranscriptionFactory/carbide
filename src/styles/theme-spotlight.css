@@ -9,7 +9,53 @@
   position: relative;
 
   .ActivityBar {
-    display: none;
+    position: absolute;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    height: auto;
+    width: auto;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-1-5);
+    gap: var(--space-0-5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-sm);
+    z-index: 100;
+    opacity: 0.35;
+    transition: opacity var(--duration-normal) var(--ease-default);
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .ActivityBar__section {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  .ActivityBar__section:first-child {
+    padding-block-end: var(--space-1);
+    border-block-end: 1px solid var(--border);
+    margin-block-end: var(--space-1);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  .ActivityBar__button--active::before {
+    inset-block: var(--space-1);
+    inset-inline-start: 0;
+    inset-inline-end: auto;
+    width: 2px;
+    height: auto;
   }
 
   [data-slot="sidebar-wrapper"]
