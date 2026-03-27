@@ -175,7 +175,9 @@ describe("BasesService", () => {
 
   it("discards stale run_query results when called rapidly", async () => {
     let resolve_first!: (value: { rows: never[]; total: number }) => void;
-    const first_promise = new Promise<{ rows: never[]; total: number }>((r) => { resolve_first = r; });
+    const first_promise = new Promise<{ rows: never[]; total: number }>((r) => {
+      resolve_first = r;
+    });
 
     let call_count = 0;
     const { service, store } = make_service({

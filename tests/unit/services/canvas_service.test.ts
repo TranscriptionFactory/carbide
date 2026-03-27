@@ -235,8 +235,23 @@ describe("CanvasService", () => {
 
   it("discards stale open_canvas results when called rapidly", async () => {
     let resolve_first!: (value: string) => void;
-    const first_promise = new Promise<string>((r) => { resolve_first = r; });
-    const second_content = JSON.stringify({ nodes: [{ id: "n2", type: "text", text: "Second", x: 0, y: 0, width: 200, height: 100 }], edges: [] });
+    const first_promise = new Promise<string>((r) => {
+      resolve_first = r;
+    });
+    const second_content = JSON.stringify({
+      nodes: [
+        {
+          id: "n2",
+          type: "text",
+          text: "Second",
+          x: 0,
+          y: 0,
+          width: 200,
+          height: 100,
+        },
+      ],
+      edges: [],
+    });
 
     let call_count = 0;
     const { service, canvas_store } = make_service({
@@ -250,7 +265,22 @@ describe("CanvasService", () => {
     const first_open = service.open_canvas("tab1", "first.canvas");
     await service.open_canvas("tab1", "second.canvas");
 
-    resolve_first(JSON.stringify({ nodes: [{ id: "n1", type: "text", text: "First", x: 0, y: 0, width: 200, height: 100 }], edges: [] }));
+    resolve_first(
+      JSON.stringify({
+        nodes: [
+          {
+            id: "n1",
+            type: "text",
+            text: "First",
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 100,
+          },
+        ],
+        edges: [],
+      }),
+    );
     await first_open;
 
     const state = canvas_store.get_state("tab1")!;
