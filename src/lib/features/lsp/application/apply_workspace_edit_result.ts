@@ -1,6 +1,6 @@
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { NoteService } from "$lib/features/note";
-import type { EditorStore } from "$lib/features/editor";
+import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { TabStore, TabService } from "$lib/features/tab";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { MarksmanWorkspaceEditResult } from "$lib/features/marksman";
@@ -9,13 +9,14 @@ import {
   reconcile_workspace,
   type WorkspaceReconcile,
 } from "$lib/app/orchestration/workspace_reconcile";
-import { as_note_path } from "$lib/shared/types/ids";
+import { as_note_path, type MarkdownText } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("apply_workspace_edit_result");
 
 export type WorkspaceEditDeps = {
   note_service: NoteService;
+  editor_service: EditorService;
   editor_store: EditorStore;
   tab_store: TabStore;
   tab_service: TabService;
@@ -25,6 +26,7 @@ export type WorkspaceEditDeps = {
   workspace_reconcile?: WorkspaceReconcile;
   is_vault_mode: () => boolean;
   uri_to_path: (uri: string) => string | null;
+  read_note_content?: (path: string) => Promise<MarkdownText>;
 };
 
 export async function apply_workspace_edit_result(
@@ -33,6 +35,7 @@ export async function apply_workspace_edit_result(
 ): Promise<void> {
   const {
     note_service,
+    editor_service,
     editor_store,
     tab_store,
     tab_service,
@@ -40,6 +43,7 @@ export async function apply_workspace_edit_result(
     op_store,
     watcher_service,
     uri_to_path,
+    read_note_content,
   } = deps;
 
   if (result.errors.length > 0) {
@@ -62,8 +66,21 @@ export async function apply_workspace_edit_result(
   }
 
   for (const path of modified_paths) {
-    const open_path = editor_store.open_note?.meta.path;
-    if (open_path === path) {
+    const open_note = editor_store.open_note;
+    if (open_note && open_note.meta.path === path && read_note_content) {
+      try {
+        const new_markdown = await read_note_content(path);
+        editor_service.sync_visual_from_markdown(new_markdown);
+        editor_store.set_markdown(open_note.meta.id, new_markdown);
+        editor_store.set_dirty(open_note.meta.id, false);
+      } catch (err) {
+        log.warn("Failed to read updated content, falling back to reload", {
+          path,
+          err,
+        });
+        await note_service.open_note(path, false, { force_reload: true });
+      }
+    } else if (open_note && open_note.meta.path === path) {
       await note_service.open_note(path, false, { force_reload: true });
     } else {
       const tab = tab_store.find_tab_by_path(as_note_path(path));

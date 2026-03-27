@@ -49,7 +49,8 @@ export function register_lsp_actions(input: {
     label: "Resolve Code Action",
     execute: async (action) => {
       const code_action = action as LspCodeAction;
-      if (code_action.source === "marksman") {
+      const lsp_sources = ["Marksman", "IWE"];
+      if (lsp_sources.includes(code_action.source)) {
         const result = await marksman_service.code_action_resolve(
           code_action.raw_json,
         );

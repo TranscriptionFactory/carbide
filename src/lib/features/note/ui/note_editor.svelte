@@ -66,17 +66,21 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    <EditorContextMenu>
-      <div
-        use:mount_editor={open_note}
-        class="NoteEditor__content"
-        class:NoteEditor__hidden={editor_mode !== "visual" &&
-          editor_mode !== "read_only"}
-        class:NoteEditor__read-only={editor_mode === "read_only"}
-        class:show-line-numbers={stores.ui.editor_settings
-          .source_editor_line_numbers}
-      ></div>
-    </EditorContextMenu>
+    <div
+      class="NoteEditor__visual-wrapper"
+      class:NoteEditor__hidden={editor_mode !== "visual" &&
+        editor_mode !== "read_only"}
+    >
+      <EditorContextMenu>
+        <div
+          use:mount_editor={open_note}
+          class="NoteEditor__content"
+          class:NoteEditor__read-only={editor_mode === "read_only"}
+          class:show-line-numbers={stores.ui.editor_settings
+            .source_editor_line_numbers}
+        ></div>
+      </EditorContextMenu>
+    </div>
     {#if editor_mode === "source"}
       {#key open_note.meta.id}
         <SourceEditor
@@ -137,6 +141,13 @@
     flex-direction: column;
     overflow-y: auto;
     height: 100%;
+  }
+
+  .NoteEditor__visual-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
   .NoteEditor__content {

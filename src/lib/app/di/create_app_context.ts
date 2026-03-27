@@ -322,9 +322,11 @@ export function create_app_context(input: {
             end_line,
             end_character,
           );
-          all_actions.push(
-            ...marksman_actions.map((a) => ({ ...a, source: "marksman" })),
-          );
+          const source =
+            stores.ui.editor_settings.markdown_lsp_provider === "iwes"
+              ? "IWE"
+              : "Marksman";
+          all_actions.push(...marksman_actions.map((a) => ({ ...a, source })));
         } catch {
           /* ignore */
         }
@@ -761,6 +763,7 @@ export function create_app_context(input: {
 
   const workspace_edit_deps = {
     note_service,
+    editor_service,
     editor_store: stores.editor,
     tab_store: stores.tab,
     tab_service,
@@ -769,6 +772,15 @@ export function create_app_context(input: {
     watcher_service,
     workspace_reconcile,
     is_vault_mode: () => stores.vault.is_vault_mode,
+    read_note_content: async (path: string) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id) throw new Error("No vault open");
+      const doc = await input.ports.notes.read_note(
+        vault_id,
+        as_note_path(path),
+      );
+      return doc.markdown;
+    },
     uri_to_path: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return null;

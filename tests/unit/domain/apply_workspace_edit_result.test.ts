@@ -7,8 +7,13 @@ function create_deps() {
     note_service: {
       open_note: vi.fn().mockResolvedValue({ status: "opened" }),
     } as any,
+    editor_service: {
+      sync_visual_from_markdown: vi.fn(),
+    } as any,
     editor_store: {
       open_note: null as any,
+      set_markdown: vi.fn(),
+      set_dirty: vi.fn(),
     } as any,
     tab_store: {
       find_tab_by_path: vi.fn().mockReturnValue(null),
@@ -32,6 +37,9 @@ function create_deps() {
       if (!uri.startsWith(prefix)) return null;
       return uri.slice(prefix.length);
     },
+    read_note_content: vi
+      .fn()
+      .mockResolvedValue("# Updated\nNew content" as any),
   };
 }
 
@@ -53,9 +61,42 @@ describe("apply_workspace_edit_result", () => {
     expect(deps.watcher_service.suppress_next).not.toHaveBeenCalled();
   });
 
-  it("reloads currently open file when modified", async () => {
+  it("applies content via editor session for undo-able open file update", async () => {
     const deps = create_deps();
-    deps.editor_store.open_note = { meta: { path: "notes/test.md" } };
+    deps.editor_store.open_note = {
+      meta: { id: "notes/test.md", path: "notes/test.md" },
+    };
+
+    const result: MarksmanWorkspaceEditResult = {
+      files_created: [],
+      files_deleted: [],
+      files_modified: ["file:///vault/notes/test.md"],
+      errors: [],
+    };
+
+    await apply_workspace_edit_result(result, deps);
+
+    expect(deps.read_note_content).toHaveBeenCalledWith("notes/test.md");
+    expect(deps.editor_service.sync_visual_from_markdown).toHaveBeenCalledWith(
+      "# Updated\nNew content",
+    );
+    expect(deps.editor_store.set_markdown).toHaveBeenCalledWith(
+      "notes/test.md",
+      "# Updated\nNew content",
+    );
+    expect(deps.editor_store.set_dirty).toHaveBeenCalledWith(
+      "notes/test.md",
+      false,
+    );
+    expect(deps.note_service.open_note).not.toHaveBeenCalled();
+  });
+
+  it("falls back to force_reload when read_note_content fails", async () => {
+    const deps = create_deps();
+    deps.editor_store.open_note = {
+      meta: { id: "notes/test.md", path: "notes/test.md" },
+    };
+    deps.read_note_content.mockRejectedValue(new Error("read failed"));
 
     const result: MarksmanWorkspaceEditResult = {
       files_created: [],
