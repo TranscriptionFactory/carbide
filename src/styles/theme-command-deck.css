@@ -24,8 +24,9 @@
 
   .ActivityBar {
     position: absolute;
-    /* inset: 0%; */
-    transform: translate(50%, 0%);
+    bottom: var(--command-deck-rail-offset);
+    left: 50%;
+    transform: translateX(-50%);
     height: var(--command-deck-rail-height);
     width: auto;
     align-items: center;
@@ -101,7 +102,7 @@
 
   .TabBar {
     position: absolute;
-    /* top: var(--command-deck-rail-offset); */
+    top: var(--command-deck-rail-offset);
     left: var(--space-4);
     right: var(--space-4);
     height: var(--command-deck-rail-height);
@@ -130,14 +131,13 @@
   }
 
   .StatusBar {
-    /* position: absolute; */
-    /* top: var(--command-deck-rail-offset); */
+    position: absolute;
+    bottom: var(--command-deck-rail-offset);
     right: var(--space-4);
-    /* width: var(--command-deck-status-width); */
+    width: var(--command-deck-status-width);
     height: var(--command-deck-rail-height);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    border-top: 1px solid var(--border);
     background-color: color-mix(in oklch, var(--card) 92%, transparent);
     backdrop-filter: blur(10px);
     box-shadow: var(--shadow-sm);
