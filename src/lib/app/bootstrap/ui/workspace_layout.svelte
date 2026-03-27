@@ -52,6 +52,8 @@
   const is_hud = $derived(layout_variant === "hud");
   const is_zen_deck = $derived(layout_variant === "zen_deck");
   const is_dashboard = $derived(layout_variant === "dashboard");
+  const is_spotlight = $derived(layout_variant === "spotlight");
+  const is_cockpit = $derived(layout_variant === "cockpit");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -231,6 +233,8 @@
     class:WorkspaceLayout--hud={is_hud}
     class:WorkspaceLayout--zen-deck={is_zen_deck}
     class:WorkspaceLayout--dashboard={is_dashboard}
+    class:WorkspaceLayout--spotlight={is_spotlight}
+    class:WorkspaceLayout--cockpit={is_cockpit}
     data-sidebar-open={stores.ui.sidebar_open}
     data-context-rail-open={stores.ui.context_rail_open}
     onpointerdown={(e) => {
@@ -257,7 +261,9 @@
           is_grounded_heavy ||
           is_hud ||
           is_zen_deck ||
-          is_dashboard
+          is_dashboard ||
+          is_spotlight ||
+          is_cockpit
             ? () =>
                 void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
             : undefined}

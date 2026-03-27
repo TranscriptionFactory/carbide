@@ -25,7 +25,9 @@ export type ThemeLayoutVariant =
   | "zen_deck"
   | "dashboard"
   | "workbench"
-  | "command_deck";
+  | "command_deck"
+  | "spotlight"
+  | "cockpit";
 
 export type Theme = {
   id: string;
@@ -1061,6 +1063,82 @@ export const BUILTIN_DASHBOARD_DARK: Theme = {
   },
 };
 
+export const BUILTIN_SPOTLIGHT_LIGHT: Theme = {
+  id: "spotlight-light",
+  name: "Spotlight Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "spotlight",
+  accent_hue: 210,
+  accent_chroma: 0.06,
+  token_overrides: {
+    "--background": "oklch(0.98 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0 0 0 / 8%)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.45 0.06 210)",
+    "--shadow-md":
+      "0 8px 24px -4px oklch(0 0 0 / 8%), 0 2px 8px -2px oklch(0 0 0 / 4%)",
+  },
+};
+
+export const BUILTIN_SPOTLIGHT_DARK: Theme = {
+  id: "spotlight-dark",
+  name: "Spotlight Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "spotlight",
+  accent_hue: 210,
+  accent_chroma: 0.06,
+  token_overrides: {
+    "--background": "oklch(0.06 0 0)",
+    "--card": "oklch(0.12 0 0)",
+    "--border": "oklch(1 0 0 / 8%)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.7 0.06 210)",
+    "--shadow-md":
+      "0 8px 24px -4px oklch(0 0 0 / 30%), 0 2px 8px -2px oklch(0 0 0 / 20%)",
+  },
+};
+
+export const BUILTIN_COCKPIT_LIGHT: Theme = {
+  id: "cockpit-light",
+  name: "Cockpit Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "cockpit",
+  accent_hue: 170,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.97 0.005 170)",
+    "--card": "oklch(0.99 0.003 170)",
+    "--border": "oklch(0.9 0.008 170)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.48 0.12 170)",
+  },
+};
+
+export const BUILTIN_COCKPIT_DARK: Theme = {
+  id: "cockpit-dark",
+  name: "Cockpit Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "cockpit",
+  accent_hue: 170,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.1 0.005 170)",
+    "--card": "oklch(0.14 0.005 170)",
+    "--border": "oklch(0.22 0.005 170)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.65 0.12 170)",
+  },
+};
+
 export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_NORDIC_LIGHT,
   BUILTIN_NORDIC_DARK,
@@ -1088,6 +1166,10 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_HUD_DARK,
   BUILTIN_ZEN_DECK_DARK,
   BUILTIN_DASHBOARD_DARK,
+  BUILTIN_SPOTLIGHT_LIGHT,
+  BUILTIN_SPOTLIGHT_DARK,
+  BUILTIN_COCKPIT_LIGHT,
+  BUILTIN_COCKPIT_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {

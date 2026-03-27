@@ -9,6 +9,8 @@
   import "../styles/theme-hud.css";
   import "../styles/theme-zen-deck.css";
   import "../styles/theme-dashboard.css";
+  import "../styles/theme-spotlight.css";
+  import "../styles/theme-cockpit.css";
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";
