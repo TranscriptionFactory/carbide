@@ -1,0 +1,198 @@
+/* ============================================
+   THEATER LAYOUT OVERRIDES (EDGE-REVEAL CHROME)
+   ============================================
+   All chrome hides as thin accent-colored edge strips.
+   Hover an edge to smoothly reveal the full UI element.
+   The editor fills the entire viewport by default.
+   ============================================ */
+
+[data-layout-variant="theater"] .WorkspaceLayout--theater {
+  --theater-edge-width: 3px;
+  --theater-sidebar-width: 20rem;
+  --theater-reveal-speed: var(--duration-slow);
+  --theater-reveal-ease: var(--ease-out);
+
+  position: relative;
+  background-color: var(--background);
+
+  .ActivityBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--theater-edge-width);
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--interactive);
+    border: none;
+    border-radius: 0;
+    opacity: 0.4;
+    z-index: 200;
+    transition:
+      width var(--theater-reveal-speed) var(--theater-reveal-ease),
+      opacity var(--theater-reveal-speed) var(--theater-reveal-ease),
+      background-color var(--theater-reveal-speed) var(--theater-reveal-ease),
+      padding var(--theater-reveal-speed) var(--theater-reveal-ease),
+      border-radius var(--theater-reveal-speed) var(--theater-reveal-ease),
+      box-shadow var(--theater-reveal-speed) var(--theater-reveal-ease);
+
+    &:hover {
+      width: var(--size-activity-bar);
+      padding-block: var(--space-2);
+      opacity: 1;
+      background-color: color-mix(in oklch, var(--card) 95%, transparent);
+      backdrop-filter: blur(20px);
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+      box-shadow: var(--shadow-lg);
+    }
+  }
+
+  .ActivityBar__section {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  .ActivityBar__section:first-child {
+    padding-block-end: var(--space-1);
+    border-block-end: 1px solid var(--border);
+    margin-block-end: var(--space-1);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  .TabBar {
+    position: absolute;
+    top: 0;
+    left: var(--theater-edge-width);
+    right: 0;
+    height: var(--theater-edge-width);
+    overflow: hidden;
+    background-color: var(--interactive);
+    border: none;
+    border-radius: 0;
+    opacity: 0.3;
+    z-index: 199;
+    transition:
+      height var(--theater-reveal-speed) var(--theater-reveal-ease),
+      opacity var(--theater-reveal-speed) var(--theater-reveal-ease),
+      background-color var(--theater-reveal-speed) var(--theater-reveal-ease),
+      border-radius var(--theater-reveal-speed) var(--theater-reveal-ease),
+      box-shadow var(--theater-reveal-speed) var(--theater-reveal-ease);
+
+    &:hover {
+      height: var(--size-touch-lg);
+      opacity: 1;
+      background-color: color-mix(in oklch, var(--card) 95%, transparent);
+      backdrop-filter: blur(20px);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+    }
+  }
+
+  .TabBar__tab {
+    margin-block: var(--space-1);
+    height: calc(100% - var(--space-2));
+    border-radius: var(--radius-sm);
+    border-inline-end: none;
+  }
+
+  .TabBar__tab--active {
+    background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+  }
+
+  .TabBar__actions {
+    border-inline-start: none;
+  }
+
+  .StatusBar {
+    position: absolute;
+    bottom: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: var(--space-0-5) var(--space-3);
+    border: none;
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 70%, transparent);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity var(--theater-reveal-speed) var(--theater-reveal-ease);
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="1"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--theater-sidebar-width) !important;
+    min-width: var(--theater-sidebar-width) !important;
+    max-width: var(--theater-sidebar-width) !important;
+    z-index: 180;
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(24px);
+    border-inline-end: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    flex: none !important;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="2"] {
+    position: relative;
+    z-index: 10;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--theater-sidebar-width) !important;
+    min-width: var(--theater-sidebar-width) !important;
+    max-width: var(--theater-sidebar-width) !important;
+    z-index: 180;
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(24px);
+    border-inline-start: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    flex: none !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
+    border-inline-start: none;
+    background-color: transparent;
+  }
+
+  .NoteEditor {
+    max-width: 80ch;
+    margin-inline: auto;
+  }
+
+  .SplitViewContainer {
+    height: 100%;
+  }
+
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}

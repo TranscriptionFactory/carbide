@@ -54,6 +54,8 @@
   const is_dashboard = $derived(layout_variant === "dashboard");
   const is_spotlight = $derived(layout_variant === "spotlight");
   const is_cockpit = $derived(layout_variant === "cockpit");
+  const is_theater = $derived(layout_variant === "theater");
+  const is_triptych = $derived(layout_variant === "triptych");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -235,6 +237,8 @@
     class:WorkspaceLayout--dashboard={is_dashboard}
     class:WorkspaceLayout--spotlight={is_spotlight}
     class:WorkspaceLayout--cockpit={is_cockpit}
+    class:WorkspaceLayout--theater={is_theater}
+    class:WorkspaceLayout--triptych={is_triptych}
     data-sidebar-open={stores.ui.sidebar_open}
     data-context-rail-open={stores.ui.context_rail_open}
     onpointerdown={(e) => {
@@ -263,7 +267,9 @@
           is_zen_deck ||
           is_dashboard ||
           is_spotlight ||
-          is_cockpit
+          is_cockpit ||
+          is_theater ||
+          is_triptych
             ? () =>
                 void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
             : undefined}
