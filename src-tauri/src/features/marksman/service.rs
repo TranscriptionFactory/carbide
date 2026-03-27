@@ -230,14 +230,20 @@ pub async fn marksman_start(
     if preferred == "iwes" {
         let iwe_dir = vault_path.join(".iwe");
         let iwe_config = iwe_dir.join("config.toml");
-        if !iwe_config.exists() {
+        let needs_copy = if iwe_config.exists() {
+            let content = std::fs::read_to_string(&iwe_config).unwrap_or_default();
+            !content.contains("[commands]")
+        } else {
+            true
+        };
+        if needs_copy {
             if let Ok(default_config) = app
                 .path()
                 .resolve("resources/iwe-default-config.toml", tauri::path::BaseDirectory::Resource)
             {
                 let _ = std::fs::create_dir_all(&iwe_dir);
                 let _ = std::fs::copy(&default_config, &iwe_config);
-                log::info!("Created default IWE config at {}", iwe_config.display());
+                log::info!("Wrote IWE config at {}", iwe_config.display());
             }
         }
     }
