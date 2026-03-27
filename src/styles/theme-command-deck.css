@@ -24,8 +24,8 @@
 
   .ActivityBar {
     position: absolute;
-    top: var(--command-deck-rail-offset);
-    left: var(--space-2);
+    /* inset: 0%; */
+    transform: translate(50%, 0%);
     height: var(--command-deck-rail-height);
     width: auto;
     align-items: center;

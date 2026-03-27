@@ -61,9 +61,7 @@ pub fn ext_to_language_id(ext: &str) -> Option<&'static str> {
 }
 
 pub fn find_server_spec(language_id: &str) -> Option<&'static LanguageServerSpec> {
-    KNOWN_SERVERS
-        .iter()
-        .find(|s| s.language_id == language_id)
+    KNOWN_SERVERS.iter().find(|s| s.language_id == language_id)
 }
 
 pub fn find_binary(binary_name: &str) -> Option<PathBuf> {

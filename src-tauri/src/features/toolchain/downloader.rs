@@ -9,8 +9,7 @@ use super::types::ToolchainEvent;
 const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
 
 pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, String> {
-    let spec = registry::get(tool_id)
-        .ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
+    let spec = registry::get(tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
     let platform = spec
         .platform_binaries
@@ -23,9 +22,7 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
             )
         })?;
 
-    let asset_name = platform
-        .asset_template
-        .replace("{version}", spec.version);
+    let asset_name = platform.asset_template.replace("{version}", spec.version);
 
     let url = format!(
         "https://github.com/{}/releases/download/v{}/{}",
@@ -41,10 +38,7 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
         .map_err(|e| format!("Download failed: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "Download failed: HTTP {}",
-            response.status()
-        ));
+        return Err(format!("Download failed: HTTP {}", response.status()));
     }
 
     let total_size = response.content_length().unwrap_or(0);
@@ -68,8 +62,7 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
 
     emit_progress(app, tool_id, 75.0);
 
-    let dest =
-        resolver::downloaded_path(app, tool_id, spec.version, spec.binary_name)?;
+    let dest = resolver::downloaded_path(app, tool_id, spec.version, spec.binary_name)?;
 
     tokio::fs::create_dir_all(dest.parent().unwrap())
         .await
@@ -161,10 +154,7 @@ fn extract_tar_gz(data: &[u8], dest: &PathBuf, bin_filename: &str) -> Result<(),
     for entry in archive.entries().map_err(|e| e.to_string())? {
         let mut entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path().map_err(|e| e.to_string())?;
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         if name == bin_filename {
             let mut contents = Vec::new();
@@ -176,10 +166,7 @@ fn extract_tar_gz(data: &[u8], dest: &PathBuf, bin_filename: &str) -> Result<(),
         }
     }
 
-    Err(format!(
-        "Binary '{}' not found in archive",
-        bin_filename
-    ))
+    Err(format!("Binary '{}' not found in archive", bin_filename))
 }
 
 fn extract_zip(data: &[u8], dest: &PathBuf, bin_filename: &str) -> Result<(), String> {
@@ -197,8 +184,7 @@ fn extract_zip(data: &[u8], dest: &PathBuf, bin_filename: &str) -> Result<(), St
 
         if name == bin_filename {
             let mut contents = Vec::new();
-            file.read_to_end(&mut contents)
-                .map_err(|e| e.to_string())?;
+            file.read_to_end(&mut contents).map_err(|e| e.to_string())?;
             std::fs::write(dest, &contents).map_err(|e| e.to_string())?;
             return Ok(());
         }

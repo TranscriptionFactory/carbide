@@ -367,11 +367,14 @@ fn upsert_note_indexes_basic_metadata() {
     upsert_note(&conn, &meta, "# Title\n## Sub\n### Deep").expect("upsert");
 
     let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM notes WHERE path = ?1", rusqlite::params!["test.md"], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM notes WHERE path = ?1",
+            rusqlite::params!["test.md"],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(count, 1);
 }
-
 
 #[test]
 fn remove_note_clears_note_record() {
@@ -395,7 +398,11 @@ fn remove_note_clears_note_record() {
     remove_note(&conn, "test.md").expect("remove");
 
     let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'test.md'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM notes WHERE path = 'test.md'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(count, 0);
 }
@@ -443,10 +450,18 @@ fn rename_note_path_moves_note_record() {
     rename_note_path(&conn, "old.md", "new.md").expect("rename");
 
     let new_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'new.md'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM notes WHERE path = 'new.md'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     let old_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM notes WHERE path = 'old.md'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM notes WHERE path = 'old.md'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
 
     assert_eq!(new_count, 1);

@@ -366,10 +366,7 @@ pub async fn lint_check_vault(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn lint_format_vault(
-    app: AppHandle,
-    vault_path: String,
-) -> Result<Vec<String>, String> {
+pub async fn lint_format_vault(app: AppHandle, vault_path: String) -> Result<Vec<String>, String> {
     let binary = resolve_rumdl_binary(&app).await?;
     cli::format_vault(&binary, Path::new(&vault_path))
         .await

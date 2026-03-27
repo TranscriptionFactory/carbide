@@ -36,7 +36,10 @@ pub static TOOLS: &[ToolSpec] = &[
         binary_name: "rumdl",
         default_args: &["server"],
         capabilities: &[
-            ToolCapability::DocumentSync { debounce_ms: 300, skip_draft: false },
+            ToolCapability::DocumentSync {
+                debounce_ms: 300,
+                skip_draft: false,
+            },
             ToolCapability::Diagnostics,
             ToolCapability::Formatting,
             ToolCapability::CodeActions,
@@ -51,7 +54,10 @@ pub static TOOLS: &[ToolSpec] = &[
         binary_name: "marksman",
         default_args: &[],
         capabilities: &[
-            ToolCapability::DocumentSync { debounce_ms: 500, skip_draft: true },
+            ToolCapability::DocumentSync {
+                debounce_ms: 500,
+                skip_draft: true,
+            },
             ToolCapability::Completion,
             ToolCapability::Hover,
             ToolCapability::References,

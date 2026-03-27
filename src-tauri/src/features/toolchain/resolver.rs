@@ -22,8 +22,7 @@ pub async fn resolve(
         ));
     }
 
-    let spec = registry::get(tool_id)
-        .ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
+    let spec = registry::get(tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
     if let Some(sidecar) = sidecar_path(app, spec.binary_name) {
         return Ok(sidecar);

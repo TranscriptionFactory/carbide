@@ -127,9 +127,7 @@ describe("GraphService", () => {
     const deferred = new Promise<GraphNeighborhoodSnapshot>((r) => {
       resolve_load = r;
     });
-    vi.mocked(mock_graph_port.load_note_neighborhood).mockReturnValue(
-      deferred,
-    );
+    vi.mocked(mock_graph_port.load_note_neighborhood).mockReturnValue(deferred);
 
     const load_promise = service.load_note_neighborhood("test.md");
     service.clear();
