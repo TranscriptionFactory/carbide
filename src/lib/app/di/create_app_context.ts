@@ -80,6 +80,7 @@ import { Blocks, PencilRuler, BookMarked, Table } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
+import { apply_workspace_edit_result } from "$lib/features/lsp";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -757,13 +758,39 @@ export function create_app_context(input: {
     diagnostics_store: stores.diagnostics,
   });
 
+  const workspace_edit_deps = {
+    note_service,
+    editor_store: stores.editor,
+    tab_store: stores.tab,
+    action_registry,
+    op_store: stores.op,
+    uri_to_path: (uri: string) => {
+      const vault_path = stores.vault.vault?.path;
+      if (!vault_path) return null;
+      let decoded: string;
+      try {
+        decoded = decodeURI(uri);
+      } catch {
+        decoded = uri;
+      }
+      const prefix = `file://${vault_path}`;
+      if (!decoded.startsWith(prefix)) return null;
+      let relative = decoded.slice(prefix.length);
+      if (relative.startsWith("/")) relative = relative.slice(1);
+      return relative;
+    },
+  };
+
   action_registry.register({
     id: ACTION_IDS.marksman_code_action_resolve,
     label: "Marksman: Resolve Code Action",
-    execute: (action) => {
-      void marksman_service.code_action_resolve(
+    execute: async (action) => {
+      const result = await marksman_service.code_action_resolve(
         (action as { raw_json: string }).raw_json,
       );
+      if (result) {
+        await apply_workspace_edit_result(result, workspace_edit_deps);
+      }
     },
   });
 
@@ -776,6 +803,8 @@ export function create_app_context(input: {
     diagnostics_store: stores.diagnostics,
     ui_store: stores.ui,
     op_store: stores.op,
+    marksman_service,
+    workspace_edit_deps,
   });
 
   register_toolchain_actions({
@@ -852,6 +881,7 @@ export function create_app_context(input: {
       void watcher_service.stop();
       void lint_service.stop();
       void marksman_service.stop();
+      code_lsp_service.stop();
       toolchain_service.dispose();
     },
   };

@@ -7,6 +7,7 @@ pub struct LspClientConfig {
     pub root_uri: String,
     pub capabilities: serde_json::Value,
     pub working_dir: Option<String>,
+    pub request_timeout_ms: u64,
 }
 
 #[derive(Debug)]

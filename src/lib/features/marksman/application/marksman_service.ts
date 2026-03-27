@@ -16,8 +16,6 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("marksman_service");
 const CHANNEL_CLOSED_PATTERN = "channel closed";
-const AUTO_RESTART_DELAY_MS = 1000;
-
 function is_channel_closed_error(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   return msg.toLowerCase().includes(CHANNEL_CLOSED_PATTERN);
@@ -438,22 +436,13 @@ export class MarksmanService {
     }
   }
 
-  private restart_scheduled = false;
-
   private handle_channel_closed(e: unknown): boolean {
     if (!is_channel_closed_error(e)) return false;
     if (this.store.status !== "running") return true;
 
-    log.warn("Marksman LSP process died, scheduling restart");
+    log.warn("Marksman LSP process died — backend will handle restart");
     this.store.set_error("Marksman process crashed — restarting...");
 
-    if (!this.restart_scheduled) {
-      this.restart_scheduled = true;
-      setTimeout(() => {
-        this.restart_scheduled = false;
-        void this.restart();
-      }, AUTO_RESTART_DELAY_MS);
-    }
     return true;
   }
 

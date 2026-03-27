@@ -31,6 +31,7 @@ import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_marksman_lifecycle_reactor } from "$lib/reactors/marksman_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
+import { create_code_lsp_lifecycle_reactor } from "$lib/reactors/code_lsp_lifecycle.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
@@ -310,6 +311,10 @@ export function mount_reactors(context: ReactorContext): () => void {
         if (!vault) return null;
         return { id: vault.id, path: vault.path };
       },
+    ),
+    create_code_lsp_lifecycle_reactor(
+      context.vault_store,
+      context.code_lsp_service,
     ),
     create_toolchain_lifecycle_reactor(
       context.vault_store,

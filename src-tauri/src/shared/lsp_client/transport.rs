@@ -24,6 +24,7 @@ pub struct LspClient {
     join_handle: Option<tokio::task::JoinHandle<()>>,
     notification_rx: Option<mpsc::Receiver<ServerNotification>>,
     server_capabilities: serde_json::Value,
+    request_timeout_ms: u64,
 }
 
 #[derive(Debug)]
@@ -38,6 +39,8 @@ impl LspClient {
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (ready_tx, ready_rx) = oneshot::channel::<Result<serde_json::Value, LspClientError>>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
+
+        let request_timeout_ms = config.request_timeout_ms;
 
         let join_handle = tokio::spawn(lsp_run_loop(
             config,
@@ -57,6 +60,7 @@ impl LspClient {
             join_handle: Some(join_handle),
             notification_rx: Some(notification_rx),
             server_capabilities,
+            request_timeout_ms,
         })
     }
 
@@ -93,9 +97,13 @@ impl LspClient {
             .await
             .map_err(|_| LspClientError::ChannelClosed)?;
 
-        response_rx
-            .await
-            .map_err(|_| LspClientError::ChannelClosed)?
+        tokio::time::timeout(
+            std::time::Duration::from_millis(self.request_timeout_ms),
+            response_rx,
+        )
+        .await
+        .map_err(|_| LspClientError::RequestTimeout)?
+        .map_err(|_| LspClientError::ChannelClosed)?
     }
 
     pub fn completion_trigger_characters(&self) -> Vec<String> {

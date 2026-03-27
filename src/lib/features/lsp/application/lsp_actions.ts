@@ -6,7 +6,11 @@ import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { LspStore } from "$lib/features/lsp/state/lsp_store.svelte";
-import type { LspDiagnostic } from "$lib/features/lsp/types";
+import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp/types";
+import type { MarksmanService } from "$lib/features/marksman";
+import { apply_workspace_edit_result } from "$lib/features/lsp/application/apply_workspace_edit_result";
+
+type WorkspaceEditDeps = Parameters<typeof apply_workspace_edit_result>[1];
 
 export function register_lsp_actions(input: {
   registry: ActionRegistry;
@@ -17,8 +21,17 @@ export function register_lsp_actions(input: {
   diagnostics_store: DiagnosticsStore;
   ui_store: UIStore;
   op_store: OpStore;
+  marksman_service: MarksmanService;
+  workspace_edit_deps: WorkspaceEditDeps;
 }): void {
-  const { registry, lsp_store, diagnostics_store, ui_store } = input;
+  const {
+    registry,
+    lsp_store,
+    diagnostics_store,
+    ui_store,
+    marksman_service,
+    workspace_edit_deps,
+  } = input;
 
   registry.register({
     id: ACTION_IDS.lsp_code_actions,
@@ -33,7 +46,17 @@ export function register_lsp_actions(input: {
   registry.register({
     id: ACTION_IDS.lsp_code_action_resolve,
     label: "Resolve Code Action",
-    execute: async () => {},
+    execute: async (action) => {
+      const code_action = action as LspCodeAction;
+      if (code_action.source === "marksman") {
+        const result = await marksman_service.code_action_resolve(
+          code_action.raw_json,
+        );
+        if (result) {
+          await apply_workspace_edit_result(result, workspace_edit_deps);
+        }
+      }
+    },
   });
 
   registry.register({

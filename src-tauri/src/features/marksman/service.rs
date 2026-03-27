@@ -1,5 +1,8 @@
 use crate::features::toolchain;
-use crate::shared::lsp_client::{LspClient, LspClientConfig, LspClientError, ServerNotification};
+use crate::shared::lsp_client::{
+    LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig, RestartableLspClient,
+    ServerNotification,
+};
 use crate::shared::storage;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -9,7 +12,7 @@ use tokio::sync::Mutex;
 use super::types::*;
 
 pub struct MarksmanState {
-    clients: Mutex<HashMap<String, LspClient>>,
+    clients: Mutex<HashMap<String, RestartableLspClient>>,
 }
 
 impl Default for MarksmanState {
@@ -86,6 +89,10 @@ enum MarksmanEvent {
         uri: String,
         diagnostics: Vec<MarksmanLspDiagnostic>,
     },
+    StatusChanged {
+        vault_id: String,
+        status: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -156,6 +163,33 @@ fn spawn_notification_forwarder(
     });
 }
 
+fn spawn_status_forwarder(
+    app: AppHandle,
+    vault_id: String,
+    mut status_rx: tokio::sync::mpsc::Receiver<LspSessionStatus>,
+) {
+    tokio::spawn(async move {
+        while let Some(status) = status_rx.recv().await {
+            let status_str = match &status {
+                LspSessionStatus::Starting => "starting".to_string(),
+                LspSessionStatus::Running => "running".to_string(),
+                LspSessionStatus::Restarting { attempt } => {
+                    format!("restarting (attempt {})", attempt)
+                }
+                LspSessionStatus::Stopped => "stopped".to_string(),
+                LspSessionStatus::Failed { message } => format!("failed: {}", message),
+            };
+            let _ = app.emit(
+                "marksman_event",
+                MarksmanEvent::StatusChanged {
+                    vault_id: vault_id.clone(),
+                    status: status_str,
+                },
+            );
+        }
+    });
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn marksman_start(
@@ -178,17 +212,19 @@ pub async fn marksman_start(
                 .ok_or("invalid vault path encoding")?
                 .to_string(),
         ),
+        request_timeout_ms: 30_000,
     };
 
-    let mut client = LspClient::start(config).await.map_err(err)?;
-    let trigger_characters = client.completion_trigger_characters();
-    log::info!(
-        "Marksman completion trigger characters: {:?}",
-        trigger_characters
-    );
+    let mut client = RestartableLspClient::start(RestartableConfig::new(config)).await;
+
+    let trigger_characters = vec!["[".to_string(), "(".to_string(), "#".to_string()];
 
     if let Some(rx) = client.take_notification_rx() {
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);
+    }
+
+    if let Some(rx) = client.take_status_rx() {
+        spawn_status_forwarder(app.clone(), vault_id.clone(), rx);
     }
 
     let state = marksman_state(&app);

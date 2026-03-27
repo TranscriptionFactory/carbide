@@ -97,6 +97,7 @@ pub fn build_lsp_config(
             }
         }),
         working_dir: Some(working_dir.to_string()),
+        request_timeout_ms: 30_000,
     }
 }
 
