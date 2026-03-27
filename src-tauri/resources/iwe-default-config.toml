@@ -1,6 +1,9 @@
 # IWE Configuration — Carbide defaults
 # Documentation: https://github.com/iwe-org/iwe
 
+[library]
+path = ""
+
 [actions.extract]
 type = "extract"
 title = "Extract section"
