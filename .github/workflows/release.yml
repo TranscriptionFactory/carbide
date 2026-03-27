@@ -96,12 +96,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_URL=$(gh release create "$GITHUB_REF_NAME" \
+          gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Carbide $GITHUB_REF_NAME" \
             --draft \
-            --generate-notes)
-          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name==\"$GITHUB_REF_NAME\" and .draft==true) | .id")
+            --generate-notes
+
+          # Wait for API propagation, then fetch the release ID directly
+          sleep 5
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq '.id')
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::Failed to retrieve release ID for tag $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "Release ID: $RELEASE_ID"
           echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
   release:
