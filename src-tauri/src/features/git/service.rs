@@ -625,6 +625,8 @@ pub struct GitRemoteResult {
     pub error: Option<String>,
 }
 
+const GIT_REMOTE_TIMEOUT_SECS: u64 = 30;
+
 fn git_cmd(vault_path: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new("git");
     cmd.current_dir(vault_path);
@@ -634,6 +636,35 @@ fn git_cmd(vault_path: &str) -> std::process::Command {
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
     cmd
+}
+
+fn run_with_timeout(
+    mut cmd: std::process::Command,
+    timeout: std::time::Duration,
+) -> Result<std::process::Output, String> {
+    let child = cmd
+        .stdin(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("failed to spawn git: {}", e))?;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let wait_thread = std::thread::spawn(move || {
+        let result = child.wait_with_output();
+        let _ = tx.send(());
+        result
+    });
+
+    match rx.recv_timeout(timeout) {
+        Ok(()) => wait_thread
+            .join()
+            .map_err(|_| "git process thread panicked".to_string())?
+            .map_err(|e| format!("git process failed: {}", e)),
+        Err(_) => Err(format!(
+            "Git operation timed out after {}s. The remote may be unreachable or waiting for authentication.",
+            timeout.as_secs()
+        )),
+    }
 }
 
 fn parse_remote_error(stderr: &str) -> Option<String> {
@@ -681,18 +712,18 @@ fn is_valid_remote_url(url: &str) -> bool {
 #[tauri::command]
 #[specta::specta]
 pub fn git_push(vault_path: String) -> GitRemoteResult {
-    let output = git_cmd(&vault_path)
-        .args([
-            "-c",
-            "http.lowSpeedLimit=1000",
-            "-c",
-            "http.lowSpeedTime=10",
-            "push",
-        ])
-        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10")
-        .output();
+    let mut cmd = git_cmd(&vault_path);
+    cmd.args([
+        "-c",
+        "http.lowSpeedLimit=1000",
+        "-c",
+        "http.lowSpeedTime=10",
+        "push",
+    ])
+    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
 
-    match output {
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             if output.status.success() {
                 GitRemoteResult {
@@ -711,7 +742,7 @@ pub fn git_push(vault_path: String) -> GitRemoteResult {
         Err(e) => GitRemoteResult {
             success: false,
             message: None,
-            error: Some(format!("Failed to push: {}", e)),
+            error: Some(e),
         },
     }
 }
@@ -719,19 +750,19 @@ pub fn git_push(vault_path: String) -> GitRemoteResult {
 #[tauri::command]
 #[specta::specta]
 pub fn git_fetch(vault_path: String) -> GitRemoteResult {
-    let output = git_cmd(&vault_path)
-        .args([
-            "-c",
-            "http.lowSpeedLimit=1000",
-            "-c",
-            "http.lowSpeedTime=10",
-            "fetch",
-            "--quiet",
-        ])
-        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10")
-        .output();
+    let mut cmd = git_cmd(&vault_path);
+    cmd.args([
+        "-c",
+        "http.lowSpeedLimit=1000",
+        "-c",
+        "http.lowSpeedTime=10",
+        "fetch",
+        "--quiet",
+    ])
+    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
 
-    match output {
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             if output.status.success() {
                 GitRemoteResult {
@@ -750,7 +781,7 @@ pub fn git_fetch(vault_path: String) -> GitRemoteResult {
         Err(e) => GitRemoteResult {
             success: false,
             message: None,
-            error: Some(format!("Failed to fetch: {}", e)),
+            error: Some(e),
         },
     }
 }
@@ -780,9 +811,8 @@ pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult
         }
     }
 
-    let output = cmd.output();
-
-    match output {
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if output.status.success() {
@@ -809,7 +839,7 @@ pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult
         Err(e) => GitRemoteResult {
             success: false,
             message: None,
-            error: Some(format!("Failed to pull: {}", e)),
+            error: Some(e),
         },
     }
 }
@@ -924,21 +954,21 @@ pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
 #[tauri::command]
 #[specta::specta]
 pub fn git_push_with_upstream(vault_path: String, branch: String) -> GitRemoteResult {
-    let output = git_cmd(&vault_path)
-        .args([
-            "-c",
-            "http.lowSpeedLimit=1000",
-            "-c",
-            "http.lowSpeedTime=10",
-            "push",
-            "-u",
-            "origin",
-            &branch,
-        ])
-        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10")
-        .output();
+    let mut cmd = git_cmd(&vault_path);
+    cmd.args([
+        "-c",
+        "http.lowSpeedLimit=1000",
+        "-c",
+        "http.lowSpeedTime=10",
+        "push",
+        "-u",
+        "origin",
+        &branch,
+    ])
+    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
 
-    match output {
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             if output.status.success() {
                 GitRemoteResult {
@@ -957,7 +987,7 @@ pub fn git_push_with_upstream(vault_path: String, branch: String) -> GitRemoteRe
         Err(e) => GitRemoteResult {
             success: false,
             message: None,
-            error: Some(format!("Failed to push: {}", e)),
+            error: Some(e),
         },
     }
 }

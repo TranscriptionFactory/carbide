@@ -62,7 +62,6 @@ export class GitStore {
     this.remote_url = remote_url;
     this.ahead = ahead;
     this.behind = behind;
-    this.history_cache.clear();
   }
 
   set_enabled(enabled: boolean) {
