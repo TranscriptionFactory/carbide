@@ -1150,9 +1150,15 @@ pub fn index_suggest(
     let max = limit.unwrap_or(15);
     let fuzzy_threshold = 5;
     with_read_conn(&app, &vault_id, |conn| {
-        let fts_results = search_db::suggest(conn, &query, max)?;
+        let mut fts_results = search_db::suggest(conn, &query, max)?;
         if fts_results.len() >= fuzzy_threshold {
             return Ok(fts_results);
+        }
+        // BM25 scores are negative (more negative = better match).
+        // Normalize to positive (higher = better) so consumers get a
+        // consistent scale when FTS and fuzzy results are merged.
+        for hit in &mut fts_results {
+            hit.score = -hit.score;
         }
         let fuzzy_results = search_db::fuzzy_suggest(conn, &query, max)?;
         let seen: std::collections::HashSet<String> =
@@ -1163,6 +1169,14 @@ pub fn index_suggest(
                 merged.push(hit);
             }
         }
+        // Re-sort the full merged list so the best results float to the
+        // top regardless of source. Both FTS (now positive) and skim
+        // scores use higher = better after normalization.
+        merged.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         merged.truncate(max);
         Ok(merged)
     })

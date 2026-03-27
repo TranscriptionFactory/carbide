@@ -1489,14 +1489,20 @@ pub fn fuzzy_suggest(
         return Ok(Vec::new());
     }
 
-    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type FROM notes";
+    // Pre-filter with LIKE on the first query character to avoid full table scan.
+    // skim's fuzzy matching requires at least the first char to appear somewhere
+    // in the target, so this is safe to filter on.
+    let first_char = trimmed.chars().next().unwrap().to_lowercase().to_string();
+    let like_pattern = format!("%{}%", first_char.replace('%', r"\%").replace('_', r"\_"));
+    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type FROM notes
+               WHERE LOWER(title) LIKE ?1 ESCAPE '\\' OR LOWER(path) LIKE ?1 ESCAPE '\\'";
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
     let matcher = SkimMatcherV2::default();
     let mut scored: Vec<SuggestionHit> = Vec::new();
 
     let rows = stmt
-        .query_map([], |row| {
+        .query_map(params![like_pattern], |row| {
             let path: String = row.get(0)?;
             let title: String = row.get(1)?;
             let name = file_stem_string(Path::new(&path));

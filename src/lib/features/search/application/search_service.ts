@@ -67,7 +67,39 @@ function merge_fts_with_hybrid(
       source: hit.source,
     }));
 
-  return [...fts_items, ...hybrid_items];
+  // FTS items are ranked by BM25 (already sorted by the backend).
+  // Hybrid items are ranked by RRF (already sorted by the backend).
+  // Since these scores are on different scales, interleave by
+  // normalizing each list's position to a [0, 1] rank score.
+  const ranked = rank_interleave(fts_items, hybrid_items);
+  return ranked;
+}
+
+function rank_interleave(
+  primary: OmnibarItem[],
+  secondary: OmnibarItem[],
+): OmnibarItem[] {
+  if (secondary.length === 0) return primary;
+  if (primary.length === 0) return secondary;
+
+  type Ranked = { item: OmnibarItem; rank_score: number };
+  const tagged: Ranked[] = [];
+
+  for (let i = 0; i < primary.length; i++) {
+    tagged.push({
+      item: primary[i]!,
+      rank_score: 1 - i / Math.max(primary.length, 1),
+    });
+  }
+  for (let i = 0; i < secondary.length; i++) {
+    tagged.push({
+      item: secondary[i]!,
+      rank_score: 1 - i / Math.max(secondary.length, 1),
+    });
+  }
+
+  tagged.sort((a, b) => b.rank_score - a.rank_score);
+  return tagged.map((t) => t.item);
 }
 type CrossVaultSettledSearch = PromiseSettledResult<
   Awaited<ReturnType<SearchPort["search_notes"]>>
@@ -486,7 +518,7 @@ export class SearchService {
     const available_commands = all_commands.filter((command) =>
       this.is_command_enabled(command),
     );
-    const q = query.toLowerCase().trim();
+    const q = query.trim();
     if (!q) {
       return available_commands.map((command) => ({
         kind: "command" as const,
@@ -506,7 +538,7 @@ export class SearchService {
   }
 
   search_settings(query: string): OmnibarItem[] {
-    const q = query.toLowerCase().trim();
+    const q = query.trim();
     if (!q) return [];
 
     return SETTINGS_REGISTRY.map((setting) => ({

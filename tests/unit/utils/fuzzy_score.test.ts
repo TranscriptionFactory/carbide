@@ -77,6 +77,43 @@ describe("fuzzy_score", () => {
     expect(fuzzy_score("gtp", "Git Push")).not.toBeNull();
     expect(fuzzy_score("bq", "Blockquote")).not.toBeNull();
   });
+
+  it("prefers later consecutive match over early scattered match", () => {
+    // Greedy would pick a[0], b[4] (scattered).
+    // Optimal should pick a[3], b[4] (consecutive + boundary).
+    const result = fuzzy_score("ab", "a_xab");
+    expect(result).not.toBeNull();
+    expect(result?.indices).toEqual([3, 4]);
+  });
+
+  it("prefers boundary-aligned match over greedy first-hit", () => {
+    // Query "ac" in "x_ac_xac": neither position has START bonus.
+    // Greedy picks a[2], c[3]. Optimal also picks a[2], c[3]
+    // (boundary after _ + consecutive).
+    // But "ac" in "xac_ac": greedy picks a[1], c[2]; optimal picks a[4], c[5]
+    // because a[4] has boundary bonus + consecutive.
+    // a[1]: MATCH=1, a[4]: MATCH=1+BOUNDARY=10, c[5]: MATCH=1+CONSECUTIVE=8.
+    // a[1],c[2]: 1+1+8 = 10.  a[4],c[5]: 1+10+1+8 = 20.
+    const result = fuzzy_score("ac", "xac_ac");
+    expect(result).not.toBeNull();
+    expect(result?.indices).toEqual([4, 5]);
+  });
+
+  it("still prefers start-of-string for full prefix match", () => {
+    // "abc" in "Abc_xabc": start-of-string [0,1,2] with START+CONSECUTIVE
+    // should beat boundary [5,6,7] with BOUNDARY+CONSECUTIVE.
+    const result = fuzzy_score("abc", "Abc_xabc");
+    expect(result).not.toBeNull();
+    expect(result?.indices).toEqual([0, 1, 2]);
+  });
+
+  it("finds optimal alignment for multi-char query with gaps", () => {
+    // "fn" in "file_name": greedy picks f[0], n[5].
+    // Optimal should also pick f[0], n[5] (start bonus + boundary).
+    const result = fuzzy_score("fn", "file_name");
+    expect(result).not.toBeNull();
+    expect(result?.indices).toEqual([0, 5]);
+  });
 });
 
 describe("fuzzy_score_multi", () => {
