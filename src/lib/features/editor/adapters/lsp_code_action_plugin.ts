@@ -45,6 +45,7 @@ export function create_lsp_code_action_plugin(input: {
   on_lsp_resolve?: ((action: LspAction) => void) | undefined;
 }): Plugin {
   let current_actions: MarksmanCodeAction[] = [];
+  let current_lsp_actions: LspAction[] | null = null;
   let dropdown: HTMLElement | null = null;
   let detach_dismiss: (() => void) | null = null;
   let is_dropdown_visible = false;
@@ -67,7 +68,11 @@ export function create_lsp_code_action_plugin(input: {
       hide_dropdown();
       return;
     }
-    render_dropdown(view);
+    if (current_lsp_actions) {
+      render_dropdown_lsp(view, current_lsp_actions);
+    } else {
+      render_dropdown(view);
+    }
     show_dropdown(anchor);
   }
 
@@ -103,6 +108,7 @@ export function create_lsp_code_action_plugin(input: {
         to_coords.character,
       )
       .then((actions) => {
+        current_lsp_actions = actions;
         current_actions = actions as MarksmanCodeAction[];
         if (actions.length === 0) {
           view.dispatch(
@@ -187,6 +193,7 @@ export function create_lsp_code_action_plugin(input: {
   }
 
   function fetch_and_show(view: EditorView) {
+    current_lsp_actions = null;
     const { from, to } = view.state.selection;
     const from_coords = line_and_character_from_pos(view, from);
     const to_coords = line_and_character_from_pos(view, to);
@@ -281,6 +288,7 @@ export function create_lsp_code_action_plugin(input: {
           const prev_sel = prev_state.selection;
           if (sel.from !== prev_sel.from || sel.to !== prev_sel.to) {
             hide_dropdown();
+            current_lsp_actions = null;
             view.dispatch(
               view.state.tr.setMeta(lsp_code_action_plugin_key, {
                 type: "clear",
@@ -293,6 +301,7 @@ export function create_lsp_code_action_plugin(input: {
           dropdown = null;
           detach_dismiss = null;
           current_actions = [];
+          current_lsp_actions = null;
         },
       };
     },
