@@ -3,8 +3,31 @@ import {
   parse_markdown,
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
+import { schema } from "$lib/features/editor/adapters/schema";
 
 describe("table serialization", () => {
+  it("programmatically created table has valid schema structure", () => {
+    const { nodes: n } = schema;
+    const header_row = n.table_row.create(null, [
+      n.table_header.create(null, n.paragraph.create(null, schema.text("A"))),
+      n.table_header.create(null, n.paragraph.create(null, schema.text("B"))),
+    ]);
+    const body_row = n.table_row.create(null, [
+      n.table_cell.create(null, n.paragraph.create()),
+      n.table_cell.create(null, n.paragraph.create()),
+    ]);
+    const table = n.table.create(null, [header_row, body_row]);
+
+    expect(table.type.name).toBe("table");
+    expect(table.childCount).toBe(2);
+    expect(table.child(0).type.name).toBe("table_row");
+    expect(table.child(0).child(0).type.name).toBe("table_header");
+    expect(table.child(1).child(0).type.name).toBe("table_cell");
+
+    // Verify the table validates against the schema
+    expect(table.check()).toBeUndefined();
+  });
+
   it("round-trips simple table without trailing backslashes", () => {
     const input = "| A | B |\n| --- | --- |\n| 1 | 2 |";
     const doc = parse_markdown(input);
