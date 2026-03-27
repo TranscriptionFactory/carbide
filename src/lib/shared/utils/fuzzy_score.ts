@@ -27,11 +27,6 @@ function match_bonus(target: string, ti: number): number {
   return 0;
 }
 
-function gap_penalty(gap_length: number): number {
-  if (gap_length <= 0) return 0;
-  return PENALTY_GAP_START + PENALTY_GAP_EXTEND * (gap_length - 1);
-}
-
 export function fuzzy_score(query: string, target: string): FuzzyResult | null {
   const n = query.length;
   const m = target.length;
