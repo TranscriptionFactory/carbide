@@ -11,8 +11,7 @@
   .ActivityBar {
     position: absolute;
     bottom: var(--space-3);
-    left: 50%;
-    transform: translateX(-50%);
+    left: var(--space-3);
     height: auto;
     width: auto;
     flex-direction: row;
