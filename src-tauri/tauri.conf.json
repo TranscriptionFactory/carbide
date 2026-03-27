@@ -5,7 +5,7 @@
   "identifier": "com.carbide.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "bash scripts/build-iwes.sh && svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
+    "beforeBuildCommand": "svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
@@ -20,7 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/iwes"],
+    "externalBin": [],
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",

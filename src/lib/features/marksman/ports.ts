@@ -14,7 +14,11 @@ import type {
 } from "$lib/features/marksman/types";
 
 export interface MarksmanPort {
-  start(vault_id: string): Promise<MarksmanStartResult>;
+  start(
+    vault_id: string,
+    provider?: string,
+    custom_binary_path?: string,
+  ): Promise<MarksmanStartResult>;
   stop(vault_id: string): Promise<void>;
 
   did_open(vault_id: string, file_path: string, content: string): Promise<void>;

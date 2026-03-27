@@ -39,7 +39,10 @@
     OutlineMode,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
-  import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+  import {
+    DEFAULT_EDITOR_SETTINGS,
+    type MarkdownLspProvider,
+  } from "$lib/shared/types/editor_settings";
   import type {
     AiProviderConfig,
     AiTransport,
@@ -3170,17 +3173,15 @@
 
             <div class="SettingsDialog__section-divider"></div>
             <h3 class="SettingsDialog__section-subheader">
-              Marksman (Markdown LSP)
+              Markdown Language Server
             </h3>
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label"
-                  >Enable Marksman Language Server</span
-                >
+                <span class="SettingsDialog__label">Enable Markdown LSP</span>
                 <span class="SettingsDialog__description"
-                  >Enable Marksman for wiki-link completion, go-to-definition,
-                  hover, and diagnostics</span
+                  >Enable a language server for wiki-link completion,
+                  go-to-definition, hover, code actions, and diagnostics</span
                 >
               </div>
               <Switch.Root
@@ -3193,16 +3194,45 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Marksman Binary Path</span>
+                <span class="SettingsDialog__label">Provider</span>
                 <span class="SettingsDialog__description"
-                  >Custom path to the Marksman binary. Leave empty to use the
-                  bundled version</span
+                  >IWE adds graph transformations (extract, inline, restructure
+                  sections). Marksman provides standard markdown LSP features.</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.markdown_lsp_provider}
+                onValueChange={(v: string) => {
+                  update("markdown_lsp_provider", v as MarkdownLspProvider);
+                }}
+              >
+                <Select.Trigger class="w-48">
+                  {editor_settings.markdown_lsp_provider === "iwes"
+                    ? "IWE"
+                    : "Marksman"}
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="iwes">IWE</Select.Item>
+                  <Select.Item value="marksman">Marksman</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Binary Path</span>
+                <span class="SettingsDialog__description"
+                  >Custom path to the LSP binary. Leave empty to auto-detect
+                  from PATH or toolchain</span
                 >
               </div>
               <Input
                 type="text"
                 class="w-64"
-                placeholder="/usr/local/bin/marksman"
+                placeholder={editor_settings.markdown_lsp_provider === "iwes"
+                  ? "/usr/local/bin/iwes"
+                  : "/usr/local/bin/marksman"}
                 value={editor_settings.marksman_binary_path}
                 oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
                   update("marksman_binary_path", e.currentTarget.value);

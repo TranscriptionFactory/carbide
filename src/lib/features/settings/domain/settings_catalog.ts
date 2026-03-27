@@ -565,12 +565,29 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
-    key: "marksman_binary_path",
-    label: "Marksman Binary Path",
+    key: "markdown_lsp_provider",
+    label: "Markdown LSP Provider",
     description:
-      "Path to the Marksman binary. Leave empty to use the bundled version",
+      "Choose the language server for markdown files. IWE provides graph transformations (extract, inline, restructure). Marksman provides standard markdown LSP features.",
     category: "Tools",
-    keywords: ["marksman", "lsp", "binary", "path", "executable"],
+    keywords: [
+      "markdown",
+      "lsp",
+      "provider",
+      "iwes",
+      "iwe",
+      "marksman",
+      "language",
+      "server",
+    ],
+  },
+  {
+    key: "marksman_binary_path",
+    label: "Markdown LSP Binary Path",
+    description:
+      "Custom path to the LSP binary. Leave empty to auto-detect from PATH or toolchain",
+    category: "Tools",
+    keywords: ["marksman", "iwes", "lsp", "binary", "path", "executable"],
   },
   {
     key: "reference_enabled",

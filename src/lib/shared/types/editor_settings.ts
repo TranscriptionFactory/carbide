@@ -43,6 +43,7 @@ export type FileTreeStyle =
   | "macos_finder"
   | "refined";
 export type LintFormatter = "prettier" | "rumdl";
+export type MarkdownLspProvider = "iwes" | "marksman";
 
 export type EditorSettings = {
   attachment_folder: string;
@@ -107,6 +108,7 @@ export type EditorSettings = {
   lint_rules_toml: string;
   rumdl_binary_path: string;
   marksman_enabled: boolean;
+  markdown_lsp_provider: MarkdownLspProvider;
   marksman_binary_path: string;
   reference_enabled: boolean;
   reference_citation_style: string;
@@ -175,6 +177,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_rules_toml: "",
   rumdl_binary_path: "",
   marksman_enabled: true,
+  markdown_lsp_provider: "iwes",
   marksman_binary_path: "",
   reference_enabled: false,
   reference_citation_style: "apa",
