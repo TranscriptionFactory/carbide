@@ -2,18 +2,39 @@
 "carbide": minor
 ---
 
-### Reskinning Prototypes
+### Editor Pipeline Rewrite
 
-- Bases panel UI with actions for base management
-- LSP results panel redesign with expanded code action support
-- IWE results panel streamlined; actions moved to service layer
-- New hotkey bindings for bases and LSP features
+- Replaced markdown-it with remark/mdast pipeline for parsing and serialization
+- Extracted ProseMirror plugins into 16 composable extensions (Moraya Pattern)
+- Added Yjs integration with PM-only Y.Doc binding via ySyncPlugin
+- Removed prosemirror-markdown dependency
 
-### Linked Sources
+### LSP Unification — IWE → Marksman
 
-- Refactored linked source watcher from event-driven to pull-based file listing
-- Fixed linked source PDFs failing to load in content pane viewer — absolute file paths are now served via a `file` prefix in the `carbide-asset://` protocol
+- Replaced IWE language server with Marksman LSP
+- Deleted IWE backend, frontend modules, and all related tests
+- Renamed LSP plugins (iwe_* → lsp_*) and cleaned DI wiring
+- Unified document sync reactor across all LSP clients
 
-### UX
+### Backend Simplification
 
-- Changed folder-to-filename shortcut from Shift+Tab to Shift+Enter
+- Deleted Rust-side parsers, tags service, references service, and graph service
+- Moved link extraction, metadata extraction, and graph building to frontend
+- Removed ~5,000 lines of dead backend code (link_parser, frontmatter, markdown_doc, linked_source)
+
+### Layout System
+
+- Added 10 new layout variants: Spotlight, Cockpit, Theater, Triptych, Grounded Heavy, HUD, Zen Deck, Dashboard, Command Deck, Monolith
+- Replaced split-view system with multi-tab side pane
+- Added ActivityBar component with layout-aware positioning
+
+### Stability & Performance
+
+- Fixed memory leaks, data races, and timer deduplication issues (11 findings from state/memory audit)
+- Fixed git sync spinner hang and cache thrashing
+- Repaired broken CSS in glass, zen-deck, and command-deck themes
+- Fixed linked source PDF loading (vault scheme, double-slash normalization)
+
+### Status Bar
+
+- Merged count displays, collapsed git section, removed sync button
