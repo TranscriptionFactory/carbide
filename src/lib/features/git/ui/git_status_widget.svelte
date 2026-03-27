@@ -1,12 +1,5 @@
 <script lang="ts">
-  import {
-    GitBranch,
-    ArrowUp,
-    ArrowDown,
-    ArrowUpDown,
-    RefreshCw,
-    Link,
-  } from "@lucide/svelte";
+  import { GitBranch, ArrowUpDown, Link } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import type { GitSyncStatus } from "$lib/features/git/types/git";
 
@@ -88,93 +81,34 @@
     </button>
 
     {#if has_remote}
-      <div class="GitStatusGroup__remote">
-        <Tooltip.Provider delayDuration={0}>
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <button
-                  {...props}
-                  type="button"
-                  class="GitStatusGroup__btn"
-                  onclick={on_fetch}
-                  disabled={is_syncing}
-                  aria-label="Git fetch"
-                >
-                  <RefreshCw class="GitStatusGroup__btn-icon" />
-                </button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="top" sideOffset={4}>Fetch</Tooltip.Content>
-          </Tooltip.Root>
-
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <button
-                  {...props}
-                  type="button"
-                  class="GitStatusGroup__btn"
-                  onclick={on_pull}
-                  disabled={is_syncing}
-                  aria-label="Git pull{behind > 0 ? ` (${behind} behind)` : ''}"
-                >
-                  <ArrowDown class="GitStatusGroup__btn-icon" />
-                  {#if behind > 0}
-                    <span class="GitStatusGroup__count">{behind}</span>
-                  {/if}
-                </button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="top" sideOffset={4}>
-              Pull{behind > 0 ? ` (${behind} behind)` : ""}
-            </Tooltip.Content>
-          </Tooltip.Root>
-
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <button
-                  {...props}
-                  type="button"
-                  class="GitStatusGroup__btn"
-                  onclick={on_push}
-                  disabled={is_syncing}
-                  aria-label="Git push{ahead > 0 ? ` (${ahead} ahead)` : ''}"
-                >
-                  <ArrowUp class="GitStatusGroup__btn-icon" />
-                  {#if ahead > 0}
-                    <span class="GitStatusGroup__count">{ahead}</span>
-                  {/if}
-                </button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="top" sideOffset={4}>
-              Push{ahead > 0 ? ` (${ahead} ahead)` : ""}
-            </Tooltip.Content>
-          </Tooltip.Root>
-
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <button
-                  {...props}
-                  type="button"
-                  class="GitStatusGroup__btn"
-                  onclick={on_sync}
-                  disabled={is_syncing}
-                  aria-label="Git sync (commit all, pull, push)"
-                >
-                  <ArrowUpDown class="GitStatusGroup__btn-icon" />
-                </button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="top" sideOffset={4}>
-              Sync (commit all + pull + push)
-            </Tooltip.Content>
-          </Tooltip.Root>
-        </Tooltip.Provider>
-      </div>
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <button
+                {...props}
+                type="button"
+                class="GitStatusGroup__btn"
+                onclick={on_sync}
+                disabled={is_syncing}
+                aria-label="Git sync (commit all, pull, push)"
+              >
+                <ArrowUpDown class="GitStatusGroup__btn-icon" />
+                {#if ahead > 0 || behind > 0}
+                  <span class="GitStatusGroup__count">
+                    {#if behind > 0}↓{behind}{/if}{#if ahead > 0}↑{ahead}{/if}
+                  </span>
+                {/if}
+              </button>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content side="top" sideOffset={4}>
+            Sync{ahead > 0 || behind > 0
+              ? ` (${ahead > 0 ? `${ahead} ahead` : ""}${ahead > 0 && behind > 0 ? ", " : ""}${behind > 0 ? `${behind} behind` : ""})`
+              : ""}
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     {:else}
       <div class="GitStatusGroup__remote">
         <Tooltip.Provider delayDuration={0}>
