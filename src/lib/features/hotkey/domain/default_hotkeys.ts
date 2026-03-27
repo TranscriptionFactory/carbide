@@ -347,14 +347,6 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
-    action_id: ACTION_IDS.lsp_code_actions,
-    key: "CmdOrCtrl+.",
-    phase: "bubble",
-    label: "Code Actions",
-    description: "Show available code actions at cursor position",
-    category: "general",
-  },
-  {
     action_id: ACTION_IDS.lsp_toggle_results,
     key: "CmdOrCtrl+Shift+.",
     phase: "capture",
