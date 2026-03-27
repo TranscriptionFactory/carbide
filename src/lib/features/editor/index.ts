@@ -15,6 +15,7 @@ export {
 } from "$lib/features/editor/adapters/ydoc_manager";
 export { default as EditorStatusBar } from "$lib/features/editor/ui/editor_status_bar.svelte";
 export { default as SourceEditor } from "$lib/features/editor/ui/source_editor.svelte";
+export { default as EditorContextMenu } from "$lib/features/editor/ui/editor_context_menu.svelte";
 export type { EditorMode } from "$lib/features/editor/domain/editor_mode";
 export type {
   EditorAiContext,

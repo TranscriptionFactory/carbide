@@ -1,0 +1,37 @@
+# IWE Configuration — Carbide defaults
+# Documentation: https://github.com/iwe-org/iwe
+
+[actions.extract]
+type = "extract"
+title = "Extract section"
+key_template = "{{slug}}"
+
+[actions.extract_all]
+type = "extract_all"
+title = "Extract all subsections"
+key_template = "{{slug}}"
+
+[actions.inline_section]
+type = "inline"
+title = "Inline as section"
+inline_type = "section"
+
+[actions.inline_quote]
+type = "inline"
+title = "Inline as quote"
+inline_type = "quote"
+keep_target = true
+
+[actions.sort]
+type = "sort"
+title = "Sort list"
+
+[actions.sort_reverse]
+type = "sort"
+title = "Sort list (reverse)"
+reverse = true
+
+[actions.link]
+type = "link"
+title = "Create link"
+key_template = "{{slug}}"

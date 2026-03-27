@@ -2,6 +2,7 @@ import type { MarksmanPort } from "$lib/features/marksman/ports";
 import type { MarksmanStore } from "$lib/features/marksman/state/marksman_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type {
+  MarksmanCodeAction,
   MarksmanDiagnosticsEvent,
   MarksmanPrepareRenameResult,
   MarksmanTextEdit,
@@ -272,6 +273,32 @@ export class MarksmanService {
         this.store.set_error(e instanceof Error ? e.message : String(e));
       }
       this.store.set_code_actions([]);
+    }
+  }
+
+  async fetch_code_actions(
+    file_path: string,
+    start_line: number,
+    start_character: number,
+    end_line: number,
+    end_character: number,
+  ): Promise<MarksmanCodeAction[]> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || this.store.status !== "running") return [];
+
+    try {
+      return await this.port.code_actions(
+        vault_id,
+        file_path,
+        start_line,
+        start_character,
+        end_line,
+        end_character,
+      );
+    } catch (e) {
+      if (!this.handle_channel_closed(e))
+        log.from_error("fetch_code_actions failed", e);
+      return [];
     }
   }
 

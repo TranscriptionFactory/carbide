@@ -77,7 +77,7 @@ export function create_lsp_code_action_plugin(input: {
     for (const action of current_actions) {
       const item = document.createElement("button");
       item.type = "button";
-      item.className = "MarksmanCodeAction__item";
+      item.className = "LspCodeAction__item";
       item.textContent = action.title;
       item.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -131,21 +131,58 @@ export function create_lsp_code_action_plugin(input: {
       });
   }
 
+  function categorize_action(kind: string | null): string {
+    if (!kind) return "Other";
+    if (kind.startsWith("custom.")) return "IWE";
+    if (kind.startsWith("refactor.")) return "Refactor";
+    return "Other";
+  }
+
   function render_dropdown_lsp(view: EditorView, actions: LspAction[]) {
     if (!dropdown) return;
     dropdown.innerHTML = "";
+
+    const groups = new Map<string, LspAction[]>();
+    const group_order = ["IWE", "Refactor", "Other"];
     for (const action of actions) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "MarksmanCodeAction__item";
-      item.textContent = action.title;
-      item.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        hide_dropdown();
-        input.on_lsp_resolve?.(action);
-        view.focus();
-      });
-      dropdown.appendChild(item);
+      const category = categorize_action(action.kind);
+      const list = groups.get(category);
+      if (list) list.push(action);
+      else groups.set(category, [action]);
+    }
+
+    let rendered_count = 0;
+    for (const category of group_order) {
+      const group_actions = groups.get(category);
+      if (!group_actions) continue;
+
+      if (rendered_count > 0) {
+        const divider = document.createElement("div");
+        divider.className = "LspCodeAction__divider";
+        dropdown.appendChild(divider);
+      }
+
+      if (groups.size > 1) {
+        const header = document.createElement("div");
+        header.className = "LspCodeAction__header";
+        header.textContent = category;
+        dropdown.appendChild(header);
+      }
+
+      for (const action of group_actions) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "LspCodeAction__item";
+        item.textContent = action.title;
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          hide_dropdown();
+          input.on_lsp_resolve?.(action);
+          view.focus();
+        });
+        dropdown.appendChild(item);
+      }
+      rendered_count++;
     }
   }
 
@@ -230,7 +267,7 @@ export function create_lsp_code_action_plugin(input: {
 
     view(editor_view) {
       dropdown = document.createElement("div");
-      dropdown.className = "MarksmanCodeAction";
+      dropdown.className = "LspCodeAction";
       mount_dropdown(dropdown);
       detach_dismiss = attach_outside_dismiss(
         dropdown,

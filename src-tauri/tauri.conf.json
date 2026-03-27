@@ -24,7 +24,8 @@
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
-      "resources/models/**/*"
+      "resources/models/**/*",
+      "resources/iwe-default-config.toml"
     ],
     "macOS": {
       "signingIdentity": "-"

@@ -282,6 +282,15 @@ export const ACTION_IDS = {
   lsp_refresh_diagnostics: "lsp.refresh_diagnostics",
   lsp_toggle_results: "lsp.toggle_results",
 
+  iwe_extract_section: "iwe.extract_section",
+  iwe_extract_all: "iwe.extract_all",
+  iwe_inline_section: "iwe.inline_section",
+  iwe_inline_quote: "iwe.inline_quote",
+  iwe_list_to_sections: "iwe.list_to_sections",
+  iwe_section_to_list: "iwe.section_to_list",
+  iwe_sort_list: "iwe.sort_list",
+  iwe_create_link: "iwe.create_link",
+
   bases_toggle_panel: "bases.toggle_panel",
   bases_refresh: "bases.refresh",
   bases_save_view: "bases.save_view",

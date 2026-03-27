@@ -10,6 +10,7 @@
   import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
   import { GraphTabView } from "$lib/features/graph";
+  import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
   const { stores, action_registry } = use_app_context();
@@ -65,15 +66,17 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    <div
-      use:mount_editor={open_note}
-      class="NoteEditor__content"
-      class:NoteEditor__hidden={editor_mode !== "visual" &&
-        editor_mode !== "read_only"}
-      class:NoteEditor__read-only={editor_mode === "read_only"}
-      class:show-line-numbers={stores.ui.editor_settings
-        .source_editor_line_numbers}
-    ></div>
+    <EditorContextMenu>
+      <div
+        use:mount_editor={open_note}
+        class="NoteEditor__content"
+        class:NoteEditor__hidden={editor_mode !== "visual" &&
+          editor_mode !== "read_only"}
+        class:NoteEditor__read-only={editor_mode === "read_only"}
+        class:show-line-numbers={stores.ui.editor_settings
+          .source_editor_line_numbers}
+      ></div>
+    </EditorContextMenu>
     {#if editor_mode === "source"}
       {#key open_note.meta.id}
         <SourceEditor

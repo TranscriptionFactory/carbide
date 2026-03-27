@@ -54,6 +54,7 @@ import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
 import { MarksmanService } from "$lib/features/marksman";
 import { register_lsp_actions } from "$lib/features/lsp";
+import { register_iwe_actions } from "$lib/features/marksman";
 import {
   ToolchainService,
   register_toolchain_actions,
@@ -804,6 +805,15 @@ export function create_app_context(input: {
     ui_store: stores.ui,
     op_store: stores.op,
     marksman_service,
+    workspace_edit_deps,
+  });
+
+  register_iwe_actions({
+    registry: action_registry,
+    editor_store: stores.editor,
+    marksman_store: stores.marksman,
+    marksman_service,
+    ui_store: stores.ui,
     workspace_edit_deps,
   });
 
