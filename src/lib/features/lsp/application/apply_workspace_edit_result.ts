@@ -52,13 +52,16 @@ export async function apply_workspace_edit_result(
     );
   }
 
-  const all_paths = resolve_affected_paths(result, uri_to_path);
+  const modified_paths = resolve_uri_list(result.files_modified, uri_to_path);
+  const created_paths = resolve_uri_list(result.files_created, uri_to_path);
+  const deleted_paths = resolve_uri_list(result.files_deleted, uri_to_path);
+  const all_paths = [...modified_paths, ...created_paths, ...deleted_paths];
 
   for (const path of all_paths) {
     watcher_service.suppress_next(path);
   }
 
-  for (const path of all_paths) {
+  for (const path of modified_paths) {
     const open_path = editor_store.open_note?.meta.path;
     if (open_path === path) {
       await note_service.open_note(path, false, { force_reload: true });
@@ -70,7 +73,6 @@ export async function apply_workspace_edit_result(
     }
   }
 
-  const deleted_paths = resolve_uri_list(result.files_deleted, uri_to_path);
   for (const path of deleted_paths) {
     const tab = tab_store.find_tab_by_path(as_note_path(path));
     if (tab) {
@@ -78,28 +80,18 @@ export async function apply_workspace_edit_result(
     }
   }
 
-  const created_paths = resolve_uri_list(result.files_created, uri_to_path);
   const needs_tree_refresh =
     created_paths.length > 0 || deleted_paths.length > 0;
-  const needs_index_sync =
-    created_paths.length > 0 ||
-    deleted_paths.length > 0 ||
-    all_paths.length > 0;
 
-  if (needs_tree_refresh || needs_index_sync) {
+  if (all_paths.length > 0) {
     await reconcile_workspace(
       action_registry,
       {
         refresh_tree: needs_tree_refresh,
-        sync_index_paths: needs_index_sync
-          ? {
-              changed: [
-                ...created_paths,
-                ...resolve_uri_list(result.files_modified, uri_to_path),
-              ],
-              removed: deleted_paths,
-            }
-          : undefined,
+        sync_index_paths: {
+          changed: [...created_paths, ...modified_paths],
+          removed: deleted_paths,
+        },
       },
       {
         workspace_reconcile: deps.workspace_reconcile,
@@ -119,16 +111,4 @@ function resolve_uri_list(
     if (path) paths.push(path);
   }
   return paths;
-}
-
-function resolve_affected_paths(
-  result: MarksmanWorkspaceEditResult,
-  uri_to_path: (uri: string) => string | null,
-): string[] {
-  const all_uris = [
-    ...result.files_modified,
-    ...result.files_created,
-    ...result.files_deleted,
-  ];
-  return resolve_uri_list(all_uris, uri_to_path);
 }
