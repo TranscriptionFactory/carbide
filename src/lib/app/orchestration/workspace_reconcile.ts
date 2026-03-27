@@ -50,8 +50,8 @@ function merge_sync_paths(
   if (!existing) return incoming;
   if (!incoming) return existing;
   return {
-    changed: [...existing.changed, ...incoming.changed],
-    removed: [...existing.removed, ...incoming.removed],
+    changed: [...new Set([...existing.changed, ...incoming.changed])],
+    removed: [...new Set([...existing.removed, ...incoming.removed])],
   };
 }
 

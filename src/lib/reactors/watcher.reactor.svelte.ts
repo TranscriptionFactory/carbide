@@ -121,8 +121,8 @@ export function create_watcher_reactor(
       run: () => {
         const is_vault = vault_store.is_vault_mode;
         const full_sync = pending_full_sync && is_vault;
-        const changed = pending_changed_paths;
-        const removed = pending_removed_paths;
+        const changed = [...new Set(pending_changed_paths)];
+        const removed = [...new Set(pending_removed_paths)];
         pending_full_sync = false;
         pending_changed_paths = [];
         pending_removed_paths = [];

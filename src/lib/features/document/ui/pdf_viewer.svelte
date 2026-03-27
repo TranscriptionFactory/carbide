@@ -78,6 +78,7 @@
   });
   let text_loading = $state(false);
   let search_generation = $state(0);
+  let load_revision = 0;
 
   let applied_initial_zoom = false;
   let scroll_ticking = false;
@@ -87,6 +88,8 @@
   const ZOOM_STEP = 0.25;
 
   async function load_pdf(url: string) {
+    const revision = ++load_revision;
+    const prev_doc = pdf_doc;
     loading = true;
     error_msg = null;
     pdf_doc = null;
@@ -109,6 +112,8 @@
       observer = null;
     }
 
+    prev_doc?.destroy().catch(() => {});
+
     try {
       const pdfjs = await import("pdfjs-dist");
       pdfjs_module = pdfjs;
@@ -119,8 +124,13 @@
 
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`Failed to fetch PDF (${resp.status})`);
+      if (revision !== load_revision) return;
       const data = new Uint8Array(await resp.arrayBuffer());
       const doc = await pdfjs.getDocument({ data }).promise;
+      if (revision !== load_revision) {
+        doc.destroy().catch(() => {});
+        return;
+      }
       pdf_doc = doc;
       num_pages = doc.numPages;
 
@@ -134,12 +144,15 @@
         pdf_metadata = { page_count: doc.numPages };
       }
 
+      if (revision !== load_revision) return;
+
       const infos: PageInfo[] = [];
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const vp = page.getViewport({ scale: 1.0 });
         infos.push({ width: vp.width, height: vp.height });
       }
+      if (revision !== load_revision) return;
       page_infos = infos;
       loading = false;
     } catch (err) {

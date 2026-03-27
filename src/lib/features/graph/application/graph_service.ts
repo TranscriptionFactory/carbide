@@ -93,10 +93,11 @@ export class GraphService {
 
     try {
       const timeout_ms = 15_000;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const snapshot = await Promise.race([
         this.graph_port.load_vault_graph(vault_id),
         new Promise<never>((_, reject) => {
-          setTimeout(() => {
+          timer = setTimeout(() => {
             reject(
               new Error(
                 `Vault graph load timed out after ${String(timeout_ms)}ms`,
@@ -104,7 +105,7 @@ export class GraphService {
             );
           }, timeout_ms);
         }),
-      ]);
+      ]).finally(() => clearTimeout(timer));
       if (revision !== this.vault_load_revision) return;
       log.info("Vault graph loaded", {
         nodes: snapshot.stats.node_count,
@@ -166,6 +167,10 @@ export class GraphService {
   }
 
   clear(): void {
+    ++this.neighborhood_load_revision;
+    ++this.vault_load_revision;
+    ++this.semantic_load_revision;
+    ++this.hierarchy_load_revision;
     this.graph_store.clear();
   }
 

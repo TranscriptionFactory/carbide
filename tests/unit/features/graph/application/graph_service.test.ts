@@ -122,6 +122,31 @@ describe("GraphService", () => {
     expect(graph_store.status).toBe("idle");
   });
 
+  it("clear() invalidates in-flight neighborhood loads", async () => {
+    let resolve_load: (v: GraphNeighborhoodSnapshot) => void;
+    const deferred = new Promise<GraphNeighborhoodSnapshot>((r) => {
+      resolve_load = r;
+    });
+    vi.mocked(mock_graph_port.load_note_neighborhood).mockReturnValue(
+      deferred,
+    );
+
+    const load_promise = service.load_note_neighborhood("test.md");
+    service.clear();
+
+    resolve_load!({
+      center: { path: "test.md" },
+      backlinks: [],
+      outlinks: [],
+      orphan_links: [],
+      stats: {},
+    } as unknown as GraphNeighborhoodSnapshot);
+
+    await load_promise;
+    expect(graph_store.status).toBe("idle");
+    expect(graph_store.snapshot).toBeNull();
+  });
+
   it("refreshes current graph", async () => {
     graph_store.start_loading("test.md");
     const snapshot = {
