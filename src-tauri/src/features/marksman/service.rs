@@ -241,7 +241,9 @@ pub async fn marksman_start(
         request_timeout_ms: 30_000,
     };
 
-    let mut client = RestartableLspClient::start(RestartableConfig::new(config)).await;
+    let mut client = RestartableLspClient::start(RestartableConfig::new(config))
+        .await
+        .map_err(err)?;
 
     let trigger_characters = if preferred == "iwes" {
         vec!["+".to_string(), "[".to_string(), "(".to_string()]

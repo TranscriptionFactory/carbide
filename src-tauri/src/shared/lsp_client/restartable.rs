@@ -53,11 +53,12 @@ pub struct RestartableLspClient {
 }
 
 impl RestartableLspClient {
-    pub async fn start(config: RestartableConfig) -> Self {
+    pub async fn start(config: RestartableConfig) -> Result<Self, LspClientError> {
         let (request_tx, request_rx) = mpsc::channel::<RestartableOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
         let (status_tx, status_rx) = mpsc::channel::<LspSessionStatus>(16);
+        let (ready_tx, ready_rx) = oneshot::channel::<Result<(), LspClientError>>();
 
         let join_handle = tokio::spawn(run_loop(
             config,
@@ -65,15 +66,20 @@ impl RestartableLspClient {
             stop_rx,
             notification_tx,
             status_tx,
+            Some(ready_tx),
         ));
 
-        Self {
+        ready_rx
+            .await
+            .map_err(|_| LspClientError::ChannelClosed)??;
+
+        Ok(Self {
             request_tx,
             notification_rx: Some(notification_rx),
             status_rx: Some(status_rx),
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
-        }
+        })
     }
 
     pub fn take_notification_rx(&mut self) -> Option<mpsc::Receiver<ServerNotification>> {
@@ -142,6 +148,7 @@ async fn run_loop(
     mut stop_rx: oneshot::Receiver<()>,
     notification_fwd_tx: mpsc::Sender<ServerNotification>,
     status_tx: mpsc::Sender<LspSessionStatus>,
+    mut ready_tx: Option<oneshot::Sender<Result<(), LspClientError>>>,
 ) {
     let mut restart_count: u32 = 0;
 
@@ -170,17 +177,21 @@ async fn run_loop(
                     tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
                     continue;
                 }
-                emit_status(
-                    &status_tx,
-                    LspSessionStatus::Failed {
-                        message: e.to_string(),
-                    },
-                );
+                let failed_status = LspSessionStatus::Failed {
+                    message: e.to_string(),
+                };
+                emit_status(&status_tx, failed_status);
+                if let Some(tx) = ready_tx.take() {
+                    let _ = tx.send(Err(e));
+                }
                 return;
             }
         };
 
         emit_status(&status_tx, LspSessionStatus::Running);
+        if let Some(tx) = ready_tx.take() {
+            let _ = tx.send(Ok(()));
+        }
         restart_count = 0;
 
         let mut inner_notification_rx = client

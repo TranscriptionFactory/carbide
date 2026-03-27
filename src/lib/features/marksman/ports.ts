@@ -9,6 +9,7 @@ import type {
   MarksmanLocation,
   MarksmanPrepareRenameResult,
   MarksmanStartResult,
+  MarksmanStatusEvent,
   MarksmanSymbol,
   MarksmanTextEdit,
   MarksmanWorkspaceEditResult,
@@ -93,6 +94,7 @@ export interface MarksmanPort {
   subscribe_diagnostics(
     callback: (event: MarksmanDiagnosticsEvent) => void,
   ): () => void;
+  subscribe_status(callback: (event: MarksmanStatusEvent) => void): () => void;
 
   iwe_config_status(vault_id: string): Promise<IweConfigStatus>;
   iwe_config_reset(vault_id: string): Promise<void>;

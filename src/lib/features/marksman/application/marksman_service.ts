@@ -6,6 +6,7 @@ import type {
   MarksmanCodeAction,
   MarksmanDiagnosticsEvent,
   MarksmanPrepareRenameResult,
+  MarksmanStatusEvent,
   MarksmanTextEdit,
   MarksmanWorkspaceEditResult,
 } from "$lib/features/marksman/types";
@@ -47,6 +48,9 @@ export class MarksmanService {
   private lifecycle = Promise.resolve();
   private doc_versions = new Map<string, number>();
   private unsubscribe_diagnostics: (() => void) | null = null;
+  private unsubscribe_status: (() => void) | null = null;
+  private last_provider: string | undefined = undefined;
+  private last_custom_binary_path: string | undefined = undefined;
 
   constructor(
     private readonly port: MarksmanPort,
@@ -59,10 +63,14 @@ export class MarksmanService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
+    this.last_provider = provider;
+    this.last_custom_binary_path = custom_binary_path;
+
     await this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
         this.subscribe_diagnostics();
+        this.subscribe_status();
         const result = await this.port.start(
           vault_id,
           provider,
@@ -82,7 +90,7 @@ export class MarksmanService {
 
   async restart(): Promise<void> {
     await this.stop();
-    await this.start();
+    await this.start(this.last_provider, this.last_custom_binary_path);
   }
 
   async stop(): Promise<void> {
@@ -105,14 +113,39 @@ export class MarksmanService {
   private subscribe_diagnostics(): void {
     if (!this.diagnostics_store) return;
     this.unsubscribe_diagnostics = this.port.subscribe_diagnostics(
-      (event: MarksmanDiagnosticsEvent) => this.handle_diagnostics(event),
+      (event: MarksmanDiagnosticsEvent) => {
+        this.handle_diagnostics(event);
+      },
     );
+  }
+
+  private subscribe_status(): void {
+    this.unsubscribe_status = this.port.subscribe_status(
+      (event: MarksmanStatusEvent) => {
+        this.handle_status_change(event);
+      },
+    );
+  }
+
+  private handle_status_change(event: MarksmanStatusEvent): void {
+    const { status } = event;
+    if (status === "running") {
+      this.store.set_status("running");
+    } else if (status.startsWith("failed")) {
+      this.store.set_error(status);
+    } else if (status === "stopped") {
+      this.store.set_status("idle");
+    }
   }
 
   private unsubscribe_all(): void {
     if (this.unsubscribe_diagnostics) {
       this.unsubscribe_diagnostics();
       this.unsubscribe_diagnostics = null;
+    }
+    if (this.unsubscribe_status) {
+      this.unsubscribe_status();
+      this.unsubscribe_status = null;
     }
   }
 

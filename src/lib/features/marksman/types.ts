@@ -90,6 +90,14 @@ export type MarksmanDiagnosticsEvent = {
   diagnostics: MarksmanLspDiagnostic[];
 };
 
+export type MarksmanStatusEvent = {
+  type: "status_changed";
+  vault_id: string;
+  status: string;
+};
+
+export type MarksmanEvent = MarksmanDiagnosticsEvent | MarksmanStatusEvent;
+
 export type IweConfigStatus = {
   exists: boolean;
   config_url: string;

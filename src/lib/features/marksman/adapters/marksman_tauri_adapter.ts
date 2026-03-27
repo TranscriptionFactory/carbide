@@ -7,11 +7,13 @@ import type {
   MarksmanCompletionItem,
   MarksmanDiagnosticsEvent,
   MarksmanDocumentSymbol,
+  MarksmanEvent,
   MarksmanHoverResult,
   MarksmanInlayHint,
   MarksmanLocation,
   MarksmanPrepareRenameResult,
   MarksmanStartResult,
+  MarksmanStatusEvent,
   MarksmanSymbol,
   MarksmanTextEdit,
   MarksmanWorkspaceEditResult,
@@ -162,9 +164,46 @@ export function create_marksman_tauri_adapter(): MarksmanPort {
       let unlisten_fn: (() => void) | null = null;
       let is_disposed = false;
 
-      void listen<MarksmanDiagnosticsEvent>("marksman_event", (event) => {
+      void listen<MarksmanEvent>("marksman_event", (event) => {
         if (is_disposed) return;
-        callback(event.payload);
+        if (event.payload.type === "diagnostics_updated") {
+          callback(event.payload);
+        }
+      }).then((fn_ref) => {
+        if (is_disposed) {
+          try {
+            fn_ref();
+          } catch {
+            /* already disposed */
+          }
+          return;
+        }
+        unlisten_fn = fn_ref;
+      });
+
+      return () => {
+        is_disposed = true;
+        if (unlisten_fn) {
+          const fn_ref = unlisten_fn;
+          unlisten_fn = null;
+          try {
+            fn_ref();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+    },
+
+    subscribe_status(callback: (event: MarksmanStatusEvent) => void) {
+      let unlisten_fn: (() => void) | null = null;
+      let is_disposed = false;
+
+      void listen<MarksmanEvent>("marksman_event", (event) => {
+        if (is_disposed) return;
+        if (event.payload.type === "status_changed") {
+          callback(event.payload);
+        }
       }).then((fn_ref) => {
         if (is_disposed) {
           try {
