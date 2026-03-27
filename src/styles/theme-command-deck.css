@@ -112,15 +112,6 @@
     box-shadow: var(--shadow-sm);
     z-index: 100;
     overflow: hidden;
-    transition: left var(--duration-default) var(--ease-default), right var(--duration-default) var(--ease-default);
-  }
-
-  [data-sidebar-open="true"] .TabBar {
-    left: calc(var(--command-deck-sidebar-width) + var(--space-4));
-  }
-
-  [data-context-rail-open="true"] .TabBar {
-    right: calc(var(--command-deck-sidebar-width) + var(--space-4));
   }
 
   .TabBar__tab {
@@ -167,18 +158,12 @@
   .NoteEditor {
     background-color: var(--background);
     position: relative;
-    padding-inline: var(--space-4);
-    transition: padding-left var(--duration-default) var(--ease-default), padding-right var(--duration-default) var(--ease-default);
+    padding-inline: var(--space-2);
   }
 
-  [data-sidebar-open="true"] .NoteEditor {
-    padding-left: calc(var(--command-deck-sidebar-width) + var(--space-4));
+  .ProseMirror {
+    padding: var(--space-8) var(--space-4) !important;
   }
-
-  [data-context-rail-open="true"] .NoteEditor {
-    padding-right: calc(var(--command-deck-sidebar-width) + var(--space-4));
-  }
-
 
   .SplitViewContainer {
     height: 100%;
