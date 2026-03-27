@@ -38,7 +38,6 @@ export function register_lsp_actions(input: {
     id: ACTION_IDS.lsp_code_actions,
     label: "Code Actions",
     execute: async () => {
-      lsp_store.set_code_actions([]);
       ui_store.bottom_panel_open = true;
       ui_store.bottom_panel_tab = "lsp_results";
     },
