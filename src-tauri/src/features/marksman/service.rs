@@ -1082,12 +1082,14 @@ pub async fn iwe_config_status(
 ) -> Result<IweConfigStatus, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let config_path = vault_path.join(".iwe").join("config.toml");
-    let display_path = config_path.display().to_string();
+    let config_url = url::Url::from_file_path(&config_path)
+        .map(|u| u.to_string())
+        .unwrap_or_default();
 
     if !config_path.exists() {
         return Ok(IweConfigStatus {
             exists: false,
-            path: display_path,
+            config_url,
             action_count: 0,
             action_names: vec![],
         });
@@ -1109,7 +1111,7 @@ pub async fn iwe_config_status(
 
     Ok(IweConfigStatus {
         exists: true,
-        path: display_path,
+        config_url,
         action_count: action_names.len(),
         action_names,
     })
@@ -1127,8 +1129,11 @@ pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), St
         .resolve("resources/iwe-default-config.toml", tauri::path::BaseDirectory::Resource)
         .map_err(|e| format!("Failed to resolve default config: {}", e))?;
 
-    let _ = std::fs::create_dir_all(&iwe_dir);
-    std::fs::copy(&default_config, &config_path)
+    tokio::fs::create_dir_all(&iwe_dir)
+        .await
+        .map_err(|e| format!("Failed to create .iwe directory: {}", e))?;
+    tokio::fs::copy(&default_config, &config_path)
+        .await
         .map_err(|e| format!("Failed to copy default config: {}", e))?;
 
     log::info!("Reset IWE config at {}", config_path.display());

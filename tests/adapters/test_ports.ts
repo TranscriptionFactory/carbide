@@ -139,7 +139,7 @@ export function create_test_ports(): Ports {
       iwe_config_status: () =>
         Promise.resolve({
           exists: false,
-          path: "",
+          config_url: "",
           action_count: 0,
           action_names: [],
         }),

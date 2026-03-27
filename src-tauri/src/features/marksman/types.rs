@@ -85,7 +85,7 @@ pub struct MarksmanStartResult {
 #[derive(Debug, Serialize, Type)]
 pub struct IweConfigStatus {
     pub exists: bool,
-    pub path: String,
+    pub config_url: String,
     pub action_count: usize,
     pub action_names: Vec<String>,
 }

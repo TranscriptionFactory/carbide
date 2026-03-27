@@ -84,16 +84,21 @@
   const image_paste_error = $derived(stores.op.get("asset.write").error);
 
   let iwe_config_status: IweConfigStatus | null = $state(null);
+  let iwe_fetch_seq = 0;
 
   async function fetch_iwe_config_status() {
+    const seq = ++iwe_fetch_seq;
     const vault_id = stores.vault.vault?.id;
     if (!vault_id) {
       iwe_config_status = null;
       return;
     }
     try {
-      iwe_config_status = await ports.marksman.iwe_config_status(vault_id);
+      const result = await ports.marksman.iwe_config_status(vault_id);
+      if (seq !== iwe_fetch_seq) return;
+      iwe_config_status = result;
     } catch {
+      if (seq !== iwe_fetch_seq) return;
       iwe_config_status = null;
     }
   }

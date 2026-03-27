@@ -92,7 +92,7 @@ export type MarksmanDiagnosticsEvent = {
 
 export type IweConfigStatus = {
   exists: boolean;
-  path: string;
+  config_url: string;
   action_count: number;
   action_names: string[];
 };
