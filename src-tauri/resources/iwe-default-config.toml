@@ -1,8 +1,11 @@
+version = 3
 # IWE Configuration — Carbide defaults
 # Documentation: https://github.com/iwe-org/iwe
 
 [library]
 path = ""
+
+[commands]
 
 [actions.extract]
 type = "extract"
@@ -38,3 +41,6 @@ reverse = true
 type = "link"
 title = "Create link"
 key_template = "{{slug}}"
+
+[markdown]
+refs_extension = ""
