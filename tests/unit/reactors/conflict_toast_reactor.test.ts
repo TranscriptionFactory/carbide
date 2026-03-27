@@ -33,6 +33,7 @@ function mock_tab(path: string): Tab {
     title: path.replace(".md", ""),
     is_pinned: false,
     is_dirty: true,
+    pane: "primary",
   };
 }
 

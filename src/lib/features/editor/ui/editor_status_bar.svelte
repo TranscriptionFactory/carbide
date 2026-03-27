@@ -3,8 +3,6 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { LintStatusIndicator } from "$lib/features/lint";
-  import { IweStatusIndicator } from "$lib/features/iwe";
-  import type { IweStatus } from "$lib/features/iwe";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
@@ -36,9 +34,6 @@
     lint_warning_count: number;
     on_lint_click: () => void;
     on_lint_format_click: () => void;
-    iwe_status: IweStatus;
-    iwe_error: string | null;
-    on_iwe_click?: () => void;
     status_bar_items?: StatusBarItem[];
     on_vault_click: () => void;
     on_info_click: () => void;
@@ -79,9 +74,6 @@
     lint_warning_count,
     on_lint_click,
     on_lint_format_click,
-    iwe_status,
-    iwe_error,
-    on_iwe_click,
     status_bar_items = [],
     on_vault_click,
     on_info_click,
@@ -145,17 +137,22 @@
 
 <div class="StatusBar">
   <div class="StatusBar__section">
-    <span class="StatusBar__item">
-      Ln {line ?? "--"}, Col {column ?? "--"}
-    </span>
-    <span class="StatusBar__separator" aria-hidden="true"></span>
-    <span class="StatusBar__item">
-      {has_note ? word_count : "--"} words
-    </span>
-    <span class="StatusBar__separator" aria-hidden="true"></span>
-    <span class="StatusBar__item">
-      {has_note ? line_count : "--"} lines
-    </span>
+    <Tooltip.Provider delayDuration={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <span {...props} class="StatusBar__item">
+              {has_note ? word_count : "--"} words
+            </span>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top" sideOffset={4}>
+          Ln {line ?? "--"}, Col {column ?? "--"} · {has_note
+            ? line_count
+            : "--"} lines
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
     <span class="StatusBar__separator" aria-hidden="true"></span>
     <button
       type="button"
@@ -191,14 +188,6 @@
       on_click={on_lint_click}
       on_format_click={on_lint_format_click}
     />
-    {#if iwe_status !== "idle"}
-      <span class="StatusBar__separator" aria-hidden="true"></span>
-      <IweStatusIndicator
-        status={iwe_status}
-        error={iwe_error}
-        {...on_iwe_click ? { onclick: on_iwe_click } : {}}
-      />
-    {/if}
   </div>
   <div class="StatusBar__section">
     {#if is_repairing_links}
@@ -211,6 +200,7 @@
 
     {#if is_indexing}
       <span class="StatusBar__item StatusBar__item--indexing">
+        <RefreshCw class="StatusBar__spinner" />
         {#if show_index_counts}
           <span>Indexing {index_progress.indexed}/{index_progress.total}</span>
         {:else}
@@ -219,9 +209,14 @@
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {:else if index_progress.status === "failed"}
-      <span class="StatusBar__item StatusBar__item--failed">
-        <span>Index failed</span>
-      </span>
+      <button
+        type="button"
+        class="StatusBar__item StatusBar__item--failed StatusBar__item--clickable"
+        onclick={on_sync_click}
+        aria-label="Index failed — click to retry"
+      >
+        <span>Index failed — retry</span>
+      </button>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {:else if show_completed}
       <span class="StatusBar__item StatusBar__item--completed">
@@ -274,28 +269,6 @@
         on_add_remote={on_git_add_remote}
       />
     {/if}
-    <Tooltip.Provider delayDuration={0}>
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <button
-              {...props}
-              type="button"
-              class="StatusBar__action"
-              class:StatusBar__action--active={is_indexing}
-              onclick={on_sync_click}
-              disabled={!vault_name || is_indexing}
-              aria-label={sync_tooltip}
-            >
-              <RefreshCw class={is_indexing ? "StatusBar__spinner" : ""} />
-            </button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top" sideOffset={4}>
-          {sync_tooltip}
-        </Tooltip.Content>
-      </Tooltip.Root>
-    </Tooltip.Provider>
   </div>
 </div>
 
@@ -344,6 +317,15 @@
 
   .StatusBar__item--saved {
     opacity: 0.7;
+  }
+
+  .StatusBar__item--clickable {
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  .StatusBar__item--clickable:hover {
+    color: var(--interactive);
   }
 
   .StatusBar__separator {

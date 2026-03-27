@@ -2,10 +2,7 @@ import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.sv
 import { create_editor_appearance_reactor } from "$lib/reactors/editor_appearance.reactor.svelte";
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_theme_reactor } from "$lib/reactors/theme.reactor.svelte";
-import {
-  create_autosave_reactor,
-  create_split_view_autosave_reactor,
-} from "$lib/reactors/autosave.reactor.svelte";
+import { create_autosave_reactor } from "$lib/reactors/autosave.reactor.svelte";
 import { create_op_toast_reactor } from "$lib/reactors/op_toast.reactor.svelte";
 import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_persist.reactor.svelte";
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
@@ -22,7 +19,6 @@ import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.
 import { create_file_open_reactor } from "$lib/reactors/file_open.reactor.svelte";
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
-import { create_split_view_persist_reactor } from "$lib/reactors/split_view_persist.reactor.svelte";
 import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
@@ -32,15 +28,13 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
-import { create_iwe_lifecycle_reactor } from "$lib/reactors/iwe_lifecycle.reactor.svelte";
+import { create_marksman_lifecycle_reactor } from "$lib/reactors/marksman_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_toolchain_lifecycle_reactor } from "$lib/reactors/toolchain_lifecycle.reactor.svelte";
-import { create_linked_source_sync_reactor } from "$lib/reactors/linked_source_sync.reactor.svelte";
 import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostics_active_file.reactor.svelte";
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
-import { create_split_view_content_sync_reactor } from "$lib/reactors/split_view_content_sync.reactor.svelte";
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -63,8 +57,7 @@ import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import type { SplitViewStore } from "$lib/features/split_view";
-import type { SplitViewService } from "$lib/features/split_view";
+import type { SecondaryEditorManager } from "$lib/features/tab";
 import type { DocumentService } from "$lib/features/document";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
@@ -72,14 +65,13 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
-import type { IweStore, IweService } from "$lib/features/iwe";
+import type { MarksmanStore, MarksmanService } from "$lib/features/marksman";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
 import type { CodeLspService } from "$lib/features/code_lsp";
-import type { ReferenceService } from "$lib/features/reference";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -107,23 +99,21 @@ export type ReactorContext = {
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
   workspace_reconcile?: WorkspaceReconcile | undefined;
-  split_view_store: SplitViewStore;
-  split_view_service: SplitViewService;
+  secondary_editor_manager: SecondaryEditorManager;
   document_service: DocumentService;
   task_service: TaskService;
   plugin_service: PluginService;
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
-  iwe_store: IweStore;
+  marksman_store: MarksmanStore;
+  marksman_service: MarksmanService;
   diagnostics_store: DiagnosticsStore;
-  iwe_service: IweService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
-  reference_service: ReferenceService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -143,12 +133,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.note_service,
       context.tab_service,
       "primary",
-    ),
-    create_split_view_autosave_reactor(
-      () => context.split_view_service.get_secondary_editor_store(),
-      context.ui_store,
-      context.note_service,
-      context.tab_service,
     ),
     create_theme_reactor(context.ui_store),
     create_op_toast_reactor(context.op_store),
@@ -203,7 +187,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_backlinks_sync_reactor(
       context.editor_store,
       context.ui_store,
-      context.search_store,
+      context.marksman_store,
       context.links_store,
       context.links_service,
     ),
@@ -229,11 +213,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.action_registry,
       context.workspace_reconcile,
     ),
-    create_split_view_persist_reactor(
-      context.split_view_store,
-      context.vault_store,
-      context.split_view_service,
-    ),
     create_document_cache_reactor(
       context.tab_store,
       context.ui_store,
@@ -247,7 +226,6 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
     create_graph_refresh_reactor(
       context.graph_store,
-      context.search_store,
       context.vault_store,
       context.graph_service,
     ),
@@ -279,15 +257,8 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_service,
     ),
     create_update_check_reactor(),
-    create_split_view_content_sync_reactor(
-      context.editor_store,
-      context.editor_service,
-      context.split_view_service,
-      context.split_view_store,
-    ),
     create_metadata_sync_reactor(
       context.editor_store,
-      context.search_store,
       context.ui_store,
       context.metadata_store,
       context.metadata_service,
@@ -296,21 +267,26 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.plugin_service,
     ),
-    create_iwe_lifecycle_reactor(context.vault_store, context.iwe_service),
+    create_marksman_lifecycle_reactor(
+      context.vault_store,
+      context.marksman_service,
+      context.ui_store,
+    ),
     create_lsp_document_sync_reactor(context.editor_store, [
       {
-        is_ready: () => context.iwe_store.status === "running",
-        debounce_ms: 500,
-        skip_draft: true,
-        on_open: async (path, content) => {
-          await context.iwe_service.did_open(path, content);
-          void context.iwe_service.document_symbols(path);
+        is_ready: () => context.marksman_store.status === "running",
+        debounce_ms: 300,
+        on_open: (path, content) => {
+          void context.marksman_service
+            .did_open(path, content)
+            .then(() => context.marksman_service.document_symbols(path));
         },
         on_change: (path, content) =>
-          void context.iwe_service.did_change(path, content),
+          void context.marksman_service.did_change(path, content),
         on_save: (path, content) =>
-          void context.iwe_service.did_save(path, content),
-        on_close: (path) => context.diagnostics_store.clear_file("iwe", path),
+          void context.marksman_service.did_save(path, content),
+        on_close: (path) =>
+          context.diagnostics_store.clear_file("marksman", path),
       },
       {
         is_ready: () => context.lint_store.is_running,
@@ -338,11 +314,6 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_toolchain_lifecycle_reactor(
       context.vault_store,
       context.toolchain_service,
-    ),
-    create_linked_source_sync_reactor(
-      context.vault_store,
-      context.reference_service,
-      context.search_store,
     ),
   ];
 

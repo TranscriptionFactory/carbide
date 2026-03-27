@@ -139,6 +139,7 @@ export function apply_theme(
   }
 
   root.setAttribute("data-color-scheme", theme.color_scheme);
+  root.setAttribute("data-layout-variant", theme.layout_variant);
   root.style.setProperty("color-scheme", theme.color_scheme);
 
   const shiki_theme =

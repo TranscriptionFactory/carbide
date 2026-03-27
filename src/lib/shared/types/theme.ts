@@ -20,8 +20,16 @@ export type ThemeCodeBlockStyle = "default" | "borderless" | "filled";
 export type ThemeLayoutVariant =
   | "default"
   | "monolith"
-  | "terminal"
-  | "workbench";
+  | "grounded_heavy"
+  | "hud"
+  | "zen_deck"
+  | "dashboard"
+  | "workbench"
+  | "command_deck"
+  | "spotlight"
+  | "cockpit"
+  | "theater"
+  | "triptych";
 
 export type Theme = {
   id: string;
@@ -817,7 +825,7 @@ export const BUILTIN_LINEAR_DARK: Theme = {
     "--border": "oklch(1 0 0 / 8%)",
     "--input": "oklch(1 0 0 / 12%)",
     "--ring": "oklch(1 0 0 / 20%)",
-    "--sidebar": "oklch(0.13 0 0)",
+    "--sidebar": "oklch(1 0 0 / 0%)",
     "--sidebar-foreground": "oklch(0.985 0 0)",
     "--sidebar-border": "oklch(1 0 0 / 8%)",
     "--background-surface-2": "oklch(0.14 0 0)",
@@ -833,11 +841,381 @@ export const BUILTIN_LINEAR_DARK: Theme = {
     "--selection-bg": "oklch(0.22 0 0)",
     "--border-width-default": "1px",
     "--shadow-sm":
-      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 15%, transparent)",
+      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
     "--shadow-md":
       "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
     "--size-activity-bar": "2.5rem",
     "--size-activity-icon": "1.125rem",
+  },
+};
+
+export const BUILTIN_MONOLITH_LIGHT: Theme = {
+  id: "monolith-light",
+  name: "Monolith Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "monolith",
+  font_family_sans: "Newsreader",
+  font_family_mono: "JetBrains Mono",
+  font_size: 1.125,
+  line_height: 1.8,
+  spacing: "spacious",
+  token_overrides: {
+    "--background": "oklch(0.98 0.005 80)",
+    "--foreground": "oklch(0.25 0.01 60)",
+    "--card": "oklch(1 0 0 / 80%)",
+    "--primary": "oklch(0.3 0.02 60)",
+    "--muted": "oklch(0.95 0.005 80)",
+    "--border": "oklch(0 0 0 / 5%)",
+    "--radius": "0.75rem",
+    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 8%)",
+    "--editor-max-width": "70ch",
+    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
+    "--font-mono": '"JetBrains Mono", monospace',
+  },
+};
+
+export const BUILTIN_MONOLITH_DARK: Theme = {
+  id: "monolith-dark",
+  name: "Monolith Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "monolith",
+  font_family_sans: "Newsreader",
+  font_family_mono: "JetBrains Mono",
+  font_size: 1.125,
+  line_height: 1.8,
+  spacing: "spacious",
+  token_overrides: {
+    "--background": "oklch(0.12 0 0)",
+    "--foreground": "oklch(0.85 0 0)",
+    "--card": "oklch(0.15 0 0 / 80%)",
+    "--primary": "oklch(0.9 0 0)",
+    "--muted": "oklch(0.18 0 0)",
+    "--border": "oklch(1 0 0 / 5%)",
+    "--radius": "0.75rem",
+    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 50%)",
+    "--editor-max-width": "70ch",
+    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
+    "--font-mono": '"JetBrains Mono", monospace',
+  },
+};
+
+export const BUILTIN_WORKBENCH_LIGHT: Theme = {
+  id: "workbench-light",
+  name: "Workbench Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "workbench",
+  accent_hue: 25,
+  accent_chroma: 0.2,
+  token_overrides: {
+    "--background": "oklch(0.9 0.01 250)",
+    "--foreground": "oklch(0.2 0.01 250)",
+    "--card": "oklch(0.94 0.01 250)",
+    "--muted": "oklch(0.85 0.01 250)",
+    "--border": "oklch(0.75 0.01 250)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.6 0.2 25)",
+    "--sidebar": "oklch(0.88 0.01 250)",
+    "--sidebar-border": "oklch(0.7 0.01 250)",
+    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 10%)",
+    "--shadow-md":
+      "0 4px 6px -1px oklch(0 0 0 / 10%), 0 2px 4px -1px oklch(0 0 0 / 6%)",
+    "--shadow-lg":
+      "0 10px 15px -3px oklch(0 0 0 / 10%), 0 4px 6px -2px oklch(0 0 0 / 5%)",
+    "--border-width-default": "2px",
+  },
+};
+
+export const BUILTIN_WORKBENCH_DARK: Theme = {
+  id: "workbench-dark",
+  name: "Workbench Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "workbench",
+  accent_hue: 25,
+  accent_chroma: 0.2,
+  token_overrides: {
+    "--background": "oklch(0.15 0.01 250)",
+    "--foreground": "oklch(0.9 0.01 250)",
+    "--card": "oklch(0.18 0.01 250)",
+    "--muted": "oklch(0.12 0.01 250)",
+    "--border": "oklch(0.25 0.01 250)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.7 0.2 25)",
+    "--sidebar": "oklch(0.13 0.01 250)",
+    "--sidebar-border": "oklch(0.1 0.01 250)",
+    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 40%)",
+    "--shadow-md": "0 4px 6px -1px oklch(0 0 0 / 40%)",
+    "--shadow-lg": "0 10px 15px -3px oklch(0 0 0 / 50%)",
+    "--border-width-default": "2px",
+  },
+};
+
+export const BUILTIN_COMMAND_DECK_LIGHT: Theme = {
+  id: "command-deck-light",
+  name: "Command Deck Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "command_deck",
+  accent_hue: 200,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.98 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0.9 0 0)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.5 0.15 200)",
+  },
+};
+
+export const BUILTIN_COMMAND_DECK_DARK: Theme = {
+  id: "command-deck-dark",
+  name: "Command Deck Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "command_deck",
+  accent_hue: 200,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.14 0 0)",
+    "--border": "oklch(0.2 0 0)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.7 0.15 200)",
+  },
+};
+
+export const BUILTIN_GROUNDED_HEAVY_DARK: Theme = {
+  id: "grounded-heavy-dark",
+  name: "Grounded Heavy Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "grounded_heavy",
+  accent_hue: 240,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.14 0.01 240)",
+    "--border": "oklch(0.22 0.01 240)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.65 0.12 240)",
+  },
+};
+
+export const BUILTIN_HUD_DARK: Theme = {
+  id: "hud-dark",
+  name: "HUD Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "hud",
+  accent_hue: 280,
+  accent_chroma: 0.15,
+  token_overrides: {
+    "--background": "oklch(0.08 0 0)",
+    "--card": "oklch(0.12 0 0 / 0.8)",
+    "--border": "oklch(0.2 0 0 / 0.5)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.7 0.15 280)",
+  },
+};
+
+export const BUILTIN_ZEN_DECK_DARK: Theme = {
+  id: "zen-deck-dark",
+  name: "Zen Deck Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "zen_deck",
+  accent_hue: 180,
+  accent_chroma: 0.05,
+  token_overrides: {
+    "--background": "oklch(0.05 0 0)",
+    "--card": "oklch(0.1 0 0 / 0.9)",
+    "--border": "oklch(0.15 0 0)",
+    "--radius": "2rem",
+    "--primary": "oklch(0.6 0.05 180)",
+  },
+};
+
+export const BUILTIN_DASHBOARD_DARK: Theme = {
+  id: "dashboard-dark",
+  name: "Dashboard Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "dashboard",
+  accent_hue: 220,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.1 0 0)",
+    "--card": "oklch(0.12 0.02 220)",
+    "--border": "oklch(0.18 0.02 220)",
+    "--radius": "0.5rem",
+    "--primary": "oklch(0.6 0.15 220)",
+  },
+};
+
+export const BUILTIN_SPOTLIGHT_LIGHT: Theme = {
+  id: "spotlight-light",
+  name: "Spotlight Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "spotlight",
+  accent_hue: 210,
+  accent_chroma: 0.06,
+  token_overrides: {
+    "--background": "oklch(0.98 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0 0 0 / 8%)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.45 0.06 210)",
+    "--shadow-md":
+      "0 8px 24px -4px oklch(0 0 0 / 8%), 0 2px 8px -2px oklch(0 0 0 / 4%)",
+  },
+};
+
+export const BUILTIN_SPOTLIGHT_DARK: Theme = {
+  id: "spotlight-dark",
+  name: "Spotlight Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "spotlight",
+  accent_hue: 210,
+  accent_chroma: 0.06,
+  token_overrides: {
+    "--background": "oklch(0.06 0 0)",
+    "--card": "oklch(0.12 0 0)",
+    "--border": "oklch(1 0 0 / 8%)",
+    "--radius": "1rem",
+    "--primary": "oklch(0.7 0.06 210)",
+    "--shadow-md":
+      "0 8px 24px -4px oklch(0 0 0 / 30%), 0 2px 8px -2px oklch(0 0 0 / 20%)",
+  },
+};
+
+export const BUILTIN_COCKPIT_LIGHT: Theme = {
+  id: "cockpit-light",
+  name: "Cockpit Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "cockpit",
+  accent_hue: 170,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.97 0.005 170)",
+    "--card": "oklch(0.99 0.003 170)",
+    "--border": "oklch(0.9 0.008 170)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.48 0.12 170)",
+  },
+};
+
+export const BUILTIN_COCKPIT_DARK: Theme = {
+  id: "cockpit-dark",
+  name: "Cockpit Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "cockpit",
+  accent_hue: 170,
+  accent_chroma: 0.12,
+  token_overrides: {
+    "--background": "oklch(0.1 0.005 170)",
+    "--card": "oklch(0.14 0.005 170)",
+    "--border": "oklch(0.22 0.005 170)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.65 0.12 170)",
+  },
+};
+
+export const BUILTIN_THEATER_LIGHT: Theme = {
+  id: "theater-light",
+  name: "Theater Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "theater",
+  accent_hue: 260,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.99 0 0)",
+    "--card": "oklch(1 0 0)",
+    "--border": "oklch(0 0 0 / 6%)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.5 0.1 260)",
+    "--interactive": "oklch(0.5 0.12 260)",
+  },
+};
+
+export const BUILTIN_THEATER_DARK: Theme = {
+  id: "theater-dark",
+  name: "Theater Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "theater",
+  accent_hue: 260,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.05 0 0)",
+    "--card": "oklch(0.1 0 0)",
+    "--border": "oklch(1 0 0 / 6%)",
+    "--radius": "0.75rem",
+    "--primary": "oklch(0.7 0.1 260)",
+    "--interactive": "oklch(0.7 0.12 260)",
+  },
+};
+
+export const BUILTIN_TRIPTYCH_LIGHT: Theme = {
+  id: "triptych-light",
+  name: "Triptych Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "triptych",
+  accent_hue: 145,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.98 0.003 145)",
+    "--card": "oklch(1 0 0)",
+    "--background-surface-2": "oklch(0.96 0.005 145)",
+    "--background-surface-3": "oklch(0.94 0.008 145)",
+    "--border": "oklch(0.88 0.01 145)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.45 0.1 145)",
+  },
+};
+
+export const BUILTIN_TRIPTYCH_DARK: Theme = {
+  id: "triptych-dark",
+  name: "Triptych Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "triptych",
+  accent_hue: 145,
+  accent_chroma: 0.1,
+  token_overrides: {
+    "--background": "oklch(0.12 0.003 145)",
+    "--card": "oklch(0.15 0.005 145)",
+    "--background-surface-2": "oklch(0.14 0.005 145)",
+    "--background-surface-3": "oklch(0.17 0.008 145)",
+    "--border": "oklch(0.25 0.008 145)",
+    "--radius": "0.25rem",
+    "--primary": "oklch(0.65 0.1 145)",
   },
 };
 
@@ -858,6 +1236,24 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_DENSE_DARK,
   BUILTIN_LINEAR_LIGHT,
   BUILTIN_LINEAR_DARK,
+  BUILTIN_MONOLITH_LIGHT,
+  BUILTIN_MONOLITH_DARK,
+  BUILTIN_WORKBENCH_LIGHT,
+  BUILTIN_WORKBENCH_DARK,
+  BUILTIN_COMMAND_DECK_LIGHT,
+  BUILTIN_COMMAND_DECK_DARK,
+  BUILTIN_GROUNDED_HEAVY_DARK,
+  BUILTIN_HUD_DARK,
+  BUILTIN_ZEN_DECK_DARK,
+  BUILTIN_DASHBOARD_DARK,
+  BUILTIN_SPOTLIGHT_LIGHT,
+  BUILTIN_SPOTLIGHT_DARK,
+  BUILTIN_COCKPIT_LIGHT,
+  BUILTIN_COCKPIT_DARK,
+  BUILTIN_THEATER_LIGHT,
+  BUILTIN_THEATER_DARK,
+  BUILTIN_TRIPTYCH_LIGHT,
+  BUILTIN_TRIPTYCH_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {

@@ -24,10 +24,7 @@ import {
   LinksService,
   register_links_actions,
 } from "$lib/features/links";
-import {
-  SplitViewService,
-  register_split_view_actions,
-} from "$lib/features/split_view";
+import { SecondaryEditorManager } from "$lib/features/tab";
 import {
   register_terminal_actions,
   TerminalService,
@@ -55,7 +52,7 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
-import { IweService, register_iwe_actions } from "$lib/features/iwe";
+import { MarksmanService } from "$lib/features/marksman";
 import { register_lsp_actions } from "$lib/features/lsp";
 import {
   ToolchainService,
@@ -199,11 +196,11 @@ export function create_app_context(input: {
         note_path,
         image: file,
       }),
-    on_iwe_hover: async (file_path, line, character) => {
+    on_marksman_hover: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.iwe.status !== "running") return null;
+      if (!vault_id || stores.marksman.status !== "running") return null;
       try {
-        return await input.ports.iwe.hover(
+        return await input.ports.marksman.hover(
           vault_id,
           file_path,
           line,
@@ -213,11 +210,11 @@ export function create_app_context(input: {
         return null;
       }
     },
-    on_iwe_definition: async (file_path, line, character) => {
+    on_marksman_definition: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.iwe.status !== "running") return [];
+      if (!vault_id || stores.marksman.status !== "running") return [];
       try {
-        return await input.ports.iwe.definition(
+        return await input.ports.marksman.definition(
           vault_id,
           file_path,
           line,
@@ -227,7 +224,7 @@ export function create_app_context(input: {
         return [];
       }
     },
-    on_iwe_definition_navigate: (uri: string) => {
+    on_marksman_definition_navigate: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
       let decoded: string;
@@ -241,13 +238,13 @@ export function create_app_context(input: {
       const relative_path = decoded.slice(prefix.length);
       void action_registry.execute(ACTION_IDS.note_open, relative_path);
     },
-    get_iwe_completion_trigger_characters: () =>
-      stores.iwe.completion_trigger_characters,
-    on_iwe_completion: async (file_path, line, character) => {
+    get_marksman_completion_trigger_characters: () =>
+      stores.marksman.completion_trigger_characters,
+    on_marksman_completion: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.iwe.status !== "running") return [];
+      if (!vault_id || stores.marksman.status !== "running") return [];
       try {
-        return await input.ports.iwe.completion(
+        return await input.ports.marksman.completion(
           vault_id,
           file_path,
           line,
@@ -257,16 +254,16 @@ export function create_app_context(input: {
         return [];
       }
     },
-    on_iwe_inlay_hints: async (file_path) => {
+    on_marksman_inlay_hints: async (file_path) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.iwe.status !== "running") return [];
+      if (!vault_id || stores.marksman.status !== "running") return [];
       try {
-        return await input.ports.iwe.inlay_hints(vault_id, file_path);
+        return await input.ports.marksman.inlay_hints(vault_id, file_path);
       } catch {
         return [];
       }
     },
-    on_iwe_code_actions: async (
+    on_marksman_code_actions: async (
       file_path,
       start_line,
       start_character,
@@ -274,9 +271,9 @@ export function create_app_context(input: {
       end_character,
     ) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.iwe.status !== "running") return [];
+      if (!vault_id || stores.marksman.status !== "running") return [];
       try {
-        const actions = await input.ports.iwe.code_actions(
+        const actions = await input.ports.marksman.code_actions(
           vault_id,
           file_path,
           start_line,
@@ -284,15 +281,18 @@ export function create_app_context(input: {
           end_line,
           end_character,
         );
-        stores.iwe.set_code_actions(actions);
+        stores.marksman.set_code_actions(actions);
         return actions;
       } catch {
-        stores.iwe.set_code_actions([]);
+        stores.marksman.set_code_actions([]);
         return [];
       }
     },
-    on_iwe_code_action_resolve: (action) => {
-      void action_registry.execute(ACTION_IDS.iwe_code_action_resolve, action);
+    on_marksman_code_action_resolve: (action) => {
+      void action_registry.execute(
+        ACTION_IDS.marksman_code_action_resolve,
+        action,
+      );
     },
     on_lsp_code_actions: async (
       file_path,
@@ -310,9 +310,9 @@ export function create_app_context(input: {
       }> = [];
 
       const vault_id = stores.vault.vault?.id;
-      if (vault_id && stores.iwe.status === "running") {
+      if (vault_id && stores.marksman.status === "running") {
         try {
-          const iwe_actions = await input.ports.iwe.code_actions(
+          const marksman_actions = await input.ports.marksman.code_actions(
             vault_id,
             file_path,
             start_line,
@@ -321,7 +321,7 @@ export function create_app_context(input: {
             end_character,
           );
           all_actions.push(
-            ...iwe_actions.map((a) => ({ ...a, source: "iwes" })),
+            ...marksman_actions.map((a) => ({ ...a, source: "marksman" })),
           );
         } catch {
           /* ignore */
@@ -408,6 +408,8 @@ export function create_app_context(input: {
     input.ports.search,
     stores.vault,
     stores.links,
+    input.ports.marksman,
+    stores.marksman,
   );
 
   const hotkey_service = new HotkeyService(
@@ -436,13 +438,12 @@ export function create_app_context(input: {
     now_ms,
   );
 
-  const split_view_service = new SplitViewService(
+  const secondary_editor_manager = new SecondaryEditorManager(
     input.ports.editor,
     stores.vault,
     stores.op,
-    stores.split_view,
+    stores.tab,
     editor_callbacks,
-    input.ports.vault_settings,
   );
 
   const note_service = new NoteService(
@@ -459,7 +460,7 @@ export function create_app_context(input: {
     (path) => {
       watcher_service.suppress_next(path);
     },
-    split_view_service,
+    secondary_editor_manager,
     stores.parsed_note_cache,
     stores.diagnostics,
   );
@@ -500,11 +501,10 @@ export function create_app_context(input: {
   );
   code_lsp_service.start();
 
-  const iwe_service = new IweService(
-    input.ports.iwe,
-    stores.iwe,
+  const marksman_service = new MarksmanService(
+    input.ports.marksman,
+    stores.marksman,
     stores.vault,
-    stores.ui,
     stores.diagnostics,
   );
 
@@ -514,7 +514,6 @@ export function create_app_context(input: {
     stores.vault,
     stores.editor,
     stores.graph,
-    iwe_service,
   );
 
   const ai_service = new AiService(input.ports.ai, stores.vault);
@@ -537,11 +536,7 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
-  const metadata_service = new MetadataService(
-    input.ports.metadata,
-    stores.metadata,
-    stores.vault,
-  );
+  const metadata_service = new MetadataService(stores.metadata, stores.editor);
 
   const toolchain_service = new ToolchainService(
     input.ports.toolchain,
@@ -591,7 +586,6 @@ export function create_app_context(input: {
       tab: stores.tab,
       git: stores.git,
       outline: stores.outline,
-      split_view: stores.split_view,
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
@@ -703,13 +697,6 @@ export function create_app_context(input: {
 
   register_plugin_actions(base_action_input, plugin_service);
 
-  register_split_view_actions({
-    ...base_action_input,
-    split_view_store: stores.split_view,
-    split_view_service,
-    notes_port: input.ports.notes,
-  });
-
   register_terminal_actions({
     ...base_action_input,
     terminal_store: stores.terminal,
@@ -770,15 +757,14 @@ export function create_app_context(input: {
     diagnostics_store: stores.diagnostics,
   });
 
-  register_iwe_actions({
-    registry: action_registry,
-    iwe_service,
-    iwe_store: stores.iwe,
-    editor_store: stores.editor,
-    editor_service,
-    note_service,
-    ui_store: stores.ui,
-    op_store: stores.op,
+  action_registry.register({
+    id: ACTION_IDS.marksman_code_action_resolve,
+    label: "Marksman: Resolve Code Action",
+    execute: (action) => {
+      void marksman_service.code_action_resolve(
+        (action as { raw_json: string }).raw_json,
+      );
+    },
   });
 
   register_lsp_actions({
@@ -788,8 +774,6 @@ export function create_app_context(input: {
     editor_service,
     note_service,
     diagnostics_store: stores.diagnostics,
-    iwe_service,
-    iwe_store: stores.iwe,
     ui_store: stores.ui,
     op_store: stores.op,
   });
@@ -835,23 +819,21 @@ export function create_app_context(input: {
     watcher_service,
     action_registry,
     workspace_reconcile,
-    split_view_store: stores.split_view,
-    split_view_service,
+    secondary_editor_manager,
     document_service,
     task_service,
     plugin_service,
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
-    iwe_store: stores.iwe,
-    iwe_service,
+    marksman_store: stores.marksman,
+    marksman_service,
     diagnostics_store: stores.diagnostics,
     metadata_store: stores.metadata,
     metadata_service,
     toolchain_service,
     document_store: stores.document,
     code_lsp_service,
-    reference_service,
   });
 
   return {
@@ -859,16 +841,17 @@ export function create_app_context(input: {
     stores,
     services: base_action_input.services,
     action_registry,
+    secondary_editor_manager,
     terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
       plugin_service.destroy();
       terminal_service.destroy();
-      split_view_service.destroy();
+      secondary_editor_manager.destroy();
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();
-      void iwe_service.stop();
+      void marksman_service.stop();
       toolchain_service.dispose();
     },
   };

@@ -70,6 +70,7 @@ export function create_lint_reactor(
 
       void lint_service.format_file(path, current, formatter).then((edits) => {
         if (edits.length === 0) return;
+        if (editor_store.open_note?.meta.id !== note_id) return;
         const formatted = apply_lint_text_edits(current, edits);
         if (formatted === current) return;
 

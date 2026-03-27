@@ -1,0 +1,94 @@
+/* ============================================
+   DASHBOARD LAYOUT OVERRIDES (LEFT-HEAVY)
+   ============================================ */
+
+.WorkspaceLayout--dashboard {
+  --dashboard-sidebar-width: 22rem;
+  --dashboard-rail-width: 4rem;
+
+  position: relative;
+  background-color: var(--background);
+
+  /* ActivityBar: Slim Left Rail */
+  .ActivityBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--dashboard-rail-width);
+    flex-direction: column;
+    border-inline-end: 1px solid var(--border);
+    background-color: var(--card);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: column;
+    align-items: center;
+    padding-block: var(--space-4);
+  }
+
+  /* Sidebars: Stacked on the Left */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    padding-inline-start: var(--dashboard-rail-width);
+    position: relative;
+  }
+
+  /* Left Sidebar (Explorer) */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    width: var(--dashboard-sidebar-width) !important;
+    min-width: var(--dashboard-sidebar-width) !important;
+    max-width: var(--dashboard-sidebar-width) !important;
+    border-inline-end: 1px solid var(--border);
+    background-color: color-mix(in oklch, var(--background) 50%, var(--card));
+  }
+
+  /* Right Sidebar (Context Rail): Moved to the Left! */
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--dashboard-rail-width) + var(--dashboard-sidebar-width));
+    width: var(--dashboard-sidebar-width) !important;
+    min-width: var(--dashboard-sidebar-width) !important;
+    max-width: var(--dashboard-sidebar-width) !important;
+    z-index: 90;
+    border-inline-end: 1px solid var(--border);
+    background-color: var(--background);
+    flex: none !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
+    border-inline-start: none;
+  }
+
+  /* Editor: Pushed Right */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    /* If context rail is open, we need to push the editor further */
+    transition: padding-inline-start var(--duration-normal);
+  }
+
+  /* We use a data attribute or class on the parent to handle the editor offset when rail is open */
+  &.WorkspaceLayout--dashboard:has([order="3"]:not([style*="display: none"]))
+    [data-slot="sidebar-inset"] {
+    padding-inline-start: var(--dashboard-sidebar-width);
+  }
+
+  .StatusBar {
+    border-top: 1px solid var(--border);
+    background-color: var(--card);
+  }
+
+  [data-resizable-handle] {
+    background-color: var(--border);
+    width: 2px;
+  }
+}

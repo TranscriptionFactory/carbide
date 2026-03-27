@@ -1,9 +1,9 @@
 import type {
   GraphNeighborhoodSnapshot,
+  HierarchyTreeNode,
   SemanticEdge,
   VaultGraphSnapshot,
 } from "$lib/features/graph/ports";
-import type { IweTreeNode } from "$lib/features/iwe";
 
 export type GraphStatus = "idle" | "loading" | "ready" | "error";
 export type GraphViewMode = "neighborhood" | "vault" | "hierarchy";
@@ -21,7 +21,7 @@ export class GraphStore {
   vault_snapshot = $state<VaultGraphSnapshot | null>(null);
   semantic_edges = $state<SemanticEdge[]>([]);
   show_semantic_edges = $state(false);
-  hierarchy_tree = $state<IweTreeNode[] | null>(null);
+  hierarchy_tree = $state<HierarchyTreeNode[] | null>(null);
   hierarchy_root_key = $state<string | null>(null);
 
   set_panel_open(open: boolean) {
@@ -111,7 +111,7 @@ export class GraphStore {
     this.error = null;
   }
 
-  set_hierarchy_tree(tree: IweTreeNode[], root_key: string | null) {
+  set_hierarchy_tree(tree: HierarchyTreeNode[], root_key: string | null) {
     this.hierarchy_tree = tree;
     this.hierarchy_root_key = root_key;
     this.status = "ready";

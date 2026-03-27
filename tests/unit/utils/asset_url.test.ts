@@ -22,14 +22,14 @@ describe("carbide_file_asset_url", () => {
   it("encodes absolute paths for file scheme", () => {
     const result = carbide_file_asset_url("/Users/abir/papers/paper.pdf");
 
-    expect(result).toBe("carbide-asset://file//Users/abir/papers/paper.pdf");
+    expect(result).toBe("carbide-asset://file/Users/abir/papers/paper.pdf");
   });
 
   it("encodes spaces in absolute paths", () => {
     const result = carbide_file_asset_url("/Users/abir/my papers/file (1).pdf");
 
     expect(result).toBe(
-      "carbide-asset://file//Users/abir/my%20papers/file%20(1).pdf",
+      "carbide-asset://file/Users/abir/my%20papers/file%20(1).pdf",
     );
   });
 });

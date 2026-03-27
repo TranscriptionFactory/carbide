@@ -3,16 +3,14 @@ pub mod bases;
 pub mod canvas;
 pub mod code_lsp;
 pub mod git;
-pub mod graph;
-pub mod iwe;
 pub mod lint;
+pub mod marksman;
 pub mod notes;
 pub mod pipeline;
 pub mod plugin;
-pub mod reference;
+
 pub mod search;
 pub mod settings;
-pub mod tags;
 pub mod tasks;
 pub mod toolchain;
 pub mod vault;

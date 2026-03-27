@@ -25,6 +25,8 @@ export type GitCheckpointResult =
   | { status: "created"; warning: string };
 
 export class GitService {
+  private op_chain: Promise<void> = Promise.resolve();
+
   constructor(
     private readonly git_port: GitPort,
     private readonly vault_store: VaultStore,
@@ -32,6 +34,12 @@ export class GitService {
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
   ) {}
+
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.op_chain = this.op_chain.then(() => fn().then(resolve, reject));
+    });
+  }
 
   private get_vault_path(): VaultPath {
     const vault_path = this.vault_store.vault?.path;
@@ -226,39 +234,47 @@ export class GitService {
   }
 
   async auto_commit(paths: string[]) {
-    const message = this.format_auto_commit_message(paths);
-    const commit_paths = paths.length > 0 ? paths : null;
-    await this.run_commit("git.commit", message, commit_paths);
+    return this.serialize(async () => {
+      const message = this.format_auto_commit_message(paths);
+      const commit_paths = paths.length > 0 ? paths : null;
+      await this.run_commit("git.commit", message, commit_paths);
+    });
   }
 
-  async commit_all() {
+  private async inner_commit_all() {
     const timestamp = new Date(this.now_ms()).toISOString();
     await this.run_commit("git.commit", `Update: manual (${timestamp})`, null);
   }
 
-  async create_checkpoint(description: string): Promise<GitCheckpointResult> {
-    const message = `Checkpoint: ${description}`;
-    const result = await this.run_commit("git.checkpoint", message, null);
-    if (result.status === "no_repo") {
-      return { status: "no_repo" };
-    }
-    if (result.status === "skipped") {
-      return { status: "skipped" };
-    }
-    if (result.status === "failed") {
-      return { status: "failed", error: result.error };
-    }
+  async commit_all() {
+    return this.serialize(() => this.inner_commit_all());
+  }
 
-    try {
-      const vault_path = this.get_vault_path();
-      const tag_name = this.format_checkpoint_tag(description);
-      await this.git_port.create_tag(vault_path, tag_name, message);
-      return { status: "created" };
-    } catch (err) {
-      const msg = error_message(err);
-      this.git_store.set_error(msg);
-      return { status: "created", warning: msg };
-    }
+  async create_checkpoint(description: string): Promise<GitCheckpointResult> {
+    return this.serialize(async () => {
+      const message = `Checkpoint: ${description}`;
+      const result = await this.run_commit("git.checkpoint", message, null);
+      if (result.status === "no_repo") {
+        return { status: "no_repo" } as const;
+      }
+      if (result.status === "skipped") {
+        return { status: "skipped" } as const;
+      }
+      if (result.status === "failed") {
+        return { status: "failed", error: result.error } as const;
+      }
+
+      try {
+        const vault_path = this.get_vault_path();
+        const tag_name = this.format_checkpoint_tag(description);
+        await this.git_port.create_tag(vault_path, tag_name, message);
+        return { status: "created" } as const;
+      } catch (err) {
+        const msg = error_message(err);
+        this.git_store.set_error(msg);
+        return { status: "created", warning: msg } as const;
+      }
+    });
   }
 
   async load_history(note_path: string | null, limit: number) {
@@ -342,26 +358,28 @@ export class GitService {
   }
 
   async restore_version(file_path: string, commit_hash: string) {
-    const vault_path = this.get_vault_path();
-    this.op_store.start("git.restore", this.now_ms());
-    this.git_store.set_sync_status("committing");
-    try {
-      await this.git_port.restore_file(vault_path, file_path, commit_hash);
-      await this.finish_git_mutation_success("git.restore", {
-        track_last_commit: true,
-        invalidate_history_cache: true,
-      });
-    } catch (err) {
-      if (this.is_nothing_to_commit_error(err)) {
-        await this.finish_git_mutation_success("git.restore");
-        return;
+    return this.serialize(async () => {
+      const vault_path = this.get_vault_path();
+      this.op_store.start("git.restore", this.now_ms());
+      this.git_store.set_sync_status("committing");
+      try {
+        await this.git_port.restore_file(vault_path, file_path, commit_hash);
+        await this.finish_git_mutation_success("git.restore", {
+          track_last_commit: true,
+          invalidate_history_cache: true,
+        });
+      } catch (err) {
+        if (this.is_nothing_to_commit_error(err)) {
+          await this.finish_git_mutation_success("git.restore");
+          return;
+        }
+        const msg = error_message(err);
+        this.fail_git_mutation("git.restore", msg);
       }
-      const msg = error_message(err);
-      this.fail_git_mutation("git.restore", msg);
-    }
+    });
   }
 
-  async push() {
+  private async inner_push() {
     const vault_path = this.get_vault_path();
     this.op_store.start("git.push", this.now_ms());
     this.git_store.set_sync_status("pushing");
@@ -386,7 +404,11 @@ export class GitService {
     }
   }
 
-  async pull(strategy: GitPullStrategy = "merge") {
+  async push() {
+    return this.serialize(() => this.inner_push());
+  }
+
+  private async inner_pull(strategy: GitPullStrategy = "merge") {
     const vault_path = this.get_vault_path();
     this.op_store.start("git.pull", this.now_ms());
     this.git_store.set_sync_status("pulling");
@@ -409,30 +431,36 @@ export class GitService {
     }
   }
 
+  async pull(strategy: GitPullStrategy = "merge") {
+    return this.serialize(() => this.inner_pull(strategy));
+  }
+
   async fetch_remote() {
-    const vault_path = this.get_vault_path();
-    this.op_store.start("git.fetch", this.now_ms());
-    this.git_store.set_sync_status("fetching");
-    this.git_store.set_error(null);
-    try {
-      const result = await this.git_port.fetch(vault_path);
-      if (!result.success) {
-        this.git_store.set_sync_status("error");
-        this.git_store.set_error(result.error ?? "Fetch failed");
-        this.op_store.fail("git.fetch", result.error ?? "Fetch failed");
+    return this.serialize(async () => {
+      const vault_path = this.get_vault_path();
+      this.op_store.start("git.fetch", this.now_ms());
+      this.git_store.set_sync_status("fetching");
+      this.git_store.set_error(null);
+      try {
+        const result = await this.git_port.fetch(vault_path);
+        if (!result.success) {
+          this.git_store.set_sync_status("error");
+          this.git_store.set_error(result.error ?? "Fetch failed");
+          this.op_store.fail("git.fetch", result.error ?? "Fetch failed");
+          return result;
+        }
+        this.git_store.set_sync_status("idle");
+        this.op_store.succeed("git.fetch");
+        await this.refresh_status();
         return result;
+      } catch (err) {
+        const msg = error_message(err);
+        this.git_store.set_sync_status("error");
+        this.git_store.set_error(msg);
+        this.op_store.fail("git.fetch", msg);
+        return { success: false, message: null, error: msg };
       }
-      this.git_store.set_sync_status("idle");
-      this.op_store.succeed("git.fetch");
-      await this.refresh_status();
-      return result;
-    } catch (err) {
-      const msg = error_message(err);
-      this.git_store.set_sync_status("error");
-      this.git_store.set_error(msg);
-      this.op_store.fail("git.fetch", msg);
-      return { success: false, message: null, error: msg };
-    }
+    });
   }
 
   async add_remote(url: string) {
@@ -486,19 +514,45 @@ export class GitService {
   }
 
   async sync(strategy: GitPullStrategy = "merge") {
-    const vault_path = this.get_vault_path();
-    const status = await this.git_port.status(vault_path);
-    if (!status.has_remote) {
-      return { success: false, message: null, error: "No remote configured" };
-    }
+    return this.serialize(async () => {
+      const vault_path = this.get_vault_path();
+      this.op_store.start("git.sync", this.now_ms());
+      this.git_store.set_error(null);
+      try {
+        const status = await this.git_port.status(vault_path);
+        if (!status.has_remote) {
+          this.op_store.fail("git.sync", "No remote configured");
+          return {
+            success: false,
+            message: null,
+            error: "No remote configured",
+          };
+        }
 
-    if (status.is_dirty) {
-      await this.commit_all();
-    }
+        if (status.is_dirty) {
+          await this.inner_commit_all();
+        }
 
-    const pull_result = await this.pull(strategy);
-    if (!pull_result.success) return pull_result;
+        const pull_result = await this.inner_pull(strategy);
+        if (!pull_result.success) {
+          this.op_store.fail("git.sync", pull_result.error ?? "Pull failed");
+          return pull_result;
+        }
 
-    return await this.push();
+        const push_result = await this.inner_push();
+        if (push_result.success) {
+          this.op_store.succeed("git.sync");
+        } else {
+          this.op_store.fail("git.sync", push_result.error ?? "Push failed");
+        }
+        return push_result;
+      } catch (err) {
+        const msg = error_message(err);
+        this.git_store.set_sync_status("error");
+        this.git_store.set_error(msg);
+        this.op_store.fail("git.sync", msg);
+        return { success: false, message: null, error: msg };
+      }
+    });
   }
 }

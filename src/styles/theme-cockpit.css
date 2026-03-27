@@ -1,0 +1,69 @@
+/* ============================================
+   COCKPIT LAYOUT OVERRIDES (TOP-BAR COMMAND CENTER)
+   ============================================ */
+
+[data-layout-variant="cockpit"] .WorkspaceLayout--cockpit {
+  --cockpit-bar-height: var(--size-touch-lg);
+
+  position: relative;
+
+  .ActivityBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--cockpit-bar-height);
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding-inline: var(--space-3);
+    gap: var(--space-1);
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border);
+    background-color: var(--card);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ActivityBar__section:first-child {
+    margin-inline-end: var(--space-2);
+    padding-inline-end: var(--space-2);
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  .ActivityBar__button--active::before {
+    inset-inline-start: var(--space-1);
+    inset-inline-end: var(--space-1);
+    inset-block-start: auto;
+    inset-block-end: 0;
+    width: auto;
+    height: 2px;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    padding-top: var(--cockpit-bar-height);
+  }
+
+  [data-pane][order="1"] {
+    border-block-start: none;
+  }
+
+  .StatusBar {
+    border-top: 1px solid var(--border);
+    background-color: var(--card);
+    font-family: var(--font-family-mono);
+  }
+}

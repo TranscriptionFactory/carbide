@@ -106,8 +106,8 @@ export type EditorSettings = {
   lint_formatter: LintFormatter;
   lint_rules_toml: string;
   rumdl_binary_path: string;
-  iwe_enabled: boolean;
-  iwe_binary_path: string;
+  marksman_enabled: boolean;
+  marksman_binary_path: string;
   reference_enabled: boolean;
   reference_citation_style: string;
 };
@@ -174,8 +174,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_formatter: "prettier",
   lint_rules_toml: "",
   rumdl_binary_path: "",
-  iwe_enabled: false,
-  iwe_binary_path: "",
+  marksman_enabled: true,
+  marksman_binary_path: "",
   reference_enabled: false,
   reference_citation_style: "apa",
 };

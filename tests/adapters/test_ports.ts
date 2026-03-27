@@ -105,7 +105,7 @@ export function create_test_ports(): Ports {
       get_status: () => Promise.resolve("stopped" as const),
       subscribe_events: () => () => {},
     },
-    iwe: {
+    marksman: {
       start: () => Promise.resolve({ completion_trigger_characters: [] }),
       stop: () => Promise.resolve(),
       did_open: () => Promise.resolve(),
@@ -135,12 +135,9 @@ export function create_test_ports(): Ports {
       formatting: () => Promise.resolve([]),
       inlay_hints: () => Promise.resolve([]),
       document_symbols: () => Promise.resolve([]),
-      hierarchy_tree: () => Promise.resolve([]),
       subscribe_diagnostics: () => () => {},
     },
-    metadata: {
-      get_note_metadata: () => Promise.resolve({ properties: [], tags: [] }),
-    },
+
     toolchain: {
       list_tools: () => Promise.resolve([]),
       install: () => Promise.resolve(),

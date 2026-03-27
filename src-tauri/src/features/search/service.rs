@@ -6,13 +6,12 @@ use crate::features::search::model::{
     SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
-use crate::shared::link_parser;
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
@@ -20,13 +19,6 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-
-#[derive(Debug, Serialize, Type)]
-pub struct NoteLinksSnapshot {
-    pub backlinks: Vec<IndexNoteMeta>,
-    pub outlinks: Vec<IndexNoteMeta>,
-    pub orphan_links: Vec<search_db::OrphanLink>,
-}
 
 #[derive(Debug, Deserialize, Type)]
 pub struct SearchQueryInput {
@@ -93,7 +85,7 @@ enum DbCommand {
         vault_root: PathBuf,
         note_id: String,
         markdown: String,
-        reply: SyncSender<Result<crate::shared::markdown_doc::ParseResult, String>>,
+        reply: SyncSender<Result<(), String>>,
     },
     RemoveNote {
         note_id: String,
@@ -149,25 +141,6 @@ enum DbCommand {
         new_path: String,
         reply: SyncSender<Result<(), String>>,
     },
-    UpsertLinkedContent {
-        source_id: String,
-        file_path: String,
-        title: String,
-        body: String,
-        page_offsets: Vec<usize>,
-        file_type: String,
-        modified_at: u64,
-        reply: SyncSender<Result<(), String>>,
-    },
-    ClearLinkedSource {
-        source_id: String,
-        reply: SyncSender<Result<(), String>>,
-    },
-    RemoveLinkedContent {
-        source_id: String,
-        file_path: String,
-        reply: SyncSender<Result<(), String>>,
-    },
     Shutdown,
 }
 
@@ -211,6 +184,15 @@ fn shutdown_worker(worker: &mut VaultWorker) {
             log::warn!("shutdown_worker: timed out joining worker thread");
         }
     }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn tags_list_all(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<crate::features::search::model::TagInfo>, String> {
+    with_read_conn(&app, &vault_id, |conn| search_db::list_all_tags(conn))
 }
 
 #[tauri::command]
@@ -483,42 +465,6 @@ fn dispatch_command(
                 true,
             );
         }
-        DbCommand::UpsertLinkedContent {
-            source_id,
-            file_path,
-            title,
-            body,
-            page_offsets,
-            file_type,
-            modified_at,
-            reply,
-        } => {
-            let result = search_db::upsert_linked_content(
-                conn, &source_id, &file_path, &title, &body, &page_offsets, &file_type, modified_at,
-            );
-            if let Err(ref e) = result {
-                log::error!("upsert_linked_content failed: {e}");
-            }
-            let _ = reply.send(result);
-        }
-        DbCommand::RemoveLinkedContent {
-            source_id,
-            file_path,
-            reply,
-        } => {
-            let result = search_db::remove_linked_content(conn, &source_id, &file_path);
-            if let Err(ref e) = result {
-                log::error!("remove_linked_content failed: {e}");
-            }
-            let _ = reply.send(result);
-        }
-        DbCommand::ClearLinkedSource { source_id, reply } => {
-            let result = search_db::clear_linked_source(conn, &source_id);
-            if let Err(ref e) = result {
-                log::error!("clear_linked_source failed: {e}");
-            }
-            let _ = reply.send(result);
-        }
         DbCommand::Shutdown => {
             return LoopAction::Break;
         }
@@ -543,21 +489,11 @@ fn handle_upsert(
         Err(e) => return Err(e.to_string()),
     };
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let result = crate::shared::markdown_doc::parse_note(&markdown, &meta.path);
-    meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
-
-    search_db::upsert_note_parsed(conn, &meta, &markdown, &result.note)?;
-    notes_cache.insert(meta.path.clone(), meta.clone());
+    meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
+    search_db::upsert_note_simple(conn, &meta, &markdown)?;
+    notes_cache.insert(meta.path.clone(), meta);
     let _ = vector_db::remove_embedding(conn, note_id);
-
-    let targets = result.note.links.all_internal_targets();
-    let mut resolved: BTreeSet<String> = BTreeSet::new();
-    for target in targets {
-        if target != meta.path {
-            resolved.insert(target);
-        }
-    }
-    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())
+    Ok(())
 }
 
 fn handle_upsert_with_content(
@@ -566,50 +502,46 @@ fn handle_upsert_with_content(
     note_id: &str,
     markdown: &str,
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
-) -> Result<crate::shared::markdown_doc::ParseResult, String> {
+) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
-    let mut result = crate::shared::markdown_doc::parse_note(markdown, &meta.path);
-    meta.title = result.note.title.clone().unwrap_or_else(|| meta.name.clone());
-
-    search_db::upsert_note_parsed(conn, &meta, markdown, &result.note)?;
-    notes_cache.insert(meta.path.clone(), meta.clone());
+    meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
+    search_db::upsert_note_simple(conn, &meta, markdown)?;
+    notes_cache.insert(meta.path.clone(), meta);
     let _ = vector_db::remove_embedding(conn, note_id);
+    Ok(())
+}
 
-    let all_links = result
-        .note
-        .links
-        .wiki_targets
-        .iter()
-        .chain(result.note.links.markdown_targets.iter());
-    for link in all_links {
-        if link.target_path.is_empty() || link.target_path == meta.path {
+fn extract_title(markdown: &str) -> Option<String> {
+    let mut in_frontmatter = false;
+    let mut seen_frontmatter_start = false;
+    for line in markdown.lines() {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            if !seen_frontmatter_start {
+                in_frontmatter = true;
+                seen_frontmatter_start = true;
+                continue;
+            } else if in_frontmatter {
+                in_frontmatter = false;
+                continue;
+            }
+        }
+        if in_frontmatter {
             continue;
         }
-        if !notes_cache.contains_key(&link.target_path) {
-            result
-                .diagnostics
-                .push(crate::shared::markdown_doc::ParseDiagnostic {
-                    line: link.line as u32,
-                    column: 0,
-                    end_line: link.line as u32,
-                    end_column: 0,
-                    severity: "warning".to_string(),
-                    message: format!("Unresolved link: {}", link.target_path),
-                    rule_id: Some("link/unresolved".to_string()),
-                });
+        if trimmed.is_empty() {
+            continue;
         }
-    }
-
-    let targets = result.note.links.all_internal_targets();
-    let mut resolved: BTreeSet<String> = BTreeSet::new();
-    for target in targets {
-        if target != meta.path {
-            resolved.insert(target);
+        if let Some(rest) = trimmed.strip_prefix("# ") {
+            let t = rest.trim();
+            if !t.is_empty() {
+                return Some(t.to_string());
+            }
         }
+        break;
     }
-    search_db::set_outlinks(conn, &meta.path, &resolved.into_iter().collect::<Vec<_>>())?;
-    Ok(result)
+    None
 }
 
 type IndexFn = fn(
@@ -685,11 +617,6 @@ fn run_index_op(
                                 );
                             }
                         }
-                    }
-                    DbCommand::UpsertLinkedContent { .. }
-                    | DbCommand::RemoveLinkedContent { .. }
-                    | DbCommand::ClearLinkedSource { .. } => {
-                        dispatch_command(conn, cmd, notes_cache, rx);
                     }
                 }
             }
@@ -1287,9 +1214,9 @@ pub fn index_upsert_note_with_content(
     vault_id: &str,
     note_id: &str,
     markdown: String,
-) -> Result<crate::shared::markdown_doc::ParseResult, String> {
+) -> Result<(), String> {
     let vault_root = storage::vault_path(app, vault_id)?;
-    send_write_reply(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
+    send_write_blocking(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
         vault_root,
         note_id: note_id.to_string(),
         markdown,
@@ -1360,111 +1287,6 @@ pub fn index_rename_note(
         new_path,
         reply,
     })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_index_content(
-    app: AppHandle,
-    vault_id: String,
-    source_id: String,
-    file_path: String,
-    title: String,
-    body: String,
-    page_offsets: Vec<usize>,
-    file_type: String,
-    modified_at: u64,
-) -> Result<(), String> {
-    send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertLinkedContent {
-        source_id,
-        file_path,
-        title,
-        body,
-        page_offsets,
-        file_type,
-        modified_at,
-        reply,
-    })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_remove_content(
-    app: AppHandle,
-    vault_id: String,
-    source_id: String,
-    file_path: String,
-) -> Result<(), String> {
-    send_write_blocking(&app, &vault_id, |reply| DbCommand::RemoveLinkedContent {
-        source_id,
-        file_path,
-        reply,
-    })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn linked_source_clear_source(
-    app: AppHandle,
-    vault_id: String,
-    source_id: String,
-) -> Result<(), String> {
-    send_write_blocking(&app, &vault_id, |reply| DbCommand::ClearLinkedSource {
-        source_id,
-        reply,
-    })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn index_note_links_snapshot(
-    app: AppHandle,
-    vault_id: String,
-    note_id: String,
-) -> Result<NoteLinksSnapshot, String> {
-    with_read_conn(&app, &vault_id, |conn| {
-        Ok(NoteLinksSnapshot {
-            backlinks: search_db::get_backlinks(conn, &note_id)?,
-            outlinks: search_db::get_outlinks(conn, &note_id)?,
-            orphan_links: search_db::get_orphan_outlinks(conn, &note_id)?,
-        })
-    })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn index_extract_local_note_links(
-    app: AppHandle,
-    vault_id: String,
-    note_id: String,
-    markdown: String,
-) -> Result<search_db::LocalLinksSnapshot, String> {
-    with_read_conn(&app, &vault_id, |_conn| {
-        Ok(search_db::extract_local_links_snapshot(&markdown, &note_id))
-    })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn rewrite_note_links(
-    markdown: String,
-    old_source_path: String,
-    new_source_path: String,
-    target_map: HashMap<String, String>,
-) -> link_parser::RewriteResult {
-    link_parser::rewrite_links(&markdown, &old_source_path, &new_source_path, &target_map)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn resolve_note_link(source_path: String, raw_target: String) -> Option<String> {
-    link_parser::resolve_markdown_target(&source_path, &raw_target)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<String> {
-    link_parser::resolve_wiki_target(&source_path, &raw_target)
 }
 
 #[tauri::command]

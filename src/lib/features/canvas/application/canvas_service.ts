@@ -15,6 +15,8 @@ import {
 } from "$lib/features/canvas/application/canvas_constants";
 
 export class CanvasService {
+  private open_canvas_revision = 0;
+
   constructor(
     private readonly canvas_port: CanvasPort,
     private readonly vault_store: VaultStore,
@@ -31,6 +33,8 @@ export class CanvasService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
 
+    const revision = ++this.open_canvas_revision;
+
     this.canvas_store.init_state(tab_id, file_path, file_type);
     this.canvas_store.set_status(tab_id, "loading");
 
@@ -39,6 +43,8 @@ export class CanvasService {
         this.canvas_port.read_file(vault_id, file_path),
         this.canvas_port.read_camera(vault_id, file_path),
       ]);
+
+      if (revision !== this.open_canvas_revision) return;
 
       if (file_type === "excalidraw") {
         const scene = JSON.parse(content) as ExcalidrawScene;

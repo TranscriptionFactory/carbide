@@ -78,11 +78,14 @@
       if (resolve_scene) {
         resolve_scene(scene);
       }
-      resolve_scene = resolve;
+      resolve_scene = (s: ExcalidrawScene) => {
+        clearTimeout(timer);
+        resolve(s);
+      };
       iframe?.post_message({ type: "get_scene" });
 
-      setTimeout(() => {
-        if (resolve_scene === resolve) {
+      const timer = setTimeout(() => {
+        if (resolve_scene) {
           resolve_scene = null;
           resolve(scene);
         }
@@ -95,11 +98,14 @@
       if (resolve_svg) {
         resolve_svg("");
       }
-      resolve_svg = resolve;
+      resolve_svg = (s: string) => {
+        clearTimeout(timer);
+        resolve(s);
+      };
       iframe?.post_message({ type: "export_svg" });
 
-      setTimeout(() => {
-        if (resolve_svg === resolve) {
+      const timer = setTimeout(() => {
+        if (resolve_svg) {
           resolve_svg = null;
           resolve("");
         }

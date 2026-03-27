@@ -10,7 +10,7 @@
     VaultSwitcherDropdown,
   } from "$lib/features/vault";
   import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
-  import { SplitNoteEditor, SplitDropZone } from "$lib/features/split_view";
+  import { SecondaryNoteEditor, SplitDropZone } from "$lib/features/tab";
   import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
@@ -40,10 +40,22 @@
   const { stores, action_registry, services } = use_app_context();
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
-  const split_view_active = $derived(stores.split_view.active);
+  const split_view_active = $derived(stores.tab.is_split);
   const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
   const zen_mode = $derived(stores.ui.zen_mode);
+  const layout_variant = $derived(stores.ui.active_theme.layout_variant);
+  const is_monolith = $derived(layout_variant === "monolith");
+  const is_workbench = $derived(layout_variant === "workbench");
+  const is_command_deck = $derived(layout_variant === "command_deck");
+  const is_grounded_heavy = $derived(layout_variant === "grounded_heavy");
+  const is_hud = $derived(layout_variant === "hud");
+  const is_zen_deck = $derived(layout_variant === "zen_deck");
+  const is_dashboard = $derived(layout_variant === "dashboard");
+  const is_spotlight = $derived(layout_variant === "spotlight");
+  const is_cockpit = $derived(layout_variant === "cockpit");
+  const is_theater = $derived(layout_variant === "theater");
+  const is_triptych = $derived(layout_variant === "triptych");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -216,6 +228,19 @@
   <div
     class="flex h-screen flex-col"
     class:WorkspaceLayout--zen={zen_mode}
+    class:WorkspaceLayout--monolith={is_monolith}
+    class:WorkspaceLayout--workbench={is_workbench}
+    class:WorkspaceLayout--command-deck={is_command_deck}
+    class:WorkspaceLayout--grounded-heavy={is_grounded_heavy}
+    class:WorkspaceLayout--hud={is_hud}
+    class:WorkspaceLayout--zen-deck={is_zen_deck}
+    class:WorkspaceLayout--dashboard={is_dashboard}
+    class:WorkspaceLayout--spotlight={is_spotlight}
+    class:WorkspaceLayout--cockpit={is_cockpit}
+    class:WorkspaceLayout--theater={is_theater}
+    class:WorkspaceLayout--triptych={is_triptych}
+    data-sidebar-open={stores.ui.sidebar_open}
+    data-context-rail-open={stores.ui.context_rail_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
       const target = e.target as HTMLElement;
@@ -235,6 +260,19 @@
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
           dynamic_views={stores.plugin.sidebar_views}
+          context_rail_open={stores.ui.context_rail_open}
+          on_toggle_context_rail={is_command_deck ||
+          is_grounded_heavy ||
+          is_hud ||
+          is_zen_deck ||
+          is_dashboard ||
+          is_spotlight ||
+          is_cockpit ||
+          is_theater ||
+          is_triptych
+            ? () =>
+                void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
+            : undefined}
           on_open_explorer={() => {
             if (
               stores.ui.sidebar_open &&
@@ -321,11 +359,11 @@
         open={stores.ui.sidebar_open && !zen_mode}
         class="flex-1 min-h-0"
       >
-        <Resizable.PaneGroup direction="horizontal" class="h-full">
+        <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
           {#if stores.ui.sidebar_open && !zen_mode}
             <Resizable.Pane
-              defaultSize={22}
-              minSize={10}
+              defaultSize={20}
+              minSize={15}
               maxSize={40}
               order={1}
             >
@@ -485,7 +523,7 @@
                           on_toggle_star={toggle_star_for_selection}
                           on_open_to_side={(path: string) =>
                             void action_registry.execute(
-                              ACTION_IDS.split_view_open_to_side,
+                              ACTION_IDS.tab_open_to_side,
                               path,
                             )}
                           on_open_in_new_window={(file_path: string) =>
@@ -684,7 +722,7 @@
                         on_toggle_star={toggle_star_for_selection}
                         on_open_to_side={(path: string) =>
                           void action_registry.execute(
-                            ACTION_IDS.split_view_open_to_side,
+                            ACTION_IDS.tab_open_to_side,
                             path,
                           )}
                         on_open_in_new_window={(file_path: string) =>
@@ -809,7 +847,7 @@
                           onclick={() => {
                             if (split_view_active) {
                               void action_registry.execute(
-                                ACTION_IDS.split_view_set_active_pane,
+                                ACTION_IDS.tab_set_active_pane,
                                 "primary",
                               );
                             }
@@ -821,7 +859,7 @@
                         {#if split_view_active}
                           <div class="SplitViewContainer__handle"></div>
                           <div class="SplitViewContainer__secondary">
-                            <SplitNoteEditor />
+                            <SecondaryNoteEditor />
                           </div>
                         {/if}
                         <SplitDropZone />
@@ -902,10 +940,6 @@
           void action_registry.execute(ACTION_IDS.lint_toggle_problems)}
         on_lint_format_click={() =>
           void action_registry.execute(ACTION_IDS.lint_format_file)}
-        iwe_status={stores.iwe.status}
-        iwe_error={stores.iwe.error}
-        on_iwe_click={() =>
-          void action_registry.execute(ACTION_IDS.iwe_toggle_results)}
         editor_mode={stores.editor.editor_mode}
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>

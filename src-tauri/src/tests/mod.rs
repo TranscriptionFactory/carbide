@@ -10,12 +10,6 @@ mod search_db_behavior;
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
 
-#[path = "../../tests/link_rewrite.rs"]
-mod link_rewrite;
-
-#[path = "../../tests/link_validation.rs"]
-mod link_validation;
-
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
@@ -58,11 +52,6 @@ mod specta_export {
                 crate::features::search::service::index_remove_notes_by_prefix,
                 crate::features::search::service::index_rename_folder,
                 crate::features::search::service::index_rename_note,
-                crate::features::search::service::index_note_links_snapshot,
-                crate::features::search::service::index_extract_local_note_links,
-                crate::features::search::service::rewrite_note_links,
-                crate::features::search::service::resolve_note_link,
-                crate::features::search::service::resolve_wiki_link,
                 crate::features::search::service::semantic_search,
                 crate::features::search::service::find_similar_notes,
                 crate::features::search::service::semantic_search_batch,
@@ -99,12 +88,6 @@ mod specta_export {
                 crate::features::vault::service::get_last_vault_id,
                 crate::features::vault::service::resolve_file_to_vault,
                 crate::features::vault::service::refresh_note_count,
-                // Graph commands (5)
-                crate::features::graph::service::graph_load_note_neighborhood,
-                crate::features::graph::service::graph_invalidate_cache,
-                crate::features::graph::service::graph_cache_stats,
-                crate::features::graph::service::graph_load_vault_graph,
-                crate::features::graph::service::graph_load_vault_graph_streamed,
                 // Bases commands (4)
                 crate::features::bases::service::bases_list_properties,
                 crate::features::bases::service::bases_query,
@@ -113,14 +96,6 @@ mod specta_export {
                 // Watcher commands (2)
                 crate::features::watcher::service::watch_vault,
                 crate::features::watcher::service::unwatch_vault,
-                // Tags commands (6)
-                crate::features::tags::service::tags_list_all,
-                crate::features::tags::service::tags_list_all_unified,
-                crate::features::tags::service::tags_get_notes_for_tag,
-                crate::features::tags::service::tags_get_notes_for_tag_prefix,
-                crate::features::tags::service::notes_with_code_language,
-                crate::features::tags::service::property_registry_list,
-                crate::features::tags::service::section_get_range,
                 // AI commands (2)
                 crate::features::ai::service::ai_check_cli,
                 crate::features::ai::service::ai_execute_cli,
@@ -144,23 +119,25 @@ mod specta_export {
                 crate::shared::buffer::close_buffer,
                 // App commands (1)
                 crate::app::get_pending_file_open,
-                // IWE commands (16)
-                crate::features::iwe::service::iwe_start,
-                crate::features::iwe::service::iwe_stop,
-                crate::features::iwe::service::iwe_did_open,
-                crate::features::iwe::service::iwe_did_change,
-                crate::features::iwe::service::iwe_did_save,
-                crate::features::iwe::service::iwe_hover,
-                crate::features::iwe::service::iwe_references,
-                crate::features::iwe::service::iwe_definition,
-                crate::features::iwe::service::iwe_code_actions,
-                crate::features::iwe::service::iwe_code_action_resolve,
-                crate::features::iwe::service::iwe_workspace_symbols,
-                crate::features::iwe::service::iwe_rename,
-                crate::features::iwe::service::iwe_prepare_rename,
-                crate::features::iwe::service::iwe_completion,
-                crate::features::iwe::service::iwe_formatting,
-                crate::features::iwe::service::iwe_inlay_hints,
+                // Marksman commands (17)
+                crate::features::marksman::service::marksman_start,
+                crate::features::marksman::service::marksman_stop,
+                crate::features::marksman::service::marksman_did_open,
+                crate::features::marksman::service::marksman_did_change,
+                crate::features::marksman::service::marksman_did_save,
+                crate::features::marksman::service::marksman_hover,
+                crate::features::marksman::service::marksman_references,
+                crate::features::marksman::service::marksman_definition,
+                crate::features::marksman::service::marksman_code_actions,
+                crate::features::marksman::service::marksman_code_action_resolve,
+                crate::features::marksman::service::marksman_workspace_symbols,
+                crate::features::marksman::service::marksman_rename,
+                crate::features::marksman::service::marksman_prepare_rename,
+                crate::features::marksman::service::marksman_completion,
+                crate::features::marksman::service::marksman_formatting,
+                crate::features::marksman::service::marksman_inlay_hints,
+                crate::features::marksman::service::marksman_document_symbols,
+                crate::features::search::service::tags_list_all,
                 crate::features::code_lsp::code_lsp_open_file,
                 crate::features::code_lsp::code_lsp_close_file,
                 crate::features::code_lsp::code_lsp_stop_vault,

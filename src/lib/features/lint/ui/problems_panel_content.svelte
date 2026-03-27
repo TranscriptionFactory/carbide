@@ -124,7 +124,7 @@
 
   function source_label(source: DiagnosticSource): string {
     if (source === "lint") return "Lint";
-    if (source === "iwe") return "IWE";
+    if (source === "marksman") return "Marksman";
     if (source === "ast") return "AST";
     if (source.startsWith("plugin:")) return source.slice("plugin:".length);
     return source;

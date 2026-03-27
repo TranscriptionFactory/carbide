@@ -172,4 +172,28 @@ describe("BasesService", () => {
     expect(store.error).toContain("not found");
     expect(store.loading).toBe(false);
   });
+
+  it("discards stale run_query results when called rapidly", async () => {
+    let resolve_first!: (value: { rows: never[]; total: number }) => void;
+    const first_promise = new Promise<{ rows: never[]; total: number }>((r) => {
+      resolve_first = r;
+    });
+
+    let call_count = 0;
+    const { service, store } = make_service({
+      query: vi.fn().mockImplementation(() => {
+        call_count++;
+        if (call_count === 1) return first_promise;
+        return Promise.resolve({ rows: [], total: 42 });
+      }),
+    });
+
+    const first_query = service.run_query(VAULT_ID);
+    await service.run_query(VAULT_ID);
+
+    resolve_first({ rows: [], total: 99 });
+    await first_query;
+
+    expect(store.total_count).toBe(42);
+  });
 });

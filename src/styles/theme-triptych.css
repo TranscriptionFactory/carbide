@@ -1,0 +1,116 @@
+/* ============================================
+   TRIPTYCH LAYOUT OVERRIDES (THREE EQUAL COLUMNS)
+   ============================================
+   Rejects the "editor is primary" assumption.
+   Sidebar, editor, and context rail share space
+   equally. Compact horizontal top bar. Built for
+   research and multi-panel workflows.
+   ============================================ */
+
+[data-layout-variant="triptych"] .WorkspaceLayout--triptych {
+  --triptych-bar-height: var(--size-touch-md);
+  --triptych-divider-width: 2px;
+
+  position: relative;
+  background-color: var(--background);
+
+  .ActivityBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--triptych-bar-height);
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding-inline: var(--space-3);
+    gap: var(--space-1);
+    border-inline-end: none;
+    border-block-end: var(--triptych-divider-width) solid var(--border);
+    background-color: var(--background-surface-2);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  .ActivityBar__section:first-child {
+    margin-inline-end: var(--space-2);
+    padding-inline-end: var(--space-2);
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-xs);
+    height: var(--size-touch-xs);
+    border-radius: var(--radius-sm);
+  }
+
+  .ActivityBar__button--active {
+    background-color: var(--interactive-bg);
+  }
+
+  .ActivityBar__button--active::before {
+    display: none;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    padding-top: var(--triptych-bar-height);
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="1"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-inline-end: var(--triptych-divider-width) solid var(--border);
+    background-color: var(--background-surface-2);
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="2"] {
+    flex: 1 1 0% !important;
+  }
+
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-inline-start: var(--triptych-divider-width) solid var(--border);
+    background-color: var(--background-surface-2);
+  }
+
+  [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
+    border-inline-start: none;
+  }
+
+  [data-resizable-handle] {
+    display: none !important;
+  }
+
+  .SidebarHeader {
+    background-color: var(--background-surface-3);
+    border-block-end: var(--triptych-divider-width) solid var(--border);
+  }
+
+  .TabBar {
+    border-block-end: var(--triptych-divider-width) solid var(--border);
+    background-color: var(--background-surface-2);
+  }
+
+  .StatusBar {
+    border-top: var(--triptych-divider-width) solid var(--border);
+    background-color: var(--background-surface-2);
+    font-family: var(--font-family-mono);
+    font-size: var(--text-xs);
+  }
+}

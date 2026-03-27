@@ -13,7 +13,7 @@ use types::CodeLspStatus;
 
 #[derive(Default)]
 pub struct CodeLspState {
-    pub inner: Arc<Mutex<HashMap<String, CodeLspManager>>>,
+    pub inner: Arc<Mutex<HashMap<String, Arc<Mutex<CodeLspManager>>>>>,
 }
 
 #[tauri::command]
@@ -26,13 +26,19 @@ pub async fn code_lsp_open_file(
     path: String,
     content: String,
 ) -> Result<(), String> {
-    let mut managers = state.inner.lock().await;
-    let mgr = managers
-        .entry(vault_id.clone())
-        .or_insert_with(|| {
-            CodeLspManager::new(vault_id, PathBuf::from(&vault_path), app)
+    let mgr = {
+        let mut managers = state.inner.lock().await;
+        let entry = managers.entry(vault_id.clone()).or_insert_with(|| {
+            Arc::new(Mutex::new(CodeLspManager::new(
+                vault_id,
+                PathBuf::from(&vault_path),
+                app,
+            )))
         });
-    mgr.open_file(&path, &content).await
+        Arc::clone(entry)
+    };
+    let result = mgr.lock().await.open_file(&path, &content).await;
+    result
 }
 
 #[tauri::command]
@@ -42,9 +48,12 @@ pub async fn code_lsp_close_file(
     vault_id: String,
     path: String,
 ) -> Result<(), String> {
-    let mut managers = state.inner.lock().await;
-    if let Some(mgr) = managers.get_mut(&vault_id) {
-        mgr.close_file(&path).await?;
+    let mgr = {
+        let managers = state.inner.lock().await;
+        managers.get(&vault_id).cloned()
+    };
+    if let Some(mgr) = mgr {
+        mgr.lock().await.close_file(&path).await?;
     }
     Ok(())
 }
@@ -55,18 +64,16 @@ pub async fn code_lsp_stop_vault(
     state: State<'_, CodeLspState>,
     vault_id: String,
 ) -> Result<(), String> {
-    let mgr = state.inner.lock().await.remove(&vault_id);
+    let mgr = { state.inner.lock().await.remove(&vault_id) };
     if let Some(mgr) = mgr {
-        mgr.stop_all().await;
+        mgr.lock().await.stop_all().await;
     }
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn code_lsp_available_languages(
-    vault_id: String,
-) -> Result<Vec<String>, String> {
+pub async fn code_lsp_available_languages(vault_id: String) -> Result<Vec<String>, String> {
     let mut available = Vec::new();
     for spec in &[
         ("python", "pyright-langserver"),

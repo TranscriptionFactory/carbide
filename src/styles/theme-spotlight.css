@@ -1,0 +1,199 @@
+/* ============================================
+   SPOTLIGHT LAYOUT OVERRIDES
+   ============================================ */
+
+[data-layout-variant="spotlight"] .WorkspaceLayout--spotlight {
+  --spotlight-tabbar-max-width: 36rem;
+  --spotlight-sidebar-width: 18rem;
+
+  position: relative;
+
+  .ActivityBar {
+    position: absolute;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    height: auto;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    opacity: 0.35;
+    transition: opacity var(--duration-normal) var(--ease-default);
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ActivityBar__section:first-child {
+    padding-inline-end: var(--space-2);
+    border-inline-end: 1px solid var(--border);
+    margin-inline-end: var(--space-2);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-full);
+  }
+
+  .ActivityBar__button--active::before {
+    inset-inline-start: var(--space-1);
+    inset-inline-end: var(--space-1);
+    inset-block-start: auto;
+    inset-block-end: var(--space-0-5);
+    width: auto;
+    height: 2px;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  .TabBar {
+    position: absolute;
+    top: var(--space-3);
+    left: 50%;
+    transform: translateX(-50%);
+    height: var(--size-touch-lg);
+    width: max-content;
+    max-width: var(--spotlight-tabbar-max-width);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .TabBar__tab {
+    margin-block: var(--space-1);
+    margin-inline: var(--space-1);
+    height: calc(100% - var(--space-2));
+    border-radius: var(--radius-full);
+    border-inline-end: none;
+  }
+
+  .TabBar__tab--active {
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+  }
+
+  .TabBar__tab--active::after {
+    inset-inline: var(--space-2);
+  }
+
+  .TabBar__actions {
+    border-inline-start: none;
+  }
+
+  .StatusBar {
+    position: absolute;
+    bottom: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    height: var(--size-touch-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-xs);
+    z-index: 100;
+    overflow: hidden;
+    opacity: 0.4;
+    transition: opacity var(--duration-normal) var(--ease-default);
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="1"] {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    bottom: var(--space-3);
+    width: var(--spotlight-sidebar-width);
+    min-width: var(--spotlight-sidebar-width);
+    max-width: var(--spotlight-sidebar-width);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-2xl);
+    z-index: 150;
+    overflow: hidden;
+    flex: none !important;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="2"] {
+    position: relative;
+    z-index: 10;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="2"]
+    [data-slot="sidebar-inset"] {
+    padding-top: calc(var(--size-touch-lg) + var(--space-8));
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"] {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: var(--spotlight-sidebar-width) !important;
+    min-width: var(--spotlight-sidebar-width) !important;
+    max-width: var(--spotlight-sidebar-width) !important;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-2xl);
+    z-index: 150;
+    overflow: hidden;
+    flex: none !important;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"]
+    .ContextRail {
+    border-inline-start: none;
+    background-color: transparent;
+  }
+
+  .NoteEditor {
+    max-width: 80ch;
+    margin-inline: auto;
+  }
+
+  .SplitViewContainer {
+    height: 100%;
+  }
+
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}

@@ -17,11 +17,15 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div
   class="ThemePreview"
   class:ThemePreview--interactive={interactive}
   onclick={handle_click}
+  onkeydown={(e) =>
+    e.key === "Enter" && handle_click(e as unknown as MouseEvent)}
+  role={interactive ? "button" : undefined}
+  tabindex={interactive ? 0 : undefined}
 >
   <h1 data-theme-role="heading">A Heading</h1>
   <p data-theme-role="editor_text">

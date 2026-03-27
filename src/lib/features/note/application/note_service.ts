@@ -37,11 +37,9 @@ import {
   type LinkRepairService,
 } from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
-import type { SplitViewService } from "$lib/features/split_view";
+import type { SecondaryEditorManager } from "$lib/features/tab";
 import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
-import type { DiagnosticSeverity } from "$lib/features/diagnostics";
-import type { ParseDiagnostic } from "$lib/generated/bindings";
 import {
   to_open_note_state,
   type PastedImagePayload,
@@ -50,12 +48,6 @@ import { create_write_queue } from "$lib/shared/utils/write_queue";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("note_service");
-
-function to_severity(s: string): DiagnosticSeverity {
-  if (s === "error" || s === "warning" || s === "info" || s === "hint")
-    return s;
-  return "error";
-}
 
 type OpenNoteOptions = {
   cleanup_if_missing?: boolean;
@@ -102,7 +94,7 @@ export class NoteService {
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
     private readonly on_file_written?: (path: string) => void,
-    private readonly split_view_service?: SplitViewService,
+    private readonly secondary_editor_manager?: SecondaryEditorManager,
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
@@ -117,10 +109,7 @@ export class NoteService {
 
   skip_mtime_guard(note_id: NoteId) {
     this.editor_store.update_mtime(note_id, 0);
-    this.split_view_service
-      ?.get_secondary_editor_store()
-      ?.update_mtime(note_id, 0);
-    this.split_view_service?.sync_secondary_note_state();
+    this.secondary_editor_manager?.get_editor_store()?.update_mtime(note_id, 0);
   }
 
   private get_active_vault_id(): VaultId | null {
@@ -766,10 +755,6 @@ export class NoteService {
         this.resolve_expected_mtime(open_note),
       );
       new_mtime = result.new_mtime;
-      if (result.parsed) {
-        this.parsed_note_cache?.set(open_note.meta.id, result.parsed);
-      }
-      this.push_ast_diagnostics(open_note.meta.id, result.diagnostics);
     } else {
       new_mtime = await this.notes_port.write_note(
         vault_id,
@@ -784,39 +769,13 @@ export class NoteService {
     this.sync_split_view_session(session);
   }
 
-  private push_ast_diagnostics(
-    note_id: string,
-    parse_diagnostics: ParseDiagnostic[],
-  ) {
-    if (!this.diagnostics_store) return;
-    if (parse_diagnostics.length === 0) {
-      this.diagnostics_store.clear_file("ast", note_id);
-      return;
-    }
-    this.diagnostics_store.push(
-      "ast",
-      note_id,
-      parse_diagnostics.map((d) => ({
-        source: "ast" as const,
-        line: d.line,
-        column: d.column,
-        end_line: d.end_line,
-        end_column: d.end_column,
-        severity: to_severity(d.severity),
-        message: d.message,
-        rule_id: d.rule_id,
-        fixable: false,
-      })),
-    );
-  }
-
   private propagate_mtime_to_other_pane(
     writing_session: SaveSession,
     note_id: NoteId,
     new_mtime: number,
   ): void {
     if (writing_session.target === "primary") {
-      this.split_view_service?.propagate_mtime_to_secondary(note_id, new_mtime);
+      this.secondary_editor_manager?.propagate_mtime(note_id, new_mtime);
     } else {
       if (this.editor_store.open_note?.meta.id === note_id) {
         this.editor_store.update_mtime(note_id, new_mtime);
@@ -1008,9 +967,8 @@ export class NoteService {
     }
 
     if (target === "secondary") {
-      const editor_store =
-        this.split_view_service?.get_secondary_editor_store();
-      const editor_service = this.split_view_service?.get_secondary_editor();
+      const editor_store = this.secondary_editor_manager?.get_editor_store();
+      const editor_service = this.secondary_editor_manager?.get_editor();
       if (!editor_store || !editor_service) {
         return null;
       }
@@ -1022,9 +980,9 @@ export class NoteService {
     }
 
     if (
-      this.split_view_service?.is_active() &&
-      this.split_view_service.get_secondary_open_note() &&
-      this.split_view_service.get_active_pane() === "secondary"
+      this.secondary_editor_manager?.is_active() &&
+      this.secondary_editor_manager.get_open_note() &&
+      this.secondary_editor_manager.get_active_pane() === "secondary"
     ) {
       return this.resolve_save_session("secondary");
     }
@@ -1032,10 +990,7 @@ export class NoteService {
     return this.resolve_save_session("primary");
   }
 
-  private sync_split_view_session(session: SaveSession): void {
-    if (session.target !== "secondary") {
-      return;
-    }
-    this.split_view_service?.sync_secondary_note_state();
+  private sync_split_view_session(_session: SaveSession): void {
+    // With Yjs, both editors share the same Y.Doc — no manual sync needed
   }
 }

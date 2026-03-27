@@ -37,7 +37,10 @@ pub struct ToolSpec {
 impl ToolSpec {
     pub fn downloadable(&self) -> bool {
         !self.github_repo.is_empty()
-            && self.platform_binaries.iter().any(|p| p.asset_template != "")
+            && self
+                .platform_binaries
+                .iter()
+                .any(|p| p.asset_template != "")
     }
 }
 
@@ -63,7 +66,17 @@ pub struct ToolInfo {
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ToolchainEvent {
-    DownloadProgress { tool_id: String, percent: f32 },
-    InstallComplete { tool_id: String, version: String, path: String },
-    InstallFailed { tool_id: String, message: String },
+    DownloadProgress {
+        tool_id: String,
+        percent: f32,
+    },
+    InstallComplete {
+        tool_id: String,
+        version: String,
+        path: String,
+    },
+    InstallFailed {
+        tool_id: String,
+        message: String,
+    },
 }

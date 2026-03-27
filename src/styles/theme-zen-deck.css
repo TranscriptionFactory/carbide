@@ -1,0 +1,154 @@
+/* ============================================
+   ZEN DECK LAYOUT OVERRIDES (WRITER-FIRST)
+   ============================================ */
+
+.WorkspaceLayout--zen-deck {
+  --zen-max-width: 100ch;
+  --zen-dock-height: 4rem;
+  --zen-sidebar-width: 20rem;
+
+  position: relative;
+  background-color: var(--background);
+
+  /* ActivityBar: Bottom-Center Floating Dock */
+  .ActivityBar {
+    position: absolute;
+    bottom: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    height: var(--zen-dock-height);
+    width: auto;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: var(--space-2);
+    padding-inline: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-xl);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .ActivityBar__section:first-child {
+    border-inline-end: 1px solid var(--border);
+    margin-inline-end: var(--space-2);
+    padding-inline-end: var(--space-2);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-md);
+    height: var(--size-touch-md);
+    border-radius: var(--radius-full);
+  }
+
+  /* StatusBar: Hidden by default in Zen, or very subtle */
+  .StatusBar {
+    position: absolute;
+    bottom: calc(var(--zen-dock-height) + var(--space-6));
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    background: transparent;
+    opacity: 0.3;
+    transition: opacity var(--duration-normal);
+  }
+
+  .StatusBar:hover {
+    opacity: 1;
+  }
+
+  /* Sidebars: Slide-out Overlays */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  /* Left Sidebar Overlay */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    position: absolute !important;
+    top: var(--space-4);
+    left: var(--space-4);
+    bottom: calc(var(--zen-dock-height) + var(--space-8));
+    width: var(--zen-sidebar-width) !important;
+    min-width: var(--zen-sidebar-width) !important;
+    max-width: var(--zen-sidebar-width) !important;
+    z-index: 150;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background-color: color-mix(in oklch, var(--card) 98%, transparent);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-2xl);
+    flex: none !important;
+  }
+
+  /* Right Sidebar (Context Rail) Overlay */
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute !important;
+    top: var(--space-4);
+    right: var(--space-4);
+    bottom: calc(var(--zen-dock-height) + var(--space-8));
+    width: var(--zen-sidebar-width) !important;
+    min-width: var(--zen-sidebar-width) !important;
+    max-width: var(--zen-sidebar-width) !important;
+    z-index: 150;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background-color: color-mix(in oklch, var(--card) 98%, transparent);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-2xl);
+    flex: none !important;
+  }
+
+  /* Editor: Centered Column */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    padding-top: var(--space-12);
+    padding-bottom: calc(var(--zen-dock-height) + var(--space-12));
+    background-color: var(--background);
+  }
+
+  .NoteEditor {
+    max-width: var(--zen-max-width);
+    margin-inline: auto;
+  }
+
+  .TabBar {
+    border: none;
+    background: transparent;
+    justify-content: center;
+    margin-block-end: var(--space-8);
+  }
+
+  .TabBar__tabs {
+    flex: 0 1 auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--muted) 20%, transparent);
+    padding: var(--space-1);
+  }
+
+  .TabBar__tab {
+    border-radius: var(--radius-full);
+    border: none;
+    height: var(--size-touch-sm);
+  }
+
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}

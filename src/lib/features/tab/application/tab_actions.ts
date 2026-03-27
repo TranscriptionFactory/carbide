@@ -80,10 +80,13 @@ export function register_tab_actions(input: ActionRegistrationInput) {
     execute: async (tab_id_arg?: unknown) => {
       if (
         !tab_id_arg &&
-        stores.split_view.active &&
-        stores.split_view.active_pane === "secondary"
+        stores.tab.is_split &&
+        stores.tab.active_pane === "secondary"
       ) {
-        void registry.execute(ACTION_IDS.split_view_close);
+        const secondary = stores.tab.secondary_tab;
+        if (secondary) {
+          await close_tab_immediate(input, secondary.id);
+        }
         return;
       }
 
@@ -466,6 +469,56 @@ export function register_tab_actions(input: ActionRegistrationInput) {
     label: "Cancel Close Tab",
     execute: () => {
       reset_close_confirm(stores);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.tab_open_to_side,
+    label: "Open to Side",
+    execute: async (note_path_raw: unknown) => {
+      const note_path = String(note_path_raw);
+      const existing = stores.tab.find_tab_by_path(
+        note_path as import("$lib/shared/types/ids").NotePath,
+      );
+      if (existing) {
+        stores.tab.open_to_side(existing.id);
+        return;
+      }
+
+      await capture_active_tab_snapshot(input);
+      const tab = try_open_tab(
+        input,
+        note_path as import("$lib/shared/types/ids").NotePath,
+        note_path.split("/").pop()?.replace(/\.md$/, "") ?? note_path,
+      );
+      if (!tab) return;
+      stores.tab.open_to_side(tab.id);
+      await open_active_tab_note(input);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.tab_toggle_split,
+    label: "Toggle Split View",
+    shortcut: "CmdOrCtrl+\\",
+    execute: async () => {
+      if (stores.tab.is_split) {
+        stores.tab.unseat_secondary();
+        return;
+      }
+      const active = stores.tab.active_tab;
+      if (!active || active.kind !== "note") return;
+      stores.tab.open_to_side(active.id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.tab_set_active_pane,
+    label: "Set Active Pane",
+    execute: (pane: unknown) => {
+      stores.tab.set_active_pane(
+        pane as import("$lib/features/tab/types/tab").Pane,
+      );
     },
   });
 }

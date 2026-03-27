@@ -1673,10 +1673,10 @@
 }
 
 /* ============================================
-   IWE COMPLETION DROPDOWN
+   LSP COMPLETION DROPDOWN
    ============================================ */
 
-.IweCompletion {
+.LspCompletion {
   position: absolute;
   z-index: 50;
   min-width: 200px;
@@ -1690,7 +1690,7 @@
   padding: var(--space-1) 0;
 }
 
-.IweCompletion__item {
+.LspCompletion__item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1705,16 +1705,16 @@
   transition: background-color var(--duration-fast) var(--ease-default);
 }
 
-.IweCompletion__item:hover {
+.LspCompletion__item:hover {
   background: var(--muted);
 }
 
-.IweCompletion__item--selected {
+.LspCompletion__item--selected {
   background: var(--interactive-bg);
   color: var(--interactive);
 }
 
-.IweCompletion__label {
+.LspCompletion__label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1722,7 +1722,7 @@
   flex: 1;
 }
 
-.IweCompletion__detail {
+.LspCompletion__detail {
   flex-shrink: 0;
   font-size: var(--text-xs);
   color: var(--muted-foreground);
@@ -1732,16 +1732,16 @@
   max-width: 140px;
 }
 
-.IweCompletion__item--selected .IweCompletion__detail {
+.LspCompletion__item--selected .LspCompletion__detail {
   color: inherit;
   opacity: 0.8;
 }
 
 /* ============================================
-   IWE INLAY HINTS
+   LSP INLAY HINTS
    ============================================ */
 
-.iwe-inlay-hint {
+.lsp-inlay-hint {
   display: inline;
   font-size: var(--text-xs);
   color: var(--muted-foreground);
@@ -1755,10 +1755,10 @@
 }
 
 /* ============================================
-   IWE CODE ACTIONS LIGHTBULB
+   LSP CODE ACTIONS LIGHTBULB
    ============================================ */
 
-.iwe-lightbulb {
+.lsp-lightbulb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1779,12 +1779,12 @@
     color var(--duration-fast) var(--ease-default);
 }
 
-.iwe-lightbulb:hover {
+.lsp-lightbulb:hover {
   opacity: 1;
   color: var(--foreground);
 }
 
-.IweCodeAction {
+.LspCodeAction {
   min-width: 180px;
   max-width: 320px;
   border: 1px solid var(--border);
@@ -1795,7 +1795,7 @@
   overflow: hidden;
 }
 
-.IweCodeAction__item {
+.LspCodeAction__item {
   display: block;
   width: 100%;
   padding: var(--space-1-5) var(--space-2);
@@ -1811,7 +1811,7 @@
   transition: background-color var(--duration-fast) var(--ease-default);
 }
 
-.IweCodeAction__item:hover {
+.LspCodeAction__item:hover {
   background: var(--muted);
 }
 

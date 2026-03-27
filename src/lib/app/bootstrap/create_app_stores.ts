@@ -8,7 +8,6 @@ import { TabStore } from "$lib/features/tab";
 import { GitStore } from "$lib/features/git";
 import { LinksStore } from "$lib/features/links";
 import { OutlineStore } from "$lib/features/outline";
-import { SplitViewStore } from "$lib/features/split_view";
 import { TerminalStore } from "$lib/features/terminal";
 import { DocumentStore } from "$lib/features/document";
 import { AiStore } from "$lib/features/ai";
@@ -19,7 +18,7 @@ import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
 import { LintStore, LogStore } from "$lib/features/lint";
-import { IweStore } from "$lib/features/iwe";
+import { MarksmanStore } from "$lib/features/marksman";
 import { LspStore } from "$lib/features/lsp";
 import { DiagnosticsStore } from "$lib/features/diagnostics";
 import { MetadataStore } from "$lib/features/metadata";
@@ -40,7 +39,6 @@ export type AppStores = {
   git: GitStore;
   links: LinksStore;
   outline: OutlineStore;
-  split_view: SplitViewStore;
   terminal: TerminalStore;
   document: DocumentStore;
   ai: AiStore;
@@ -53,7 +51,7 @@ export type AppStores = {
   tag: TagStore;
   lint: LintStore;
   log: LogStore;
-  iwe: IweStore;
+  marksman: MarksmanStore;
   lsp: LspStore;
   diagnostics: DiagnosticsStore;
   metadata: MetadataStore;
@@ -76,7 +74,6 @@ export function create_app_stores(): AppStores {
     git: new GitStore(),
     links: new LinksStore(),
     outline: new OutlineStore(),
-    split_view: new SplitViewStore(),
     terminal: new TerminalStore(),
     document: new DocumentStore(),
     ai: new AiStore(),
@@ -89,7 +86,7 @@ export function create_app_stores(): AppStores {
     tag: new TagStore(),
     lint: new LintStore(),
     log: new LogStore(),
-    iwe: new IweStore(),
+    marksman: new MarksmanStore(),
     lsp: new LspStore(),
     diagnostics: new DiagnosticsStore(),
     metadata: new MetadataStore(),
