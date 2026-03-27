@@ -231,6 +231,8 @@
     class:WorkspaceLayout--hud={is_hud}
     class:WorkspaceLayout--zen-deck={is_zen_deck}
     class:WorkspaceLayout--dashboard={is_dashboard}
+    data-sidebar-open={stores.ui.sidebar_open}
+    data-context-rail-open={stores.ui.context_rail_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
       const target = e.target as HTMLElement;
