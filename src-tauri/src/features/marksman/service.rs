@@ -108,7 +108,9 @@ fn lsp_severity_to_string(severity: Option<u64>) -> String {
     .to_string()
 }
 
-fn parse_lsp_diagnostics(params: &serde_json::Value) -> Option<(String, Vec<MarksmanLspDiagnostic>)> {
+fn parse_lsp_diagnostics(
+    params: &serde_json::Value,
+) -> Option<(String, Vec<MarksmanLspDiagnostic>)> {
     let uri = params.get("uri")?.as_str()?.to_string();
     let diags = params
         .get("diagnostics")?
@@ -720,7 +722,10 @@ pub async fn marksman_document_symbols(
             Some(MarksmanDocumentSymbol {
                 name: s.get("name")?.as_str()?.to_string(),
                 kind: s.get("kind")?.as_u64()? as u32,
-                container_name: s.get("containerName").and_then(|c| c.as_str()).map(String::from),
+                container_name: s
+                    .get("containerName")
+                    .and_then(|c| c.as_str())
+                    .map(String::from),
                 location: parse_location_obj(loc)?,
             })
         })
@@ -965,10 +970,7 @@ async fn apply_edits_to_file(uri: &str, edits: &[serde_json::Value]) -> Result<(
     let mut result = String::with_capacity(content.len());
     let mut cursor = 0;
     for (edit, start_offset, end_offset) in &sorted_edits {
-        let new_text = edit
-            .get("newText")
-            .and_then(|t| t.as_str())
-            .unwrap_or("");
+        let new_text = edit.get("newText").and_then(|t| t.as_str()).unwrap_or("");
         result.push_str(&content[cursor..*start_offset]);
         result.push_str(new_text);
         cursor = *end_offset;

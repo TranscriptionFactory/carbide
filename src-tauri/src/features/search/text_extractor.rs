@@ -42,14 +42,13 @@ pub fn classify_file(path: &Path) -> FileCategory {
         "canvas" | "excalidraw" => FileCategory::Canvas,
         "pdf" => FileCategory::Pdf,
         "py" | "r" | "rs" | "ts" | "js" | "jsx" | "tsx" | "json" | "yaml" | "yml" | "toml"
-        | "sh" | "bash" | "css" | "scss" | "html" | "xml" | "sql" | "go" | "java" | "kt"
-        | "c" | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua" | "zig" | "swift" | "dart"
-        | "ex" | "exs" | "erl" | "hs" | "ml" | "clj" | "scala" | "php" | "pl" | "vim"
-        | "el" | "nix" | "dhall" | "tf" | "hcl" | "graphql" | "proto" | "svelte" | "vue"
-        | "astro" => FileCategory::Code,
-        "txt" | "log" | "ini" | "cfg" | "conf" | "env" | "csv" | "tsv" | "rst"
-        | "adoc" | "org" | "diff" | "patch" | "properties" | "dockerfile" | "makefile"
-        | "cmake" | "gitignore" | "gitattributes" | "editorconfig" => FileCategory::Text,
+        | "sh" | "bash" | "css" | "scss" | "html" | "xml" | "sql" | "go" | "java" | "kt" | "c"
+        | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua" | "zig" | "swift" | "dart" | "ex" | "exs"
+        | "erl" | "hs" | "ml" | "clj" | "scala" | "php" | "pl" | "vim" | "el" | "nix" | "dhall"
+        | "tf" | "hcl" | "graphql" | "proto" | "svelte" | "vue" | "astro" => FileCategory::Code,
+        "txt" | "log" | "ini" | "cfg" | "conf" | "env" | "csv" | "tsv" | "rst" | "adoc" | "org"
+        | "diff" | "patch" | "properties" | "dockerfile" | "makefile" | "cmake" | "gitignore"
+        | "gitattributes" | "editorconfig" => FileCategory::Text,
         _ => {
             if is_known_text_filename(path) {
                 FileCategory::Text
@@ -164,12 +163,18 @@ pub fn resolve_snippet_page(snippet: &str, body: &str, page_offsets: &[usize]) -
         .replace("<b>", "")
         .replace("</b>", "")
         .replace("...", "");
-    let fragment = clean.split_whitespace().take(5).collect::<Vec<_>>().join(" ");
+    let fragment = clean
+        .split_whitespace()
+        .take(5)
+        .collect::<Vec<_>>()
+        .join(" ");
     if fragment.is_empty() {
         return None;
     }
     let pos = body.find(&fragment)?;
-    let page_idx = page_offsets.partition_point(|&o| o <= pos).saturating_sub(1);
+    let page_idx = page_offsets
+        .partition_point(|&o| o <= pos)
+        .saturating_sub(1);
     Some(page_idx as u32 + 1) // 1-indexed
 }
 
@@ -263,10 +268,7 @@ mod tests {
     fn resolve_snippet_page_finds_correct_page() {
         let body = "Page one content\nPage two content\nPage three content\n";
         let offsets = vec![0, 17, 34];
-        assert_eq!(
-            resolve_snippet_page("Page one", body, &offsets),
-            Some(1)
-        );
+        assert_eq!(resolve_snippet_page("Page one", body, &offsets), Some(1));
         assert_eq!(
             resolve_snippet_page("<b>Page</b> two", body, &offsets),
             Some(2)
@@ -284,10 +286,7 @@ mod tests {
 
     #[test]
     fn resolve_snippet_page_no_match() {
-        assert_eq!(
-            resolve_snippet_page("nonexistent", "some body", &[0]),
-            None
-        );
+        assert_eq!(resolve_snippet_page("nonexistent", "some body", &[0]), None);
     }
 
     #[test]

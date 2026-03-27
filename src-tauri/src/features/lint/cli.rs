@@ -87,10 +87,7 @@ pub async fn format_file_content(
     }
 }
 
-pub async fn format_vault(
-    binary: &Path,
-    vault_path: &Path,
-) -> Result<Vec<String>, anyhow::Error> {
+pub async fn format_vault(binary: &Path, vault_path: &Path) -> Result<Vec<String>, anyhow::Error> {
     let config = super::config::config_path(vault_path);
     let mut cmd = tokio::process::Command::new(binary);
     cmd.args(["fmt", "."]);

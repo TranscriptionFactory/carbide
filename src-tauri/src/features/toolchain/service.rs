@@ -31,15 +31,13 @@ pub async fn toolchain_list_tools(
     for spec in registry::TOOLS {
         let status = match cached.get(spec.id) {
             Some(s) => s.clone(),
-            None => {
-                match resolver::resolve(&app, spec.id, None).await {
-                    Ok(path) => ToolStatus::Installed {
-                        version: spec.version.to_string(),
-                        path: path.to_string_lossy().to_string(),
-                    },
-                    Err(_) => ToolStatus::NotInstalled,
-                }
-            }
+            None => match resolver::resolve(&app, spec.id, None).await {
+                Ok(path) => ToolStatus::Installed {
+                    version: spec.version.to_string(),
+                    path: path.to_string_lossy().to_string(),
+                },
+                Err(_) => ToolStatus::NotInstalled,
+            },
         };
 
         tools.push(ToolInfo {
@@ -64,10 +62,7 @@ pub async fn toolchain_install(
 ) -> Result<(), String> {
     {
         let mut statuses = state.statuses.lock().await;
-        statuses.insert(
-            tool_id.clone(),
-            ToolStatus::Downloading { percent: 0.0 },
-        );
+        statuses.insert(tool_id.clone(), ToolStatus::Downloading { percent: 0.0 });
     }
 
     match downloader::download_tool(&app, &tool_id).await {
@@ -85,12 +80,7 @@ pub async fn toolchain_install(
         }
         Err(e) => {
             let mut statuses = state.statuses.lock().await;
-            statuses.insert(
-                tool_id.clone(),
-                ToolStatus::Error {
-                    message: e.clone(),
-                },
-            );
+            statuses.insert(tool_id.clone(), ToolStatus::Error { message: e.clone() });
             let _ = app.emit(
                 "toolchain_event",
                 ToolchainEvent::InstallFailed {
@@ -110,11 +100,9 @@ pub async fn toolchain_uninstall(
     state: State<'_, ToolchainState>,
     tool_id: String,
 ) -> Result<(), String> {
-    let spec = registry::get(&tool_id)
-        .ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
+    let spec = registry::get(&tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
-    let path =
-        resolver::downloaded_path(&app, &tool_id, spec.version, spec.binary_name)?;
+    let path = resolver::downloaded_path(&app, &tool_id, spec.version, spec.binary_name)?;
 
     if path.exists() {
         tokio::fs::remove_file(&path)

@@ -78,10 +78,7 @@ pub fn bases_load_view(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_list_views(
-    app: AppHandle,
-    vault_id: String,
-) -> Result<Vec<SavedViewInfo>, String> {
+pub fn bases_list_views(app: AppHandle, vault_id: String) -> Result<Vec<SavedViewInfo>, String> {
     let root = storage::vault_path(&app, &vault_id)?;
     let dir = root.join(".carbide").join("bases");
     if !dir.is_dir() {
@@ -113,11 +110,7 @@ pub fn bases_list_views(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_delete_view(
-    app: AppHandle,
-    vault_id: String,
-    path: String,
-) -> Result<(), String> {
+pub fn bases_delete_view(app: AppHandle, vault_id: String, path: String) -> Result<(), String> {
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = notes_service::safe_vault_abs(&root, &path)?;
 
