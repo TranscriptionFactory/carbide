@@ -8,6 +8,8 @@
   --editor-line-height: 1.85;
   --editor-max-width: min(85ch, 90%);
   --editor-spacing: 1.5rem;
+  --editor-padding-block: var(--space-12);
+  --editor-padding-inline: var(--space-8);
   --editor-source-bg: var(--background);
   --editor-heading-color: var(--foreground);
   --editor-heading-weight: 500;
@@ -91,7 +93,7 @@
   outline: none;
   max-width: var(--editor-max-width);
   margin: 0 auto;
-  padding: var(--space-12) var(--space-8);
+  padding: var(--editor-padding-block) var(--editor-padding-inline);
   font-feature-settings:
     "liga" 1,
     "calt" 1,
@@ -1821,6 +1823,11 @@
   transition:
     opacity var(--duration-fast) var(--ease-default),
     color var(--duration-fast) var(--ease-default);
+}
+
+.lsp-lightbulb svg {
+  width: 14px;
+  height: 14px;
 }
 
 .lsp-lightbulb:hover {
