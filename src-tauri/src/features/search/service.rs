@@ -1493,3 +1493,88 @@ pub fn get_note_stats(
         search_db::get_note_stats(conn, &note_path)
     })
 }
+
+fn strip_link_suffix(raw: &str) -> &str {
+    let trimmed = raw.trim();
+    match trimmed.find(|c| c == '?' || c == '#') {
+        Some(i) => &trimmed[..i],
+        None => trimmed,
+    }
+}
+
+fn source_dir(path: &str) -> &str {
+    match path.rfind('/') {
+        Some(i) => &path[..i],
+        None => "",
+    }
+}
+
+fn resolve_relative_path(base_dir: &str, target: &str) -> Option<String> {
+    let mut segments: Vec<&str> = if base_dir.is_empty() {
+        vec![]
+    } else {
+        base_dir.split('/').collect()
+    };
+
+    for part in target.split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            if segments.is_empty() {
+                return None;
+            }
+            segments.pop();
+            continue;
+        }
+        segments.push(part);
+    }
+
+    if segments.is_empty() {
+        None
+    } else {
+        Some(segments.join("/"))
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn resolve_note_link(source_path: String, raw_target: String) -> Option<String> {
+    let trimmed = strip_link_suffix(&raw_target);
+    let base_dir = if trimmed.starts_with('/') {
+        ""
+    } else {
+        source_dir(&source_path)
+    };
+    let cleaned = trimmed.trim_start_matches('/');
+    if cleaned.is_empty() {
+        return None;
+    }
+    let leaf = cleaned.rsplit('/').next().unwrap_or(cleaned);
+    let candidate = if leaf.contains('.') {
+        cleaned.to_string()
+    } else {
+        format!("{cleaned}.md")
+    };
+    resolve_relative_path(base_dir, &candidate)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<String> {
+    let cleaned = strip_link_suffix(&raw_target).trim_start_matches('/');
+    if cleaned.is_empty() {
+        return None;
+    }
+    let with_ext = if cleaned.ends_with(".md") {
+        cleaned.to_string()
+    } else {
+        format!("{cleaned}.md")
+    };
+    let base_dir = if cleaned.starts_with("./") || cleaned.starts_with("../") {
+        source_dir(&source_path)
+    } else {
+        ""
+    };
+    resolve_relative_path(base_dir, &with_ext)
+}
