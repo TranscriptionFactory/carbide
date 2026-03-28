@@ -2,6 +2,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { MarksmanCodeAction } from "$lib/features/marksman";
+import { Lightbulb } from "lucide-static";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import {
   position_suggest_dropdown,
@@ -252,6 +253,7 @@ export function create_lsp_code_action_plugin(input: {
                 const el = document.createElement("button");
                 el.type = "button";
                 el.className = "lsp-lightbulb";
+                el.innerHTML = Lightbulb;
                 el.title = `${String(meta.actions.length)} code action${meta.actions.length > 1 ? "s" : ""} available`;
                 el.addEventListener("mousedown", (e) => {
                   e.preventDefault();

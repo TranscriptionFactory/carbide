@@ -14,7 +14,7 @@ export function build_source_editor_base_theme_spec(): CodeMirrorThemeSpec {
     ".cm-scroller": {
       overflow: "auto",
       fontFamily: "var(--font-mono)",
-      padding: "2rem clamp(1rem, 4%, 3rem)",
+      padding: "var(--editor-padding-block) var(--editor-padding-inline)",
     },
     ".cm-content": {
       maxWidth: "48rem",
