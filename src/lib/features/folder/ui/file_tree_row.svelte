@@ -1104,7 +1104,7 @@
   /* ── Folder highlight when blurbs are shown ── */
 
   :global([data-show-blurb]) .TreeRow--folder {
-    height: calc(var(--size-tree-row) - 4px);
+    height: calc(var(--size-tree-row) - 8px);
   }
 
   :global([data-show-blurb][data-tree-style="default"])
