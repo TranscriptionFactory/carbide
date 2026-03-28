@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Theme } from "$lib/shared/types/theme";
+  import { is_color_value } from "$lib/shared/utils/theme_helpers";
 
   type Props = {
     theme: Theme;
@@ -47,11 +48,6 @@
   };
 
   const READ_ONLY_FIELDS = new Set(["id", "is_builtin"]);
-
-  function is_color_value(value: unknown): value is string {
-    if (typeof value !== "string") return false;
-    return /^(oklch|hsl|rgb|#[0-9a-f])/i.test(value.trim());
-  }
 
   const COLLAPSE_THRESHOLD = 5;
 

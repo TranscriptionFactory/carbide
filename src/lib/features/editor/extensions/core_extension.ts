@@ -12,6 +12,7 @@ import {
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { schema } from "../adapters/markdown_pipeline";
+import { create_trailing_paragraph_plugin } from "../adapters/trailing_paragraph_plugin";
 import { create_dirty_state_prose_plugin } from "../adapters/dirty_state_plugin";
 import { create_editor_context_plugin_instance } from "../adapters/editor_context_plugin";
 import { create_emoji_prose_plugin } from "../adapters/emoji_plugin";
@@ -115,6 +116,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
   plugins.push(use_yjs ? yUndoPlugin() : history());
   plugins.push(dropCursor());
   plugins.push(gapCursor());
+  plugins.push(create_trailing_paragraph_plugin());
   plugins.push(create_emoji_prose_plugin());
   plugins.push(create_typography_prose_plugin());
   plugins.push(create_block_input_rules_prose_plugin());

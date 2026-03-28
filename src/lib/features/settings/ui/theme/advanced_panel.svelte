@@ -5,6 +5,7 @@
   import type { Theme } from "$lib/shared/types/theme";
   import OverrideSummary from "./override_summary.svelte";
   import JsonAnnotatedView from "./json_annotated_view.svelte";
+  import CssTokenReference from "./css_token_reference.svelte";
 
   type Props = {
     theme: Theme;
@@ -22,7 +23,7 @@
     on_import,
   }: Props = $props();
 
-  let active_tab: "overrides" | "json" = $state("overrides");
+  let active_tab: "overrides" | "json" | "tokens" = $state("overrides");
   let json_view_mode: "annotated" | "raw" = $state("annotated");
   let json_text = $state("");
   let json_error = $state("");
@@ -34,6 +35,13 @@
       json_error = "";
     }
   });
+
+  function handle_add_override(token: string, value: string) {
+    on_update({
+      ...theme,
+      token_overrides: { ...theme.token_overrides, [token]: value },
+    });
+  }
 
   function apply_json() {
     try {
@@ -113,6 +121,16 @@
     >
       JSON
     </button>
+    <button
+      type="button"
+      class="AdvancedPanel__tab"
+      class:AdvancedPanel__tab--active={active_tab === "tokens"}
+      onclick={() => {
+        active_tab = "tokens";
+      }}
+    >
+      Tokens
+    </button>
   </div>
 
   {#if active_tab === "overrides"}
@@ -135,6 +153,8 @@
         onchange={handle_file_selected}
       />
     </div>
+  {:else if active_tab === "tokens"}
+    <CssTokenReference {theme} on_add_override={handle_add_override} />
   {:else}
     <div class="AdvancedPanel__json-subtabs">
       <button
