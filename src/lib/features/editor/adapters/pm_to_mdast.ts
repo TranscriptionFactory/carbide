@@ -356,5 +356,14 @@ export function pm_to_mdast(doc: PmNode): Root {
     const node = convert_block_node(child);
     if (node) children.push(node);
   });
+  const last_pm = doc.lastChild;
+  if (
+    last_pm &&
+    last_pm.type.name === "paragraph" &&
+    last_pm.content.size === 0 &&
+    children.length > 0
+  ) {
+    children.pop();
+  }
   return { type: "root", children: children as RootContent[] };
 }

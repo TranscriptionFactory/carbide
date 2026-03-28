@@ -1,5 +1,12 @@
 export type HSL = { h: number; s: number; l: number };
 
+const COLOR_VALUE_RE = /^(oklch|hsl|rgb|#[0-9a-f])/i;
+
+export function is_color_value(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return COLOR_VALUE_RE.test(value.trim());
+}
+
 const HSL_RE = /^hsl\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?\s*\)$/i;
 
 export function parse_hsl(value: string | null): HSL | null {
