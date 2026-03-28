@@ -7,6 +7,10 @@ export {
 } from "$lib/features/marksman/application/iwe_actions";
 export { create_marksman_tauri_adapter } from "$lib/features/marksman/adapters/marksman_tauri_adapter";
 export type { MarksmanPort } from "$lib/features/marksman/ports";
+export {
+  resolve_iwe_ai_provider,
+  is_output_file_provider,
+} from "$lib/features/marksman/domain/iwe_provider_resolution";
 export type {
   MarksmanStatus,
   MarksmanHoverResult,

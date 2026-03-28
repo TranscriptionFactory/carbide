@@ -8,6 +8,10 @@ import {
   apply_workspace_edit_result,
   type WorkspaceEditDeps,
 } from "$lib/features/lsp";
+import {
+  resolve_iwe_ai_provider,
+  is_output_file_provider,
+} from "$lib/features/marksman/domain/iwe_provider_resolution";
 
 const IWE_ACTION_KINDS: Record<string, string> = {
   [ACTION_IDS.iwe_extract_section]: "custom.extract",
@@ -172,7 +176,12 @@ export function register_iwe_actions(deps: IweActionDeps): void {
     id: ACTION_IDS.iwe_reset_config,
     label: "IWE: Reset Config to Defaults",
     execute: async () => {
-      await marksman_service.iwe_config_reset();
+      const ok = await marksman_service.iwe_config_reset();
+      if (!ok) return;
+      const provider = resolve_iwe_ai_provider(deps.ui_store.editor_settings);
+      if (provider && !is_output_file_provider(provider)) {
+        await marksman_service.rewrite_provider_and_restart(provider);
+      }
     },
   });
 
