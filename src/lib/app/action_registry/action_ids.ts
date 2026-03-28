@@ -292,6 +292,7 @@ export const ACTION_IDS = {
   iwe_create_link: "iwe.create_link",
   iwe_open_config: "iwe.open_config",
   iwe_reset_config: "iwe.reset_config",
+  iwe_refresh_transforms: "iwe.refresh_transforms",
 
   bases_toggle_panel: "bases.toggle_panel",
   bases_refresh: "bases.refresh",

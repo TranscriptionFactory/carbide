@@ -1,4 +1,5 @@
 import type {
+  IweActionInfo,
   MarksmanCodeAction,
   MarksmanCompletionItem,
   MarksmanDocumentSymbol,
@@ -19,6 +20,7 @@ export class MarksmanStore {
   inlay_hints = $state<MarksmanInlayHint[]>([]);
   document_symbols = $state<MarksmanDocumentSymbol[]>([]);
   completion_trigger_characters = $state<string[]>([]);
+  transform_actions = $state<IweActionInfo[]>([]);
   error = $state<string | null>(null);
   loading = $state(false);
 
@@ -66,6 +68,10 @@ export class MarksmanStore {
     this.completion_trigger_characters = chars;
   }
 
+  set_transform_actions(actions: IweActionInfo[]) {
+    this.transform_actions = actions;
+  }
+
   set_loading(loading: boolean) {
     this.loading = loading;
   }
@@ -80,6 +86,7 @@ export class MarksmanStore {
     this.completion_trigger_characters = [];
     this.inlay_hints = [];
     this.document_symbols = [];
+    this.transform_actions = [];
     this.error = null;
     this.loading = false;
   }

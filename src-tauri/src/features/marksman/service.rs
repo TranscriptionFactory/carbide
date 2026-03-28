@@ -1144,6 +1144,7 @@ pub async fn iwe_config_status(
             config_url,
             action_count: 0,
             action_names: vec![],
+            actions: vec![],
         });
     }
 
@@ -1152,13 +1153,50 @@ pub async fn iwe_config_status(
         .map_err(|e| format!("Failed to read IWE config: {}", e))?;
 
     let mut action_names = Vec::new();
+    let mut actions = Vec::new();
+
+    let mut current_action_name: Option<String> = None;
+    let mut current_type: Option<String> = None;
+    let mut current_title: Option<String> = None;
+
     for line in content.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("[actions.") {
-            if let Some(name) = rest.strip_suffix(']') {
-                action_names.push(name.to_string());
+            if let Some(prev_name) = current_action_name.take() {
+                action_names.push(prev_name.clone());
+                actions.push(IweActionInfo {
+                    name: prev_name.clone(),
+                    action_type: current_type.take().unwrap_or_else(|| "unknown".into()),
+                    title: current_title.take().unwrap_or(prev_name),
+                });
+            }
+            current_action_name = rest.strip_suffix(']').map(|s| s.to_string());
+            current_type = None;
+            current_title = None;
+        } else if current_action_name.is_some() {
+            if trimmed.starts_with('[') {
+                if let Some(prev_name) = current_action_name.take() {
+                    action_names.push(prev_name.clone());
+                    actions.push(IweActionInfo {
+                        name: prev_name.clone(),
+                        action_type: current_type.take().unwrap_or_else(|| "unknown".into()),
+                        title: current_title.take().unwrap_or(prev_name),
+                    });
+                }
+            } else if let Some(val) = trimmed.strip_prefix("type = ") {
+                current_type = Some(val.trim_matches('"').to_string());
+            } else if let Some(val) = trimmed.strip_prefix("title = ") {
+                current_title = Some(val.trim_matches('"').to_string());
             }
         }
+    }
+    if let Some(prev_name) = current_action_name.take() {
+        action_names.push(prev_name.clone());
+        actions.push(IweActionInfo {
+            name: prev_name.clone(),
+            action_type: current_type.take().unwrap_or_else(|| "unknown".into()),
+            title: current_title.take().unwrap_or(prev_name),
+        });
     }
 
     Ok(IweConfigStatus {
@@ -1166,6 +1204,7 @@ pub async fn iwe_config_status(
         config_url,
         action_count: action_names.len(),
         action_names,
+        actions,
     })
 }
 

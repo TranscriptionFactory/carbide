@@ -831,6 +831,14 @@ export function create_app_context(input: {
     marksman_service,
     ui_store: stores.ui,
     workspace_edit_deps,
+    command_sink: {
+      register: (cmd) => {
+        stores.plugin.register_command(cmd);
+      },
+      unregister: (id) => {
+        stores.plugin.unregister_command(id);
+      },
+    },
   });
 
   register_toolchain_actions({

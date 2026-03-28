@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import type { VaultStore } from "$lib/features/vault";
-import type { MarksmanService } from "$lib/features/marksman";
-import type { UIStore } from "$lib/app";
+import type { MarksmanService, MarksmanStore } from "$lib/features/marksman";
+import type { ActionRegistry, UIStore } from "$lib/app";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -11,6 +11,8 @@ export function create_marksman_lifecycle_reactor(
   vault_store: VaultStore,
   marksman_service: MarksmanService,
   ui_store: UIStore,
+  marksman_store?: MarksmanStore,
+  action_registry?: ActionRegistry,
 ): () => void {
   const cleanup_restart_listener = setup_restart_listener(marksman_service);
 
@@ -38,6 +40,19 @@ export function create_marksman_lifecycle_reactor(
         });
       };
     });
+
+    if (marksman_store && action_registry) {
+      $effect(() => {
+        const status = marksman_store.status;
+        if (status === "running") {
+          void action_registry
+            .execute("iwe.refresh_transforms")
+            .catch((error: unknown) => {
+              log.from_error("Failed to refresh IWE transforms", error);
+            });
+        }
+      });
+    }
   });
 
   return () => {

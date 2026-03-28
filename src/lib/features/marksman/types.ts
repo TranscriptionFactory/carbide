@@ -98,9 +98,16 @@ export type MarksmanStatusEvent = {
 
 export type MarksmanEvent = MarksmanDiagnosticsEvent | MarksmanStatusEvent;
 
+export type IweActionInfo = {
+  name: string;
+  action_type: string;
+  title: string;
+};
+
 export type IweConfigStatus = {
   exists: boolean;
   config_url: string;
   action_count: number;
   action_names: string[];
+  actions: IweActionInfo[];
 };

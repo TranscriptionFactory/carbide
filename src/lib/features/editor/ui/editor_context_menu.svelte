@@ -1,6 +1,7 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
+  import { to_transform_action_id } from "$lib/features/marksman";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import type { Snippet } from "svelte";
 
@@ -26,6 +27,13 @@
     { separator: true },
     { id: ACTION_IDS.iwe_create_link, label: "Create Link" },
   ] as const;
+
+  const transform_items = $derived(
+    stores.marksman.transform_actions.map((a) => ({
+      id: to_transform_action_id(a.name),
+      label: a.title,
+    })),
+  );
 
   function execute(action_id: string) {
     void action_registry.execute(action_id);
@@ -53,6 +61,18 @@
             {/each}
           </ContextMenu.SubContent>
         </ContextMenu.Sub>
+        {#if transform_items.length > 0}
+          <ContextMenu.Sub>
+            <ContextMenu.SubTrigger>Transform</ContextMenu.SubTrigger>
+            <ContextMenu.SubContent>
+              {#each transform_items as item}
+                <ContextMenu.Item onSelect={() => execute(item.id)}>
+                  {item.label}
+                </ContextMenu.Item>
+              {/each}
+            </ContextMenu.SubContent>
+          </ContextMenu.Sub>
+        {/if}
       {/if}
     </ContextMenu.Content>
   </ContextMenu.Portal>

@@ -82,10 +82,18 @@ pub struct MarksmanStartResult {
     pub completion_trigger_characters: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct IweActionInfo {
+    pub name: String,
+    pub action_type: String,
+    pub title: String,
+}
+
 #[derive(Debug, Serialize, Type)]
 pub struct IweConfigStatus {
     pub exists: bool,
     pub config_url: String,
     pub action_count: usize,
     pub action_names: Vec<String>,
+    pub actions: Vec<IweActionInfo>,
 }

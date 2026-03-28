@@ -20,24 +20,38 @@ const IWE_ACTION_KINDS: Record<string, string> = {
   [ACTION_IDS.iwe_create_link]: "custom.link",
 };
 
-export function register_iwe_actions(input: {
+export function to_transform_action_id(name: string): string {
+  return `iwe.transform.${name}`;
+}
+
+export interface IweActionDeps {
   registry: ActionRegistry;
   editor_store: EditorStore;
   marksman_store: MarksmanStore;
   marksman_service: MarksmanService;
   ui_store: UIStore;
   workspace_edit_deps: WorkspaceEditDeps;
-}): void {
-  const {
-    registry,
-    editor_store,
-    marksman_store,
-    marksman_service,
-    ui_store,
-    workspace_edit_deps,
-  } = input;
+  command_sink?: {
+    register(cmd: {
+      id: string;
+      label: string;
+      description: string;
+      keywords: string[];
+      icon: string;
+    }): void;
+    unregister(id: string): void;
+  };
+}
 
-  async function execute_iwe_action(action_id: string): Promise<void> {
+function make_structural_executor(deps: IweActionDeps) {
+  return async function execute_iwe_action(action_id: string): Promise<void> {
+    const {
+      marksman_store,
+      ui_store,
+      editor_store,
+      marksman_service,
+      workspace_edit_deps,
+    } = deps;
     if (marksman_store.status !== "running") return;
     if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
 
@@ -78,9 +92,53 @@ export function register_iwe_actions(input: {
     if (result) {
       await apply_workspace_edit_result(result, workspace_edit_deps);
     }
-  }
+  };
+}
 
-  const iwe_commands: Array<{ id: string; label: string }> = [
+function make_transform_executor(deps: IweActionDeps) {
+  return async function execute_transform(action_name: string): Promise<void> {
+    const {
+      marksman_store,
+      ui_store,
+      editor_store,
+      marksman_service,
+      workspace_edit_deps,
+    } = deps;
+    if (marksman_store.status !== "running") return;
+    if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
+
+    const open_note = editor_store.open_note;
+    const cursor = editor_store.cursor;
+    if (!open_note || !cursor) return;
+
+    const kind = `custom.${action_name}`;
+    const line = cursor.line - 1;
+    const character = cursor.column - 1;
+
+    const actions = await marksman_service.fetch_code_actions(
+      open_note.meta.path,
+      line,
+      character,
+      line,
+      character,
+    );
+
+    const chosen = actions.find((a) => a.kind?.startsWith(kind));
+    if (!chosen) return;
+
+    const result = await marksman_service.code_action_resolve(chosen.raw_json);
+    if (result) {
+      await apply_workspace_edit_result(result, workspace_edit_deps);
+    }
+  };
+}
+
+export function register_iwe_actions(deps: IweActionDeps): void {
+  const { registry, marksman_service } = deps;
+  const execute_iwe_action = make_structural_executor(deps);
+  const execute_transform = make_transform_executor(deps);
+
+  const structural_commands: Array<{ id: string; label: string }> = [
     { id: ACTION_IDS.iwe_extract_section, label: "IWE: Extract Section" },
     { id: ACTION_IDS.iwe_extract_all, label: "IWE: Extract All Subsections" },
     { id: ACTION_IDS.iwe_inline_section, label: "IWE: Inline as Section" },
@@ -91,7 +149,7 @@ export function register_iwe_actions(input: {
     { id: ACTION_IDS.iwe_create_link, label: "IWE: Create Link" },
   ];
 
-  for (const cmd of iwe_commands) {
+  for (const cmd of structural_commands) {
     registry.register({
       id: cmd.id,
       label: cmd.label,
@@ -117,4 +175,54 @@ export function register_iwe_actions(input: {
       await marksman_service.iwe_config_reset();
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.iwe_refresh_transforms,
+    label: "IWE: Refresh Transforms",
+    execute: () => refresh_iwe_transforms(deps, execute_transform),
+  });
+}
+
+export async function refresh_iwe_transforms(
+  deps: IweActionDeps,
+  execute_transform?: (name: string) => Promise<void>,
+): Promise<void> {
+  const { registry, marksman_store, marksman_service, command_sink } = deps;
+  const executor = execute_transform ?? make_transform_executor(deps);
+
+  const previous = marksman_store.transform_actions;
+  if (command_sink) {
+    for (const action of previous) {
+      command_sink.unregister(to_transform_action_id(action.name));
+    }
+  }
+
+  const status = await marksman_service.iwe_config_status();
+  if (!status?.exists) {
+    marksman_store.set_transform_actions([]);
+    return;
+  }
+
+  const transforms = status.actions.filter(
+    (a) => a.action_type === "transform",
+  );
+  marksman_store.set_transform_actions(transforms);
+
+  for (const action of transforms) {
+    const action_id = to_transform_action_id(action.name);
+    registry.register({
+      id: action_id,
+      label: `IWE: ${action.title}`,
+      execute: () => executor(action.name),
+    });
+    if (command_sink) {
+      command_sink.register({
+        id: action_id,
+        label: `IWE: ${action.title}`,
+        description: `Run "${action.title}" transform on the block at cursor`,
+        keywords: ["iwe", "transform", action.name, action.title.toLowerCase()],
+        icon: "sparkles",
+      });
+    }
+  }
 }
