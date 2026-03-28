@@ -3254,6 +3254,58 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">AI Provider</span>
+                  <span class="SettingsDialog__description">
+                    AI provider for IWE transform actions (rewrite, summarize,
+                    expand, etc.)
+                  </span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.iwe_ai_provider_id}
+                    onValueChange={(v: string | undefined) => {
+                      if (v) update("iwe_ai_provider_id", v);
+                    }}
+                    disabled={!editor_settings.ai_enabled}
+                  >
+                    <Select.Trigger class="w-48">
+                      <span data-slot="select-value">
+                        {editor_settings.iwe_ai_provider_id === "auto"
+                          ? "Auto (use default)"
+                          : (editor_settings.ai_providers.find(
+                              (p) =>
+                                p.id === editor_settings.iwe_ai_provider_id,
+                            )?.name ?? editor_settings.iwe_ai_provider_id)}
+                      </span>
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="auto">Auto (use default)</Select.Item>
+                      {#each editor_settings.ai_providers.filter((p) => p.transport.kind === "cli" && !p.transport.args.some( (a) => a.includes("{output_file}"), )) as p (p.id)}
+                        <Select.Item value={p.id}>{p.name}</Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <button
+                    type="button"
+                    class="SettingsDialog__reset"
+                    onclick={() =>
+                      update(
+                        "iwe_ai_provider_id",
+                        DEFAULT_EDITOR_SETTINGS.iwe_ai_provider_id,
+                      )}
+                    disabled={!editor_settings.ai_enabled ||
+                      editor_settings.iwe_ai_provider_id ===
+                        DEFAULT_EDITOR_SETTINGS.iwe_ai_provider_id}
+                    title="Reset to default (auto)"
+                  >
+                    <RotateCcw />
+                  </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Config File</span>
                   <span class="SettingsDialog__description">
                     {#if iwe_config_status?.exists}

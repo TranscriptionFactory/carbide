@@ -262,6 +262,7 @@ pub fn run() {
             features::marksman::service::marksman_document_symbols,
             features::marksman::service::iwe_config_status,
             features::marksman::service::iwe_config_reset,
+            features::marksman::service::iwe_config_rewrite_provider,
             features::search::service::tags_list_all,
             features::toolchain::service::toolchain_list_tools,
             features::toolchain::service::toolchain_install,

@@ -4,8 +4,31 @@ import type { MarksmanService, MarksmanStore } from "$lib/features/marksman";
 import type { ActionRegistry, UIStore } from "$lib/app";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { create_logger } from "$lib/shared/utils/logger";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
 const log = create_logger("marksman_lifecycle_reactor");
+
+function resolve_iwe_provider(ui_store: UIStore): AiProviderConfig | null {
+  const settings = ui_store.editor_settings;
+  if (!settings.ai_enabled) return null;
+
+  const providers = settings.ai_providers;
+  const iwe_id = settings.iwe_ai_provider_id;
+  const effective_id =
+    iwe_id === "auto" ? settings.ai_default_provider_id : iwe_id;
+
+  if (effective_id === "auto") {
+    return providers.find((p) => p.transport.kind === "cli") ?? null;
+  }
+  return providers.find((p) => p.id === effective_id) ?? null;
+}
+
+function is_output_file_provider(config: AiProviderConfig): boolean {
+  return (
+    config.transport.kind === "cli" &&
+    config.transport.args.some((a) => a.includes("{output_file}"))
+  );
+}
 
 export function create_marksman_lifecycle_reactor(
   vault_store: VaultStore,
@@ -53,6 +76,23 @@ export function create_marksman_lifecycle_reactor(
         }
       });
     }
+
+    $effect(() => {
+      const lsp_provider = ui_store.editor_settings.markdown_lsp_provider;
+      if (lsp_provider !== "iwes") return;
+
+      const resolved = resolve_iwe_provider(ui_store);
+      if (!resolved || is_output_file_provider(resolved)) return;
+
+      const status = marksman_store?.status;
+      if (status !== "running") return;
+
+      void marksman_service
+        .rewrite_provider_and_restart(resolved)
+        .catch((error: unknown) => {
+          log.from_error("Failed to rewrite IWE config for provider", error);
+        });
+    });
   });
 
   return () => {

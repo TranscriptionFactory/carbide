@@ -1,3 +1,4 @@
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
   MarksmanCodeAction,
@@ -98,4 +99,8 @@ export interface MarksmanPort {
 
   iwe_config_status(vault_id: string): Promise<IweConfigStatus>;
   iwe_config_reset(vault_id: string): Promise<void>;
+  iwe_config_rewrite_provider(
+    vault_id: string,
+    provider_config: AiProviderConfig,
+  ): Promise<void>;
 }

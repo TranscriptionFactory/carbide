@@ -1,6 +1,7 @@
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
 import type { MarksmanPort } from "$lib/features/marksman/ports";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
   MarksmanCodeAction,
@@ -159,6 +160,12 @@ export function create_marksman_tauri_adapter(): MarksmanPort {
 
     iwe_config_reset: (vault_id) =>
       tauri_invoke<void>("iwe_config_reset", { vaultId: vault_id }),
+
+    iwe_config_rewrite_provider: (vault_id, provider_config) =>
+      tauri_invoke<void>("iwe_config_rewrite_provider", {
+        vaultId: vault_id,
+        providerConfig: provider_config,
+      }),
 
     subscribe_diagnostics(callback: (event: MarksmanDiagnosticsEvent) => void) {
       let unlisten_fn: (() => void) | null = null;

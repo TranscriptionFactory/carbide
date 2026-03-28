@@ -7,33 +7,34 @@ path = ""
 
 # Commands define external executables that transform actions can invoke.
 # The {{context}} variable expands to the selected text/block content.
-# Prerequisites for Claude CLI examples: https://claude.ai/download
+# These ai_* commands are managed by the app and rewritten when you change
+# the IWE AI provider in Settings > AI.  User-added commands are preserved.
 
 [commands]
 
-[commands.claude_rewrite]
+[commands.ai_rewrite]
 run = "claude"
-args = ["--print", "Rewrite the following text to improve clarity and readability. Keep the language personable, not overly formal. Simplify language, organize sentences logically, remove ambiguity. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the rewritten text:\n\n{{context}}"]
+args = ["-p", "Rewrite the following text to improve clarity and readability. Keep the language personable, not overly formal. Simplify language, organize sentences logically, remove ambiguity. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the rewritten text:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
-[commands.claude_summarize]
+[commands.ai_summarize]
 run = "claude"
-args = ["--print", "Summarize the following text concisely. Output only the summary:\n\n{{context}}"]
+args = ["-p", "Summarize the following text concisely. Output only the summary:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
-[commands.claude_expand]
+[commands.ai_expand]
 run = "claude"
-args = ["--print", "Expand the following text into a couple of detailed paragraphs. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the expanded text:\n\n{{context}}"]
+args = ["-p", "Expand the following text into a couple of detailed paragraphs. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the expanded text:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
-[commands.claude_keywords]
+[commands.ai_keywords]
 run = "claude"
-args = ["--print", "Mark the most important keywords with bold using ** markdown syntax. Keep the text otherwise completely unchanged. Output only the text with bold keywords:\n\n{{context}}"]
+args = ["-p", "Mark the most important keywords with bold using ** markdown syntax. Keep the text otherwise completely unchanged. Output only the text with bold keywords:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
-[commands.claude_emojify]
+[commands.ai_emojify]
 run = "claude"
-args = ["--print", "Add a relevant emoji before each list item, header, or paragraph. Keep the text otherwise completely unchanged. Output only the text with emojis:\n\n{{context}}"]
+args = ["-p", "Add a relevant emoji before each list item, header, or paragraph. Keep the text otherwise completely unchanged. Output only the text with emojis:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
 # Structural actions (extract, inline, sort, link)
@@ -77,32 +78,32 @@ key_template = "{{slug}}"
 
 [actions.rewrite]
 type = "transform"
-title = "Rewrite (Claude)"
-command = "claude_rewrite"
+title = "Rewrite (AI)"
+command = "ai_rewrite"
 input_template = "{{context}}"
 
 [actions.summarize]
 type = "transform"
-title = "Summarize (Claude)"
-command = "claude_summarize"
+title = "Summarize (AI)"
+command = "ai_summarize"
 input_template = "{{context}}"
 
 [actions.expand]
 type = "transform"
-title = "Expand (Claude)"
-command = "claude_expand"
+title = "Expand (AI)"
+command = "ai_expand"
 input_template = "{{context}}"
 
 [actions.keywords]
 type = "transform"
-title = "Keywords (Claude)"
-command = "claude_keywords"
+title = "Keywords (AI)"
+command = "ai_keywords"
 input_template = "{{context}}"
 
 [actions.emojify]
 type = "transform"
-title = "Emojify (Claude)"
-command = "claude_emojify"
+title = "Emojify (AI)"
+command = "ai_emojify"
 input_template = "{{context}}"
 
 [markdown]

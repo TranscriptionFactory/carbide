@@ -1,6 +1,7 @@
 import type { MarksmanPort } from "$lib/features/marksman/ports";
 import type { MarksmanStore } from "$lib/features/marksman/state/marksman_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
   MarksmanCodeAction,
@@ -532,6 +533,31 @@ export class MarksmanService {
       log.from_error("Failed to reset IWE config", e);
       return false;
     }
+  }
+
+  async iwe_config_rewrite_provider(
+    provider_config: AiProviderConfig,
+  ): Promise<boolean> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return false;
+    try {
+      await this.port.iwe_config_rewrite_provider(vault_id, provider_config);
+      return true;
+    } catch (e) {
+      log.from_error("Failed to rewrite IWE config for provider", e);
+      return false;
+    }
+  }
+
+  async rewrite_provider_and_restart(
+    provider_config: AiProviderConfig,
+  ): Promise<void> {
+    const ok = await this.iwe_config_rewrite_provider(provider_config);
+    if (!ok) return;
+    log.info("Rewrote IWE config, restarting LSP", {
+      provider: provider_config.name,
+    });
+    await this.restart();
   }
 
   private run_lifecycle(operation: () => Promise<void>): Promise<void> {
