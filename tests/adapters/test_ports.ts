@@ -141,6 +141,7 @@ export function create_test_ports(): Ports {
         Promise.resolve({
           exists: false,
           config_url: "",
+          config_path: "",
           action_count: 0,
           action_names: [],
           actions: [],

@@ -107,6 +107,7 @@ export type IweActionInfo = {
 export type IweConfigStatus = {
   exists: boolean;
   config_url: string;
+  config_path: string;
   action_count: number;
   action_names: string[];
   actions: IweActionInfo[];

@@ -93,6 +93,7 @@ pub struct IweActionInfo {
 pub struct IweConfigStatus {
     pub exists: bool,
     pub config_url: String,
+    pub config_path: String,
     pub action_count: usize,
     pub action_names: Vec<String>,
     pub actions: Vec<IweActionInfo>,

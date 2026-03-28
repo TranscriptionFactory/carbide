@@ -82,6 +82,7 @@ export const ACTION_IDS = {
   filetree_toggle_star_selection: "filetree.toggle_star_selection",
 
   shell_open_url: "shell.open_url",
+  shell_open_path: "shell.open_path",
 
   ui_toggle_sidebar: "ui.toggle_sidebar",
   ui_toggle_zen_mode: "ui.toggle_zen_mode",

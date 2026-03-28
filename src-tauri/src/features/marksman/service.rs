@@ -1139,10 +1139,13 @@ pub async fn iwe_config_status(
         .map(|u| u.to_string())
         .unwrap_or_default();
 
+    let config_path_str = config_path.to_string_lossy().to_string();
+
     if !config_path.exists() {
         return Ok(IweConfigStatus {
             exists: false,
             config_url,
+            config_path: config_path_str,
             action_count: 0,
             action_names: vec![],
             actions: vec![],
@@ -1203,6 +1206,7 @@ pub async fn iwe_config_status(
     Ok(IweConfigStatus {
         exists: true,
         config_url,
+        config_path: config_path_str,
         action_count: action_names.len(),
         action_names,
         actions,

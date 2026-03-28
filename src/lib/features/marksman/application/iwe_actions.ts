@@ -166,8 +166,8 @@ export function register_iwe_actions(deps: IweActionDeps): void {
     label: "IWE: Open Config",
     execute: async () => {
       const status = await marksman_service.iwe_config_status();
-      if (status?.exists && status.config_url) {
-        await registry.execute(ACTION_IDS.shell_open_url, status.config_url);
+      if (status?.exists && status.config_path) {
+        await registry.execute(ACTION_IDS.shell_open_path, status.config_path);
       }
     },
   });
