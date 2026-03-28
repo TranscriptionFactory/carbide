@@ -37,6 +37,8 @@
     LintFormatter,
     FileTreeStyle,
     OutlineMode,
+    TerminalFontWeight,
+    TerminalCursorStyle,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
   import {
@@ -170,6 +172,39 @@
     value: String(n),
     label: `${String(n)} px`,
   }));
+
+  const terminal_font_weight_options: {
+    value: TerminalFontWeight;
+    label: string;
+  }[] = [
+    { value: "normal", label: "Normal" },
+    { value: "bold", label: "Bold" },
+    { value: "100", label: "100" },
+    { value: "200", label: "200" },
+    { value: "300", label: "300" },
+    { value: "400", label: "400" },
+    { value: "500", label: "500" },
+    { value: "600", label: "600" },
+    { value: "700", label: "700" },
+    { value: "800", label: "800" },
+    { value: "900", label: "900" },
+  ];
+
+  const terminal_cursor_style_options: {
+    value: TerminalCursorStyle;
+    label: string;
+  }[] = [
+    { value: "block", label: "Block" },
+    { value: "underline", label: "Underline" },
+    { value: "bar", label: "Bar" },
+  ];
+
+  const terminal_scrollback_options = [100, 500, 1000, 2000, 5000, 10000].map(
+    (n) => ({
+      value: String(n),
+      label: n >= 1000 ? `${String(n / 1000)}k` : String(n),
+    }),
+  );
 
   const ai_timeout_options = [60, 120, 300, 600].map((n) => ({
     value: String(n),
@@ -2637,6 +2672,271 @@
                 </button>
               </div>
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Font Family</span>
+                <span class="SettingsDialog__description"
+                  >Custom font family (empty = system monospace)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  value={editor_settings.terminal_font_family}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("terminal_font_family", e.currentTarget.value);
+                  }}
+                  class="w-48"
+                  placeholder="e.g. Fira Code, monospace"
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_font_family",
+                      DEFAULT_EDITOR_SETTINGS.terminal_font_family,
+                    )}
+                  disabled={editor_settings.terminal_font_family ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_font_family}
+                  title="Reset to default (system monospace)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Font Weight</span>
+                <span class="SettingsDialog__description"
+                  >Weight for normal terminal text</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.terminal_font_weight}
+                  onValueChange={(v: string | undefined) => {
+                    if (v)
+                      update("terminal_font_weight", v as TerminalFontWeight);
+                  }}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value">
+                      {terminal_font_weight_options.find(
+                        (o) => o.value === editor_settings.terminal_font_weight,
+                      )?.label ?? "Normal"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each terminal_font_weight_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_font_weight",
+                      DEFAULT_EDITOR_SETTINGS.terminal_font_weight,
+                    )}
+                  disabled={editor_settings.terminal_font_weight ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_font_weight}
+                  title="Reset to default (Normal)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Bold Weight</span>
+                <span class="SettingsDialog__description"
+                  >Weight used for bold text in the terminal</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.terminal_font_weight_bold}
+                  onValueChange={(v: string | undefined) => {
+                    if (v)
+                      update(
+                        "terminal_font_weight_bold",
+                        v as TerminalFontWeight,
+                      );
+                  }}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value">
+                      {terminal_font_weight_options.find(
+                        (o) =>
+                          o.value === editor_settings.terminal_font_weight_bold,
+                      )?.label ?? "Bold"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each terminal_font_weight_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_font_weight_bold",
+                      DEFAULT_EDITOR_SETTINGS.terminal_font_weight_bold,
+                    )}
+                  disabled={editor_settings.terminal_font_weight_bold ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_font_weight_bold}
+                  title="Reset to default (Bold)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Line Height</span>
+                <span class="SettingsDialog__description"
+                  >Line height multiplier for terminal text</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.terminal_line_height}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update("terminal_line_height", Math.round(v * 10) / 10);
+                    }
+                  }}
+                  min={1}
+                  max={2}
+                  step={0.1}
+                  class="w-24"
+                />
+                <span class="text-sm tabular-nums w-8"
+                  >{editor_settings.terminal_line_height.toFixed(1)}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_line_height",
+                      DEFAULT_EDITOR_SETTINGS.terminal_line_height,
+                    )}
+                  disabled={editor_settings.terminal_line_height ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_line_height}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.terminal_line_height)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Cursor Style</span>
+                <span class="SettingsDialog__description"
+                  >Shape of the terminal cursor</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.terminal_cursor_style}
+                  onValueChange={(v: string | undefined) => {
+                    if (v)
+                      update("terminal_cursor_style", v as TerminalCursorStyle);
+                  }}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value">
+                      {terminal_cursor_style_options.find(
+                        (o) =>
+                          o.value === editor_settings.terminal_cursor_style,
+                      )?.label ?? "Block"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each terminal_cursor_style_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_cursor_style",
+                      DEFAULT_EDITOR_SETTINGS.terminal_cursor_style,
+                    )}
+                  disabled={editor_settings.terminal_cursor_style ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_cursor_style}
+                  title="Reset to default (Block)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Scrollback Lines</span>
+                <span class="SettingsDialog__description"
+                  >Number of lines retained in the scrollback buffer</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={String(editor_settings.terminal_scrollback)}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("terminal_scrollback", Number(v));
+                  }}
+                >
+                  <Select.Trigger class="w-24">
+                    <span data-slot="select-value">
+                      {terminal_scrollback_options.find(
+                        (o) =>
+                          o.value ===
+                          String(editor_settings.terminal_scrollback),
+                      )?.label ?? String(editor_settings.terminal_scrollback)}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each terminal_scrollback_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "terminal_scrollback",
+                      DEFAULT_EDITOR_SETTINGS.terminal_scrollback,
+                    )}
+                  disabled={editor_settings.terminal_scrollback ===
+                    DEFAULT_EDITOR_SETTINGS.terminal_scrollback}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.terminal_scrollback)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
           </div>
         {:else if active_category === "graph"}
           <h2 class="SettingsDialog__content-header">Graph</h2>
@@ -3340,6 +3640,60 @@
                 </div>
               </div>
             {/if}
+
+            <div class="SettingsDialog__section-divider"></div>
+            <h3 class="SettingsDialog__section-subheader">Reference Manager</h3>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Enable References</span>
+                <span class="SettingsDialog__description"
+                  >Enable the reference manager for citing papers, books, and
+                  articles in your notes</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.reference_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("reference_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Citation Style</span>
+                <span class="SettingsDialog__description"
+                  >Default CSL citation style for rendering bibliographies (e.g.
+                  apa, vancouver, harvard1)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  class="w-48"
+                  placeholder="apa"
+                  value={editor_settings.reference_citation_style}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("reference_citation_style", e.currentTarget.value);
+                  }}
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "reference_citation_style",
+                      DEFAULT_EDITOR_SETTINGS.reference_citation_style,
+                    )}
+                  disabled={editor_settings.reference_citation_style ===
+                    DEFAULT_EDITOR_SETTINGS.reference_citation_style}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.reference_citation_style})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
           </div>
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>

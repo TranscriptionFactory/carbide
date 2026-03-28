@@ -211,10 +211,16 @@
     if (!container_el) return;
 
     terminal = new Terminal({
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+      fontFamily:
+        stores.ui.editor_settings.terminal_font_family ||
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
       fontSize: stores.ui.editor_settings.terminal_font_size_px,
-      lineHeight: 1.3,
+      fontWeight: stores.ui.editor_settings.terminal_font_weight,
+      fontWeightBold: stores.ui.editor_settings.terminal_font_weight_bold,
+      lineHeight: stores.ui.editor_settings.terminal_line_height,
       cursorBlink: stores.ui.editor_settings.terminal_cursor_blink,
+      cursorStyle: stores.ui.editor_settings.terminal_cursor_style,
+      scrollback: stores.ui.editor_settings.terminal_scrollback,
       theme: build_xterm_theme(),
     });
 
@@ -306,9 +312,21 @@
 
   $effect(() => {
     if (!terminal) return;
+    terminal.options.fontFamily =
+      stores.ui.editor_settings.terminal_font_family ||
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
     terminal.options.fontSize = stores.ui.editor_settings.terminal_font_size_px;
+    terminal.options.fontWeight =
+      stores.ui.editor_settings.terminal_font_weight;
+    terminal.options.fontWeightBold =
+      stores.ui.editor_settings.terminal_font_weight_bold;
+    terminal.options.lineHeight =
+      stores.ui.editor_settings.terminal_line_height;
     terminal.options.cursorBlink =
       stores.ui.editor_settings.terminal_cursor_blink;
+    terminal.options.cursorStyle =
+      stores.ui.editor_settings.terminal_cursor_style;
+    terminal.options.scrollback = stores.ui.editor_settings.terminal_scrollback;
     void stores.ui.active_theme.color_scheme;
     terminal.options.theme = build_xterm_theme();
 

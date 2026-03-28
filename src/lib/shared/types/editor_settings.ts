@@ -34,6 +34,19 @@ export type EditorCodeBlockPadding = EditorSpacingDensity;
 export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
 export type EditorBlockquotePadding = EditorSpacingDensity;
 export type EditorTableSpacingDensity = EditorSpacingDensity;
+export type TerminalFontWeight =
+  | "normal"
+  | "bold"
+  | "100"
+  | "200"
+  | "300"
+  | "400"
+  | "500"
+  | "600"
+  | "700"
+  | "800"
+  | "900";
+export type TerminalCursorStyle = "block" | "underline" | "bar";
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
 export type FileTreeStyle =
@@ -80,6 +93,12 @@ export type EditorSettings = {
   terminal_follow_active_vault: boolean;
   terminal_background_color: string;
   terminal_foreground_color: string;
+  terminal_font_family: string;
+  terminal_font_weight: TerminalFontWeight;
+  terminal_font_weight_bold: TerminalFontWeight;
+  terminal_line_height: number;
+  terminal_cursor_style: TerminalCursorStyle;
+  terminal_scrollback: number;
   ai_enabled: boolean;
   ai_providers: AiProviderConfig[];
   ai_default_provider_id: string;
@@ -150,6 +169,12 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   terminal_follow_active_vault: false,
   terminal_background_color: "",
   terminal_foreground_color: "",
+  terminal_font_family: "",
+  terminal_font_weight: "normal",
+  terminal_font_weight_bold: "bold",
+  terminal_line_height: 1.3,
+  terminal_cursor_style: "block",
+  terminal_scrollback: 1000,
   ai_enabled: true,
   ai_providers: BUILTIN_PROVIDER_PRESETS,
   ai_default_provider_id: "auto",
@@ -218,6 +243,12 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "terminal_follow_active_vault",
   "terminal_background_color",
   "terminal_foreground_color",
+  "terminal_font_family",
+  "terminal_font_weight",
+  "terminal_font_weight_bold",
+  "terminal_line_height",
+  "terminal_cursor_style",
+  "terminal_scrollback",
   "ai_enabled",
   "ai_providers",
   "ai_default_provider_id",
