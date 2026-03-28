@@ -43,6 +43,11 @@
     });
   }
 
+  function handle_remove_override(token: string) {
+    const { [token]: _, ...rest } = theme.token_overrides;
+    on_update({ ...theme, token_overrides: rest });
+  }
+
   function apply_json() {
     try {
       const parsed = JSON.parse(json_text) as Record<string, unknown>;
@@ -154,7 +159,11 @@
       />
     </div>
   {:else if active_tab === "tokens"}
-    <CssTokenReference {theme} on_add_override={handle_add_override} />
+    <CssTokenReference
+      {theme}
+      on_add_override={handle_add_override}
+      on_remove_override={handle_remove_override}
+    />
   {:else}
     <div class="AdvancedPanel__json-subtabs">
       <button

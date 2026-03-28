@@ -5,9 +5,10 @@
   type Props = {
     theme: Theme;
     on_add_override: (token: string, value: string) => void;
+    on_remove_override: (token: string) => void;
   };
 
-  let { theme, on_add_override }: Props = $props();
+  let { theme, on_add_override, on_remove_override }: Props = $props();
 
   type TokenCategory = {
     label: string;
@@ -314,32 +315,51 @@
         {#if is_open}
           <div class="CssTokenReference__rows">
             {#each cat.tokens as token (token)}
-              {@const value = computed_values[token] ?? ""}
               {@const overridden = is_overridden(token)}
+              {@const display_value = overridden
+                ? theme.token_overrides[token]
+                : (computed_values[token] ?? "")}
               <div
                 class="CssTokenReference__row"
                 class:CssTokenReference__row--overridden={overridden}
               >
                 <div class="CssTokenReference__token-col">
-                  {#if is_color_value(value)}
+                  {#if is_color_value(display_value)}
                     <span
                       class="CssTokenReference__swatch"
-                      style="background: {value};"
+                      style="background: {display_value};"
                     ></span>
                   {/if}
                   <span class="CssTokenReference__token-name">{token}</span>
                 </div>
                 <div class="CssTokenReference__value-col">
-                  <span class="CssTokenReference__value" title={value}
-                    >{value}</span
-                  >
                   {#if overridden}
-                    <span class="CssTokenReference__badge">overridden</span>
+                    <input
+                      type="text"
+                      class="CssTokenReference__input"
+                      value={theme.token_overrides[token]}
+                      oninput={(e) =>
+                        on_add_override(
+                          token,
+                          (e.target as HTMLInputElement).value,
+                        )}
+                    />
+                    <button
+                      type="button"
+                      class="CssTokenReference__revert-btn"
+                      title="Revert to default"
+                      onclick={() => on_remove_override(token)}
+                    >
+                      &times;
+                    </button>
                   {:else}
+                    <span class="CssTokenReference__value" title={display_value}
+                      >{display_value}</span
+                    >
                     <button
                       type="button"
                       class="CssTokenReference__add-btn"
-                      title="Add to token_overrides"
+                      title="Override this token"
                       onclick={() => handle_add(token)}
                     >
                       +
@@ -507,15 +527,46 @@
     flex: 1;
   }
 
-  .CssTokenReference__badge {
-    flex-shrink: 0;
-    font-size: calc(var(--text-xs) * 0.85);
-    font-family: var(--font-family-sans, inherit);
-    color: var(--primary-foreground);
-    background: var(--primary);
+  .CssTokenReference__input {
+    font-family: var(--font-family-mono, ui-monospace, monospace);
+    font-size: calc(var(--text-xs) * 0.9);
+    color: var(--foreground);
+    background: transparent;
+    border: 1px solid var(--border);
     border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
-    padding: 0 var(--space-1);
-    line-height: 1.4;
+    padding: 1px var(--space-1-5);
+    min-width: 0;
+    flex: 1;
+  }
+
+  .CssTokenReference__input:focus {
+    outline: 1px solid var(--ring);
+    outline-offset: 0;
+    background: color-mix(in oklch, var(--background) 80%, transparent);
+  }
+
+  .CssTokenReference__revert-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: var(--text-sm);
+    line-height: 1;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
+    cursor: pointer;
+    padding: 0;
+    transition: all 80ms ease;
+  }
+
+  .CssTokenReference__revert-btn:hover {
+    color: var(--destructive, var(--foreground));
+    border-color: var(--border);
+    background: color-mix(in oklch, var(--muted) 60%, transparent);
   }
 
   .CssTokenReference__add-btn {
