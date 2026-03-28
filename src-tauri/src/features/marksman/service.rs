@@ -1,3 +1,4 @@
+use crate::features::ai::service::AiProviderConfig;
 use crate::features::toolchain;
 use crate::shared::lsp_client::{
     LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig, RestartableLspClient,
@@ -1228,5 +1229,288 @@ pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), St
         .map_err(|e| format!("Failed to copy default config: {}", e))?;
 
     log::info!("Reset IWE config at {}", config_path.display());
+    Ok(())
+}
+
+struct ManagedTransform {
+    command_name: &'static str,
+    action_name: &'static str,
+    title_suffix: &'static str,
+    prompt: &'static str,
+}
+
+const MANAGED_TRANSFORMS: &[ManagedTransform] = &[
+    ManagedTransform {
+        command_name: "ai_rewrite",
+        action_name: "rewrite",
+        title_suffix: "Rewrite",
+        prompt: "Rewrite the following text to improve clarity and readability. Keep the language personable, not overly formal. Simplify language, organize sentences logically, remove ambiguity. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the rewritten text:",
+    },
+    ManagedTransform {
+        command_name: "ai_summarize",
+        action_name: "summarize",
+        title_suffix: "Summarize",
+        prompt: "Summarize the following text concisely. Output only the summary:",
+    },
+    ManagedTransform {
+        command_name: "ai_expand",
+        action_name: "expand",
+        title_suffix: "Expand",
+        prompt: "Expand the following text into a couple of detailed paragraphs. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the expanded text:",
+    },
+    ManagedTransform {
+        command_name: "ai_keywords",
+        action_name: "keywords",
+        title_suffix: "Keywords",
+        prompt: "Mark the most important keywords with bold using ** markdown syntax. Keep the text otherwise completely unchanged. Output only the text with bold keywords:",
+    },
+    ManagedTransform {
+        command_name: "ai_emojify",
+        action_name: "emojify",
+        title_suffix: "Emojify",
+        prompt: "Add a relevant emoji before each list item, header, or paragraph. Keep the text otherwise completely unchanged. Output only the text with emojis:",
+    },
+];
+
+const MANAGED_COMMAND_PREFIXES: &[&str] = &["ai_", "claude_"];
+
+fn is_managed_command(name: &str) -> bool {
+    MANAGED_COMMAND_PREFIXES.iter().any(|p| name.starts_with(p))
+}
+
+fn is_managed_action(name: &str) -> bool {
+    MANAGED_TRANSFORMS.iter().any(|t| t.action_name == name)
+}
+
+fn provider_uses_prompt_in_args(args: &[String]) -> bool {
+    args.iter().any(|a| a.contains("{prompt}"))
+}
+
+fn provider_uses_output_file(args: &[String]) -> bool {
+    args.iter().any(|a| a.contains("{output_file}"))
+}
+
+fn build_command_toml(
+    transform: &ManagedTransform,
+    command: &str,
+    args: &[String],
+    model: &str,
+    prompt_in_args: bool,
+) -> String {
+    let full_prompt = format!("{}\\n\\n{{{{context}}}}", transform.prompt);
+
+    let final_args: Vec<String> = if prompt_in_args {
+        args.iter()
+            .map(|a| {
+                let mut s = a.replace("{prompt}", &full_prompt);
+                s = s.replace("{model}", model);
+                s
+            })
+            .collect()
+    } else {
+        args.iter()
+            .map(|a| a.replace("{model}", model))
+            .collect()
+    };
+
+    let args_str = final_args
+        .iter()
+        .map(|a| format!("\"{}\"", a.replace('\\', "\\\\").replace('"', "\\\"")))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+        "[commands.{}]\nrun = \"{}\"\nargs = [{}]\ntimeout_seconds = 120\n",
+        transform.command_name, command, args_str
+    )
+}
+
+fn build_action_toml(
+    transform: &ManagedTransform,
+    provider_name: &str,
+    prompt_in_args: bool,
+) -> String {
+    let input_template = if prompt_in_args {
+        "{{context}}".to_string()
+    } else {
+        format!("{}\\n\\n{{{{context}}}}", transform.prompt)
+    };
+
+    format!(
+        "[actions.{}]\ntype = \"transform\"\ntitle = \"{} ({})\"\ncommand = \"{}\"\ninput_template = \"{}\"\n",
+        transform.action_name,
+        transform.title_suffix,
+        provider_name,
+        transform.command_name,
+        input_template,
+    )
+}
+
+fn rewrite_iwe_config(
+    content: &str,
+    command: &str,
+    args: &[String],
+    model: &str,
+    provider_name: &str,
+) -> String {
+    let prompt_in_args = provider_uses_prompt_in_args(args);
+
+    // Parse into sections: (header_line, body_lines)
+    // We'll rebuild by removing managed sections and inserting new ones.
+    let mut result_lines: Vec<String> = Vec::new();
+    let mut skip_section = false;
+    let mut inserted_commands = false;
+    let mut inserted_actions = false;
+    let mut last_was_commands_header = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with('[') {
+            skip_section = false;
+
+            // Check if this is a managed [commands.ai_*] or [commands.claude_*]
+            if let Some(rest) = trimmed.strip_prefix("[commands.") {
+                if let Some(name) = rest.strip_suffix(']') {
+                    if is_managed_command(name) {
+                        skip_section = true;
+                        if !inserted_commands {
+                            inserted_commands = true;
+                            for t in MANAGED_TRANSFORMS {
+                                result_lines.push(build_command_toml(t, command, args, model, prompt_in_args));
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // Check if this is a managed [actions.*]
+            if let Some(rest) = trimmed.strip_prefix("[actions.") {
+                if let Some(name) = rest.strip_suffix(']') {
+                    if is_managed_action(name) {
+                        skip_section = true;
+                        if !inserted_actions {
+                            inserted_actions = true;
+                            for t in MANAGED_TRANSFORMS {
+                                result_lines.push(build_action_toml(t, provider_name, prompt_in_args));
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // Bare [commands] header
+            if trimmed == "[commands]" {
+                last_was_commands_header = true;
+                result_lines.push(line.to_string());
+                continue;
+            }
+
+            last_was_commands_header = false;
+        }
+
+        if skip_section {
+            continue;
+        }
+
+        // Insert managed commands right after bare [commands] header
+        if last_was_commands_header && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            last_was_commands_header = false;
+        }
+
+        result_lines.push(line.to_string());
+    }
+
+    // If we never found managed command sections, insert after [commands] header
+    if !inserted_commands {
+        let mut final_lines: Vec<String> = Vec::new();
+        for line in &result_lines {
+            final_lines.push(line.clone());
+            if line.trim() == "[commands]" {
+                final_lines.push(String::new());
+                for t in MANAGED_TRANSFORMS {
+                    final_lines.push(build_command_toml(t, command, args, model, prompt_in_args));
+                }
+            }
+        }
+        result_lines = final_lines;
+    }
+
+    // If we never found managed action sections, append before [markdown]
+    if !inserted_actions {
+        let mut final_lines: Vec<String> = Vec::new();
+        let mut inserted = false;
+        for line in &result_lines {
+            if !inserted && line.trim() == "[markdown]" {
+                for t in MANAGED_TRANSFORMS {
+                    final_lines.push(build_action_toml(t, provider_name, prompt_in_args));
+                }
+                inserted = true;
+            }
+            final_lines.push(line.clone());
+        }
+        if !inserted {
+            for t in MANAGED_TRANSFORMS {
+                final_lines.push(build_action_toml(t, provider_name, prompt_in_args));
+            }
+        }
+        result_lines = final_lines;
+    }
+
+    let mut output = result_lines.join("\n");
+    if !output.ends_with('\n') {
+        output.push('\n');
+    }
+    output
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn iwe_config_rewrite_provider(
+    app: AppHandle,
+    vault_id: String,
+    provider_config: AiProviderConfig,
+) -> Result<(), String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let config_path = vault_path.join(".iwe").join("config.toml");
+
+    if !config_path.exists() {
+        return Err("IWE config does not exist yet".to_string());
+    }
+
+    let (command, args) = match &provider_config.transport {
+        crate::features::ai::service::AiTransport::Cli { command, args } => {
+            (command.clone(), args.clone())
+        }
+        crate::features::ai::service::AiTransport::Api { .. } => {
+            return Err("API providers are not supported for IWE transforms".to_string());
+        }
+    };
+
+    if provider_uses_output_file(&args) {
+        return Err(format!(
+            "{} uses output files which are incompatible with IWE transforms",
+            provider_config.name
+        ));
+    }
+
+    let model = provider_config.model.as_deref().unwrap_or("");
+    let content = tokio::fs::read_to_string(&config_path)
+        .await
+        .map_err(|e| format!("Failed to read IWE config: {}", e))?;
+
+    let rewritten = rewrite_iwe_config(&content, &command, &args, model, &provider_config.name);
+
+    tokio::fs::write(&config_path, &rewritten)
+        .await
+        .map_err(|e| format!("Failed to write IWE config: {}", e))?;
+
+    log::info!(
+        "Rewrote IWE config for provider '{}' at {}",
+        provider_config.name,
+        config_path.display()
+    );
     Ok(())
 }

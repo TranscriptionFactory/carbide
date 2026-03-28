@@ -139,6 +139,7 @@ mod specta_export {
                 crate::features::marksman::service::marksman_document_symbols,
                 crate::features::marksman::service::iwe_config_status,
                 crate::features::marksman::service::iwe_config_reset,
+                crate::features::marksman::service::iwe_config_rewrite_provider,
                 crate::features::search::service::tags_list_all,
                 crate::features::code_lsp::code_lsp_open_file,
                 crate::features::code_lsp::code_lsp_close_file,

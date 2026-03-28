@@ -110,6 +110,7 @@ export type EditorSettings = {
   marksman_enabled: boolean;
   markdown_lsp_provider: MarkdownLspProvider;
   marksman_binary_path: string;
+  iwe_ai_provider_id: string;
   reference_enabled: boolean;
   reference_citation_style: string;
 };
@@ -179,6 +180,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   marksman_enabled: true,
   markdown_lsp_provider: "iwes",
   marksman_binary_path: "",
+  iwe_ai_provider_id: "auto",
   reference_enabled: false,
   reference_citation_style: "apa",
 };
@@ -220,6 +222,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_providers",
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
+  "iwe_ai_provider_id",
   "document_pdf_default_zoom",
   "document_pdf_scroll_mode",
   "document_code_wrap",
