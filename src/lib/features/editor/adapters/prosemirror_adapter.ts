@@ -338,9 +338,12 @@ export function create_prosemirror_editor_port(args?: {
 
       let is_editable = true;
 
+      let spellcheck_enabled = config.spellcheck ?? true;
+
       view = new EditorView(root, {
         state,
         editable: () => is_editable,
+        attributes: { spellcheck: String(spellcheck_enabled) },
         clipboardTextSerializer: (slice) => {
           let all_code = true;
           slice.content.forEach((node) => {
@@ -873,6 +876,14 @@ export function create_prosemirror_editor_port(args?: {
           is_editable = editable;
           if (view) {
             view.setProps({ editable: () => is_editable });
+          }
+        },
+        set_spellcheck(enabled: boolean) {
+          spellcheck_enabled = enabled;
+          if (view) {
+            view.setProps({
+              attributes: { spellcheck: String(spellcheck_enabled) },
+            });
           }
         },
         toggle_heading_fold(pos?: number) {

@@ -309,6 +309,21 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "source", "line", "numbers", "gutter"],
   },
   {
+    key: "editor_spellcheck",
+    label: "Spell Check",
+    description: "Enable browser-native spell checking in the editor",
+    category: "Layout",
+    keywords: [
+      "spell",
+      "spellcheck",
+      "spelling",
+      "check",
+      "grammar",
+      "typo",
+      "editor",
+    ],
+  },
+  {
     key: "editor_table_spacing_density",
     label: "Table Spacing",
     description: "Controls cell padding and density in editor tables",

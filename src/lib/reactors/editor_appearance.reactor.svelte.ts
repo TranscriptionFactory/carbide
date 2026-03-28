@@ -1,12 +1,22 @@
 import type { UIStore } from "$lib/app";
+import type { EditorService } from "$lib/features/editor";
 import { apply_editor_appearance } from "$lib/shared/utils/apply_editor_appearance";
 
 export function create_editor_appearance_reactor(
   ui_store: UIStore,
+  editor_service?: EditorService,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
       apply_editor_appearance(ui_store.editor_settings);
     });
+
+    if (editor_service) {
+      $effect(() => {
+        editor_service.set_spellcheck(
+          ui_store.editor_settings.editor_spellcheck,
+        );
+      });
+    }
   });
 }

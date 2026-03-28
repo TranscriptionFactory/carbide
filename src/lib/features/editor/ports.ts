@@ -51,6 +51,7 @@ export type EditorSession = {
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
   set_editable?: (editable: boolean) => void;
+  set_spellcheck?: (enabled: boolean) => void;
   toggle_heading_fold?: (pos?: number) => void;
   collapse_all_heading_folds?: () => void;
   expand_all_heading_folds?: () => void;
@@ -156,6 +157,7 @@ export type EditorSessionConfig = {
   note_path: string;
   vault_id: VaultId | null;
   events: EditorEventHandlers;
+  spellcheck?: boolean;
 };
 
 export interface EditorPort {

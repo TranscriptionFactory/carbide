@@ -126,7 +126,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.plugin_service,
     ),
     create_editor_sync_reactor(context.editor_store, context.editor_service),
-    create_editor_appearance_reactor(context.ui_store),
+    create_editor_appearance_reactor(context.ui_store, context.editor_service),
     create_editor_width_reactor(context.ui_store),
     create_autosave_reactor(
       context.editor_store,

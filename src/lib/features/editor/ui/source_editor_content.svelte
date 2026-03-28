@@ -297,6 +297,13 @@
     view?.destroy();
     view = undefined;
   });
+
+  $effect(() => {
+    if (!view) return;
+    const enabled = stores.ui.editor_settings.editor_spellcheck;
+    const content_el = view.contentDOM;
+    content_el.setAttribute("spellcheck", String(enabled));
+  });
 </script>
 
 <div class="SourceEditor" bind:this={editor_root}></div>

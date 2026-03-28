@@ -1580,6 +1580,22 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Spell Check</span>
+                  <span class="SettingsDialog__description"
+                    >Enable browser-native spell checking in the editor</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.editor_spellcheck}
+                    onCheckedChange={(v: boolean) =>
+                      update("editor_spellcheck", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Blockquote Padding</span>
                   <span class="SettingsDialog__description"
                     >Adjust padding inside blockquotes</span

@@ -417,6 +417,10 @@ export class EditorService {
     this.session?.set_editable?.(editable);
   }
 
+  set_spellcheck(enabled: boolean) {
+    this.session?.set_spellcheck?.(enabled);
+  }
+
   toggle_heading_fold(pos?: number) {
     this.session?.toggle_heading_fold?.(pos);
   }
