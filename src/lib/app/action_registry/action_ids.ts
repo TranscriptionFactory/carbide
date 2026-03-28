@@ -83,6 +83,7 @@ export const ACTION_IDS = {
 
   shell_open_url: "shell.open_url",
   shell_open_path: "shell.open_path",
+  shell_reveal_in_file_manager: "shell.reveal_in_file_manager",
 
   ui_toggle_sidebar: "ui.toggle_sidebar",
   ui_toggle_zen_mode: "ui.toggle_zen_mode",

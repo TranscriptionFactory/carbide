@@ -167,7 +167,10 @@ export function register_iwe_actions(deps: IweActionDeps): void {
     execute: async () => {
       const status = await marksman_service.iwe_config_status();
       if (status?.exists && status.config_path) {
-        await registry.execute(ACTION_IDS.shell_open_path, status.config_path);
+        await registry.execute(
+          ACTION_IDS.shell_reveal_in_file_manager,
+          status.config_path,
+        );
       }
     },
   });

@@ -3643,7 +3643,7 @@
                     onclick={on_iwe_open_config}
                     disabled={!iwe_config_status?.exists}
                   >
-                    Open Config
+                    Reveal Config
                   </Button>
                   <Button
                     variant="outline"
