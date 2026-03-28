@@ -78,10 +78,19 @@
   }
 
   function update_override(token: string, value: string) {
+    if (value.trim() === "") {
+      remove_override(token);
+      return;
+    }
     on_update({
       ...theme,
       token_overrides: { ...theme.token_overrides, [token]: value },
     });
+  }
+
+  function remove_override(token: string) {
+    const { [token]: _, ...rest } = theme.token_overrides;
+    on_update({ ...theme, token_overrides: rest });
   }
 </script>
 
@@ -196,6 +205,14 @@
             oninput={(e) =>
               update_override(token, (e.target as HTMLInputElement).value)}
           />
+          <button
+            type="button"
+            class="JsonAnnotatedView__remove-btn"
+            title="Remove override"
+            onclick={() => remove_override(token)}
+          >
+            &times;
+          </button>
         </div>
       </div>
     {/each}
@@ -349,6 +366,29 @@
     border-radius: 50%;
     border: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .JsonAnnotatedView__remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: var(--text-sm);
+    line-height: 1;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .JsonAnnotatedView__remove-btn:hover {
+    color: var(--destructive, var(--foreground));
+    border-color: var(--border);
+    background: color-mix(in oklch, var(--muted) 60%, transparent);
   }
 
   .JsonAnnotatedView__toggle {
