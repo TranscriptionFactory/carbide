@@ -70,7 +70,11 @@ export async function apply_workspace_edit_result(
     if (open_note && open_note.meta.path === path && read_note_content) {
       try {
         const new_markdown = await read_note_content(path);
-        editor_service.sync_visual_from_markdown(new_markdown);
+        const applied =
+          editor_service.sync_visual_from_markdown_diff(new_markdown);
+        if (!applied) {
+          editor_service.sync_visual_from_markdown(new_markdown);
+        }
         editor_store.set_markdown(open_note.meta.id, new_markdown);
         editor_store.set_dirty(open_note.meta.id, false);
       } catch (err) {

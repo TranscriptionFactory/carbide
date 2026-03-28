@@ -505,6 +505,48 @@ export function create_prosemirror_editor_port(args?: {
           }
           save_current_buffer();
         },
+        apply_markdown_diff(new_markdown: string): boolean {
+          if (!view) return false;
+          const normalized = normalize_markdown(new_markdown);
+          if (normalized === current_markdown) return false;
+
+          let new_doc: ProseNode;
+          try {
+            new_doc = parse_markdown(prepare_markdown_for_editor(normalized));
+          } catch {
+            return false;
+          }
+
+          const old_content = view.state.doc.content;
+          const new_content = new_doc.content;
+          const start = old_content.findDiffStart(new_content);
+          if (start == null) return false;
+
+          const end = old_content.findDiffEnd(new_content);
+          if (!end) return false;
+
+          const old_end = Math.max(start, end.a);
+          const new_end = Math.max(start, end.b);
+          const slice = new_content.cut(start, new_end);
+
+          const tr = view.state.tr.replace(
+            start,
+            old_end,
+            new Slice(slice, 0, 0),
+          );
+          view.dispatch(tr);
+
+          is_large_note = is_large_markdown(normalized);
+          current_markdown = normalized;
+
+          if (!is_large_note) {
+            run_view_action((v) => {
+              dispatch_full_scan(v);
+            });
+          }
+          save_current_buffer();
+          return true;
+        },
         get_markdown() {
           return current_markdown;
         },

@@ -9,6 +9,7 @@ function create_deps() {
     } as any,
     editor_service: {
       sync_visual_from_markdown: vi.fn(),
+      sync_visual_from_markdown_diff: vi.fn().mockReturnValue(true),
     } as any,
     editor_store: {
       open_note: null as any,
@@ -61,7 +62,7 @@ describe("apply_workspace_edit_result", () => {
     expect(deps.watcher_service.suppress_next).not.toHaveBeenCalled();
   });
 
-  it("applies content via editor session for undo-able open file update", async () => {
+  it("applies content via diff-based editor sync for undoable open file update", async () => {
     const deps = create_deps();
     deps.editor_store.open_note = {
       meta: { id: "notes/test.md", path: "notes/test.md" },
@@ -77,9 +78,12 @@ describe("apply_workspace_edit_result", () => {
     await apply_workspace_edit_result(result, deps);
 
     expect(deps.read_note_content).toHaveBeenCalledWith("notes/test.md");
-    expect(deps.editor_service.sync_visual_from_markdown).toHaveBeenCalledWith(
-      "# Updated\nNew content",
-    );
+    expect(
+      deps.editor_service.sync_visual_from_markdown_diff,
+    ).toHaveBeenCalledWith("# Updated\nNew content");
+    expect(
+      deps.editor_service.sync_visual_from_markdown,
+    ).not.toHaveBeenCalled();
     expect(deps.editor_store.set_markdown).toHaveBeenCalledWith(
       "notes/test.md",
       "# Updated\nNew content",
@@ -89,6 +93,30 @@ describe("apply_workspace_edit_result", () => {
       false,
     );
     expect(deps.note_service.open_note).not.toHaveBeenCalled();
+  });
+
+  it("falls back to set_markdown when diff-based sync returns false", async () => {
+    const deps = create_deps();
+    deps.editor_service.sync_visual_from_markdown_diff.mockReturnValue(false);
+    deps.editor_store.open_note = {
+      meta: { id: "notes/test.md", path: "notes/test.md" },
+    };
+
+    const result: MarksmanWorkspaceEditResult = {
+      files_created: [],
+      files_deleted: [],
+      files_modified: ["file:///vault/notes/test.md"],
+      errors: [],
+    };
+
+    await apply_workspace_edit_result(result, deps);
+
+    expect(
+      deps.editor_service.sync_visual_from_markdown_diff,
+    ).toHaveBeenCalledWith("# Updated\nNew content");
+    expect(deps.editor_service.sync_visual_from_markdown).toHaveBeenCalledWith(
+      "# Updated\nNew content",
+    );
   });
 
   it("falls back to force_reload when read_note_content fails", async () => {

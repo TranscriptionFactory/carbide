@@ -20,6 +20,7 @@ export type InternalLinkSource = "markdown" | "wiki";
 export type EditorSession = {
   destroy: () => void;
   set_markdown: (markdown: string) => void;
+  apply_markdown_diff?: (new_markdown: string) => boolean;
   get_markdown: () => string;
   insert_text_at_cursor: (text: string) => void;
   replace_selection?: (text: string) => void;

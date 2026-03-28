@@ -322,6 +322,11 @@ export class EditorService {
     this.session.set_markdown(markdown);
   }
 
+  sync_visual_from_markdown_diff(markdown: string): boolean {
+    if (!this.session?.apply_markdown_diff) return false;
+    return this.session.apply_markdown_diff(markdown);
+  }
+
   flush(): EditorFlushResult | null {
     if (!this.active_note) return null;
 

@@ -246,13 +246,57 @@ pub async fn marksman_start(
                 log::info!("Wrote IWE config at {}", iwe_config.display());
             }
         }
+        log::info!("IWE config path: {}", iwe_config.display());
     }
 
     let config = LspClientConfig {
         binary_path: resolved_path.to_string_lossy().into_owned(),
         args: vec![],
         root_uri,
-        capabilities: serde_json::json!({}),
+        capabilities: serde_json::json!({
+            "textDocument": {
+                "codeAction": {
+                    "codeActionLiteralSupport": {
+                        "codeActionKind": {
+                            "valueSet": [
+                                "quickfix", "refactor", "refactor.extract",
+                                "refactor.inline", "refactor.rewrite",
+                                "source", "source.organizeImports"
+                            ]
+                        }
+                    },
+                    "resolveSupport": {
+                        "properties": ["edit"]
+                    }
+                },
+                "completion": {
+                    "completionItem": {
+                        "snippetSupport": false,
+                        "resolveSupport": { "properties": ["documentation", "detail"] }
+                    }
+                },
+                "hover": { "contentFormat": ["markdown", "plaintext"] },
+                "formatting": { "dynamicRegistration": false },
+                "synchronization": {
+                    "didSave": true,
+                    "willSave": false
+                },
+                "rename": { "prepareSupport": true },
+                "documentSymbol": {
+                    "hierarchicalDocumentSymbolSupport": true
+                },
+                "inlayHint": { "dynamicRegistration": false },
+                "foldingRange": { "dynamicRegistration": false }
+            },
+            "workspace": {
+                "workspaceEdit": {
+                    "documentChanges": true,
+                    "resourceOperations": ["create", "rename", "delete"]
+                },
+                "symbol": { "dynamicRegistration": false },
+                "workspaceFolders": false
+            }
+        }),
         working_dir: Some(
             vault_path
                 .to_str()
