@@ -100,7 +100,7 @@
     macos_finder: 24,
     refined: 26,
   };
-  const BLURB_ROW_EXTRA = 22;
+  const BLURB_ROW_EXTRA = 18;
   const BASE_ROW_HEIGHT = $derived(TREE_STYLE_ROW_HEIGHTS[tree_style] ?? 30);
   const ROW_HEIGHT = $derived(
     show_blurb ? BASE_ROW_HEIGHT + BLURB_ROW_EXTRA : BASE_ROW_HEIGHT,
@@ -456,6 +456,7 @@
   bind:this={scroll_container}
   class="virtual-file-tree h-full w-full overflow-auto"
   data-tree-style={tree_style}
+  data-show-blurb={show_blurb || undefined}
   role="tree"
   tabindex="0"
   aria-label="File tree"

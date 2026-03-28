@@ -633,7 +633,7 @@
   }
 
   .TreeRow--has-blurb {
-    height: calc(var(--size-tree-row) + 1.375rem);
+    height: calc(var(--size-tree-row) + 1.1rem);
   }
 
   .TreeRow:focus-visible {
@@ -701,7 +701,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 2px;
+    gap: 1px;
   }
 
   .TreeRow__label--primary {
@@ -1099,5 +1099,41 @@
       var(--sidebar-accent-foreground) 8%,
       transparent
     );
+  }
+
+  /* ── Folder highlight when blurbs are shown ── */
+
+  :global([data-show-blurb]) .TreeRow--folder {
+    height: calc(var(--size-tree-row) - 4px);
+  }
+
+  :global([data-show-blurb][data-tree-style="default"])
+    .TreeRow--folder.TreeRow--selected {
+    background-color: color-mix(in oklch, var(--muted) 55%, transparent);
+  }
+
+  :global([data-show-blurb][data-tree-style="airy_minimal"])
+    .TreeRow--folder.TreeRow--selected {
+    box-shadow: inset 2px 0 0 0
+      color-mix(in oklch, var(--interactive) 65%, transparent);
+  }
+
+  :global([data-show-blurb][data-tree-style="compact"])
+    .TreeRow--folder.TreeRow--selected {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 55%,
+      transparent
+    );
+  }
+
+  :global([data-show-blurb][data-tree-style="macos_finder"])
+    .TreeRow--folder.TreeRow--selected {
+    background-color: color-mix(in oklch, var(--interactive) 70%, transparent);
+  }
+
+  :global([data-show-blurb][data-tree-style="refined"])
+    .TreeRow--folder.TreeRow--selected {
+    background-color: color-mix(in oklch, var(--muted) 50%, transparent);
   }
 </style>
