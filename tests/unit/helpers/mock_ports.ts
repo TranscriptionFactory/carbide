@@ -168,6 +168,7 @@ export function create_mock_notes_port(): NotesPort & {
           path: _note_id,
           name: String(_note_id).split("/").at(-1)?.replace(/\.md$/, "") ?? "",
           title: "",
+          blurb: "",
           mtime_ms: 0,
           size_bytes: 0,
           file_type: null,
@@ -211,8 +212,7 @@ export function create_mock_notes_port(): NotesPort & {
       mock._calls.write_note.push(entry);
       return Promise.resolve({
         new_mtime: Date.now(),
-        parsed: null,
-        diagnostics: [],
+        blurb: "",
       });
     },
     create_note(
@@ -228,6 +228,7 @@ export function create_mock_notes_port(): NotesPort & {
         path: note_path,
         name: stem,
         title: note_path.replace(".md", ""),
+        blurb: "",
         mtime_ms: Date.now(),
         size_bytes: markdown.length,
         file_type: null,

@@ -96,6 +96,12 @@ export class NotesStore {
     this.rename_starred_path(old_path, normalized_new);
   }
 
+  update_note_blurb(note_id: NoteId, blurb: string) {
+    this.notes = this.notes.map((note) =>
+      note.id === note_id ? { ...note, blurb } : note,
+    );
+  }
+
   set_recent_notes(notes: NoteMeta[]) {
     this.recent_notes = normalize_recent_notes(notes);
   }

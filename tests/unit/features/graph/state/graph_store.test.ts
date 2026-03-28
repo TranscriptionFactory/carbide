@@ -38,6 +38,7 @@ describe("GraphStore", () => {
         path: note_path as NotePath,
         title: "Test",
         name: "test",
+        blurb: "",
         mtime_ms: 0,
         size_bytes: 0,
         file_type: null,

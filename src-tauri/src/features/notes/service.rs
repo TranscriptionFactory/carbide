@@ -22,6 +22,7 @@ pub struct NoteMeta {
     pub path: String,
     pub name: String,
     pub title: String,
+    pub blurb: String,
     pub mtime_ms: i64,
     pub size_bytes: i64,
 }
@@ -220,6 +221,116 @@ pub(crate) fn extract_title(path: &Path) -> String {
         .to_string()
 }
 
+const BLURB_MAX_CHARS: usize = 80;
+
+pub(crate) fn extract_blurb(path: &Path) -> String {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(_) => return String::new(),
+    };
+
+    let mut buf = vec![0u8; 8192];
+    let n = match file.read(&mut buf) {
+        Ok(n) => n,
+        Err(_) => return String::new(),
+    };
+    buf.truncate(n);
+
+    let text = String::from_utf8_lossy(&buf);
+    let body = skip_frontmatter(&text);
+
+    if let Some(desc) = extract_frontmatter_description(&text) {
+        return truncate_blurb(&desc);
+    }
+
+    extract_first_paragraph(body)
+}
+
+pub(crate) fn extract_blurb_from_content(markdown: &str) -> String {
+    let body = skip_frontmatter(markdown);
+
+    if let Some(desc) = extract_frontmatter_description(markdown) {
+        return truncate_blurb(&desc);
+    }
+
+    extract_first_paragraph(body)
+}
+
+fn extract_frontmatter_description(text: &str) -> Option<String> {
+    if !text.starts_with("---\n") && !text.starts_with("---\r\n") {
+        return None;
+    }
+    let end = text.find("\n---\n").or_else(|| {
+        let pos = text.find("\n---")?;
+        if pos + 4 >= text.len() { Some(pos) } else { None }
+    })?;
+    let yaml_block = &text[4..end];
+    for line in yaml_block.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("description:") {
+            let val = rest.trim().trim_matches('"').trim_matches('\'');
+            if !val.is_empty() {
+                return Some(val.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn skip_frontmatter(text: &str) -> &str {
+    if !text.starts_with("---\n") && !text.starts_with("---\r\n") {
+        return text;
+    }
+    if let Some(end) = text.find("\n---\n") {
+        return &text[end + 5..];
+    }
+    let end_pos = text.find("\n---");
+    match end_pos {
+        Some(pos) if pos + 4 >= text.len() => "",
+        _ => text,
+    }
+}
+
+fn extract_first_paragraph(body: &str) -> String {
+    let mut result = String::new();
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            if !result.is_empty() {
+                break;
+            }
+            continue;
+        }
+        if trimmed.starts_with('#') {
+            continue;
+        }
+        if !result.is_empty() {
+            result.push(' ');
+        }
+        result.push_str(trimmed);
+        if result.len() >= BLURB_MAX_CHARS {
+            break;
+        }
+    }
+    truncate_blurb(&result)
+}
+
+fn truncate_blurb(text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.len() <= BLURB_MAX_CHARS {
+        return trimmed.to_string();
+    }
+    let mut end = BLURB_MAX_CHARS;
+    while end > 0 && !trimmed.is_char_boundary(end) {
+        end -= 1;
+    }
+    if let Some(space) = trimmed[..end].rfind(' ') {
+        format!("{}…", &trimmed[..space])
+    } else {
+        format!("{}…", &trimmed[..end])
+    }
+}
+
 pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64), String> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let size = meta.len() as i64;
@@ -241,6 +352,7 @@ fn build_note_meta(
     let title = cached_titles
         .and_then(|m| m.get(rel_path).cloned())
         .unwrap_or_else(|| extract_title(&abs));
+    let blurb = extract_blurb(&abs);
     let (mtime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
@@ -248,6 +360,7 @@ fn build_note_meta(
         path: rel_path.to_string(),
         name: name_from_rel_path(rel_path),
         title,
+        blurb,
         mtime_ms,
         size_bytes,
     })
@@ -367,6 +480,7 @@ pub fn write_note(
 #[derive(Serialize, Type)]
 pub struct WriteAndIndexResult {
     pub new_mtime: i64,
+    pub blurb: String,
 }
 
 #[tauri::command]
@@ -412,6 +526,7 @@ pub fn write_and_index_note(
     buffer_manager.save_buffer(buffer_id)?;
 
     let (new_mtime, _) = file_meta(&abs)?;
+    let blurb = extract_blurb_from_content(&args.markdown);
 
     crate::features::search::service::index_upsert_note_with_content(
         &app,
@@ -420,7 +535,7 @@ pub fn write_and_index_note(
         args.markdown,
     )?;
 
-    Ok(WriteAndIndexResult { new_mtime })
+    Ok(WriteAndIndexResult { new_mtime, blurb })
 }
 
 #[derive(Debug, Deserialize, Type)]

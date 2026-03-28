@@ -3,12 +3,17 @@
   import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
   import type { FlatTreeNode, MoveItem } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
-  import type { FileTreeStyle } from "$lib/shared/types/editor_settings";
+  import type {
+    FileTreeStyle,
+    FileTreeBlurbPosition,
+  } from "$lib/shared/types/editor_settings";
   import FileTreeRow from "$lib/features/folder/ui/file_tree_row.svelte";
   import { fuzzy_score } from "$lib/shared/utils/fuzzy_score";
 
   type Props = {
     tree_style?: FileTreeStyle;
+    show_blurb?: boolean;
+    blurb_position?: FileTreeBlurbPosition;
     nodes: FlatTreeNode[];
     selected_path: string;
     revealed_note_path: string;
@@ -42,6 +47,7 @@
     on_open_in_new_window?: ((file_path: string) => void) | undefined;
     on_reveal_in_finder?: ((path: string) => void) | undefined;
     on_open_in_default_app?: ((path: string) => void) | undefined;
+    on_generate_description?: ((path: string) => void) | undefined;
     on_retry_load: (path: string) => void;
     on_load_more: (folder_path: string) => void;
     on_retry_load_more: (folder_path: string) => void;
@@ -54,6 +60,8 @@
 
   let {
     tree_style = "default",
+    show_blurb = false,
+    blurb_position = "caption",
     nodes,
     selected_path,
     revealed_note_path,
@@ -78,6 +86,7 @@
     on_open_in_new_window,
     on_reveal_in_finder,
     on_open_in_default_app,
+    on_generate_description,
     on_retry_load,
     on_load_more,
     on_retry_load_more,
@@ -91,7 +100,11 @@
     macos_finder: 24,
     refined: 26,
   };
-  const ROW_HEIGHT = $derived(TREE_STYLE_ROW_HEIGHTS[tree_style] ?? 30);
+  const BLURB_ROW_EXTRA = 18;
+  const BASE_ROW_HEIGHT = $derived(TREE_STYLE_ROW_HEIGHTS[tree_style] ?? 30);
+  const ROW_HEIGHT = $derived(
+    show_blurb ? BASE_ROW_HEIGHT + BLURB_ROW_EXTRA : BASE_ROW_HEIGHT,
+  );
   const OVERSCAN = 5;
 
   let scroll_container: HTMLDivElement | null = $state(null);
@@ -125,10 +138,19 @@
     });
   }
 
+  function estimate_row_size(index: number): number {
+    if (!show_blurb) return BASE_ROW_HEIGHT;
+    const node = filtered_nodes[index];
+    if (!node || node.is_folder || node.is_load_more || !node.note?.blurb) {
+      return BASE_ROW_HEIGHT;
+    }
+    return BASE_ROW_HEIGHT + BLURB_ROW_EXTRA;
+  }
+
   const virtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: 0,
     getScrollElement: () => scroll_container,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: estimate_row_size,
     overscan: OVERSCAN,
   });
 
@@ -457,6 +479,8 @@
         >
           <FileTreeRow
             {node}
+            {show_blurb}
+            {blurb_position}
             is_selected={selected_items.length <= 1 &&
               (node.is_folder
                 ? selected_path === node.path
@@ -493,6 +517,7 @@
             {on_open_in_new_window}
             {on_reveal_in_finder}
             {on_open_in_default_app}
+            {on_generate_description}
             on_toggle_star={on_toggle_star ? handle_toggle_star : undefined}
             selection_count={selected_items.length}
             {all_selected_starred}

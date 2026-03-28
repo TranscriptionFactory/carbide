@@ -35,6 +35,7 @@ function to_note_meta(meta: {
   path: string;
   name: string;
   title: string;
+  blurb?: string;
   mtime_ms: number;
   size_bytes: number;
   file_type?: string | null;
@@ -44,6 +45,7 @@ function to_note_meta(meta: {
     path: meta.path as NotePath,
     name: meta.name,
     title: meta.title,
+    blurb: meta.blurb ?? "",
     mtime_ms: meta.mtime_ms,
     size_bytes: meta.size_bytes,
     file_type: meta.file_type ?? null,

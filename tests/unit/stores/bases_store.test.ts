@@ -9,6 +9,7 @@ function make_note_row(id: string): BaseNoteRow {
       path: `${id}.md` as never,
       name: id,
       title: id,
+      blurb: "",
       mtime_ms: 0,
       size_bytes: 0,
       file_type: null,

@@ -473,6 +473,10 @@
                       <Sidebar.GroupContent class="h-full">
                         <VirtualFileTree
                           tree_style={stores.ui.editor_settings.file_tree_style}
+                          show_blurb={stores.ui.editor_settings
+                            .file_tree_show_blurb}
+                          blurb_position={stores.ui.editor_settings
+                            .file_tree_blurb_position}
                           nodes={starred_nodes}
                           selected_path={stores.ui.selected_folder_path}
                           revealed_note_path={stores.ui
@@ -547,6 +551,14 @@
                               );
                             }
                           }}
+                          on_generate_description={stores.ui.editor_settings
+                            .ai_enabled
+                            ? (path: string) =>
+                                void action_registry.execute(
+                                  ACTION_IDS.ai_generate_description,
+                                  path,
+                                )
+                            : undefined}
                           on_retry_load={(path: string) =>
                             void action_registry.execute(
                               ACTION_IDS.folder_retry_load,
@@ -655,6 +667,10 @@
                     <Sidebar.GroupContent class="h-full">
                       <VirtualFileTree
                         tree_style={stores.ui.editor_settings.file_tree_style}
+                        show_blurb={stores.ui.editor_settings
+                          .file_tree_show_blurb}
+                        blurb_position={stores.ui.editor_settings
+                          .file_tree_blurb_position}
                         nodes={flat_nodes}
                         selected_path={stores.ui.selected_folder_path}
                         revealed_note_path={stores.ui
@@ -746,6 +762,14 @@
                             );
                           }
                         }}
+                        on_generate_description={stores.ui.editor_settings
+                          .ai_enabled
+                          ? (path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.ai_generate_description,
+                                path,
+                              )
+                          : undefined}
                         on_retry_load={(path: string) =>
                           void action_registry.execute(
                             ACTION_IDS.folder_retry_load,

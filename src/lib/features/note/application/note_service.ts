@@ -99,6 +99,24 @@ export class NoteService {
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
+  async read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc> {
+    return this.notes_port.read_note(vault_id, note_id);
+  }
+
+  async write_note_indexed(
+    vault_id: VaultId,
+    note_id: NoteId,
+    markdown: MarkdownText,
+  ) {
+    const result = await this.notes_port.write_and_index_note(
+      vault_id,
+      note_id,
+      markdown,
+    );
+    this.notes_store.update_note_blurb(note_id, result.blurb);
+    return result;
+  }
+
   async list_all_folders(vault_id: VaultId): Promise<string[]> {
     return this.notes_port.list_folders(vault_id);
   }
@@ -755,6 +773,7 @@ export class NoteService {
         this.resolve_expected_mtime(open_note),
       );
       new_mtime = result.new_mtime;
+      this.notes_store.update_note_blurb(open_note.meta.id, result.blurb);
     } else {
       new_mtime = await this.notes_port.write_note(
         vault_id,

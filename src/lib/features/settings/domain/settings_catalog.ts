@@ -239,6 +239,39 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "file_tree_show_blurb",
+    label: "Show File Blurb",
+    description:
+      "Display a secondary line on file tree rows with a note description or preview",
+    category: "Layout",
+    keywords: [
+      "file",
+      "tree",
+      "blurb",
+      "description",
+      "preview",
+      "caption",
+      "subtitle",
+      "two-line",
+    ],
+  },
+  {
+    key: "file_tree_blurb_position",
+    label: "Blurb Position",
+    description:
+      "Whether the blurb appears as a caption below the filename or as the heading above it",
+    category: "Layout",
+    keywords: [
+      "file",
+      "tree",
+      "blurb",
+      "position",
+      "caption",
+      "heading",
+      "layout",
+    ],
+  },
+  {
     key: "max_open_tabs",
     label: "Max Open Tabs",
     description: "Maximum number of tabs that can be open at once",

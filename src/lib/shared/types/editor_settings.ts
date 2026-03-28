@@ -55,6 +55,7 @@ export type FileTreeStyle =
   | "compact"
   | "macos_finder"
   | "refined";
+export type FileTreeBlurbPosition = "caption" | "heading";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "marksman";
 
@@ -122,6 +123,8 @@ export type EditorSettings = {
   graph_force_charge_max_distance: number;
   outline_mode: OutlineMode;
   file_tree_style: FileTreeStyle;
+  file_tree_show_blurb: boolean;
+  file_tree_blurb_position: FileTreeBlurbPosition;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -200,6 +203,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
   file_tree_style: "airy_minimal",
+  file_tree_show_blurb: false,
+  file_tree_blurb_position: "caption",
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
@@ -271,6 +276,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_charge_max_distance",
   "outline_mode",
   "file_tree_style",
+  "file_tree_show_blurb",
+  "file_tree_blurb_position",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

@@ -13,6 +13,7 @@ export function create_test_graph_adapter(): GraphPort {
           path: note_path as NotePath,
           title: "Test",
           name: "test",
+          blurb: "",
           mtime_ms: 0,
           size_bytes: 0,
           file_type: null,

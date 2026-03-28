@@ -71,6 +71,7 @@ export function create_untitled_open_note(args: {
       path: draft_path,
       name: title,
       title,
+      blurb: "",
       mtime_ms: args.now_ms,
       size_bytes: 0,
       file_type: null,

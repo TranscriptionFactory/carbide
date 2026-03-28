@@ -26,6 +26,7 @@ export function create_test_note(id: string, title: string): NoteMeta {
     path: `${id}.md` as NotePath,
     name: id.split("/").at(-1) ?? id,
     title,
+    blurb: "",
     mtime_ms: 0,
     size_bytes: 0,
     file_type: null,

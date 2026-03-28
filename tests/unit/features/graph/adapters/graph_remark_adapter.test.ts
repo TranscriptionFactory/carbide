@@ -15,6 +15,7 @@ function make_meta(path: string, title?: string): NoteMeta {
     path: path as NotePath,
     name: path.split("/").pop()!,
     title: title ?? path.replace(".md", ""),
+    blurb: "",
     mtime_ms: 0,
     size_bytes: 0,
     file_type: null,

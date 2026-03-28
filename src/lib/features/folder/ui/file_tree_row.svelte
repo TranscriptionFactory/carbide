@@ -53,6 +53,7 @@
 <script lang="ts">
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
+  import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import {
@@ -72,11 +73,14 @@
     AppWindow,
     FolderOpen,
     ExternalLink,
+    Sparkles,
   } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
 
   type Props = {
     node: FlatTreeNode;
+    show_blurb?: boolean;
+    blurb_position?: FileTreeBlurbPosition;
     is_selected: boolean;
     is_multi_selected?: boolean;
     is_starred?: boolean;
@@ -120,12 +124,15 @@
     on_open_in_new_window?: ((file_path: string) => void) | undefined;
     on_reveal_in_finder?: ((path: string) => void) | undefined;
     on_open_in_default_app?: ((path: string) => void) | undefined;
+    on_generate_description?: ((path: string) => void) | undefined;
     on_retry_load: (path: string) => void;
     on_retry_load_more: (folder_path: string) => void;
   };
 
   let {
     node,
+    show_blurb = false,
+    blurb_position = "caption",
     is_selected,
     is_multi_selected = false,
     is_starred = false,
@@ -157,6 +164,7 @@
     on_open_in_new_window,
     on_reveal_in_finder,
     on_open_in_default_app,
+    on_generate_description,
     on_retry_load,
     on_retry_load_more,
   }: Props = $props();
@@ -233,6 +241,20 @@
       on_select_folder(node.path);
     }
   }
+
+  const has_blurb = $derived(
+    show_blurb && !node.is_folder && !node.is_load_more && !!node.note?.blurb,
+  );
+  const primary_text = $derived(
+    has_blurb && blurb_position === "heading" ? node.note!.blurb : node.name,
+  );
+  const secondary_text = $derived(
+    has_blurb
+      ? blurb_position === "heading"
+        ? node.name
+        : node.note!.blurb
+      : "",
+  );
 </script>
 
 {#snippet row_content()}
@@ -241,6 +263,7 @@
     class:TreeRow--selected={is_selected}
     class:TreeRow--multi-selected={is_multi_selected}
     class:TreeRow--folder={node.is_folder}
+    class:TreeRow--has-blurb={has_blurb}
     class:TreeRow--drag-source={is_drag_source}
     class:TreeRow--drag-over={drag_over_state === "valid"}
     class:TreeRow--drag-invalid={drag_over_state === "invalid"}
@@ -306,7 +329,18 @@
       <span class="TreeRow__label TreeRow__label--file">{node.name}</span>
     {:else}
       <FileText class="TreeRow__type-icon" />
-      <span class="TreeRow__label">{node.name}</span>
+      {#if has_blurb}
+        <span class="TreeRow__label-group">
+          <span class="TreeRow__label TreeRow__label--primary"
+            >{primary_text}</span
+          >
+          <span class="TreeRow__label TreeRow__label--secondary"
+            >{secondary_text}</span
+          >
+        </span>
+      {:else}
+        <span class="TreeRow__label">{node.name}</span>
+      {/if}
       {#if is_starred}
         <Star class="TreeRow__star-icon" />
       {/if}
@@ -537,6 +571,15 @@
               <span>Open in New Window</span>
             </ContextMenu.Item>
           {/if}
+          {#if on_generate_description}
+            <ContextMenu.Separator />
+            <ContextMenu.Item
+              onSelect={() => on_generate_description(node.path)}
+            >
+              <Sparkles class="mr-2 h-4 w-4" />
+              <span>Generate Description</span>
+            </ContextMenu.Item>
+          {/if}
           {#if on_request_rename || on_request_delete}
             <ContextMenu.Separator />
             {#if on_request_rename}
@@ -587,6 +630,10 @@
     padding-inline-end: var(--space-2);
     font-size: var(--text-sm);
     cursor: pointer;
+  }
+
+  .TreeRow--has-blurb {
+    height: calc(var(--size-tree-row) + 1.125rem);
   }
 
   .TreeRow:focus-visible {
@@ -646,6 +693,32 @@
   .TreeRow__label--muted {
     font-size: var(--text-xs);
     color: var(--muted-foreground);
+  }
+
+  .TreeRow__label-group {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  .TreeRow__label--primary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3;
+  }
+
+  .TreeRow__label--secondary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    line-height: 1.2;
+    opacity: 0.8;
   }
 
   .TreeRow__action {

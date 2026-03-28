@@ -26,6 +26,7 @@ function derive_note_meta(
     path: note_path,
     name: title,
     title,
+    blurb: "",
     mtime_ms: data.mtime_ms,
     size_bytes: new Blob([data.markdown]).size,
     file_type: null,
@@ -134,8 +135,7 @@ export function create_test_notes_adapter(): NotesPort {
       user_notes.set(note_path, { markdown, mtime_ms: mtime });
       return Promise.resolve({
         new_mtime: mtime,
-        parsed: null,
-        diagnostics: [],
+        blurb: "",
       });
     },
 

@@ -32,6 +32,7 @@ function path_to_note_meta(path: string): NoteMeta {
     path: path as NotePath,
     name,
     title: name,
+    blurb: "",
     mtime_ms: 0,
     size_bytes: 0,
     file_type: null,

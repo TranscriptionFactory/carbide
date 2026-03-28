@@ -22,6 +22,7 @@ function fallback_note_meta(path: string): NoteMeta {
     path: as_note_path(path),
     name,
     title: name,
+    blurb: "",
     mtime_ms: 0,
     size_bytes: 0,
     file_type: null,

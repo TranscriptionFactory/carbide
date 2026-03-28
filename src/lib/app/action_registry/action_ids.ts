@@ -230,6 +230,7 @@ export const ACTION_IDS = {
   ai_execute: "ai.execute",
   ai_apply_result: "ai.apply_result",
   ai_clear_result: "ai.clear_result",
+  ai_generate_description: "ai.generate_description",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",

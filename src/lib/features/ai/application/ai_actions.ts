@@ -1,4 +1,5 @@
 import { toast } from "svelte-sonner";
+import YAML from "yaml";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import type { AiApplyTarget, AiMode } from "$lib/features/ai/domain/ai_types";
@@ -8,6 +9,12 @@ import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { error_message } from "$lib/shared/utils/error_message";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import { extract_frontmatter } from "$lib/features/reference";
+import {
+  as_markdown_text,
+  type NoteId,
+  type NotePath,
+} from "$lib/shared/types/ids";
 
 export function register_ai_actions(
   input: ActionRegistrationInput & {
@@ -354,6 +361,98 @@ export function register_ai_actions(
       const config = get_provider(dialog.provider_id);
       toast.success(`${config?.name ?? "AI"} suggestion applied`);
       close_ai_dialog();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_generate_description,
+    label: "Generate Description with AI",
+    execute: async (payload: unknown) => {
+      if (!ensure_ai_enabled()) return;
+
+      const note_path =
+        typeof payload === "string"
+          ? payload
+          : (payload as { path?: string })?.path;
+      if (!note_path) return;
+
+      const vault = input.stores.vault.vault;
+      if (!vault) return;
+
+      const providers = get_providers();
+      const settings = input.stores.ui.editor_settings;
+      let resolved_provider_id = settings.ai_default_provider_id;
+      if (resolved_provider_id === "auto") {
+        const auto_provider = await resolve_auto_ai_backend({
+          providers,
+          check_availability: async (cfg) =>
+            await ai_service.check_availability(cfg),
+        });
+        resolved_provider_id = auto_provider?.id ?? "";
+      }
+      if (!resolved_provider_id) {
+        toast.error("No AI provider configured");
+        return;
+      }
+      const config = get_provider(resolved_provider_id);
+      if (!config) {
+        toast.error(`AI provider "${resolved_provider_id}" not found`);
+        return;
+      }
+
+      const generating = toast.loading("Generating description…");
+
+      try {
+        const doc = await services.note.read_note(
+          vault.id,
+          note_path as NoteId,
+        );
+
+        const result = await ai_service.execute({
+          provider_config: config,
+          prompt:
+            "Write a single-sentence summary (under 80 characters) of this note. " +
+            "Return ONLY the summary text, no quotes, no prefix, no explanation.",
+          context: {
+            note_path: note_path as NotePath,
+            note_title: doc.meta.title,
+            note_markdown: doc.markdown,
+            selection: null,
+            target: "full_note",
+          },
+          mode: "ask",
+          timeout_seconds: settings.ai_execution_timeout_seconds,
+        });
+
+        if (!result.success) {
+          toast.dismiss(generating);
+          toast.error(result.error ?? "AI failed to generate description");
+          return;
+        }
+
+        const description = result.output.trim().replace(/^["']|["']$/g, "");
+        const { yaml: yaml_str, body } = extract_frontmatter(doc.markdown);
+        const frontmatter = yaml_str.trim() ? (YAML.parse(yaml_str) ?? {}) : {};
+        frontmatter.description = description;
+        const updated_yaml = YAML.stringify(frontmatter, {
+          lineWidth: 0,
+        }).trimEnd();
+        const updated_markdown = as_markdown_text(
+          `---\n${updated_yaml}\n---\n${body}`,
+        );
+
+        await services.note.write_note_indexed(
+          vault.id,
+          note_path as NoteId,
+          updated_markdown,
+        );
+
+        toast.dismiss(generating);
+        toast.success("Description generated");
+      } catch (err) {
+        toast.dismiss(generating);
+        toast.error(error_message(err));
+      }
     },
   });
 }

@@ -5,6 +5,7 @@ export type NoteMeta = {
   path: NotePath;
   name: string;
   title: string;
+  blurb: string;
   mtime_ms: number;
   size_bytes: number;
   file_type: string | null;

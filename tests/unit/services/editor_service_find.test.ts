@@ -16,6 +16,7 @@ function create_open_note(note_path: string, markdown: string): OpenNoteState {
       path,
       name: note_path.split("/").at(-1)?.replace(/\.md$/i, "") ?? "",
       title: note_path.replace(/\.md$/i, ""),
+      blurb: "",
       mtime_ms: 0,
       size_bytes: markdown.length,
       file_type: null,

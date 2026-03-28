@@ -13,6 +13,7 @@ type TauriNoteMeta = {
   path: string;
   title: string;
   name: string;
+  blurb: string;
   mtime_ms: number;
   size_bytes: number;
   file_type: string | null;
@@ -35,6 +36,7 @@ function to_note_meta(note: TauriNoteMeta): NoteMeta {
     path: note.path as NotePath,
     title: note.title,
     name: note.name,
+    blurb: note.blurb,
     mtime_ms: note.mtime_ms,
     size_bytes: note.size_bytes,
     file_type: note.file_type,
