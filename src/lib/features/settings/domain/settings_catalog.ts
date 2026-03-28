@@ -309,6 +309,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "source", "line", "numbers", "gutter"],
   },
   {
+    key: "editor_heading_markers",
+    label: "Heading Markers",
+    description:
+      "Show markdown heading level markers (e.g. ##) before headings in the visual editor",
+    category: "Layout",
+    keywords: [
+      "heading",
+      "marker",
+      "hash",
+      "source",
+      "pseudo",
+      "level",
+      "obsidian",
+      "visual",
+    ],
+  },
+  {
     key: "editor_spellcheck",
     label: "Spell Check",
     description: "Enable browser-native spell checking in the editor",
