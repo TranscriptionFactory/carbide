@@ -315,8 +315,70 @@ fn extract_first_paragraph(body: &str) -> String {
     truncate_blurb(&result)
 }
 
+fn strip_markdown_formatting(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+
+    while i < len {
+        match chars[i] {
+            '\\' if i + 1 < len => {
+                out.push(chars[i + 1]);
+                i += 2;
+            }
+            '[' => {
+                if let Some(close_bracket) = chars[i + 1..].iter().position(|&c| c == ']') {
+                    let label_end = i + 1 + close_bracket;
+                    let label: String = chars[i + 1..label_end].iter().collect();
+                    if label_end + 1 < len && chars[label_end + 1] == '(' {
+                        if let Some(close_paren) =
+                            chars[label_end + 2..].iter().position(|&c| c == ')')
+                        {
+                            out.push_str(&label);
+                            i = label_end + 2 + close_paren + 1;
+                            continue;
+                        }
+                    }
+                    out.push('[');
+                    i += 1;
+                } else {
+                    out.push('[');
+                    i += 1;
+                }
+            }
+            '`' => {
+                i += 1;
+                while i < len && chars[i] != '`' {
+                    out.push(chars[i]);
+                    i += 1;
+                }
+                if i < len {
+                    i += 1;
+                }
+            }
+            '*' | '_' => {
+                i += 1;
+                while i < len && chars[i] == chars[i - 1] {
+                    i += 1;
+                }
+            }
+            '~' if i + 1 < len && chars[i + 1] == '~' => {
+                i += 2;
+            }
+            _ => {
+                out.push(chars[i]);
+                i += 1;
+            }
+        }
+    }
+
+    out
+}
+
 fn truncate_blurb(text: &str) -> String {
-    let trimmed = text.trim();
+    let stripped = strip_markdown_formatting(text);
+    let trimmed = stripped.trim();
     if trimmed.len() <= BLURB_MAX_CHARS {
         return trimmed.to_string();
     }

@@ -633,7 +633,7 @@
   }
 
   .TreeRow--has-blurb {
-    height: calc(var(--size-tree-row) + 1.125rem);
+    height: calc(var(--size-tree-row) + 1.375rem);
   }
 
   .TreeRow:focus-visible {
@@ -701,7 +701,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1px;
+    gap: 2px;
   }
 
   .TreeRow__label--primary {
@@ -709,6 +709,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.3;
+    font-weight: 500;
+    color: var(--sidebar-foreground);
   }
 
   .TreeRow__label--secondary {
@@ -718,7 +720,7 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     line-height: 1.2;
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   .TreeRow__action {
