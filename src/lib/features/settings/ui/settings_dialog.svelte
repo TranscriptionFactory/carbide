@@ -36,6 +36,7 @@
     GitPullStrategy,
     LintFormatter,
     FileTreeStyle,
+    FileTreeBlurbPosition,
     OutlineMode,
     TerminalFontWeight,
     TerminalCursorStyle,
@@ -1186,6 +1187,57 @@
                 </Select.Content>
               </Select.Root>
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Show File Blurb</span>
+                <span class="SettingsDialog__description"
+                  >Display a secondary line with a note description or preview</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.file_tree_show_blurb}
+                onCheckedChange={(v: boolean) => {
+                  update("file_tree_show_blurb", v);
+                }}
+              />
+            </div>
+
+            {#if editor_settings.file_tree_show_blurb}
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Blurb Position</span>
+                  <span class="SettingsDialog__description"
+                    >Whether the blurb is a caption below or heading above the
+                    filename</span
+                  >
+                </div>
+                <Select.Root
+                  type="single"
+                  value={editor_settings.file_tree_blurb_position}
+                  onValueChange={(v: string | undefined) => {
+                    if (v)
+                      update(
+                        "file_tree_blurb_position",
+                        v as FileTreeBlurbPosition,
+                      );
+                  }}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value"
+                      >{{
+                        caption: "Caption",
+                        heading: "Heading",
+                      }[editor_settings.file_tree_blurb_position]}</span
+                    >
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="caption">Caption</Select.Item>
+                    <Select.Item value="heading">Heading</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            {/if}
 
             <div class="space-y-4 border-t pt-4">
               <div
