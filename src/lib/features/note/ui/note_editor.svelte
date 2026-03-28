@@ -78,6 +78,8 @@
           class:NoteEditor__read-only={editor_mode === "read_only"}
           class:show-line-numbers={stores.ui.editor_settings
             .source_editor_line_numbers}
+          class:show-heading-markers={stores.ui.editor_settings
+            .editor_heading_markers}
         ></div>
       </EditorContextMenu>
     </div>

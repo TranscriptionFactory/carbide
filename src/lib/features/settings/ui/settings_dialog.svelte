@@ -1247,6 +1247,22 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Heading Markers</span>
+                  <span class="SettingsDialog__description"
+                    >Show heading level markers (e.g. ##) in the visual editor</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.editor_heading_markers}
+                    onCheckedChange={(v: boolean) =>
+                      update("editor_heading_markers", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Paragraph Spacing</span>
                   <span class="SettingsDialog__description"
                     >Adjust vertical spacing between paragraphs</span
