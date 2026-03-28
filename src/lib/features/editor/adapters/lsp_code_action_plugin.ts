@@ -315,9 +315,20 @@ export function create_lsp_code_action_plugin(input: {
         );
       },
       handleKeyDown(view, event) {
-        if (event.key === "Escape" && is_dropdown_visible) {
-          hide_dropdown();
-          return true;
+        if (event.key === "Escape") {
+          const had_dropdown = is_dropdown_visible;
+          const deco_set = lsp_code_action_plugin_key.getState(view.state);
+          const had_lightbulb =
+            deco_set !== undefined && deco_set !== DecorationSet.empty;
+          if (had_dropdown || had_lightbulb) {
+            hide_dropdown();
+            view.dispatch(
+              view.state.tr.setMeta(lsp_code_action_plugin_key, {
+                type: "clear",
+              }),
+            );
+            return true;
+          }
         }
         if (event.key === "." && (event.metaKey || event.ctrlKey)) {
           event.preventDefault();
