@@ -6,6 +6,7 @@ export const ACTION_IDS = {
   editor_toggle_mode: "editor.toggle_mode",
   editor_toggle_read_only: "editor.toggle_read_only",
   editor_toggle_line_numbers: "editor.toggle_line_numbers",
+  editor_sync_visual_from_store: "editor.sync_visual_from_store",
   app_handle_file_open: "app.handle_file_open",
 
   note_create: "note.create",

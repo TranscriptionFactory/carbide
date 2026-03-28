@@ -194,6 +194,7 @@
           if (update.selectionSet || update.docChanged) {
             on_cursor_change(compute_cursor_info());
             on_selection_change?.(compute_selection_snapshot());
+            stores.editor.set_cursor_offset(update.state.selection.main.head);
           }
         },
       );

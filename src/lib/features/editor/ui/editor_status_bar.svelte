@@ -164,7 +164,9 @@
         ? "Visual"
         : editor_mode === "source"
           ? "Source"
-          : "Read-only"}
+          : editor_mode === "split"
+            ? "Split"
+            : "Read-only"}
     </button>
     <span class="StatusBar__separator" aria-hidden="true"></span>
     <button

@@ -40,6 +40,12 @@
     )?.key ?? null,
   );
 
+  $effect(() => {
+    if (editor_mode !== "split" || !open_note) return;
+    open_note.markdown;
+    void action_registry.execute(ACTION_IDS.editor_sync_visual_from_store);
+  });
+
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
     void action_registry.execute(ACTION_IDS.app_editor_mount, node, note);
 
@@ -66,47 +72,94 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    <div
-      class="NoteEditor__visual-wrapper"
-      class:NoteEditor__hidden={editor_mode !== "visual" &&
-        editor_mode !== "read_only"}
-    >
-      <EditorContextMenu>
-        <div
-          use:mount_editor={open_note}
-          class="NoteEditor__content"
-          class:NoteEditor__read-only={editor_mode === "read_only"}
-          class:show-line-numbers={stores.ui.editor_settings
-            .source_editor_line_numbers}
-          class:show-heading-markers={stores.ui.editor_settings
-            .editor_heading_markers}
-        ></div>
-      </EditorContextMenu>
-    </div>
-    {#if editor_mode === "source"}
-      {#key open_note.meta.id}
-        <SourceEditor
-          initial_markdown={open_note.markdown}
-          initial_cursor_offset={stores.editor.cursor_offset}
-          initial_scroll_fraction={stores.editor.scroll_fraction}
-          show_line_numbers={stores.ui.editor_settings
-            .source_editor_line_numbers}
-          on_markdown_change={(md) =>
-            stores.editor.set_markdown(open_note.meta.id, as_markdown_text(md))}
-          on_dirty_change={(dirty) =>
-            stores.editor.set_dirty(open_note.meta.id, dirty)}
-          on_cursor_change={(cursor) =>
-            stores.editor.set_cursor(open_note.meta.id, cursor)}
-          on_selection_change={(selection) =>
-            stores.editor.set_selection(open_note.meta.id, selection)}
-          on_outline_change={(headings) =>
-            stores.outline?.set_headings(headings)}
-          on_destroy={(state) => {
-            stores.editor.set_cursor_offset(state.cursor_offset);
-            stores.editor.set_scroll_fraction(state.scroll_fraction);
-          }}
-        />
-      {/key}
+    {#if editor_mode === "split"}
+      <div class="NoteEditor__split-container">
+        <div class="NoteEditor__split-pane">
+          <EditorContextMenu>
+            <div
+              use:mount_editor={open_note}
+              class="NoteEditor__content"
+              class:show-line-numbers={stores.ui.editor_settings
+                .source_editor_line_numbers}
+              class:show-heading-markers={stores.ui.editor_settings
+                .editor_heading_markers}
+            ></div>
+          </EditorContextMenu>
+        </div>
+        <div class="NoteEditor__split-handle"></div>
+        <div class="NoteEditor__split-pane">
+          {#key open_note.meta.id}
+            <SourceEditor
+              initial_markdown={open_note.markdown}
+              show_line_numbers={stores.ui.editor_settings
+                .source_editor_line_numbers}
+              on_markdown_change={(md) =>
+                stores.editor.set_markdown(
+                  open_note.meta.id,
+                  as_markdown_text(md),
+                )}
+              on_dirty_change={(dirty) =>
+                stores.editor.set_dirty(open_note.meta.id, dirty)}
+              on_cursor_change={(cursor) =>
+                stores.editor.set_cursor(open_note.meta.id, cursor)}
+              on_selection_change={(selection) =>
+                stores.editor.set_selection(open_note.meta.id, selection)}
+              on_outline_change={(headings) =>
+                stores.outline?.set_headings(headings)}
+              on_destroy={(state) => {
+                stores.editor.set_cursor_offset(state.cursor_offset);
+                stores.editor.set_scroll_fraction(state.scroll_fraction);
+              }}
+            />
+          {/key}
+        </div>
+      </div>
+    {:else}
+      <div
+        class="NoteEditor__visual-wrapper"
+        class:NoteEditor__hidden={editor_mode !== "visual" &&
+          editor_mode !== "read_only"}
+      >
+        <EditorContextMenu>
+          <div
+            use:mount_editor={open_note}
+            class="NoteEditor__content"
+            class:NoteEditor__read-only={editor_mode === "read_only"}
+            class:show-line-numbers={stores.ui.editor_settings
+              .source_editor_line_numbers}
+            class:show-heading-markers={stores.ui.editor_settings
+              .editor_heading_markers}
+          ></div>
+        </EditorContextMenu>
+      </div>
+      {#if editor_mode === "source"}
+        {#key open_note.meta.id}
+          <SourceEditor
+            initial_markdown={open_note.markdown}
+            initial_cursor_offset={stores.editor.cursor_offset}
+            initial_scroll_fraction={stores.editor.scroll_fraction}
+            show_line_numbers={stores.ui.editor_settings
+              .source_editor_line_numbers}
+            on_markdown_change={(md) =>
+              stores.editor.set_markdown(
+                open_note.meta.id,
+                as_markdown_text(md),
+              )}
+            on_dirty_change={(dirty) =>
+              stores.editor.set_dirty(open_note.meta.id, dirty)}
+            on_cursor_change={(cursor) =>
+              stores.editor.set_cursor(open_note.meta.id, cursor)}
+            on_selection_change={(selection) =>
+              stores.editor.set_selection(open_note.meta.id, selection)}
+            on_outline_change={(headings) =>
+              stores.outline?.set_headings(headings)}
+            on_destroy={(state) => {
+              stores.editor.set_cursor_offset(state.cursor_offset);
+              stores.editor.set_scroll_fraction(state.scroll_fraction);
+            }}
+          />
+        {/key}
+      {/if}
     {/if}
   {:else}
     <div class="NoteEditor__empty">
@@ -154,6 +207,27 @@
 
   .NoteEditor__content {
     width: 100%;
+  }
+
+  .NoteEditor__split-container {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .NoteEditor__split-pane {
+    flex: 1 1 50%;
+    min-width: 0;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .NoteEditor__split-handle {
+    width: 1px;
+    flex-shrink: 0;
+    background-color: var(--border);
   }
 
   .NoteEditor__hidden {

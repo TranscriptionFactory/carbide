@@ -363,15 +363,14 @@ export function register_app_actions(input: ActionRegistrationInput) {
           );
         }
       } else if (current === "source") {
+        services.editor.flush();
         const open_note = editor_store.open_note;
         if (open_note) {
-          const md_offset = editor_store.cursor_offset;
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
-          if (md_offset > 0) {
-            services.editor.set_cursor_from_markdown_offset(md_offset);
-          }
         }
+      } else if (current === "split") {
+        services.editor.flush();
       } else if (current === "read_only") {
         services.editor.set_editable(true);
       }
@@ -391,7 +390,11 @@ export function register_app_actions(input: ActionRegistrationInput) {
       } else {
         if (editor_store.editor_mode === "visual") {
           services.editor.flush();
-        } else if (editor_store.editor_mode === "source") {
+        } else if (
+          editor_store.editor_mode === "source" ||
+          editor_store.editor_mode === "split"
+        ) {
+          services.editor.flush();
           const open_note = editor_store.open_note;
           if (open_note) {
             services.editor.sync_visual_from_markdown(open_note.markdown);
@@ -415,6 +418,16 @@ export function register_app_actions(input: ActionRegistrationInput) {
       };
       input.stores.ui.set_editor_settings(updated);
       await services.settings.save_settings(updated);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_sync_visual_from_store,
+    label: "Sync Visual Editor from Store",
+    execute: () => {
+      const open_note = input.stores.editor.open_note;
+      if (!open_note) return;
+      services.editor.sync_visual_from_markdown_diff(open_note.markdown);
     },
   });
 

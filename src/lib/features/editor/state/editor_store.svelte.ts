@@ -139,9 +139,9 @@ export class EditorStore {
   toggle_editor_mode() {
     const cycle: Record<EditorMode, EditorMode> = {
       visual: "source",
-      source: "visual",
-      read_only: "visual",
+      source: "split",
       split: "visual",
+      read_only: "visual",
     };
     this.editor_mode = cycle[this.editor_mode];
   }

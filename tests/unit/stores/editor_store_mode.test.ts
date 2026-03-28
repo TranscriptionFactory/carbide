@@ -13,8 +13,16 @@ describe("EditorStore mode", () => {
     expect(store.editor_mode).toBe("source");
   });
 
-  it("toggle_editor_mode cycles source back to visual", () => {
+  it("toggle_editor_mode cycles source to split", () => {
     const store = new EditorStore();
+    store.toggle_editor_mode();
+    store.toggle_editor_mode();
+    expect(store.editor_mode).toBe("split");
+  });
+
+  it("toggle_editor_mode cycles split back to visual", () => {
+    const store = new EditorStore();
+    store.toggle_editor_mode();
     store.toggle_editor_mode();
     store.toggle_editor_mode();
     expect(store.editor_mode).toBe("visual");
@@ -27,9 +35,13 @@ describe("EditorStore mode", () => {
     expect(store.editor_mode).toBe("visual");
   });
 
-  it("toggle_editor_mode cycles split to visual", () => {
+  it("full cycle visual → source → split → visual", () => {
     const store = new EditorStore();
-    store.set_editor_mode("split");
+    expect(store.editor_mode).toBe("visual");
+    store.toggle_editor_mode();
+    expect(store.editor_mode).toBe("source");
+    store.toggle_editor_mode();
+    expect(store.editor_mode).toBe("split");
     store.toggle_editor_mode();
     expect(store.editor_mode).toBe("visual");
   });

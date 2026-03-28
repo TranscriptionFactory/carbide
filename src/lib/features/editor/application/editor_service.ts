@@ -330,17 +330,18 @@ export class EditorService {
   flush(): EditorFlushResult | null {
     if (!this.active_note) return null;
 
-    if (this.session && this.editor_store.editor_mode === "visual") {
-      const markdown = this.session.get_markdown();
+    const mode = this.editor_store.editor_mode;
+    if (
+      (mode === "source" || mode === "split") &&
+      this.editor_store.source_content_getter !== null
+    ) {
+      const markdown = this.editor_store.source_content_getter();
       this.editor_store.set_markdown(
         this.active_note.meta.id,
         as_markdown_text(markdown),
       );
-    } else if (
-      this.editor_store.editor_mode === "source" &&
-      this.editor_store.source_content_getter !== null
-    ) {
-      const markdown = this.editor_store.source_content_getter();
+    } else if (this.session && mode === "visual") {
+      const markdown = this.session.get_markdown();
       this.editor_store.set_markdown(
         this.active_note.meta.id,
         as_markdown_text(markdown),
