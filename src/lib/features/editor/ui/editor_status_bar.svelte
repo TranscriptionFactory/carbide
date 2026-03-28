@@ -29,6 +29,8 @@
     is_repairing_links: boolean;
     link_repair_message: string | null;
     editor_mode: import("$lib/shared/types/editor").EditorMode;
+    split_view: boolean;
+    on_split_toggle: () => void;
     lint_is_running: boolean;
     lint_error_count: number;
     lint_warning_count: number;
@@ -85,6 +87,8 @@
     on_git_add_remote,
     on_sync_click,
     on_mode_toggle,
+    split_view,
+    on_split_toggle,
     show_line_numbers,
     on_line_numbers_toggle,
   }: Props = $props();
@@ -164,9 +168,18 @@
         ? "Visual"
         : editor_mode === "source"
           ? "Source"
-          : editor_mode === "split"
-            ? "Split"
-            : "Read-only"}
+          : "Read-only"}
+    </button>
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="StatusBar__mode-toggle"
+      class:StatusBar__mode-toggle--active={split_view}
+      onclick={on_split_toggle}
+      aria-label="Toggle split view"
+      disabled={editor_mode === "read_only"}
+    >
+      Split
     </button>
     <span class="StatusBar__separator" aria-hidden="true"></span>
     <button
@@ -425,6 +438,11 @@
   .StatusBar__mode-toggle--dimmed {
     opacity: 0.4;
     text-decoration: line-through;
+  }
+
+  .StatusBar__mode-toggle--active {
+    opacity: 1;
+    color: var(--primary);
   }
 
   :global(.StatusBar__item svg),

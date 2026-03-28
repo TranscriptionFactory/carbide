@@ -13,16 +13,8 @@ describe("EditorStore mode", () => {
     expect(store.editor_mode).toBe("source");
   });
 
-  it("toggle_editor_mode cycles source to split", () => {
+  it("toggle_editor_mode cycles source back to visual", () => {
     const store = new EditorStore();
-    store.toggle_editor_mode();
-    store.toggle_editor_mode();
-    expect(store.editor_mode).toBe("split");
-  });
-
-  it("toggle_editor_mode cycles split back to visual", () => {
-    const store = new EditorStore();
-    store.toggle_editor_mode();
     store.toggle_editor_mode();
     store.toggle_editor_mode();
     expect(store.editor_mode).toBe("visual");
@@ -35,13 +27,11 @@ describe("EditorStore mode", () => {
     expect(store.editor_mode).toBe("visual");
   });
 
-  it("full cycle visual → source → split → visual", () => {
+  it("full cycle visual → source → visual", () => {
     const store = new EditorStore();
     expect(store.editor_mode).toBe("visual");
     store.toggle_editor_mode();
     expect(store.editor_mode).toBe("source");
-    store.toggle_editor_mode();
-    expect(store.editor_mode).toBe("split");
     store.toggle_editor_mode();
     expect(store.editor_mode).toBe("visual");
   });
@@ -75,9 +65,45 @@ describe("EditorStore mode", () => {
     store.set_editor_mode("source");
     store.set_cursor_offset(100);
     store.set_scroll_fraction(0.5);
+    store.set_split_view(true);
     store.reset();
     expect(store.editor_mode).toBe("visual");
+    expect(store.split_view).toBe(false);
     expect(store.cursor_offset).toBe(0);
     expect(store.scroll_fraction).toBe(0);
+  });
+});
+
+describe("EditorStore split_view", () => {
+  it("defaults to false", () => {
+    const store = new EditorStore();
+    expect(store.split_view).toBe(false);
+  });
+
+  it("toggle_split_view toggles the value", () => {
+    const store = new EditorStore();
+    store.toggle_split_view();
+    expect(store.split_view).toBe(true);
+    store.toggle_split_view();
+    expect(store.split_view).toBe(false);
+  });
+
+  it("set_split_view sets the value", () => {
+    const store = new EditorStore();
+    store.set_split_view(true);
+    expect(store.split_view).toBe(true);
+    store.set_split_view(false);
+    expect(store.split_view).toBe(false);
+  });
+
+  it("split_view is independent of editor_mode", () => {
+    const store = new EditorStore();
+    store.set_split_view(true);
+    store.toggle_editor_mode();
+    expect(store.editor_mode).toBe("source");
+    expect(store.split_view).toBe(true);
+    store.toggle_editor_mode();
+    expect(store.editor_mode).toBe("visual");
+    expect(store.split_view).toBe(true);
   });
 });

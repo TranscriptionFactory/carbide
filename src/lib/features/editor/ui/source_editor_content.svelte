@@ -11,6 +11,7 @@
     build_source_editor_background_theme_spec,
     build_source_editor_base_theme_spec,
     build_source_editor_hide_line_numbers_theme_spec,
+    build_source_editor_syntax_theme_spec,
   } from "$lib/features/editor/ui/source_editor_theme";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
@@ -178,13 +179,6 @@
 
       if (canceled || !editor_root) return;
 
-      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      let theme_ext: typeof import("@codemirror/theme-one-dark") | null = null;
-      if (dark) {
-        theme_ext = await import("@codemirror/theme-one-dark");
-        if (canceled) return;
-      }
-
       const update_listener = cm_view_mod.EditorView.updateListener.of(
         (update) => {
           if (update.docChanged) {
@@ -214,10 +208,7 @@
         );
       }
 
-      if (theme_ext) {
-        extensions.push(theme_ext.oneDark);
-      }
-
+      extensions.push(EV.theme(build_source_editor_syntax_theme_spec()));
       extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
       last_applied_markdown = initial_markdown;

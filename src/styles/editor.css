@@ -60,6 +60,23 @@
   /* Find-in-file match highlighting */
   --editor-find-match-bg: oklch(0.93 0.09 90);
   --editor-find-match-selected-bg: oklch(0.82 0.15 75);
+
+  /* Source editor syntax highlighting — light mode */
+  --source-keyword: oklch(0.45 0.18 280);
+  --source-string: oklch(0.45 0.15 145);
+  --source-comment: oklch(0.58 0.02 250);
+  --source-heading: var(--editor-heading-color);
+  --source-meta: oklch(0.55 0.1 30);
+  --source-link: var(--editor-link);
+  --source-emphasis: var(--editor-italic-color);
+  --source-strong: var(--editor-bold-color);
+  --source-url: oklch(0.5 0.12 250);
+  --source-tag: oklch(0.5 0.15 25);
+  --source-bracket: oklch(0.55 0.05 250);
+  --source-atom: oklch(0.45 0.15 280);
+  --source-number: oklch(0.45 0.12 145);
+  --source-property: oklch(0.45 0.12 250);
+  --source-operator: var(--foreground);
 }
 
 [data-color-scheme="dark"] {
@@ -72,6 +89,18 @@
   /* Find-in-file match highlighting — dark mode */
   --editor-find-match-bg: oklch(0.38 0.08 80);
   --editor-find-match-selected-bg: oklch(0.52 0.14 75);
+
+  /* Source editor syntax highlighting — dark mode */
+  --source-keyword: oklch(0.72 0.16 280);
+  --source-string: oklch(0.72 0.14 145);
+  --source-comment: oklch(0.55 0.02 250);
+  --source-meta: oklch(0.7 0.1 30);
+  --source-url: oklch(0.7 0.1 250);
+  --source-tag: oklch(0.75 0.12 25);
+  --source-bracket: oklch(0.65 0.05 250);
+  --source-atom: oklch(0.72 0.14 280);
+  --source-number: oklch(0.72 0.12 145);
+  --source-property: oklch(0.72 0.1 250);
 }
 
 /* ============================================

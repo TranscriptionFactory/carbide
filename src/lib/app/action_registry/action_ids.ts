@@ -4,6 +4,7 @@ export const ACTION_IDS = {
   app_editor_mount: "app.editor.mount",
   app_editor_unmount: "app.editor.unmount",
   editor_toggle_mode: "editor.toggle_mode",
+  editor_toggle_split_view: "editor.toggle_split_view",
   editor_toggle_read_only: "editor.toggle_read_only",
   editor_toggle_line_numbers: "editor.toggle_line_numbers",
   editor_sync_visual_from_store: "editor.sync_visual_from_store",

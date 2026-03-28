@@ -369,13 +369,34 @@ export function register_app_actions(input: ActionRegistrationInput) {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
         }
-      } else if (current === "split") {
-        services.editor.flush();
       } else if (current === "read_only") {
         services.editor.set_editable(true);
       }
 
       editor_store.toggle_editor_mode();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_toggle_split_view,
+    label: "Toggle Split View",
+    execute: () => {
+      const editor_store = input.stores.editor;
+      const entering_split = !editor_store.split_view;
+
+      if (entering_split) {
+        if (editor_store.editor_mode === "read_only") return;
+        services.editor.flush();
+        const open_note = editor_store.open_note;
+        if (open_note && editor_store.editor_mode === "source") {
+          services.editor.sync_visual_from_markdown(open_note.markdown);
+          services.editor.set_editable(true);
+        }
+      } else {
+        services.editor.flush();
+      }
+
+      editor_store.toggle_split_view();
     },
   });
 
@@ -390,15 +411,15 @@ export function register_app_actions(input: ActionRegistrationInput) {
       } else {
         if (editor_store.editor_mode === "visual") {
           services.editor.flush();
-        } else if (
-          editor_store.editor_mode === "source" ||
-          editor_store.editor_mode === "split"
-        ) {
+        } else if (editor_store.editor_mode === "source") {
           services.editor.flush();
           const open_note = editor_store.open_note;
           if (open_note) {
             services.editor.sync_visual_from_markdown(open_note.markdown);
           }
+        }
+        if (editor_store.split_view) {
+          editor_store.set_split_view(false);
         }
         services.editor.set_editable(false);
         editor_store.set_editor_mode("read_only");

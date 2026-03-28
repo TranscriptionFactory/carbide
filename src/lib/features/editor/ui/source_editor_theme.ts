@@ -58,6 +58,52 @@ export function build_source_editor_background_theme_spec(): CodeMirrorThemeSpec
   };
 }
 
+export function build_source_editor_syntax_theme_spec(): CodeMirrorThemeSpec {
+  return {
+    ".cm-content": {
+      color: "var(--editor-text, var(--foreground))",
+    },
+    ".ͼ1 .cm-line": {
+      caretColor: "var(--foreground)",
+    },
+    ".tok-keyword": { color: "var(--source-keyword)" },
+    ".tok-string, .tok-string2": { color: "var(--source-string)" },
+    ".tok-comment": { color: "var(--source-comment)", fontStyle: "italic" },
+    ".tok-heading": {
+      color: "var(--source-heading, var(--foreground))",
+      fontWeight: "var(--editor-heading-weight, 500)",
+    },
+    ".tok-meta": { color: "var(--source-meta)" },
+    ".tok-link": { color: "var(--source-link, var(--primary))" },
+    ".tok-emphasis": {
+      color: "var(--source-emphasis, inherit)",
+      fontStyle: "italic",
+    },
+    ".tok-strong": {
+      color: "var(--source-strong, var(--foreground))",
+      fontWeight: "var(--editor-bold-weight, 600)",
+    },
+    ".tok-url": {
+      color: "var(--source-url)",
+      textDecoration: "underline",
+      textDecorationColor:
+        "color-mix(in oklch, var(--source-url) 40%, transparent)",
+    },
+    ".tok-atom": { color: "var(--source-atom)" },
+    ".tok-number": { color: "var(--source-number)" },
+    ".tok-propertyName": { color: "var(--source-property)" },
+    ".tok-operator": { color: "var(--source-operator, var(--foreground))" },
+    ".tok-punctuation, .tok-bracket": { color: "var(--source-bracket)" },
+    ".tok-tagName": { color: "var(--source-tag)" },
+    ".tok-attributeName": { color: "var(--source-property)" },
+    ".tok-attributeValue": { color: "var(--source-string)" },
+    ".tok-invalid": {
+      color: "var(--destructive, #f00)",
+      textDecoration: "underline wavy",
+    },
+  };
+}
+
 export function build_source_editor_hide_line_numbers_theme_spec(): CodeMirrorThemeSpec {
   return {
     ".cm-lineNumbers": {

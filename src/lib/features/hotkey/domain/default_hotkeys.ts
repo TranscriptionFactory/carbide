@@ -307,6 +307,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "editing",
   },
   {
+    action_id: ACTION_IDS.editor_toggle_split_view,
+    key: "CmdOrCtrl+Shift+Enter",
+    phase: "capture",
+    label: "Toggle Split View",
+    description: "Show or hide the source editor alongside the visual editor",
+    category: "editing",
+  },
+  {
     action_id: ACTION_IDS.editor_toggle_read_only,
     key: "CmdOrCtrl+Shift+/",
     phase: "capture",

@@ -332,7 +332,7 @@ export class EditorService {
 
     const mode = this.editor_store.editor_mode;
     if (
-      (mode === "source" || mode === "split") &&
+      (mode === "source" || this.editor_store.split_view) &&
       this.editor_store.source_content_getter !== null
     ) {
       const markdown = this.editor_store.source_content_getter();

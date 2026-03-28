@@ -965,6 +965,9 @@
         on_lint_format_click={() =>
           void action_registry.execute(ACTION_IDS.lint_format_file)}
         editor_mode={stores.editor.editor_mode}
+        split_view={stores.editor.split_view}
+        on_split_toggle={() =>
+          void action_registry.execute(ACTION_IDS.editor_toggle_split_view)}
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_mode)}

@@ -13,6 +13,7 @@ export class EditorStore {
   last_saved_at = $state<number | null>(null);
   session_revision = $state(0);
   editor_mode = $state<EditorMode>("visual");
+  split_view = $state(false);
   cursor_offset = $state(0);
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
@@ -139,11 +140,18 @@ export class EditorStore {
   toggle_editor_mode() {
     const cycle: Record<EditorMode, EditorMode> = {
       visual: "source",
-      source: "split",
-      split: "visual",
+      source: "visual",
       read_only: "visual",
     };
     this.editor_mode = cycle[this.editor_mode];
+  }
+
+  toggle_split_view() {
+    this.split_view = !this.split_view;
+  }
+
+  set_split_view(enabled: boolean) {
+    this.split_view = enabled;
   }
 
   set_cursor_offset(offset: number) {
@@ -159,6 +167,7 @@ export class EditorStore {
     this.cursor = null;
     this.last_saved_at = null;
     this.editor_mode = "visual";
+    this.split_view = false;
     this.cursor_offset = 0;
     this.scroll_fraction = 0;
     this.selection = null;

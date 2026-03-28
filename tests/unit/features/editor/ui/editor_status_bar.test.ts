@@ -61,6 +61,8 @@ function render_editor_status_bar(props?: {
       on_git_add_remote: vi.fn(),
       on_sync_click: vi.fn(),
       on_mode_toggle: vi.fn(),
+      split_view: false,
+      on_split_toggle: vi.fn(),
       show_line_numbers: true,
       on_line_numbers_toggle: vi.fn(),
     },

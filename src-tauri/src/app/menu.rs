@@ -124,6 +124,10 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .id("editor.toggle_mode")
         .accelerator("CmdOrCtrl+/")
         .build(app)?;
+    let toggle_editor_split = MenuItemBuilder::new("Toggle Editor Split")
+        .id("editor.toggle_split_view")
+        .accelerator("CmdOrCtrl+Shift+Enter")
+        .build(app)?;
     let vault_dashboard = MenuItemBuilder::new("Vault Dashboard")
         .id("ui.open_vault_dashboard")
         .accelerator("CmdOrCtrl+Shift+D")
@@ -143,6 +147,7 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&toggle_terminal)
         .item(&toggle_split)
         .item(&toggle_editor_mode)
+        .item(&toggle_editor_split)
         .separator()
         .item(&vault_dashboard)
         .item(&search_all_vaults)

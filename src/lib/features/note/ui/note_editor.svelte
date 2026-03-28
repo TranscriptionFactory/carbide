@@ -17,6 +17,7 @@
 
   const open_note = $derived(stores.editor.open_note);
   const editor_mode = $derived(stores.editor.editor_mode);
+  const split_view = $derived(stores.editor.split_view);
   const active_tab = $derived(stores.tab.active_tab);
   const is_canvas_tab = $derived(
     active_tab?.kind === "document" &&
@@ -41,7 +42,7 @@
   );
 
   $effect(() => {
-    if (editor_mode !== "split" || !open_note) return;
+    if (!split_view || !open_note) return;
     open_note.markdown;
     void action_registry.execute(ACTION_IDS.editor_sync_visual_from_store);
   });
@@ -72,7 +73,7 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    {#if editor_mode === "split"}
+    {#if split_view}
       <div class="NoteEditor__split-container">
         <div class="NoteEditor__split-pane">
           <EditorContextMenu>
