@@ -11,6 +11,7 @@ export {
 } from "$lib/features/vim_nav/domain/key_sequence";
 export { register_vim_nav_actions } from "$lib/features/vim_nav/application/vim_nav_actions";
 export { default as VimNavCheatsheet } from "$lib/features/vim_nav/ui/vim_nav_cheatsheet.svelte";
+export { default as VimNavStatusIndicator } from "$lib/features/vim_nav/ui/vim_nav_status_indicator.svelte";
 export type {
   NavContext,
   KeySequenceResult,

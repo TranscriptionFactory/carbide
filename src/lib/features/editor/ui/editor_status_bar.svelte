@@ -8,6 +8,8 @@
   import type { IndexProgress } from "$lib/features/search";
   import type { GitSyncStatus } from "$lib/features/git";
   import type { StatusBarItem } from "$lib/features/plugin";
+  import { VimNavStatusIndicator } from "$lib/features/vim_nav";
+  import type { NavContext } from "$lib/features/vim_nav";
 
   interface Props {
     cursor_info: CursorInfo | null;
@@ -49,6 +51,10 @@
     on_mode_toggle: () => void;
     show_line_numbers: boolean;
     on_line_numbers_toggle: () => void;
+    vim_nav_enabled: boolean;
+    vim_nav_context: NavContext;
+    vim_nav_pending_keys: string;
+    on_vim_nav_cheatsheet: () => void;
   }
 
   let {
@@ -91,6 +97,10 @@
     on_split_toggle,
     show_line_numbers,
     on_line_numbers_toggle,
+    vim_nav_enabled,
+    vim_nav_context,
+    vim_nav_pending_keys,
+    on_vim_nav_cheatsheet,
   }: Props = $props();
 
   const line = $derived(cursor_info?.line ?? null);
@@ -203,6 +213,14 @@
       on_click={on_lint_click}
       on_format_click={on_lint_format_click}
     />
+    {#if vim_nav_enabled}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <VimNavStatusIndicator
+        active_context={vim_nav_context}
+        pending_keys={vim_nav_pending_keys}
+        on_click={on_vim_nav_cheatsheet}
+      />
+    {/if}
   </div>
   <div class="StatusBar__section">
     {#if is_repairing_links}
