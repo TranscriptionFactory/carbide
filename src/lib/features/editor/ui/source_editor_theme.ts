@@ -6,7 +6,8 @@ export function build_source_editor_base_theme_spec(): CodeMirrorThemeSpec {
   return {
     "&": {
       height: "100%",
-      fontSize: "var(--text-sm, 13px)",
+      fontSize: "var(--editor-source-font-size, var(--text-sm, 13px))",
+      fontWeight: "var(--editor-source-font-weight, 400)",
     },
     "&.cm-focused": {
       outline: "none",

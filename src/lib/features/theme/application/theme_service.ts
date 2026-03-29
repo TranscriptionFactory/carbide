@@ -1,6 +1,7 @@
 import type { SettingsPort } from "$lib/features/settings";
 import type { OpStore } from "$lib/app";
 import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
+import { resolve_source_shiki_vars } from "$lib/features/editor";
 import {
   DEFAULT_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
@@ -27,11 +28,39 @@ export type ThemeLoadResult = {
 };
 
 export class ThemeService {
+  private applied_source_shiki_keys: string[] = [];
+  private source_shiki_generation = 0;
+
   constructor(
     private readonly settings_port: SettingsPort,
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
   ) {}
+
+  async apply_source_shiki_theme(theme_name: string): Promise<void> {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const gen = ++this.source_shiki_generation;
+
+    for (const key of this.applied_source_shiki_keys) {
+      root.style.removeProperty(key);
+    }
+    this.applied_source_shiki_keys = [];
+
+    try {
+      const vars = await resolve_source_shiki_vars(theme_name);
+      if (gen !== this.source_shiki_generation) return;
+
+      const keys: string[] = [];
+      for (const [key, value] of Object.entries(vars)) {
+        root.style.setProperty(key, value);
+        keys.push(key);
+      }
+      this.applied_source_shiki_keys = keys;
+    } catch {
+      // theme load failed — keep CSS defaults
+    }
+  }
 
   async load_themes(): Promise<ThemeLoadResult> {
     this.op_store.start("theme.load", this.now_ms());
