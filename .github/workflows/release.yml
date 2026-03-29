@@ -91,20 +91,30 @@ jobs:
     outputs:
       release_id: ${{ steps.create.outputs.id }}
     steps:
-      - name: Create GitHub release
+      - name: Create GitHub release (or reuse existing draft)
         id: create
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Check for an existing draft release for this tag
           RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
-            -f tag_name="$GITHUB_REF_NAME" \
-            -f name="Carbide $GITHUB_REF_NAME" \
-            -f target_commitish="$GITHUB_SHA" \
-            -F draft=true \
-            -F generate_release_notes=true \
-            --jq '.id')
+            --jq '.[] | select(.tag_name == "'"$GITHUB_REF_NAME"'" and .draft == true) | .id' \
+            | head -1)
+
+          if [ -n "$RELEASE_ID" ]; then
+            echo "Reusing existing draft release: $RELEASE_ID"
+          else
+            RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$GITHUB_REF_NAME" \
+              -f name="Carbide $GITHUB_REF_NAME" \
+              -f target_commitish="$GITHUB_SHA" \
+              -F draft=true \
+              -F generate_release_notes=true \
+              --jq '.id')
+          fi
+
           if [ -z "$RELEASE_ID" ]; then
-            echo "::error::Failed to create release for tag $GITHUB_REF_NAME"
+            echo "::error::Failed to create or find release for tag $GITHUB_REF_NAME"
             exit 1
           fi
           echo "Release ID: $RELEASE_ID"
@@ -212,9 +222,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft=false
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/${{ needs.create-release.outputs.release_id }}" \
+            -F draft=false
 
   update-homebrew-tap:
     needs: [publish-release]
