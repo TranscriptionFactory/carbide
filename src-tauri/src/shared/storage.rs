@@ -146,6 +146,9 @@ fn url_decode(input: &str) -> String {
     result
 }
 
+const EMBEDDED_SDK: &str =
+    include_str!("../features/plugin/sdk/carbide_plugin_api.js");
+
 pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
@@ -198,7 +201,18 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let target = canonical_plugin_dir.join(file_rel);
     let canonical_target = match target.canonicalize() {
         Ok(p) => p,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+        Err(_) => {
+            if file_rel == "carbide-plugin-api.js" {
+                let sdk = EMBEDDED_SDK.as_bytes().to_vec();
+                return Response::builder()
+                    .header("Content-Type", "application/javascript")
+                    .header("Content-Length", sdk.len().to_string())
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(sdk)
+                    .unwrap();
+            }
+            return Response::builder().status(404).body(Vec::new()).unwrap();
+        }
     };
 
     if !canonical_target.starts_with(&canonical_plugin_dir) {
