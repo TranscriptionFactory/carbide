@@ -1132,6 +1132,11 @@
     background-color: color-mix(in oklch, var(--interactive) 70%, transparent);
   }
 
+  :global([data-show-blurb][data-tree-style="macos_finder"])
+    .TreeRow--has-blurb {
+    border-radius: var(--radius-lg);
+  }
+
   :global([data-show-blurb][data-tree-style="refined"])
     .TreeRow--folder.TreeRow--selected {
     background-color: color-mix(in oklch, var(--muted) 50%, transparent);
