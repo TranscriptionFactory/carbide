@@ -412,7 +412,7 @@ export function register_ai_actions(
           provider_config: config,
           prompt:
             "Write a single-sentence summary (under 80 characters) of this note. " +
-            "Return ONLY the summary text, no quotes, no prefix, no explanation.",
+            "Return ONLY the summary text CONTENT, no quotes, no prefix, no explanation. Do not include prefixes like 'Summary:' or 'Description:'.",
           context: {
             note_path: note_path as NotePath,
             note_title: doc.meta.title,
