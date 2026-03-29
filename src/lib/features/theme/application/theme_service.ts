@@ -146,6 +146,12 @@ function migrate_theme(theme: Theme): Theme {
   if (!migrated.shiki_theme_dark) {
     migrated = { ...migrated, shiki_theme_dark: "github-dark" };
   }
+  if (typeof migrated.source_shiki_theme_light !== "string") {
+    migrated = { ...migrated, source_shiki_theme_light: "" };
+  }
+  if (typeof migrated.source_shiki_theme_dark !== "string") {
+    migrated = { ...migrated, source_shiki_theme_dark: "" };
+  }
   return migrated;
 }
 

@@ -70,6 +70,9 @@ export type Theme = {
   shiki_theme_light: string;
   shiki_theme_dark: string;
 
+  source_shiki_theme_light: string;
+  source_shiki_theme_dark: string;
+
   graph_node_color: string | null;
   graph_node_primary_color: string | null;
   graph_edge_color: string | null;
@@ -111,6 +114,8 @@ const SHARED_DEFAULTS: Omit<
   highlight_text_color: null,
   shiki_theme_light: "github-light",
   shiki_theme_dark: "github-dark",
+  source_shiki_theme_light: "",
+  source_shiki_theme_dark: "",
   graph_node_color: null,
   graph_node_primary_color: null,
   graph_edge_color: null,
