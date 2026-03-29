@@ -80,18 +80,85 @@ Declare all permissions your plugin needs in `manifest.json`. Users must approve
 | `ui:panel`          | Add sidebar panels                                                            |
 | `ui:ribbon`         | Add ribbon icons                                                              |
 | `events:subscribe`  | Receive vault/editor event notifications                                      |
+| `metadata:read`     | Query bases, list properties, get backlinks, get note stats                   |
+| `diagnostics:write` | Push/clear diagnostics for files                                              |
+| `search:read`       | Full-text search and tag queries                                              |
 
 `settings.get`, `settings.set`, `settings.get_all`, and `ui.show_notice` require no permission.
 
 ---
 
+## TypeScript SDK
+
+Instead of writing raw `postMessage` RPC calls, use the built-in SDK. Add this to your `index.html`:
+
+```html
+<script src="carbide-plugin-api.js"></script>
+```
+
+The SDK is served automatically — no file needed on disk. It exposes a global `carbide` object:
+
+```js
+// Lifecycle
+carbide.onload(() => { /* plugin activated */ });
+carbide.onunload(() => { /* plugin deactivating */ });
+
+// Vault
+await carbide.vault.read("path/to/note.md");
+await carbide.vault.list();
+await carbide.vault.create("new.md", "# Title");
+await carbide.vault.modify("note.md", "updated content");
+await carbide.vault.delete("note.md");
+
+// Editor
+const md = await carbide.editor.getValue();
+const sel = await carbide.editor.getSelection();
+await carbide.editor.replaceSelection("inserted text");
+
+// Commands
+await carbide.commands.register({ id: "do-thing", label: "Do Thing" });
+await carbide.commands.remove("do-thing");
+
+// UI
+await carbide.ui.addStatusBarItem({ id: "my-item", priority: 100, initial_text: "Ready" });
+await carbide.ui.updateStatusBarItem("my-item", "Updated");
+await carbide.ui.addSidebarPanel({ id: "my-panel", label: "My Panel", icon: "layout-dashboard" });
+await carbide.ui.showNotice("Done!", 3000);
+
+// Search
+const hits = await carbide.search.fts("query", 10);
+const tags = await carbide.search.tags();
+
+// Metadata
+const results = await carbide.metadata.query({ filters: [], sort: [], limit: 50, offset: 0 });
+const props = await carbide.metadata.listProperties();
+const backlinks = await carbide.metadata.getBacklinks("note.md");
+const stats = await carbide.metadata.getStats("note.md");
+
+// Settings
+const val = await carbide.settings.get("my_key");
+await carbide.settings.set("my_key", "value");
+
+// Events
+const cbId = await carbide.events.on("file-created", (data) => { /* ... */ });
+await carbide.events.off(cbId);
+
+// Diagnostics
+await carbide.diagnostics.push("file.md", [{ range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } }, message: "issue", severity: "warning" }]);
+await carbide.diagnostics.clear("file.md");
+```
+
+See `docs/example-plugins/latex-snippets/` for a complete example using the SDK.
+
+---
+
 ## RPC API Reference
 
-Plugins communicate with the host through `postMessage` RPC. Every call sends a JSON message to `window.parent` and receives a response.
+Plugins communicate with the host through `postMessage` RPC. Every call sends a JSON message to `window.parent` and receives a response. The SDK (above) wraps this — use it instead of raw RPC when possible.
 
 ### RPC Client Boilerplate
 
-Paste this into your `index.html` `<script>` block:
+If you prefer not to use the SDK, paste this into your `index.html` `<script>` block:
 
 ```js
 const rpc = {
@@ -267,6 +334,72 @@ Available events:
 | `editor-selection-changed` | `{ selection }`            |
 | `vault-opened`             | `{ vault_id, vault_path }` |
 | `layout-changed`           | `{ active_tabs }`          |
+| `note-indexed`             | `{ path }`                 |
+
+### search.\*
+
+Requires `search:read`.
+
+```js
+// Full-text search
+const hits = await rpc.send("search.fts", "query string", 10);
+// hits = [{ path: "note.md", score: 0.95 }, ...]
+
+// List all tags (with counts)
+const tags = await rpc.send("search.tags");
+// tags = [{ tag: "project", count: 12 }, ...]
+
+// Get notes for a specific tag
+const notes = await rpc.send("search.tags", "project");
+// notes = ["path/to/note.md", ...]
+```
+
+### metadata.\*
+
+Requires `metadata:read`. Query the vault's indexed metadata without parsing files yourself.
+
+```js
+// Query notes by frontmatter properties (same as Bases query engine)
+const results = await rpc.send("metadata.query", {
+  filters: [{ property: "status", operator: "eq", value: "active" }],
+  sort: [{ property: "title", descending: false }],
+  limit: 50,
+  offset: 0,
+});
+// results = { rows: [...], total: 123 }
+
+// List all frontmatter properties across the vault
+const props = await rpc.send("metadata.list_properties");
+// props = [{ name: "status", property_type: "string", count: 45 }, ...]
+
+// Get backlinks for a note
+const backlinks = await rpc.send("metadata.get_backlinks", "path/to/note.md");
+// backlinks = [{ path: "other-note.md" }, ...]
+
+// Get stats for a note
+const stats = await rpc.send("metadata.get_stats", "path/to/note.md");
+// stats = { word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at }
+```
+
+### diagnostics.\*
+
+Requires `diagnostics:write`. Push code diagnostics (warnings, errors) for files.
+
+```js
+await rpc.send("diagnostics.push", "path/to/file.md", [
+  {
+    range: {
+      start: { line: 1, character: 0 },
+      end: { line: 1, character: 10 },
+    },
+    message: "Broken link",
+    severity: "warning",
+  },
+]);
+
+// Clear diagnostics for a file (or all if no path)
+await rpc.send("diagnostics.clear", "path/to/file.md");
+```
 
 ---
 
