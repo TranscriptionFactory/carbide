@@ -27,6 +27,7 @@ import { CodeLspStore } from "$lib/features/code_lsp";
 import { QueryStore } from "$lib/features/query";
 import { ParsedNoteCache } from "$lib/features/note";
 import { ReferenceStore } from "$lib/features/reference";
+import { VimNavStore } from "$lib/features/vim_nav";
 
 export type AppStores = {
   vault: VaultStore;
@@ -60,6 +61,7 @@ export type AppStores = {
   query: QueryStore;
   parsed_note_cache: ParsedNoteCache;
   reference: ReferenceStore;
+  vim_nav: VimNavStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -95,5 +97,6 @@ export function create_app_stores(): AppStores {
     query: new QueryStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
+    vim_nav: new VimNavStore(),
   };
 }

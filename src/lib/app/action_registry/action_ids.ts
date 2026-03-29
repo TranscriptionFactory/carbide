@@ -315,6 +315,23 @@ export const ACTION_IDS = {
   query_load: "query.load",
   query_delete_saved: "query.delete_saved",
   query_list_saved: "query.list_saved",
+
+  vim_nav_file_tree_down: "vim_nav.file_tree.down",
+  vim_nav_file_tree_up: "vim_nav.file_tree.up",
+  vim_nav_file_tree_collapse: "vim_nav.file_tree.collapse",
+  vim_nav_file_tree_expand_or_open: "vim_nav.file_tree.expand_or_open",
+  vim_nav_file_tree_top: "vim_nav.file_tree.top",
+  vim_nav_file_tree_bottom: "vim_nav.file_tree.bottom",
+  vim_nav_file_tree_search: "vim_nav.file_tree.search",
+  vim_nav_outline_down: "vim_nav.outline.down",
+  vim_nav_outline_up: "vim_nav.outline.up",
+  vim_nav_outline_select: "vim_nav.outline.select",
+  vim_nav_outline_top: "vim_nav.outline.top",
+  vim_nav_outline_bottom: "vim_nav.outline.bottom",
+  vim_nav_focus_explorer: "vim_nav.focus.explorer",
+  vim_nav_focus_outline: "vim_nav.focus.outline",
+  vim_nav_focus_editor: "vim_nav.focus.editor",
+  vim_nav_cheatsheet_toggle: "vim_nav.cheatsheet.toggle",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

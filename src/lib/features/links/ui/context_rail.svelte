@@ -51,7 +51,10 @@
     {#if stores.ui.context_rail_tab === "links"}
       <LinksPanel />
     {:else if stores.ui.context_rail_tab === "outline"}
-      <OutlinePanel />
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div data-vim-nav-region="outline" tabindex="-1" class="h-full">
+        <OutlinePanel />
+      </div>
     {:else if stores.ui.context_rail_tab === "ai"}
       <AiAssistantPanel />
     {:else if stores.ui.context_rail_tab === "metadata"}
