@@ -193,6 +193,8 @@
   --size-activity-icon: 1.25rem; /* 20px */
   --size-status-bar: 1.625rem; /* 26px — slightly taller to match mockup */
   --size-tree-row: 1.875rem; /* 30px */
+  --size-tree-blurb-gap: 2px; /* gap between heading and blurb within a row */
+  --size-tree-blurb-extra: 1.25rem; /* extra row height when blurb is shown */
 
   --size-dialog-sm: 24rem;
   --size-dialog-md: 28rem;

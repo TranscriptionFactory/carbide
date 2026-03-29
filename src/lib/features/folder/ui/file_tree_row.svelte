@@ -633,7 +633,7 @@
   }
 
   .TreeRow--has-blurb {
-    height: calc(var(--size-tree-row) + 1.1rem);
+    height: calc(var(--size-tree-row) + var(--size-tree-blurb-extra));
   }
 
   .TreeRow:focus-visible {
@@ -701,7 +701,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1px;
+    gap: var(--size-tree-blurb-gap);
   }
 
   .TreeRow__label--primary {
