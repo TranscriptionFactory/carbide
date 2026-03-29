@@ -368,6 +368,9 @@ export function register_app_actions(input: ActionRegistrationInput) {
         if (open_note) {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
+          if (!open_note.is_dirty) {
+            services.editor.mark_clean();
+          }
         }
       } else if (current === "read_only") {
         services.editor.set_editable(true);
@@ -391,6 +394,9 @@ export function register_app_actions(input: ActionRegistrationInput) {
         if (open_note && editor_store.editor_mode === "source") {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
+          if (!open_note.is_dirty) {
+            services.editor.mark_clean();
+          }
         }
       } else {
         services.editor.flush();
@@ -416,6 +422,9 @@ export function register_app_actions(input: ActionRegistrationInput) {
           const open_note = editor_store.open_note;
           if (open_note) {
             services.editor.sync_visual_from_markdown(open_note.markdown);
+            if (!open_note.is_dirty) {
+              services.editor.mark_clean();
+            }
           }
         }
         if (editor_store.split_view) {

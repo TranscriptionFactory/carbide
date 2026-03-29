@@ -312,7 +312,8 @@ export class EditorService {
   }
 
   mark_clean() {
-    this.session?.mark_clean();
+    const markdown = this.editor_store.open_note?.markdown;
+    this.session?.mark_clean(markdown);
   }
 
   sync_visual_from_markdown(markdown: string) {

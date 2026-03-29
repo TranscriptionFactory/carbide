@@ -25,7 +25,7 @@ export type EditorSession = {
   insert_text_at_cursor: (text: string) => void;
   replace_selection?: (text: string) => void;
   get_selected_text?: () => string | null;
-  mark_clean: () => void;
+  mark_clean: (saved_content?: string) => void;
   is_dirty: () => boolean;
   focus: () => void;
   set_wiki_suggestions?: (

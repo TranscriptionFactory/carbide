@@ -446,13 +446,17 @@ export function create_prosemirror_editor_port(args?: {
       save_current_buffer();
       emit_outline_headings();
 
-      function mark_clean() {
+      function mark_clean(saved_content?: string) {
         run_view_action((v) => {
           const tr = v.state.tr;
           tr.setMeta(dirty_state_plugin_key, { action: "mark_clean" });
           v.dispatch(tr);
         });
-        saved_markdown = current_markdown;
+        if (saved_content !== undefined) {
+          saved_markdown = normalize_markdown(saved_content);
+        } else {
+          saved_markdown = current_markdown;
+        }
         if (current_is_dirty) {
           current_is_dirty = false;
           on_dirty_state_change(false);
@@ -499,6 +503,12 @@ export function create_prosemirror_editor_port(args?: {
               new_doc.content,
             );
             view.dispatch(tr);
+          }
+
+          const now_dirty = current_markdown !== saved_markdown;
+          if (now_dirty !== current_is_dirty) {
+            current_is_dirty = now_dirty;
+            on_dirty_state_change(now_dirty);
           }
 
           if (!is_large_note) {
