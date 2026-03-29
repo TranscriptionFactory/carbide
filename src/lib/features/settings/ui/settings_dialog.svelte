@@ -3782,6 +3782,24 @@
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>
 
+          <div class="SettingsDialog__section">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Vim-Style Navigation</span>
+                <span class="SettingsDialog__description"
+                  >Use vim keybindings (hjkl, gg, G) for navigating the file
+                  tree, tabs, and outline. Press ? to see all bindings.</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.vim_nav_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("vim_nav_enabled", v);
+                }}
+              />
+            </div>
+          </div>
+
           <HotkeysPanel
             config={hotkeys_config}
             on_edit={on_hotkey_edit}

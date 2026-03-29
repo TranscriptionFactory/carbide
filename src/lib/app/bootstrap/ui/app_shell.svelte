@@ -38,7 +38,8 @@
       stores.ui.image_paste_dialog.open ||
       stores.ui.tab_close_confirm.open ||
       stores.ui.help_dialog.open ||
-      stores.ui.create_canvas_dialog.open,
+      stores.ui.create_canvas_dialog.open ||
+      stores.vim_nav.cheatsheet_open,
   );
 
   const vault_selection_loading = $derived(
@@ -53,6 +54,8 @@
     is_vault_switcher_open: () => stores.ui.change_vault.open,
     is_terminal_focused: () => stores.terminal.focused,
     has_tabs: () => stores.tab.has_tabs,
+    vim_nav_enabled: () => stores.ui.editor_settings.vim_nav_enabled,
+    vim_nav_store: () => stores.vim_nav,
     action_registry,
     on_close_vault_switcher: () => {
       void action_registry.execute(ACTION_IDS.vault_close_change);

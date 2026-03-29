@@ -60,6 +60,7 @@ import {
   register_toolchain_actions,
 } from "$lib/features/toolchain";
 import { QueryService, register_query_actions } from "$lib/features/query";
+import { register_vim_nav_actions } from "$lib/features/vim_nav";
 import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
@@ -855,6 +856,14 @@ export function create_app_context(input: {
   );
 
   register_query_actions(action_registry, query_service, stores.ui);
+
+  register_vim_nav_actions({
+    registry: action_registry,
+    ui_store: stores.ui,
+    notes_store: stores.notes,
+    outline_store: stores.outline,
+    vim_nav_store: stores.vim_nav,
+  });
 
   const cleanup_reactors = mount_reactors({
     editor_store: stores.editor,

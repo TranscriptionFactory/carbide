@@ -730,4 +730,12 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "bibliography",
     ],
   },
+  {
+    key: "vim_nav_enabled",
+    label: "Vim-Style Navigation",
+    description:
+      "Use vim keybindings (hjkl, gg, G) for navigating the file tree, tabs, and outline panels",
+    category: "Navigation",
+    keywords: ["vim", "navigation", "keyboard", "keybinding", "hjkl", "modal"],
+  },
 ];

@@ -137,6 +137,7 @@ export type EditorSettings = {
   iwe_ai_provider_id: string;
   reference_enabled: boolean;
   reference_citation_style: string;
+  vim_nav_enabled: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -217,6 +218,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   iwe_ai_provider_id: "auto",
   reference_enabled: false,
   reference_citation_style: "apa",
+  vim_nav_enabled: false,
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -278,6 +280,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_style",
   "file_tree_show_blurb",
   "file_tree_blurb_position",
+  "vim_nav_enabled",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

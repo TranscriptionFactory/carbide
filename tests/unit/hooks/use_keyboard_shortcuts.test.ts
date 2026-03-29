@@ -3,6 +3,7 @@ import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { HotkeyConfig } from "$lib/features/hotkey";
+import type { VimNavStore } from "$lib/features/vim_nav";
 
 function create_mock_registry() {
   const execute_fn = vi.fn();
@@ -10,6 +11,19 @@ function create_mock_registry() {
     registry: { execute: execute_fn } as unknown as ActionRegistry,
     execute: execute_fn,
   };
+}
+
+function create_mock_vim_nav_store(): VimNavStore {
+  return {
+    active_context: "none",
+    pending_keys: "",
+    cheatsheet_open: false,
+    set_context: vi.fn(),
+    set_pending_keys: vi.fn(),
+    clear_pending: vi.fn(),
+    toggle_cheatsheet: vi.fn(),
+    reset: vi.fn(),
+  } as unknown as VimNavStore;
 }
 
 const default_config: HotkeyConfig = {
@@ -28,6 +42,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -58,6 +74,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -88,6 +106,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -119,6 +139,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => true,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher,
       on_select_pinned_vault: vi.fn(),
@@ -151,6 +173,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => true,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -182,6 +206,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault,
@@ -212,6 +238,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -242,6 +270,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -284,6 +314,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -316,6 +348,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => true,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault,
@@ -348,6 +382,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault,
@@ -378,6 +414,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -415,6 +453,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -452,6 +492,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -487,6 +529,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),
@@ -531,6 +575,8 @@ describe("use_keyboard_shortcuts", () => {
       is_vault_switcher_open: () => false,
       is_terminal_focused: () => false,
       has_tabs: () => false,
+      vim_nav_enabled: () => false,
+      vim_nav_store: () => create_mock_vim_nav_store(),
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
       on_select_pinned_vault: vi.fn(),

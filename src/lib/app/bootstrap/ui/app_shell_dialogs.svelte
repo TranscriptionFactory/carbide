@@ -28,6 +28,7 @@
   } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
+  import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
@@ -564,6 +565,13 @@
   open={stores.ui.help_dialog.open}
   hotkeys_config={stores.ui.hotkeys_config}
   on_close={() => void action_registry.execute(ACTION_IDS.help_close)}
+/>
+
+<VimNavCheatsheet
+  open={stores.vim_nav.cheatsheet_open}
+  on_open_change={(open) => {
+    if (!open) stores.vim_nav.cheatsheet_open = false;
+  }}
 />
 
 <HotkeyRecorderDialog
