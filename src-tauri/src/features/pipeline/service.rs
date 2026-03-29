@@ -133,8 +133,23 @@ pub fn read_stream_to_string<T: Read + Send + 'static>(
     })
 }
 
+pub fn resolve_carriage_returns(input: &str) -> String {
+    input
+        .lines()
+        .map(|line| {
+            if let Some(pos) = line.rfind('\r') {
+                &line[pos + 1..]
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub fn clean_cli_output(input: &str) -> String {
-    strip_ansi(input).trim().to_string()
+    let cleaned = strip_ansi(input);
+    resolve_carriage_returns(&cleaned).trim().to_string()
 }
 
 pub fn resolve_cli_output(stdout_clean: &str, output_path: Option<&PathBuf>) -> String {
@@ -313,4 +328,38 @@ pub async fn pipeline_execute(
         None,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_carriage_returns_strips_spinner_lines() {
+        let input = "Loading model ⠙\rLoading model ⠹\rLoading model ⠸\rActual output";
+        assert_eq!(resolve_carriage_returns(input), "Actual output");
+    }
+
+    #[test]
+    fn resolve_carriage_returns_preserves_multiline_output() {
+        let input = "line one\nline two\nline three";
+        assert_eq!(resolve_carriage_returns(input), "line one\nline two\nline three");
+    }
+
+    #[test]
+    fn resolve_carriage_returns_handles_mixed() {
+        let input = "Spinner ⠙\rSpinner ⠹\rDone loading\nsecond line";
+        assert_eq!(resolve_carriage_returns(input), "Done loading\nsecond line");
+    }
+
+    #[test]
+    fn clean_cli_output_strips_spinner_and_ansi() {
+        let input = "\u{1b}[32mLoading model ⠙\rLoading model ⠸\rHello world\u{1b}[0m\n";
+        assert_eq!(clean_cli_output(input), "Hello world");
+    }
+
+    #[test]
+    fn clean_cli_output_no_cr_unchanged() {
+        assert_eq!(clean_cli_output("  hello world  "), "hello world");
+    }
 }
