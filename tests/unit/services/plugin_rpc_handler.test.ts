@@ -676,6 +676,191 @@ describe("PluginRpcHandler", () => {
     });
   });
 
+  describe("metadata.*", () => {
+    function make_metadata_backend() {
+      return {
+        query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+        list_properties: vi
+          .fn()
+          .mockResolvedValue([
+            { name: "status", property_type: "string", count: 5 },
+          ]),
+        get_backlinks: vi
+          .fn()
+          .mockResolvedValue([{ path: "notes/linking.md" }]),
+        get_stats: vi.fn().mockResolvedValue({
+          word_count: 120,
+          char_count: 800,
+          heading_count: 3,
+          outlink_count: 2,
+          reading_time_secs: 48,
+          last_indexed_at: 1700000000,
+        }),
+      };
+    }
+
+    it("metadata.query returns results when metadata:read is granted", async () => {
+      grant_permissions("metadata:read");
+      const metadata = make_metadata_backend();
+      ctx.context.metadata = metadata;
+
+      const manifest = make_manifest(["metadata:read"]);
+      const query = { filters: [], sort: [], limit: 10, offset: 0 };
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m1",
+        method: "metadata.query",
+        params: [query],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ rows: [], total: 0 });
+      expect(metadata.query).toHaveBeenCalledWith(query);
+    });
+
+    it("metadata.list_properties returns results when metadata:read is granted", async () => {
+      grant_permissions("metadata:read");
+      const metadata = make_metadata_backend();
+      ctx.context.metadata = metadata;
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m2",
+        method: "metadata.list_properties",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([
+        { name: "status", property_type: "string", count: 5 },
+      ]);
+      expect(metadata.list_properties).toHaveBeenCalled();
+    });
+
+    it("metadata.get_backlinks returns results when metadata:read is granted", async () => {
+      grant_permissions("metadata:read");
+      const metadata = make_metadata_backend();
+      ctx.context.metadata = metadata;
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m3",
+        method: "metadata.get_backlinks",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([{ path: "notes/linking.md" }]);
+      expect(metadata.get_backlinks).toHaveBeenCalledWith("notes/target.md");
+    });
+
+    it("metadata.get_stats returns results when metadata:read is granted", async () => {
+      grant_permissions("metadata:read");
+      const metadata = make_metadata_backend();
+      ctx.context.metadata = metadata;
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m4",
+        method: "metadata.get_stats",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({
+        word_count: 120,
+        char_count: 800,
+        heading_count: 3,
+        outlink_count: 2,
+        reading_time_secs: 48,
+        last_indexed_at: 1700000000,
+      });
+      expect(metadata.get_stats).toHaveBeenCalledWith("notes/target.md");
+    });
+
+    it("metadata.* blocks when metadata:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m5",
+        method: "metadata.query",
+        params: [{ filters: [], sort: [], limit: 10, offset: 0 }],
+      });
+
+      expect(response.error).toMatch(/Missing metadata:read permission/);
+    });
+
+    it("metadata.list_properties blocks when metadata:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m5b",
+        method: "metadata.list_properties",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Missing metadata:read permission/);
+    });
+
+    it("metadata.get_backlinks blocks when metadata:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m5c",
+        method: "metadata.get_backlinks",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toMatch(/Missing metadata:read permission/);
+    });
+
+    it("metadata.get_stats blocks when metadata:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m5d",
+        method: "metadata.get_stats",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toMatch(/Missing metadata:read permission/);
+    });
+
+    it("metadata.* errors on unknown action", async () => {
+      grant_permissions("metadata:read");
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m6",
+        method: "metadata.unknown_action",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Unknown metadata action: unknown_action/);
+    });
+
+    it("metadata.* errors when metadata backend not initialized", async () => {
+      grant_permissions("metadata:read");
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m7",
+        method: "metadata.list_properties",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Metadata backend not initialized/);
+    });
+  });
+
   describe("diagnostics.*", () => {
     function make_diagnostics_backend() {
       return {

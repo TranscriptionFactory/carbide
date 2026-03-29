@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="carbide-plugin-api.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        padding: 8px;
+        font-size: 13px;
+        color: var(--foreground, #333);
+      }
+      h3 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.6;
+        margin: 12px 0 4px;
+      }
+      h3:first-child {
+        margin-top: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+        gap: 4px;
+      }
+      button {
+        padding: 6px 4px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 4px;
+        background: transparent;
+        cursor: pointer;
+        font-family: "KaTeX_Main", serif;
+        font-size: 13px;
+        text-align: center;
+        transition: background 0.1s;
+      }
+      button:hover {
+        background: rgba(128, 128, 128, 0.1);
+      }
+      .wide {
+        grid-column: span 2;
+        font-size: 11px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Greek</h3>
+    <div class="grid" id="greek"></div>
+    <h3>Operators</h3>
+    <div class="grid" id="operators"></div>
+    <h3>Structures</h3>
+    <div class="grid" id="structures"></div>
+
+    <script>
+      const snippets = {
+        greek: [
+          ["α", "\\alpha"],
+          ["β", "\\beta"],
+          ["γ", "\\gamma"],
+          ["δ", "\\delta"],
+          ["θ", "\\theta"],
+          ["λ", "\\lambda"],
+          ["π", "\\pi"],
+          ["σ", "\\sigma"],
+          ["φ", "\\phi"],
+          ["ω", "\\omega"],
+        ],
+        operators: [
+          ["∑", "\\sum"],
+          ["∏", "\\prod"],
+          ["∫", "\\int"],
+          ["lim", "\\lim"],
+          ["∞", "\\infty"],
+          ["≠", "\\neq"],
+          ["≤", "\\leq"],
+          ["≥", "\\geq"],
+        ],
+        structures: [
+          ["frac", "\\frac{}{}"],
+          ["sqrt", "\\sqrt{}"],
+          ["align", "\\begin{align}\n\n\\end{align}"],
+          ["matrix", "\\begin{matrix}\n\n\\end{matrix}"],
+          ["cases", "\\begin{cases}\n\n\\end{cases}"],
+          ["binom", "\\binom{}{}"],
+        ],
+      };
+
+      function insert(text) {
+        carbide.editor.replaceSelection(text);
+      }
+
+      for (const [category, items] of Object.entries(snippets)) {
+        const container = document.getElementById(category);
+        for (const [label, latex] of items) {
+          const btn = document.createElement("button");
+          btn.textContent = label;
+          btn.title = latex;
+          if (latex.length > 12) btn.classList.add("wide");
+          btn.addEventListener("click", () => insert(latex));
+          container.appendChild(btn);
+        }
+      }
+
+      carbide.onload(() => {
+        carbide.commands.register({
+          id: "latex-snippets:open-panel",
+          label: "Insert LaTeX Snippet",
+          description: "Open the LaTeX snippets panel",
+          keywords: ["math", "latex", "equation"],
+        });
+
+        carbide.ui.addSidebarPanel({
+          id: "latex-snippets:panel",
+          label: "LaTeX Snippets",
+          icon: "sigma",
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -367,6 +367,7 @@ function make_search_port(
     find_similar_notes: vi.fn().mockResolvedValue([]),
     semantic_search_batch: vi.fn().mockResolvedValue([]),
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+    get_note_stats: vi.fn().mockResolvedValue({}),
     ...overrides,
   };
 }

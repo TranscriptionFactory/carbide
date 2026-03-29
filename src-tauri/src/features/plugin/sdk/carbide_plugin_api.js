@@ -13,8 +13,14 @@
         reject(new Error(`RPC timeout: ${method}`));
       }, 5000);
       _pending.set(id, {
-        resolve: (v) => { clearTimeout(timer); resolve(v); },
-        reject: (e) => { clearTimeout(timer); reject(e); },
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        },
       });
     });
   }
@@ -49,8 +55,12 @@
   });
 
   window.carbide = {
-    onload(cb) { _onload_cb = cb; },
-    onunload(cb) { _onunload_cb = cb; },
+    onload(cb) {
+      _onload_cb = cb;
+    },
+    onunload(cb) {
+      _onunload_cb = cb;
+    },
 
     vault: {
       read: (path) => _rpc("vault.read", path),
@@ -73,11 +83,13 @@
 
     ui: {
       addStatusBarItem: (opts) => _rpc("ui.add_statusbar_item", opts),
-      updateStatusBarItem: (id, text) => _rpc("ui.update_statusbar_item", id, text),
+      updateStatusBarItem: (id, text) =>
+        _rpc("ui.update_statusbar_item", id, text),
       removeStatusBarItem: (id) => _rpc("ui.remove_statusbar_item", id),
       addSidebarPanel: (opts) => _rpc("ui.add_sidebar_panel", opts),
       removeSidebarPanel: (id) => _rpc("ui.remove_sidebar_panel", id),
-      showNotice: (message, duration) => _rpc("ui.show_notice", { message, duration }),
+      showNotice: (message, duration) =>
+        _rpc("ui.show_notice", { message, duration }),
       addRibbonIcon: (opts) => _rpc("ui.add_ribbon_icon", opts),
       removeRibbonIcon: (id) => _rpc("ui.remove_ribbon_icon", id),
     },
@@ -98,7 +110,9 @@
       on(event_type, callback) {
         const callback_id = crypto.randomUUID();
         _event_listeners.set(callback_id, { event_type, callback });
-        return _rpc("events.on", event_type, callback_id).then(() => callback_id);
+        return _rpc("events.on", event_type, callback_id).then(
+          () => callback_id,
+        );
       },
       off(callback_id) {
         _event_listeners.delete(callback_id);
@@ -106,8 +120,16 @@
       },
     },
 
+    metadata: {
+      query: (query) => _rpc("metadata.query", query),
+      listProperties: () => _rpc("metadata.list_properties"),
+      getBacklinks: (notePath) => _rpc("metadata.get_backlinks", notePath),
+      getStats: (notePath) => _rpc("metadata.get_stats", notePath),
+    },
+
     diagnostics: {
-      push: (file_path, diagnostics) => _rpc("diagnostics.push", file_path, diagnostics),
+      push: (file_path, diagnostics) =>
+        _rpc("diagnostics.push", file_path, diagnostics),
       clear: (file_path) => _rpc("diagnostics.clear", file_path),
     },
   };

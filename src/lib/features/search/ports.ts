@@ -16,6 +16,15 @@ import type { ExternalLink } from "$lib/features/links";
 
 export type { IndexProgressEvent };
 
+export type NoteStats = {
+  word_count: number;
+  char_count: number;
+  heading_count: number;
+  outlink_count: number;
+  reading_time_secs: number;
+  last_indexed_at: number;
+};
+
 export type NoteLinksSnapshot = {
   backlinks: NoteMeta[];
   outlinks: NoteMeta[];
@@ -101,6 +110,7 @@ export interface SearchPort {
   ): Promise<{ source: string; target: string; distance: number }[]>;
   get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
   rebuild_embeddings(vault_id: VaultId): Promise<void>;
+  get_note_stats(vault_id: VaultId, note_path: string): Promise<NoteStats>;
 }
 
 export interface WorkspaceIndexPort {

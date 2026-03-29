@@ -59,6 +59,9 @@ function make_host_port() {
     discover: vi.fn().mockResolvedValue([]),
     load: vi.fn().mockResolvedValue(undefined),
     unload: vi.fn().mockResolvedValue(undefined),
+    watch: vi.fn().mockResolvedValue(undefined),
+    unwatch: vi.fn().mockResolvedValue(undefined),
+    subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),
   };
 }
 

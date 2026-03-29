@@ -92,6 +92,13 @@ type PluginRpcDiagnosticsBackend = {
   clear(source_id: string, file_path?: string): void;
 };
 
+type PluginRpcMetadataBackend = {
+  query(query: unknown): Promise<unknown>;
+  list_properties(): Promise<unknown>;
+  get_backlinks(note_path: string): Promise<{ path: string }[]>;
+  get_stats(note_path: string): Promise<unknown>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -116,6 +123,7 @@ export type PluginRpcContext = {
   };
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
+  metadata?: PluginRpcMetadataBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -466,6 +474,8 @@ export class PluginRpcHandler {
         return this.handle_search(plugin_id, action, params);
       case "diagnostics":
         return this.handle_diagnostics(plugin_id, action, params);
+      case "metadata":
+        return this.handle_metadata(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -754,6 +764,40 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown search action: ${action}`);
+    }
+  }
+
+  private async handle_metadata(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ): Promise<unknown> {
+    this.require_permission(plugin_id, "metadata:read");
+
+    if (!this.context.metadata) {
+      throw new Error("Metadata backend not initialized");
+    }
+
+    switch (action) {
+      case "query": {
+        const query = params[0];
+        if (!query || typeof query !== "object") {
+          throw new Error("Invalid query object");
+        }
+        return this.context.metadata.query(query);
+      }
+      case "list_properties":
+        return this.context.metadata.list_properties();
+      case "get_backlinks": {
+        const note_path = read_param_string(params, 0, "note path");
+        return this.context.metadata.get_backlinks(note_path);
+      }
+      case "get_stats": {
+        const note_path = read_param_string(params, 0, "note path");
+        return this.context.metadata.get_stats(note_path);
+      }
+      default:
+        throw new Error(`Unknown metadata action: ${action}`);
     }
   }
 
