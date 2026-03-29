@@ -73,6 +73,7 @@ import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
 import type { CodeLspService } from "$lib/features/code_lsp";
+import type { ThemeService } from "$lib/features/theme";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -115,6 +116,7 @@ export type ReactorContext = {
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
+  theme_service: ThemeService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -135,7 +137,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.tab_service,
       "primary",
     ),
-    create_theme_reactor(context.ui_store),
+    create_theme_reactor(context.ui_store, context.theme_service),
     create_op_toast_reactor(context.op_store),
     create_recent_notes_persist_reactor(
       context.notes_store,

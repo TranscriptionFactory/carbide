@@ -100,7 +100,7 @@
     macos_finder: 24,
     refined: 26,
   };
-  const BLURB_ROW_EXTRA = 18;
+  const BLURB_ROW_EXTRA = 20;
   const BASE_ROW_HEIGHT = $derived(TREE_STYLE_ROW_HEIGHTS[tree_style] ?? 30);
   const ROW_HEIGHT = $derived(
     show_blurb ? BASE_ROW_HEIGHT + BLURB_ROW_EXTRA : BASE_ROW_HEIGHT,

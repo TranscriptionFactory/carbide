@@ -285,6 +285,6 @@ describe("CanvasService", () => {
 
     const state = canvas_store.get_state("tab1")!;
     expect(state.status).toBe("ready");
-    expect(state.canvas_data!.nodes[0].id).toBe("n2");
+    expect(state.canvas_data!.nodes[0]!.id).toBe("n2");
   });
 });

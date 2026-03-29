@@ -2,38 +2,13 @@ import {
   apply_theme,
   resolve_effective_source_shiki_theme,
 } from "$lib/shared/utils/apply_theme";
-import { resolve_source_shiki_vars } from "$lib/features/editor/adapters/shiki_source_theme";
 import type { UIStore } from "$lib/app";
+import type { ThemeService } from "$lib/features/theme";
 
-let applied_source_shiki_keys: string[] = [];
-let source_shiki_generation = 0;
-
-async function apply_source_shiki_theme(theme_name: string): Promise<void> {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  const gen = ++source_shiki_generation;
-
-  for (const key of applied_source_shiki_keys) {
-    root.style.removeProperty(key);
-  }
-  applied_source_shiki_keys = [];
-
-  try {
-    const vars = await resolve_source_shiki_vars(theme_name);
-    if (gen !== source_shiki_generation) return;
-
-    const keys: string[] = [];
-    for (const [key, value] of Object.entries(vars)) {
-      root.style.setProperty(key, value);
-      keys.push(key);
-    }
-    applied_source_shiki_keys = keys;
-  } catch {
-    // theme load failed — keep CSS defaults
-  }
-}
-
-export function create_theme_reactor(ui_store: UIStore): () => void {
+export function create_theme_reactor(
+  ui_store: UIStore,
+  theme_service: ThemeService,
+): () => void {
   return $effect.root(() => {
     $effect(() => {
       apply_theme(ui_store.active_theme, {
@@ -43,7 +18,7 @@ export function create_theme_reactor(ui_store: UIStore): () => void {
       const source_theme = resolve_effective_source_shiki_theme(
         ui_store.active_theme,
       );
-      void apply_source_shiki_theme(source_theme);
+      void theme_service.apply_source_shiki_theme(source_theme);
     });
 
     if (typeof window !== "undefined") {
