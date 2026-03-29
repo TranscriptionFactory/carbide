@@ -18,6 +18,7 @@
   import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
   import WrenchIcon from "@lucide/svelte/icons/wrench";
+  import { toast } from "svelte-sonner";
   import { HotkeysPanel } from "$lib/features/hotkey";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
@@ -3795,6 +3796,11 @@
                 checked={editor_settings.vim_nav_enabled}
                 onCheckedChange={(v: boolean) => {
                   update("vim_nav_enabled", v);
+                  if (v) {
+                    toast.info(
+                      "Vim navigation enabled — press ? for shortcuts",
+                    );
+                  }
                 }}
               />
             </div>
