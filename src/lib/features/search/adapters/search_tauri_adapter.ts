@@ -1,6 +1,7 @@
 import type {
   LocalNoteLinksSnapshot,
   NoteLinksSnapshot,
+  NoteStats,
   RewriteResult,
   SearchPort,
 } from "$lib/features/search/ports";
@@ -339,6 +340,16 @@ export function create_search_tauri_adapter(): SearchPort {
     async rebuild_embeddings(vault_id: VaultId): Promise<void> {
       await invoke_search<undefined>("rebuild_embeddings", {
         vaultId: vault_id,
+      });
+    },
+
+    async get_note_stats(
+      vault_id: VaultId,
+      note_path: string,
+    ): Promise<NoteStats> {
+      return invoke_search<NoteStats>("get_note_stats", {
+        vaultId: vault_id,
+        notePath: note_path,
       });
     },
   };

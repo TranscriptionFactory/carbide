@@ -97,6 +97,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -152,6 +153,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -206,6 +208,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const service = new SearchService(
@@ -257,6 +260,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const service = new SearchService(
@@ -315,6 +319,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -381,6 +386,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -448,6 +454,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const service = new SearchService(
@@ -499,6 +506,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -562,6 +570,7 @@ describe("SearchService", () => {
       find_similar_notes: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
     };
 
     const vault_store = new VaultStore();
@@ -654,6 +663,7 @@ describe("SearchService", () => {
         find_similar_notes: vi.fn().mockResolvedValue([]),
         semantic_search_batch: vi.fn().mockResolvedValue([]),
         rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+        get_note_stats: vi.fn().mockResolvedValue({}),
       };
     }
 
