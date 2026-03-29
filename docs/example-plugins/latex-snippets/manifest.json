@@ -1,0 +1,10 @@
+{
+  "id": "latex-snippets",
+  "name": "LaTeX Snippets",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "Insert LaTeX math snippets from a sidebar panel or command palette.",
+  "api_version": "1",
+  "permissions": ["editor:modify", "commands:register", "ui:panel"],
+  "activation_events": ["on_startup"]
+}

@@ -35,6 +35,11 @@ export class PluginService {
   private settings_service: PluginSettingsService | null = null;
   private iframe_post_message_map = new Map<string, (msg: unknown) => void>();
   private cleanup_callbacks: ((plugin_id: string) => void)[] = [];
+  private unsubscribe_changes: (() => void) | null = null;
+  private reload_debounce_timers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor(
     private store: PluginStore,
@@ -283,6 +288,7 @@ export class PluginService {
     await this.settings_service?.load();
     await this.discover();
     await this.activate_matching("on_startup");
+    await this.start_hot_reload();
   }
 
   async load_plugin(id: string) {
@@ -397,6 +403,7 @@ export class PluginService {
   }
 
   async clear_active_vault() {
+    this.stop_hot_reload();
     this.settings_service?.clear();
     await this.clear_vault_state();
   }
@@ -499,7 +506,62 @@ export class PluginService {
     return response;
   }
 
+  private async start_hot_reload() {
+    const vault_path = this.vault_store.vault?.path;
+    if (!vault_path) return;
+
+    try {
+      await this.host_port.watch(vault_path);
+    } catch (e) {
+      log.from_error("Failed to start plugin watcher", e);
+      return;
+    }
+
+    this.unsubscribe_changes = this.host_port.subscribe_plugin_changes(
+      (event) => {
+        this.debounced_handle_plugin_change(event.plugin_id);
+      },
+    );
+  }
+
+  private stop_hot_reload() {
+    if (this.unsubscribe_changes) {
+      this.unsubscribe_changes();
+      this.unsubscribe_changes = null;
+    }
+    for (const timer of this.reload_debounce_timers.values()) {
+      clearTimeout(timer);
+    }
+    this.reload_debounce_timers.clear();
+    this.host_port.unwatch().catch((e: unknown) => {
+      log.from_error("Failed to stop plugin watcher", e);
+    });
+  }
+
+  private debounced_handle_plugin_change(plugin_id: string) {
+    const existing = this.reload_debounce_timers.get(plugin_id);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.reload_debounce_timers.delete(plugin_id);
+      void this.handle_plugin_change(plugin_id);
+    }, 500);
+    this.reload_debounce_timers.set(plugin_id, timer);
+  }
+
+  private async handle_plugin_change(plugin_id: string) {
+    const plugin = this.store.plugins.get(plugin_id);
+    log.debug("Plugin file changed, reloading", { plugin_id });
+
+    if (plugin && plugin.status === "active") {
+      await this.reload_plugin(plugin_id);
+    } else {
+      await this.discover();
+    }
+  }
+
   destroy() {
+    this.stop_hot_reload();
     this.event_bus.destroy();
     this.iframe_post_message_map.clear();
   }

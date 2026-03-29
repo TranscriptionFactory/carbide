@@ -698,6 +698,24 @@ export function create_app_context(input: {
         }
       },
     },
+    metadata: {
+      async query(query: import("$lib/features/bases").BaseQuery) {
+        return input.ports.bases.query(require_vault().id, query);
+      },
+      async list_properties() {
+        return input.ports.bases.list_properties(require_vault().id);
+      },
+      async get_backlinks(note_path) {
+        const snapshot = await input.ports.search.get_note_links_snapshot(
+          require_vault().id,
+          note_path,
+        );
+        return snapshot.backlinks.map((n) => ({ path: n.path }));
+      },
+      async get_stats(note_path) {
+        return input.ports.search.get_note_stats(require_vault().id, note_path);
+      },
+    },
   });
 
   register_plugin_actions(base_action_input, plugin_service);
@@ -906,6 +924,7 @@ export function create_app_context(input: {
     toolchain_service,
     document_store: stores.document,
     code_lsp_service,
+    theme_service,
   });
 
   return {

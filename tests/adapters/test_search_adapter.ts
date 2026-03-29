@@ -124,5 +124,14 @@ export function create_test_search_adapter(): SearchPort {
         is_embedding: false,
       }),
     rebuild_embeddings: () => Promise.resolve(),
+    get_note_stats: (_vault_id: VaultId, _note_path: string) =>
+      Promise.resolve({
+        word_count: 0,
+        char_count: 0,
+        heading_count: 0,
+        outlink_count: 0,
+        reading_time_secs: 0,
+        last_indexed_at: 0,
+      }),
   };
 }
