@@ -6,6 +6,7 @@ import { PluginStore } from "$lib/features/plugin/state/plugin_store.svelte";
 import { PluginSettingsStore } from "$lib/features/plugin/state/plugin_settings_store.svelte";
 import type {
   DiscoveredPlugin,
+  PluginFsEvent,
   PluginHostPort,
   PluginManifest,
   PluginSettingsPort,
@@ -19,6 +20,9 @@ function create_mock_host(): PluginHostPort {
     discover: vi.fn().mockResolvedValue([] as DiscoveredPlugin[]),
     load: vi.fn().mockResolvedValue(undefined),
     unload: vi.fn().mockResolvedValue(undefined),
+    watch: vi.fn().mockResolvedValue(undefined),
+    unwatch: vi.fn().mockResolvedValue(undefined),
+    subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),
   };
 }
 
@@ -654,5 +658,74 @@ describe("PluginService", () => {
     await service.unload_plugin("p1");
 
     expect(cleanup).toHaveBeenCalledWith("p1");
+  });
+
+  it("initialize_active_vault starts plugin watcher", async () => {
+    const { service, host } = create_harness();
+    await service.initialize_active_vault();
+
+    expect(host.watch).toHaveBeenCalledWith("/test/vault");
+    expect(host.subscribe_plugin_changes).toHaveBeenCalledOnce();
+  });
+
+  it("clear_active_vault stops plugin watcher", async () => {
+    const { service, host } = create_harness();
+    const unsubscribe = vi.fn();
+    vi.mocked(host.subscribe_plugin_changes).mockReturnValue(unsubscribe);
+
+    await service.initialize_active_vault();
+    await service.clear_active_vault();
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(host.unwatch).toHaveBeenCalledOnce();
+  });
+
+  it("hot-reload triggers reload for active plugins on change", async () => {
+    vi.useFakeTimers();
+    const { service, store, host } = create_harness();
+
+    let change_callback: ((event: PluginFsEvent) => void) | null = null;
+    vi.mocked(host.subscribe_plugin_changes).mockImplementation((cb) => {
+      change_callback = cb;
+      return () => {};
+    });
+
+    store.plugins.set("p1", {
+      manifest: make_manifest(),
+      path: "/vault/.carbide/plugins/p1",
+      enabled: true,
+      status: "active",
+    });
+
+    await service.initialize_active_vault();
+    expect(change_callback).not.toBeNull();
+
+    change_callback!({ type: "plugin_changed", plugin_id: "p1" });
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(host.unload).toHaveBeenCalledWith("p1");
+    expect(host.load).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it("hot-reload triggers discover for non-active plugins on change", async () => {
+    vi.useFakeTimers();
+    const { service, host } = create_harness();
+
+    let change_callback: ((event: PluginFsEvent) => void) | null = null;
+    vi.mocked(host.subscribe_plugin_changes).mockImplementation((cb) => {
+      change_callback = cb;
+      return () => {};
+    });
+
+    await service.initialize_active_vault();
+
+    change_callback!({ type: "plugin_changed", plugin_id: "unknown-plugin" });
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(host.discover).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
   });
 });

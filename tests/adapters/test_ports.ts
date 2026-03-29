@@ -71,6 +71,9 @@ export function create_test_ports(): Ports {
       discover: () => Promise.resolve([]),
       load: () => Promise.resolve(),
       unload: () => Promise.resolve(),
+      watch: () => Promise.resolve(),
+      unwatch: () => Promise.resolve(),
+      subscribe_plugin_changes: () => () => {},
     },
     plugin_settings: {
       read_settings: () => Promise.resolve({ schema_version: 1, plugins: {} }),

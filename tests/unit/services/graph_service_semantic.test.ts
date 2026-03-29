@@ -69,6 +69,7 @@ function make_mock_search_port(batch_edges: SemanticEdge[] = []): SearchPort {
       is_embedding: false,
     }),
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+    get_note_stats: vi.fn().mockResolvedValue({}),
   };
 }
 
