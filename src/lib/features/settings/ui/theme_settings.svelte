@@ -202,11 +202,21 @@
     label: v,
   }));
 
+  const SOURCE_MATCH = "__match__";
+  const source_shiki_light_options = [
+    { value: SOURCE_MATCH, label: "Match Code Theme" },
+    ...shiki_light_options,
+  ];
+  const source_shiki_dark_options = [
+    { value: SOURCE_MATCH, label: "Match Code Theme" },
+    ...shiki_dark_options,
+  ];
+
   function update_select<K extends keyof Theme>(
     key: K,
     value: string | undefined,
   ) {
-    if (value && !locked) {
+    if (value !== undefined && value !== null && !locked) {
       on_update({ ...active_theme, [key]: value });
     }
   }
@@ -542,6 +552,57 @@
           </Select.Trigger>
           <Select.Content>
             {#each shiki_dark_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <!-- Source Editor Theme -->
+      <div class="ThemeSettings__row">
+        <span class="ThemeSettings__label">Source Theme (Light)</span>
+        <Select.Root
+          type="single"
+          value={active_theme.source_shiki_theme_light || SOURCE_MATCH}
+          onValueChange={(v: string | undefined) =>
+            update_select(
+              "source_shiki_theme_light",
+              v === SOURCE_MATCH ? "" : v,
+            )}
+          disabled={locked}
+        >
+          <Select.Trigger class="w-36">
+            <span data-slot="select-value">
+              {active_theme.source_shiki_theme_light || "Match Code Theme"}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each source_shiki_light_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <div class="ThemeSettings__row">
+        <span class="ThemeSettings__label">Source Theme (Dark)</span>
+        <Select.Root
+          type="single"
+          value={active_theme.source_shiki_theme_dark || SOURCE_MATCH}
+          onValueChange={(v: string | undefined) =>
+            update_select(
+              "source_shiki_theme_dark",
+              v === SOURCE_MATCH ? "" : v,
+            )}
+          disabled={locked}
+        >
+          <Select.Trigger class="w-36">
+            <span data-slot="select-value">
+              {active_theme.source_shiki_theme_dark || "Match Code Theme"}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each source_shiki_dark_options as option (option.value)}
               <Select.Item value={option.value}>{option.label}</Select.Item>
             {/each}
           </Select.Content>

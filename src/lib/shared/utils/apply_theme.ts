@@ -161,6 +161,12 @@ export function apply_theme(
   }
 }
 
+export function resolve_effective_source_shiki_theme(theme: Theme): string {
+  return theme.color_scheme === "dark"
+    ? theme.source_shiki_theme_dark || theme.shiki_theme_dark
+    : theme.source_shiki_theme_light || theme.shiki_theme_light;
+}
+
 function cache_theme_for_fouc(
   theme: Theme,
   entries: [string, string][],
