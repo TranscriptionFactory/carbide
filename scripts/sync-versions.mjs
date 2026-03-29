@@ -5,12 +5,14 @@ const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
 // Guard: ensure the version hasn't already been released on GitHub
 try {
-  const tags = execSync("git tag -l 'v*'", { encoding: "utf8" }).trim().split("\n");
+  const tags = execSync("git tag -l 'v*'", { encoding: "utf8" })
+    .trim()
+    .split("\n");
   if (tags.includes(`v${pkg.version}`)) {
     console.error(
       `\n❌ Version ${pkg.version} already has a git tag (v${pkg.version}).` +
-      `\n   This usually means a release was published outside the changeset flow.` +
-      `\n   Bump the version in package.json to the next unreleased version before running changeset.\n`
+        `\n   This usually means a release was published outside the changeset flow.` +
+        `\n   Bump the version in package.json to the next unreleased version before running changeset.\n`,
     );
     process.exit(1);
   }

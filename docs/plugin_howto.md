@@ -100,8 +100,12 @@ The SDK is served automatically — no file needed on disk. It exposes a global 
 
 ```js
 // Lifecycle
-carbide.onload(() => { /* plugin activated */ });
-carbide.onunload(() => { /* plugin deactivating */ });
+carbide.onload(() => {
+  /* plugin activated */
+});
+carbide.onunload(() => {
+  /* plugin deactivating */
+});
 
 // Vault
 await carbide.vault.read("path/to/note.md");
@@ -120,9 +124,17 @@ await carbide.commands.register({ id: "do-thing", label: "Do Thing" });
 await carbide.commands.remove("do-thing");
 
 // UI
-await carbide.ui.addStatusBarItem({ id: "my-item", priority: 100, initial_text: "Ready" });
+await carbide.ui.addStatusBarItem({
+  id: "my-item",
+  priority: 100,
+  initial_text: "Ready",
+});
 await carbide.ui.updateStatusBarItem("my-item", "Updated");
-await carbide.ui.addSidebarPanel({ id: "my-panel", label: "My Panel", icon: "layout-dashboard" });
+await carbide.ui.addSidebarPanel({
+  id: "my-panel",
+  label: "My Panel",
+  icon: "layout-dashboard",
+});
 await carbide.ui.showNotice("Done!", 3000);
 
 // Search
@@ -130,7 +142,12 @@ const hits = await carbide.search.fts("query", 10);
 const tags = await carbide.search.tags();
 
 // Metadata
-const results = await carbide.metadata.query({ filters: [], sort: [], limit: 50, offset: 0 });
+const results = await carbide.metadata.query({
+  filters: [],
+  sort: [],
+  limit: 50,
+  offset: 0,
+});
 const props = await carbide.metadata.listProperties();
 const backlinks = await carbide.metadata.getBacklinks("note.md");
 const stats = await carbide.metadata.getStats("note.md");
@@ -140,11 +157,19 @@ const val = await carbide.settings.get("my_key");
 await carbide.settings.set("my_key", "value");
 
 // Events
-const cbId = await carbide.events.on("file-created", (data) => { /* ... */ });
+const cbId = await carbide.events.on("file-created", (data) => {
+  /* ... */
+});
 await carbide.events.off(cbId);
 
 // Diagnostics
-await carbide.diagnostics.push("file.md", [{ range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } }, message: "issue", severity: "warning" }]);
+await carbide.diagnostics.push("file.md", [
+  {
+    range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } },
+    message: "issue",
+    severity: "warning",
+  },
+]);
 await carbide.diagnostics.clear("file.md");
 ```
 
