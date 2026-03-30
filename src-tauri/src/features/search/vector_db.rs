@@ -114,7 +114,7 @@ pub fn knn_search(
         .filter_map(|r| r.ok())
         .map(|(path, blob)| {
             let vec = bytes_to_floats(&blob);
-            let dist = cosine_distance(query_vec, &vec);
+            let dist = dot_distance(query_vec, &vec);
             (path, dist)
         })
         .collect();
@@ -135,7 +135,7 @@ pub fn knn_search_batch(
         .prepare("SELECT path, embedding FROM note_embeddings")
         .map_err(|e| e.to_string())?;
 
-    let all_embeddings: Vec<(String, Vec<f32>)> = stmt
+    let embedding_map: std::collections::HashMap<String, Vec<f32>> = stmt
         .query_map([], |row| {
             let path: String = row.get(0)?;
             let blob: Vec<u8> = row.get(1)?;
@@ -154,18 +154,18 @@ pub fn knn_search_batch(
     let mut edges = Vec::new();
 
     for query_path in paths {
-        let query_vec = match all_embeddings.iter().find(|(p, _)| p == query_path) {
-            Some((_, v)) => v,
+        let query_vec = match embedding_map.get(query_path.as_str()) {
+            Some(v) => v,
             None => continue,
         };
 
         let empty_set = std::collections::HashSet::new();
         let linked = linked_sets.get(query_path.as_str()).unwrap_or(&empty_set);
 
-        let mut scored: Vec<(&str, f32)> = all_embeddings
+        let mut scored: Vec<(&str, f32)> = embedding_map
             .iter()
-            .filter(|(p, _)| p != query_path && !linked.contains(p.as_str()))
-            .map(|(p, v)| (p.as_str(), cosine_distance(query_vec, v)))
+            .filter(|(p, _)| p.as_str() != query_path.as_str() && !linked.contains(p.as_str()))
+            .map(|(p, v)| (p.as_str(), dot_distance(query_vec, v)))
             .filter(|(_, d)| *d < distance_threshold)
             .collect();
 
@@ -219,12 +219,20 @@ pub fn has_embedding(conn: &Connection, path: &str) -> bool {
 }
 
 pub fn get_embedded_paths(conn: &Connection) -> HashSet<String> {
-    let mut stmt = conn
-        .prepare("SELECT path FROM note_embeddings")
-        .unwrap_or_else(|_| panic!("failed to prepare get_embedded_paths"));
-    let rows = stmt
-        .query_map([], |row| row.get::<_, String>(0))
-        .unwrap_or_else(|_| panic!("failed to query embedded paths"));
+    let mut stmt = match conn.prepare("SELECT path FROM note_embeddings") {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("get_embedded_paths: prepare failed: {e}");
+            return HashSet::new();
+        }
+    };
+    let rows = match stmt.query_map([], |row| row.get::<_, String>(0)) {
+        Ok(r) => r,
+        Err(e) => {
+            log::warn!("get_embedded_paths: query failed: {e}");
+            return HashSet::new();
+        }
+    };
     rows.filter_map(|r| r.ok()).collect()
 }
 
@@ -250,21 +258,21 @@ pub fn clear_all_embeddings(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
+pub fn set_model_version(conn: &Connection, version: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO embedding_meta (key, value) VALUES ('model_version', ?1)",
+        params![version],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn dot_distance(a: &[f32], b: &[f32]) -> f32 {
     let mut dot = 0.0f32;
-    let mut norm_a = 0.0f32;
-    let mut norm_b = 0.0f32;
     for (x, y) in a.iter().zip(b.iter()) {
         dot += x * y;
-        norm_a += x * x;
-        norm_b += y * y;
     }
-    let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom == 0.0 {
-        1.0
-    } else {
-        1.0 - (dot / denom)
-    }
+    1.0 - dot
 }
 
 fn floats_to_bytes(floats: &[f32]) -> Vec<u8> {
