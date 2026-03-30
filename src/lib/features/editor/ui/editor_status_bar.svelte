@@ -51,6 +51,8 @@
     on_mode_toggle: () => void;
     show_line_numbers: boolean;
     on_line_numbers_toggle: () => void;
+    zoom_percent: number;
+    on_zoom_reset: () => void;
     vim_nav_enabled: boolean;
     vim_nav_context: NavContext;
     vim_nav_pending_keys: string;
@@ -97,6 +99,8 @@
     on_split_toggle,
     show_line_numbers,
     on_line_numbers_toggle,
+    zoom_percent,
+    on_zoom_reset,
     vim_nav_enabled,
     vim_nav_context,
     vim_nav_pending_keys,
@@ -201,6 +205,17 @@
     >
       Ln#
     </button>
+    {#if zoom_percent !== 100}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="StatusBar__mode-toggle"
+        onclick={on_zoom_reset}
+        aria-label="Reset zoom to 100%"
+      >
+        {zoom_percent}%
+      </button>
+    {/if}
     {#if saved_label}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <span class="StatusBar__item StatusBar__item--saved">{saved_label}</span>

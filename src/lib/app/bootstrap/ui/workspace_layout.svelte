@@ -1006,6 +1006,9 @@
         show_line_numbers={stores.ui.editor_settings.source_editor_line_numbers}
         on_line_numbers_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_line_numbers)}
+        zoom_percent={stores.editor.zoom_percent}
+        on_zoom_reset={() =>
+          void action_registry.execute(ACTION_IDS.editor_zoom_reset)}
         vim_nav_enabled={stores.ui.editor_settings.vim_nav_enabled}
         vim_nav_context={stores.vim_nav.active_context}
         vim_nav_pending_keys={stores.vim_nav.pending_keys}
