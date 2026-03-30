@@ -26,3 +26,31 @@ pub struct TaskUpdate {
     pub line_number: usize,
     pub status: TaskStatus,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct TaskFilter {
+    pub property: String,
+    pub operator: String,
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct TaskSort {
+    pub property: String,
+    pub descending: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct TaskQuery {
+    pub filters: Vec<TaskFilter>,
+    pub sort: Vec<TaskSort>,
+    pub limit: usize,
+    pub offset: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct TaskDueDateUpdate {
+    pub path: String,
+    pub line_number: usize,
+    pub new_due_date: Option<String>,
+}

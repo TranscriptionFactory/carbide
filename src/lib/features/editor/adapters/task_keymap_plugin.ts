@@ -70,14 +70,34 @@ export function create_task_keymap_prose_plugin(): Plugin {
         const node = view.state.doc.nodeAt(node_pos);
         if (!node || node.type.name !== "list_item") return false;
 
-        const current: boolean | null = node.attrs["checked"] as boolean | null;
-        if (current === null || current === undefined) return false;
+        const checked: boolean | null = node.attrs["checked"] as boolean | null;
+        const task_status: string | null = node.attrs["task_status"] as
+          | string
+          | null;
+        if (checked === null && task_status === null) return false;
 
-        const tr = view.state.tr.setNodeMarkup(node_pos, undefined, {
-          ...node.attrs,
-          checked: !current,
-        });
-        view.dispatch(tr);
+        const next_status = !task_status
+          ? checked
+            ? "todo"
+            : "done"
+          : task_status === "todo"
+            ? "doing"
+            : task_status === "doing"
+              ? "done"
+              : "todo";
+        const next_checked =
+          next_status === "done"
+            ? true
+            : next_status === "doing"
+              ? null
+              : false;
+        view.dispatch(
+          view.state.tr.setNodeMarkup(node_pos, undefined, {
+            ...node.attrs,
+            checked: next_checked,
+            task_status: next_status,
+          }),
+        );
         return true;
       },
     },

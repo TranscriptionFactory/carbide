@@ -55,6 +55,10 @@ export type EditorSession = {
   toggle_heading_fold?: (pos?: number) => void;
   collapse_all_heading_folds?: () => void;
   expand_all_heading_folds?: () => void;
+  update_task_checkbox?: (
+    line_number: number,
+    status: "todo" | "doing" | "done",
+  ) => boolean;
 };
 
 export type EditorEventHandlers = {

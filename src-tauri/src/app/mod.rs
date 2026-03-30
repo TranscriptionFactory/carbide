@@ -165,6 +165,7 @@ pub fn run() {
             features::tasks::tasks_get_for_note,
             features::tasks::tasks_update_state,
             features::tasks::tasks_create,
+            features::tasks::tasks_update_due_date,
             features::notes::service::list_notes,
             features::notes::service::list_folders,
             features::notes::service::read_note,

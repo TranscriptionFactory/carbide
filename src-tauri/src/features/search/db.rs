@@ -1380,6 +1380,10 @@ fn note_meta_with_stats_from_row(
         heading_count: row.get(6).unwrap_or(0),
         outlink_count: row.get(7).unwrap_or(0),
         reading_time_secs: row.get(8).unwrap_or(0),
+        task_count: row.get(11).unwrap_or(0),
+        tasks_done: row.get(12).unwrap_or(0),
+        tasks_todo: row.get(13).unwrap_or(0),
+        next_due_date: row.get(14).ok().flatten(),
         last_indexed_at: row.get(9).unwrap_or(0),
     };
     Ok((meta, stats))
@@ -1626,6 +1630,10 @@ pub fn get_note_stats(
             heading_count: row.get(2)?,
             outlink_count: row.get(3)?,
             reading_time_secs: row.get(4)?,
+            task_count: 0,
+            tasks_done: 0,
+            tasks_todo: 0,
+            next_due_date: None,
             last_indexed_at: row.get(5)?,
         }),
     )
@@ -2700,8 +2708,10 @@ pub fn query_bases(
         "reading_time_secs",
     ];
     let direct_columns = ["path", "title", "mtime_ms", "size_bytes"];
+    let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
 
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
+    let is_task_agg_col = |prop: &str| task_agg_columns.contains(&prop);
 
     let mut where_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -2712,6 +2722,19 @@ pub fn query_bases(
                 "path IN (SELECT path FROM note_inline_tags WHERE tag = ?{})",
                 params.len() + 1
             ));
+            params.push(Box::new(filter.value.clone()));
+        } else if is_task_agg_col(&filter.property) {
+            let op = match filter.operator.as_str() {
+                "eq" => "=",
+                "neq" => "!=",
+                "gt" => ">",
+                "lt" => "<",
+                "gte" => ">=",
+                "lte" => "<=",
+                _ => "=",
+            };
+            let col = format!("COALESCE(task_agg.{}, 0)", filter.property);
+            where_clauses.push(format!("{} {} ?{}", col, op, params.len() + 1));
             params.push(Box::new(filter.value.clone()));
         } else if is_direct_col(&filter.property) {
             let op = match filter.operator.as_str() {
@@ -2782,6 +2805,12 @@ pub fn query_bases(
                 sort.property,
                 if sort.descending { "DESC" } else { "ASC" }
             )
+        } else if is_task_agg_col(&sort.property) {
+            format!(
+                "ORDER BY COALESCE(task_agg.{}, 0) {}",
+                sort.property,
+                if sort.descending { "DESC" } else { "ASC" }
+            )
         } else {
             format!(
                 "ORDER BY (SELECT value FROM note_properties WHERE path = notes.path AND key = ?{}) {}",
@@ -2802,7 +2831,17 @@ pub fn query_bases(
     }
 
     let sql = format!(
-        "SELECT path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type FROM notes {} {} LIMIT {} OFFSET {}",
+        "SELECT notes.path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
+         COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date \
+         FROM notes \
+         LEFT JOIN ( \
+           SELECT path, COUNT(*) as task_count, \
+             SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_done, \
+             SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as tasks_todo, \
+             MIN(CASE WHEN status != 'done' AND due_date IS NOT NULL THEN due_date END) as next_due_date \
+           FROM tasks GROUP BY path \
+         ) task_agg ON task_agg.path = notes.path \
+         {} {} LIMIT {} OFFSET {}",
         where_sql, order_sql, query.limit, query.offset
     );
 

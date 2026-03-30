@@ -1,16 +1,32 @@
 import type { TaskPort } from "../ports";
 import type { TaskStore } from "../state/task_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
-import type { TaskFilter, TaskStatus } from "../types";
+import type { EditorStore } from "$lib/features/editor";
+import type { TaskDueDateUpdate, TaskQuery, TaskStatus } from "../types";
 
 export class TaskService {
   constructor(
     private readonly port: TaskPort,
     private readonly store: TaskStore,
     private readonly vaultStore: VaultStore,
+    private readonly editorStore?: EditorStore,
+    private readonly update_task_in_editor?: (
+      line_number: number,
+      status: TaskStatus,
+    ) => boolean,
   ) {}
 
-  async queryTasks(filter?: TaskFilter) {
+  private build_query(overrides: Partial<TaskQuery> = {}): TaskQuery {
+    return {
+      filters: this.store.filter,
+      sort: this.store.sort,
+      limit: 0,
+      offset: 0,
+      ...overrides,
+    };
+  }
+
+  async queryTasks(overrides: Partial<TaskQuery> = {}) {
     const vault = this.vaultStore.vault;
     if (!vault) return;
 
@@ -19,7 +35,7 @@ export class TaskService {
     try {
       const tasks = await this.port.queryTasks(
         vault.id,
-        filter || this.store.filter,
+        this.build_query(overrides),
       );
       this.store.setTasks(tasks);
     } catch (e) {
@@ -51,6 +67,22 @@ export class TaskService {
     const vault = this.vaultStore.vault;
     if (!vault) return;
 
+    if (
+      this.editorStore?.open_note?.meta.path === path &&
+      this.update_task_in_editor
+    ) {
+      try {
+        if (this.update_task_in_editor(lineNumber, status)) {
+          return;
+        }
+      } catch (e) {
+        console.warn(
+          "Editor-first task update failed, falling back to Rust write:",
+          e,
+        );
+      }
+    }
+
     try {
       await this.port.updateTaskState(vault.id, {
         path,
@@ -60,6 +92,28 @@ export class TaskService {
       await this.queryTasks();
     } catch (e) {
       console.error(`Failed to update task status:`, e);
+      this.store.setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async updateTaskDueDate(
+    path: string,
+    lineNumber: number,
+    newDueDate: string | null,
+  ) {
+    const vault = this.vaultStore.vault;
+    if (!vault) return;
+
+    const update: TaskDueDateUpdate = {
+      path,
+      line_number: lineNumber,
+      new_due_date: newDueDate,
+    };
+    try {
+      await this.port.updateTaskDueDate(vault.id, update);
+      await this.queryTasks();
+    } catch (e) {
+      console.error(`Failed to update task due date:`, e);
       this.store.setError(e instanceof Error ? e.message : String(e));
     }
   }

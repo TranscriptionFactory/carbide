@@ -65,6 +65,7 @@ export function create_test_ports(): Ports {
       queryTasks: () => Promise.resolve([]),
       getTasksForNote: () => Promise.resolve([]),
       updateTaskState: () => Promise.resolve(),
+      updateTaskDueDate: () => Promise.resolve(),
       createTask: () => Promise.resolve(),
     },
     plugin: {

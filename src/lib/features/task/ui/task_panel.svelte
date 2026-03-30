@@ -21,20 +21,40 @@
   const taskStore = stores.task;
   const taskService = services.task;
 
-  let searchQuery = $state("");
   let showCompleted = $state(false);
 
   const filteredTasks = $derived(
-    taskStore.tasks.filter((task) => {
-      const matchesSearch =
-        task.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.path.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCompleted = showCompleted || task.status !== "done";
-      return matchesSearch && matchesCompleted;
-    }),
+    showCompleted
+      ? taskStore.tasks
+      : taskStore.tasks.filter((t) => t.status !== "done"),
   );
 
+  let searchQuery = $state("");
+  let mounted = false;
+
+  function apply_search(text: string) {
+    const trimmed = text.trim();
+    const existing = taskStore.filter.filter(
+      (f) => f.property !== "text" && f.property !== "path",
+    );
+    if (trimmed) {
+      taskStore.setFilter([
+        ...existing,
+        { property: "text", operator: "contains", value: trimmed },
+      ]);
+    } else {
+      taskStore.setFilter(existing);
+    }
+    taskService.refreshTasks();
+  }
+
+  $effect(() => {
+    if (!mounted) return;
+    apply_search(searchQuery);
+  });
+
   onMount(() => {
+    mounted = true;
     taskService.refreshTasks();
   });
 
@@ -153,6 +173,16 @@
             {/if}
           </Button>
           <div class="w-px h-3 bg-border mx-1"></div>
+          <select
+            class="min-w-0 bg-transparent border-none focus:ring-0 text-[10px] cursor-pointer"
+            value={taskStore.kanbanGroupProperty}
+            onchange={(e) =>
+              taskStore.setKanbanGroupProperty(e.currentTarget.value)}
+          >
+            <option value="status">By Status</option>
+            <option value="section">By Section</option>
+            <option value="note">By Note</option>
+          </select>
         {/if}
         <Columns size={10} />
         <select

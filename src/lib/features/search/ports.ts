@@ -22,6 +22,10 @@ export type NoteStats = {
   heading_count: number;
   outlink_count: number;
   reading_time_secs: number;
+  task_count: number;
+  tasks_done: number;
+  tasks_todo: number;
+  next_due_date: string | null;
   last_indexed_at: number;
 };
 
