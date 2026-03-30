@@ -45,6 +45,11 @@
   } from "$lib/shared/types/editor_settings";
   import {
     DEFAULT_EDITOR_SETTINGS,
+    EDITOR_SPACING_DENSITY_OPTIONS,
+    EDITOR_CODE_BLOCK_RADIUS_OPTIONS,
+    EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS,
+    EDITOR_LINK_UNDERLINE_STYLE_OPTIONS,
+    EDITOR_DIVIDER_STYLE_OPTIONS,
     type MarkdownLspProvider,
   } from "$lib/shared/types/editor_settings";
   import type { IweConfigStatus } from "$lib/features/marksman";
@@ -347,46 +352,12 @@
     label: `${String(n)} documents`,
   }));
 
-  const density_options = [
-    { value: "extra_compact", label: "Extra Compact" },
-    { value: "compact", label: "Compact" },
-    { value: "normal", label: "Normal" },
-    { value: "relaxed", label: "Relaxed" },
-    { value: "spacious", label: "Spacious" },
-  ] as const;
-
-  const code_block_radius_options: {
-    value: EditorCodeBlockRadius;
-    label: string;
-  }[] = [
-    { value: "tight", label: "Tight" },
-    { value: "normal", label: "Normal" },
-    { value: "soft", label: "Soft" },
-  ];
-
-  const blockquote_border_width_options = [2, 3, 4].map((n) => ({
-    value: String(n),
-    label: `${String(n)} px`,
-  }));
-
-  const link_underline_style_options: {
-    value: EditorLinkUnderlineStyle;
-    label: string;
-  }[] = [
-    { value: "solid", label: "Solid" },
-    { value: "dotted", label: "Dotted" },
-    { value: "wavy", label: "Wavy" },
-  ];
-
-  const divider_style_options: {
-    value: EditorDividerStyle;
-    label: string;
-  }[] = [
-    { value: "gradient", label: "Gradient" },
-    { value: "solid", label: "Solid" },
-    { value: "dashed", label: "Dashed" },
-    { value: "dotted", label: "Dotted" },
-  ];
+  const density_options = EDITOR_SPACING_DENSITY_OPTIONS;
+  const code_block_radius_options = EDITOR_CODE_BLOCK_RADIUS_OPTIONS;
+  const blockquote_border_width_options =
+    EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS;
+  const link_underline_style_options = EDITOR_LINK_UNDERLINE_STYLE_OPTIONS;
+  const divider_style_options = EDITOR_DIVIDER_STYLE_OPTIONS;
 
   function update<K extends keyof EditorSettings>(
     key: K,
@@ -508,6 +479,8 @@
             {color_scheme_preference}
             {system_light_theme_id}
             {system_dark_theme_id}
+            {editor_settings}
+            on_editor_update={update}
             on_switch={on_theme_switch}
             on_create={on_theme_create}
             on_duplicate={on_theme_duplicate}

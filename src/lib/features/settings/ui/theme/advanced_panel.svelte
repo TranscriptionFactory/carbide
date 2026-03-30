@@ -3,27 +3,37 @@
   import Download from "@lucide/svelte/icons/download";
   import Upload from "@lucide/svelte/icons/upload";
   import type { Theme } from "$lib/shared/types/theme";
+  import type { EditorSettings } from "$lib/shared/types/editor_settings";
   import OverrideSummary from "./override_summary.svelte";
   import JsonAnnotatedView from "./json_annotated_view.svelte";
   import CssTokenReference from "./css_token_reference.svelte";
+  import EditorTuningPanel from "./editor_tuning_panel.svelte";
 
   type Props = {
     theme: Theme;
     disabled?: boolean;
+    editor_settings: EditorSettings;
     on_update: (theme: Theme) => void;
     on_reset_color: (key: keyof Theme) => void;
     on_import: (theme: Theme) => void;
+    on_editor_update: <K extends keyof EditorSettings>(
+      key: K,
+      value: EditorSettings[K],
+    ) => void;
   };
 
   let {
     theme,
     disabled = false,
+    editor_settings,
     on_update,
     on_reset_color,
     on_import,
+    on_editor_update,
   }: Props = $props();
 
-  let active_tab: "overrides" | "json" | "tokens" = $state("overrides");
+  let active_tab: "overrides" | "json" | "tokens" | "editor" =
+    $state("overrides");
   let json_view_mode: "annotated" | "raw" = $state("annotated");
   let json_text = $state("");
   let json_error = $state("");
@@ -136,9 +146,21 @@
     >
       Tokens
     </button>
+    <button
+      type="button"
+      class="AdvancedPanel__tab"
+      class:AdvancedPanel__tab--active={active_tab === "editor"}
+      onclick={() => {
+        active_tab = "editor";
+      }}
+    >
+      Editor
+    </button>
   </div>
 
-  {#if active_tab === "overrides"}
+  {#if active_tab === "editor"}
+    <EditorTuningPanel {editor_settings} on_update={on_editor_update} />
+  {:else if active_tab === "overrides"}
     <OverrideSummary {theme} {disabled} on_reset={on_reset_color} />
 
     <div class="AdvancedPanel__io-row">
