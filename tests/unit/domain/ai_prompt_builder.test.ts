@@ -48,7 +48,7 @@ describe("build_ai_prompt", () => {
       mode: "ask",
     });
 
-    expect(prompt).toContain("answering a question about a markdown note");
+    expect(prompt).toContain("answering a question about the content of a markdown document");
     expect(prompt).toContain("<user_question>");
     expect(prompt).toContain("What tone is this written in?");
     expect(prompt).not.toContain("Return ONLY");
