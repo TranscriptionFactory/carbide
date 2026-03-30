@@ -29,7 +29,7 @@ export function create_marksman_lifecycle_reactor(
       const provider = ui_store.editor_settings.markdown_lsp_provider;
       const custom_path = ui_store.editor_settings.marksman_binary_path;
 
-      if (!vault || !enabled) {
+      if (!vault || !enabled || !vault_store.is_vault_mode) {
         void marksman_service.stop();
         return;
       }

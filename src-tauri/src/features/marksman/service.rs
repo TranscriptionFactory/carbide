@@ -199,6 +199,11 @@ pub async fn marksman_start(
     provider: Option<String>,
     custom_binary_path: Option<String>,
 ) -> Result<MarksmanStartResult, String> {
+    let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
+    if vault_mode == storage::VaultMode::Browse {
+        return Err("Markdown LSP is only available in vault mode".to_string());
+    }
+
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let root_uri = tauri::Url::from_file_path(&vault_path)
         .map_err(|_| "invalid vault path for URI".to_string())?
@@ -1216,6 +1221,11 @@ pub async fn iwe_config_status(
 #[tauri::command]
 #[specta::specta]
 pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
+    if vault_mode == storage::VaultMode::Browse {
+        return Err("IWE config reset is only available in vault mode".to_string());
+    }
+
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let iwe_dir = vault_path.join(".iwe");
     let config_path = iwe_dir.join("config.toml");
