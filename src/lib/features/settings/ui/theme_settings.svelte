@@ -11,6 +11,7 @@
     AVAILABLE_SHIKI_THEMES,
     get_all_themes,
   } from "$lib/shared/types/theme";
+  import type { EditorSettings } from "$lib/shared/types/editor_settings";
   import ThemeGallery from "./theme/theme_gallery.svelte";
   import AccentPicker from "./theme/accent_picker.svelte";
   import TypographyPresets from "./theme/typography_presets.svelte";
@@ -24,12 +25,17 @@
     color_scheme_preference: ColorSchemePreference;
     system_light_theme_id: string;
     system_dark_theme_id: string;
+    editor_settings: EditorSettings;
     on_switch: (theme_id: string) => void;
     on_create: (name: string, base: Theme) => void;
     on_duplicate: (theme_id: string) => void;
     on_rename: (id: string, name: string) => void;
     on_delete: (theme_id: string) => void;
     on_update: (theme: Theme) => void;
+    on_editor_update: <K extends keyof EditorSettings>(
+      key: K,
+      value: EditorSettings[K],
+    ) => void;
     on_set_color_scheme_preference: (pref: ColorSchemePreference) => void;
     on_set_system_themes: (args: {
       light_id?: string;
@@ -43,12 +49,14 @@
     color_scheme_preference,
     system_light_theme_id,
     system_dark_theme_id,
+    editor_settings,
     on_switch,
     on_create,
     on_duplicate,
     on_rename,
     on_delete,
     on_update,
+    on_editor_update,
     on_set_color_scheme_preference,
     on_set_system_themes,
   }: Props = $props();
@@ -629,9 +637,11 @@
         <AdvancedPanel
           theme={active_theme}
           disabled={locked}
+          {editor_settings}
           on_update={(t) => on_update(t)}
           on_reset_color={(key) => update(key, null as never)}
           on_import={handle_import}
+          {on_editor_update}
         />
       {/if}
     </div>
