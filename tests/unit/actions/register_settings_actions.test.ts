@@ -233,6 +233,31 @@ describe("register_settings_actions", () => {
     expect(stores.ui.settings_dialog.active_category).toBe("terminal");
   });
 
+  it("triggers tree refresh when show_hidden_files changes", async () => {
+    const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const { registry, stores } = create_harness({ workspace_reconcile });
+    const draft: EditorSettings = {
+      ...DEFAULT_EDITOR_SETTINGS,
+      show_hidden_files: true,
+    };
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 0,
+      mode: "vault",
+    });
+
+    await registry.execute(ACTION_IDS.settings_update, draft);
+    await registry.execute(ACTION_IDS.settings_save);
+
+    expect(workspace_reconcile).toHaveBeenCalledWith({
+      refresh_tree: true,
+      sync_index: true,
+    });
+  });
+
   it("uses workspace_reconcile for ignored folder saves when available", async () => {
     const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
     const { registry, stores } = create_harness({ workspace_reconcile });
