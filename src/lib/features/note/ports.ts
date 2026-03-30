@@ -38,6 +38,7 @@ export interface AssetsPort {
     query: string,
     limit: number,
   ): Promise<string[]>;
+  invalidate_asset_cache(vault_id: VaultId, asset_path: string): Promise<void>;
 }
 
 export interface NotesPort {
