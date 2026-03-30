@@ -128,22 +128,23 @@ pub fn vault_mode_for_id(app: &AppHandle, vault_id: &str) -> Result<VaultMode, S
 }
 
 fn url_decode(input: &str) -> String {
-    let mut result = String::with_capacity(input.len());
-    let mut chars = input.bytes();
-    while let Some(b) = chars.next() {
+    let mut bytes = Vec::with_capacity(input.len());
+    let mut iter = input.bytes();
+    while let Some(b) = iter.next() {
         if b == b'%' {
-            let hi = chars.next().and_then(|c| (c as char).to_digit(16));
-            let lo = chars.next().and_then(|c| (c as char).to_digit(16));
+            let hi = iter.next().and_then(|c| (c as char).to_digit(16));
+            let lo = iter.next().and_then(|c| (c as char).to_digit(16));
             if let (Some(h), Some(l)) = (hi, lo) {
-                result.push((h * 16 + l) as u8 as char);
+                bytes.push((h * 16 + l) as u8);
             } else {
-                result.push('%');
+                bytes.push(b'%');
             }
         } else {
-            result.push(b as char);
+            bytes.push(b);
         }
     }
-    result
+    String::from_utf8(bytes)
+        .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
 }
 
 const EMBEDDED_SDK: &str =
@@ -366,4 +367,34 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
         .header("Access-Control-Allow-Origin", "*")
         .body(bytes)
         .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn url_decode_ascii_space() {
+        assert_eq!(url_decode("hello%20world"), "hello world");
+    }
+
+    #[test]
+    fn url_decode_multibyte_utf8() {
+        assert_eq!(url_decode("%E2%98%83"), "☃");
+    }
+
+    #[test]
+    fn url_decode_mixed_path() {
+        assert_eq!(url_decode("path/%E4%B8%AD%E6%96%87/file.md"), "path/中文/file.md");
+    }
+
+    #[test]
+    fn url_decode_no_encoding() {
+        assert_eq!(url_decode("plain"), "plain");
+    }
+
+    #[test]
+    fn url_decode_incomplete_sequence() {
+        assert_eq!(url_decode("abc%2"), "abc%");
+    }
 }
