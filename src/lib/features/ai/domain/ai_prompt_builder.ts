@@ -51,8 +51,8 @@ export function build_ai_prompt(input: {
   if (input.target === "selection" && selected_text) {
     return [
       "You are editing a selected passage from a markdown note.",
-      "Return ONLY the replacement text for the selected passage.",
-      "Do not include commentary, explanations, or code fences.",
+      "Return the replacement text for the selected passage and retain all content that is not meant to be edited.",
+      "Do not include commentary, explanations, or enclose the markdown in code fences.",
       "Do not return the full note.",
       `Note path: ${input.note_path}`,
       section("selected_text", selected_text),
@@ -63,8 +63,8 @@ export function build_ai_prompt(input: {
 
   return [
     "You are editing a markdown note.",
-    "Return ONLY the complete edited markdown for the note.",
-    "Do not include commentary, explanations, or code fences.",
+    "Return the complete edited markdown for the note and retain all content that is not meant to be edited.",
+    "Do not include commentary, explanations, or enclose the markdown in code fences.",
     `Note path: ${input.note_path}`,
     section("current_markdown", input.note_markdown),
     section("user_instructions", user_prompt),
