@@ -431,7 +431,7 @@ pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|e| e.to_string())?;
     conn.busy_timeout(std::time::Duration::from_millis(5000))
         .map_err(|e| e.to_string())?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-8000; PRAGMA mmap_size=268435456;")
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-8000; PRAGMA mmap_size=268435456;")
         .map_err(|e| e.to_string())?;
     init_schema(&conn)?;
     Ok(conn)
@@ -888,6 +888,10 @@ pub fn rebuild_index(
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM note_code_blocks", [])
         .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM tasks", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_properties", [])
+        .map_err(|e| e.to_string())?;
 
     let paths = list_indexable_files(app, vault_id, vault_root)?;
     let total = paths.len();
@@ -1199,6 +1203,15 @@ fn resolve_git_head(vault_root: &Path) -> Result<String, String> {
         return Err("not a git repo".to_string());
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+pub fn get_fts_body(conn: &Connection, path: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT body FROM notes_fts WHERE path = ?1",
+        params![path],
+        |row| row.get(0),
+    )
+    .ok()
 }
 
 pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, IndexNoteMeta>, String> {

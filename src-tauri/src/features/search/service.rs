@@ -210,7 +210,6 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
         return Err("search indexing is not available in browse mode".to_string());
     }
-    let vault_root = storage::vault_path(app, vault_id)?;
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
     if map.contains_key(vault_id) {
@@ -218,13 +217,12 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     }
 
     let read_conn = search_db::open_search_db(app, vault_id)?;
-    let write_root = vault_root.clone();
+    let write_conn = search_db::open_search_db(app, vault_id)?;
     let (tx, rx) = mpsc::channel::<DbCommand>();
 
-    let app_for_writer = app.clone();
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
-        writer_thread_loop(app_for_writer, vid_for_writer, rx, &write_root);
+        writer_thread_loop(vid_for_writer, rx, write_conn);
     });
 
     let worker = VaultWorker {
@@ -238,19 +236,10 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
 }
 
 fn writer_thread_loop(
-    app: AppHandle,
-    vault_id: String,
+    _vault_id: String,
     rx: Receiver<DbCommand>,
-    _vault_root: &Path,
+    conn: Connection,
 ) {
-    let conn = match search_db::open_search_db(&app, &vault_id) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("writer thread: open db failed: {e}");
-            return;
-        }
-    };
-
     let mut notes_cache: BTreeMap<String, IndexNoteMeta> =
         match search_db::get_all_notes_from_db(&conn) {
             Ok(map) => map,
@@ -812,9 +801,18 @@ fn handle_sync_paths(
         }
     }
 
-    match search_db::get_all_notes_from_db(conn) {
-        Ok(map) => *notes_cache = map,
-        Err(e) => log::warn!("writer: failed to reload notes cache after sync_paths: {e}"),
+    for path in removed_paths {
+        notes_cache.remove(path);
+    }
+    for rel_path in changed_paths {
+        let abs = vault_root.join(rel_path);
+        if abs.exists() {
+            if let Ok(meta) = search_db::extract_file_meta(&abs, vault_root) {
+                notes_cache.insert(meta.path.clone(), meta);
+            }
+        } else {
+            notes_cache.remove(rel_path);
+        }
     }
 
     for cmd in deferred.into_inner() {
@@ -829,7 +827,7 @@ fn handle_sync_paths(
 
 fn handle_embed_batch(
     conn: &Connection,
-    vault_root: &Path,
+    _vault_root: &Path,
     cancel: &Arc<AtomicBool>,
     app_handle: &AppHandle,
     vault_id: &str,
@@ -869,6 +867,9 @@ fn handle_embed_batch(
         if let Err(e) = vector_db::clear_all_embeddings(conn) {
             log::warn!("embed_batch: clear for model upgrade failed: {e}");
         }
+        if let Err(e) = vector_db::set_model_version(conn, vector_db::MODEL_VERSION) {
+            log::warn!("embed_batch: failed to update model version: {e}");
+        }
     }
 
     let already_embedded = vector_db::get_embedded_paths(conn);
@@ -904,17 +905,16 @@ fn handle_embed_batch(
         let mut paths = Vec::with_capacity(chunk.len());
 
         for (path, _) in chunk {
-            let abs = match notes_service::safe_vault_abs(vault_root, path) {
-                Ok(a) => a,
-                Err(_) => continue,
-            };
-            let body = match std::fs::read_to_string(&abs) {
-                Ok(b) if !b.trim().is_empty() => b,
+            let body = match search_db::get_fts_body(conn, path) {
+                Some(b) if !b.trim().is_empty() => b,
                 _ => {
-                    // Binary/unreadable files: embed the file path so they
-                    // participate in name-based semantic similarity.
-                    let name = abs.file_name().and_then(|n| n.to_str()).unwrap_or(path);
-                    name.to_string()
+                    // No indexed body (binary/unreadable): embed the file name
+                    // so it participates in name-based semantic similarity.
+                    Path::new(path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(path)
+                        .to_string()
                 }
             };
             paths.push(*path);

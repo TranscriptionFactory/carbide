@@ -17,6 +17,7 @@ pub struct WatcherState {
 
 struct WatcherRuntime {
     stop_tx: mpsc::Sender<()>,
+    join_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 #[derive(Debug, Serialize, Clone, Type)]
@@ -79,6 +80,16 @@ fn with_runtime_lock<T>(
 
 fn stop_runtime(runtime: WatcherRuntime) {
     let _ = runtime.stop_tx.send(());
+    if let Some(handle) = runtime.join_handle {
+        let (done_tx, done_rx) = mpsc::sync_channel::<()>(1);
+        std::thread::spawn(move || {
+            let _ = handle.join();
+            let _ = done_tx.send(());
+        });
+        if done_rx.recv_timeout(Duration::from_secs(3)).is_err() {
+            log::warn!("stop_runtime: timed out joining watcher thread");
+        }
+    }
 }
 
 fn stop_active_runtime(state: &State<'_, WatcherState>) -> Result<(), String> {
@@ -151,7 +162,7 @@ pub fn watch_vault(
     let app_handle = app.clone();
     let vault_id_clone = vault_id.clone();
 
-    std::thread::spawn(move || {
+    let join_handle = std::thread::spawn(move || {
         let mut ignore_matcher = match vault_ignore::load_vault_ignore_matcher(
             &app_handle,
             &vault_id_clone,
@@ -243,7 +254,7 @@ pub fn watch_vault(
         }
     });
 
-    set_active_runtime(&state, WatcherRuntime { stop_tx })?;
+    set_active_runtime(&state, WatcherRuntime { stop_tx, join_handle: Some(join_handle) })?;
     Ok(())
 }
 

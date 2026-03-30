@@ -49,8 +49,16 @@ impl EmbeddingService {
 
         let model = BertModel::load(vb, &config).map_err(|e| format!("load model: {e}"))?;
 
-        let tokenizer =
+        let mut tokenizer =
             Tokenizer::from_file(&tokenizer_path).map_err(|e| format!("load tokenizer: {e}"))?;
+
+        tokenizer
+            .with_padding(Some(PaddingParams {
+                strategy: PaddingStrategy::BatchLongest,
+                ..Default::default()
+            }))
+            .with_truncation(None)
+            .map_err(|e| format!("tokenizer config: {e}"))?;
 
         Ok(Self {
             model,
@@ -75,16 +83,8 @@ impl EmbeddingService {
             return Ok(vec![]);
         }
 
-        let mut tokenizer = self.tokenizer.clone();
-        tokenizer
-            .with_padding(Some(PaddingParams {
-                strategy: PaddingStrategy::BatchLongest,
-                ..Default::default()
-            }))
-            .with_truncation(None)
-            .map_err(|e| format!("tokenizer config: {e}"))?;
-
-        let encodings = tokenizer
+        let encodings = self
+            .tokenizer
             .encode_batch(texts.to_vec(), true)
             .map_err(|e| format!("tokenize: {e}"))?;
 
