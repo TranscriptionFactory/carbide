@@ -223,6 +223,50 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
 
 export const SETTINGS_KEY = "editor" as const;
 
+export const EDITOR_SPACING_DENSITY_OPTIONS: {
+  value: EditorSpacingDensity;
+  label: string;
+}[] = [
+  { value: "extra_compact", label: "Extra Compact" },
+  { value: "compact", label: "Compact" },
+  { value: "normal", label: "Normal" },
+  { value: "relaxed", label: "Relaxed" },
+  { value: "spacious", label: "Spacious" },
+];
+
+export const EDITOR_CODE_BLOCK_RADIUS_OPTIONS: {
+  value: EditorCodeBlockRadius;
+  label: string;
+}[] = [
+  { value: "tight", label: "Tight" },
+  { value: "normal", label: "Normal" },
+  { value: "soft", label: "Soft" },
+];
+
+export const EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS = [2, 3, 4].map((n) => ({
+  value: String(n),
+  label: `${String(n)} px`,
+}));
+
+export const EDITOR_LINK_UNDERLINE_STYLE_OPTIONS: {
+  value: EditorLinkUnderlineStyle;
+  label: string;
+}[] = [
+  { value: "solid", label: "Solid" },
+  { value: "dotted", label: "Dotted" },
+  { value: "wavy", label: "Wavy" },
+];
+
+export const EDITOR_DIVIDER_STYLE_OPTIONS: {
+  value: EditorDividerStyle;
+  label: string;
+}[] = [
+  { value: "gradient", label: "Gradient" },
+  { value: "solid", label: "Solid" },
+  { value: "dashed", label: "Dashed" },
+  { value: "dotted", label: "Dotted" },
+];
+
 export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "show_vault_dashboard_on_open",
   "git_autocommit_mode",
