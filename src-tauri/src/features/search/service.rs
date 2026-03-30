@@ -146,7 +146,7 @@ enum DbCommand {
 
 struct VaultWorker {
     write_tx: mpsc::Sender<DbCommand>,
-    read_conn: Mutex<Connection>,
+    read_conn: Arc<Mutex<Connection>>,
     cancel: Arc<AtomicBool>,
     join_handle: Option<JoinHandle<()>>,
 }
@@ -227,7 +227,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
 
     let worker = VaultWorker {
         write_tx: tx,
-        read_conn: Mutex::new(read_conn),
+        read_conn: Arc::new(Mutex::new(read_conn)),
         cancel: Arc::new(AtomicBool::new(false)),
         join_handle: Some(handle),
     };
@@ -979,39 +979,28 @@ pub(crate) fn with_read_conn<F, T>(app: &AppHandle, vault_id: &str, f: F) -> Res
 where
     F: FnOnce(&Connection) -> Result<T, String>,
 {
-    with_worker(app, vault_id, |worker| {
-        let conn = worker.read_conn.lock().map_err(|e| e.to_string())?;
-        f(&conn)
-    })
+    let read_conn = {
+        ensure_worker(app, vault_id)?;
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id).ok_or("vault worker not found")?;
+        Arc::clone(&worker.read_conn)
+    };
+    let conn = read_conn.lock().map_err(|e| e.to_string())?;
+    f(&conn)
 }
 
 fn send_write(app: &AppHandle, vault_id: &str, cmd: DbCommand) -> Result<(), String> {
-    with_worker(app, vault_id, |worker| {
-        worker.write_tx.send(cmd).map_err(|e| e.to_string())
-    })
+    let tx = {
+        ensure_worker(app, vault_id)?;
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id).ok_or("vault worker not found")?;
+        worker.write_tx.clone()
+    };
+    tx.send(cmd).map_err(|e| e.to_string())
 }
 
-fn with_worker<F, T>(app: &AppHandle, vault_id: &str, operation: F) -> Result<T, String>
-where
-    F: FnOnce(&VaultWorker) -> Result<T, String>,
-{
-    ensure_worker(app, vault_id)?;
-    let state = app.state::<SearchDbState>();
-    let map = state.workers.lock().map_err(|e| e.to_string())?;
-    let worker = map.get(vault_id).ok_or("vault worker not found")?;
-    operation(worker)
-}
-
-fn with_worker_mut<F, T>(app: &AppHandle, vault_id: &str, operation: F) -> Result<T, String>
-where
-    F: FnOnce(&mut VaultWorker) -> Result<T, String>,
-{
-    ensure_worker(app, vault_id)?;
-    let state = app.state::<SearchDbState>();
-    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
-    let worker = map.get_mut(vault_id).ok_or("vault worker not found")?;
-    operation(worker)
-}
 
 fn send_write_reply<T>(
     app: &AppHandle,
@@ -1034,11 +1023,12 @@ fn send_write_blocking(
 
 fn replace_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
     let next_cancel = Arc::new(AtomicBool::new(false));
-    with_worker_mut(app, vault_id, |worker| {
-        worker.cancel.store(true, Ordering::Relaxed);
-        worker.cancel = Arc::clone(&next_cancel);
-        Ok(())
-    })?;
+    ensure_worker(app, vault_id)?;
+    let state = app.state::<SearchDbState>();
+    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
+    let worker = map.get_mut(vault_id).ok_or("vault worker not found")?;
+    worker.cancel.store(true, Ordering::Relaxed);
+    worker.cancel = Arc::clone(&next_cancel);
     Ok(next_cancel)
 }
 
@@ -1099,10 +1089,15 @@ pub fn index_sync_paths(
 #[tauri::command]
 #[specta::specta]
 pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
-    with_worker(&app, &vault_id, |worker| {
-        worker.cancel.store(true, Ordering::Relaxed);
-        Ok(())
-    })
+    let cancel = {
+        ensure_worker(&app, &vault_id)?;
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(&vault_id).ok_or("vault worker not found")?;
+        Arc::clone(&worker.cancel)
+    };
+    cancel.store(true, Ordering::Relaxed);
+    Ok(())
 }
 
 #[tauri::command]
@@ -1413,7 +1408,7 @@ pub fn semantic_search_batch(
 
 #[tauri::command]
 #[specta::specta]
-pub fn hybrid_search(
+pub async fn hybrid_search(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -1424,9 +1419,20 @@ pub fn hybrid_search(
     let model = embedding_state.get_or_init(cache_dir, &app)?;
     let limit = limit.unwrap_or(20);
 
-    with_read_conn(&app, &vault_id, |conn| {
-        hybrid::hybrid_search(conn, &model, &query, limit)
+    let read_conn = {
+        ensure_worker(&app, &vault_id)?;
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id.as_str()).ok_or("vault worker not found")?;
+        Arc::clone(&worker.read_conn)
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = read_conn.lock().map_err(|e| e.to_string())?;
+        hybrid::hybrid_search(&conn, &model, &query, limit)
     })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
