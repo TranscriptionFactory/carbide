@@ -1,5 +1,11 @@
 # carbide
 
+## 1.8.0
+
+### Minor Changes
+
+- c1fa394: Add Editor tuning panel (font, size, line height, zoom) under Theme > Advanced; fix OmniFind FTS thread contention causing UI blocking; fix PDF export CSP violations and wire up editor zoom hotkeys
+
 ## 1.7.1
 
 ### Patch Changes
