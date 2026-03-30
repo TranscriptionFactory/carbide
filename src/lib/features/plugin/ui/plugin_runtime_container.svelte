@@ -6,8 +6,20 @@
 
   const active_ids = $derived(stores.plugin.active_plugin_ids);
   const vault_path = $derived(stores.vault.vault?.path ?? "");
+
+  let ready = $state(false);
+
+  $effect(() => {
+    if (active_ids.length > 0 && !ready) {
+      requestAnimationFrame(() => {
+        ready = true;
+      });
+    }
+  });
 </script>
 
-{#each active_ids as id (id)}
-  <PluginRuntimeItem plugin_id={id} {vault_path} {services} />
-{/each}
+{#if ready}
+  {#each active_ids as id (id)}
+    <PluginRuntimeItem plugin_id={id} {vault_path} {services} />
+  {/each}
+{/if}

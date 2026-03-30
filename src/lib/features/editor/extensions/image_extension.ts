@@ -102,6 +102,7 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
           dom.appendChild(wrapper);
 
           const img = document.createElement("img");
+          img.loading = "lazy";
           img.alt = String(node.attrs["alt"] || node.attrs["caption"] || "");
           wrapper.appendChild(img);
 

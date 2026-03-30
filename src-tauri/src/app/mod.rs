@@ -272,14 +272,23 @@ pub fn run() {
             features::toolchain::service::toolchain_resolve,
             shared::asset_cache::invalidate_asset_cache,
         ])
-        .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
-            shared::storage::handle_asset_request(ctx.app_handle(), req)
+        .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(shared::storage::handle_asset_request(&app, req));
+            });
         })
-        .register_uri_scheme_protocol("carbide-plugin", |ctx, req| {
-            shared::storage::handle_plugin_request(ctx.app_handle(), req)
+        .register_asynchronous_uri_scheme_protocol("carbide-plugin", |ctx, req, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(shared::storage::handle_plugin_request(&app, req));
+            });
         })
-        .register_uri_scheme_protocol("carbide-excalidraw", |ctx, req| {
-            shared::storage::handle_excalidraw_request(ctx.app_handle(), req)
+        .register_asynchronous_uri_scheme_protocol("carbide-excalidraw", |ctx, req, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(shared::storage::handle_excalidraw_request(&app, req));
+            });
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
