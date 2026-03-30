@@ -248,6 +248,27 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "file-down",
   },
   {
+    id: "zoom_in",
+    label: "Zoom In",
+    description: "Increase editor zoom level",
+    keywords: ["zoom", "in", "magnify", "bigger", "scale", "enlarge"],
+    icon: "zoom-in",
+  },
+  {
+    id: "zoom_out",
+    label: "Zoom Out",
+    description: "Decrease editor zoom level",
+    keywords: ["zoom", "out", "shrink", "smaller", "scale", "reduce"],
+    icon: "zoom-out",
+  },
+  {
+    id: "zoom_reset",
+    label: "Reset Zoom",
+    description: "Reset editor zoom to 100%",
+    keywords: ["zoom", "reset", "default", "100", "actual", "scale"],
+    icon: "rotate-ccw",
+  },
+  {
     id: "terminal_toggle",
     label: "Toggle Terminal",
     description: "Show or hide the terminal panel",

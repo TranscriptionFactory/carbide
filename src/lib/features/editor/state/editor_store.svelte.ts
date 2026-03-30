@@ -7,6 +7,10 @@ import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { EditorMode } from "$lib/shared/types/editor";
 
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.0;
+const ZOOM_STEP = 0.1;
+
 export class EditorStore {
   open_note = $state<OpenNoteState | null>(null);
   cursor = $state<CursorInfo | null>(null);
@@ -18,6 +22,7 @@ export class EditorStore {
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
   source_content_getter: (() => string) | null = null;
+  zoom = $state(1.0);
 
   set_source_content_getter(fn: () => string) {
     this.source_content_getter = fn;
@@ -160,6 +165,28 @@ export class EditorStore {
 
   set_scroll_fraction(fraction: number) {
     this.scroll_fraction = fraction;
+  }
+
+  zoom_in() {
+    this.zoom = Math.min(
+      ZOOM_MAX,
+      Math.round((this.zoom + ZOOM_STEP) * 10) / 10,
+    );
+  }
+
+  zoom_out() {
+    this.zoom = Math.max(
+      ZOOM_MIN,
+      Math.round((this.zoom - ZOOM_STEP) * 10) / 10,
+    );
+  }
+
+  zoom_reset() {
+    this.zoom = 1.0;
+  }
+
+  get zoom_percent(): number {
+    return Math.round(this.zoom * 100);
   }
 
   reset() {
