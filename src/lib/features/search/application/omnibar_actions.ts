@@ -292,8 +292,18 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
   }
 }
 
+const OMNIBAR_SEARCH_DEBOUNCE_MS = 150;
+
 export function register_omnibar_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
+
+  let search_debounce_timer: ReturnType<typeof setTimeout> | null = null;
+  function cancel_search_debounce() {
+    if (search_debounce_timer !== null) {
+      clearTimeout(search_debounce_timer);
+      search_debounce_timer = null;
+    }
+  }
 
   registry.register({
     id: ACTION_IDS.omnibar_toggle,
@@ -340,6 +350,7 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.omnibar_close,
     label: "Close Omnibar",
     execute: () => {
+      cancel_search_debounce();
       close_omnibar(input);
     },
   });
@@ -353,6 +364,8 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
         query: normalized_query,
         selected_index: 0,
       });
+
+      cancel_search_debounce();
 
       if (!normalized_query.trim()) {
         set_omnibar_searching(input, false);
@@ -369,11 +382,14 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
 
       set_omnibar_searching(input, true);
       const scope = stores.ui.omnibar.scope;
-      await search_omnibar_query(input, normalized_query, scope);
-      set_omnibar_state(input, {
-        is_searching: false,
-        selected_index: clamp_selected_index(input),
-      });
+      search_debounce_timer = setTimeout(async () => {
+        search_debounce_timer = null;
+        await search_omnibar_query(input, normalized_query, scope);
+        set_omnibar_state(input, {
+          is_searching: false,
+          selected_index: clamp_selected_index(input),
+        });
+      }, OMNIBAR_SEARCH_DEBOUNCE_MS);
     },
   });
 
