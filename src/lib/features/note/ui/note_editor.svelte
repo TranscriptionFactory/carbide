@@ -35,6 +35,8 @@
       : undefined,
   );
 
+  const zoom = $derived(stores.editor.zoom);
+
   const create_note_hotkey = $derived(
     stores.ui.hotkeys_config.bindings.find(
       (b) => b.action_id === ACTION_IDS.note_create,
@@ -58,7 +60,7 @@
   }
 </script>
 
-<div class="NoteEditor">
+<div class="NoteEditor" style:zoom={zoom !== 1 ? zoom : undefined}>
   {#if active_tab?.kind === "graph"}
     <GraphTabView />
   {:else if is_canvas_tab && active_tab?.kind === "document"}

@@ -65,6 +65,8 @@ function render_editor_status_bar(props?: {
       on_split_toggle: vi.fn(),
       show_line_numbers: true,
       on_line_numbers_toggle: vi.fn(),
+      zoom_percent: 100,
+      on_zoom_reset: vi.fn(),
       vim_nav_enabled: false,
       vim_nav_context: "none",
       vim_nav_pending_keys: "",

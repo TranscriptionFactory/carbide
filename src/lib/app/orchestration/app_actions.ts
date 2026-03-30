@@ -452,6 +452,30 @@ export function register_app_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.editor_zoom_in,
+    label: "Zoom In",
+    execute: () => {
+      input.stores.editor.zoom_in();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_zoom_out,
+    label: "Zoom Out",
+    execute: () => {
+      input.stores.editor.zoom_out();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_zoom_reset,
+    label: "Reset Zoom",
+    execute: () => {
+      input.stores.editor.zoom_reset();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.editor_sync_visual_from_store,
     label: "Sync Visual Editor from Store",
     execute: () => {
