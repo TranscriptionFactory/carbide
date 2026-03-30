@@ -1012,4 +1012,8 @@ export class NoteService {
   private sync_split_view_session(_session: SaveSession): void {
     // With Yjs, both editors share the same Y.Doc — no manual sync needed
   }
+
+  async invalidate_asset_cache(vault_id: VaultId, asset_path: string) {
+    await this.assets_port.invalidate_asset_cache(vault_id, asset_path);
+  }
 }

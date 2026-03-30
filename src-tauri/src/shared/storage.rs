@@ -1,3 +1,6 @@
+use crate::shared::asset_cache::{
+    build_skip_response, serve_with_cache, AssetCacheState, CachePolicy,
+};
 use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -150,7 +153,7 @@ fn url_decode(input: &str) -> String {
 const EMBEDDED_SDK: &str =
     include_str!("../features/plugin/sdk/carbide_plugin_api.js");
 
-pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
     let without_scheme = uri
@@ -204,13 +207,20 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
         Ok(p) => p,
         Err(_) => {
             if file_rel == "carbide-plugin-api.js" {
-                let sdk = EMBEDDED_SDK.as_bytes().to_vec();
-                return Response::builder()
-                    .header("Content-Type", "application/javascript")
-                    .header("Content-Length", sdk.len().to_string())
-                    .header("Access-Control-Allow-Origin", "*")
-                    .body(sdk)
-                    .unwrap();
+                let cache_state = app.state::<AssetCacheState>();
+                let key = format!("__sdk__/carbide-plugin-api.js");
+                return serve_with_cache(
+                    &cache_state.plugin,
+                    key,
+                    CachePolicy::Immutable,
+                    &req,
+                    || {
+                        Some((
+                            EMBEDDED_SDK.as_bytes().to_vec(),
+                            "application/javascript".into(),
+                        ))
+                    },
+                );
             }
             return Response::builder().status(404).body(Vec::new()).unwrap();
         }
@@ -220,18 +230,18 @@ pub fn handle_plugin_request(req: Request<Vec<u8>>) -> Response<Vec<u8>> {
         return Response::builder().status(403).body(Vec::new()).unwrap();
     }
 
-    let bytes = match std::fs::read(&canonical_target) {
-        Ok(b) => b,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
-    };
+    let cache_state = app.state::<AssetCacheState>();
+    let cache_key = format!("{}/{}", plugin_id, file_rel);
+    let policy = CachePolicy::ModerateLifetime;
+    let target_path = canonical_target.clone();
 
-    let mime = mime_guess::from_path(&canonical_target).first_or_octet_stream();
-    Response::builder()
-        .header("Content-Type", mime.as_ref())
-        .header("Content-Length", bytes.len().to_string())
-        .header("Access-Control-Allow-Origin", "*")
-        .body(bytes)
-        .unwrap()
+    serve_with_cache(&cache_state.plugin, cache_key, policy, &req, || {
+        let bytes = std::fs::read(&target_path).ok()?;
+        let mime = mime_guess::from_path(&target_path)
+            .first_or_octet_stream()
+            .to_string();
+        Some((bytes, mime))
+    })
 }
 
 pub fn handle_excalidraw_request(
@@ -269,7 +279,6 @@ pub fn handle_excalidraw_request(
     let excalidraw_dir = if resource_dir.exists() {
         resource_dir
     } else {
-        // Dev mode fallback: excalidraw-dist is built into src-tauri/excalidraw-dist/
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         manifest_dir.join("excalidraw-dist")
     };
@@ -292,18 +301,23 @@ pub fn handle_excalidraw_request(
         return Response::builder().status(403).body(Vec::new()).unwrap();
     }
 
-    let bytes = match std::fs::read(&canonical_target) {
-        Ok(b) => b,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
-    };
+    let cache_state = app.state::<AssetCacheState>();
+    let cache_key = file_rel.to_string();
+    let target_path = canonical_target.clone();
 
-    let mime = mime_guess::from_path(&canonical_target).first_or_octet_stream();
-    Response::builder()
-        .header("Content-Type", mime.as_ref())
-        .header("Content-Length", bytes.len().to_string())
-        .header("Access-Control-Allow-Origin", "*")
-        .body(bytes)
-        .unwrap()
+    serve_with_cache(
+        &cache_state.excalidraw,
+        cache_key,
+        CachePolicy::Immutable,
+        &req,
+        || {
+            let bytes = std::fs::read(&target_path).ok()?;
+            let mime = mime_guess::from_path(&target_path)
+                .first_or_octet_stream()
+                .to_string();
+            Some((bytes, mime))
+        },
+    )
 }
 
 pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
@@ -318,21 +332,38 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
         return Response::builder().status(400).body(Vec::new()).unwrap();
     }
 
-    let abs = match parts[0] {
+    match parts[0] {
         "vault" => {
             if parts.len() != 3 {
                 return Response::builder().status(400).body(Vec::new()).unwrap();
             }
             let vault_id = parts[1];
             let asset_rel = url_decode(parts[2]);
-            let vault_path = match vault_path(app, vault_id) {
+            let vp = match vault_path(app, vault_id) {
                 Ok(p) => p,
                 Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
             };
-            match crate::features::notes::service::safe_vault_abs(&vault_path, &asset_rel) {
+            let abs = match crate::features::notes::service::safe_vault_abs(&vp, &asset_rel) {
                 Ok(p) => p,
                 Err(_) => return Response::builder().status(403).body(Vec::new()).unwrap(),
-            }
+            };
+
+            let cache_state = app.state::<AssetCacheState>();
+            let cache_key = format!("{}/{}", vault_id, asset_rel);
+
+            serve_with_cache(
+                &cache_state.vault,
+                cache_key,
+                CachePolicy::ShortWithValidation,
+                &req,
+                || {
+                    let bytes = std::fs::read(&abs).ok()?;
+                    let mime = mime_guess::from_path(&abs)
+                        .first_or_octet_stream()
+                        .to_string();
+                    Some((bytes, mime))
+                },
+            )
         }
         "file" => {
             let encoded_path = if parts.len() == 3 {
@@ -347,26 +378,20 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
                 format!("/{decoded}")
             };
             let path = PathBuf::from(&abs_decoded);
-            match path.canonicalize() {
+            let abs = match path.canonicalize() {
                 Ok(p) if p.is_file() => p,
                 _ => return Response::builder().status(404).body(Vec::new()).unwrap(),
-            }
+            };
+
+            let bytes = match std::fs::read(&abs) {
+                Ok(b) => b,
+                Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+            };
+            let mime = mime_guess::from_path(&abs).first_or_octet_stream();
+            build_skip_response(bytes, mime.as_ref())
         }
-        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
-    };
-
-    let bytes = match std::fs::read(&abs) {
-        Ok(b) => b,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
-    };
-
-    let mime = mime_guess::from_path(&abs).first_or_octet_stream();
-    Response::builder()
-        .header("Content-Type", mime.as_ref())
-        .header("Content-Length", bytes.len().to_string())
-        .header("Access-Control-Allow-Origin", "*")
-        .body(bytes)
-        .unwrap()
+        _ => Response::builder().status(400).body(Vec::new()).unwrap(),
+    }
 }
 
 #[cfg(test)]

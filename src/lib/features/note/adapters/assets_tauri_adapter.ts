@@ -44,5 +44,11 @@ export function create_assets_tauri_adapter(): AssetsPort {
         limit,
       });
     },
+    async invalidate_asset_cache(vault_id, asset_path) {
+      return tauri_invoke<void>("invalidate_asset_cache", {
+        vaultId: vault_id,
+        assetPath: asset_path,
+      });
+    },
   };
 }

@@ -77,6 +77,7 @@ pub fn run() {
         .manage(features::code_lsp::CodeLspState::default())
         .manage(features::marksman::MarksmanState::default())
         .manage(features::toolchain::service::ToolchainState::default())
+        .manage(shared::asset_cache::AssetCacheState::new())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -269,12 +270,13 @@ pub fn run() {
             features::toolchain::service::toolchain_install,
             features::toolchain::service::toolchain_uninstall,
             features::toolchain::service::toolchain_resolve,
+            shared::asset_cache::invalidate_asset_cache,
         ])
         .register_uri_scheme_protocol("carbide-asset", |ctx, req| {
             shared::storage::handle_asset_request(ctx.app_handle(), req)
         })
-        .register_uri_scheme_protocol("carbide-plugin", |_ctx, req| {
-            shared::storage::handle_plugin_request(req)
+        .register_uri_scheme_protocol("carbide-plugin", |ctx, req| {
+            shared::storage::handle_plugin_request(ctx.app_handle(), req)
         })
         .register_uri_scheme_protocol("carbide-excalidraw", |ctx, req| {
             shared::storage::handle_excalidraw_request(ctx.app_handle(), req)

@@ -222,9 +222,14 @@ export function create_watcher_reactor(
             debounced_tree_refresh(true);
           }
           break;
-        case "log_only":
+        case "log_only": {
           log.info("Asset changed externally", { path: decision.path });
+          const vid = vault_store.vault?.id;
+          if (vid) {
+            void note_service.invalidate_asset_cache(vid, decision.path);
+          }
           break;
+        }
         case "ignore":
           break;
       }
