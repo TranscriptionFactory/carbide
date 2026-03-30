@@ -987,6 +987,8 @@ fn index_single_file_text(
         meta.title = extract_title_from_markdown(raw).unwrap_or_else(|| meta.name.clone());
         upsert_note_inner(conn, meta, raw)?;
         pending_links.push((meta.path.clone(), vec![]));
+        let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
+        crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
     }
     Ok(())
 }
