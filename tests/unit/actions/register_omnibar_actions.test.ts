@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
@@ -117,6 +117,14 @@ function create_omnibar_actions_harness() {
 }
 
 describe("register_omnibar_actions", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("opens note after selecting cross-vault hit", async () => {
     const { registry, stores, execute_vault_select, execute_note_open } =
       create_omnibar_actions_harness();
@@ -206,6 +214,7 @@ describe("register_omnibar_actions", () => {
     };
 
     await registry.execute(ACTION_IDS.omnibar_set_query, "machine learning");
+    await vi.advanceTimersByTimeAsync(200);
 
     expect(stores.search.omnibar_items).toHaveLength(1);
     expect(stores.search.omnibar_items[0]).toMatchObject({
@@ -236,6 +245,7 @@ describe("register_omnibar_actions", () => {
     };
 
     await registry.execute(ACTION_IDS.omnibar_set_query, "#planned docs");
+    await vi.advanceTimersByTimeAsync(200);
 
     expect(services.search.search_notes_all_vaults).not.toHaveBeenCalled();
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
