@@ -189,6 +189,8 @@ export function register_settings_actions(input: ActionRegistrationInput) {
         settings.ignored_folders,
         persisted_settings.ignored_folders,
       );
+      const show_hidden_files_changed =
+        settings.show_hidden_files !== persisted_settings.show_hidden_files;
       const semantic_graph_changed =
         settings.semantic_similarity_threshold !==
           persisted_settings.semantic_similarity_threshold ||
@@ -205,7 +207,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           persisted_settings: settings,
           has_unsaved_changes: false,
         };
-        if (ignored_folders_changed) {
+        if (ignored_folders_changed || show_hidden_files_changed) {
           await reconcile_workspace(
             registry,
             {
