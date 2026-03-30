@@ -1,5 +1,11 @@
 # carbide
 
+## 1.7.0
+
+### Minor Changes
+
+- 0306368: Task management improvements (M0-M6), indexing/embedding/watcher bug fixes, tree refresh on settings change, prompt builder
+
 ## 1.5.0
 
 ### Minor Changes
