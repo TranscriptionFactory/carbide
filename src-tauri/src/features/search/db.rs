@@ -2752,7 +2752,7 @@ pub fn query_bases(
             } else {
                 filter.value.clone()
             };
-            where_clauses.push(format!("{} {} ?{}", filter.property, op, params.len() + 1));
+            where_clauses.push(format!("notes.{} {} ?{}", filter.property, op, params.len() + 1));
             params.push(Box::new(val));
         } else {
             let op = match filter.operator.as_str() {
@@ -2801,7 +2801,7 @@ pub fn query_bases(
     let order_sql = if let Some(sort) = query.sort.first() {
         if is_direct_col(&sort.property) {
             format!(
-                "ORDER BY {} {}",
+                "ORDER BY notes.{} {}",
                 sort.property,
                 if sort.descending { "DESC" } else { "ASC" }
             )
@@ -2819,7 +2819,7 @@ pub fn query_bases(
             )
         }
     } else {
-        "ORDER BY path ASC".to_string()
+        "ORDER BY notes.path ASC".to_string()
     };
 
     let params_len = params.len();
