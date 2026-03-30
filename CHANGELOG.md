@@ -1,5 +1,11 @@
 # carbide
 
+## 1.7.1
+
+### Patch Changes
+
+- 49641a9: Prevent .iwe directory creation in browse mode, fix ai_prompt_builder test
+
 ## 1.7.0
 
 ### Minor Changes
