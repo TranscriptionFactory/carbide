@@ -25,6 +25,13 @@
     return Array.from(keys).sort();
   });
 
+  const has_tasks = $derived(rows.some((r) => (r.stats?.task_count ?? 0) > 0));
+
+  function is_overdue(date: string | null): boolean {
+    if (!date) return false;
+    return date < new Date().toISOString().split("T")[0]!;
+  }
+
   function sort_indicator(column: string) {
     if (active_sort?.property !== column) return null;
     return active_sort.descending ? "desc" : "asc";
@@ -69,6 +76,21 @@
           class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider"
           >Tags</th
         >
+        {#if has_tasks}
+          <th
+            class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 select-none"
+            onclick={() => on_sort_toggle?.("task_count")}
+          >
+            <span class="inline-flex items-center gap-1">
+              Tasks
+              {#if sort_indicator("task_count") === "asc"}<ArrowUp
+                  size={10}
+                />{:else if sort_indicator("task_count") === "desc"}<ArrowDown
+                  size={10}
+                />{/if}
+            </span>
+          </th>
+        {/if}
       </tr>
     </thead>
     <tbody>
@@ -96,6 +118,26 @@
               {/each}
             </div>
           </td>
+          {#if has_tasks}
+            <td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">
+              {#if row.stats.task_count > 0}
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="text-xs font-medium"
+                    >{row.stats.tasks_done}/{row.stats.task_count}</span
+                  >
+                  {#if row.stats.next_due_date}
+                    <span
+                      class="text-[10px] {is_overdue(row.stats.next_due_date)
+                        ? 'text-destructive'
+                        : 'text-muted-foreground'}"
+                    >
+                      {row.stats.next_due_date}
+                    </span>
+                  {/if}
+                </span>
+              {/if}
+            </td>
+          {/if}
         </tr>
       {/each}
     </tbody>

@@ -435,6 +435,13 @@ export class EditorService {
     this.session?.expand_all_heading_folds?.();
   }
 
+  update_task_checkbox(
+    line_number: number,
+    status: "todo" | "doing" | "done",
+  ): boolean {
+    return this.session?.update_task_checkbox?.(line_number, status) ?? false;
+  }
+
   private resolve_visual_selection(): EditorSelectionSnapshot | null {
     const text = this.session?.get_selected_text?.();
     if (!text || text.trim() === "") return null;

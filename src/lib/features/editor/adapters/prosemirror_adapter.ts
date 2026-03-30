@@ -97,6 +97,12 @@ function line_from_pos(doc: ProseNode, pos: number): number {
   return count_newlines(doc.textBetween(0, pos, "\n")) + 1;
 }
 
+const STATUS_TO_CHECKED: Record<"todo" | "doing" | "done", boolean | null> = {
+  todo: false,
+  doing: null,
+  done: true,
+};
+
 function calculate_cursor_info(view: EditorView): CursorInfo {
   const { doc, selection } = view.state;
   const $from = selection?.$from;
@@ -904,6 +910,30 @@ export function create_prosemirror_editor_port(args?: {
         },
         expand_all_heading_folds() {
           run_view_action((v) => expand_all_headings(v));
+        },
+        update_task_checkbox(
+          line_number: number,
+          status: "todo" | "doing" | "done",
+        ) {
+          const v = view;
+          if (!v) return false;
+          const checked_val = STATUS_TO_CHECKED[status];
+          let found = false;
+          v.state.doc.descendants((node, pos) => {
+            if (found) return false;
+            if (node.type.name !== "list_item") return true;
+            if (node.attrs["checked"] === undefined) return true;
+            const node_line = line_from_pos(v.state.doc, pos) + 1;
+            if (node_line !== line_number) return true;
+            const tr = v.state.tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              checked: checked_val,
+            });
+            v.dispatch(tr);
+            found = true;
+            return false;
+          });
+          return found;
         },
       };
 

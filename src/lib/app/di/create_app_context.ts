@@ -42,7 +42,7 @@ import {
   register_bases_actions,
 } from "$lib/features/bases";
 import { WatcherService } from "$lib/features/watcher";
-import { TaskService } from "$lib/features/task";
+import { TaskService, register_task_actions } from "$lib/features/task";
 import {
   PluginService,
   PluginSettingsService,
@@ -529,6 +529,9 @@ export function create_app_context(input: {
     input.ports.task,
     stores.task,
     stores.vault,
+    stores.editor,
+    (line_number, status) =>
+      editor_service.update_task_checkbox(line_number, status),
   );
 
   const canvas_service = new CanvasService(
@@ -872,6 +875,8 @@ export function create_app_context(input: {
     stores.vault,
     stores.ui,
   );
+
+  register_task_actions(action_registry, task_service, stores.task, stores.ui);
 
   register_query_actions(action_registry, query_service, stores.ui);
 

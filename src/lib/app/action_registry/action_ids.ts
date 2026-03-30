@@ -332,6 +332,13 @@ export const ACTION_IDS = {
   vim_nav_focus_outline: "vim_nav.focus.outline",
   vim_nav_focus_editor: "vim_nav.focus.editor",
   vim_nav_cheatsheet_toggle: "vim_nav.cheatsheet.toggle",
+
+  task_toggle_panel: "task.toggle_panel",
+  task_show_list: "task.show_list",
+  task_show_kanban: "task.show_kanban",
+  task_show_schedule: "task.show_schedule",
+  task_quick_capture: "task.quick_capture",
+  task_refresh: "task.refresh",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

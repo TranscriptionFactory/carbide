@@ -127,6 +127,7 @@ const list_item: NodeSpec = {
     listType: { default: "bullet" },
     spread: { default: "true" },
     checked: { default: null },
+    task_status: { default: null },
   },
   parseDOM: [
     {
@@ -140,6 +141,7 @@ const list_item: NodeSpec = {
           checked: dom.dataset["checked"]
             ? dom.dataset["checked"] === "true"
             : null,
+          task_status: dom.dataset["taskStatus"] ?? null,
         };
       },
     },
@@ -165,6 +167,9 @@ const list_item: NodeSpec = {
           "data-list-type": node.attrs["listType"] as string,
           "data-spread": node.attrs["spread"] as string,
           "data-checked": String(node.attrs["checked"]),
+          ...(node.attrs["task_status"]
+            ? { "data-task-status": node.attrs["task_status"] as string }
+            : {}),
         },
         0,
       ];

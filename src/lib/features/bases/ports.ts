@@ -1,5 +1,6 @@
 import type { VaultId } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
+import type { NoteStats } from "$lib/features/search";
 
 export interface PropertyValue {
   value: string;
@@ -10,6 +11,7 @@ export interface BaseNoteRow {
   note: NoteMeta;
   properties: Record<string, PropertyValue>;
   tags: string[];
+  stats: NoteStats;
 }
 
 export interface BaseQueryResults {

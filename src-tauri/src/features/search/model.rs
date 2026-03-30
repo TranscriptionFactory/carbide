@@ -94,6 +94,10 @@ pub struct NoteStats {
     pub heading_count: i64,
     pub outlink_count: i64,
     pub reading_time_secs: i64,
+    pub task_count: i64,
+    pub tasks_done: i64,
+    pub tasks_todo: i64,
+    pub next_due_date: Option<String>,
     pub last_indexed_at: i64,
 }
 

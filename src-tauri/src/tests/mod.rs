@@ -104,11 +104,12 @@ mod specta_export {
                 crate::features::canvas::extract_canvas_text,
                 crate::features::canvas::rewrite_canvas_file_refs,
                 crate::features::canvas::rewrite_canvas_refs_for_rename,
-                // Tasks commands (4)
+                // Tasks commands (5)
                 crate::features::tasks::tasks_query,
                 crate::features::tasks::tasks_get_for_note,
                 crate::features::tasks::tasks_update_state,
                 crate::features::tasks::tasks_create,
+                crate::features::tasks::tasks_update_due_date,
                 // Pipeline commands (1)
                 crate::features::pipeline::service::pipeline_execute,
                 // Buffer commands (5)

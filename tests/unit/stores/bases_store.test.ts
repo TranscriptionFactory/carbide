@@ -16,6 +16,18 @@ function make_note_row(id: string): BaseNoteRow {
     },
     properties: {},
     tags: [],
+    stats: {
+      word_count: 0,
+      char_count: 0,
+      heading_count: 0,
+      outlink_count: 0,
+      reading_time_secs: 0,
+      task_count: 0,
+      tasks_done: 0,
+      tasks_todo: 0,
+      next_due_date: null,
+      last_indexed_at: 0,
+    },
   };
 }
 

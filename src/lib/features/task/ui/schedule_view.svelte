@@ -5,11 +5,12 @@
   import CalendarIcon from "@lucide/svelte/icons/calendar";
 
   let { tasks }: { tasks: Task[] } = $props();
+  const { services } = use_app_context();
+  const taskService = services.task;
 
   const groupedByDate = $derived.by(() => {
     const groups = new Map<string, Task[]>();
 
-    // Sort tasks with due dates first
     const tasksWithDates = tasks
       .filter((t) => t.due_date)
       .sort((a, b) => a.due_date!.localeCompare(b.due_date!));
@@ -55,6 +56,34 @@
     const today = new Date().toISOString().split("T")[0];
     return dateStr === today;
   }
+
+  function handleDragStart(event: DragEvent, task: Task) {
+    if (!event.dataTransfer) return;
+    event.dataTransfer.setData("application/json", JSON.stringify(task));
+    event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  async function handleDrop(event: DragEvent, targetDate: string) {
+    event.preventDefault();
+    if (!event.dataTransfer) return;
+    try {
+      const taskData = event.dataTransfer.getData("application/json");
+      if (!taskData) return;
+      const task = JSON.parse(taskData) as Task;
+      const newDate = targetDate === "No Due Date" ? null : targetDate;
+      if (task.due_date === newDate) return;
+      await taskService.updateTaskDueDate(task.path, task.line_number, newDate);
+    } catch (e) {
+      console.error("Failed to reschedule task:", e);
+    }
+  }
 </script>
 
 <div class="h-full overflow-y-auto p-4 flex flex-col gap-6">
@@ -91,9 +120,20 @@
           {/if}
         </div>
 
-        <div class="flex flex-col gap-1 ml-2">
+        <div
+          class="flex flex-col gap-1 ml-2"
+          role="list"
+          ondragover={handleDragOver}
+          ondrop={(e) => handleDrop(e, date)}
+        >
           {#each dateTasks as task (task.id)}
-            <TaskListItem {task} />
+            <div
+              draggable="true"
+              ondragstart={(e) => handleDragStart(e, task)}
+              role="listitem"
+            >
+              <TaskListItem {task} />
+            </div>
           {/each}
         </div>
       </div>

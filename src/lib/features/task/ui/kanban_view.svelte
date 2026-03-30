@@ -1,5 +1,63 @@
-<script lang="ts">
+<script module lang="ts">
   import type { Task, TaskStatus } from "../types";
+
+  export function derive_kanban_columns(tasks: Task[], groupProperty: string) {
+    if (groupProperty === "status") {
+      const STATUS_COLUMNS: {
+        id: string;
+        label: string;
+        status: TaskStatus;
+      }[] = [
+        { id: "todo", label: "To Do", status: "todo" },
+        { id: "doing", label: "Doing", status: "doing" },
+        { id: "done", label: "Done", status: "done" },
+      ];
+      return STATUS_COLUMNS.map((col) => ({
+        ...col,
+        tasks: tasks.filter((t) => t.status === col.status),
+      }));
+    }
+
+    if (groupProperty === "section") {
+      const groups = new Map<string, Task[]>();
+      for (const t of tasks) {
+        const key = t.section || "No Section";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(t);
+      }
+      return Array.from(groups.entries()).map(([label, g]) => ({
+        id: label,
+        label,
+        status: undefined as TaskStatus | undefined,
+        tasks: g,
+      }));
+    }
+
+    if (groupProperty === "note") {
+      const groups = new Map<string, Task[]>();
+      for (const t of tasks) {
+        const key = t.path;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(t);
+      }
+      return Array.from(groups.entries()).map(([label, g]) => ({
+        id: label,
+        label: label.split("/").pop() || label,
+        status: undefined as TaskStatus | undefined,
+        tasks: g,
+      }));
+    }
+
+    return [] as {
+      id: string;
+      label: string;
+      status: TaskStatus | undefined;
+      tasks: Task[];
+    }[];
+  }
+</script>
+
+<script lang="ts">
   import TaskListItem from "./task_list_item.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
 
@@ -8,62 +66,9 @@
   const taskStore = stores.task;
   const taskService = services.task;
 
-  const columns = $derived.by(() => {
-    if (taskStore.grouping === "status" || taskStore.grouping === "none") {
-      return [
-        {
-          id: "todo",
-          label: "To Do",
-          status: "todo" as TaskStatus,
-          tasks: tasks.filter((t) => t.status === "todo"),
-        },
-        {
-          id: "doing",
-          label: "Doing",
-          status: "doing" as TaskStatus,
-          tasks: tasks.filter((t) => t.status === "doing"),
-        },
-        {
-          id: "done",
-          label: "Done",
-          status: "done" as TaskStatus,
-          tasks: tasks.filter((t) => t.status === "done"),
-        },
-      ];
-    }
-
-    if (taskStore.grouping === "section") {
-      const groups = new Map<string, Task[]>();
-      tasks.forEach((t) => {
-        const key = t.section || "No Section";
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(t);
-      });
-      return Array.from(groups.entries()).map(([label, tasks]) => ({
-        id: label,
-        label,
-        status: undefined,
-        tasks,
-      }));
-    }
-
-    if (taskStore.grouping === "note") {
-      const groups = new Map<string, Task[]>();
-      tasks.forEach((t) => {
-        const key = t.path;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(t);
-      });
-      return Array.from(groups.entries()).map(([label, tasks]) => ({
-        id: label,
-        label: label.split("/").pop() || label,
-        status: undefined,
-        tasks,
-      }));
-    }
-
-    return [];
-  });
+  const columns = $derived(
+    derive_kanban_columns(tasks, taskStore.kanbanGroupProperty),
+  );
 
   function handleDragStart(event: DragEvent, task: Task) {
     if (!event.dataTransfer) return;
