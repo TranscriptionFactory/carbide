@@ -1,5 +1,7 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import type { MarkType } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
+import { schema } from "./schema";
 
 const paired_delimiter_plugin_key = new PluginKey("paired-delimiter");
 
@@ -13,7 +15,12 @@ const CLOSING_DELIMITERS = new Set<string>(
   Array.from(OPENING_DELIMITERS.values()),
 );
 
-const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", "~", '"', "'", "="]);
+const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", '"', "'"]);
+
+const MARK_TOGGLE_DELIMITERS = new Map<string, MarkType>([
+  ["~", schema.marks.strikethrough],
+  ["=", schema.marks.highlight],
+]);
 
 function can_handle_text_input(
   view: EditorView,
@@ -57,6 +64,22 @@ function insert_text(
 ): boolean {
   const tr = view.state.tr.insertText(text, from, to);
   tr.setSelection(TextSelection.create(tr.doc, from + text.length));
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function toggle_mark_on_selection(
+  view: EditorView,
+  from: number,
+  to: number,
+  mark_type: MarkType,
+): boolean {
+  const { state } = view;
+  const has_mark = state.doc.rangeHasMark(from, to, mark_type);
+  const tr = has_mark
+    ? state.tr.removeMark(from, to, mark_type)
+    : state.tr.addMark(from, to, mark_type.create());
+  tr.setSelection(TextSelection.create(tr.doc, from, to));
   view.dispatch(tr.scrollIntoView());
   return true;
 }
@@ -139,6 +162,11 @@ export function create_paired_delimiter_prose_plugin(): Plugin {
         }
 
         if (!can_handle_text_input(view, from, to)) return false;
+
+        const mark_type = MARK_TOGGLE_DELIMITERS.get(text);
+        if (mark_type && from !== to) {
+          return toggle_mark_on_selection(view, from, to, mark_type);
+        }
 
         if (SELF_PAIRING_DELIMITERS.has(text) && from !== to) {
           return insert_delimiters(view, from, to, text, text);

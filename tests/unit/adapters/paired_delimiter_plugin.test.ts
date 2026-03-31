@@ -4,6 +4,7 @@ import { EditorState, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { create_paired_delimiter_prose_plugin } from "$lib/features/editor/adapters/paired_delimiter_plugin";
 import { describe_suggestion_location } from "$lib/features/editor/adapters/wiki_suggest_plugin";
+import { schema as editor_schema } from "$lib/features/editor/adapters/schema";
 
 function create_schema() {
   const doc = { content: "block+" } as const;
@@ -190,13 +191,12 @@ describe("create_paired_delimiter_prose_plugin", () => {
     expect(view.state.selection.from).toBe(7);
   });
 
-  it("wraps selection with tilde delimiters", () => {
-    const schema = create_schema();
+  it("applies strikethrough mark when tilde typed with selection", () => {
     const plugin = create_paired_delimiter_prose_plugin();
     const state = EditorState.create({
-      schema,
-      doc: schema.node("doc", null, [
-        schema.node("paragraph", null, [schema.text("strike")]),
+      schema: editor_schema,
+      doc: editor_schema.node("doc", null, [
+        editor_schema.node("paragraph", null, [editor_schema.text("strike")]),
       ]),
       plugins: [plugin],
     });
@@ -207,8 +207,15 @@ describe("create_paired_delimiter_prose_plugin", () => {
     expect(call_handle_text_input(plugin, view, 1, 7, "~")).toBe(true);
     expect(
       view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
-    ).toBe("~strike~");
-    expect(view.state.selection.from).toBe(8);
+    ).toBe("strike");
+    const has_strikethrough = view.state.doc.rangeHasMark(
+      1,
+      7,
+      editor_schema.marks.strikethrough,
+    );
+    expect(has_strikethrough).toBe(true);
+    expect(view.state.selection.from).toBe(1);
+    expect(view.state.selection.to).toBe(7);
   });
 
   it("does not wrap with formatting delimiters when no selection", () => {
