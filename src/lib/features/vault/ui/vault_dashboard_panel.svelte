@@ -114,17 +114,23 @@
       <h3 class="DashboardPanel__section-title">Tasks</h3>
       <div class="DashboardPanel__task-row">
         <div class="DashboardPanel__task-item">
-          <Circle class="DashboardPanel__task-icon DashboardPanel__task-icon--todo" />
+          <Circle
+            class="DashboardPanel__task-icon DashboardPanel__task-icon--todo"
+          />
           <span class="DashboardPanel__task-count">{task_counts.todo}</span>
           <span class="DashboardPanel__task-label">Todo</span>
         </div>
         <div class="DashboardPanel__task-item">
-          <Loader class="DashboardPanel__task-icon DashboardPanel__task-icon--doing" />
+          <Loader
+            class="DashboardPanel__task-icon DashboardPanel__task-icon--doing"
+          />
           <span class="DashboardPanel__task-count">{task_counts.doing}</span>
           <span class="DashboardPanel__task-label">In Progress</span>
         </div>
         <div class="DashboardPanel__task-item">
-          <CheckCircle class="DashboardPanel__task-icon DashboardPanel__task-icon--done" />
+          <CheckCircle
+            class="DashboardPanel__task-icon DashboardPanel__task-icon--done"
+          />
           <span class="DashboardPanel__task-count">{task_counts.done}</span>
           <span class="DashboardPanel__task-label">Done</span>
         </div>
@@ -138,7 +144,9 @@
       <div class="DashboardPanel__git-status">
         <div class="DashboardPanel__git-branch">
           <GitBranch class="DashboardPanel__git-icon" />
-          <span class="DashboardPanel__git-branch-name">{git_branch || "—"}</span>
+          <span class="DashboardPanel__git-branch-name"
+            >{git_branch || "—"}</span
+          >
           <span
             class="DashboardPanel__git-indicator"
             class:DashboardPanel__git-indicator--clean={!git_is_dirty}
@@ -149,7 +157,9 @@
         </div>
         {#if git_pending_files > 0}
           <span class="DashboardPanel__git-pending">
-            {git_pending_files} pending {git_pending_files === 1 ? "file" : "files"}
+            {git_pending_files} pending {git_pending_files === 1
+              ? "file"
+              : "files"}
           </span>
         {/if}
       </div>

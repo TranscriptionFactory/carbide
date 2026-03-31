@@ -47,7 +47,9 @@
   const dashboard_task_counts = $derived.by(() => {
     const tasks = stores.task.tasks;
     if (tasks.length === 0) return null;
-    let todo = 0, doing = 0, done = 0;
+    let todo = 0,
+      doing = 0,
+      done = 0;
     for (const t of tasks) {
       if (t.status === "todo") todo++;
       else if (t.status === "doing") doing++;
