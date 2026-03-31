@@ -67,8 +67,9 @@ Built-in auto-updater applies updates on startup.
 - Editor tuning panel: font, size, line height, and zoom controls.
 - Zen mode for distraction-free writing (Cmd+Shift+Enter).
 
-### AI & Writing Assistance
+### AI & LSP Writing Assistance
 
+- Configurable/multi-provider LSP integration
 - Intelligent Writing Engine (IWE) with LSP-based hover, completion, formatting, rename, inlay hints, and diagnostics.
 - Dynamic AI provider substitution for IWE transforms with config-driven actions.
 - AI-generated file tree blurbs: note descriptions displayed inline in the sidebar.
