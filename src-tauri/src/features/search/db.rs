@@ -206,6 +206,93 @@ fn extract_title_from_markdown(markdown: &str) -> Option<String> {
     None
 }
 
+pub(crate) fn extract_frontmatter_properties(markdown: &str) -> Vec<(String, String, String)> {
+    let mut props = Vec::new();
+    let mut lines = markdown.lines().peekable();
+
+    match lines.next() {
+        Some(first) if first.trim() == "---" => {}
+        _ => return props,
+    }
+
+    let mut current_key: Option<String> = None;
+    let mut array_values: Vec<String> = Vec::new();
+
+    let flush_array = |key: &str, arr: &mut Vec<String>, out: &mut Vec<(String, String, String)>| {
+        if !arr.is_empty() {
+            let json = format!(
+                "[{}]",
+                arr.iter()
+                    .map(|v| format!("\"{}\"", v.replace('\\', "\\\\").replace('"', "\\\"")))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+            out.push((key.to_string(), json, "array".to_string()));
+            arr.clear();
+        }
+    };
+
+    for line in lines {
+        if line.trim() == "---" {
+            if let Some(ref key) = current_key.take() {
+                flush_array(key, &mut array_values, &mut props);
+            }
+            break;
+        }
+
+        if line.starts_with("  - ") || line.starts_with("\t- ") {
+            let item = line.trim_start_matches(|c: char| c == ' ' || c == '\t').trim_start_matches("- ").trim();
+            if current_key.is_some() {
+                array_values.push(item.to_string());
+            }
+            continue;
+        }
+
+        if let Some(ref key) = current_key.take() {
+            flush_array(key, &mut array_values, &mut props);
+        }
+
+        if let Some(colon_pos) = line.find(':') {
+            let key = line[..colon_pos].trim().to_string();
+            if key.is_empty() || key.contains(' ') {
+                continue;
+            }
+            if key == "tags" {
+                continue;
+            }
+            let rest = line[colon_pos + 1..].trim();
+            if rest.is_empty() {
+                current_key = Some(key);
+                continue;
+            }
+            let value = rest.trim_matches(|c| c == '\'' || c == '"').to_string();
+            let typ = if value.parse::<f64>().is_ok() {
+                "number"
+            } else if value == "true" || value == "false" {
+                "boolean"
+            } else {
+                "string"
+            };
+            props.push((key, value, typ.to_string()));
+        }
+    }
+
+    props
+}
+
+fn save_properties(conn: &Connection, path: &str, props: &[(String, String, String)]) -> Result<(), String> {
+    conn.execute("DELETE FROM note_properties WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    for (key, value, typ) in props {
+        conn.execute(
+            "INSERT INTO note_properties (path, key, value, type) VALUES (?1, ?2, ?3, ?4)",
+            params![path, key, value, typ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
@@ -994,6 +1081,8 @@ fn index_single_file_text(
         pending_links.push((meta.path.clone(), vec![]));
         let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
         crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
+        let props = extract_frontmatter_properties(raw);
+        save_properties(conn, &meta.path, &props)?;
     }
     Ok(())
 }
