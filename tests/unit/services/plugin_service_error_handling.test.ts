@@ -1,9 +1,62 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PluginService } from "$lib/features/plugin/application/plugin_service";
-import type { PluginNotificationPort } from "$lib/features/plugin/ports";
-import type { RpcRequest } from "$lib/features/plugin/application/plugin_rpc_handler";
+import { PluginErrorTracker } from "$lib/features/plugin/application/plugin_error_tracker";
+import type {
+  PluginHostPort,
+  PluginInfo,
+  PluginNotificationPort,
+  StatusBarItem,
+  SidebarView,
+  RibbonIcon,
+  PluginSettingsTab,
+} from "$lib/features/plugin/ports";
+import type {
+  RpcRequest,
+  RpcResponse,
+} from "$lib/features/plugin/application/plugin_rpc_handler";
+import type { PluginStore } from "$lib/features/plugin/state/plugin_store.svelte";
+import type { VaultStore } from "$lib/features/vault";
+import type { CommandDefinition } from "$lib/features/search";
 
-function make_manifest(id = "plugin-a", name = "Plugin A") {
+type TestStore = {
+  plugins: Map<string, PluginInfo>;
+  commands: CommandDefinition[];
+  status_bar_items: StatusBarItem[];
+  sidebar_views: SidebarView[];
+  ribbon_icons: RibbonIcon[];
+  settings_tabs: PluginSettingsTab[];
+  register_command: ReturnType<typeof vi.fn>;
+  unregister_command: ReturnType<typeof vi.fn>;
+  register_status_bar_item: ReturnType<typeof vi.fn>;
+  unregister_status_bar_item: ReturnType<typeof vi.fn>;
+  update_status_bar_item: ReturnType<typeof vi.fn>;
+  register_sidebar_view: ReturnType<typeof vi.fn>;
+  unregister_sidebar_view: ReturnType<typeof vi.fn>;
+  register_ribbon_icon: ReturnType<typeof vi.fn>;
+  unregister_ribbon_icon: ReturnType<typeof vi.fn>;
+  register_settings_tab: ReturnType<typeof vi.fn>;
+  unregister_settings_tab: ReturnType<typeof vi.fn>;
+};
+
+type TestRpcHandler = {
+  handle_request: ReturnType<typeof vi.fn>;
+};
+
+type PluginServiceInternals = {
+  rpc_handler: TestRpcHandler | null;
+  error_tracker: PluginErrorTracker;
+};
+
+function plugin_service_internals(
+  service: PluginService,
+): PluginServiceInternals {
+  return service as unknown as PluginServiceInternals;
+}
+
+function make_manifest(
+  id = "plugin-a",
+  name = "Plugin A",
+): PluginInfo["manifest"] {
   return {
     id,
     name,
@@ -15,31 +68,27 @@ function make_manifest(id = "plugin-a", name = "Plugin A") {
   };
 }
 
-function make_store(plugin_id = "plugin-a") {
+function make_store(plugin_id = "plugin-a"): TestStore {
   const manifest = make_manifest(plugin_id);
-  const plugins = new Map([
+  const plugins = new Map<string, PluginInfo>([
     [
       plugin_id,
       {
         manifest,
         path: "/plugins/a",
         enabled: true,
-        status: "active" as const,
+        status: "active",
       },
     ],
   ]);
-  const commands: any[] = [];
-  const status_bar_items: any[] = [];
-  const sidebar_views: any[] = [];
-  const ribbon_icons: any[] = [];
-  const settings_tabs: any[] = [];
+
   return {
     plugins,
-    commands,
-    status_bar_items,
-    sidebar_views,
-    ribbon_icons,
-    settings_tabs,
+    commands: [],
+    status_bar_items: [],
+    sidebar_views: [],
+    ribbon_icons: [],
+    settings_tabs: [],
     register_command: vi.fn(),
     unregister_command: vi.fn(),
     register_status_bar_item: vi.fn(),
@@ -55,32 +104,44 @@ function make_store(plugin_id = "plugin-a") {
 }
 
 function make_host_port() {
+  const unload = vi.fn().mockResolvedValue(undefined);
+
   return {
-    discover: vi.fn().mockResolvedValue([]),
-    load: vi.fn().mockResolvedValue(undefined),
-    unload: vi.fn().mockResolvedValue(undefined),
-    watch: vi.fn().mockResolvedValue(undefined),
-    unwatch: vi.fn().mockResolvedValue(undefined),
-    subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),
+    port: {
+      discover: vi.fn().mockResolvedValue([]),
+      load: vi.fn().mockResolvedValue(undefined),
+      unload,
+      watch: vi.fn().mockResolvedValue(undefined),
+      unwatch: vi.fn().mockResolvedValue(undefined),
+      subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),
+    } satisfies PluginHostPort,
+    mocks: { unload },
   };
 }
 
-function make_vault_store() {
-  return { vault: { path: "/vault" } } as any;
+function make_vault_store(): VaultStore {
+  return { vault: { path: "/vault" } } as unknown as VaultStore;
 }
 
-function make_rpc_handler(response: {
-  id: string;
-  result?: any;
-  error?: string;
-}) {
-  return { handle_request: vi.fn().mockResolvedValue(response) };
-}
-
-function make_notification_port(): PluginNotificationPort {
+function make_rpc_handler(response: RpcResponse): TestRpcHandler {
   return {
-    notify_plugin_unstable: vi.fn(),
-    notify_plugin_auto_disabled: vi.fn(),
+    handle_request: vi.fn().mockResolvedValue(response),
+  };
+}
+
+function make_notification_port() {
+  const notify_plugin_unstable = vi.fn();
+  const notify_plugin_auto_disabled = vi.fn();
+
+  return {
+    port: {
+      notify_plugin_unstable,
+      notify_plugin_auto_disabled,
+    } satisfies PluginNotificationPort,
+    mocks: {
+      notify_plugin_unstable,
+      notify_plugin_auto_disabled,
+    },
   };
 }
 
@@ -88,100 +149,100 @@ function make_rpc_request(id = "req-1"): RpcRequest {
   return { id, method: "test_method", params: [] };
 }
 
+function create_service(input?: {
+  store?: TestStore;
+  notification_port?: PluginNotificationPort;
+}) {
+  const store = input?.store ?? make_store();
+  const host_port = make_host_port();
+  const service = new PluginService(
+    store as unknown as PluginStore,
+    make_vault_store(),
+    host_port.port,
+    input?.notification_port,
+  );
+
+  return { service, store, host_port };
+}
+
 describe("PluginService error handling", () => {
   it("RPC error triggers error tracking (no action on single error)", async () => {
-    const store = make_store();
-    const host_port = make_host_port();
     const notification = make_notification_port();
-    const service = new PluginService(
-      store as any,
-      make_vault_store(),
-      host_port,
-      notification,
-    );
-    const rpc_handler = make_rpc_handler({ id: "req-1", error: "boom" });
-    service.initialize_rpc({} as any);
-    (service as any).rpc_handler = rpc_handler;
+    const { service } = create_service({
+      notification_port: notification.port,
+    });
+    plugin_service_internals(service).rpc_handler = make_rpc_handler({
+      id: "req-1",
+      error: "boom",
+    });
 
     const response = await service.handle_rpc("plugin-a", make_rpc_request());
 
     expect(response.error).toBe("boom");
-    expect(notification.notify_plugin_unstable).not.toHaveBeenCalled();
-    expect(notification.notify_plugin_auto_disabled).not.toHaveBeenCalled();
+    expect(notification.mocks.notify_plugin_unstable).not.toHaveBeenCalled();
+    expect(
+      notification.mocks.notify_plugin_auto_disabled,
+    ).not.toHaveBeenCalled();
   });
 
   it("warn_user action calls notify_plugin_unstable after 2 errors within 5s", async () => {
-    const store = make_store();
-    const host_port = make_host_port();
     const notification = make_notification_port();
-    const service = new PluginService(
-      store as any,
-      make_vault_store(),
-      host_port,
-      notification,
-    );
-    const rpc_handler = make_rpc_handler({ id: "req-1", error: "boom" });
-    (service as any).rpc_handler = rpc_handler;
-
-    const tracker = (service as any).error_tracker;
-    // Pre-seed one error less than 5s ago
-    tracker.record_error("plugin-a", Date.now() - 1_000);
+    const { service } = create_service({
+      notification_port: notification.port,
+    });
+    const internals = plugin_service_internals(service);
+    internals.rpc_handler = make_rpc_handler({ id: "req-1", error: "boom" });
+    internals.error_tracker.record_error("plugin-a", Date.now() - 1_000);
 
     await service.handle_rpc("plugin-a", make_rpc_request());
 
-    expect(notification.notify_plugin_unstable).toHaveBeenCalledWith(
+    expect(notification.mocks.notify_plugin_unstable).toHaveBeenCalledWith(
       "plugin-a",
       "Plugin A",
     );
-    expect(notification.notify_plugin_auto_disabled).not.toHaveBeenCalled();
+    expect(
+      notification.mocks.notify_plugin_auto_disabled,
+    ).not.toHaveBeenCalled();
   });
 
   it("auto_disable action disables the plugin and calls notify_plugin_auto_disabled", async () => {
-    const store = make_store();
-    const host_port = make_host_port();
     const notification = make_notification_port();
-    const service = new PluginService(
-      store as any,
-      make_vault_store(),
-      host_port,
-      notification,
-    );
-    const rpc_handler = make_rpc_handler({ id: "req-1", error: "boom" });
-    (service as any).rpc_handler = rpc_handler;
+    const { service, store, host_port } = create_service({
+      notification_port: notification.port,
+    });
+    const internals = plugin_service_internals(service);
+    internals.rpc_handler = make_rpc_handler({ id: "req-1", error: "boom" });
 
-    const tracker = (service as any).error_tracker;
     const now = Date.now();
-    tracker.record_error("plugin-a", now - 4_000);
-    tracker.record_error("plugin-a", now - 3_000);
-    tracker.record_error("plugin-a", now - 2_000);
-    tracker.record_error("plugin-a", now - 1_000);
+    internals.error_tracker.record_error("plugin-a", now - 4_000);
+    internals.error_tracker.record_error("plugin-a", now - 3_000);
+    internals.error_tracker.record_error("plugin-a", now - 2_000);
+    internals.error_tracker.record_error("plugin-a", now - 1_000);
 
     await service.handle_rpc("plugin-a", make_rpc_request());
 
-    expect(notification.notify_plugin_auto_disabled).toHaveBeenCalledWith(
+    expect(notification.mocks.notify_plugin_auto_disabled).toHaveBeenCalledWith(
       "plugin-a",
       "Plugin A",
     );
-    expect(host_port.unload).toHaveBeenCalledWith("plugin-a");
+    expect(host_port.mocks.unload).toHaveBeenCalledWith("plugin-a");
     expect(store.plugins.get("plugin-a")?.status).toBe("idle");
     expect(store.plugins.get("plugin-a")?.enabled).toBe(false);
   });
 
-  it("mark_plugin_crashed sets error status and removes contributions", async () => {
+  it("mark_plugin_crashed sets error status and removes contributions", () => {
     const store = make_store();
-    store.commands = [{ id: "plugin-a:cmd1" } as any];
-    store.status_bar_items = [{ id: "plugin-a:bar1", priority: 1 } as any];
-    store.sidebar_views = [{ id: "plugin-a:view1" } as any];
+    store.commands = [{ id: "plugin-a:cmd1" } as CommandDefinition];
+    store.status_bar_items = [
+      { id: "plugin-a:bar1", priority: 1 } as StatusBarItem,
+    ];
+    store.sidebar_views = [{ id: "plugin-a:view1" } as SidebarView];
 
-    const service = new PluginService(
-      store as any,
-      make_vault_store(),
-      make_host_port(),
-    );
+    const { service } = create_service({ store });
 
-    await service.mark_plugin_crashed("plugin-a", "iframe died");
+    service.mark_plugin_crashed("plugin-a", "iframe died");
 
-    const info = store.plugins.get("plugin-a") as any;
+    const info = store.plugins.get("plugin-a");
     expect(info?.status).toBe("error");
     expect(info?.error).toBe("iframe died");
     expect(store.unregister_command).toHaveBeenCalledWith("plugin-a:cmd1");
@@ -194,20 +255,13 @@ describe("PluginService error handling", () => {
   });
 
   it("disabling a plugin resets its error tracker", async () => {
-    const store = make_store();
-    const host_port = make_host_port();
-    const service = new PluginService(
-      store as any,
-      make_vault_store(),
-      host_port,
-    );
-    const tracker = (service as any).error_tracker;
+    const { service } = create_service();
+    const tracker = plugin_service_internals(service).error_tracker;
     const now = Date.now();
     tracker.record_error("plugin-a", now - 1_000);
 
     await service.disable_plugin("plugin-a");
 
-    // After reset, a single error should return "none" (no prior history)
     const action = tracker.record_error("plugin-a", now);
     expect(action).toBe("none");
   });

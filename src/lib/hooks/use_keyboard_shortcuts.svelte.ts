@@ -2,11 +2,7 @@ import type { HotkeyConfig } from "$lib/features/hotkey";
 import type { ActionRegistry } from "$lib/app";
 import { normalize_event_to_key } from "$lib/features/hotkey";
 import type { VimNavStore } from "$lib/features/vim_nav";
-import {
-  process_key,
-  clear_sequence,
-  create_key_sequence_state,
-} from "$lib/features/vim_nav";
+import { process_key, create_key_sequence_state } from "$lib/features/vim_nav";
 
 export type KeyboardShortcuts = {
   handle_keydown_capture: (event: KeyboardEvent) => void;
