@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createVirtualizer } from "@tanstack/svelte-virtual";
   import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
   import type { FlatTreeNode, MoveItem } from "$lib/shared/types/filetree";
@@ -188,7 +189,7 @@
 
   $effect(() => {
     const _height = ROW_HEIGHT;
-    const v = $virtualizer;
+    const v = untrack(() => $virtualizer);
     if (!v) return;
     v.measure();
   });
