@@ -1,9 +1,9 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
-    compute_sync_plan, get_backlinks, get_manifest, get_orphan_outlinks, get_outlinks,
-    list_note_paths_by_prefix, open_search_db_at_path, rebuild_index, remove_notes_by_prefix,
-    rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
-    upsert_note,
+    compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest,
+    get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
+    rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path, search,
+    set_outlinks, suggest_planned, sync_index, upsert_note,
 };
 use crate::features::search::model::{IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
@@ -466,4 +466,119 @@ fn rename_note_path_moves_note_record() {
 
     assert_eq!(new_count, 1);
     assert_eq!(old_count, 0);
+}
+
+#[test]
+fn frontmatter_properties_empty_when_no_frontmatter() {
+    let md = "# Just a heading\n\nSome text.";
+    assert!(extract_frontmatter_properties(md).is_empty());
+}
+
+#[test]
+fn frontmatter_properties_skips_tags_key() {
+    let md = "---\ntags: foo\nstatus: draft\n---\n";
+    let props = extract_frontmatter_properties(md);
+    assert_eq!(props.len(), 1);
+    assert_eq!(props[0].0, "status");
+}
+
+#[test]
+fn frontmatter_properties_detects_types() {
+    let md = "---\nstatus: draft\npriority: 5\ndue: 2024-01-15\nactive: true\n---\n";
+    let props = extract_frontmatter_properties(md);
+    let find = |k: &str| props.iter().find(|(key, _, _)| key == k).cloned();
+
+    let (_, val, typ) = find("status").expect("status should be present");
+    assert_eq!(val, "draft");
+    assert_eq!(typ, "string");
+
+    let (_, val, typ) = find("priority").expect("priority should be present");
+    assert_eq!(val, "5");
+    assert_eq!(typ, "number");
+
+    let (_, val, typ) = find("due").expect("due should be present");
+    assert_eq!(val, "2024-01-15");
+    assert_eq!(typ, "string");
+
+    let (_, val, typ) = find("active").expect("active should be present");
+    assert_eq!(val, "true");
+    assert_eq!(typ, "boolean");
+}
+
+#[test]
+fn frontmatter_properties_array_as_json() {
+    let md = "---\ncategories:\n  - work\n  - planning\n---\n";
+    let props = extract_frontmatter_properties(md);
+    assert_eq!(props.len(), 1);
+    let (key, val, typ) = &props[0];
+    assert_eq!(key, "categories");
+    assert_eq!(val, r#"["work","planning"]"#);
+    assert_eq!(typ, "array");
+}
+
+#[test]
+fn frontmatter_properties_strips_surrounding_quotes() {
+    let md = "---\ntitle: \"My Note\"\nauthor: 'Alice'\n---\n";
+    let props = extract_frontmatter_properties(md);
+    let find = |k: &str| props.iter().find(|(key, _, _)| key == k).cloned();
+
+    let (_, val, _) = find("title").expect("title should be present");
+    assert_eq!(val, "My Note");
+
+    let (_, val, _) = find("author").expect("author should be present");
+    assert_eq!(val, "Alice");
+}
+
+#[test]
+fn frontmatter_properties_populated_during_index() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let root = tmp.path();
+    let db_path = tmp.path().join("test.db");
+
+    write_md(
+        root,
+        "note.md",
+        "---\nstatus: active\npriority: 3\n---\n# Note\n",
+    );
+
+    let conn = open_search_db_at_path(&db_path).expect("db should open");
+    let cancel = AtomicBool::new(false);
+    let mut yield_count = 0;
+    rebuild_index(
+        None,
+        "vault1",
+        &conn,
+        root,
+        &cancel,
+        &|_, _| {},
+        &mut || yield_count += 1,
+    )
+    .expect("rebuild should succeed");
+
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM note_properties WHERE path = 'note.md'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count query should succeed");
+    assert_eq!(count, 2);
+
+    let status_type: String = conn
+        .query_row(
+            "SELECT type FROM note_properties WHERE path = 'note.md' AND key = 'status'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("status query should succeed");
+    assert_eq!(status_type, "string");
+
+    let priority_type: String = conn
+        .query_row(
+            "SELECT type FROM note_properties WHERE path = 'note.md' AND key = 'priority'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("priority query should succeed");
+    assert_eq!(priority_type, "number");
 }
