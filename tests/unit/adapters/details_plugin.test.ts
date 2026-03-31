@@ -3,6 +3,20 @@ import {
   parse_markdown,
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
+import type { Node as ProsemirrorNode } from "prosemirror-model";
+
+function expect_defined<T>(value: T | null | undefined, label: string): T {
+  expect(value, label).toBeTruthy();
+  return value as T;
+}
+
+function details_node(doc: ProsemirrorNode): ProsemirrorNode {
+  return expect_defined(doc.firstChild, "details block");
+}
+
+function child_node(node: ProsemirrorNode, index: number, label: string) {
+  return expect_defined(node.child(index), label);
+}
 
 describe("details_block markdown parsing", () => {
   it("parses basic <details> with summary and body", () => {
@@ -16,19 +30,19 @@ describe("details_block markdown parsing", () => {
     ].join("\n");
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    expect(details).toBeTruthy();
-    expect(details!.type.name).toBe("details_block");
-    expect(details!.attrs["open"]).toBe(false);
+    const details = details_node(doc);
+    expect(details.type.name).toBe("details_block");
+    expect(details.attrs["open"]).toBe(false);
 
-    const summary = details!.child(0);
+    const summary = child_node(details, 0, "details summary");
     expect(summary.type.name).toBe("details_summary");
     expect(summary.textContent).toBe("Click me");
 
-    const content = details!.child(1);
+    const content = child_node(details, 1, "details content");
     expect(content.type.name).toBe("details_content");
-    expect(content.firstChild!.type.name).toBe("paragraph");
-    expect(content.firstChild!.textContent).toBe("Hello world");
+    const paragraph = expect_defined(content.firstChild, "details paragraph");
+    expect(paragraph.type.name).toBe("paragraph");
+    expect(paragraph.textContent).toBe("Hello world");
   });
 
   it("parses <details open> attribute", () => {
@@ -42,19 +56,18 @@ describe("details_block markdown parsing", () => {
     ].join("\n");
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    expect(details!.attrs["open"]).toBe(true);
+    const details = details_node(doc);
+    expect(details.attrs["open"]).toBe(true);
   });
 
   it("parses details with no summary tag", () => {
     const md = ["<details>", "", "Just body", "", "</details>"].join("\n");
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    expect(details).toBeTruthy();
-    expect(details!.type.name).toBe("details_block");
+    const details = details_node(doc);
+    expect(details.type.name).toBe("details_block");
 
-    const summary = details!.child(0);
+    const summary = child_node(details, 0, "details summary");
     expect(summary.textContent).toBe("Details");
   });
 
@@ -64,11 +77,10 @@ describe("details_block markdown parsing", () => {
     );
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    expect(details).toBeTruthy();
-    expect(details!.type.name).toBe("details_block");
+    const details = details_node(doc);
+    expect(details.type.name).toBe("details_block");
 
-    const content = details!.child(1);
+    const content = child_node(details, 1, "details content");
     expect(content.type.name).toBe("details_content");
     expect(content.childCount).toBeGreaterThanOrEqual(1);
   });
@@ -87,8 +99,8 @@ describe("details_block markdown parsing", () => {
     ].join("\n");
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    const content = details!.child(1);
+    const details = details_node(doc);
+    const content = child_node(details, 1, "details content");
 
     const child_types = [];
     for (let i = 0; i < content.childCount; i++) {
@@ -114,14 +126,14 @@ describe("details_block markdown parsing", () => {
     ].join("\n");
 
     const doc = parse_markdown(md);
-    const outer = doc.firstChild;
-    expect(outer!.type.name).toBe("details_block");
-    expect(outer!.child(0).textContent).toBe("Outer");
+    const outer = details_node(doc);
+    expect(outer.type.name).toBe("details_block");
+    expect(child_node(outer, 0, "outer summary").textContent).toBe("Outer");
 
-    const outer_content = outer!.child(1);
-    const inner = outer_content.firstChild;
-    expect(inner!.type.name).toBe("details_block");
-    expect(inner!.child(0).textContent).toBe("Inner");
+    const outer_content = child_node(outer, 1, "outer content");
+    const inner = expect_defined(outer_content.firstChild, "inner details");
+    expect(inner.type.name).toBe("details_block");
+    expect(child_node(inner, 0, "inner summary").textContent).toBe("Inner");
   });
 });
 
@@ -222,9 +234,13 @@ describe("details_block schema validation", () => {
     ].join("\n");
 
     const doc = parse_markdown(md);
-    const details = doc.firstChild;
-    expect(details!.childCount).toBe(2);
-    expect(details!.child(0).type.name).toBe("details_summary");
-    expect(details!.child(1).type.name).toBe("details_content");
+    const details = details_node(doc);
+    expect(details.childCount).toBe(2);
+    expect(child_node(details, 0, "details summary").type.name).toBe(
+      "details_summary",
+    );
+    expect(child_node(details, 1, "details content").type.name).toBe(
+      "details_content",
+    );
   });
 });
