@@ -3,6 +3,7 @@ import {
   scan_entry_to_csl_item,
   derive_title_from_filename,
   parse_author_string,
+  parse_creation_date,
   generate_linked_source_id,
 } from "$lib/features/reference/domain/linked_source_utils";
 import type { ScanEntry } from "$lib/features/reference/types";
@@ -17,6 +18,8 @@ function make_entry(overrides: Partial<ScanEntry> = {}): ScanEntry {
     subject: "An introduction to deep learning",
     keywords: "machine learning, neural networks",
     doi: "10.1234/test.5678",
+    isbn: null,
+    arxiv_id: null,
     creation_date: "D:20240101120000",
     body_text: "body text",
     page_offsets: [0, 100],
@@ -120,6 +123,87 @@ describe("scan_entry_to_csl_item", () => {
     const item1 = scan_entry_to_csl_item(entry1, "s1");
     const item2 = scan_entry_to_csl_item(entry2, "s1");
     expect(item1.id).not.toBe(item2.id);
+  });
+});
+
+describe("parse_creation_date", () => {
+  it("parses PDF date format D:YYYYMMDD", () => {
+    expect(parse_creation_date("D:20240315120000")).toEqual({
+      "date-parts": [[2024, 3, 15]],
+    });
+  });
+
+  it("parses PDF date with only year and month", () => {
+    expect(parse_creation_date("D:202403")).toEqual({
+      "date-parts": [[2024, 3]],
+    });
+  });
+
+  it("parses PDF date with only year", () => {
+    expect(parse_creation_date("D:2024")).toEqual({
+      "date-parts": [[2024]],
+    });
+  });
+
+  it("parses ISO date YYYY-MM-DD", () => {
+    expect(parse_creation_date("2024-03-15")).toEqual({
+      "date-parts": [[2024, 3, 15]],
+    });
+  });
+
+  it("parses slash date YYYY/MM/DD", () => {
+    expect(parse_creation_date("2024/03/15")).toEqual({
+      "date-parts": [[2024, 3, 15]],
+    });
+  });
+
+  it("parses year-only", () => {
+    expect(parse_creation_date("2024")).toEqual({
+      "date-parts": [[2024]],
+    });
+  });
+
+  it("returns null for garbage input", () => {
+    expect(parse_creation_date("not a date")).toBeNull();
+  });
+
+  it("returns null for implausible year", () => {
+    expect(parse_creation_date("0001")).toBeNull();
+  });
+});
+
+describe("scan_entry_to_csl_item with new fields", () => {
+  it("maps isbn to CslItem.ISBN", () => {
+    const entry = make_entry({ isbn: "9783161484100" });
+    const item = scan_entry_to_csl_item(entry, "s1");
+    expect(item.ISBN).toBe("9783161484100");
+  });
+
+  it("maps arxiv_id to CslItem._arxiv_id", () => {
+    const entry = make_entry({ arxiv_id: "2301.07041v2" });
+    const item = scan_entry_to_csl_item(entry, "s1");
+    expect(item._arxiv_id).toBe("2301.07041v2");
+  });
+
+  it("parses creation_date into issued date-parts", () => {
+    const entry = make_entry({ creation_date: "D:20240101120000" });
+    const item = scan_entry_to_csl_item(entry, "s1");
+    expect(item.issued).toEqual({ "date-parts": [[2024, 1, 1]] });
+  });
+
+  it("omits issued when creation_date is null", () => {
+    const entry = make_entry({ creation_date: null });
+    const item = scan_entry_to_csl_item(entry, "s1");
+    expect(item.issued).toBeUndefined();
+  });
+
+  it("generates citekey with year from parsed date", () => {
+    const entry = make_entry({
+      creation_date: "D:20240101120000",
+      doi: null,
+    });
+    const item = scan_entry_to_csl_item(entry, "s1");
+    expect(item.id).toMatch(/smith2024/);
   });
 });
 

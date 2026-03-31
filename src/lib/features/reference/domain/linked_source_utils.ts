@@ -1,4 +1,4 @@
-import type { CslItem, CslName, ScanEntry } from "../types";
+import type { CslDate, CslItem, CslName, ScanEntry } from "../types";
 import { generate_citekey } from "./csl_utils";
 
 export function generate_linked_source_id(): string {
@@ -41,6 +41,30 @@ export function parse_author_string(author: string): CslName[] {
     });
 }
 
+export function parse_creation_date(raw: string): CslDate | null {
+  // PDF date format: D:YYYYMMDDHHmmSS...
+  const pdf_match = raw.match(/D:(\d{4})(\d{2})?(\d{2})?/);
+  if (pdf_match) {
+    const parts: number[] = [parseInt(pdf_match[1]!, 10)];
+    if (pdf_match[2]) parts.push(parseInt(pdf_match[2], 10));
+    if (pdf_match[3]) parts.push(parseInt(pdf_match[3], 10));
+    return { "date-parts": [parts] };
+  }
+
+  // ISO-ish: YYYY-MM-DD, YYYY/MM/DD, YYYY-MM, YYYY
+  const iso_match = raw.match(/(\d{4})[\-/]?(\d{1,2})?[\-/]?(\d{1,2})?/);
+  if (iso_match) {
+    const year = parseInt(iso_match[1]!, 10);
+    if (year < 1000 || year > 2100) return null;
+    const parts: number[] = [year];
+    if (iso_match[2]) parts.push(parseInt(iso_match[2], 10));
+    if (iso_match[3]) parts.push(parseInt(iso_match[3], 10));
+    return { "date-parts": [parts] };
+  }
+
+  return null;
+}
+
 export function scan_entry_to_csl_item(
   entry: ScanEntry,
   source_id: string,
@@ -63,12 +87,25 @@ export function scan_entry_to_csl_item(
   if (entry.doi) {
     item.DOI = entry.doi;
   }
+  if (entry.isbn) {
+    item.ISBN = entry.isbn;
+  }
+  if (entry.arxiv_id) {
+    item._arxiv_id = entry.arxiv_id;
+  }
 
   if (entry.keywords) {
     item.keyword = entry.keywords;
   }
   if (entry.subject) {
     item.abstract = entry.subject;
+  }
+
+  if (entry.creation_date) {
+    const issued = parse_creation_date(entry.creation_date);
+    if (issued) {
+      item.issued = issued;
+    }
   }
 
   item.id = generate_citekey(item);

@@ -22,6 +22,8 @@ pub struct ScanEntry {
     pub subject: Option<String>,
     pub keywords: Option<String>,
     pub doi: Option<String>,
+    pub isbn: Option<String>,
+    pub arxiv_id: Option<String>,
     pub creation_date: Option<String>,
     pub body_text: String,
     pub page_offsets: Vec<usize>,
@@ -111,19 +113,51 @@ fn extract_pdf_metadata(path: &Path) -> (Option<String>, Option<String>, Option<
 static DOI_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"10\.\d{4,}/[^\s\]>)]+").unwrap());
 
+static ISBN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:ISBN[\-: ]*)?(?:97[89][\- ]?(?:\d[\- ]?){9}\d|\d{9}[\dXx])").unwrap()
+});
+
+static ARXIV_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:arXiv:)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z\-]+/\d{7}(?:v\d+)?)").unwrap()
+});
+
+fn truncate_to_char_boundary(text: &str, max_chars: usize) -> &str {
+    if text.len() <= max_chars {
+        return text;
+    }
+    let mut end = max_chars;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 fn extract_doi_from_text(text: &str, max_chars: usize) -> Option<String> {
-    let search_text: &str = if text.len() > max_chars {
-        let mut end = max_chars;
-        while end > 0 && !text.is_char_boundary(end) {
-            end -= 1;
-        }
-        &text[..end]
-    } else {
-        text
-    };
+    let search_text = truncate_to_char_boundary(text, max_chars);
     let m = DOI_REGEX.find(search_text)?;
     let doi = m.as_str().trim_end_matches(|c: char| c == '.' || c == ',');
     Some(doi.to_string())
+}
+
+fn normalize_isbn(raw: &str) -> Option<String> {
+    let digits: String = raw.chars().filter(|c| c.is_ascii_digit() || *c == 'X' || *c == 'x').collect();
+    if digits.len() == 10 || digits.len() == 13 {
+        Some(digits)
+    } else {
+        None
+    }
+}
+
+fn extract_isbn_from_text(text: &str, max_chars: usize) -> Option<String> {
+    let search_text = truncate_to_char_boundary(text, max_chars);
+    let m = ISBN_REGEX.find(search_text)?;
+    normalize_isbn(m.as_str())
+}
+
+fn extract_arxiv_id_from_text(text: &str, max_chars: usize) -> Option<String> {
+    let search_text = truncate_to_char_boundary(text, max_chars);
+    let caps = ARXIV_REGEX.captures(search_text)?;
+    Some(caps.get(1)?.as_str().to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -226,10 +260,7 @@ pub fn run_extract_pdf_text(file_path: &str) {
         body.push('\n');
     }
     if body.len() > MAX_INDEXABLE_BYTES {
-        let mut end = MAX_INDEXABLE_BYTES;
-        while end > 0 && !body.is_char_boundary(end) {
-            end -= 1;
-        }
+        let end = truncate_to_char_boundary(&body, MAX_INDEXABLE_BYTES).len();
         body.truncate(end);
     }
 
@@ -244,28 +275,42 @@ pub fn run_extract_pdf_text(file_path: &str) {
 // HTML metadata extraction
 // ---------------------------------------------------------------------------
 
-fn extract_html_meta(content: &str, name: &str) -> Option<String> {
-    // ascii_lowercase preserves byte offsets (only ASCII bytes change)
-    let lower = content.to_ascii_lowercase();
-    let pattern = format!("name=\"{}\"", name);
+fn extract_content_attr(region: &str) -> Option<String> {
+    let content_start = region.find("content=\"")? + 9;
+    let content_end = region[content_start..].find('"')?;
+    let value = region[content_start..content_start + content_end].to_string();
+    if value.trim().is_empty() { None } else { Some(value) }
+}
+
+/// Find first `<meta {attr_key}="{attr_val}" content="...">` and return the content value.
+fn find_meta_attr(content: &str, lower: &str, attr_key: &str, attr_val: &str) -> Option<String> {
+    let pattern = format!("{attr_key}=\"{attr_val}\"");
     let pos = lower.find(&pattern)?;
     let end = std::cmp::min(pos + 500, content.len());
     if !content.is_char_boundary(pos) || !content.is_char_boundary(end) {
         return None;
     }
-    let region = &content[pos..end];
-    let content_start = region.find("content=\"")? + 9;
-    let content_end = region[content_start..].find('"')?;
-    let value = region[content_start..content_start + content_end].to_string();
-    if value.trim().is_empty() {
-        None
-    } else {
-        Some(value)
-    }
+    extract_content_attr(&content[pos..end])
 }
 
-fn extract_html_title(content: &str) -> Option<String> {
-    let lower = content.to_ascii_lowercase();
+fn find_all_meta_attr(content: &str, lower: &str, attr_key: &str, attr_val: &str) -> Vec<String> {
+    let pattern = format!("{attr_key}=\"{attr_val}\"");
+    let mut results = Vec::new();
+    let mut search_from = 0;
+    while let Some(rel_pos) = lower[search_from..].find(&pattern) {
+        let pos = search_from + rel_pos;
+        let end = std::cmp::min(pos + 500, content.len());
+        if content.is_char_boundary(pos) && content.is_char_boundary(end) {
+            if let Some(value) = extract_content_attr(&content[pos..end]) {
+                results.push(value);
+            }
+        }
+        search_from = pos + pattern.len();
+    }
+    results
+}
+
+fn extract_html_title_from(content: &str, lower: &str) -> Option<String> {
     let start = lower.find("<title")?;
     if !content.is_char_boundary(start) {
         return None;
@@ -279,10 +324,39 @@ fn extract_html_title(content: &str) -> Option<String> {
     if title.is_empty() { None } else { Some(title) }
 }
 
-fn strip_html_tags(html: &str) -> String {
+fn parse_json_ld(content: &str, lower: &str) -> Option<serde_json::Value> {
+    let start = lower.find("application/ld+json")?;
+    let tag_end = content[start..].find('>')? + start + 1;
+    let close = lower[tag_end..].find("</script")? + tag_end;
+    if !content.is_char_boundary(tag_end) || !content.is_char_boundary(close) {
+        return None;
+    }
+    serde_json::from_str(&content[tag_end..close]).ok()
+}
+
+fn json_ld_string(parsed: &Option<serde_json::Value>, field: &str) -> Option<String> {
+    let val = parsed.as_ref()?.get(field)?;
+    match val {
+        serde_json::Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
+        _ => None,
+    }
+}
+
+fn normalize_doi(raw: &str) -> Option<String> {
+    let stripped = raw
+        .strip_prefix("https://doi.org/")
+        .or_else(|| raw.strip_prefix("http://doi.org/"))
+        .unwrap_or(raw);
+    let trimmed = stripped.trim_end_matches(|c: char| c == '.' || c == ',');
+    if trimmed.starts_with("10.") {
+        Some(trimmed.to_string())
+    } else {
+        None
+    }
+}
+
+fn strip_html_tags_with(html: &str, lower: &str) -> String {
     let mut result = String::with_capacity(html.len());
-    // ascii_lowercase preserves byte length and boundaries
-    let lower = html.to_ascii_lowercase();
     let bytes = lower.as_bytes();
     let len = bytes.len();
 
@@ -314,7 +388,6 @@ fn strip_html_tags(html: &str) -> String {
             }
             result.push(' ');
         } else {
-            // Properly handle multi-byte UTF-8 characters
             if html.is_char_boundary(i) {
                 let ch = html[i..].chars().next().unwrap();
                 result.push(ch);
@@ -325,10 +398,7 @@ fn strip_html_tags(html: &str) -> String {
         }
     }
     if result.len() > MAX_INDEXABLE_BYTES {
-        let mut end = MAX_INDEXABLE_BYTES;
-        while end > 0 && !result.is_char_boundary(end) {
-            end -= 1;
-        }
+        let end = truncate_to_char_boundary(&result, MAX_INDEXABLE_BYTES).len();
         result.truncate(end);
     }
     result
@@ -360,7 +430,9 @@ fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
 
     let (body_text, page_offsets) = extract_pdf_text_subprocess(path).unwrap_or_default();
 
-    let doi = extract_doi_from_text(&body_text, 5000);
+    let doi = extract_doi_from_text(&body_text, 5000).and_then(|v| normalize_doi(&v));
+    let isbn = extract_isbn_from_text(&body_text, 5000);
+    let arxiv_id = extract_arxiv_id_from_text(&body_text, 5000);
 
     Ok(ScanEntry {
         file_path: path.to_string_lossy().into_owned(),
@@ -371,6 +443,8 @@ fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
         subject,
         keywords,
         doi,
+        isbn,
+        arxiv_id,
         creation_date,
         body_text,
         page_offsets,
@@ -387,15 +461,66 @@ fn extract_html(path: &Path) -> Result<ScanEntry, String> {
 
     let content =
         std::fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    // Single lowercase pass shared by all helpers
+    let lower = content.to_ascii_lowercase();
+    let json_ld = parse_json_ld(&content, &lower);
 
-    let title = extract_html_title(&content);
-    let author = extract_html_meta(&content, "author");
-    let keywords = extract_html_meta(&content, "keywords");
-    let subject = extract_html_meta(&content, "description");
-    let doi = extract_html_meta(&content, "citation_doi")
-        .or_else(|| extract_doi_from_text(&content, 5000));
+    let meta = |val: &str| find_meta_attr(&content, &lower, "name", val);
+    let prop = |val: &str| find_meta_attr(&content, &lower, "property", val);
+    let ld = |field: &str| json_ld_string(&json_ld, field);
 
-    let body_text = strip_html_tags(&content);
+    // Title: Highwire > Dublin Core > JSON-LD > OpenGraph > <title>
+    let title = meta("citation_title")
+        .or_else(|| meta("dc.title"))
+        .or_else(|| meta("DC.title"))
+        .or_else(|| ld("headline"))
+        .or_else(|| ld("name"))
+        .or_else(|| prop("og:title"))
+        .or_else(|| extract_html_title_from(&content, &lower));
+
+    // Author: Highwire (multiple) > DC > basic > JSON-LD
+    let hw_authors = find_all_meta_attr(&content, &lower, "name", "citation_author");
+    let author = if !hw_authors.is_empty() {
+        Some(hw_authors.join("; "))
+    } else {
+        meta("dc.creator")
+            .or_else(|| meta("DC.creator"))
+            .or_else(|| meta("author"))
+            .or_else(|| ld("author"))
+    };
+
+    // Keywords: Highwire > DC > basic
+    let keywords = meta("citation_keywords")
+        .or_else(|| meta("dc.subject"))
+        .or_else(|| meta("DC.subject"))
+        .or_else(|| meta("keywords"));
+
+    // Description/abstract: DC > basic > OpenGraph > JSON-LD
+    let subject = meta("dc.description")
+        .or_else(|| meta("DC.description"))
+        .or_else(|| meta("description"))
+        .or_else(|| prop("og:description"))
+        .or_else(|| ld("description"));
+
+    // Date: Highwire > DC
+    let creation_date = meta("citation_date")
+        .or_else(|| meta("citation_publication_date"))
+        .or_else(|| meta("dc.date"))
+        .or_else(|| meta("DC.date"));
+
+    // DOI: Highwire > DC > text scan (all normalized)
+    let doi = meta("citation_doi")
+        .and_then(|v| normalize_doi(&v))
+        .or_else(|| meta("dc.identifier").and_then(|v| normalize_doi(&v)))
+        .or_else(|| meta("DC.identifier").and_then(|v| normalize_doi(&v)))
+        .or_else(|| extract_doi_from_text(&content, 5000).and_then(|v| normalize_doi(&v)));
+
+    let isbn = meta("citation_isbn")
+        .and_then(|raw| normalize_isbn(&raw))
+        .or_else(|| extract_isbn_from_text(&content, 5000));
+    let arxiv_id = extract_arxiv_id_from_text(&content, 5000);
+
+    let body_text = strip_html_tags_with(&content, &lower);
 
     Ok(ScanEntry {
         file_path: path.to_string_lossy().into_owned(),
@@ -403,10 +528,12 @@ fn extract_html(path: &Path) -> Result<ScanEntry, String> {
         file_type: "html".to_string(),
         title,
         author,
-        subject: subject,
+        subject,
         keywords,
         doi,
-        creation_date: None,
+        isbn,
+        arxiv_id,
+        creation_date,
         body_text,
         page_offsets: vec![],
         modified_at: file_modified_at(path),
@@ -509,7 +636,7 @@ pub async fn linked_source_list_files(
                     .ok()?
                     .duration_since(std::time::UNIX_EPOCH)
                     .ok()?
-                    .as_secs();
+                    .as_millis() as u64;
                 Some(LinkedSourceFileInfo {
                     file_path: path.to_string_lossy().into_owned(),
                     modified_at,
@@ -634,23 +761,54 @@ mod tests {
         assert_eq!(extract_doi_from_text("no doi here", 1000), None);
     }
 
+    fn meta(html: &str, name: &str) -> Option<String> {
+        let lower = html.to_ascii_lowercase();
+        find_meta_attr(html, &lower, "name", name)
+    }
+
+    fn prop(html: &str, property: &str) -> Option<String> {
+        let lower = html.to_ascii_lowercase();
+        find_meta_attr(html, &lower, "property", property)
+    }
+
+    fn meta_all(html: &str, name: &str) -> Vec<String> {
+        let lower = html.to_ascii_lowercase();
+        find_all_meta_attr(html, &lower, "name", name)
+    }
+
+    fn title(html: &str) -> Option<String> {
+        let lower = html.to_ascii_lowercase();
+        extract_html_title_from(html, &lower)
+    }
+
+    fn strip(html: &str) -> String {
+        let lower = html.to_ascii_lowercase();
+        strip_html_tags_with(html, &lower)
+    }
+
+    fn ld_field(html: &str, field: &str) -> Option<String> {
+        let lower = html.to_ascii_lowercase();
+        let parsed = parse_json_ld(html, &lower);
+        json_ld_string(&parsed, field)
+    }
+
     #[test]
     fn html_title_extraction() {
         let html = "<html><head><title>Test Title</title></head><body></body></html>";
-        assert_eq!(extract_html_title(html), Some("Test Title".to_string()));
+        assert_eq!(title(html), Some("Test Title".to_string()));
     }
 
     #[test]
     fn html_title_missing() {
         let html = "<html><body>No title</body></html>";
-        assert_eq!(extract_html_title(html), None);
+        assert_eq!(title(html), None);
     }
 
     #[test]
     fn html_meta_extraction() {
         let html = r#"<meta name="author" content="John Doe">"#;
         assert_eq!(
-            extract_html_meta(html, "author"),
+            meta(html, "author"),
             Some("John Doe".to_string())
         );
     }
@@ -658,13 +816,13 @@ mod tests {
     #[test]
     fn html_meta_missing() {
         let html = "<html><body>nothing</body></html>";
-        assert_eq!(extract_html_meta(html, "author"), None);
+        assert_eq!(meta(html, "author"), None);
     }
 
     #[test]
     fn strip_tags_basic() {
         let html = "<p>Hello <b>world</b></p>";
-        let text = strip_html_tags(html);
+        let text = strip(html);
         assert!(text.contains("Hello"));
         assert!(text.contains("world"));
         assert!(!text.contains("<p>"));
@@ -673,7 +831,7 @@ mod tests {
     #[test]
     fn strip_tags_removes_script() {
         let html = "<p>Before</p><script>alert('xss')</script><p>After</p>";
-        let text = strip_html_tags(html);
+        let text = strip(html);
         assert!(text.contains("Before"));
         assert!(text.contains("After"));
         assert!(!text.contains("alert"));
@@ -695,7 +853,7 @@ mod tests {
     #[test]
     fn strip_tags_unclosed_script() {
         let html = "<p>Before</p><script>alert('xss')<p>After the script</p>";
-        let text = strip_html_tags(html);
+        let text = strip(html);
         assert!(text.contains("Before"), "Content before script should be preserved");
         assert!(text.contains("After the script"), "Content after unclosed script should be preserved");
     }
@@ -740,6 +898,149 @@ mod tests {
         assert_eq!(entry.author, Some("José García".to_string()));
         assert!(entry.body_text.contains("日本語テキスト"));
         assert!(entry.body_text.contains("🎉"));
+    }
+
+    #[test]
+    fn isbn_extraction_isbn13() {
+        let text = "ISBN 978-3-16-148410-0 is the code";
+        assert_eq!(
+            extract_isbn_from_text(text, 1000),
+            Some("9783161484100".to_string())
+        );
+    }
+
+    #[test]
+    fn isbn_extraction_isbn10() {
+        let text = "Published under ISBN 0306406152.";
+        assert_eq!(
+            extract_isbn_from_text(text, 1000),
+            Some("0306406152".to_string())
+        );
+    }
+
+    #[test]
+    fn isbn_extraction_none() {
+        assert_eq!(extract_isbn_from_text("no isbn here 12345", 1000), None);
+    }
+
+    #[test]
+    fn arxiv_extraction_new_format() {
+        let text = "Available at arXiv:2301.07041v2 for review";
+        assert_eq!(
+            extract_arxiv_id_from_text(text, 1000),
+            Some("2301.07041v2".to_string())
+        );
+    }
+
+    #[test]
+    fn arxiv_extraction_old_format() {
+        let text = "See hep-ex/9809001v1 for details";
+        assert_eq!(
+            extract_arxiv_id_from_text(text, 1000),
+            Some("hep-ex/9809001v1".to_string())
+        );
+    }
+
+    #[test]
+    fn arxiv_extraction_none() {
+        assert_eq!(extract_arxiv_id_from_text("no arxiv here", 1000), None);
+    }
+
+    #[test]
+    fn html_meta_property_extraction() {
+        let html = r#"<meta property="og:title" content="OpenGraph Title">"#;
+        assert_eq!(
+            prop(html, "og:title"),
+            Some("OpenGraph Title".to_string())
+        );
+    }
+
+    #[test]
+    fn html_meta_property_missing() {
+        let html = "<html><body>nothing</body></html>";
+        assert_eq!(prop(html, "og:title"), None);
+    }
+
+    #[test]
+    fn find_all_meta_attr_multiple() {
+        let html = r#"<meta name="citation_author" content="Smith, John"><meta name="citation_author" content="Doe, Jane">"#;
+        let result = meta_all(html, "citation_author");
+        assert_eq!(result, vec!["Smith, John", "Doe, Jane"]);
+    }
+
+    #[test]
+    fn html_json_ld_extraction() {
+        let html = r#"<script type="application/ld+json">{"headline":"JSON-LD Title","author":"Test Author"}</script>"#;
+        assert_eq!(
+            ld_field(html, "headline"),
+            Some("JSON-LD Title".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_html_highwire_tags() {
+        let dir = tempfile::tempdir().unwrap();
+        let html_path = dir.path().join("highwire.html");
+        std::fs::write(
+            &html_path,
+            r#"<html><head>
+            <title>Fallback Title</title>
+            <meta name="citation_title" content="Highwire Title">
+            <meta name="citation_author" content="Smith, John">
+            <meta name="citation_author" content="Doe, Jane">
+            <meta name="citation_doi" content="10.1234/hw.5678">
+            <meta name="citation_date" content="2024/03/15">
+            <meta name="citation_isbn" content="978-3-16-148410-0">
+            </head><body><p>Content</p></body></html>"#,
+        )
+        .unwrap();
+
+        let entry = extract_file(&html_path).unwrap();
+        assert_eq!(entry.title, Some("Highwire Title".to_string()));
+        assert_eq!(entry.author, Some("Smith, John; Doe, Jane".to_string()));
+        assert_eq!(entry.doi, Some("10.1234/hw.5678".to_string()));
+        assert_eq!(entry.creation_date, Some("2024/03/15".to_string()));
+        assert_eq!(entry.isbn, Some("9783161484100".to_string()));
+    }
+
+    #[test]
+    fn extract_html_dublin_core_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let html_path = dir.path().join("dc.html");
+        std::fs::write(
+            &html_path,
+            r#"<html><head>
+            <meta name="dc.title" content="Dublin Core Title">
+            <meta name="dc.creator" content="DC Author">
+            <meta name="dc.date" content="2023-06-01">
+            <meta name="dc.description" content="DC Abstract">
+            </head><body><p>Content</p></body></html>"#,
+        )
+        .unwrap();
+
+        let entry = extract_file(&html_path).unwrap();
+        assert_eq!(entry.title, Some("Dublin Core Title".to_string()));
+        assert_eq!(entry.author, Some("DC Author".to_string()));
+        assert_eq!(entry.creation_date, Some("2023-06-01".to_string()));
+        assert_eq!(entry.subject, Some("DC Abstract".to_string()));
+    }
+
+    #[test]
+    fn extract_html_opengraph_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let html_path = dir.path().join("og.html");
+        std::fs::write(
+            &html_path,
+            r#"<html><head>
+            <meta property="og:title" content="OG Title">
+            <meta property="og:description" content="OG Description">
+            </head><body><p>Content</p></body></html>"#,
+        )
+        .unwrap();
+
+        let entry = extract_file(&html_path).unwrap();
+        assert_eq!(entry.title, Some("OG Title".to_string()));
+        assert_eq!(entry.subject, Some("OG Description".to_string()));
     }
 
     #[test]
