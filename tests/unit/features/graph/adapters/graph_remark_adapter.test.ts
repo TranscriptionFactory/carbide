@@ -132,18 +132,19 @@ describe("create_graph_remark_adapter", () => {
   it("invalidate_cache forces rebuild", async () => {
     const docs = [make_doc("a.md", "Links to [[b]]"), make_doc("b.md", "")];
     const port = make_notes_port(docs);
+    const list_notes = vi.mocked(port.list_notes);
     const read_raw = make_read_raw(docs);
 
     const adapter = create_graph_remark_adapter(port, read_raw);
     await adapter.load_vault_graph(VAULT_ID);
-    expect(vi.mocked(port.list_notes)).toHaveBeenCalledTimes(1);
+    expect(list_notes).toHaveBeenCalledTimes(1);
 
     await adapter.load_vault_graph(VAULT_ID);
-    expect(vi.mocked(port.list_notes)).toHaveBeenCalledTimes(1);
+    expect(list_notes).toHaveBeenCalledTimes(1);
 
     await adapter.invalidate_cache(VAULT_ID);
     await adapter.load_vault_graph(VAULT_ID);
-    expect(vi.mocked(port.list_notes)).toHaveBeenCalledTimes(2);
+    expect(list_notes).toHaveBeenCalledTimes(2);
   });
 
   it("handles markdown links alongside wikilinks", async () => {
@@ -163,17 +164,40 @@ describe("create_graph_remark_adapter", () => {
   });
 
   it("does not call read_note during graph indexing", async () => {
-    const docs = [
-      make_doc("a.md", "Link to [[b]]"),
-      make_doc("b.md", ""),
-    ];
+    const docs = [make_doc("a.md", "Link to [[b]]"), make_doc("b.md", "")];
     const port = make_notes_port(docs);
+    const read_note = vi.mocked(port.read_note);
     const read_raw = make_read_raw(docs);
 
     const adapter = create_graph_remark_adapter(port, read_raw);
     await adapter.load_vault_graph(VAULT_ID);
 
-    expect(vi.mocked(port.read_note)).not.toHaveBeenCalled();
+    expect(read_note).not.toHaveBeenCalled();
     expect(read_raw).toHaveBeenCalledTimes(docs.length);
+  });
+
+  it("skips unreadable notes and still returns a partial vault graph", async () => {
+    const docs = [
+      make_doc("a.md", "Link to [[b]]"),
+      make_doc("b.md", "Link to [[a]]"),
+      make_doc("c.md", "Link to [[a]]"),
+    ];
+    const port = make_notes_port(docs);
+    const read_raw = vi
+      .fn()
+      .mockResolvedValueOnce("Link to [[b]]")
+      .mockRejectedValueOnce(new Error("decode failed"))
+      .mockResolvedValueOnce("Link to [[a]]");
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    const snapshot = await adapter.load_vault_graph(VAULT_ID);
+
+    expect(snapshot.stats.node_count).toBe(3);
+    expect(snapshot.edges).toContainEqual({ source: "a.md", target: "b.md" });
+    expect(snapshot.edges).toContainEqual({ source: "c.md", target: "a.md" });
+    expect(snapshot.edges).not.toContainEqual({
+      source: "b.md",
+      target: "a.md",
+    });
   });
 });

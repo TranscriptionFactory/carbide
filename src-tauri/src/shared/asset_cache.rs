@@ -1,4 +1,5 @@
 use crate::shared::cache::ObservableCache;
+use log::error;
 use std::sync::Mutex;
 use tauri::http::{Request, Response};
 
@@ -57,6 +58,43 @@ impl AssetCacheState {
     }
 }
 
+fn poisoned_cache_guard<'a, T>(
+    lock_result: std::sync::LockResult<std::sync::MutexGuard<'a, T>>,
+    cache_name: &str,
+) -> std::sync::MutexGuard<'a, T> {
+    match lock_result {
+        Ok(guard) => guard,
+        Err(error) => {
+            error!("Asset cache mutex poisoned: {}", cache_name);
+            error.into_inner()
+        }
+    }
+}
+
+fn internal_error_response() -> Response<Vec<u8>> {
+    Response::builder()
+        .status(500)
+        .header("Content-Type", "text/plain; charset=utf-8")
+        .header("Content-Length", "21")
+        .header("Cache-Control", "no-store")
+        .header("Access-Control-Allow-Origin", "*")
+        .body(b"internal server error".to_vec())
+        .unwrap_or_else(|error| {
+            error!("Failed to build internal asset response: {}", error);
+            Response::new(Vec::new())
+        })
+}
+
+fn finish_response(
+    builder: tauri::http::response::Builder,
+    body: Vec<u8>,
+) -> Response<Vec<u8>> {
+    builder.body(body).unwrap_or_else(|error| {
+        error!("Failed to build asset response: {}", error);
+        internal_error_response()
+    })
+}
+
 pub fn compute_etag(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_hex().to_string()
 }
@@ -98,17 +136,18 @@ pub fn build_cached_response(
         builder = builder.header("Content-Length", asset.content_length.to_string());
     }
 
-    builder.body(body).unwrap()
+    finish_response(builder, body)
 }
 
 pub fn build_skip_response(bytes: Vec<u8>, mime: &str) -> Response<Vec<u8>> {
-    Response::builder()
-        .header("Content-Type", mime)
-        .header("Content-Length", bytes.len().to_string())
-        .header("Cache-Control", "no-store")
-        .header("Access-Control-Allow-Origin", "*")
-        .body(bytes)
-        .unwrap()
+    finish_response(
+        Response::builder()
+            .header("Content-Type", mime)
+            .header("Content-Length", bytes.len().to_string())
+            .header("Cache-Control", "no-store")
+            .header("Access-Control-Allow-Origin", "*"),
+        bytes,
+    )
 }
 
 pub fn serve_with_cache(
@@ -120,7 +159,7 @@ pub fn serve_with_cache(
 ) -> Response<Vec<u8>> {
     // Try cache first
     {
-        let mut c = cache.lock().unwrap();
+        let mut c = poisoned_cache_guard(cache.lock(), "serve_with_cache");
         if let Some(asset) = c.get_cloned(&key) {
             let is_304 = check_conditional(req, &asset.etag);
             return build_cached_response(&asset, policy, is_304);
@@ -129,7 +168,9 @@ pub fn serve_with_cache(
     // Cache miss — do I/O outside lock
     let (bytes, mime) = match read_bytes() {
         Some(v) => v,
-        None => return Response::builder().status(404).body(Vec::new()).unwrap(),
+        None => {
+            return finish_response(Response::builder().status(404), Vec::new());
+        }
     };
 
     let etag = compute_etag(&bytes);
@@ -145,7 +186,7 @@ pub fn serve_with_cache(
     let response = build_cached_response(&asset, policy, is_304);
 
     if content_length <= MAX_CACHEABLE_BYTES {
-        let mut c = cache.lock().unwrap();
+        let mut c = poisoned_cache_guard(cache.lock(), "serve_with_cache");
         c.insert(key, asset);
     }
 
@@ -160,7 +201,7 @@ pub fn invalidate_asset_cache(
     asset_path: String,
 ) -> Result<(), String> {
     let prefix = format!("{}/{}", vault_id, asset_path);
-    let mut cache = state.vault.lock().unwrap();
+    let mut cache = poisoned_cache_guard(state.vault.lock(), "invalidate_asset_cache");
     cache.invalidate_matching(|k| k.starts_with(&prefix));
     Ok(())
 }

@@ -12,7 +12,7 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("graph_remark_adapter");
 
-const BATCH_CONCURRENCY = 20;
+const BATCH_CONCURRENCY = 8;
 
 type VaultIndex = {
   vault_id: VaultId;
@@ -53,6 +53,7 @@ async function build_vault_index(
 
   const outlinks = new Map<string, string[]>();
   const raw_outlinks = new Map<string, string[]>();
+  const unreadable_note_paths: string[] = [];
 
   for (let i = 0; i < all_notes.length; i += BATCH_CONCURRENCY) {
     const batch = all_notes.slice(i, i + BATCH_CONCURRENCY);
@@ -60,7 +61,14 @@ async function build_vault_index(
       batch.map((meta) =>
         read_raw(vault_id, meta.path)
           .then((markdown) => ({ path: meta.path, markdown }))
-          .catch(() => null),
+          .catch((error) => {
+            unreadable_note_paths.push(meta.path);
+            log.warn("Skipping unreadable graph note", {
+              note_path: meta.path,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          }),
       ),
     );
 
@@ -78,6 +86,7 @@ async function build_vault_index(
   log.info("Vault index built", {
     notes: notes.size,
     links: [...outlinks.values()].reduce((sum, arr) => sum + arr.length, 0),
+    unreadable_notes: unreadable_note_paths.length,
   });
 
   return { vault_id, notes, outlinks, raw_outlinks, built_at: Date.now() };
