@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  parse_markdown,
-  serialize_markdown,
-} from "$lib/features/editor/adapters/markdown_pipeline";
+import { serialize_markdown } from "$lib/features/editor/adapters/markdown_pipeline";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
   detect_embed_type,
@@ -12,6 +9,22 @@ import {
 // Re-export regex for testing via module augmentation workaround — test the
 // public surface through detect_embed_type and serialization round-trips.
 const FILE_EMBED_REGEX = /^!\[\[([^\]\n]+\.[a-zA-Z0-9]+)(#[^\]]*)?]]$/;
+
+function expect_defined<T>(value: T | undefined, label: string): T {
+  expect(value, label).toBeDefined();
+  return value as T;
+}
+
+function file_embed_type() {
+  return expect_defined(schema.nodes["file_embed"], "file_embed node type");
+}
+
+function excalidraw_embed_type() {
+  return expect_defined(
+    schema.nodes["excalidraw_embed"],
+    "excalidraw_embed node type",
+  );
+}
 
 describe("detect_embed_type", () => {
   it("detects pdf", () => {
@@ -86,7 +99,7 @@ describe("file_embed schema", () => {
   });
 
   it("creates a file_embed node with default attrs", () => {
-    const node = schema.nodes["file_embed"]!.create({ src: "report.pdf" });
+    const node = file_embed_type().create({ src: "report.pdf" });
     expect(node.type.name).toBe("file_embed");
     expect(node.attrs["src"]).toBe("report.pdf");
     expect(node.attrs["page"]).toBeNull();
@@ -95,7 +108,7 @@ describe("file_embed schema", () => {
   });
 
   it("creates a file_embed node with all attrs", () => {
-    const node = schema.nodes["file_embed"]!.create({
+    const node = file_embed_type().create({
       src: "report.pdf",
       page: 5,
       height: 600,
@@ -110,7 +123,7 @@ describe("file_embed schema", () => {
 describe("file_embed serialization", () => {
   it("serializes file_embed with default attrs", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "report.pdf",
         file_type: "pdf",
       }),
@@ -121,7 +134,7 @@ describe("file_embed serialization", () => {
 
   it("serializes file_embed with page", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "report.pdf",
         page: 3,
         file_type: "pdf",
@@ -133,7 +146,7 @@ describe("file_embed serialization", () => {
 
   it("serializes file_embed with custom height", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "report.pdf",
         height: 600,
         file_type: "pdf",
@@ -145,7 +158,7 @@ describe("file_embed serialization", () => {
 
   it("serializes file_embed with page and height", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "report.pdf",
         page: 2,
         height: 500,
@@ -158,7 +171,7 @@ describe("file_embed serialization", () => {
 
   it("serializes audio embed", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "song.mp3",
         file_type: "audio",
       }),
@@ -169,7 +182,7 @@ describe("file_embed serialization", () => {
 
   it("serializes video embed", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "clip.mp4",
         file_type: "video",
       }),
@@ -186,7 +199,7 @@ describe("file_embed does not conflict with excalidraw_embed", () => {
 
   it("excalidraw embed serializes correctly", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["excalidraw_embed"]!.create({ src: "drawing.excalidraw" }),
+      excalidraw_embed_type().create({ src: "drawing.excalidraw" }),
     ]);
     const md = serialize_markdown(doc);
     expect(md.trim()).toBe("![[drawing.excalidraw]]");
@@ -225,7 +238,7 @@ describe("FILE_EMBED_REGEX matches generic file extensions", () => {
 describe("file_embed serialization for new types", () => {
   it("serializes image embed", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "photo.png",
         file_type: "image",
       }),
@@ -236,7 +249,7 @@ describe("file_embed serialization for new types", () => {
 
   it("serializes text embed", () => {
     const doc = schema.node("doc", null, [
-      schema.nodes["file_embed"]!.create({
+      file_embed_type().create({
         src: "script.py",
         file_type: "text",
       }),

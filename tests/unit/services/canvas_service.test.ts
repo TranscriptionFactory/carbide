@@ -6,9 +6,20 @@ import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { CanvasPort } from "$lib/features/canvas/ports";
 import { serialize_canvas, EMPTY_CANVAS } from "$lib/features/canvas";
 import { create_test_vault } from "../helpers/test_fixtures";
+import type { CanvasTabState } from "$lib/features/canvas/state/canvas_store.svelte";
 
-function make_port(overrides: Partial<CanvasPort> = {}): CanvasPort {
-  return {
+type CanvasPortMocks = {
+  read_file: ReturnType<typeof vi.fn>;
+  write_file: ReturnType<typeof vi.fn>;
+  read_camera: ReturnType<typeof vi.fn>;
+  write_camera: ReturnType<typeof vi.fn>;
+  rewrite_refs_for_rename: ReturnType<typeof vi.fn>;
+  read_svg_preview: ReturnType<typeof vi.fn>;
+  write_svg_preview: ReturnType<typeof vi.fn>;
+};
+
+function make_port(overrides: Partial<CanvasPort> = {}) {
+  const base_mocks: CanvasPortMocks = {
     read_file: vi.fn().mockResolvedValue('{"nodes":[],"edges":[]}'),
     write_file: vi.fn().mockResolvedValue(undefined),
     read_camera: vi.fn().mockResolvedValue(null),
@@ -16,7 +27,29 @@ function make_port(overrides: Partial<CanvasPort> = {}): CanvasPort {
     rewrite_refs_for_rename: vi.fn().mockResolvedValue(0),
     read_svg_preview: vi.fn().mockResolvedValue(null),
     write_svg_preview: vi.fn().mockResolvedValue(undefined),
-    ...overrides,
+  };
+  const mocks: CanvasPortMocks = {
+    read_file: (overrides.read_file ??
+      base_mocks.read_file) as CanvasPortMocks["read_file"],
+    write_file: (overrides.write_file ??
+      base_mocks.write_file) as CanvasPortMocks["write_file"],
+    read_camera: (overrides.read_camera ??
+      base_mocks.read_camera) as CanvasPortMocks["read_camera"],
+    write_camera: (overrides.write_camera ??
+      base_mocks.write_camera) as CanvasPortMocks["write_camera"],
+    rewrite_refs_for_rename: (overrides.rewrite_refs_for_rename ??
+      base_mocks.rewrite_refs_for_rename) as CanvasPortMocks["rewrite_refs_for_rename"],
+    read_svg_preview: (overrides.read_svg_preview ??
+      base_mocks.read_svg_preview) as CanvasPortMocks["read_svg_preview"],
+    write_svg_preview: (overrides.write_svg_preview ??
+      base_mocks.write_svg_preview) as CanvasPortMocks["write_svg_preview"],
+  };
+
+  return {
+    port: {
+      ...mocks,
+    } as CanvasPort,
+    mocks,
   };
 }
 
@@ -24,13 +57,27 @@ function make_service(port_overrides: Partial<CanvasPort> = {}) {
   const canvas_store = new CanvasStore();
   const vault_store = new VaultStore();
   const op_store = new OpStore();
-  const port = make_port(port_overrides);
+  const { port, mocks } = make_port(port_overrides);
 
   vault_store.vault = create_test_vault();
 
   const service = new CanvasService(port, vault_store, canvas_store, op_store);
 
-  return { service, canvas_store, vault_store, op_store, port };
+  return { service, canvas_store, vault_store, op_store, port, mocks };
+}
+
+function expect_defined<T>(value: T | undefined, label: string): T {
+  expect(value, label).toBeDefined();
+  return value as T;
+}
+
+function expect_not_null<T>(value: T | null, label: string): T {
+  expect(value, label).not.toBeNull();
+  return value as T;
+}
+
+function get_state(canvas_store: CanvasStore): CanvasTabState {
+  return expect_defined(canvas_store.get_state("tab1"), "canvas state");
 }
 
 describe("CanvasService", () => {
@@ -50,17 +97,19 @@ describe("CanvasService", () => {
       edges: [],
     });
 
-    const { service, canvas_store, port } = make_service({
+    const { service, canvas_store, mocks } = make_service({
       read_file: vi.fn().mockResolvedValue(canvas_content),
     });
 
     await service.open_canvas("tab1", "board.canvas");
 
-    const state = canvas_store.get_state("tab1")!;
+    const state = get_state(canvas_store);
     expect(state.status).toBe("ready");
-    expect(state.canvas_data!.nodes).toHaveLength(1);
-    expect(port.read_file).toHaveBeenCalled();
-    expect(port.read_camera).toHaveBeenCalled();
+    expect(
+      expect_not_null(state.canvas_data, "canvas data").nodes,
+    ).toHaveLength(1);
+    expect(mocks.read_file).toHaveBeenCalled();
+    expect(mocks.read_camera).toHaveBeenCalled();
   });
 
   it("handles parse errors gracefully", async () => {
@@ -70,7 +119,7 @@ describe("CanvasService", () => {
 
     await service.open_canvas("tab1", "bad.canvas");
 
-    const state = canvas_store.get_state("tab1")!;
+    const state = get_state(canvas_store);
     expect(state.status).toBe("error");
     expect(state.error_message).toBe("Invalid JSON");
   });
@@ -82,7 +131,7 @@ describe("CanvasService", () => {
 
     await service.open_canvas("tab1", "missing.canvas");
 
-    const state = canvas_store.get_state("tab1")!;
+    const state = get_state(canvas_store);
     expect(state.status).toBe("error");
     expect(state.error_message).toBe("File not found");
   });
@@ -95,7 +144,7 @@ describe("CanvasService", () => {
 
     await service.open_canvas("tab1", "board.canvas");
 
-    expect(canvas_store.get_state("tab1")!.camera).toEqual(camera);
+    expect(get_state(canvas_store).camera).toEqual(camera);
   });
 
   it("saves canvas data and clears dirty flag", async () => {
@@ -114,7 +163,7 @@ describe("CanvasService", () => {
       edges: [],
     });
 
-    const { service, canvas_store, port } = make_service({
+    const { service, canvas_store, mocks } = make_service({
       read_file: vi.fn().mockResolvedValue(canvas_content),
     });
 
@@ -123,8 +172,8 @@ describe("CanvasService", () => {
 
     await service.save_canvas("tab1");
 
-    expect(port.write_file).toHaveBeenCalled();
-    expect(canvas_store.get_state("tab1")!.is_dirty).toBe(false);
+    expect(mocks.write_file).toHaveBeenCalled();
+    expect(get_state(canvas_store).is_dirty).toBe(false);
   });
 
   it("closes a canvas and removes state", async () => {
@@ -138,12 +187,12 @@ describe("CanvasService", () => {
   });
 
   it("creates a new canvas file with empty content", async () => {
-    const { service, port } = make_service();
+    const { service, mocks } = make_service();
     const vault_id = "test-vault-id";
 
     await service.create_canvas(vault_id, "new.canvas");
 
-    expect(port.write_file).toHaveBeenCalledWith(
+    expect(mocks.write_file).toHaveBeenCalledWith(
       vault_id,
       "new.canvas",
       serialize_canvas(EMPTY_CANVAS),
@@ -151,12 +200,12 @@ describe("CanvasService", () => {
   });
 
   it("creates a new excalidraw drawing", async () => {
-    const { service, port } = make_service();
+    const { service, mocks } = make_service();
     const vault_id = "test-vault-id";
 
     await service.create_drawing(vault_id, "sketch.excalidraw");
 
-    expect(port.write_file).toHaveBeenCalledWith(
+    expect(mocks.write_file).toHaveBeenCalledWith(
       vault_id,
       "sketch.excalidraw",
       expect.stringContaining('"type": "excalidraw"'),
@@ -171,7 +220,7 @@ describe("CanvasService", () => {
       elements: [],
       appState: {},
     };
-    const { service, canvas_store, port } = make_service({
+    const { service, canvas_store, mocks } = make_service({
       read_file: vi.fn().mockResolvedValue(JSON.stringify(scene)),
     });
 
@@ -184,7 +233,7 @@ describe("CanvasService", () => {
     await service.save_canvas("tab1");
 
     expect(svg_provider).toHaveBeenCalled();
-    expect(port.write_svg_preview).toHaveBeenCalledWith(
+    expect(mocks.write_svg_preview).toHaveBeenCalledWith(
       expect.any(String),
       "sketch.excalidraw",
       "<svg>mock</svg>",
@@ -199,7 +248,7 @@ describe("CanvasService", () => {
       elements: [],
       appState: {},
     };
-    const { service, canvas_store, port } = make_service({
+    const { service, canvas_store, mocks } = make_service({
       read_file: vi.fn().mockResolvedValue(JSON.stringify(scene)),
     });
 
@@ -211,26 +260,26 @@ describe("CanvasService", () => {
 
     await service.save_canvas("tab1");
 
-    expect(canvas_store.get_state("tab1")!.is_dirty).toBe(false);
-    expect(port.write_svg_preview).not.toHaveBeenCalled();
+    expect(get_state(canvas_store).is_dirty).toBe(false);
+    expect(mocks.write_svg_preview).not.toHaveBeenCalled();
   });
 
   it("reads cached SVG preview", async () => {
-    const { service, port } = make_service({
+    const { service, mocks } = make_service({
       read_svg_preview: vi.fn().mockResolvedValue("<svg>cached</svg>"),
     });
 
     const result = await service.read_svg_preview("sketch.excalidraw");
     expect(result).toBe("<svg>cached</svg>");
-    expect(port.read_svg_preview).toHaveBeenCalled();
+    expect(mocks.read_svg_preview).toHaveBeenCalled();
   });
 
   it("does nothing when no vault is active", async () => {
-    const { service, vault_store, port } = make_service();
-    vault_store.vault = null as any;
+    const { service, vault_store, mocks } = make_service();
+    vault_store.vault = null as unknown as typeof vault_store.vault;
 
     await service.open_canvas("tab1", "board.canvas");
-    expect(port.read_file).not.toHaveBeenCalled();
+    expect(mocks.read_file).not.toHaveBeenCalled();
   });
 
   it("discards stale open_canvas results when called rapidly", async () => {
@@ -283,8 +332,12 @@ describe("CanvasService", () => {
     );
     await first_open;
 
-    const state = canvas_store.get_state("tab1")!;
+    const state = get_state(canvas_store);
     expect(state.status).toBe("ready");
-    expect(state.canvas_data!.nodes[0]!.id).toBe("n2");
+    const node = expect_defined(
+      expect_not_null(state.canvas_data, "canvas data").nodes[0],
+      "first node",
+    );
+    expect(node.id).toBe("n2");
   });
 });
