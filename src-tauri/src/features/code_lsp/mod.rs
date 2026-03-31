@@ -16,6 +16,15 @@ pub struct CodeLspState {
     pub inner: Arc<Mutex<HashMap<String, Arc<Mutex<CodeLspManager>>>>>,
 }
 
+impl CodeLspState {
+    pub async fn shutdown(&self) {
+        for (id, mgr) in self.inner.lock().await.drain() {
+            log::info!("Stopping code LSP for vault {}", id);
+            mgr.lock().await.stop_all().await;
+        }
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn code_lsp_open_file(

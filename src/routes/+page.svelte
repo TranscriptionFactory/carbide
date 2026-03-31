@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { create_prod_ports } from "$lib/app/create_prod_ports";
   import { create_app_context } from "$lib/app/di/create_app_context";
   import { provide_app_context } from "$lib/app/context/app_context.svelte";
@@ -30,8 +31,25 @@
 
   provide_app_context(app);
 
+  let destroyed = false;
+
+  onMount(() => {
+    const unlisten_promise = getCurrentWindow().onCloseRequested(() => {
+      if (!destroyed) {
+        destroyed = true;
+        app.destroy();
+      }
+    });
+    return () => {
+      void unlisten_promise.then((unlisten) => unlisten());
+    };
+  });
+
   onDestroy(() => {
-    app.destroy();
+    if (!destroyed) {
+      destroyed = true;
+      app.destroy();
+    }
   });
 </script>
 

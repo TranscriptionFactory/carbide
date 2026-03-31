@@ -25,6 +25,13 @@ impl Default for MarksmanState {
 }
 
 impl MarksmanState {
+    pub async fn shutdown(&self) {
+        for (id, client) in self.clients.lock().await.drain() {
+            log::info!("Stopping marksman LSP for vault {}", id);
+            client.stop().await;
+        }
+    }
+
     async fn request(
         &self,
         vault_id: &str,
