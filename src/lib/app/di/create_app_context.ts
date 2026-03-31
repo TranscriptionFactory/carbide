@@ -930,6 +930,7 @@ export function create_app_context(input: {
     document_store: stores.document,
     code_lsp_service,
     theme_service,
+    reference_service,
   });
 
   return {
