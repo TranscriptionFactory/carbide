@@ -137,6 +137,7 @@ export type EditorSettings = {
   iwe_ai_provider_id: string;
   reference_enabled: boolean;
   reference_citation_style: string;
+  reference_include_sources_in_search: boolean;
   vim_nav_enabled: boolean;
 };
 
@@ -218,6 +219,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   iwe_ai_provider_id: "auto",
   reference_enabled: false,
   reference_citation_style: "apa",
+  reference_include_sources_in_search: true,
   vim_nav_enabled: false,
 };
 
