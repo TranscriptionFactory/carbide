@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, State};
 #[derive(Default)]
 pub struct PluginWatcherState {
     inner: Arc<Mutex<Option<PluginWatcherRuntime>>>,
+    current_vault_path: Arc<Mutex<Option<String>>>,
 }
 
 struct PluginWatcherRuntime {
@@ -69,6 +70,16 @@ pub fn watch_plugins(
     state: State<PluginWatcherState>,
     vault_path: String,
 ) -> Result<(), String> {
+    {
+        let current = state
+            .current_vault_path
+            .lock()
+            .map_err(|_| "lock poisoned")?;
+        if current.as_deref() == Some(&vault_path) {
+            log::debug!("Already watching plugins for vault_path={}, skipping", vault_path);
+            return Ok(());
+        }
+    }
     log::info!("Watching plugins vault_path={}", vault_path);
     stop_active_runtime(&state)?;
 
@@ -160,6 +171,9 @@ pub fn watch_plugins(
     });
 
     set_active_runtime(&state, PluginWatcherRuntime { stop_tx })?;
+    if let Ok(mut current) = state.current_vault_path.lock() {
+        *current = Some(vault_path);
+    }
     Ok(())
 }
 
@@ -167,5 +181,8 @@ pub fn watch_plugins(
 #[specta::specta]
 pub fn unwatch_plugins(state: State<PluginWatcherState>) -> Result<(), String> {
     log::info!("Unwatching plugins");
+    if let Ok(mut current) = state.current_vault_path.lock() {
+        *current = None;
+    }
     stop_active_runtime(&state)
 }
