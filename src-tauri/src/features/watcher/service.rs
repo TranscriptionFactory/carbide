@@ -15,6 +15,17 @@ pub struct WatcherState {
     inner: Arc<Mutex<Option<WatcherRuntime>>>,
 }
 
+impl WatcherState {
+    pub fn shutdown(&self) {
+        if let Ok(mut guard) = self.inner.lock() {
+            if let Some(runtime) = guard.take() {
+                log::info!("Stopping file watcher");
+                stop_runtime(runtime);
+            }
+        }
+    }
+}
+
 struct WatcherRuntime {
     stop_tx: mpsc::Sender<()>,
     join_handle: Option<std::thread::JoinHandle<()>>,

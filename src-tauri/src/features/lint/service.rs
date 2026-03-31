@@ -21,6 +21,13 @@ pub struct VaultLintSession {
 }
 
 impl LintState {
+    pub async fn shutdown(&self) {
+        for (id, session) in self.inner.lock().await.drain() {
+            log::info!("Stopping lint session for vault {}", id);
+            session.client.stop().await;
+        }
+    }
+
     pub async fn start_session(
         &self,
         vault_id: &str,

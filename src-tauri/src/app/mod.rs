@@ -38,6 +38,21 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
     }
 }
 
+async fn shutdown_managed_processes(app: &tauri::AppHandle) {
+    app.state::<features::marksman::MarksmanState>()
+        .shutdown()
+        .await;
+    app.state::<features::code_lsp::CodeLspState>()
+        .shutdown()
+        .await;
+    app.state::<features::lint::service::LintState>()
+        .shutdown()
+        .await;
+    app.state::<features::watcher::service::WatcherState>()
+        .shutdown();
+    log::info!("Process cleanup complete");
+}
+
 pub fn run() {
     let _ = ICON_STAMP;
     log::info!("Carbide starting");
@@ -304,6 +319,13 @@ pub fn run() {
                         }
                     }
                 }
+            }
+            if let tauri::RunEvent::Exit = &event {
+                log::info!("Carbide exiting — cleaning up child processes");
+                let app = app.clone();
+                tauri::async_runtime::block_on(async move {
+                    shutdown_managed_processes(&app).await;
+                });
             }
             let _ = (&app, &event);
         });
