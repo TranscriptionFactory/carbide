@@ -1,6 +1,6 @@
 [package]
 name = "carbide"
-version = "1.8.1"
+version = "1.9.0"
 description = "Local-first markdown vault"
 authors = ["altamkhan"]
 edition = "2021"
