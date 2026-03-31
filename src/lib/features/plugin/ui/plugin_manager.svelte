@@ -110,15 +110,15 @@
           {@const is_active = plugin.enabled && plugin.status === "active"}
           {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
           {@const has_settings = can_open_settings(plugin.manifest.id)}
-          <div class="flex flex-col p-3 border rounded-lg bg-card">
-            <div class="flex items-start justify-between">
-              <div>
-                <h3 class="text-sm font-medium">{plugin.manifest.name}</h3>
-                <p class="text-xs text-muted-foreground">
+          <div class="flex flex-col p-3 border rounded-lg bg-card overflow-hidden">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="text-sm font-medium truncate">{plugin.manifest.name}</h3>
+                <p class="text-xs text-muted-foreground truncate">
                   {plugin.manifest.version} by {plugin.manifest.author}
                 </p>
               </div>
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
                 {#if pending.length > 0}
                   <Button
                     variant="ghost"
