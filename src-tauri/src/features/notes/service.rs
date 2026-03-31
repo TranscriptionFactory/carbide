@@ -260,11 +260,15 @@ fn extract_frontmatter_description(text: &str) -> Option<String> {
     if !text.starts_with("---\n") && !text.starts_with("---\r\n") {
         return None;
     }
+    let start = if text.starts_with("---\r\n") { 5 } else { 4 };
     let end = text.find("\n---\n").or_else(|| {
         let pos = text.find("\n---")?;
         if pos + 4 >= text.len() { Some(pos) } else { None }
     })?;
-    let yaml_block = &text[4..end];
+    if end < start {
+        return None;
+    }
+    let yaml_block = &text[start..end];
     for line in yaml_block.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("description:") {
