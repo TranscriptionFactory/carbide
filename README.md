@@ -134,8 +134,9 @@ Built-in auto-updater applies updates on startup.
 
 ### Task Management
 
-- Built-in task management (M0–M6 task workflows).
-- Indexing and embedding-aware task tracking.
+- Markdown-native tasks (`[ ]`/`[-]`/`[x]`) with 3-state cycling, due dates, and editor-first mutations.
+- Rich query engine with filter/sort/pagination, kanban board with custom property grouping, and schedule drag-to-reschedule.
+- Task aggregates surfaced as virtual columns in bases for unified querying.
 
 ### Plugin System
 
