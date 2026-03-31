@@ -5,7 +5,7 @@ import type {
   VaultGraphSnapshot,
 } from "$lib/features/graph/ports";
 import type { NotesPort } from "$lib/features/note";
-import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
+import type { VaultId, NotePath } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { extract_local_links } from "$lib/features/links";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -43,6 +43,7 @@ function resolve_wikilink(
 async function build_vault_index(
   notes_port: NotesPort,
   vault_id: VaultId,
+  read_raw: (vault_id: VaultId, path: string) => Promise<string>,
 ): Promise<VaultIndex> {
   const all_notes = await notes_port.list_notes(vault_id);
   const notes = new Map<string, NoteMeta>();
@@ -55,20 +56,22 @@ async function build_vault_index(
 
   for (let i = 0; i < all_notes.length; i += BATCH_CONCURRENCY) {
     const batch = all_notes.slice(i, i + BATCH_CONCURRENCY);
-    const docs = await Promise.all(
+    const results = await Promise.all(
       batch.map((meta) =>
-        notes_port.read_note(vault_id, meta.id as NoteId).catch(() => null),
+        read_raw(vault_id, meta.path)
+          .then((markdown) => ({ path: meta.path, markdown }))
+          .catch(() => null),
       ),
     );
 
-    for (const doc of docs) {
-      if (!doc) continue;
-      const { outlink_paths } = extract_local_links(doc.markdown);
-      raw_outlinks.set(doc.meta.path, outlink_paths);
+    for (const result of results) {
+      if (!result) continue;
+      const { outlink_paths } = extract_local_links(result.markdown);
+      raw_outlinks.set(result.path, outlink_paths);
       const resolved = outlink_paths
         .map((p) => resolve_wikilink(p, notes))
         .filter((p): p is string => p !== null);
-      outlinks.set(doc.meta.path, resolved);
+      outlinks.set(result.path, resolved);
     }
   }
 
@@ -80,12 +83,15 @@ async function build_vault_index(
   return { vault_id, notes, outlinks, raw_outlinks, built_at: Date.now() };
 }
 
-export function create_graph_remark_adapter(notes_port: NotesPort): GraphPort {
+export function create_graph_remark_adapter(
+  notes_port: NotesPort,
+  read_raw: (vault_id: VaultId, path: string) => Promise<string>,
+): GraphPort {
   let cached_index: VaultIndex | null = null;
 
   async function get_index(vault_id: VaultId): Promise<VaultIndex> {
     if (cached_index?.vault_id === vault_id) return cached_index;
-    cached_index = await build_vault_index(notes_port, vault_id);
+    cached_index = await build_vault_index(notes_port, vault_id, read_raw);
     return cached_index;
   }
 

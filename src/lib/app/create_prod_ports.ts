@@ -15,6 +15,7 @@ import {
   create_milkdown_editor_port,
   create_ydoc_manager,
 } from "$lib/features/editor";
+import { commands } from "$lib/generated/bindings";
 import { create_clipboard_tauri_adapter } from "$lib/features/clipboard";
 import { create_shell_tauri_adapter } from "$lib/features/shell";
 import { create_git_tauri_adapter } from "$lib/features/git";
@@ -59,7 +60,11 @@ export function create_prod_ports(): Ports {
   const git = create_git_tauri_adapter();
   const watcher = create_watcher_tauri_adapter();
   const ai = create_ai_tauri_adapter();
-  const graph = create_graph_remark_adapter(notes);
+  const graph = create_graph_remark_adapter(notes, async (vault_id, path) => {
+    const result = await commands.readVaultFile(vault_id, path);
+    if (result.status === "ok") return result.data;
+    throw new Error(result.error);
+  });
   const bases = create_bases_tauri_adapter();
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();
