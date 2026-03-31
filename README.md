@@ -59,23 +59,54 @@ Built-in auto-updater applies updates on startup.
 
 - WYSIWYG Markdown with live rendering and syntax highlighting (Shiki).
 - Wikilinks with backlink tracking and autocomplete.
-- Split-view editing with draggable tabs.
+- Split-view editing with real-time content sync and draggable tabs.
+- Collapsible headings and `<details>`/`<summary>` sections with fold toggles.
 - Math/LaTeX support via KaTeX.
-- Drag-and-drop file embedding.
+- Drag-and-drop file embedding, including inline document and PDF embeds (`![[file.pdf]]`).
 - Document outline navigation.
+- Editor tuning panel: font, size, line height, and zoom controls.
+- Zen mode for distraction-free writing (Cmd+Shift+Enter).
 
-### Search
+### AI & Writing Assistance
+
+- Intelligent Writing Engine (IWE) with LSP-based hover, completion, formatting, rename, inlay hints, and diagnostics.
+- Dynamic AI provider substitution for IWE transforms with config-driven actions.
+- AI-generated file tree blurbs: note descriptions displayed inline in the sidebar.
+- Prompt builder for composing AI queries from vault context.
+
+### Search & Query
 
 - Omnibar for unified file, content, and command searches.
 - Full-text search (SQLite FTS5) with instant results.
-- Semantic search via candle BGE-small embeddings.
+- Semantic search via candle BGE-small embeddings with hybrid FTS + vector KNN + Reciprocal Rank Fusion.
 - Fuzzy matching.
+- Composable query language with parser, evaluator, saved `.query` files, and lens views.
 
 ### Canvas and Graph
 
 - Excalidraw canvas for freeform drawing (`.excalidraw` files).
-- Mermaid diagram rendering in notes.
-- Interactive graph view of note connections (d3-force).
+- Mermaid diagram rendering in notes with LRU-cached SVG output.
+- Interactive graph view of note connections (d3-force) with full-vault and neighborhood modes.
+- Semantic similarity edges in graph with configurable thresholds.
+- WebGL renderer with worker-based force simulation and viewport culling.
+
+### References & Linked Sources
+
+- Linked source library with embedded sources and search inclusion toggle.
+- Auto-load reference library on vault open.
+- Zotero Better BibTeX integration.
+- BibTeX, CSL, and RIS bibliography support via Citation.js.
+- PDF annotation extraction.
+
+### Layout & UI
+
+- 10+ layout variants: Spotlight, Cockpit, Theater, Triptych, Dashboard, and more.
+- Activity bar with layout-aware positioning.
+- Native macOS menu bar.
+- Metadata sidebar panel in context rail.
+- Hierarchical tag tree with prefix queries and @-trigger date links.
+- File tree style variants: compact, macOS Finder, refined, airy minimal.
+- Bases panel for base management.
 
 ### Git Integration
 
@@ -91,26 +122,36 @@ Built-in auto-updater applies updates on startup.
 
 - PDF viewing (pdfjs-dist) and export (jspdf).
 - Rust-side PDF text extraction.
+- Inline PDF rendering in editor via pdf.js canvas.
 
-### Citations
+### Tags, Diagnostics & Linting
 
-- BibTeX, CSL, and RIS bibliography support via Citation.js.
-- Zotero Better BibTeX integration.
-
-### Tags and Linting
-
-- Tag-based note organization.
+- Tag-based note organization with sidebar panel and Rust backend.
+- Unified diagnostics store merging lint and IWE sources.
+- AST parse error surfacing with severity mapping.
+- Unresolved link diagnostics.
 - Configurable Markdown linting.
+
+### Task Management
+
+- Built-in task management (M0–M6 task workflows).
+- Indexing and embedding-aware task tracking.
 
 ### Plugin System
 
-- Extensible plugin architecture for adding custom functionality.
+- Extensible plugin architecture with lifecycle management, settings UI, and iframe sandboxing.
+- Plugin API extensions for search, diagnostics, and note-indexed events.
+- Auto-tag plugin with TOML-configured allow/deny lists.
+- Toolchain manager with binary resolver, installation, and SHA-256 verification.
 
 ### Customization
 
-- Themes (light, dark, auto) and custom JSON theme configuration.
+- Themes (light, dark, auto) with custom JSON theme configuration.
+- CSS token editor with inline editing and revert.
 - Rebindable hotkeys.
-- Per-vault settings.
+- Per-vault settings with atomic writes and crash-safe persistence.
+- Configurable note naming templates with strftime support.
+- Auto-updater with skip version support.
 
 ---
 
