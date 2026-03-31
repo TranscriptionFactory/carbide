@@ -1,5 +1,11 @@
 # carbide
 
+## 1.10.0
+
+### Minor Changes
+
+- f7e41dc: Linked sources & search integration: embed linked sources in vault and add search inclusion toggle. Auto-load reference library on vault open. Fix infinite reactive loop in virtual file tree ROW_HEIGHT effect.
+
 ## 1.9.0
 
 ### Minor Changes
