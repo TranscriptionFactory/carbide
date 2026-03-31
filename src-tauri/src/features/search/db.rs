@@ -2407,6 +2407,63 @@ mod tests {
     }
 
     #[test]
+    fn query_bases_filter_by_content_fts() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("fts/a.md", "Alpha"), "The quick brown fox jumps over the lazy dog").expect("a");
+        upsert_note(&conn, &note("fts/b.md", "Beta"), "Rust programming language is fast and safe").expect("b");
+        upsert_note(&conn, &note("fts/c.md", "Gamma"), "The lazy cat sleeps all day").expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("content", "matches", "lazy")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 2);
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert!(paths.contains(&"fts/a.md"));
+        assert!(paths.contains(&"fts/c.md"));
+    }
+
+    #[test]
+    fn query_bases_content_fts_no_match() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("fts/a.md", "A"), "hello world").expect("a");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("content", "matches", "zzzznotfound")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 0);
+    }
+
+    #[test]
+    fn query_bases_content_fts_combined_with_property() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("fts/a.md", "A"), "rust is great").expect("a");
+        upsert_note(&conn, &note("fts/b.md", "B"), "rust is fast").expect("b");
+        upsert_note(&conn, &note("fts/c.md", "C"), "python is slow").expect("c");
+        insert_prop(&conn, "fts/a.md", "status", "draft", "string");
+        insert_prop(&conn, "fts/b.md", "status", "done", "string");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![
+                    filter("content", "matches", "rust"),
+                    filter("status", "eq", "draft"),
+                ],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "fts/a.md");
+    }
+
+    #[test]
     fn tag_prefix_query_matches_exact_and_descendants() {
         let conn = open_mem_db();
         upsert_note(&conn, &note("a.md", "A"), "body").expect("a");
@@ -2830,9 +2887,16 @@ pub fn query_bases(
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     for filter in &query.filters {
-        if filter.property == "tag" || filter.property == "tags" {
+        if filter.property == "content" {
+            let fts_query = escape_fts_query(&filter.value);
             where_clauses.push(format!(
-                "path IN (SELECT path FROM note_inline_tags WHERE tag = ?{})",
+                "notes.path IN (SELECT path FROM notes_fts WHERE notes_fts MATCH ?{})",
+                params.len() + 1
+            ));
+            params.push(Box::new(fts_query));
+        } else if filter.property == "tag" || filter.property == "tags" {
+            where_clauses.push(format!(
+                "notes.path IN (SELECT path FROM note_inline_tags WHERE tag = ?{})",
                 params.len() + 1
             ));
             params.push(Box::new(filter.value.clone()));
@@ -2887,14 +2951,14 @@ pub fn query_bases(
             let numeric_ops = matches!(filter.operator.as_str(), "gt" | "lt" | "gte" | "lte");
             if numeric_ops {
                 where_clauses.push(format!(
-                    "path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
+                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
                     params.len() + 1,
                     op,
                     params.len() + 2
                 ));
             } else {
                 where_clauses.push(format!(
-                    "path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
+                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
                     params.len() + 1,
                     op,
                     params.len() + 2

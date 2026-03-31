@@ -18,10 +18,18 @@
     { value: "eq", label: "=" },
     { value: "neq", label: "!=" },
     { value: "contains", label: "contains" },
+    { value: "matches", label: "matches" },
     { value: "gt", label: ">" },
     { value: "lt", label: "<" },
     { value: "gte", label: ">=" },
     { value: "lte", label: "<=" },
+  ];
+
+  const BUILT_IN_PROPERTIES = [
+    { name: "content", property_type: "fts", count: 0 },
+    { name: "title", property_type: "string", count: 0 },
+    { name: "path", property_type: "string", count: 0 },
+    { name: "tag", property_type: "string", count: 0 },
   ];
 
   const { stores, services, action_registry } = use_app_context();
@@ -296,6 +304,12 @@
             class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
           >
             <option value="">Select...</option>
+            {#each BUILT_IN_PROPERTIES as prop}
+              <option value={prop.name}>{prop.name}</option>
+            {/each}
+            {#if bases_store.available_properties.length > 0}
+              <option disabled>───</option>
+            {/if}
             {#each bases_store.available_properties as prop}
               <option value={prop.name}>{prop.name} ({prop.count})</option>
             {/each}
