@@ -130,7 +130,48 @@ pub fn vault_mode_for_id(app: &AppHandle, vault_id: &str) -> Result<VaultMode, S
         .ok_or_else(|| "vault not found".to_string())
 }
 
-fn url_decode(input: &str) -> String {
+fn build_response(status: u16, mime: &str, body: Vec<u8>) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", mime)
+        .header("Content-Length", body.len().to_string())
+        .header("Cache-Control", "no-store")
+        .header("Access-Control-Allow-Origin", "*")
+        .body(body)
+        .unwrap_or_else(|error| {
+            log::error!("Failed to build scheme response: {}", error);
+            Response::new(Vec::new())
+        })
+}
+
+fn error_response(
+    scheme: &str,
+    uri: &str,
+    status: u16,
+    reason: impl AsRef<str>,
+) -> Response<Vec<u8>> {
+    let reason = reason.as_ref();
+    log::error!(
+        "Custom scheme request failed: scheme={} status={} uri={} reason={}",
+        scheme,
+        status,
+        uri,
+        reason
+    );
+    build_response(status, "text/plain; charset=utf-8", reason.as_bytes().to_vec())
+}
+
+pub fn internal_error_response(scheme: &str, reason: impl AsRef<str>) -> Response<Vec<u8>> {
+    let reason = reason.as_ref();
+    log::error!(
+        "Custom scheme handler panicked: scheme={} reason={}",
+        scheme,
+        reason
+    );
+    build_response(500, "text/plain; charset=utf-8", reason.as_bytes().to_vec())
+}
+
+fn try_url_decode(input: &str) -> Result<String, String> {
     let mut bytes = Vec::with_capacity(input.len());
     let mut iter = input.bytes();
     while let Some(b) = iter.next() {
@@ -140,14 +181,19 @@ fn url_decode(input: &str) -> String {
             if let (Some(h), Some(l)) = (hi, lo) {
                 bytes.push((h * 16 + l) as u8);
             } else {
-                bytes.push(b'%');
+                return Err(format!("invalid percent encoding in {}", input));
             }
         } else {
             bytes.push(b);
         }
     }
-    String::from_utf8(bytes)
-        .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+    String::from_utf8(bytes).map_err(|error| format!("invalid utf-8 in url component: {}", error))
+}
+
+#[cfg(test)]
+fn url_decode(input: &str) -> String {
+    try_url_decode(input)
+        .unwrap_or_else(|error| format!("__decode_error__:{error}"))
 }
 
 const EMBEDDED_SDK: &str =
@@ -170,7 +216,7 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
     let mut path_segments = path_part.splitn(2, '/');
     let plugin_id = match path_segments.next() {
         Some(id) if !id.is_empty() => id,
-        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
+        _ => return error_response("carbide-plugin", &uri, 400, "missing plugin id"),
     };
     let file_rel = path_segments.next().unwrap_or("index.html");
     let file_rel = if file_rel.is_empty() {
@@ -183,15 +229,19 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
         let mut kv = pair.splitn(2, '=');
         let key = kv.next()?;
         if key == "vault" {
-            kv.next().map(url_decode)
+            kv.next().map(try_url_decode)
         } else {
             None
         }
     });
 
     let vault_path = match vault_path {
-        Some(p) if !p.is_empty() => p,
-        _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
+        Some(Ok(p)) if !p.is_empty() => p,
+        Some(Ok(_)) => {
+            return error_response("carbide-plugin", &uri, 400, "missing vault path");
+        }
+        Some(Err(error)) => return error_response("carbide-plugin", &uri, 400, error),
+        None => return error_response("carbide-plugin", &uri, 400, "missing vault query"),
     };
 
     let vault_root = std::path::Path::new(&vault_path);
@@ -199,7 +249,14 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
 
     let canonical_plugin_dir = match plugin_dir.canonicalize() {
         Ok(p) => p,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+        Err(error) => {
+            return error_response(
+                "carbide-plugin",
+                &uri,
+                404,
+                format!("plugin directory unavailable: {}", error),
+            );
+        }
     };
 
     let target = canonical_plugin_dir.join(file_rel);
@@ -222,12 +279,22 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
                     },
                 );
             }
-            return Response::builder().status(404).body(Vec::new()).unwrap();
+            return error_response(
+                "carbide-plugin",
+                &uri,
+                404,
+                format!("plugin asset not found: {}", target.display()),
+            );
         }
     };
 
     if !canonical_target.starts_with(&canonical_plugin_dir) {
-        return Response::builder().status(403).body(Vec::new()).unwrap();
+        return error_response(
+            "carbide-plugin",
+            &uri,
+            403,
+            format!("plugin asset escaped root: {}", canonical_target.display()),
+        );
     }
 
     let cache_state = app.state::<AssetCacheState>();
@@ -236,7 +303,18 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
     let target_path = canonical_target.clone();
 
     serve_with_cache(&cache_state.plugin, cache_key, policy, &req, || {
-        let bytes = std::fs::read(&target_path).ok()?;
+        let bytes = match std::fs::read(&target_path) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                log::error!(
+                    "Plugin asset read failed: uri={} path={} error={}",
+                    uri,
+                    target_path.display(),
+                    error
+                );
+                return None;
+            }
+        };
         let mime = mime_guess::from_path(&target_path)
             .first_or_octet_stream()
             .to_string();
@@ -289,16 +367,28 @@ pub fn handle_excalidraw_request(
         Ok(p) => p,
         Err(_) => {
             log::warn!("Excalidraw dist not found at {:?}", excalidraw_dir);
-            return Response::builder().status(404).body(Vec::new()).unwrap();
+            return error_response("carbide-excalidraw", &uri, 404, "excalidraw dist not found");
         }
     };
     let canonical_target = match target.canonicalize() {
         Ok(p) => p,
-        Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+        Err(error) => {
+            return error_response(
+                "carbide-excalidraw",
+                &uri,
+                404,
+                format!("excalidraw asset not found: {}", error),
+            );
+        }
     };
 
     if !canonical_target.starts_with(&canonical_base) {
-        return Response::builder().status(403).body(Vec::new()).unwrap();
+        return error_response(
+            "carbide-excalidraw",
+            &uri,
+            403,
+            format!("excalidraw asset escaped root: {}", canonical_target.display()),
+        );
     }
 
     let cache_state = app.state::<AssetCacheState>();
@@ -311,7 +401,18 @@ pub fn handle_excalidraw_request(
         CachePolicy::Immutable,
         &req,
         || {
-            let bytes = std::fs::read(&target_path).ok()?;
+            let bytes = match std::fs::read(&target_path) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    log::error!(
+                        "Excalidraw asset read failed: uri={} path={} error={}",
+                        uri,
+                        target_path.display(),
+                        error
+                    );
+                    return None;
+                }
+            };
             let mime = mime_guess::from_path(&target_path)
                 .first_or_octet_stream()
                 .to_string();
@@ -329,23 +430,30 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
 
     let parts: Vec<&str> = rel.splitn(3, '/').collect();
     if parts.len() < 2 {
-        return Response::builder().status(400).body(Vec::new()).unwrap();
+        return error_response("carbide-asset", &uri, 400, "invalid asset url");
     }
 
     match parts[0] {
         "vault" => {
             if parts.len() != 3 {
-                return Response::builder().status(400).body(Vec::new()).unwrap();
+                return error_response("carbide-asset", &uri, 400, "missing vault asset path");
             }
             let vault_id = parts[1];
-            let asset_rel = url_decode(parts[2]);
+            let asset_rel = match try_url_decode(parts[2]) {
+                Ok(path) => path,
+                Err(error) => return error_response("carbide-asset", &uri, 400, error),
+            };
             let vp = match vault_path(app, vault_id) {
                 Ok(p) => p,
-                Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+                Err(error) => {
+                    return error_response("carbide-asset", &uri, 404, error);
+                }
             };
             let abs = match crate::features::notes::service::safe_vault_abs(&vp, &asset_rel) {
                 Ok(p) => p,
-                Err(_) => return Response::builder().status(403).body(Vec::new()).unwrap(),
+                Err(error) => {
+                    return error_response("carbide-asset", &uri, 403, error);
+                }
             };
 
             let cache_state = app.state::<AssetCacheState>();
@@ -357,7 +465,18 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
                 CachePolicy::ShortWithValidation,
                 &req,
                 || {
-                    let bytes = std::fs::read(&abs).ok()?;
+                    let bytes = match std::fs::read(&abs) {
+                        Ok(bytes) => bytes,
+                        Err(error) => {
+                            log::error!(
+                                "Vault asset read failed: uri={} path={} error={}",
+                                uri,
+                                abs.display(),
+                                error
+                            );
+                            return None;
+                        }
+                    };
                     let mime = mime_guess::from_path(&abs)
                         .first_or_octet_stream()
                         .to_string();
@@ -371,7 +490,10 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
             } else {
                 parts[1].to_string()
             };
-            let decoded = url_decode(&encoded_path);
+            let decoded = match try_url_decode(&encoded_path) {
+                Ok(path) => path,
+                Err(error) => return error_response("carbide-asset", &uri, 400, error),
+            };
             let abs_decoded = if decoded.starts_with('/') {
                 decoded
             } else {
@@ -380,17 +502,24 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
             let path = PathBuf::from(&abs_decoded);
             let abs = match path.canonicalize() {
                 Ok(p) if p.is_file() => p,
-                _ => return Response::builder().status(404).body(Vec::new()).unwrap(),
+                _ => return error_response("carbide-asset", &uri, 404, "file asset not found"),
             };
 
             let bytes = match std::fs::read(&abs) {
                 Ok(b) => b,
-                Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
+                Err(error) => {
+                    return error_response(
+                        "carbide-asset",
+                        &uri,
+                        404,
+                        format!("file asset unreadable: {}", error),
+                    );
+                }
             };
             let mime = mime_guess::from_path(&abs).first_or_octet_stream();
             build_skip_response(bytes, mime.as_ref())
         }
-        _ => Response::builder().status(400).body(Vec::new()).unwrap(),
+        _ => error_response("carbide-asset", &uri, 400, "unknown asset namespace"),
     }
 }
 
@@ -420,6 +549,25 @@ mod tests {
 
     #[test]
     fn url_decode_incomplete_sequence() {
-        assert_eq!(url_decode("abc%2"), "abc%");
+        assert_eq!(
+            try_url_decode("abc%2").unwrap_err(),
+            "invalid percent encoding in abc%2"
+        );
+    }
+
+    #[test]
+    fn build_response_sets_headers() {
+        let response = build_response(418, "text/plain", b"teapot".to_vec());
+        assert_eq!(response.status(), 418);
+        assert_eq!(response.headers().get("Content-Type").unwrap(), "text/plain");
+        assert_eq!(response.headers().get("Content-Length").unwrap(), "6");
+    }
+
+    #[test]
+    fn internal_error_response_is_non_empty() {
+        let response = internal_error_response("carbide-asset", "panic");
+        assert_eq!(response.status(), 500);
+        assert_eq!(response.headers().get("Cache-Control").unwrap(), "no-store");
+        assert_eq!(response.body(), b"panic");
     }
 }

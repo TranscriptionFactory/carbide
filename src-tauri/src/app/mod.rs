@@ -2,6 +2,7 @@ pub mod menu;
 
 use crate::features;
 use crate::shared;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::Manager;
@@ -310,19 +311,52 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
-                responder.respond(shared::storage::handle_asset_request(&app, req));
+                let uri = req.uri().to_string();
+                let response =
+                    catch_unwind(AssertUnwindSafe(|| {
+                        shared::storage::handle_asset_request(&app, req)
+                    }))
+                    .unwrap_or_else(|_| {
+                        shared::storage::internal_error_response(
+                            "carbide-asset",
+                            format!("panic while handling {}", uri),
+                        )
+                    });
+                responder.respond(response);
             });
         })
         .register_asynchronous_uri_scheme_protocol("carbide-plugin", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
-                responder.respond(shared::storage::handle_plugin_request(&app, req));
+                let uri = req.uri().to_string();
+                let response =
+                    catch_unwind(AssertUnwindSafe(|| {
+                        shared::storage::handle_plugin_request(&app, req)
+                    }))
+                    .unwrap_or_else(|_| {
+                        shared::storage::internal_error_response(
+                            "carbide-plugin",
+                            format!("panic while handling {}", uri),
+                        )
+                    });
+                responder.respond(response);
             });
         })
         .register_asynchronous_uri_scheme_protocol("carbide-excalidraw", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
-                responder.respond(shared::storage::handle_excalidraw_request(&app, req));
+                let uri = req.uri().to_string();
+                let response =
+                    catch_unwind(AssertUnwindSafe(|| {
+                        shared::storage::handle_excalidraw_request(&app, req)
+                    }))
+                    .unwrap_or_else(|_| {
+                        shared::storage::internal_error_response(
+                            "carbide-excalidraw",
+                            format!("panic while handling {}", uri),
+                        )
+                    });
+                responder.respond(response);
             });
         })
         .build(tauri::generate_context!())
