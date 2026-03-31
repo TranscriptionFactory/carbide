@@ -41,6 +41,7 @@
 - [`4fcff14`](https://github.com/tauri-apps/wry/commit/4fcff147b5022af3ee006ed077759b1648b32aa6) ([#1547](https://github.com/tauri-apps/wry/pull/1547)) Set `WebsiteDataManagerBuilder::base_cache_directory` with the same path as `base_data_directory`.
 
   This change allows the cache directory to be changed instead of using the default one [from WebKitGTK](https://webkitgtk.org/reference/webkit2gtk/stable/property.WebsiteDataManager.base-cache-directory.html).
+
 - [`64d9296`](https://github.com/tauri-apps/wry/commit/64d92960b960a4b2fdf9205b6188f55650ddd62f) ([#1640](https://github.com/tauri-apps/wry/pull/1640)) Update webkit2gtk-rs crates to `2.0.2`.
 
 ## \[0.53.5]
@@ -95,9 +96,9 @@
 ### breaking
 
 - [`1567635`](https://github.com/tauri-apps/wry/commit/1567635ba5f660827d4ae20f4e226ed7fa595f12) ([#1558](https://github.com/tauri-apps/wry/pull/1558) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Rename `WebViewBuilder` methods for consistency and clarity:
-
   - Renamed `WebViewBuilder::with_web_context` to `WebViewBuilder::new_with_web_context`
   - Renamed `WebViewBuilder::with_attributes` to `WebViewBuilder::new_with_attributes`
+
 - [`f868658`](https://github.com/tauri-apps/wry/commit/f868658d6ffbf0a6b944faebb3b7565726c82f57) ([#1556](https://github.com/tauri-apps/wry/pull/1556) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) `WebContext::is_custom_protocol_registered` now takes `&str` instead of `String`
 
 ## \[0.51.2]
@@ -121,7 +122,6 @@
 ### feat
 
 - [`ecbced2`](https://github.com/tauri-apps/wry/commit/ecbced25e5e41c6a9f7816ea6517763d30c5b060) ([#1534](https://github.com/tauri-apps/wry/pull/1534) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) macOS/iOS: add option to disable link previews when building a webview (the webkit API has it enabled by default)
-
   - `WebViewBuilderExtDarwin.with_allow_link_preview(bool)`
 
 ## \[0.50.5]
@@ -166,6 +166,7 @@
 - [`c27b4ff`](https://github.com/tauri-apps/wry/commit/c27b4ffc05b6bc9bb3748a1203116342cfec680d) ([#1468](https://github.com/tauri-apps/wry/pull/1468) by [@madsmtm](https://github.com/tauri-apps/wry/../../madsmtm)) Update to `objc2` v0.6.
 
   This bumps MSRV on macOS/iOS to 1.71.
+
 - [`95a9319`](https://github.com/tauri-apps/wry/commit/95a9319f24cb62add69d468ec0f60530b608fe6b) ([#1454](https://github.com/tauri-apps/wry/pull/1454) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `webview2-com` to `0.35`, `windows` to `0.59`.
 - [`9df094a`](https://github.com/tauri-apps/wry/commit/9df094aa79210c6743b5d295069931afaee596db) ([#1483](https://github.com/tauri-apps/wry/pull/1483) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) On Windows, fix webview slightly larger than the host window causing a pixel or two to be obscured.
 - [`ce98c34`](https://github.com/tauri-apps/wry/commit/ce98c3401d6bc3079900ced9007f212f4f30099c) ([#1480](https://github.com/tauri-apps/wry/pull/1480) by [@ahqsoftwares](https://github.com/tauri-apps/wry/../../ahqsoftwares)) Fixed an issue that could cause `Return type mismatch: expected 'kotlin.String', actual 'kotlin.String?'` errors.
@@ -229,7 +230,6 @@
   We also noticed that it is hard to know which webview made a request to the custom protocol so we added a method to attach an ID to a webview, and changed relevant custom protocol APIs to take a new argument that passes the specified id back to protocol handler.
 
   We also made a few changes to the builder, specifically `WebViewBuilder::new` and `WebViewBuilder::build` methods to make them more ergonomic to work with.
-
   - Added `Error::DuplicateCustomProtocol` enum variant.
   - Added `Error::ContextDuplicateCustomProtocol` enum variant.
   - On Linux, return an error in `WebViewBuilder::build` if registering a custom protocol multiple times.
@@ -248,6 +248,7 @@
   - Added `WebViewBuilder::build_as_child` method, which takes a reference to a window to create the webview in it.
   - **Breaking** Removed `WebViewBuilderExtUnix::new_gtk`.
   - Added `WebViewBuilderExtUnix::build_gtk`.
+
 - [`0abc221`](https://github.com/tauri-apps/wry/commit/0abc221ca0edf3482518a68af024f9988b10f50b) ([#1316](https://github.com/tauri-apps/wry/pull/1316) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) Migrate to obj2.
 - [`b01eac3`](https://github.com/tauri-apps/wry/commit/b01eac35f521e4e763fc15753e2fbee68aa31a02) ([#1386](https://github.com/tauri-apps/wry/pull/1386) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Use unescaped Android package identifier for the proguard rules.
 
@@ -285,7 +286,7 @@
 - [`38abcb9`](https://github.com/tauri-apps/wry/commit/38abcb95090a3917ad5092f4933acb95c721f893) ([#1340](https://github.com/tauri-apps/wry/pull/1340) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes custom protocols not triggered on Android on external redirects.
 - [`d1f1e7e`](https://github.com/tauri-apps/wry/commit/d1f1e7e6fa82722d9848fbb540e6f9a3d5925cdd) ([#1299](https://github.com/tauri-apps/wry/pull/1299) by [@kanatapple](https://github.com/tauri-apps/wry/../../kanatapple)) Fix `Webview::bounds` returning logical values where it should have been physical.
 - [`03cdf93`](https://github.com/tauri-apps/wry/commit/03cdf93f1e39469a1cd73565ba61138c58567fb6) ([#1311](https://github.com/tauri-apps/wry/pull/1311) by [@bukowa](https://github.com/tauri-apps/wry/../../bukowa)) Handle `webkit2gtk` close signal (when `window.close` is called from js)
-- [`68413e8`](https://github.com/tauri-apps/wry/commit/68413e837f81a88e8de0df39d12ba2b405b89e5e) ([#1296](https://github.com/tauri-apps/wry/pull/1296) by [@MarijnS95](https://github.com/tauri-apps/wry/../../MarijnS95)) **Breaking change**: Upgrade `ndk` crate to `0.9` and delete unused `ndk-sys` and `ndk-context` dependencies.  Types from the `ndk` crate are used in public API surface.
+- [`68413e8`](https://github.com/tauri-apps/wry/commit/68413e837f81a88e8de0df39d12ba2b405b89e5e) ([#1296](https://github.com/tauri-apps/wry/pull/1296) by [@MarijnS95](https://github.com/tauri-apps/wry/../../MarijnS95)) **Breaking change**: Upgrade `ndk` crate to `0.9` and delete unused `ndk-sys` and `ndk-context` dependencies. Types from the `ndk` crate are used in public API surface.
   **Breaking change**: The public `android_setup()` function now takes `&ThreadLooper` instead of `&ForeignLooper`, signifying that the setup function must be called on the thread where the looper is attached (and the `JNIEnv` argument is already thread-local as well).
 - [`39fc82c`](https://github.com/tauri-apps/wry/commit/39fc82c9276bd039a9130919645db149f067719a) ([#1306](https://github.com/tauri-apps/wry/pull/1306) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Support WebView2 version older than 101.0.1210.39 and document `incognito` and `theme` will not work for versions before it
 - [`5231a37`](https://github.com/tauri-apps/wry/commit/5231a379d09c9eea27f490b3062129dd474cb44c) ([#1322](https://github.com/tauri-apps/wry/pull/1322) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Support WebView2 version older than 86.0.616.0 and document version requirements for `back_forward_navigation_gestures`, `with_user_agent`, `with_hotkeys_zoom`, `with_browser_accelerator_keys`
@@ -360,14 +361,13 @@
 
 - [`e6f0fbd`](https://github.com/tauri-apps/wry/commit/e6f0fbd33365070af46361605a922ba24e542fb5)([#1180](https://github.com/tauri-apps/wry/pull/1180)) Fixes a null pointer exception when running `window.ipc.postMessage(null)` on Android.
 - [`5789bf7`](https://github.com/tauri-apps/wry/commit/5789bf759ce94e4dad5ff26a08fe81521658a4e4)([#1187](https://github.com/tauri-apps/wry/pull/1187)) **Breaking change**: Refactored the file-drop handling on the webview for better representation of the actual drag and drop operation:
-
   - Renamed `file-drop` cargo feature flag to `drag-drop`.
   - Removed `FileDropEvent` enum and replaced with a new `DragDropEvent` enum.
   - Renamed `WebViewAttributes::file_drop_handler` field to `WebViewAttributes::drag_drop_handler`.
   - Renamed `WebViewAttributes::with_file_drop_handler` method to `WebViewAttributes::with_drag_drop_handler`.
+
 - [`b8fea39`](https://github.com/tauri-apps/wry/commit/b8fea396c2eca289e2f930ad635a15397b7c0dda)([#1183](https://github.com/tauri-apps/wry/pull/1183)) Changed `WebViewBuilder::with_ipc_handler` closure to take `http::Request` instead of `String` so the request URL is available.
 - [`3a2026b`](https://github.com/tauri-apps/wry/commit/3a2026b37be67dea53535f0a7d78b32452ac8b40)([#1182](https://github.com/tauri-apps/wry/pull/1182)) **Breaking changes**: Changed a few methods on `WebView` type to return a `Result`:
-
   - `Webview::url`
   - `Webview::zoom`
   - `Webview::load_url`
@@ -380,6 +380,7 @@
   - `WebviewExtWindows::reparent`
   - `WebviewExtUnix::reparent`
   - `WebviewExtMacOS::reparent`
+
 - [`e1e2e07`](https://github.com/tauri-apps/wry/commit/e1e2e071e5329bc1a94864e368fdaa3041e79427)([#1190](https://github.com/tauri-apps/wry/pull/1190)) Update `webview2-com` crate to `0.29`
 - [`e1e2e07`](https://github.com/tauri-apps/wry/commit/e1e2e071e5329bc1a94864e368fdaa3041e79427)([#1190](https://github.com/tauri-apps/wry/pull/1190)) Update `windows` crate to `0.54`
 - [`00bc96d`](https://github.com/tauri-apps/wry/commit/00bc96d115879c841fc47242271db3761d19f746)([#1179](https://github.com/tauri-apps/wry/pull/1179)) Added `WryActivity::onWebViewCreate(android.webkit.WebView)` on Android.
@@ -391,7 +392,6 @@
 - [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) Added `WebViewExtMacOS::reparent`,`WebViewExtWindows::reparent` and `WebViewExtUnix::reparent`.
 - [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) Revert global keys shortcuts (wry#1156)
 - [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) **Breaking change**: Removed internal url parsing which had a few side-effects such as encoded url content, now it is up to the user to pass a valid URL as a string. This also came with a few breaking changes:
-
   - Removed `Url` struct re-export
   - Removed `Error::UrlError` variant.
   - Changed `WebviewAttributes::url` field type to `String`.
@@ -403,9 +403,9 @@
 - [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On android, fix `no non-static method ".evalScript(ILjava/lang/String;)"` when calling `Window::eval`.
 - [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On macOS, fix a release build crashes with SEGV when calling `WebView::evaluate_script`. This crash bug was introduced at v0.35.2.
 - [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) **Breaking change** Update [raw-window-handle](https://crates.io/crates/raw-window-handle) crate to v0.6.
-
   - `HasWindowHandle` trait is required for window types instead of `HasRawWindowHandle`.
   - `wry::raw_window_handle` now re-exports v0.6.
+
 - [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On `macOS`, fix menu keyboard shortcuts. This issue bug was introduced in `v2` when added `webview` as `child`.
 
 ## \[0.35.2]
@@ -424,19 +424,18 @@
 ## \[0.35.0]
 
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) **Breaking change** Consistently use `WebView` in API names. The following APIs were renamed:
-
   - `WebviewExtWindows` → `WebViewExtWindows`
   - `WebviewExtUnix` → `WebViewExtUnix`
   - `WebviewExtMacOS` → `WebViewExtMacOS`
   - `WebviewExtIOS` → `WebViewExtIOS`
   - `WebviewExtAndroid` → `WebViewExtAndroid`
   - `WebviewUriLoader` → `WebViewUriLoader`
+
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Add `WebViewExtWindows::set_memory_usage_level` API to set the [memory usage target level](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel) on Windows. Setting 'Low' memory usage target level when an application is going to inactive can significantly reduce the memory consumption. Please read the [guide for WebView2](https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/MemoryUsageTargetLevel.md) for more details.
-- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) -   Add cfg_aliases for easier feature configuration. And add `os-webview` as default feature.
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) - Add cfg_aliases for easier feature configuration. And add `os-webview` as default feature.
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Enhance initalization script implementation on Android supporting any kind of URL.
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Fix wkwebview crashed when received invalid UTF8 string from IPC.
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Refactor new method to take raw window handle instead. Following are APIs got affected:
-
   - `application` module is removed, and `webivew` module is moved to root module.
   - `WebViewBuilder::new`, `WebView::new` now take `RawWindowHandle` instead.
   - Add `WebViewBuilder::new_as_child`, `WebView::new_as_child` to crate a webview as a child inside a parent window.
@@ -446,7 +445,6 @@
   - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
 
   This also means that we removed `tao` as a dependency completely which required some changes to the public APIs and to the Android backend:
-
   - Webview attributes `ipc_handler`, `file_drop_handler`, `document_change_handler` don't take the `Window` as first parameter anymore.
     Users should use closure to capture the types they want to use.
   - Position field in `FileDrop` event is now a tuple of `(x, y)` physical position instead of `PhysicalPosition`. Users need to handle scale factor
@@ -512,6 +510,7 @@
 
   With input method preedit disabled,fcitx can anchor at edit cursor position.
   the pre-edit text will not disappear,instead it shows in the fcitx selection window below the input area.
+
 - [`2b56bfa`](https://github.com/tauri-apps/wry/commit/2b56bfaaee5125f0dc48f4a9bedb53db0e679e5f)([#966](https://github.com/tauri-apps/wry/pull/966)) Set base url and origin to null for `WebViewBuilder::with_html` and `WebViewAttributes.html` for consistency on all platforms.
 
 ## \[0.28.3]
@@ -663,7 +662,7 @@
   - [fee4bf2](https://github.com/tauri-apps/wry/commit/fee4bf2eb384d9c315530bd8f5af146909706cf6) Remove all keydown implementations ([#798](https://github.com/tauri-apps/wry/pull/798)) on 2022-12-10
 - Suppress `unused_variables` warning reported only in release build.
   - [4e23c0f](https://github.com/tauri-apps/wry/commit/4e23c0f84b5a954be78418d56e37366395de030f) fix(macos): suppress `unused_variables` warning reported only in release build ([#790](https://github.com/tauri-apps/wry/pull/790)) on 2022-12-07
-- Add `WebViewBuilderExtWindows::with_browser_accelerator_keys` method to allow disabling browser-specific accelerator keys enabled in WebView2 by default. When `false` is passed, it disables all accelerator keys that access features specific to a web browser. See [the official WebView2 document](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2\_core/corewebview2settings#arebrowseracceleratorkeysenabled) for more details.
+- Add `WebViewBuilderExtWindows::with_browser_accelerator_keys` method to allow disabling browser-specific accelerator keys enabled in WebView2 by default. When `false` is passed, it disables all accelerator keys that access features specific to a web browser. See [the official WebView2 document](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled) for more details.
   - [6e622ff](https://github.com/tauri-apps/wry/commit/6e622ffbdad2312bf3906d278a75956a3a6eeadd) feat(windows): Allow disabling browser-specific accelerator keys ([#792](https://github.com/tauri-apps/wry/pull/792)) on 2022-12-07
 
 ## \[0.23.1]
@@ -1123,7 +1122,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [1d5cc59](https://github.com/tauri-apps/wry/commit/1d5cc590856e1be1428f8516595ace6d8099f41f) chore(deps): remove `image` dependency ([#274](https://github.com/tauri-apps/wry/pull/274)) on 2021-05-19
 - Bump tao to `0.3` and add more examples.
 
-*For more details, please refer to `tao` changelog.*
+_For more details, please refer to `tao` changelog._
 
 - [cd4697e](https://github.com/tauri-apps/wry/commit/cd4697ebdb8eb955f0ed2be4aefea82d2c263a52) bump `tao` to 0.3 with examples ([#294](https://github.com/tauri-apps/wry/pull/294)) on 2021-06-21
 - Add `wry::webview::WebContext`. It's now a required argument on `WebViewBuilder::build`.
@@ -1192,7 +1191,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
 - Initial custom WindowExtWindows trait.
   - [1ef1f58](https://github.com/tauri-apps/wry/commit/1ef1f58efb6afa6c6b9eda3a43ee83fc79c3b78e) feat: custom WindowExtWindow trait ([#191](https://github.com/tauri-apps/wry/pull/191)) on 2021-04-23
 - Fix transparency on Windows
-  - [e278556](https://github.com/tauri-apps/wry/commit/e2785566c69d43f003896b7b5da79b29d2966c13) fix: transparency on Windows  ([#217](https://github.com/tauri-apps/wry/pull/217)) on 2021-04-28
+  - [e278556](https://github.com/tauri-apps/wry/commit/e2785566c69d43f003896b7b5da79b29d2966c13) fix: transparency on Windows ([#217](https://github.com/tauri-apps/wry/pull/217)) on 2021-04-28
 - Add platform module and WindowExtUnix trait on Linux
   - [004e298](https://github.com/tauri-apps/wry/commit/004e298e0198e6576a11e6e84fdf6b7c2f66b6ae) feat: WindowExtUnix trait ([#192](https://github.com/tauri-apps/wry/pull/192)) on 2021-04-23
 - Make sure custom protocol on Windows is over HTTPS.
