@@ -55,6 +55,8 @@ export type ScanEntry = {
   subject: string | null;
   keywords: string | null;
   doi: string | null;
+  isbn: string | null;
+  arxiv_id: string | null;
   creation_date: string | null;
   body_text: string;
   page_offsets: number[];

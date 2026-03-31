@@ -208,6 +208,8 @@ export function create_test_ports(): Ports {
           subject: null,
           keywords: null,
           doi: null,
+          isbn: null,
+          arxiv_id: null,
           creation_date: null,
           body_text: "",
           page_offsets: [],
