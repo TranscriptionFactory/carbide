@@ -160,6 +160,7 @@ function convert_block_node(node: PmNode): MdastNode | null {
   switch (node.type.name) {
     case "paragraph": {
       const children = convert_pm_inline(node);
+      trim_trailing_phrasing_whitespace(children);
       return {
         type: "paragraph",
         children:

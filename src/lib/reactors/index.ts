@@ -181,7 +181,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.settings_service,
     ),
-    create_find_in_file_reactor(context.ui_store, context.editor_service),
+    create_find_in_file_reactor(
+      context.ui_store,
+      context.editor_store,
+      context.editor_service,
+    ),
     create_local_links_sync_reactor(
       context.editor_store,
       context.ui_store,
