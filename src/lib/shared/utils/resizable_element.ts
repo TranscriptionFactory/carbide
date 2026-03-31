@@ -26,6 +26,8 @@ const EDGE_CURSORS: Record<string, string> = {
 };
 
 const HANDLE_SIZE = 6;
+const HANDLE_SIZE_PX = String(HANDLE_SIZE) + "px";
+const HANDLE_SIZE_DOUBLE_PX = String(HANDLE_SIZE * 2) + "px";
 
 export function resizable_element(
   node: HTMLElement,
@@ -50,58 +52,58 @@ export function resizable_element(
       if (edge === "n") {
         Object.assign(handle.style, {
           top: "0",
-          left: `${HANDLE_SIZE}px`,
-          right: `${HANDLE_SIZE}px`,
-          height: `${HANDLE_SIZE}px`,
+          left: HANDLE_SIZE_PX,
+          right: HANDLE_SIZE_PX,
+          height: HANDLE_SIZE_PX,
         });
       } else if (edge === "s") {
         Object.assign(handle.style, {
           bottom: "0",
-          left: `${HANDLE_SIZE}px`,
-          right: `${HANDLE_SIZE}px`,
-          height: `${HANDLE_SIZE}px`,
+          left: HANDLE_SIZE_PX,
+          right: HANDLE_SIZE_PX,
+          height: HANDLE_SIZE_PX,
         });
       } else if (edge === "e") {
         Object.assign(handle.style, {
           right: "0",
-          top: `${HANDLE_SIZE}px`,
-          bottom: `${HANDLE_SIZE}px`,
-          width: `${HANDLE_SIZE}px`,
+          top: HANDLE_SIZE_PX,
+          bottom: HANDLE_SIZE_PX,
+          width: HANDLE_SIZE_PX,
         });
       } else if (edge === "w") {
         Object.assign(handle.style, {
           left: "0",
-          top: `${HANDLE_SIZE}px`,
-          bottom: `${HANDLE_SIZE}px`,
-          width: `${HANDLE_SIZE}px`,
+          top: HANDLE_SIZE_PX,
+          bottom: HANDLE_SIZE_PX,
+          width: HANDLE_SIZE_PX,
         });
       } else if (edge === "ne") {
         Object.assign(handle.style, {
           top: "0",
           right: "0",
-          width: `${HANDLE_SIZE * 2}px`,
-          height: `${HANDLE_SIZE * 2}px`,
+          width: HANDLE_SIZE_DOUBLE_PX,
+          height: HANDLE_SIZE_DOUBLE_PX,
         });
       } else if (edge === "nw") {
         Object.assign(handle.style, {
           top: "0",
           left: "0",
-          width: `${HANDLE_SIZE * 2}px`,
-          height: `${HANDLE_SIZE * 2}px`,
+          width: HANDLE_SIZE_DOUBLE_PX,
+          height: HANDLE_SIZE_DOUBLE_PX,
         });
       } else if (edge === "se") {
         Object.assign(handle.style, {
           bottom: "0",
           right: "0",
-          width: `${HANDLE_SIZE * 2}px`,
-          height: `${HANDLE_SIZE * 2}px`,
+          width: HANDLE_SIZE_DOUBLE_PX,
+          height: HANDLE_SIZE_DOUBLE_PX,
         });
       } else if (edge === "sw") {
         Object.assign(handle.style, {
           bottom: "0",
           left: "0",
-          width: `${HANDLE_SIZE * 2}px`,
-          height: `${HANDLE_SIZE * 2}px`,
+          width: HANDLE_SIZE_DOUBLE_PX,
+          height: HANDLE_SIZE_DOUBLE_PX,
         });
       }
 
@@ -175,10 +177,10 @@ export function resizable_element(
     node.style.transition = "none";
     node.style.transform = "none";
     node.style.translate = "none";
-    node.style.left = `${left}px`;
-    node.style.top = `${top}px`;
-    node.style.width = `${width}px`;
-    node.style.height = `${height}px`;
+    node.style.left = String(left) + "px";
+    node.style.top = String(top) + "px";
+    node.style.width = String(width) + "px";
+    node.style.height = String(height) + "px";
     node.style.maxWidth = "none";
     node.style.maxHeight = "none";
   }
