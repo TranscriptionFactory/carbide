@@ -186,6 +186,13 @@
     previous_nodes_count = next_count;
   });
 
+  $effect(() => {
+    const _height = ROW_HEIGHT;
+    const v = $virtualizer;
+    if (!v) return;
+    v.measure();
+  });
+
   const virtual_items = $derived.by(() => {
     const current_nodes = filtered_nodes;
     void current_nodes;
