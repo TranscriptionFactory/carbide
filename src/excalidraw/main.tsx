@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToSvg } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
-import { exportToSvg } from "@excalidraw/utils/export";
 import type {
   AppState,
   BinaryFiles,
