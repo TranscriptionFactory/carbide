@@ -47,18 +47,38 @@ pub fn atomic_write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Resu
         e.to_string()
     })?;
 
-    // Atomic rename to replace the target file
-    std::fs::rename(&tmp_path, path).map_err(|e| {
-        log::error!(
-            "Failed to rename {} -> {}: {}",
-            tmp_path.display(),
-            path.display(),
-            e
-        );
-        // Try to clean up temp file on failure
-        let _ = std::fs::remove_file(&tmp_path);
-        e.to_string()
-    })?;
+    // Atomic rename to replace the target file.
+    // On iCloud Drive the parent directory can be evicted between create_dir_all
+    // and rename, so retry once after re-creating the parent on NotFound.
+    if let Err(e) = std::fs::rename(&tmp_path, path) {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            log::warn!(
+                "Rename {} -> {} failed with NotFound, retrying after mkdir",
+                tmp_path.display(),
+                path.display(),
+            );
+            let _ = std::fs::create_dir_all(dir);
+            std::fs::rename(&tmp_path, path).map_err(|e2| {
+                log::error!(
+                    "Retry rename {} -> {} failed: {}",
+                    tmp_path.display(),
+                    path.display(),
+                    e2
+                );
+                let _ = std::fs::remove_file(&tmp_path);
+                e2.to_string()
+            })?;
+        } else {
+            log::error!(
+                "Failed to rename {} -> {}: {}",
+                tmp_path.display(),
+                path.display(),
+                e
+            );
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(e.to_string());
+        }
+    }
 
     Ok(())
 }

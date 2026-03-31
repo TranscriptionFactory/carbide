@@ -7,16 +7,21 @@ use specta::Type;
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Default)]
 pub struct WatcherState {
     inner: Arc<Mutex<Option<WatcherRuntime>>>,
+    current_vault_id: Arc<Mutex<Option<String>>>,
 }
 
 impl WatcherState {
     pub fn shutdown(&self) {
+        if let Ok(mut current) = self.current_vault_id.lock() {
+            *current = None;
+        }
         if let Ok(mut guard) = self.inner.lock() {
             if let Some(runtime) = guard.take() {
                 log::info!("Stopping file watcher");
@@ -163,6 +168,13 @@ pub fn watch_vault(
     state: State<WatcherState>,
     vault_id: String,
 ) -> Result<(), String> {
+    {
+        let current = state.current_vault_id.lock().map_err(|_| "lock poisoned")?;
+        if current.as_deref() == Some(&vault_id) {
+            log::debug!("Already watching vault_id={}, skipping", vault_id);
+            return Ok(());
+        }
+    }
     log::info!("Watching vault vault_id={}", vault_id);
     stop_active_runtime(&state)?;
 
@@ -204,6 +216,8 @@ pub fn watch_vault(
             log::error!("Failed to start watching {}: {}", root_canon.display(), e);
             return;
         }
+
+        let mut last_emitted: HashMap<String, Instant> = HashMap::new();
 
         loop {
             if stop_rx.try_recv().is_ok() {
@@ -257,8 +271,21 @@ pub fn watch_vault(
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";
 
-                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel, is_md, is_dir)
+                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel.clone(), is_md, is_dir)
                 {
+                    let should_debounce = matches!(
+                        vault_event,
+                        VaultFsEvent::AssetChanged { .. } | VaultFsEvent::NoteChangedExternally { .. }
+                    );
+                    if should_debounce {
+                        let now = Instant::now();
+                        if let Some(&last) = last_emitted.get(&rel) {
+                            if now.duration_since(last) < Duration::from_millis(500) {
+                                continue;
+                            }
+                        }
+                        last_emitted.insert(rel, now);
+                    }
                     emit(&app_handle, vault_event);
                 }
             }
@@ -266,6 +293,9 @@ pub fn watch_vault(
     });
 
     set_active_runtime(&state, WatcherRuntime { stop_tx, join_handle: Some(join_handle) })?;
+    if let Ok(mut current) = state.current_vault_id.lock() {
+        *current = Some(vault_id);
+    }
     Ok(())
 }
 
@@ -273,5 +303,8 @@ pub fn watch_vault(
 #[specta::specta]
 pub fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
     log::info!("Unwatching vault");
+    if let Ok(mut current) = state.current_vault_id.lock() {
+        *current = None;
+    }
     stop_active_runtime(&state)
 }
