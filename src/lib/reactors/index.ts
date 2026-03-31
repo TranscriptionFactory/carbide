@@ -37,6 +37,7 @@ import { create_diagnostics_active_file_reactor } from "$lib/reactors/diagnostic
 import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { create_metadata_sync_reactor } from "$lib/reactors/metadata_sync.reactor.svelte";
 import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
+import { create_reference_library_load_reactor } from "$lib/reactors/reference_library_load.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -74,6 +75,7 @@ import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
 import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
+import type { ReferenceService } from "$lib/features/reference";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -117,6 +119,7 @@ export type ReactorContext = {
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
   theme_service: ThemeService;
+  reference_service: ReferenceService;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -237,6 +240,10 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
+    create_reference_library_load_reactor(
+      context.vault_store,
+      context.reference_service,
+    ),
     create_task_sync_reactor(
       context.vault_store,
       context.task_service,
