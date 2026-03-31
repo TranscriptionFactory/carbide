@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { derive_kanban_columns } from "$lib/features/task/ui/kanban_view.svelte";
-import type { Task } from "$lib/features/task/types";
+import type { Task, TaskStatus } from "$lib/features/task/types";
+
+type KanbanColumn = {
+  id: string;
+  label: string;
+  status: TaskStatus | undefined;
+  tasks: Task[];
+};
+type DeriveKanbanColumns = (
+  tasks: Task[],
+  group_property: string,
+) => KanbanColumn[];
+
+const derive_kanban_columns_typed =
+  derive_kanban_columns as unknown as DeriveKanbanColumns;
 
 function make_task(
   id: string,
@@ -19,6 +33,22 @@ function make_task(
   };
 }
 
+function expect_defined<T>(value: T | undefined, label: string): T {
+  expect(value, label).toBeDefined();
+  return value as T;
+}
+
+function find_column(columns: KanbanColumn[], id: string): KanbanColumn {
+  return expect_defined(
+    columns.find((column) => column.id === id),
+    `Expected column ${id}`,
+  );
+}
+
+function get_columns(tasks: Task[], group_property: string): KanbanColumn[] {
+  return derive_kanban_columns_typed(tasks, group_property);
+}
+
 describe("derive_kanban_columns", () => {
   it("status grouping returns three fixed columns in order", () => {
     const tasks = [
@@ -27,12 +57,12 @@ describe("derive_kanban_columns", () => {
       make_task("c", "doing"),
     ];
 
-    const cols = derive_kanban_columns(tasks, "status");
+    const cols = get_columns(tasks, "status");
 
     expect(cols).toHaveLength(3);
-    expect(cols[0]!.id).toBe("todo");
-    expect(cols[1]!.id).toBe("doing");
-    expect(cols[2]!.id).toBe("done");
+    expect(expect_defined(cols[0], "todo column").id).toBe("todo");
+    expect(expect_defined(cols[1], "doing column").id).toBe("doing");
+    expect(expect_defined(cols[2], "done column").id).toBe("done");
   });
 
   it("status grouping assigns tasks to correct columns", () => {
@@ -42,11 +72,11 @@ describe("derive_kanban_columns", () => {
       make_task("c", "todo"),
     ];
 
-    const cols = derive_kanban_columns(tasks, "status");
+    const cols = get_columns(tasks, "status");
 
-    expect(cols.find((c) => c.id === "todo")!.tasks).toHaveLength(2);
-    expect(cols.find((c) => c.id === "done")!.tasks).toHaveLength(1);
-    expect(cols.find((c) => c.id === "doing")!.tasks).toHaveLength(0);
+    expect(find_column(cols, "todo").tasks).toHaveLength(2);
+    expect(find_column(cols, "done").tasks).toHaveLength(1);
+    expect(find_column(cols, "doing").tasks).toHaveLength(0);
   });
 
   it("section grouping creates a column per unique section", () => {
@@ -57,12 +87,12 @@ describe("derive_kanban_columns", () => {
       make_task("d", "todo", null),
     ];
 
-    const cols = derive_kanban_columns(tasks, "section");
+    const cols = get_columns(tasks, "section");
 
     expect(cols).toHaveLength(3);
-    const sprint1 = cols.find((c) => c.id === "Sprint 1")!;
+    const sprint1 = find_column(cols, "Sprint 1");
     expect(sprint1.tasks).toHaveLength(2);
-    const no_section = cols.find((c) => c.id === "No Section")!;
+    const no_section = find_column(cols, "No Section");
     expect(no_section.tasks).toHaveLength(1);
   });
 
@@ -73,26 +103,26 @@ describe("derive_kanban_columns", () => {
       make_task("c", "todo", null, "projects/alpha.md"),
     ];
 
-    const cols = derive_kanban_columns(tasks, "note");
+    const cols = get_columns(tasks, "note");
 
     expect(cols).toHaveLength(2);
-    expect(cols[0]!.label).toBe("alpha.md");
-    expect(cols[1]!.label).toBe("beta.md");
-    expect(cols[0]!.tasks).toHaveLength(2);
+    expect(expect_defined(cols[0], "alpha column").label).toBe("alpha.md");
+    expect(expect_defined(cols[1], "beta column").label).toBe("beta.md");
+    expect(expect_defined(cols[0], "alpha task column").tasks).toHaveLength(2);
   });
 
   it("unknown groupProperty returns empty array", () => {
     const tasks = [make_task("a")];
 
-    const cols = derive_kanban_columns(tasks, "unsupported");
+    const cols = get_columns(tasks, "unsupported");
 
     expect(cols).toEqual([]);
   });
 
   it("empty task list returns empty columns for status grouping", () => {
-    const cols = derive_kanban_columns([], "status");
-    expect(cols[0]!.tasks).toHaveLength(0);
-    expect(cols[1]!.tasks).toHaveLength(0);
-    expect(cols[2]!.tasks).toHaveLength(0);
+    const cols = get_columns([], "status");
+    expect(expect_defined(cols[0], "todo empty column").tasks).toHaveLength(0);
+    expect(expect_defined(cols[1], "doing empty column").tasks).toHaveLength(0);
+    expect(expect_defined(cols[2], "done empty column").tasks).toHaveLength(0);
   });
 });
