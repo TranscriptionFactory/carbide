@@ -43,6 +43,18 @@
   const split_view_active = $derived(stores.tab.is_split);
   const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
+
+  const dashboard_task_counts = $derived.by(() => {
+    const tasks = stores.task.tasks;
+    if (tasks.length === 0) return null;
+    let todo = 0, doing = 0, done = 0;
+    for (const t of tasks) {
+      if (t.status === "todo") todo++;
+      else if (t.status === "doing") doing++;
+      else if (t.status === "done") done++;
+    }
+    return { todo, doing, done };
+  });
   const zen_mode = $derived(stores.ui.zen_mode);
   const layout_variant = $derived(stores.ui.active_theme.layout_variant);
   const is_monolith = $derived(layout_variant === "monolith");
@@ -636,6 +648,17 @@
                           on_reindex={() =>
                             void action_registry.execute(
                               ACTION_IDS.vault_reindex,
+                            )}
+                          task_counts={dashboard_task_counts}
+                          git_enabled={stores.git.enabled}
+                          git_branch={stores.git.branch}
+                          git_is_dirty={stores.git.is_dirty}
+                          git_pending_files={stores.git.pending_files}
+                          tags={stores.tag.tags}
+                          on_tag_click={(tag: string) =>
+                            void action_registry.execute(
+                              ACTION_IDS.tags_select,
+                              tag,
                             )}
                         />
                       </Sidebar.GroupContent>
