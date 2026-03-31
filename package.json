@@ -2,7 +2,7 @@
   "name": "carbide",
   "private": true,
   "type": "module",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "packageManager": "pnpm@10.32.1",
   "engines": {
     "node": ">=20"
