@@ -131,6 +131,16 @@ enum DbCommand {
         vault_id: String,
         cancel: Arc<AtomicBool>,
     },
+    UpsertLinkedContent {
+        source_id: String,
+        file_path: String,
+        title: String,
+        body: String,
+        page_offsets: Vec<usize>,
+        file_type: String,
+        modified_at: u64,
+        reply: SyncSender<Result<(), String>>,
+    },
     RenamePaths {
         old_prefix: String,
         new_prefix: String,
@@ -326,6 +336,31 @@ fn dispatch_command(
                 for key in matching_keys {
                     notes_cache.remove(&key);
                 }
+            }
+            let _ = reply.send(result);
+        }
+        DbCommand::UpsertLinkedContent {
+            source_id,
+            file_path,
+            title,
+            body,
+            page_offsets,
+            file_type,
+            modified_at,
+            reply,
+        } => {
+            let result = search_db::upsert_linked_content(
+                conn,
+                &source_id,
+                &file_path,
+                &title,
+                &body,
+                &page_offsets,
+                &file_type,
+                modified_at,
+            );
+            if let Err(ref e) = result {
+                log::warn!("writer: upsert_linked_content failed: {e}");
             }
             let _ = reply.send(result);
         }
@@ -581,6 +616,7 @@ fn run_index_op(
                     | DbCommand::RemoveNote { .. }
                     | DbCommand::RemoveNotes { .. }
                     | DbCommand::RemoveNotesByPrefix { .. }
+                    | DbCommand::UpsertLinkedContent { .. }
                     | DbCommand::RenamePaths { .. }
                     | DbCommand::RenamePath { .. } => {
                         cancel.store(true, Ordering::Relaxed);
@@ -1263,6 +1299,61 @@ pub fn index_remove_notes_by_prefix(
     prefix: String,
 ) -> Result<(), String> {
     send_write_blocking(&app, &vault_id, |reply| DbCommand::RemoveNotesByPrefix {
+        prefix,
+        reply,
+    })
+}
+
+pub fn linked_source_index(
+    app: &AppHandle,
+    vault_id: &str,
+    source_id: &str,
+    file_path: &str,
+    title: &str,
+    body: &str,
+    page_offsets: &[usize],
+    file_type: &str,
+    modified_at: u64,
+) -> Result<(), String> {
+    send_write_blocking(app, vault_id, |reply| DbCommand::UpsertLinkedContent {
+        source_id: source_id.to_string(),
+        file_path: file_path.to_string(),
+        title: title.to_string(),
+        body: body.to_string(),
+        page_offsets: page_offsets.to_vec(),
+        file_type: file_type.to_string(),
+        modified_at,
+        reply,
+    })
+}
+
+pub fn linked_source_remove(
+    app: &AppHandle,
+    vault_id: &str,
+    source_id: &str,
+    file_path: &str,
+) -> Result<(), String> {
+    let synthetic_path = format!(
+        "linked:{}/{}",
+        source_id,
+        std::path::Path::new(file_path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(file_path)
+    );
+    send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNote {
+        note_id: synthetic_path,
+        reply,
+    })
+}
+
+pub fn linked_source_clear(
+    app: &AppHandle,
+    vault_id: &str,
+    source_id: &str,
+) -> Result<(), String> {
+    let prefix = format!("linked:{source_id}/");
+    send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNotesByPrefix {
         prefix,
         reply,
     })

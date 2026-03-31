@@ -8,6 +8,7 @@ pub mod marksman;
 pub mod notes;
 pub mod pipeline;
 pub mod plugin;
+pub mod reference;
 
 pub mod search;
 pub mod settings;
