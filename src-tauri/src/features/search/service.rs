@@ -359,10 +359,16 @@ fn dispatch_command(
                 &file_type,
                 modified_at,
             );
-            if let Err(ref e) = result {
-                log::warn!("writer: upsert_linked_content failed: {e}");
+            match &result {
+                Ok(meta) => {
+                    let _ = vector_db::remove_embedding(conn, &meta.path);
+                    notes_cache.insert(meta.path.clone(), meta.clone());
+                }
+                Err(e) => {
+                    log::warn!("writer: upsert_linked_content failed: {e}");
+                }
             }
-            let _ = reply.send(result);
+            let _ = reply.send(result.map(|_| ()));
         }
         DbCommand::RenamePaths {
             old_prefix,
@@ -1158,10 +1164,11 @@ pub fn index_search(
     app: AppHandle,
     vault_id: String,
     query: SearchQueryInput,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SearchHit>, String> {
     log::debug!("Searching index vault_id={} query={}", vault_id, query.text);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, 50)
+        search_db::search(conn, &query.text, query.scope, 50, include_linked_sources.unwrap_or(true))
     })
 }
 
@@ -1396,6 +1403,7 @@ pub fn semantic_search(
     vault_id: String,
     query: String,
     limit: Option<usize>,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
@@ -1404,7 +1412,7 @@ pub fn semantic_search(
     let limit = limit.unwrap_or(20);
 
     with_read_conn(&app, &vault_id, |conn| {
-        let hits = vector_db::knn_search(conn, &query_vec, limit)?;
+        let hits = vector_db::knn_search(conn, &query_vec, limit, include_linked_sources.unwrap_or(true))?;
         let mut results = Vec::with_capacity(hits.len());
         for (path, distance) in hits {
             if let Ok(Some(note)) = search_db::get_note_meta(conn, &path) {
@@ -1423,6 +1431,7 @@ pub fn find_similar_notes(
     note_path: String,
     limit: Option<usize>,
     exclude_linked: Option<bool>,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let limit = limit.unwrap_or(5);
     let exclude = exclude_linked.unwrap_or(false);
@@ -1434,7 +1443,7 @@ pub fn find_similar_notes(
         };
 
         let fetch_limit = if exclude { limit + 20 } else { limit + 1 };
-        let hits = vector_db::knn_search(conn, &query_vec, fetch_limit)?;
+        let hits = vector_db::knn_search(conn, &query_vec, fetch_limit, include_linked_sources.unwrap_or(true))?;
 
         let linked: std::collections::HashSet<String> = if exclude {
             let mut set = std::collections::HashSet::new();
@@ -1480,11 +1489,18 @@ pub fn semantic_search_batch(
     paths: Vec<String>,
     limit: usize,
     distance_threshold: f32,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<BatchSemanticEdge>, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let linked_sets = search_db::get_linked_paths_batch(conn, &paths)?;
-        let edges =
-            vector_db::knn_search_batch(conn, &paths, limit, distance_threshold, &linked_sets)?;
+        let edges = vector_db::knn_search_batch(
+            conn,
+            &paths,
+            limit,
+            distance_threshold,
+            &linked_sets,
+            include_linked_sources.unwrap_or(true),
+        )?;
 
         Ok(edges
             .into_iter()
@@ -1504,11 +1520,13 @@ pub async fn hybrid_search(
     vault_id: String,
     query: String,
     limit: Option<usize>,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
     let model = embedding_state.get_or_init(cache_dir, &app)?;
     let limit = limit.unwrap_or(20);
+    let include_linked = include_linked_sources.unwrap_or(true);
 
     let read_conn = {
         ensure_worker(&app, &vault_id)?;
@@ -1520,7 +1538,7 @@ pub async fn hybrid_search(
 
     tauri::async_runtime::spawn_blocking(move || {
         let conn = read_conn.lock().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(&conn, &model, &query, limit)
+        hybrid::hybrid_search(&conn, &model, &query, limit, include_linked)
     })
     .await
     .map_err(|e| e.to_string())?

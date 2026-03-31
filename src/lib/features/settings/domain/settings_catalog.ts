@@ -731,6 +731,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "reference_include_sources_in_search",
+    label: "Include Sources in Search",
+    description:
+      "Include linked reference sources (PDFs, HTML) in search results, semantic similarity, and graph edges",
+    category: "Tools",
+    keywords: ["reference", "search", "linked", "sources", "pdf", "semantic"],
+  },
+  {
     key: "vim_nav_enabled",
     label: "Vim-Style Navigation",
     description:

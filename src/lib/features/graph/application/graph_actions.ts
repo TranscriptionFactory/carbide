@@ -134,6 +134,7 @@ export function register_graph_actions(
         max_vault_size: s.semantic_graph_max_vault_size,
         knn_limit: s.semantic_graph_edges_per_note,
         distance_threshold: s.semantic_similarity_threshold,
+        include_linked_sources: s.reference_include_sources_in_search,
       });
     },
   });

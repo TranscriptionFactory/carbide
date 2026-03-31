@@ -190,6 +190,7 @@ export class GraphService {
     max_vault_size?: number;
     knn_limit?: number;
     distance_threshold?: number;
+    include_linked_sources?: boolean;
   }): Promise<void> {
     const vault_id = this.get_active_vault_id();
     const snapshot = this.graph_store.vault_snapshot;
@@ -240,6 +241,7 @@ export class GraphService {
         paths,
         knn_limit,
         distance_cutoff,
+        settings?.include_linked_sources,
       );
       if (revision !== this.semantic_load_revision) return;
 
@@ -262,6 +264,7 @@ export class GraphService {
     max_vault_size?: number;
     knn_limit?: number;
     distance_threshold?: number;
+    include_linked_sources?: boolean;
   }): Promise<void> {
     this.graph_store.toggle_show_semantic_edges();
     if (

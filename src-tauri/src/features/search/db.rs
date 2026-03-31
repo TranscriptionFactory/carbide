@@ -534,7 +534,7 @@ pub fn upsert_linked_content(
     page_offsets: &[usize],
     file_type: &str,
     modified_at: u64,
-) -> Result<(), String> {
+) -> Result<IndexNoteMeta, String> {
     let synthetic_path = format!("linked:{source_id}/{}", file_name_from_path(file_path));
     let name = file_stem_string(Path::new(file_path));
     let meta = IndexNoteMeta {
@@ -547,7 +547,8 @@ pub fn upsert_linked_content(
         file_type: Some(file_type.to_string()),
         source: Some(format!("linked:{source_id}")),
     };
-    upsert_plain_content(conn, &meta, body, page_offsets)
+    upsert_plain_content(conn, &meta, body, page_offsets)?;
+    Ok(meta)
 }
 
 pub fn remove_linked_content(
@@ -1409,6 +1410,7 @@ pub fn search(
     query: &str,
     scope: SearchScope,
     limit: usize,
+    include_linked_sources: bool,
 ) -> Result<Vec<SearchHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -1423,20 +1425,27 @@ pub fn search(
         SearchScope::Content => format!("body : {escaped}"),
     };
 
-    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
-                      snippet(notes_fts, 3, '<b>', '</b>', '...', 30) as snippet,
-                      bm25(notes_fts, 10.0, 12.0, 5.0, 1.0) as rank,
-                      n.file_type,
-                      n.page_offsets,
-                      notes_fts.body,
-                      n.source
-               FROM notes_fts
-               JOIN notes n ON n.path = notes_fts.path
-               WHERE notes_fts MATCH ?1
-               ORDER BY rank
-               LIMIT ?2";
+    let linked_filter = if include_linked_sources {
+        ""
+    } else {
+        " AND (n.source IS NULL OR n.source NOT LIKE 'linked:%')"
+    };
+    let sql = format!(
+        "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
+                snippet(notes_fts, 3, '<b>', '</b>', '...', 30) as snippet,
+                bm25(notes_fts, 10.0, 12.0, 5.0, 1.0) as rank,
+                n.file_type,
+                n.page_offsets,
+                notes_fts.body,
+                n.source
+         FROM notes_fts
+         JOIN notes n ON n.path = notes_fts.path
+         WHERE notes_fts MATCH ?1{linked_filter}
+         ORDER BY rank
+         LIMIT ?2"
+    );
 
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![match_expr, limit], |row| {
             let snippet: Option<String> = row.get(4)?;

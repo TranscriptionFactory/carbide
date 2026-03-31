@@ -155,10 +155,12 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: SearchQuery,
       limit = 50,
+      include_linked_sources?: boolean,
     ): Promise<NoteSearchHit[]> {
       const hits = await invoke_search<TauriSearchHit[]>("index_search", {
         vaultId: vault_id,
         query,
+        includeLinkedSources: include_linked_sources,
       });
       return hits.slice(0, limit).map((hit) => ({
         note: to_note_meta(hit.note),
@@ -266,6 +268,7 @@ export function create_search_tauri_adapter(): SearchPort {
       note_path: string,
       limit = 5,
       exclude_linked = true,
+      include_linked_sources?: boolean,
     ): Promise<SemanticSearchHit[]> {
       const hits = await invoke_search<TauriSemanticSearchHit[]>(
         "find_similar_notes",
@@ -274,6 +277,7 @@ export function create_search_tauri_adapter(): SearchPort {
           notePath: note_path,
           limit,
           excludeLinked: exclude_linked,
+          includeLinkedSources: include_linked_sources,
         },
       );
       return hits.map((hit) => ({
@@ -286,10 +290,16 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: string,
       limit = 20,
+      include_linked_sources?: boolean,
     ): Promise<SemanticSearchHit[]> {
       const hits = await invoke_search<TauriSemanticSearchHit[]>(
         "semantic_search",
-        { vaultId: vault_id, query, limit },
+        {
+          vaultId: vault_id,
+          query,
+          limit,
+          includeLinkedSources: include_linked_sources,
+        },
       );
       return hits.map((hit) => ({
         note: to_note_meta(hit.note),
@@ -301,10 +311,16 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: string,
       limit = 20,
+      include_linked_sources?: boolean,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(
         "hybrid_search",
-        { vaultId: vault_id, query, limit },
+        {
+          vaultId: vault_id,
+          query,
+          limit,
+          includeLinkedSources: include_linked_sources,
+        },
       );
       return hits.map((hit) => ({
         note: to_note_meta(hit.note),
@@ -320,6 +336,7 @@ export function create_search_tauri_adapter(): SearchPort {
       paths: string[],
       limit: number,
       distance_threshold: number,
+      include_linked_sources?: boolean,
     ): Promise<{ source: string; target: string; distance: number }[]> {
       return invoke_search<
         { source: string; target: string; distance: number }[]
@@ -328,6 +345,7 @@ export function create_search_tauri_adapter(): SearchPort {
         paths,
         limit,
         distanceThreshold: distance_threshold,
+        includeLinkedSources: include_linked_sources,
       });
     },
 

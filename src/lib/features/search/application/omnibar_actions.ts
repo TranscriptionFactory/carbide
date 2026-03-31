@@ -179,10 +179,14 @@ async function search_omnibar_query(
   }
 
   const settings = input.stores.ui.editor_settings;
-  const result = await input.services.search.search_omnibar(query, {
-    enabled: settings.semantic_omnibar_fallback_enabled,
-    min_words: settings.semantic_omnibar_min_words,
-  });
+  const result = await input.services.search.search_omnibar(
+    query,
+    {
+      enabled: settings.semantic_omnibar_fallback_enabled,
+      min_words: settings.semantic_omnibar_min_words,
+    },
+    settings.reference_include_sources_in_search,
+  );
   if (input.stores.ui.omnibar.query.trim() !== query.trim()) {
     return;
   }
