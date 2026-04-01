@@ -6,6 +6,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 import type { SettingDefinition } from "$lib/features/settings";
+import type { CommandContext } from "$lib/features/search/types/command_context";
 import type {
   HybridSearchHit,
   InFileMatch,
@@ -211,6 +212,7 @@ export class SearchService {
     ) => boolean = () => true,
     private readonly index_port?: WorkspaceIndexPort,
     private readonly plugin_store?: PluginStore,
+    private readonly build_context?: () => CommandContext,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -510,14 +512,20 @@ export class SearchService {
   }
 
   search_commands(query: string): OmnibarItem[] {
-    // Both built-in (static) and plugin (dynamic) commands
     const static_commands = COMMANDS_REGISTRY;
     const dynamic_commands = this.plugin_store?.commands ?? [];
     const all_commands = [...static_commands, ...dynamic_commands];
 
-    const available_commands = all_commands.filter((command) =>
-      this.is_command_enabled(command),
-    );
+    const available_commands = all_commands.filter((command) => {
+      if (!this.is_command_enabled(command)) {
+        return false;
+      }
+      if (command.when && this.build_context) {
+        const context = this.build_context();
+        return command.when(context);
+      }
+      return true;
+    });
     const q = query.trim();
     if (!q) {
       return available_commands.map((command) => ({

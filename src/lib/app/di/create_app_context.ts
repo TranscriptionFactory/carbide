@@ -9,6 +9,7 @@ import { NoteService } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
 import { SearchService } from "$lib/features/search";
+import { build_command_context } from "$lib/features/search/domain/build_command_context";
 import {
   EditorService,
   type EditorServiceCallbacks,
@@ -176,6 +177,13 @@ export function create_app_context(input: {
     },
     input.ports.index,
     stores.plugin,
+    () =>
+      build_command_context({
+        editor: stores.editor,
+        git: stores.git,
+        ai: stores.ai,
+        ui: stores.ui,
+      }),
   );
 
   const editor_callbacks: EditorServiceCallbacks = {

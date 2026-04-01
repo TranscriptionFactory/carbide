@@ -1,5 +1,8 @@
+import type { CommandContext } from "./command_context";
+
 export type CommandId =
   | "create_new_note"
+  | "create_new_canvas"
   | "change_vault"
   | "open_settings"
   | "open_hotkeys"
@@ -19,6 +22,7 @@ export type CommandId =
   | "toggle_outline_panel"
   | "toggle_tasks_panel"
   | "toggle_metadata_panel"
+  | "toggle_bases_panel"
   | "quick_capture_task"
   | "show_tasks_list"
   | "show_tasks_kanban"
@@ -35,6 +39,26 @@ export type CommandId =
   | "fold_toggle"
   | "fold_collapse_all"
   | "fold_expand_all"
+  | "graph_load_hierarchy"
+  | "query_open"
+  | "query_toggle_panel"
+  | "zoom_in"
+  | "zoom_out"
+  | "zoom_reset"
+  | "iwe_extract_section"
+  | "iwe_extract_all"
+  | "iwe_inline_section"
+  | "iwe_inline_quote"
+  | "iwe_list_to_sections"
+  | "iwe_section_to_list"
+  | "iwe_sort_list"
+  | "iwe_create_link"
+  | "delete_note"
+  | "duplicate_note"
+  | "copy_as_markdown"
+  | "copy_as_html"
+  | "rename_note"
+  | "open_in_split_view"
   | (string & {});
 
 export type CommandIcon =
@@ -61,6 +85,7 @@ export type CommandDefinition = {
   description: string;
   keywords: string[];
   icon: CommandIcon;
+  when?: (ctx: CommandContext) => boolean;
 };
 
 export type SearchCommandDefinition = CommandDefinition;
