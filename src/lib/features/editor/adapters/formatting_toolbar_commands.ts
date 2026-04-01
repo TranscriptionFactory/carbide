@@ -1,0 +1,223 @@
+import type { EditorView } from "prosemirror-view";
+import { toggleMark, setBlockType } from "prosemirror-commands";
+import { undo, redo } from "prosemirror-history";
+import type { MarkType, NodeType } from "prosemirror-model";
+import { schema } from "./markdown_pipeline";
+
+export type FormattingCommand =
+  | "undo"
+  | "redo"
+  | "bold"
+  | "italic"
+  | "strikethrough"
+  | "code"
+  | "link"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "blockquote"
+  | "bullet_list"
+  | "ordered_list"
+  | "code_block"
+  | "table"
+  | "horizontal_rule"
+  | "image";
+
+export function get_active_marks(view: EditorView): Set<string> {
+  const { $from } = view.state.selection;
+  const marks = $from.marks();
+  const active = new Set<string>();
+  for (const mark of marks) {
+    active.add(mark.type.name);
+  }
+  return active;
+}
+
+function get_mark_type(name: string): MarkType | undefined {
+  return schema.marks[name];
+}
+
+function get_node_type(name: string): NodeType | undefined {
+  return schema.nodes[name];
+}
+
+function execute_command(
+  command: FormattingCommand,
+  view: EditorView,
+): boolean {
+  const { state, dispatch } = view;
+  const { from, to, $from } = state.selection;
+  const is_selection = from !== to;
+
+  switch (command) {
+    case "undo":
+      return undo(state, dispatch);
+    case "redo":
+      return redo(state, dispatch);
+
+    case "bold": {
+      const mark = get_mark_type("strong");
+      return mark ? toggleMark(mark)(state, dispatch) : false;
+    }
+    case "italic": {
+      const mark = get_mark_type("em");
+      return mark ? toggleMark(mark)(state, dispatch) : false;
+    }
+    case "strikethrough": {
+      const mark = get_mark_type("strikethrough");
+      return mark ? toggleMark(mark)(state, dispatch) : false;
+    }
+    case "code": {
+      const mark = get_mark_type("code_inline");
+      return mark ? toggleMark(mark)(state, dispatch) : false;
+    }
+    case "link": {
+      if (!is_selection) return false;
+      const mark = get_mark_type("link");
+      if (!mark) return false;
+      const url = prompt("Enter URL:");
+      if (!url) return false;
+      const tr = state.tr.addMark(
+        from,
+        to,
+        mark.create({ href: url, title: "" }),
+      );
+      dispatch(tr);
+      return true;
+    }
+
+    case "heading1": {
+      const node = get_node_type("heading");
+      if (!node) return false;
+      return setBlockType(node, { level: 1 })(state, dispatch);
+    }
+    case "heading2": {
+      const node = get_node_type("heading");
+      if (!node) return false;
+      return setBlockType(node, { level: 2 })(state, dispatch);
+    }
+    case "heading3": {
+      const node = get_node_type("heading");
+      if (!node) return false;
+      return setBlockType(node, { level: 3 })(state, dispatch);
+    }
+    case "blockquote": {
+      const node = get_node_type("blockquote");
+      if (!node) return false;
+      return setBlockType(node)(state, dispatch);
+    }
+    case "bullet_list": {
+      const list_node = get_node_type("bullet_list");
+      const item_node = get_node_type("list_item");
+      if (!list_node || !item_node) return false;
+      if ($from.parent.type === item_node) {
+        return false;
+      }
+      const tr = state.tr;
+      const para = schema.nodes.paragraph.create(null, $from.parent.content);
+      const list_item = item_node.create(null, para);
+      const list = list_node.create(null, list_item);
+      const start = $from.before($from.depth);
+      const end = $from.after($from.depth);
+      dispatch(tr.replaceWith(start, end, list));
+      return true;
+    }
+    case "ordered_list": {
+      const list_node = get_node_type("ordered_list");
+      const item_node = get_node_type("list_item");
+      if (!list_node || !item_node) return false;
+      if ($from.parent.type === item_node) {
+        return false;
+      }
+      const tr = state.tr;
+      const para = schema.nodes.paragraph.create(null, $from.parent.content);
+      const list_item = item_node.create(null, para);
+      const list = list_node.create(null, list_item);
+      const start = $from.before($from.depth);
+      const end = $from.after($from.depth);
+      dispatch(tr.replaceWith(start, end, list));
+      return true;
+    }
+    case "code_block": {
+      const node = get_node_type("code_block");
+      if (!node) return false;
+      return setBlockType(node)(state, dispatch);
+    }
+    case "table": {
+      const table = get_node_type("table");
+      const row = get_node_type("table_row");
+      const cell = get_node_type("table_cell");
+      if (!table || !row || !cell) return false;
+      const header_cell = get_node_type("table_header") ?? cell;
+      const header_row = row.create(
+        null,
+        Array.from({ length: 3 }, () => header_cell.create()),
+      );
+      const body_row = row.create(
+        null,
+        Array.from({ length: 3 }, () => cell.create()),
+      );
+      const table_node = table.create(null, [header_row, body_row]);
+      const tr = state.tr.replaceSelectionWith(table_node);
+      dispatch(tr);
+      return true;
+    }
+    case "horizontal_rule": {
+      const node = get_node_type("horizontal_rule");
+      if (!node) return false;
+      const tr = state.tr.replaceSelectionWith(node.create());
+      dispatch(tr);
+      return true;
+    }
+    case "image": {
+      const node = get_node_type("image_block");
+      if (!node) return false;
+      const src = prompt("Enter image path or URL:");
+      if (!src) return false;
+      const tr = state.tr.replaceSelectionWith(
+        node.create({ src, alt: "", caption: "", width: "100%" }),
+      );
+      dispatch(tr);
+      return true;
+    }
+
+    default:
+      return false;
+  }
+}
+
+export function is_command_available(
+  command: FormattingCommand,
+  view: EditorView,
+): boolean {
+  const { state } = view;
+  const { from, to, $from } = state.selection;
+  const is_selection = from !== to;
+
+  if (command === "undo") {
+    try {
+      return undo(state, undefined);
+    } catch {
+      return false;
+    }
+  }
+  if (command === "redo") {
+    try {
+      return redo(state, undefined);
+    } catch {
+      return false;
+    }
+  }
+
+  if (command === "link" && !is_selection) return false;
+  if (command === "image" && !is_selection) return false;
+
+  if (command === "bullet_list" || command === "ordered_list") {
+    const item_node = get_node_type("list_item");
+    if (item_node && $from.parent.type === item_node) return false;
+  }
+
+  return true;
+}
+
+export { execute_command as toggle_format };
