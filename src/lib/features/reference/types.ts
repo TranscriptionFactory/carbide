@@ -77,6 +77,18 @@ export type LinkedSourceMeta = {
   linked_source_id?: string;
 };
 
+export type LinkedNoteInfo = {
+  path: string;
+  title: string;
+  citekey?: string;
+  authors?: string;
+  year?: number;
+  doi?: string;
+  item_type?: string;
+  external_file_path?: string;
+  linked_source_id?: string;
+};
+
 export type PdfAnnotation = {
   citekey: string;
   page: number;

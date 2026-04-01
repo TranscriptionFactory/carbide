@@ -143,6 +143,12 @@ enum DbCommand {
         linked_meta: crate::features::search::model::LinkedSourceMeta,
         reply: SyncSender<Result<(), String>>,
     },
+    UpdateLinkedMetadata {
+        source_name: String,
+        external_file_path: String,
+        linked_meta: crate::features::search::model::LinkedSourceMeta,
+        reply: SyncSender<Result<bool, String>>,
+    },
     RenamePaths {
         old_prefix: String,
         new_prefix: String,
@@ -375,6 +381,21 @@ fn dispatch_command(
                 }
             }
             let _ = reply.send(result.map(|_| ()));
+        }
+        DbCommand::UpdateLinkedMetadata {
+            source_name,
+            external_file_path,
+            linked_meta,
+            reply,
+        } => {
+            let result = match search_db::find_linked_note_path(conn, &source_name, &external_file_path) {
+                Ok(Some(path)) => {
+                    search_db::update_linked_metadata(conn, &path, &linked_meta).map(|_| true)
+                }
+                Ok(None) => Ok(false),
+                Err(e) => Err(e),
+            };
+            let _ = reply.send(result);
         }
         DbCommand::RenamePaths {
             old_prefix,
@@ -629,6 +650,7 @@ fn run_index_op(
                     | DbCommand::RemoveNotes { .. }
                     | DbCommand::RemoveNotesByPrefix { .. }
                     | DbCommand::UpsertLinkedContent { .. }
+                    | DbCommand::UpdateLinkedMetadata { .. }
                     | DbCommand::RenamePaths { .. }
                     | DbCommand::RenamePath { .. } => {
                         cancel.store(true, Ordering::Relaxed);
@@ -1368,6 +1390,73 @@ pub fn linked_source_clear(
     let prefix = format!("@linked/{source_name}/");
     send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNotesByPrefix {
         prefix,
+        reply,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn query_linked_notes_by_source(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+) -> Result<Vec<crate::features::search::model::LinkedNoteInfo>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::query_linked_notes_by_source(conn, &source_name)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn count_linked_notes_by_source(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+) -> Result<usize, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::count_linked_notes_by_source(conn, &source_name)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn find_note_by_citekey(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+) -> Result<Option<crate::features::search::model::LinkedNoteInfo>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::find_note_by_citekey(conn, &citekey)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn search_linked_notes(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<crate::features::search::model::LinkedNoteInfo>, String> {
+    let limit = limit.unwrap_or(50);
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::search_linked_notes(conn, &query, limit)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_linked_note_metadata(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+    external_file_path: String,
+    linked_meta: crate::features::search::model::LinkedSourceMeta,
+) -> Result<bool, String> {
+    send_write_reply(&app, &vault_id, |reply| DbCommand::UpdateLinkedMetadata {
+        source_name,
+        external_file_path,
+        linked_meta,
         reply,
     })
 }

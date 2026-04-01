@@ -4,7 +4,7 @@
   import { Search, BookOpen, Plug, PlugZap, Link } from "@lucide/svelte";
   import { format_authors, extract_year } from "../domain/csl_utils";
   import { match_query } from "../domain/csl_utils";
-  import type { CslItem } from "../types";
+  import type { CslItem, LinkedNoteInfo } from "../types";
   import LinkedSourceManager from "./linked_source_manager.svelte";
 
   const ctx = use_app_context();
@@ -14,6 +14,7 @@
   let query = $state("");
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let local_results = $state<CslItem[]>([]);
+  let linked_results = $state<LinkedNoteInfo[]>([]);
   let extension_results = $state<Array<{ label: string; items: CslItem[] }>>(
     [],
   );
@@ -31,6 +32,7 @@
     if (debounce_timer) clearTimeout(debounce_timer);
     if (!q.trim()) {
       local_results = [];
+      linked_results = [];
       extension_results = [];
       searching = false;
       return;
@@ -42,6 +44,11 @@
       local_results = ref_store.library_items.filter((item) =>
         match_query(item, q),
       );
+      try {
+        linked_results = await ref_service.search_linked_notes(q);
+      } catch {
+        linked_results = [];
+      }
       const local_ids = new Set(local_results.map((i) => i.id));
       const ext_groups: Array<{ label: string; items: CslItem[] }> = [];
       for (const ext of ref_service.get_registered_extensions()) {
@@ -79,10 +86,25 @@
     await ctx.action_registry.execute("reference.insert_citation", item.id);
   }
 
-  async function open_linked_source(item: CslItem) {
+  async function open_linked_source_csl(item: CslItem) {
     await ctx.action_registry.execute("document.open", {
       file_path: item._linked_file_path,
     });
+  }
+
+  async function open_linked_note(note: LinkedNoteInfo) {
+    if (note.external_file_path) {
+      await ctx.action_registry.execute("document.open", {
+        file_path: note.external_file_path,
+      });
+    }
+  }
+
+  function format_linked_note_line(note: LinkedNoteInfo): string {
+    const parts: string[] = [];
+    if (note.authors) parts.push(note.authors);
+    if (note.year) parts.push(String(note.year));
+    return parts.join(" · ");
   }
 
   function format_item_line(item: CslItem): string {
@@ -167,7 +189,7 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source(item) : insert(item)}
+              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
             title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="text-sm font-medium truncate">
@@ -175,6 +197,31 @@
             </div>
             <div class="text-xs text-muted-foreground truncate">
               {format_item_line(item)}
+            </div>
+          </button>
+        {/each}
+      {/if}
+
+      {#if linked_results.length > 0}
+        <div class="px-3 pt-2">
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            Linked Sources
+          </p>
+        </div>
+        {#each linked_results as note (note.path)}
+          <button
+            class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+            onclick={() => open_linked_note(note)}
+            title="Open linked file"
+          >
+            <div class="flex items-center gap-1.5">
+              <Link class="w-3 h-3 text-muted-foreground shrink-0" />
+              <span class="text-sm font-medium truncate">
+                {note.title}
+              </span>
+            </div>
+            <div class="text-xs text-muted-foreground truncate">
+              {format_linked_note_line(note)}
             </div>
           </button>
         {/each}
@@ -190,7 +237,7 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source(item) : insert(item)}
+              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
             title={is_linked(item)
               ? "Open linked file"
               : "Import and insert [@{item.id}]"}
@@ -205,7 +252,7 @@
         {/each}
       {/each}
 
-      {#if query.trim() && local_results.length === 0 && extension_results.length === 0 && !searching}
+      {#if query.trim() && local_results.length === 0 && linked_results.length === 0 && extension_results.length === 0 && !searching}
         <div class="text-center py-4 text-muted-foreground">
           <p class="text-sm">No results found.</p>
         </div>
@@ -221,7 +268,7 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source(item) : insert(item)}
+              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
             title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="flex items-center gap-1.5">

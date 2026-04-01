@@ -121,18 +121,6 @@ export class ReferenceStore {
     };
   }
 
-  get_linked_source_items(source_id: string): CslItem[] {
-    return this.library_items.filter(
-      (item) => item._linked_source_id === source_id,
-    );
-  }
-
-  get_all_linked_items(): CslItem[] {
-    return this.library_items.filter(
-      (item) => item._source === "linked_source",
-    );
-  }
-
   reset() {
     this.library_items = [];
     this.search_results = [];
