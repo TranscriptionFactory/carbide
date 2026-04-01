@@ -298,6 +298,7 @@ pub fn run() {
             features::reference::linked_source::linked_source_index_content,
             features::reference::linked_source::linked_source_remove_content,
             features::reference::linked_source::linked_source_clear_source,
+            features::reference::linked_source::resolve_home_dir,
             features::reference::service::reference_load_library,
             features::reference::service::reference_save_library,
             features::reference::service::reference_add_item,

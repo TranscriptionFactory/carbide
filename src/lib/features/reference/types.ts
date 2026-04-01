@@ -74,6 +74,8 @@ export type LinkedSourceMeta = {
   item_type?: string;
   external_file_path?: string;
   linked_source_id?: string;
+  vault_relative_path?: string;
+  home_relative_path?: string;
 };
 
 export type LinkedNoteInfo = {
@@ -87,6 +89,8 @@ export type LinkedNoteInfo = {
   item_type?: string;
   external_file_path?: string;
   linked_source_id?: string;
+  vault_relative_path?: string;
+  home_relative_path?: string;
 };
 
 export type PdfAnnotation = {

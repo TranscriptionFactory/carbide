@@ -224,6 +224,7 @@ export function create_test_ports(): Ports {
       find_by_citekey: () => Promise.resolve(null),
       search_linked_notes: () => Promise.resolve([]),
       update_linked_metadata: () => Promise.resolve(false),
+      resolve_home_dir: () => Promise.resolve("/Users/test"),
     },
   };
 }

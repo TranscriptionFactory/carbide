@@ -30,6 +30,10 @@ import {
   scan_entry_to_linked_meta,
   generate_linked_source_id,
 } from "../domain/linked_source_utils";
+import {
+  resolve_linked_path,
+  enrich_meta_with_paths,
+} from "../domain/linked_source_paths";
 import { error_message } from "$lib/shared/utils/error_message";
 
 const LINKED_SOURCES_SETTINGS_KEY = "linked_sources";
@@ -550,6 +554,13 @@ export class ReferenceService {
 
     try {
       const vault_id = this.require_vault_id();
+      const vault_root = this.vault_store.vault?.path ?? "";
+      let home_dir = "";
+      try {
+        home_dir = await ls_port.resolve_home_dir();
+      } catch {
+        // non-critical — relative paths won't be computed
+      }
 
       const file_infos = await ls_port.list_files(source.path);
       const current_files = new Map(
@@ -595,6 +606,39 @@ export class ReferenceService {
 
       try {
         for (const removed_path of removed_paths) {
+          const note = existing_by_path.get(removed_path);
+          if (note) {
+            const resolve_meta: LinkedSourceMeta = {
+              external_file_path: removed_path,
+            };
+            if (note.vault_relative_path)
+              resolve_meta.vault_relative_path = note.vault_relative_path;
+            if (note.home_relative_path)
+              resolve_meta.home_relative_path = note.home_relative_path;
+            const resolved = resolve_linked_path(
+              resolve_meta,
+              vault_root,
+              home_dir,
+            );
+            if (
+              resolved &&
+              resolved !== removed_path &&
+              current_files.has(resolved)
+            ) {
+              const updated_meta = enrich_meta_with_paths(
+                { external_file_path: resolved },
+                vault_root,
+                home_dir,
+              );
+              await ls_port.update_linked_metadata(
+                vault_id,
+                source.name,
+                removed_path,
+                updated_meta,
+              );
+              continue;
+            }
+          }
           await ls_port.remove_content(vault_id, source.name, removed_path);
         }
         for (let i = 0; i < new_entries.length; i += batch_size) {
@@ -605,10 +649,32 @@ export class ReferenceService {
                 vault_id,
                 source.name,
                 entry,
-                scan_entry_to_linked_meta(entry, source_id),
+                scan_entry_to_linked_meta(
+                  entry,
+                  source_id,
+                  vault_root,
+                  home_dir,
+                ),
               ),
             ),
           );
+        }
+        if (vault_root && home_dir) {
+          for (const note of existing_notes) {
+            if (note.external_file_path && !note.vault_relative_path) {
+              const enriched = enrich_meta_with_paths(
+                { external_file_path: note.external_file_path },
+                vault_root,
+                home_dir,
+              );
+              await ls_port.update_linked_metadata(
+                vault_id,
+                source.name,
+                note.external_file_path,
+                enriched,
+              );
+            }
+          }
         }
       } catch (e) {
         console.error("FTS indexing failed during scan:", error_message(e));

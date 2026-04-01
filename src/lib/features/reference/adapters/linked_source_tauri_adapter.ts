@@ -119,5 +119,9 @@ export function create_linked_source_tauri_adapter(): LinkedSourcePort {
         linkedMeta: linked_meta,
       });
     },
+
+    async resolve_home_dir(): Promise<string> {
+      return tauri_invoke<string>("resolve_home_dir", {});
+    },
   };
 }

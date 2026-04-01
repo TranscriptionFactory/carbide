@@ -78,6 +78,7 @@ function make_mock_linked_source_port(
       return Promise.resolve(results);
     }),
     update_linked_metadata: vi.fn(() => Promise.resolve(true)),
+    resolve_home_dir: vi.fn(() => Promise.resolve("/Users/test")),
   };
 }
 

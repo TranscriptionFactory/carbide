@@ -93,4 +93,6 @@ export interface LinkedSourcePort {
     external_file_path: string,
     linked_meta: LinkedSourceMeta,
   ): Promise<boolean>;
+
+  resolve_home_dir(): Promise<string>;
 }

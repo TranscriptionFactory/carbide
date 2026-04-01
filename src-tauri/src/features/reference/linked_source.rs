@@ -705,6 +705,16 @@ pub fn linked_source_clear_source(
     crate::features::search::service::linked_source_clear(&app, &vault_id, &source_name)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn resolve_home_dir(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    app.path()
+        .home_dir()
+        .map(|p: std::path::PathBuf| p.to_string_lossy().into_owned())
+        .map_err(|e: tauri::Error| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

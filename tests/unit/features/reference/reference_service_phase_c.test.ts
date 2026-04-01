@@ -67,6 +67,7 @@ function make_mock_linked_source_port(
     }),
     search_linked_notes: vi.fn(() => Promise.resolve([])),
     update_linked_metadata: vi.fn(() => Promise.resolve(true)),
+    resolve_home_dir: vi.fn(() => Promise.resolve("/Users/test")),
   };
 }
 
