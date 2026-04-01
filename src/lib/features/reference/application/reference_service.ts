@@ -552,13 +552,11 @@ export class ReferenceService {
     try {
       const vault_id = this.require_vault_id();
 
-      // Fast stat-only pass to get file paths + mtimes
       const file_infos = await ls_port.list_files(source.path);
       const current_files = new Map(
         file_infos.map((f) => [f.file_path, f.modified_at]),
       );
 
-      // Build lookup of existing indexed notes for this source
       const existing_notes = await ls_port.query_linked_notes(
         vault_id,
         source.name,
@@ -567,16 +565,14 @@ export class ReferenceService {
         existing_notes.map((n) => [n.external_file_path!, n]),
       );
 
-      // Determine which files need extraction (new or modified)
       const needs_extraction: string[] = [];
-      for (const [file_path] of current_files) {
+      for (const [file_path, modified_at] of current_files) {
         const existing = existing_by_path.get(file_path);
-        if (!existing) {
+        if (!existing || existing.mtime_ms !== modified_at) {
           needs_extraction.push(file_path);
         }
       }
 
-      // Detect removed files
       const removed_paths: string[] = [];
       for (const ext_path of existing_by_path.keys()) {
         if (ext_path && !current_files.has(ext_path)) {
@@ -584,7 +580,6 @@ export class ReferenceService {
         }
       }
 
-      // Extract only changed files in batches
       const new_entries: ScanEntry[] = [];
       const batch_size = 5;
       for (let i = 0; i < needs_extraction.length; i += batch_size) {
@@ -599,7 +594,6 @@ export class ReferenceService {
         }
       }
 
-      // Index into search DB (note rows with metadata), remove deleted
       try {
         for (const removed_path of removed_paths) {
           await ls_port.remove_content(vault_id, source.name, removed_path);
@@ -628,7 +622,6 @@ export class ReferenceService {
       await this.save_linked_sources();
       this.store.set_linked_source_sync_status(source_id, "idle");
 
-      // Async DOI enrichment (non-blocking)
       const entries_with_doi = new_entries
         .filter((e) => e.doi)
         .map((e) => ({ doi: e.doi!, file_path: e.file_path }));

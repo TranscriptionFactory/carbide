@@ -85,6 +85,7 @@ pub struct LinkedSourceMeta {
 pub struct LinkedNoteInfo {
     pub path: String,
     pub title: String,
+    pub mtime_ms: i64,
     pub citekey: Option<String>,
     pub authors: Option<String>,
     pub year: Option<i32>,

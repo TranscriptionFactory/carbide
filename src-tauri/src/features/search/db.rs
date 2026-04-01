@@ -713,7 +713,7 @@ pub fn query_linked_notes_by_source(
     let prefix = format!("@linked/{source_name}/%");
     let mut stmt = conn
         .prepare(
-            "SELECT path, title, citekey, authors, year, doi, item_type, \
+            "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
              external_file_path, linked_source_id \
              FROM notes WHERE path LIKE ?1",
         )
@@ -744,20 +744,15 @@ pub fn find_note_by_citekey(
     conn: &Connection,
     citekey: &str,
 ) -> Result<Option<crate::features::search::model::LinkedNoteInfo>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT path, title, citekey, authors, year, doi, item_type, \
-             external_file_path, linked_source_id \
-             FROM notes WHERE citekey = ?1 LIMIT 1",
-        )
-        .map_err(|e| e.to_string())?;
-    let mut rows = stmt
-        .query_map(params![citekey], |row| linked_note_info_from_row(row))
-        .map_err(|e| e.to_string())?;
-    match rows.next() {
-        Some(row) => Ok(Some(row.map_err(|e| e.to_string())?)),
-        None => Ok(None),
-    }
+    conn.query_row(
+        "SELECT path, title, citekey, authors, year, doi, item_type, \
+         external_file_path, linked_source_id \
+         FROM notes WHERE citekey = ?1 LIMIT 1",
+        params![citekey],
+        |row| linked_note_info_from_row(row),
+    )
+    .optional()
+    .map_err(|e| e.to_string())
 }
 
 pub fn search_linked_notes(
@@ -765,14 +760,16 @@ pub fn search_linked_notes(
     query: &str,
     limit: usize,
 ) -> Result<Vec<crate::features::search::model::LinkedNoteInfo>, String> {
-    let pattern = format!("%{query}%");
+    let pattern = like_contains_pattern(query);
     let mut stmt = conn
         .prepare(
-            "SELECT path, title, citekey, authors, year, doi, item_type, \
+            "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
              external_file_path, linked_source_id \
              FROM notes \
              WHERE path LIKE '@linked/%' \
-               AND (title LIKE ?1 OR citekey LIKE ?1 OR authors LIKE ?1) \
+               AND (LOWER(title) LIKE ?1 ESCAPE '\\' \
+                    OR LOWER(citekey) LIKE ?1 ESCAPE '\\' \
+                    OR LOWER(authors) LIKE ?1 ESCAPE '\\') \
              LIMIT ?2",
         )
         .map_err(|e| e.to_string())?;
@@ -808,13 +805,14 @@ fn linked_note_info_from_row(
     Ok(crate::features::search::model::LinkedNoteInfo {
         path: row.get(0)?,
         title: row.get(1)?,
-        citekey: row.get(2)?,
-        authors: row.get(3)?,
-        year: row.get(4)?,
-        doi: row.get(5)?,
-        item_type: row.get(6)?,
-        external_file_path: row.get(7)?,
-        linked_source_id: row.get(8)?,
+        mtime_ms: row.get(2)?,
+        citekey: row.get(3)?,
+        authors: row.get(4)?,
+        year: row.get(5)?,
+        doi: row.get(6)?,
+        item_type: row.get(7)?,
+        external_file_path: row.get(8)?,
+        linked_source_id: row.get(9)?,
     })
 }
 
