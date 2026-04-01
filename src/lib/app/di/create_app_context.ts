@@ -931,6 +931,7 @@ export function create_app_context(input: {
     code_lsp_service,
     theme_service,
     reference_service,
+    reference_store: stores.reference,
   });
 
   return {

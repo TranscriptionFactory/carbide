@@ -25,6 +25,8 @@ import type { BasesStore } from "$lib/features/bases";
 import type { TaskStore } from "$lib/features/task";
 import type { ParsedNoteCache } from "$lib/features/note";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
+import type { ReferenceStore } from "$lib/features/reference";
+import type { ReferenceService } from "$lib/features/reference";
 
 export type ActionRegistrationInput = {
   registry: ActionRegistry;
@@ -43,6 +45,7 @@ export type ActionRegistrationInput = {
     bases: BasesStore;
     task: TaskStore;
     parsed_note_cache: ParsedNoteCache;
+    reference: ReferenceStore;
   };
   services: {
     vault: VaultService;
@@ -57,6 +60,7 @@ export type ActionRegistrationInput = {
     git: GitService;
     hotkey: HotkeyService;
     theme: ThemeService;
+    reference: ReferenceService;
   };
   default_mount_config: AppMountConfig;
 };

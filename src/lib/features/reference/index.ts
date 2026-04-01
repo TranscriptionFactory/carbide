@@ -32,6 +32,7 @@ export {
   derive_title_from_filename,
   parse_author_string,
   generate_linked_source_id,
+  linked_note_to_meta,
 } from "./domain/linked_source_utils";
 export { default as CitationPicker } from "./ui/citation_picker.svelte";
 export { default as MissingLinkedSourceDialog } from "./ui/missing_linked_source_dialog.svelte";

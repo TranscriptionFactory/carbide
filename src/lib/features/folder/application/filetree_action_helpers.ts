@@ -5,6 +5,8 @@ import type {
   FolderPaginationState,
 } from "$lib/shared/types/filetree";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
+import { linked_note_to_meta } from "$lib/features/reference";
+import { is_linked_note_path } from "$lib/shared/types/note";
 
 type FiletreeState = ActionRegistrationInput["stores"]["ui"]["filetree"];
 
@@ -207,6 +209,73 @@ export function remap_ui_paths_after_move(
   if (input.stores.ui.filetree_revealed_note_path === old_path) {
     input.stores.ui.filetree_revealed_note_path = new_path;
   }
+}
+
+export async function load_linked_source_folder(
+  input: ActionRegistrationInput,
+  folder_path: string,
+): Promise<void> {
+  const source_name = folder_path.replace(/^@linked\/?/, "");
+  if (!source_name) return;
+
+  const vault_id = input.stores.vault.vault?.id;
+  if (!vault_id) return;
+
+  set_load_state(input, folder_path, "loading", null);
+  try {
+    const sources = input.stores.reference.linked_sources;
+    const source = sources.find((s) => s.name === source_name && s.enabled);
+    if (!source) {
+      set_load_state(input, folder_path, "loaded", null);
+      return;
+    }
+
+    const notes = await input.services.reference.query_all_linked_notes();
+    const source_notes = notes
+      .filter((n) => n.linked_source_id === source.id)
+      .map(linked_note_to_meta);
+
+    const existing = input.stores.notes.notes.filter(
+      (n) => !n.path.startsWith(`${folder_path}/`),
+    );
+    input.stores.notes.set_notes([...existing, ...source_notes]);
+    set_load_state(input, folder_path, "loaded", null);
+    set_pagination(input, folder_path, {
+      loaded_count: source_notes.length,
+      total_count: source_notes.length,
+      load_state: "idle",
+      error_message: null,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    set_load_state(input, folder_path, "error", msg);
+  }
+}
+
+export async function inject_linked_source_folders(
+  input: ActionRegistrationInput,
+): Promise<void> {
+  const sources = input.stores.reference.linked_sources.filter(
+    (s) => s.enabled,
+  );
+  if (sources.length === 0) return;
+
+  const folder_paths: string[] = ["@linked"];
+  for (const source of sources) {
+    folder_paths.push(`@linked/${source.name}`);
+  }
+
+  for (const path of folder_paths) {
+    input.stores.notes.add_folder_path(path);
+  }
+
+  set_load_state(input, "@linked", "loaded", null);
+  set_pagination(input, "@linked", {
+    loaded_count: sources.length,
+    total_count: sources.length,
+    load_state: "idle",
+    error_message: null,
+  });
 }
 
 export async function load_folder(

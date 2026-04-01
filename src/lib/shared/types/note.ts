@@ -27,6 +27,10 @@ export function is_linked_note(note: NoteMeta): boolean {
   return note.path.startsWith("@linked/");
 }
 
+export function is_linked_note_path(path: string): boolean {
+  return path.startsWith("@linked/") || path === "@linked";
+}
+
 export type NoteDoc = {
   meta: NoteMeta;
   markdown: MarkdownText;

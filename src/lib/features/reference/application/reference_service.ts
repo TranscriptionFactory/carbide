@@ -394,6 +394,22 @@ export class ReferenceService {
     return this.linked_source_port.search_linked_notes(vault_id, query);
   }
 
+  async query_all_linked_notes(): Promise<LinkedNoteInfo[]> {
+    if (!this.linked_source_port) return [];
+    const vault_id = this.require_vault_id();
+    const sources = this.store.linked_sources.filter((s) => s.enabled);
+    const results = await Promise.allSettled(
+      sources.map((s) =>
+        this.linked_source_port!.query_linked_notes(vault_id, s.name),
+      ),
+    );
+    const all: LinkedNoteInfo[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") all.push(...r.value);
+    }
+    return all;
+  }
+
   async count_linked_notes_for_source(source_name: string): Promise<number> {
     if (!this.linked_source_port) return 0;
     const vault_id = this.require_vault_id();

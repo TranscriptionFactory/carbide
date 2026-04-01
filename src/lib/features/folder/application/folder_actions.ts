@@ -4,13 +4,16 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import {
   batch_clear_folder_filetree_state,
   clear_folder_filetree_state,
+  inject_linked_source_folders,
   load_folder,
+  load_linked_source_folder,
   remove_expanded_paths,
   remap_expanded_paths,
   remap_ui_paths_after_move,
   set_pagination,
   transform_filetree_paths,
 } from "$lib/features/folder/application/filetree_action_helpers";
+import { is_linked_note_path } from "$lib/shared/types/note";
 import { map_with_concurrency } from "$lib/shared/utils/concurrent";
 import {
   ancestor_folder_paths,
@@ -496,7 +499,11 @@ export function register_folder_actions(input: ActionRegistrationInput) {
           expanded_paths,
         };
 
-        await load_folder(input, folder_path);
+        if (is_linked_note_path(folder_path) && folder_path !== "@linked") {
+          await load_linked_source_folder(input, folder_path);
+        } else if (folder_path !== "@linked") {
+          await load_folder(input, folder_path);
+        }
       },
     });
 
@@ -628,9 +635,19 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         stores.notes.reset_notes_and_folders();
 
         await load_folder(input, "");
-        const non_root = Array.from(loaded_paths).filter((path) => path !== "");
+        await inject_linked_source_folders(input);
+        const non_root = Array.from(loaded_paths).filter(
+          (path) => path !== "" && !is_linked_note_path(path),
+        );
         await map_with_concurrency(non_root, 5, (path) =>
           load_folder(input, path),
+        );
+        const linked_folders = Array.from(loaded_paths).filter(
+          (path) =>
+            is_linked_note_path(path) && path !== "@linked" && path !== "",
+        );
+        await map_with_concurrency(linked_folders, 5, (path) =>
+          load_linked_source_folder(input, path),
         );
 
         const fresh_folder_paths = new Set(stores.notes.folder_paths);

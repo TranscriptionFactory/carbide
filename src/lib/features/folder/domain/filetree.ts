@@ -124,6 +124,9 @@ export function sort_tree(node: FileTreeNode): FileTreeNode {
     if (a_node.is_folder !== b_node.is_folder) {
       return a_node.is_folder ? -1 : 1;
     }
+    const a_linked = a_name === "@linked";
+    const b_linked = b_name === "@linked";
+    if (a_linked !== b_linked) return a_linked ? 1 : -1;
     return a_name.localeCompare(b_name);
   });
 
@@ -192,7 +195,17 @@ export function get_invalid_drop_reason(
     return "no items selected";
   }
 
+  if (
+    target_folder === "@linked" ||
+    target_folder.startsWith("@linked/")
+  ) {
+    return "cannot move items into linked sources";
+  }
+
   for (const item of dragged_items) {
+    if (item.path === "@linked" || item.path.startsWith("@linked/")) {
+      return "cannot move linked source items";
+    }
     if (!item.path) {
       return "invalid source path";
     }
