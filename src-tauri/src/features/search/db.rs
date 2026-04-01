@@ -490,13 +490,30 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "file_type TEXT DEFAULT 'markdown'",
         "page_offsets TEXT DEFAULT NULL",
         "source TEXT DEFAULT 'vault'",
+        // Linked-source metadata columns (unified note model)
+        "citekey TEXT",
+        "authors TEXT",
+        "year INTEGER",
+        "doi TEXT",
+        "isbn TEXT",
+        "arxiv_id TEXT",
+        "journal TEXT",
+        "abstract TEXT",
+        "item_type TEXT",
+        "external_file_path TEXT",
+        "linked_source_id TEXT",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
 
+    let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_notes_citekey ON notes(citekey)");
+    let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_notes_linked_source_id ON notes(linked_source_id)");
+
     for col in &["section_heading TEXT", "target_anchor TEXT"] {
         let _ = conn.execute_batch(&format!("ALTER TABLE note_links ADD COLUMN {col}"));
     }
+
+    migrate_linked_paths(conn);
 
     Ok(())
 }
@@ -615,18 +632,21 @@ fn upsert_plain_content(
 pub fn upsert_linked_content(
     conn: &Connection,
     source_id: &str,
+    source_name: &str,
     file_path: &str,
     title: &str,
     body: &str,
     page_offsets: &[usize],
     file_type: &str,
     modified_at: u64,
+    linked_meta: &crate::features::search::model::LinkedSourceMeta,
 ) -> Result<IndexNoteMeta, String> {
-    let synthetic_path = format!("linked:{source_id}/{}", file_name_from_path(file_path));
+    let fname = file_name_from_path(file_path);
+    let note_path = linked_note_path(source_name, fname);
     let name = file_stem_string(Path::new(file_path));
     let meta = IndexNoteMeta {
-        id: synthetic_path.clone(),
-        path: synthetic_path,
+        id: note_path.clone(),
+        path: note_path,
         title: title.to_string(),
         name,
         mtime_ms: modified_at as i64,
@@ -635,21 +655,55 @@ pub fn upsert_linked_content(
         source: Some(format!("linked:{source_id}")),
     };
     upsert_plain_content(conn, &meta, body, page_offsets)?;
+    update_linked_metadata(conn, &meta.path, linked_meta)?;
     Ok(meta)
+}
+
+fn update_linked_metadata(
+    conn: &Connection,
+    path: &str,
+    m: &crate::features::search::model::LinkedSourceMeta,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE notes SET citekey = ?1, authors = ?2, year = ?3, doi = ?4, isbn = ?5, \
+         arxiv_id = ?6, journal = ?7, abstract = ?8, item_type = ?9, \
+         external_file_path = ?10, linked_source_id = ?11 WHERE path = ?12",
+        params![
+            m.citekey,
+            m.authors,
+            m.year,
+            m.doi,
+            m.isbn,
+            m.arxiv_id,
+            m.journal,
+            m.r#abstract,
+            m.item_type,
+            m.external_file_path,
+            m.linked_source_id,
+            path,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 pub fn remove_linked_content(
     conn: &Connection,
-    source_id: &str,
+    source_name: &str,
     file_path: &str,
 ) -> Result<(), String> {
-    let synthetic_path = format!("linked:{source_id}/{}", file_name_from_path(file_path));
-    remove_note(conn, &synthetic_path)
+    let fname = file_name_from_path(file_path);
+    let note_path = linked_note_path(source_name, fname);
+    remove_note(conn, &note_path)
 }
 
-pub fn clear_linked_source(conn: &Connection, source_id: &str) -> Result<(), String> {
-    let prefix = format!("linked:{source_id}/");
+pub fn clear_linked_source(conn: &Connection, source_name: &str) -> Result<(), String> {
+    let prefix = format!("@linked/{source_name}/");
     remove_notes_by_prefix(conn, &prefix)
+}
+
+pub fn linked_note_path(source_name: &str, file_name: &str) -> String {
+    format!("@linked/{source_name}/{file_name}")
 }
 
 fn file_name_from_path(path: &str) -> &str {
@@ -657,6 +711,71 @@ fn file_name_from_path(path: &str) -> &str {
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or(path)
+}
+
+fn migrate_linked_paths(conn: &Connection) {
+    let has_old: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM notes WHERE path LIKE 'linked:%' LIMIT 1)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    if !has_old {
+        return;
+    }
+    log::info!("Migrating linked:* paths to @linked/* convention");
+
+    let mut stmt = match conn.prepare("SELECT path, source FROM notes WHERE path LIKE 'linked:%'") {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("migrate_linked_paths: prepare failed: {e}");
+            return;
+        }
+    };
+    let rows: Vec<(String, Option<String>)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap_or_else(|_| panic!("query failed"))
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for (old_path, source) in rows {
+        let source_id = source
+            .as_deref()
+            .and_then(|s| s.strip_prefix("linked:"))
+            .unwrap_or("unknown");
+        let file_name = file_name_from_path(&old_path);
+        let new_path = format!("@linked/{source_id}/{file_name}");
+        let new_source = format!("linked:{source_id}");
+
+        let _ = conn.execute(
+            "UPDATE notes SET path = ?1, linked_source_id = ?2 WHERE path = ?3",
+            params![new_path, source_id, old_path],
+        );
+        let _ = conn.execute(
+            "UPDATE notes_fts SET path = ?1 WHERE path = ?2",
+            params![new_path, old_path],
+        );
+        let _ = conn.execute(
+            "UPDATE note_properties SET path = ?1 WHERE path = ?2",
+            params![new_path, old_path],
+        );
+        // note_embeddings may not exist yet (created in vector_db::init_vector_schema)
+        let _ = conn.execute(
+            "UPDATE note_embeddings SET path = ?1 WHERE path = ?2",
+            params![new_path, old_path],
+        );
+        let _ = conn.execute(
+            "UPDATE note_inline_tags SET path = ?1 WHERE path = ?2",
+            params![new_path, old_path],
+        );
+        // Update source column to maintain consistency
+        let _ = conn.execute(
+            "UPDATE notes SET source = ?1 WHERE path = ?2",
+            params![new_source, new_path],
+        );
+    }
+    log::info!("Linked path migration complete");
 }
 
 pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
@@ -1499,7 +1618,6 @@ pub fn search(
     query: &str,
     scope: SearchScope,
     limit: usize,
-    include_linked_sources: bool,
 ) -> Result<Vec<SearchHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -1514,11 +1632,6 @@ pub fn search(
         SearchScope::Content => format!("body : {escaped}"),
     };
 
-    let linked_filter = if include_linked_sources {
-        ""
-    } else {
-        " AND (n.source IS NULL OR n.source NOT LIKE 'linked:%')"
-    };
     let sql = format!(
         "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
                 snippet(notes_fts, 3, '<b>', '</b>', '...', 30) as snippet,
@@ -1529,7 +1642,7 @@ pub fn search(
                 n.source
          FROM notes_fts
          JOIN notes n ON n.path = notes_fts.path
-         WHERE notes_fts MATCH ?1{linked_filter}
+         WHERE notes_fts MATCH ?1
          ORDER BY rank
          LIMIT ?2"
     );

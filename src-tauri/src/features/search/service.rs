@@ -133,12 +133,14 @@ enum DbCommand {
     },
     UpsertLinkedContent {
         source_id: String,
+        source_name: String,
         file_path: String,
         title: String,
         body: String,
         page_offsets: Vec<usize>,
         file_type: String,
         modified_at: u64,
+        linked_meta: crate::features::search::model::LinkedSourceMeta,
         reply: SyncSender<Result<(), String>>,
     },
     RenamePaths {
@@ -341,23 +343,27 @@ fn dispatch_command(
         }
         DbCommand::UpsertLinkedContent {
             source_id,
+            source_name,
             file_path,
             title,
             body,
             page_offsets,
             file_type,
             modified_at,
+            linked_meta,
             reply,
         } => {
             let result = search_db::upsert_linked_content(
                 conn,
                 &source_id,
+                &source_name,
                 &file_path,
                 &title,
                 &body,
                 &page_offsets,
                 &file_type,
                 modified_at,
+                &linked_meta,
             );
             match &result {
                 Ok(meta) => {
@@ -1164,11 +1170,10 @@ pub fn index_search(
     app: AppHandle,
     vault_id: String,
     query: SearchQueryInput,
-    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SearchHit>, String> {
     log::debug!("Searching index vault_id={} query={}", vault_id, query.text);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, 50, include_linked_sources.unwrap_or(true))
+        search_db::search(conn, &query.text, query.scope, 50)
     })
 }
 
@@ -1315,21 +1320,25 @@ pub fn linked_source_index(
     app: &AppHandle,
     vault_id: &str,
     source_id: &str,
+    source_name: &str,
     file_path: &str,
     title: &str,
     body: &str,
     page_offsets: &[usize],
     file_type: &str,
     modified_at: u64,
+    linked_meta: crate::features::search::model::LinkedSourceMeta,
 ) -> Result<(), String> {
     send_write_blocking(app, vault_id, |reply| DbCommand::UpsertLinkedContent {
         source_id: source_id.to_string(),
+        source_name: source_name.to_string(),
         file_path: file_path.to_string(),
         title: title.to_string(),
         body: body.to_string(),
         page_offsets: page_offsets.to_vec(),
         file_type: file_type.to_string(),
         modified_at,
+        linked_meta,
         reply,
     })
 }
@@ -1337,19 +1346,16 @@ pub fn linked_source_index(
 pub fn linked_source_remove(
     app: &AppHandle,
     vault_id: &str,
-    source_id: &str,
+    source_name: &str,
     file_path: &str,
 ) -> Result<(), String> {
-    let synthetic_path = format!(
-        "linked:{}/{}",
-        source_id,
-        std::path::Path::new(file_path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(file_path)
-    );
+    let fname = std::path::Path::new(file_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(file_path);
+    let note_path = search_db::linked_note_path(source_name, fname);
     send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNote {
-        note_id: synthetic_path,
+        note_id: note_path,
         reply,
     })
 }
@@ -1357,9 +1363,9 @@ pub fn linked_source_remove(
 pub fn linked_source_clear(
     app: &AppHandle,
     vault_id: &str,
-    source_id: &str,
+    source_name: &str,
 ) -> Result<(), String> {
-    let prefix = format!("linked:{source_id}/");
+    let prefix = format!("@linked/{source_name}/");
     send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNotesByPrefix {
         prefix,
         reply,
@@ -1403,7 +1409,6 @@ pub fn semantic_search(
     vault_id: String,
     query: String,
     limit: Option<usize>,
-    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
@@ -1412,7 +1417,7 @@ pub fn semantic_search(
     let limit = limit.unwrap_or(20);
 
     with_read_conn(&app, &vault_id, |conn| {
-        let hits = vector_db::knn_search(conn, &query_vec, limit, include_linked_sources.unwrap_or(true))?;
+        let hits = vector_db::knn_search(conn, &query_vec, limit)?;
         let mut results = Vec::with_capacity(hits.len());
         for (path, distance) in hits {
             if let Ok(Some(note)) = search_db::get_note_meta(conn, &path) {
@@ -1431,7 +1436,6 @@ pub fn find_similar_notes(
     note_path: String,
     limit: Option<usize>,
     exclude_linked: Option<bool>,
-    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let limit = limit.unwrap_or(5);
     let exclude = exclude_linked.unwrap_or(false);
@@ -1443,7 +1447,7 @@ pub fn find_similar_notes(
         };
 
         let fetch_limit = if exclude { limit + 20 } else { limit + 1 };
-        let hits = vector_db::knn_search(conn, &query_vec, fetch_limit, include_linked_sources.unwrap_or(true))?;
+        let hits = vector_db::knn_search(conn, &query_vec, fetch_limit)?;
 
         let linked: std::collections::HashSet<String> = if exclude {
             let mut set = std::collections::HashSet::new();
@@ -1489,7 +1493,6 @@ pub fn semantic_search_batch(
     paths: Vec<String>,
     limit: usize,
     distance_threshold: f32,
-    include_linked_sources: Option<bool>,
 ) -> Result<Vec<BatchSemanticEdge>, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let linked_sets = search_db::get_linked_paths_batch(conn, &paths)?;
@@ -1499,7 +1502,6 @@ pub fn semantic_search_batch(
             limit,
             distance_threshold,
             &linked_sets,
-            include_linked_sources.unwrap_or(true),
         )?;
 
         Ok(edges
@@ -1520,13 +1522,11 @@ pub async fn hybrid_search(
     vault_id: String,
     query: String,
     limit: Option<usize>,
-    include_linked_sources: Option<bool>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
     let model = embedding_state.get_or_init(cache_dir, &app)?;
     let limit = limit.unwrap_or(20);
-    let include_linked = include_linked_sources.unwrap_or(true);
 
     let read_conn = {
         ensure_worker(&app, &vault_id)?;
@@ -1538,7 +1538,7 @@ pub async fn hybrid_search(
 
     tauri::async_runtime::spawn_blocking(move || {
         let conn = read_conn.lock().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(&conn, &model, &query, limit, include_linked)
+        hybrid::hybrid_search(&conn, &model, &query, limit)
     })
     .await
     .map_err(|e| e.to_string())?

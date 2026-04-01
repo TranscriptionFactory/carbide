@@ -10,7 +10,22 @@ export type NoteMeta = {
   size_bytes: number;
   file_type: string | null;
   source?: string | undefined;
+  citekey?: string;
+  authors?: string;
+  year?: number;
+  doi?: string;
+  isbn?: string;
+  arxiv_id?: string;
+  journal?: string;
+  abstract?: string;
+  item_type?: string;
+  external_file_path?: string;
+  linked_source_id?: string;
 };
+
+export function is_linked_note(note: NoteMeta): boolean {
+  return note.path.startsWith("@linked/");
+}
 
 export type NoteDoc = {
   meta: NoteMeta;

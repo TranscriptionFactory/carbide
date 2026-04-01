@@ -1,4 +1,10 @@
-import type { CslDate, CslItem, CslName, ScanEntry } from "../types";
+import type {
+  CslDate,
+  CslItem,
+  CslName,
+  LinkedSourceMeta,
+  ScanEntry,
+} from "../types";
 import { generate_citekey } from "./csl_utils";
 
 export function generate_linked_source_id(): string {
@@ -115,6 +121,27 @@ export function scan_entry_to_csl_item(
   item.id = `${item.id}-${hash}`;
 
   return item;
+}
+
+export function scan_entry_to_linked_meta(
+  entry: ScanEntry,
+  source_id: string,
+): LinkedSourceMeta {
+  const csl = scan_entry_to_csl_item(entry, source_id);
+  const year = csl.issued?.["date-parts"]?.[0]?.[0];
+  const meta: LinkedSourceMeta = {
+    citekey: csl.id,
+    item_type: csl.type,
+    external_file_path: entry.file_path,
+    linked_source_id: source_id,
+  };
+  if (entry.author) meta.authors = entry.author;
+  if (year) meta.year = year;
+  if (entry.doi) meta.doi = entry.doi;
+  if (entry.isbn) meta.isbn = entry.isbn;
+  if (entry.arxiv_id) meta.arxiv_id = entry.arxiv_id;
+  if (entry.subject) meta.abstract = entry.subject;
+  return meta;
 }
 
 function simple_hash(str: string): string {

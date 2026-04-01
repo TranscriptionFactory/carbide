@@ -98,7 +98,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
     assert_eq!(manifest.len(), 1);
     assert!(manifest.contains_key("misc/c.md"));
 
-    let results = search(&conn, "body", SearchScope::All, 10, true).expect("search should succeed");
+    let results = search(&conn, "body", SearchScope::All, 10).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.path, "misc/c.md");
 }
@@ -424,7 +424,7 @@ fn search_returns_file_type_from_db() {
     };
     upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
 
-    let results = search(&conn, "quarterly", SearchScope::All, 10, true).expect("search should succeed");
+    let results = search(&conn, "quarterly", SearchScope::All, 10).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.file_type, Some("pdf".to_string()));
 }

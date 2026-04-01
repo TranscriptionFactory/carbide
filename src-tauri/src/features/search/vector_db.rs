@@ -99,7 +99,6 @@ pub fn knn_search(
     conn: &Connection,
     query_vec: &[f32],
     limit: usize,
-    include_linked_sources: bool,
 ) -> Result<Vec<(String, f32)>, String> {
     let mut stmt = conn
         .prepare("SELECT path, embedding FROM note_embeddings")
@@ -113,7 +112,6 @@ pub fn knn_search(
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
-        .filter(|(path, _)| include_linked_sources || !path.starts_with("linked:"))
         .map(|(path, blob)| {
             let vec = bytes_to_floats(&blob);
             let dist = dot_distance(query_vec, &vec);
@@ -132,7 +130,6 @@ pub fn knn_search_batch(
     limit: usize,
     distance_threshold: f32,
     linked_sets: &std::collections::HashMap<String, std::collections::HashSet<String>>,
-    include_linked_sources: bool,
 ) -> Result<Vec<(String, String, f32)>, String> {
     let mut stmt = conn
         .prepare("SELECT path, embedding FROM note_embeddings")
@@ -146,7 +143,6 @@ pub fn knn_search_batch(
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
-        .filter(|(path, _)| include_linked_sources || !path.starts_with("linked:"))
         .map(|(path, blob)| {
             let vec = bytes_to_floats(&blob);
             (path, vec)

@@ -55,6 +55,32 @@ pub struct IndexNoteMeta {
     pub source: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default, Type)]
+pub struct LinkedSourceMeta {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citekey: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authors: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub year: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isbn: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arxiv_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub journal: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#abstract: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_file_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linked_source_id: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Clone, Copy, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchScope {

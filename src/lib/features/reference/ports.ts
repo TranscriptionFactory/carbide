@@ -3,6 +3,7 @@ import type {
   CslItem,
   PdfAnnotation,
   ScanEntry,
+  LinkedSourceMeta,
 } from "./types";
 
 export interface ReferenceStoragePort {
@@ -61,12 +62,14 @@ export interface LinkedSourcePort {
   index_content(
     vault_id: string,
     source_id: string,
+    source_name: string,
     entry: ScanEntry,
+    linked_meta: LinkedSourceMeta,
   ): Promise<void>;
   remove_content(
     vault_id: string,
-    source_id: string,
+    source_name: string,
     file_path: string,
   ): Promise<void>;
-  clear_source(vault_id: string, source_id: string): Promise<void>;
+  clear_source(vault_id: string, source_name: string): Promise<void>;
 }

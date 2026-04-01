@@ -660,23 +660,27 @@ pub fn linked_source_index_content(
     app: tauri::AppHandle,
     vault_id: String,
     source_id: String,
+    source_name: String,
     file_path: String,
     title: String,
     body: String,
     page_offsets: Vec<usize>,
     file_type: String,
     modified_at: u64,
+    linked_meta: crate::features::search::model::LinkedSourceMeta,
 ) -> Result<(), String> {
     crate::features::search::service::linked_source_index(
         &app,
         &vault_id,
         &source_id,
+        &source_name,
         &file_path,
         &title,
         &body,
         &page_offsets,
         &file_type,
         modified_at,
+        linked_meta,
     )
 }
 
@@ -685,11 +689,11 @@ pub fn linked_source_index_content(
 pub fn linked_source_remove_content(
     app: tauri::AppHandle,
     vault_id: String,
-    source_id: String,
+    source_name: String,
     file_path: String,
 ) -> Result<(), String> {
     crate::features::search::service::linked_source_remove(
-        &app, &vault_id, &source_id, &file_path,
+        &app, &vault_id, &source_name, &file_path,
     )
 }
 
@@ -698,9 +702,9 @@ pub fn linked_source_remove_content(
 pub fn linked_source_clear_source(
     app: tauri::AppHandle,
     vault_id: String,
-    source_id: String,
+    source_name: String,
 ) -> Result<(), String> {
-    crate::features::search::service::linked_source_clear(&app, &vault_id, &source_id)
+    crate::features::search::service::linked_source_clear(&app, &vault_id, &source_name)
 }
 
 // ---------------------------------------------------------------------------

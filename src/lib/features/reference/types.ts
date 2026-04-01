@@ -63,6 +63,20 @@ export type ScanEntry = {
   modified_at: number;
 };
 
+export type LinkedSourceMeta = {
+  citekey?: string;
+  authors?: string;
+  year?: number;
+  doi?: string;
+  isbn?: string;
+  arxiv_id?: string;
+  journal?: string;
+  abstract?: string;
+  item_type?: string;
+  external_file_path?: string;
+  linked_source_id?: string;
+};
+
 export type PdfAnnotation = {
   citekey: string;
   page: number;

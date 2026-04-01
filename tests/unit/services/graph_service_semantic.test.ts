@@ -187,7 +187,6 @@ describe("GraphService.load_semantic_edges", () => {
       ["a.md", "b.md"],
       5,
       0.19999999999999996, // 1 - 0.8
-      undefined,
     );
   });
 
@@ -207,7 +206,6 @@ describe("GraphService.load_semantic_edges", () => {
       ["a.md"],
       3,
       0.5,
-      undefined,
     );
   });
 

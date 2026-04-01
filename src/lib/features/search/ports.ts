@@ -50,7 +50,6 @@ export interface SearchPort {
     vault_id: VaultId,
     query: SearchQuery,
     limit?: number,
-    include_linked_sources?: boolean,
   ): Promise<NoteSearchHit[]>;
   suggest_wiki_links(
     vault_id: VaultId,
@@ -95,27 +94,17 @@ export interface SearchPort {
     vault_id: VaultId,
     query: string,
     limit?: number,
-    include_linked_sources?: boolean,
   ): Promise<SemanticSearchHit[]>;
   hybrid_search(
     vault_id: VaultId,
     query: string,
     limit?: number,
-    include_linked_sources?: boolean,
   ): Promise<HybridSearchHit[]>;
-  find_similar_notes(
-    vault_id: VaultId,
-    note_path: string,
-    limit?: number,
-    exclude_linked?: boolean,
-    include_linked_sources?: boolean,
-  ): Promise<SemanticSearchHit[]>;
   semantic_search_batch(
     vault_id: VaultId,
     paths: string[],
     limit: number,
     distance_threshold: number,
-    include_linked_sources?: boolean,
   ): Promise<{ source: string; target: string; distance: number }[]>;
   get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
   rebuild_embeddings(vault_id: VaultId): Promise<void>;

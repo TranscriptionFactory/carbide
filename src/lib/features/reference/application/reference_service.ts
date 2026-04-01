@@ -23,6 +23,7 @@ import {
 } from "../domain/annotation_to_markdown";
 import {
   scan_entry_to_csl_item,
+  scan_entry_to_linked_meta,
   generate_linked_source_id,
 } from "../domain/linked_source_utils";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -487,7 +488,7 @@ export class ReferenceService {
       );
 
       try {
-        await ls_port.clear_source(vault_id, id);
+        await ls_port.clear_source(vault_id, source.name);
       } catch {
         // best-effort FTS cleanup
       }
@@ -596,13 +597,19 @@ export class ReferenceService {
       // FTS: only update changed entries, remove deleted
       try {
         for (const removed_path of removed_paths) {
-          await ls_port.remove_content(vault_id, source_id, removed_path);
+          await ls_port.remove_content(vault_id, source.name, removed_path);
         }
         for (let i = 0; i < new_entries.length; i += batch_size) {
           const batch = new_entries.slice(i, i + batch_size);
           await Promise.all(
             batch.map((entry) =>
-              ls_port.index_content(vault_id, source_id, entry),
+              ls_port.index_content(
+                vault_id,
+                source_id,
+                source.name,
+                entry,
+                scan_entry_to_linked_meta(entry, source_id),
+              ),
             ),
           );
         }
@@ -672,6 +679,8 @@ export class ReferenceService {
   }
 
   async index_linked_pdf(source_id: string, file_path: string): Promise<void> {
+    const source = this.store.linked_sources.find((s) => s.id === source_id);
+    if (!source) return;
     const ls_port = this.require_linked_source_port();
     try {
       const entry = await ls_port.extract_file(file_path);
@@ -681,7 +690,13 @@ export class ReferenceService {
       this.store.add_item(item);
 
       try {
-        await ls_port.index_content(vault_id, source_id, entry);
+        await ls_port.index_content(
+          vault_id,
+          source_id,
+          source.name,
+          entry,
+          scan_entry_to_linked_meta(entry, source_id),
+        );
       } catch {
         // best-effort FTS
       }
@@ -701,6 +716,8 @@ export class ReferenceService {
     source_id: string,
     file_path: string,
   ): Promise<void> {
+    const source = this.store.linked_sources.find((s) => s.id === source_id);
+    if (!source) return;
     const item = this.store.library_items.find(
       (i) =>
         i._linked_source_id === source_id && i._linked_file_path === file_path,
@@ -714,7 +731,7 @@ export class ReferenceService {
       this.store.remove_item(item.id);
 
       try {
-        await ls_port.remove_content(vault_id, source_id, file_path);
+        await ls_port.remove_content(vault_id, source.name, file_path);
       } catch {
         // best-effort FTS cleanup
       }

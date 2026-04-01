@@ -271,10 +271,7 @@ export class SearchService {
     return ordered_vaults;
   }
 
-  async search_notes(
-    query: string,
-    include_linked_sources?: boolean,
-  ): Promise<SearchNotesResult> {
+  async search_notes(query: string): Promise<SearchNotesResult> {
     const trimmed = query.trim();
     if (!trimmed) {
       this.op_store.reset("search.notes");
@@ -295,7 +292,6 @@ export class SearchService {
         vault_id,
         parse_search_query(query),
         20,
-        include_linked_sources,
       );
       if (this.is_search_stale(revision)) {
         return { status: "stale", results: [] };
@@ -561,7 +557,6 @@ export class SearchService {
   async search_omnibar(
     raw_query: string,
     semantic_fallback?: { enabled: boolean; min_words: number },
-    include_linked_sources?: boolean,
   ): Promise<OmnibarSearchResult> {
     const parsed = parse_search_query(raw_query);
 
@@ -577,7 +572,7 @@ export class SearchService {
       return this.search_planned_omnibar_items(parsed.text);
     }
 
-    const result = await this.search_notes(raw_query, include_linked_sources);
+    const result = await this.search_notes(raw_query);
     const fts_items: OmnibarItem[] = result.results.map((r) => ({
       kind: "note" as const,
       note: r.note,
@@ -602,7 +597,6 @@ export class SearchService {
           vault_id,
           parsed.text,
           20,
-          include_linked_sources,
         );
         const items = merge_fts_with_hybrid(fts_items, hybrid_hits);
         return { domain: "notes", items, status: result.status };
