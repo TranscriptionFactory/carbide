@@ -690,7 +690,8 @@ export class EditorService {
       const outline_store = this.outline_store;
       events.on_outline_change = (headings) => {
         if (!this.is_generation_current(generation)) return;
-        outline_store.set_headings(headings);
+        const note_path = this.get_active_note_path();
+        outline_store.set_headings(headings, note_path ?? undefined);
       };
     }
 

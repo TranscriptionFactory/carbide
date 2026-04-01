@@ -58,7 +58,7 @@ describe("extract_headings", () => {
     const [heading] = headings;
     expect(heading?.level).toBe(1);
     expect(heading?.text).toBe("Title");
-    expect(heading?.id).toMatch(/^h-\d+$/);
+    expect(heading?.id).toMatch(/^h-1-title-\d+$/);
   });
 
   it("extracts multiple headings with correct levels", () => {

@@ -193,13 +193,22 @@ jobs:
           sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
           rm -f src-tauri/Cargo.toml.bak
 
-      - name: Stub sidecar binaries for build
+      - name: Build iwes sidecar from vendor/iwe
         shell: bash
         run: |
-          for bin in iwes rumdl; do
-            touch "src-tauri/binaries/${bin}-${{ matrix.triple }}"
-            chmod +x "src-tauri/binaries/${bin}-${{ matrix.triple }}"
-          done
+          TRIPLE="${{ matrix.triple }}"
+          cargo build --release --manifest-path vendor/iwe/Cargo.toml -p iwes --target "$TRIPLE"
+          mkdir -p src-tauri/binaries
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            cp "vendor/iwe/target/$TRIPLE/release/iwes.exe" "src-tauri/binaries/iwes-$TRIPLE.exe"
+          else
+            cp "vendor/iwe/target/$TRIPLE/release/iwes" "src-tauri/binaries/iwes-$TRIPLE"
+            chmod +x "src-tauri/binaries/iwes-$TRIPLE"
+          fi
+
+      - name: Download rumdl sidecar
+        shell: bash
+        run: bash scripts/download_rumdl.sh "${{ matrix.triple }}"
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:

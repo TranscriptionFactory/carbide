@@ -24,9 +24,10 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
 
     let asset_name = platform.asset_template.replace("{version}", spec.version);
 
+    let tag = spec.release_tag();
     let url = format!(
-        "https://github.com/{}/releases/download/v{}/{}",
-        spec.github_repo, spec.version, asset_name
+        "https://github.com/{}/releases/download/{}/{}",
+        spec.github_repo, tag, asset_name
     );
 
     log::info!("Downloading {} from {}", spec.display_name, url);

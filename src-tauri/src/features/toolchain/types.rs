@@ -28,6 +28,7 @@ pub struct ToolSpec {
     pub display_name: &'static str,
     pub github_repo: &'static str,
     pub version: &'static str,
+    pub release_tag_template: &'static str,
     pub platform_binaries: &'static [PlatformBinary],
     pub binary_name: &'static str,
     pub default_args: &'static [&'static str],
@@ -41,6 +42,11 @@ impl ToolSpec {
                 .platform_binaries
                 .iter()
                 .any(|p| p.asset_template != "")
+    }
+
+    pub fn release_tag(&self) -> String {
+        self.release_tag_template
+            .replace("{version}", self.version)
     }
 }
 

@@ -1,8 +1,8 @@
 use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 
 const RUMDL_VERSION: &str = "0.1.59";
-const MARKSMAN_VERSION: &str = "2025-03-01";
-const IWES_VERSION: &str = "0.0.63";
+const MARKSMAN_VERSION: &str = "2026-02-08";
+const IWES_VERSION: &str = "0.0.65";
 
 static RUMDL_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
@@ -27,12 +27,36 @@ static RUMDL_BINARIES: &[PlatformBinary] = &[
     },
 ];
 
+static MARKSMAN_BINARIES: &[PlatformBinary] = &[
+    PlatformBinary {
+        triple: "aarch64-apple-darwin",
+        asset_template: "marksman-macos",
+        sha256: "6a801c17b5ac0dba69787c5282b3b3bd416e66c96253fae098d311c6bbd1833b",
+    },
+    PlatformBinary {
+        triple: "x86_64-apple-darwin",
+        asset_template: "marksman-macos",
+        sha256: "6a801c17b5ac0dba69787c5282b3b3bd416e66c96253fae098d311c6bbd1833b",
+    },
+    PlatformBinary {
+        triple: "x86_64-unknown-linux-gnu",
+        asset_template: "marksman-linux-x64",
+        sha256: "be5098e8213219269c47fc0d916a66fa31ce0602ec967475c722260aabf26087",
+    },
+    PlatformBinary {
+        triple: "x86_64-pc-windows-msvc",
+        asset_template: "marksman.exe",
+        sha256: "a6d05beb08ebe41b0a9f09c98a438540421436fa5531424c22e0bb1d22529705",
+    },
+];
+
 pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "rumdl",
         display_name: "rumdl",
         github_repo: "rvben/rumdl",
         version: RUMDL_VERSION,
+        release_tag_template: "v{version}",
         platform_binaries: RUMDL_BINARIES,
         binary_name: "rumdl",
         default_args: &["server"],
@@ -51,6 +75,7 @@ pub static TOOLS: &[ToolSpec] = &[
         display_name: "IWE",
         github_repo: "TranscriptionFactory/iwe",
         version: IWES_VERSION,
+        release_tag_template: "v{version}",
         platform_binaries: &[],
         binary_name: "iwes",
         default_args: &[],
@@ -73,9 +98,10 @@ pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "marksman",
         display_name: "Marksman",
-        github_repo: "",
+        github_repo: "artempyanykh/marksman",
         version: MARKSMAN_VERSION,
-        platform_binaries: &[],
+        release_tag_template: "{version}",
+        platform_binaries: MARKSMAN_BINARIES,
         binary_name: "marksman",
         default_args: &[],
         capabilities: &[

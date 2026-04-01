@@ -10,13 +10,23 @@ export const outline_plugin_key = new PluginKey<OutlinePluginState>("outline");
 
 export function extract_headings(doc: ProseNode): OutlineHeading[] {
   const headings: OutlineHeading[] = [];
+  const occurrence_counts = new Map<string, number>();
 
   doc.descendants((node, pos) => {
     if (node.type.name === "heading" && node.attrs.level) {
+      const level = node.attrs.level as number;
+      const text = node.textContent;
+      const slug = `h-${String(level)}-${text
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-")
+        .replace(/^-|-$/g, "")}`;
+      const count = occurrence_counts.get(slug) ?? 0;
+      occurrence_counts.set(slug, count + 1);
+
       headings.push({
-        id: `h-${String(pos)}`,
-        level: node.attrs.level as number,
-        text: node.textContent,
+        id: `${slug}-${String(count)}`,
+        level,
+        text,
         pos,
       });
     }

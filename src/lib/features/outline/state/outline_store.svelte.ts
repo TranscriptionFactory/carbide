@@ -6,8 +6,34 @@ export class OutlineStore {
   active_heading_id = $state<string | null>(null);
   collapsed_ids = $state(new SvelteSet<string>());
 
-  set_headings(headings: OutlineHeading[]) {
+  private collapsed_map = new Map<string, Set<string>>();
+  private current_note_path: string | null = null;
+
+  set_headings(headings: OutlineHeading[], note_path?: string) {
+    if (
+      note_path &&
+      this.current_note_path &&
+      note_path !== this.current_note_path
+    ) {
+      this.collapsed_map.set(
+        this.current_note_path,
+        new Set(this.collapsed_ids),
+      );
+    }
+
     this.headings = headings;
+
+    if (note_path) {
+      this.current_note_path = note_path;
+      const saved = this.collapsed_map.get(note_path);
+      if (saved) {
+        const valid_ids = new Set(headings.map((h) => h.id));
+        this.collapsed_ids = new SvelteSet(
+          [...saved].filter((id) => valid_ids.has(id)),
+        );
+        return;
+      }
+    }
 
     const valid_ids = new Set(headings.map((h) => h.id));
     for (const id of this.collapsed_ids) {
@@ -30,8 +56,15 @@ export class OutlineStore {
   }
 
   clear() {
+    if (this.current_note_path) {
+      this.collapsed_map.set(
+        this.current_note_path,
+        new Set(this.collapsed_ids),
+      );
+    }
     this.headings = [];
     this.active_heading_id = null;
     this.collapsed_ids = new SvelteSet<string>();
+    this.current_note_path = null;
   }
 }
