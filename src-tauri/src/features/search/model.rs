@@ -79,6 +79,10 @@ pub struct LinkedSourceMeta {
     pub external_file_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub linked_source_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vault_relative_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub home_relative_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -93,6 +97,8 @@ pub struct LinkedNoteInfo {
     pub item_type: Option<String>,
     pub external_file_path: Option<String>,
     pub linked_source_id: Option<String>,
+    pub vault_relative_path: Option<String>,
+    pub home_relative_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, Type)]

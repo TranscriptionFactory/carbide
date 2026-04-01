@@ -147,6 +147,27 @@ describe("scan_entry_to_linked_meta", () => {
     const meta2 = scan_entry_to_linked_meta(entry2, "s1");
     expect(meta1.citekey).not.toBe(meta2.citekey);
   });
+
+  it("enriches with relative paths when vault_root and home_dir provided", () => {
+    const entry = make_entry({
+      file_path: "/Users/abir/projects/linked/paper.pdf",
+    });
+    const meta = scan_entry_to_linked_meta(
+      entry,
+      "source-1",
+      "/Users/abir/projects/vault",
+      "/Users/abir",
+    );
+    expect(meta.vault_relative_path).toBe("../linked/paper.pdf");
+    expect(meta.home_relative_path).toBe("~/projects/linked/paper.pdf");
+  });
+
+  it("omits relative paths when vault_root and home_dir not provided", () => {
+    const entry = make_entry();
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.vault_relative_path).toBeUndefined();
+    expect(meta.home_relative_path).toBeUndefined();
+  });
 });
 
 describe("parse_creation_date", () => {

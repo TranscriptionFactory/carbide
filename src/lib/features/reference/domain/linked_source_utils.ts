@@ -8,6 +8,7 @@ import type {
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { citekey_slug } from "./csl_utils";
+import { enrich_meta_with_paths } from "./linked_source_paths";
 
 export function generate_linked_source_id(): string {
   return crypto.randomUUID();
@@ -76,6 +77,8 @@ export function parse_creation_date(raw: string): CslDate | null {
 export function scan_entry_to_linked_meta(
   entry: ScanEntry,
   source_id: string,
+  vault_root?: string,
+  home_dir?: string,
 ): LinkedSourceMeta {
   const family = entry.author ? first_author_family(entry.author) : "unknown";
   const year = entry.creation_date
@@ -84,7 +87,7 @@ export function scan_entry_to_linked_meta(
   const hash = simple_hash(entry.file_path);
   const citekey = `${citekey_slug(family, year)}-${hash}`;
 
-  const meta: LinkedSourceMeta = {
+  let meta: LinkedSourceMeta = {
     citekey,
     item_type: entry.file_type === "html" ? "webpage" : "article",
     external_file_path: entry.file_path,
@@ -96,6 +99,9 @@ export function scan_entry_to_linked_meta(
   if (entry.isbn) meta.isbn = entry.isbn;
   if (entry.arxiv_id) meta.arxiv_id = entry.arxiv_id;
   if (entry.subject) meta.abstract = entry.subject;
+  if (vault_root && home_dir) {
+    meta = enrich_meta_with_paths(meta, vault_root, home_dir);
+  }
   return meta;
 }
 

@@ -280,6 +280,128 @@ pub(crate) fn extract_frontmatter_properties(markdown: &str) -> Vec<(String, Str
     props
 }
 
+struct ExtractedTag {
+    tag: String,
+    line: i64,
+    source: &'static str,
+}
+
+fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
+    use regex::Regex;
+    use std::sync::LazyLock;
+
+    static INLINE_TAG_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:^|\s)#([\w][\w/\-]*)").unwrap());
+
+    let mut tags = Vec::new();
+    let mut in_frontmatter = false;
+    let mut in_tags_array = false;
+    let mut in_code_block = false;
+
+    for (line_idx, line) in markdown.lines().enumerate() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+
+        if line_idx == 0 && trimmed == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if trimmed == "---" {
+                if in_tags_array {
+                    in_tags_array = false;
+                }
+                in_frontmatter = false;
+                continue;
+            }
+            if trimmed.starts_with("tags:") {
+                let rest = trimmed.strip_prefix("tags:").unwrap().trim();
+                if rest.starts_with('[') && rest.ends_with(']') {
+                    let inner = &rest[1..rest.len() - 1];
+                    for item in inner.split(',') {
+                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                        if !t.is_empty() {
+                            tags.push(ExtractedTag {
+                                tag: t.to_string(),
+                                line: line_idx as i64,
+                                source: "frontmatter",
+                            });
+                        }
+                    }
+                } else if rest.is_empty() {
+                    in_tags_array = true;
+                } else {
+                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim();
+                    if !t.is_empty() {
+                        tags.push(ExtractedTag {
+                            tag: t.to_string(),
+                            line: line_idx as i64,
+                            source: "frontmatter",
+                        });
+                    }
+                }
+                continue;
+            }
+            if in_tags_array {
+                if line.starts_with("  - ") || line.starts_with("\t- ") {
+                    let item = trimmed.trim_start_matches("- ").trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                    if !item.is_empty() {
+                        tags.push(ExtractedTag {
+                            tag: item.to_string(),
+                            line: line_idx as i64,
+                            source: "frontmatter",
+                        });
+                    }
+                } else {
+                    in_tags_array = false;
+                }
+            }
+            continue;
+        }
+
+        {
+            for cap in INLINE_TAG_RE.captures_iter(line) {
+                if let Some(m) = cap.get(1) {
+                    let tag = m.as_str();
+                    if !tag.chars().all(|c| c.is_ascii_digit()) {
+                        tags.push(ExtractedTag {
+                            tag: tag.to_string(),
+                            line: line_idx as i64,
+                            source: "inline",
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    tags
+}
+
+fn sync_tags(conn: &Connection, path: &str, tags: &[ExtractedTag]) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM note_inline_tags WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for tag in tags {
+        conn.execute(
+            "REPLACE INTO note_inline_tags (path, tag, line, source) VALUES (?1, ?2, ?3, ?4)",
+            params![path, tag.tag, tag.line, tag.source],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn save_properties(conn: &Connection, path: &str, props: &[(String, String, String)]) -> Result<(), String> {
     conn.execute("DELETE FROM note_properties WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
@@ -502,6 +624,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "item_type TEXT",
         "external_file_path TEXT",
         "linked_source_id TEXT",
+        "vault_relative_path TEXT",
+        "home_relative_path TEXT",
     ] {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
@@ -569,6 +693,9 @@ pub fn upsert_note_simple(
         params![meta.title, meta.name, meta.path, raw_markdown],
     )
     .map_err(|e| e.to_string())?;
+
+    let tags = extract_tags(raw_markdown);
+    sync_tags(conn, &meta.path, &tags)?;
 
     Ok(())
 }
@@ -666,7 +793,8 @@ pub fn update_linked_metadata(
     conn.execute(
         "UPDATE notes SET citekey = ?1, authors = ?2, year = ?3, doi = ?4, isbn = ?5, \
          arxiv_id = ?6, journal = ?7, abstract = ?8, item_type = ?9, \
-         external_file_path = ?10, linked_source_id = ?11 WHERE path = ?12",
+         external_file_path = ?10, linked_source_id = ?11, \
+         vault_relative_path = ?12, home_relative_path = ?13 WHERE path = ?14",
         params![
             m.citekey,
             m.authors,
@@ -679,6 +807,8 @@ pub fn update_linked_metadata(
             m.item_type,
             m.external_file_path,
             m.linked_source_id,
+            m.vault_relative_path,
+            m.home_relative_path,
             path,
         ],
     )
@@ -747,7 +877,7 @@ pub fn query_linked_notes_by_source(
     let mut stmt = conn
         .prepare(
             "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
-             external_file_path, linked_source_id \
+             external_file_path, linked_source_id, vault_relative_path, home_relative_path \
              FROM notes WHERE path LIKE ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -778,8 +908,8 @@ pub fn find_note_by_citekey(
     citekey: &str,
 ) -> Result<Option<crate::features::search::model::LinkedNoteInfo>, String> {
     conn.query_row(
-        "SELECT path, title, citekey, authors, year, doi, item_type, \
-         external_file_path, linked_source_id \
+        "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
+         external_file_path, linked_source_id, vault_relative_path, home_relative_path \
          FROM notes WHERE citekey = ?1 LIMIT 1",
         params![citekey],
         |row| linked_note_info_from_row(row),
@@ -797,7 +927,7 @@ pub fn search_linked_notes(
     let mut stmt = conn
         .prepare(
             "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
-             external_file_path, linked_source_id \
+             external_file_path, linked_source_id, vault_relative_path, home_relative_path \
              FROM notes \
              WHERE path LIKE '@linked/%' \
                AND (LOWER(title) LIKE ?1 ESCAPE '\\' \
@@ -846,6 +976,8 @@ fn linked_note_info_from_row(
         item_type: row.get(7)?,
         external_file_path: row.get(8)?,
         linked_source_id: row.get(9)?,
+        vault_relative_path: row.get(10)?,
+        home_relative_path: row.get(11)?,
     })
 }
 
@@ -2745,6 +2877,88 @@ mod tests {
 
         assert_eq!(rows, vec!["a.md", "b.md", "c.md"]);
         assert!(!rows.contains(&"d.md".to_string()));
+    }
+
+    #[test]
+    fn extract_tags_inline_simple() {
+        let md = "Some text #project and #status/active here";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["project", "status/active"]);
+        assert!(tags.iter().all(|t| t.source == "inline"));
+    }
+
+    #[test]
+    fn extract_tags_frontmatter_array() {
+        let md = "---\ntags:\n  - rust\n  - web\n---\nBody text";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["rust", "web"]);
+        assert!(tags.iter().all(|t| t.source == "frontmatter"));
+    }
+
+    #[test]
+    fn extract_tags_frontmatter_inline_array() {
+        let md = "---\ntags: [alpha, beta]\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["alpha", "beta"]);
+    }
+
+    #[test]
+    fn extract_tags_mixed_frontmatter_and_inline() {
+        let md = "---\ntags:\n  - fm-tag\n---\n\nSome #inline-tag here";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["fm-tag", "inline-tag"]);
+    }
+
+    #[test]
+    fn extract_tags_skips_headings() {
+        let md = "# Heading\n## Subheading\nBody #real-tag";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["real-tag"]);
+    }
+
+    #[test]
+    fn extract_tags_skips_code_blocks() {
+        let md = "Before #visible\n```\n#hidden\n```\nAfter #also-visible";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["visible", "also-visible"]);
+    }
+
+    #[test]
+    fn extract_tags_skips_pure_numbers() {
+        let md = "Issue #123 but #real-tag";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["real-tag"]);
+    }
+
+    #[test]
+    fn extract_tags_nested_path() {
+        let md = "#project/sub/deep";
+        let tags = extract_tags(md);
+        assert_eq!(tags[0].tag, "project/sub/deep");
+    }
+
+    #[test]
+    fn sync_tags_populates_and_replaces() {
+        let conn = open_search_db_at_path(Path::new(":memory:")).unwrap();
+        let meta = note("t.md", "T");
+        upsert_note_simple(&conn, &meta, "# Title\n#alpha #beta").unwrap();
+
+        let all = list_all_tags(&conn).unwrap();
+        let names: Vec<&str> = all.iter().map(|t| t.tag.as_str()).collect();
+        assert!(names.contains(&"alpha"));
+        assert!(names.contains(&"beta"));
+
+        upsert_note_simple(&conn, &meta, "# Title\n#gamma").unwrap();
+        let all = list_all_tags(&conn).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].tag, "gamma");
     }
 }
 
