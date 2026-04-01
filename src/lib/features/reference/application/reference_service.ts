@@ -5,7 +5,10 @@ import type {
   ReferenceSearchExtension,
   LinkedSourcePort,
 } from "../ports";
-import type { ReferenceStore } from "../state/reference_store.svelte";
+import type {
+  ReferenceStore,
+  MissingLinkedSource,
+} from "../state/reference_store.svelte";
 import type {
   CslItem,
   LinkedNoteInfo,
@@ -721,6 +724,61 @@ export class ReferenceService {
         error_message(e),
       );
     }
+  }
+
+  async verify_linked_sources(): Promise<void> {
+    await this.load_linked_sources();
+    const sources = this.store.linked_sources;
+    if (sources.length === 0) return;
+
+    const ls_port = this.require_linked_source_port();
+    const vault_id = this.require_vault_id();
+    const missing: MissingLinkedSource[] = [];
+
+    for (const source of sources) {
+      if (!source.enabled) continue;
+      try {
+        await ls_port.list_files(source.path);
+      } catch {
+        const count = await ls_port
+          .count_linked_notes(vault_id, source.name)
+          .catch(() => 0);
+        missing.push({ source, item_count: count });
+      }
+    }
+
+    this.store.set_missing_linked_sources(missing);
+  }
+
+  async relocate_linked_source(
+    source_id: string,
+    new_path: string,
+  ): Promise<void> {
+    const source = this.store.linked_sources.find((s) => s.id === source_id);
+    if (!source) return;
+
+    this.store.update_linked_source(source_id, { path: new_path });
+    await this.save_linked_sources();
+    this.store.dismiss_missing_linked_source(source_id);
+    void this.scan_linked_source(source_id);
+  }
+
+  async delete_linked_source_data(source_id: string): Promise<void> {
+    const source = this.store.linked_sources.find((s) => s.id === source_id);
+    if (!source) return;
+
+    const ls_port = this.require_linked_source_port();
+    const vault_id = this.require_vault_id();
+
+    try {
+      await ls_port.clear_source(vault_id, source.name);
+    } catch {
+      // best-effort
+    }
+
+    this.store.remove_linked_source(source_id);
+    this.store.dismiss_missing_linked_source(source_id);
+    await this.save_linked_sources();
   }
 }
 

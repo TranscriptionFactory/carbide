@@ -684,7 +684,41 @@ pub fn update_linked_metadata(
         ],
     )
     .map_err(|e| e.to_string())?;
+    save_linked_properties(conn, path, m)?;
     Ok(())
+}
+
+fn save_linked_properties(
+    conn: &Connection,
+    path: &str,
+    m: &crate::features::search::model::LinkedSourceMeta,
+) -> Result<(), String> {
+    let mut props: Vec<(String, String, String)> = Vec::new();
+    if let Some(ref v) = m.citekey {
+        props.push(("citekey".into(), v.clone(), "string".into()));
+    }
+    if let Some(ref v) = m.authors {
+        props.push(("authors".into(), v.clone(), "string".into()));
+    }
+    if let Some(v) = m.year {
+        props.push(("year".into(), v.to_string(), "number".into()));
+    }
+    if let Some(ref v) = m.doi {
+        props.push(("doi".into(), v.clone(), "string".into()));
+    }
+    if let Some(ref v) = m.isbn {
+        props.push(("isbn".into(), v.clone(), "string".into()));
+    }
+    if let Some(ref v) = m.arxiv_id {
+        props.push(("arxiv_id".into(), v.clone(), "string".into()));
+    }
+    if let Some(ref v) = m.journal {
+        props.push(("journal".into(), v.clone(), "string".into()));
+    }
+    if let Some(ref v) = m.item_type {
+        props.push(("item_type".into(), v.clone(), "string".into()));
+    }
+    save_properties(conn, path, &props)
 }
 
 pub fn remove_linked_content(

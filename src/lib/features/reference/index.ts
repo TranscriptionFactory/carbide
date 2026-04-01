@@ -35,6 +35,7 @@ export {
   generate_linked_source_id,
 } from "./domain/linked_source_utils";
 export { default as CitationPicker } from "./ui/citation_picker.svelte";
+export { default as MissingLinkedSourceDialog } from "./ui/missing_linked_source_dialog.svelte";
 export type { FrontmatterReference } from "./domain/frontmatter_sync";
 export {
   sync_reference_to_frontmatter,

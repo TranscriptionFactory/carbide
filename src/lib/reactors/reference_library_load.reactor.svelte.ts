@@ -10,6 +10,7 @@ export function create_reference_library_load_reactor(
       const vault_id = vault_store.active_vault_id;
       if (vault_id) {
         void reference_service.load_library();
+        void reference_service.verify_linked_sources();
       }
     });
   });
