@@ -4,6 +4,7 @@ import type {
   PdfAnnotation,
   ScanEntry,
   LinkedSourceMeta,
+  LinkedNoteInfo,
 } from "./types";
 
 export interface ReferenceStoragePort {
@@ -72,4 +73,25 @@ export interface LinkedSourcePort {
     file_path: string,
   ): Promise<void>;
   clear_source(vault_id: string, source_name: string): Promise<void>;
+
+  query_linked_notes(
+    vault_id: string,
+    source_name: string,
+  ): Promise<LinkedNoteInfo[]>;
+  count_linked_notes(vault_id: string, source_name: string): Promise<number>;
+  find_by_citekey(
+    vault_id: string,
+    citekey: string,
+  ): Promise<LinkedNoteInfo | null>;
+  search_linked_notes(
+    vault_id: string,
+    query: string,
+    limit?: number,
+  ): Promise<LinkedNoteInfo[]>;
+  update_linked_metadata(
+    vault_id: string,
+    source_name: string,
+    external_file_path: string,
+    linked_meta: LinkedSourceMeta,
+  ): Promise<boolean>;
 }

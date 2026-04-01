@@ -61,6 +61,11 @@ mod specta_export {
                 crate::features::search::service::embed_sync,
                 crate::features::search::service::shutdown_search_worker,
                 crate::features::search::service::get_note_stats,
+                crate::features::search::service::query_linked_notes_by_source,
+                crate::features::search::service::count_linked_notes_by_source,
+                crate::features::search::service::find_note_by_citekey,
+                crate::features::search::service::search_linked_notes,
+                crate::features::search::service::update_linked_note_metadata,
                 // Git commands (15)
                 crate::features::git::service::git_has_repo,
                 crate::features::git::service::git_init_repo,

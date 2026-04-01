@@ -219,6 +219,11 @@ export function create_test_ports(): Ports {
       index_content: () => Promise.resolve(),
       remove_content: () => Promise.resolve(),
       clear_source: () => Promise.resolve(),
+      query_linked_notes: () => Promise.resolve([]),
+      count_linked_notes: () => Promise.resolve(0),
+      find_by_citekey: () => Promise.resolve(null),
+      search_linked_notes: () => Promise.resolve([]),
+      update_linked_metadata: () => Promise.resolve(false),
     },
   };
 }

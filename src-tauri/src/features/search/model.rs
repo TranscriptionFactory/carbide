@@ -81,6 +81,19 @@ pub struct LinkedSourceMeta {
     pub linked_source_id: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct LinkedNoteInfo {
+    pub path: String,
+    pub title: String,
+    pub citekey: Option<String>,
+    pub authors: Option<String>,
+    pub year: Option<i32>,
+    pub doi: Option<String>,
+    pub item_type: Option<String>,
+    pub external_file_path: Option<String>,
+    pub linked_source_id: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Clone, Copy, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchScope {

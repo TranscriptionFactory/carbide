@@ -13,6 +13,28 @@
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
+  const ref_service = ctx.services.reference;
+
+  let item_counts = $state<Record<string, number>>({});
+
+  async function refresh_counts() {
+    for (const source of ref_store.linked_sources) {
+      try {
+        const count = await ref_service.count_linked_notes_for_source(
+          source.name,
+        );
+        item_counts = { ...item_counts, [source.id]: count };
+      } catch {
+        // best-effort
+      }
+    }
+  }
+
+  $effect(() => {
+    if (ref_store.linked_sources.length > 0) {
+      void refresh_counts();
+    }
+  });
 
   async function add_source() {
     await ctx.action_registry.execute("reference.add_linked_source");
@@ -34,7 +56,7 @@
   }
 
   function get_item_count(source_id: string): number {
-    return ref_store.get_linked_source_items(source_id).length;
+    return item_counts[source_id] ?? 0;
   }
 
   function get_sync_status(source_id: string): "idle" | "scanning" | "error" {

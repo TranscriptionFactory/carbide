@@ -8,8 +8,11 @@ import type {
 import type { ReferenceStore } from "../state/reference_store.svelte";
 import type {
   CslItem,
+  LinkedNoteInfo,
   LinkedSource,
+  LinkedSourceMeta,
   PdfAnnotation,
+  ReferenceLibrary,
   ReferenceSource,
   ScanEntry,
 } from "../types";
@@ -22,7 +25,6 @@ import {
   merge_annotations,
 } from "../domain/annotation_to_markdown";
 import {
-  scan_entry_to_csl_item,
   scan_entry_to_linked_meta,
   generate_linked_source_id,
 } from "../domain/linked_source_utils";
@@ -76,7 +78,11 @@ export class ReferenceService {
     this.store.set_loading(true);
     try {
       const library = await this.storage_port.load_library(vault_id);
-      this.store.set_library_items(library.items);
+      const migrated = await this.migrate_linked_items_from_library(
+        vault_id,
+        library,
+      );
+      this.store.set_library_items(migrated.items);
       this.store.set_error(null);
       this.op_store.succeed(op_key);
     } catch (e) {
@@ -86,6 +92,21 @@ export class ReferenceService {
     } finally {
       this.store.set_loading(false);
     }
+  }
+
+  private async migrate_linked_items_from_library(
+    vault_id: string,
+    library: ReferenceLibrary,
+  ): Promise<ReferenceLibrary> {
+    const linked = library.items.filter((i) => i._source === "linked_source");
+    if (linked.length === 0) return library;
+
+    const cleaned_items = library.items.filter(
+      (i) => i._source !== "linked_source",
+    );
+    const cleaned = { ...library, items: cleaned_items };
+    await this.storage_port.save_library(vault_id, cleaned);
+    return cleaned;
   }
 
   async add_reference(item: CslItem, _source: ReferenceSource): Promise<void> {
@@ -378,6 +399,24 @@ export class ReferenceService {
     return this.store.library_items.find((i) => i.id === citekey) ?? null;
   }
 
+  async find_by_citekey(citekey: string): Promise<LinkedNoteInfo | null> {
+    if (!this.linked_source_port) return null;
+    const vault_id = this.require_vault_id();
+    return this.linked_source_port.find_by_citekey(vault_id, citekey);
+  }
+
+  async search_linked_notes(query: string): Promise<LinkedNoteInfo[]> {
+    if (!this.linked_source_port) return [];
+    const vault_id = this.require_vault_id();
+    return this.linked_source_port.search_linked_notes(vault_id, query);
+  }
+
+  async count_linked_notes_for_source(source_name: string): Promise<number> {
+    if (!this.linked_source_port) return 0;
+    const vault_id = this.require_vault_id();
+    return this.linked_source_port.count_linked_notes(vault_id, source_name);
+  }
+
   async sync_annotations(
     ext_id: string,
     citekey: string,
@@ -473,24 +512,13 @@ export class ReferenceService {
     const source = this.store.linked_sources.find((s) => s.id === id);
     if (!source) return;
 
-    const ls_port = this.require_linked_source_port();
-
     if (remove_references) {
-      const linked_items = this.store.get_linked_source_items(id);
+      const ls_port = this.require_linked_source_port();
       const vault_id = this.require_vault_id();
-      for (const item of linked_items) {
-        await this.storage_port.remove_item(vault_id, item.id);
-      }
-      this.store.set_library_items(
-        this.store.library_items.filter(
-          (item) => item._linked_source_id !== id,
-        ),
-      );
-
       try {
         await ls_port.clear_source(vault_id, source.name);
       } catch {
-        // best-effort FTS cleanup
+        // best-effort DB cleanup
       }
     }
 
@@ -530,32 +558,33 @@ export class ReferenceService {
         file_infos.map((f) => [f.file_path, f.modified_at]),
       );
 
-      // Build lookup of existing library items for this source
-      const existing_items = new Map(
-        this.store.library_items
-          .filter((i) => i._linked_source_id === source_id)
-          .map((i) => [i._linked_file_path as string, i]),
+      // Build lookup of existing indexed notes for this source
+      const existing_notes = await ls_port.query_linked_notes(
+        vault_id,
+        source.name,
+      );
+      const existing_by_path = new Map(
+        existing_notes.map((n) => [n.external_file_path!, n]),
       );
 
       // Determine which files need extraction (new or modified)
       const needs_extraction: string[] = [];
-      for (const [file_path, modified_at] of current_files) {
-        const existing = existing_items.get(file_path);
-        if (!existing || existing._linked_file_modified_at !== modified_at) {
+      for (const [file_path] of current_files) {
+        const existing = existing_by_path.get(file_path);
+        if (!existing) {
           needs_extraction.push(file_path);
         }
       }
 
       // Detect removed files
       const removed_paths: string[] = [];
-      for (const file_path of existing_items.keys()) {
-        if (!current_files.has(file_path)) {
-          removed_paths.push(file_path);
+      for (const ext_path of existing_by_path.keys()) {
+        if (ext_path && !current_files.has(ext_path)) {
+          removed_paths.push(ext_path);
         }
       }
 
       // Extract only changed files in batches
-      const new_items: CslItem[] = [];
       const new_entries: ScanEntry[] = [];
       const batch_size = 5;
       for (let i = 0; i < needs_extraction.length; i += batch_size) {
@@ -566,35 +595,11 @@ export class ReferenceService {
         for (const result of results) {
           if (result.status === "fulfilled") {
             new_entries.push(result.value);
-            new_items.push(scan_entry_to_csl_item(result.value, source_id));
           }
         }
       }
 
-      // Merge into library: keep unchanged, add new, remove deleted
-      const current_library = await this.storage_port.load_library(vault_id);
-      const merged = new Map(
-        current_library.items.map((i: CslItem) => [i.id, i]),
-      );
-
-      // Remove deleted items
-      for (const removed_path of removed_paths) {
-        const item = existing_items.get(removed_path);
-        if (item) merged.delete(item.id);
-      }
-
-      // Remove items being re-extracted (will be replaced)
-      for (const item of new_items) {
-        const old_item = existing_items.get(item._linked_file_path as string);
-        if (old_item) merged.delete(old_item.id);
-        merged.set(item.id, item);
-      }
-
-      const updated = { ...current_library, items: [...merged.values()] };
-      await this.storage_port.save_library(vault_id, updated);
-      this.store.set_library_items(updated.items);
-
-      // FTS: only update changed entries, remove deleted
+      // Index into search DB (note rows with metadata), remove deleted
       try {
         for (const removed_path of removed_paths) {
           await ls_port.remove_content(vault_id, source.name, removed_path);
@@ -624,12 +629,12 @@ export class ReferenceService {
       this.store.set_linked_source_sync_status(source_id, "idle");
 
       // Async DOI enrichment (non-blocking)
-      void this.enrich_dois(
-        new_items.filter((i) => i.DOI),
-        source_id,
-      );
+      const entries_with_doi = new_entries
+        .filter((e) => e.doi)
+        .map((e) => ({ doi: e.doi!, file_path: e.file_path }));
+      void this.enrich_dois(entries_with_doi, source.name);
 
-      return { added: new_items.length, errors: [] };
+      return { added: new_entries.length, errors: [] };
     } catch (e) {
       const msg = error_message(e);
       this.store.set_linked_source_sync_status(source_id, "error");
@@ -638,43 +643,43 @@ export class ReferenceService {
   }
 
   private async enrich_dois(
-    items_with_doi: CslItem[],
-    _source_id: string,
+    entries: Array<{ doi: string; file_path: string }>,
+    source_name: string,
   ): Promise<void> {
-    if (!this.doi_port || items_with_doi.length === 0) return;
+    if (!this.doi_port || entries.length === 0) return;
     const vault_id = this.require_vault_id();
     const port = this.doi_port;
+    const ls_port = this.require_linked_source_port();
 
-    // Process in batches of 5
     const batch_size = 5;
-    for (let i = 0; i < items_with_doi.length; i += batch_size) {
-      const batch = items_with_doi.slice(i, i + batch_size);
-      const results = await Promise.allSettled(
-        batch.map(async (item) => {
-          if (!item.DOI) return null;
-          const csl = await port.lookup_doi(item.DOI);
-          if (!csl) return null;
-          return {
-            ...csl,
-            id: item.id,
-            _linked_source_id: item._linked_source_id,
-            _linked_file_path: item._linked_file_path,
-            _linked_file_modified_at: item._linked_file_modified_at,
-            _source: "linked_source",
-          } as CslItem;
-        }),
-      );
-
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value) {
-          this.store.add_item(result.value);
+    for (let i = 0; i < entries.length; i += batch_size) {
+      const batch = entries.slice(i, i + batch_size);
+      await Promise.allSettled(
+        batch.map(async (entry) => {
+          const csl = await port.lookup_doi(entry.doi);
+          if (!csl) return;
+          const authors = csl.author
+            ?.map((a) => [a.family, a.given].filter(Boolean).join(", "))
+            .join("; ");
+          const year = csl.issued?.["date-parts"]?.[0]?.[0];
+          const journal = csl["container-title"] as string | undefined;
+          const meta: LinkedSourceMeta = { doi: entry.doi };
+          if (authors) meta.authors = authors;
+          if (year) meta.year = year;
+          if (journal) meta.journal = journal;
+          if (csl.abstract) meta.abstract = csl.abstract;
           try {
-            await this.storage_port.add_item(vault_id, result.value);
+            await ls_port.update_linked_metadata(
+              vault_id,
+              source_name,
+              entry.file_path,
+              meta,
+            );
           } catch {
             // best-effort
           }
-        }
-      }
+        }),
+      );
     }
   }
 
@@ -684,25 +689,20 @@ export class ReferenceService {
     const ls_port = this.require_linked_source_port();
     try {
       const entry = await ls_port.extract_file(file_path);
-      const item = scan_entry_to_csl_item(entry, source_id);
       const vault_id = this.require_vault_id();
-      await this.storage_port.add_item(vault_id, item);
-      this.store.add_item(item);
+      await ls_port.index_content(
+        vault_id,
+        source_id,
+        source.name,
+        entry,
+        scan_entry_to_linked_meta(entry, source_id),
+      );
 
-      try {
-        await ls_port.index_content(
-          vault_id,
-          source_id,
+      if (entry.doi) {
+        void this.enrich_dois(
+          [{ doi: entry.doi, file_path: entry.file_path }],
           source.name,
-          entry,
-          scan_entry_to_linked_meta(entry, source_id),
         );
-      } catch {
-        // best-effort FTS
-      }
-
-      if (item.DOI) {
-        void this.enrich_dois([item], source_id);
       }
     } catch (e) {
       console.error(
@@ -718,23 +718,10 @@ export class ReferenceService {
   ): Promise<void> {
     const source = this.store.linked_sources.find((s) => s.id === source_id);
     if (!source) return;
-    const item = this.store.library_items.find(
-      (i) =>
-        i._linked_source_id === source_id && i._linked_file_path === file_path,
-    );
-    if (!item) return;
-
     const ls_port = this.require_linked_source_port();
     const vault_id = this.require_vault_id();
     try {
-      await this.storage_port.remove_item(vault_id, item.id);
-      this.store.remove_item(item.id);
-
-      try {
-        await ls_port.remove_content(vault_id, source.name, file_path);
-      } catch {
-        // best-effort FTS cleanup
-      }
+      await ls_port.remove_content(vault_id, source.name, file_path);
     } catch (e) {
       console.error(
         `Failed to unindex linked file ${file_path}:`,
