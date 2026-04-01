@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
+import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
 
@@ -49,6 +50,7 @@ function create_harness() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 
   const services = {
@@ -58,6 +60,7 @@ function create_harness() {
       merge_config: vi.fn(merge_config_impl),
       detect_conflict: vi.fn().mockReturnValue(null),
     },
+    reference: {} as any,
   };
 
   const initial_config = merge_config_impl(DEFAULT_HOTKEYS, []);

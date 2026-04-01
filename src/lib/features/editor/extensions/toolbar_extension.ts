@@ -1,10 +1,11 @@
-import type { Plugin, EditorState } from "prosemirror-state";
+import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { mount, unmount } from "svelte";
 import FormattingToolbar from "../ui/formatting_toolbar.svelte";
 import {
   create_formatting_toolbar_prose_plugin,
   formatting_toolbar_plugin_key,
+  type ToolbarConfig,
 } from "../adapters/formatting_toolbar_plugin";
 import {
   type FormattingCommand,
@@ -12,7 +13,9 @@ import {
 } from "../adapters/formatting_toolbar_commands";
 import type { EditorExtension } from "./types";
 
-export function create_toolbar_extension(): EditorExtension {
+export function create_toolbar_extension(
+  config: ToolbarConfig = { toolbar_visibility: "on_select" },
+): EditorExtension {
   let toolbar_container: HTMLElement | null = null;
   let toolbar_view: EditorView | null = null;
   let svelte_app: Record<string, unknown> | undefined;
@@ -58,12 +61,38 @@ export function create_toolbar_extension(): EditorExtension {
     mount_toolbar(view);
   }
 
+  function mount_sticky(view: EditorView) {
+    const container = ensure_container();
+    container.classList.add("formatting-toolbar-mount--sticky");
+    container.classList.remove("formatting-toolbar-mount--floating");
+    container.style.position = "sticky";
+    container.style.top = "0";
+    container.style.zIndex = "10";
+    container.style.display = "";
+    const parent = view.dom.parentElement;
+    if (parent) parent.insertBefore(container, parent.firstChild);
+    mount_toolbar(view);
+  }
+
+  function unmount_sticky() {
+    hide_toolbar();
+    if (toolbar_container) {
+      toolbar_container.classList.remove("formatting-toolbar-mount--sticky");
+      toolbar_container.style.position = "";
+      toolbar_container.style.top = "";
+      toolbar_container.style.zIndex = "";
+    }
+  }
+
   const plugin = create_formatting_toolbar_prose_plugin(
     ensure_container(),
+    config,
     () => {
       if (toolbar_view) show_toolbar(toolbar_view);
     },
     () => hide_toolbar(),
+    (view) => mount_sticky(view),
+    () => unmount_sticky(),
   );
 
   const original_view = plugin.spec.view;
@@ -93,3 +122,4 @@ export function create_toolbar_extension(): EditorExtension {
 }
 
 export { formatting_toolbar_plugin_key };
+export type { ToolbarConfig } from "../adapters/formatting_toolbar_plugin";

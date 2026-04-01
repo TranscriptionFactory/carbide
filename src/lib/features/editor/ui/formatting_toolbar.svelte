@@ -203,4 +203,14 @@
     width: 16px;
     height: 16px;
   }
+
+  :global(.formatting-toolbar-mount--sticky) .FormattingToolbar {
+    border-radius: 0;
+    box-shadow: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    justify-content: center;
+  }
 </style>

@@ -342,6 +342,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "source", "line", "numbers", "gutter"],
   },
   {
+    key: "editor_toolbar_visibility",
+    label: "Toolbar Visibility",
+    description:
+      "Controls when the formatting toolbar appears: on text selection, always visible, or hidden",
+    category: "Layout",
+    keywords: [
+      "toolbar",
+      "formatting",
+      "visibility",
+      "floating",
+      "sticky",
+      "hide",
+      "show",
+      "selection",
+    ],
+  },
+  {
     key: "editor_heading_markers",
     label: "Heading Markers",
     description:

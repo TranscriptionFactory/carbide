@@ -16,6 +16,7 @@ import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
+import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import {
   as_markdown_text,
@@ -88,6 +89,7 @@ function create_harness() {
     task: new TaskStore(),
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 
   stores.ui.set_editor_settings({ ...DEFAULT_EDITOR_SETTINGS });
@@ -95,6 +97,7 @@ function create_harness() {
   const open_note_results = new Map<string, OpenNoteState>();
 
   const services = {
+    reference: {},
     vault: {},
     note: {
       open_note: vi.fn((note_path: string): Promise<NoteOpenResult> => {

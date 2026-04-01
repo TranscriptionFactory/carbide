@@ -39,6 +39,7 @@
     FileTreeStyle,
     FileTreeBlurbPosition,
     OutlineMode,
+    ToolbarVisibility,
     TerminalFontWeight,
     TerminalCursorStyle,
     SettingsCategory,
@@ -50,6 +51,7 @@
     EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS,
     EDITOR_LINK_UNDERLINE_STYLE_OPTIONS,
     EDITOR_DIVIDER_STYLE_OPTIONS,
+    EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
     type MarkdownLspProvider,
   } from "$lib/shared/types/editor_settings";
   import type { IweConfigStatus } from "$lib/features/marksman";
@@ -1123,6 +1125,39 @@
                 <Select.Content>
                   <Select.Item value="rail">Sidebar</Select.Item>
                   <Select.Item value="floating">Floating</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Toolbar Visibility</span>
+                <span class="SettingsDialog__description"
+                  >When the formatting toolbar appears in the visual editor</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.editor_toolbar_visibility}
+                onValueChange={(v: string | undefined) => {
+                  if (v)
+                    update("editor_toolbar_visibility", v as ToolbarVisibility);
+                }}
+              >
+                <Select.Trigger class="w-32">
+                  <span data-slot="select-value"
+                    >{EDITOR_TOOLBAR_VISIBILITY_OPTIONS.find(
+                      (o) =>
+                        o.value === editor_settings.editor_toolbar_visibility,
+                    )?.label ?? "On Selection"}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  {#each EDITOR_TOOLBAR_VISIBILITY_OPTIONS as option (option.value)}
+                    <Select.Item value={option.value}
+                      >{option.label}</Select.Item
+                    >
+                  {/each}
                 </Select.Content>
               </Select.Root>
             </div>

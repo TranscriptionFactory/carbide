@@ -195,10 +195,7 @@ export function get_invalid_drop_reason(
     return "no items selected";
   }
 
-  if (
-    target_folder === "@linked" ||
-    target_folder.startsWith("@linked/")
-  ) {
+  if (target_folder === "@linked" || target_folder.startsWith("@linked/")) {
     return "cannot move items into linked sources";
   }
 

@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
+import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 
 function create_ui_stores() {
   return {
@@ -31,6 +32,7 @@ function create_ui_stores() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 }
 
@@ -48,6 +50,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: { refresh_dashboard_stats },
         shell: { open_url: async () => {}, open_path: async () => {} },
       } as never,
@@ -76,6 +79,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () => {
             refresh_called += 1;
@@ -104,6 +108,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () =>
             await Promise.resolve({ status: "skipped" as const }),
@@ -145,6 +150,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () =>
             await Promise.resolve({ status: "skipped" as const }),
@@ -177,6 +183,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () =>
             await Promise.resolve({ status: "skipped" as const }),
@@ -207,6 +214,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () =>
             await Promise.resolve({ status: "skipped" as const }),
@@ -246,6 +254,7 @@ describe("register_ui_actions", () => {
       registry,
       stores,
       services: {
+        reference: {},
         vault: {
           refresh_dashboard_stats: async () =>
             await Promise.resolve({ status: "skipped" as const }),

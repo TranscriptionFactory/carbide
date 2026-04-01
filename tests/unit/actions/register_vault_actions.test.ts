@@ -15,6 +15,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
+import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   create_open_note_state,
@@ -38,9 +39,11 @@ function create_vault_actions_harness() {
     graph: new GraphStore(),
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
+    reference: new ReferenceStore(),
   };
 
   const services = {
+    reference: {},
     vault: {
       choose_vault_path: vi.fn(),
       change_vault_by_path: vi.fn(),

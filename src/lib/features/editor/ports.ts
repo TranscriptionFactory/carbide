@@ -6,6 +6,7 @@ import type {
 } from "$lib/shared/types/editor";
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 
 export type BufferConfig = {
   note_path: string;
@@ -59,6 +60,7 @@ export type EditorSession = {
     line_number: number,
     status: "todo" | "doing" | "done",
   ) => boolean;
+  set_toolbar_visibility?: (mode: ToolbarVisibility) => void;
 };
 
 export type EditorEventHandlers = {

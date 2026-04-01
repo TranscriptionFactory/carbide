@@ -5,6 +5,11 @@ import {
   create_backdrop,
   Z_FORMATTING_TOOLBAR,
 } from "./floating_toolbar_utils";
+import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
+
+export type ToolbarConfig = {
+  toolbar_visibility: ToolbarVisibility;
+};
 
 export const formatting_toolbar_plugin_key = new PluginKey(
   "formatting-toolbar",
@@ -12,14 +17,19 @@ export const formatting_toolbar_plugin_key = new PluginKey(
 
 export function create_formatting_toolbar_prose_plugin(
   container: HTMLElement,
+  config: ToolbarConfig,
   on_show: () => void,
   on_hide: () => void,
+  on_sticky_mount: (view: EditorView) => void,
+  on_sticky_unmount: () => void,
 ): Plugin {
   let toolbar_el: HTMLElement | null = null;
   let backdrop_el: HTMLElement | null = null;
   let anchor_el: HTMLElement | null = null;
+  let prev_mode: ToolbarVisibility | null = null;
+  let sticky_mounted = false;
 
-  function remove_toolbar() {
+  function remove_floating_toolbar() {
     toolbar_el?.remove();
     backdrop_el?.remove();
     toolbar_el = null;
@@ -52,18 +62,47 @@ export function create_formatting_toolbar_prose_plugin(
     view() {
       return {
         update(view) {
+          const mode = config.toolbar_visibility;
+
+          if (mode !== prev_mode) {
+            if (prev_mode === "on_select") remove_floating_toolbar();
+            if (prev_mode === "always_show" && sticky_mounted) {
+              on_sticky_unmount();
+              sticky_mounted = false;
+            }
+            prev_mode = mode;
+          }
+
+          if (mode === "always_hide") {
+            if (sticky_mounted) {
+              on_sticky_unmount();
+              sticky_mounted = false;
+            }
+            remove_floating_toolbar();
+            return;
+          }
+
+          if (mode === "always_show") {
+            if (!sticky_mounted) {
+              on_sticky_mount(view);
+              sticky_mounted = true;
+            }
+            return;
+          }
+
+          // on_select mode — existing floating behavior
           const { from, to, empty } = view.state.selection;
           const has_selection = !empty && from !== to;
 
           if (!has_selection) {
-            remove_toolbar();
+            remove_floating_toolbar();
             return;
           }
 
           if (!toolbar_el) {
             toolbar_el = container;
             toolbar_el.style.zIndex = String(Z_FORMATTING_TOOLBAR);
-            backdrop_el = create_backdrop(remove_toolbar);
+            backdrop_el = create_backdrop(remove_floating_toolbar);
             anchor_el = create_anchor(view);
             document.body.appendChild(backdrop_el);
             document.body.appendChild(anchor_el);
@@ -91,7 +130,11 @@ export function create_formatting_toolbar_prose_plugin(
           );
         },
         destroy() {
-          remove_toolbar();
+          if (sticky_mounted) {
+            on_sticky_unmount();
+            sticky_mounted = false;
+          }
+          remove_floating_toolbar();
         },
       };
     },

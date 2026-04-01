@@ -562,7 +562,12 @@
           </ContextMenu.Item>
           {#if is_linked && on_open_in_default_app}
             <ContextMenu.Separator />
-            <ContextMenu.Item onSelect={() => on_open_in_default_app(node.note?.external_file_path ?? node.path)}>
+            <ContextMenu.Item
+              onSelect={() =>
+                on_open_in_default_app(
+                  node.note?.external_file_path ?? node.path,
+                )}
+            >
               <ExternalLink class="mr-2 h-4 w-4" />
               <span>Open in Default App</span>
             </ContextMenu.Item>

@@ -17,6 +17,12 @@ export function create_editor_appearance_reactor(
           ui_store.editor_settings.editor_spellcheck,
         );
       });
+
+      $effect(() => {
+        editor_service.set_toolbar_visibility(
+          ui_store.editor_settings.editor_toolbar_visibility,
+        );
+      });
     }
   });
 }

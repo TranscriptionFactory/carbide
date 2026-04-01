@@ -51,6 +51,8 @@ import type {
   ResolveAssetUrlForVault,
   CiteSuggestionItem,
 } from "$lib/features/editor/extensions";
+import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
+import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 
 const log = create_logger("prosemirror_adapter");
 
@@ -239,14 +241,19 @@ export function create_prosemirror_editor_port(args?: {
 
       // --- Assemble plugins via extensions ---
 
-      const assembled = assemble_extensions({
-        events,
-        get_note_path: () => current_note_path,
-        get_vault_id: () => current_vault_id,
-        resolve_asset_url_for_vault,
-        load_svg_preview: load_svg_preview_fn,
-        use_yjs: !!ydoc_manager,
-      });
+      const toolbar_config: ToolbarConfig = { toolbar_visibility: "on_select" };
+
+      const assembled = assemble_extensions(
+        {
+          events,
+          get_note_path: () => current_note_path,
+          get_vault_id: () => current_vault_id,
+          resolve_asset_url_for_vault,
+          load_svg_preview: load_svg_preview_fn,
+          use_yjs: !!ydoc_manager,
+        },
+        toolbar_config,
+      );
 
       // --- Yjs integration ---
 
@@ -934,6 +941,9 @@ export function create_prosemirror_editor_port(args?: {
             return false;
           });
           return found;
+        },
+        set_toolbar_visibility(mode: ToolbarVisibility) {
+          toolbar_config.toolbar_visibility = mode;
         },
       };
 

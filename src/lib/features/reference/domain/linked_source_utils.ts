@@ -142,7 +142,8 @@ export function linked_note_to_meta(info: LinkedNoteInfo): NoteMeta {
   if (info.year) meta.year = info.year;
   if (info.doi) meta.doi = info.doi;
   if (info.item_type) meta.item_type = info.item_type;
-  if (info.external_file_path) meta.external_file_path = info.external_file_path;
+  if (info.external_file_path)
+    meta.external_file_path = info.external_file_path;
   if (info.linked_source_id) meta.linked_source_id = info.linked_source_id;
   return meta;
 }

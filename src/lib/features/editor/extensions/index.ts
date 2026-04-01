@@ -17,6 +17,7 @@ import { create_embed_extension } from "./embed_extension";
 import { create_paste_extension } from "./paste_extension";
 import { create_lsp_extension } from "./lsp_extension";
 import { create_toolbar_extension } from "./toolbar_extension";
+import type { ToolbarConfig } from "./toolbar_extension";
 import { create_image_context_menu_extension } from "./image_context_menu_extension";
 
 export type AssembledExtensions = {
@@ -24,7 +25,10 @@ export type AssembledExtensions = {
   on_note_path_change: (path: string) => void;
 };
 
-export function assemble_extensions(ctx: PluginContext): AssembledExtensions {
+export function assemble_extensions(
+  ctx: PluginContext,
+  toolbar_config: ToolbarConfig,
+): AssembledExtensions {
   const extensions: EditorExtension[] = [
     create_core_extension(ctx),
     create_code_block_extension(),
@@ -42,7 +46,7 @@ export function assemble_extensions(ctx: PluginContext): AssembledExtensions {
     create_embed_extension(ctx),
     create_paste_extension(ctx),
     create_lsp_extension(ctx),
-    create_toolbar_extension(),
+    create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
   ];
 
@@ -91,3 +95,4 @@ export {
   excalidraw_embed_plugin_key,
   file_embed_plugin_key,
 } from "./embed_extension";
+export type { ToolbarConfig } from "./toolbar_extension";

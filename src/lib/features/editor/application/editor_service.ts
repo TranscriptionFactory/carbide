@@ -5,6 +5,7 @@ import type {
   EditorSession,
 } from "$lib/features/editor/ports";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import {
   match_query,
   format_authors,
@@ -440,6 +441,10 @@ export class EditorService {
     status: "todo" | "doing" | "done",
   ): boolean {
     return this.session?.update_task_checkbox?.(line_number, status) ?? false;
+  }
+
+  set_toolbar_visibility(mode: ToolbarVisibility) {
+    this.session?.set_toolbar_visibility?.(mode);
   }
 
   private resolve_visual_selection(): EditorSelectionSnapshot | null {
