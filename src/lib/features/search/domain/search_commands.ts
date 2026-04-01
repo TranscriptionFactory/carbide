@@ -80,6 +80,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "View version history for the current note",
     keywords: ["history", "versions", "git", "log", "timeline"],
     icon: "history",
+    when: (ctx) => ctx.has_open_note && ctx.has_git_repo,
   },
   {
     id: "git_create_checkpoint",
@@ -87,6 +88,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Save a named checkpoint of the current state",
     keywords: ["checkpoint", "snapshot", "save", "git", "commit"],
     icon: "bookmark",
+    when: (ctx) => ctx.has_git_repo,
   },
   {
     id: "git_init_repo",
@@ -94,6 +96,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Initialize version control for this vault",
     keywords: ["git", "init", "repo", "repository", "version", "control"],
     icon: "git-branch",
+    when: (ctx) => !ctx.has_git_repo,
   },
   {
     id: "git_push",
@@ -101,6 +104,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Push local commits to the configured upstream remote",
     keywords: ["git", "push", "remote", "upstream", "publish", "sync"],
     icon: "git-branch",
+    when: (ctx) => ctx.has_git_repo && ctx.has_git_remote,
   },
   {
     id: "git_pull",
@@ -108,6 +112,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Fetch and merge remote changes into the current branch",
     keywords: ["git", "pull", "remote", "merge", "upstream", "sync"],
     icon: "git-branch",
+    when: (ctx) => ctx.has_git_repo && ctx.has_git_remote,
   },
   {
     id: "git_fetch",
@@ -115,6 +120,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Refresh remote status without merging local changes",
     keywords: ["git", "fetch", "remote", "ahead", "behind", "refresh"],
     icon: "refresh-cw",
+    when: (ctx) => ctx.has_git_repo && ctx.has_git_remote,
   },
   {
     id: "git_add_remote",
@@ -122,6 +128,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Configure the origin remote for this vault",
     keywords: ["git", "remote", "origin", "repository", "url", "connect"],
     icon: "link",
+    when: (ctx) => ctx.has_git_repo && !ctx.has_git_remote,
   },
   {
     id: "ai_assistant",
@@ -139,6 +146,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
       "local",
     ],
     icon: "sparkles",
+    when: (ctx) => ctx.has_open_note && ctx.has_ai_cli,
   },
   {
     id: "toggle_links_panel",
@@ -246,6 +254,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     description: "Export the current note as a PDF file",
     keywords: ["export", "pdf", "save", "print", "download"],
     icon: "file-down",
+    when: (ctx) => ctx.has_open_note,
   },
   {
     id: "zoom_in",
@@ -449,5 +458,53 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
       "Convert the word at cursor into a wiki-link and create the target document",
     keywords: ["iwe", "link", "create", "wiki", "connect"],
     icon: "link",
+  },
+  {
+    id: "delete_note",
+    label: "Delete Note",
+    description: "Delete the current note",
+    keywords: ["delete", "remove", "note", "file", "trash"],
+    icon: "trash",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "duplicate_note",
+    label: "Duplicate Note",
+    description: "Create a copy of the current note",
+    keywords: ["duplicate", "copy", "clone", "note", "file"],
+    icon: "copy",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "copy_as_markdown",
+    label: "Copy as Markdown",
+    description: "Copy note content as markdown to clipboard",
+    keywords: ["copy", "markdown", "clipboard", "export", "note"],
+    icon: "copy",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "copy_as_html",
+    label: "Copy as HTML",
+    description: "Copy rendered note as HTML to clipboard",
+    keywords: ["copy", "html", "clipboard", "export", "rendered"],
+    icon: "copy",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "rename_note",
+    label: "Rename Note",
+    description: "Rename the current note",
+    keywords: ["rename", "name", "note", "file", "title"],
+    icon: "pencil",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "open_in_split_view",
+    label: "Open in Split View",
+    description: "Open current note in a second pane",
+    keywords: ["split", "view", "pane", "editor", "dual"],
+    icon: "columns",
+    when: (ctx) => ctx.has_open_note && !ctx.is_split_view,
   },
 ];
