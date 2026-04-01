@@ -1,9 +1,11 @@
 use crate::shared::io_utils;
 use crate::shared::storage;
 use ropey::Rope;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tauri::State;
+
+const MAX_BUFFER_COUNT: usize = 20;
 
 pub struct ManagedBuffer {
     pub rope: Rope,
@@ -12,12 +14,14 @@ pub struct ManagedBuffer {
 
 pub struct BufferManager {
     pub buffers: Mutex<HashMap<String, Arc<ManagedBuffer>>>,
+    access_order: Mutex<VecDeque<String>>,
 }
 
 impl BufferManager {
     pub fn new() -> Self {
         Self {
             buffers: Mutex::new(HashMap::new()),
+            access_order: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -36,13 +40,28 @@ impl BufferManager {
         let line_count = rope.len_lines();
 
         let mut buffers = self.buffers.lock().unwrap();
+        let mut access_order = self.access_order.lock().unwrap();
+
+        if buffers.contains_key(&id) {
+            access_order.retain(|k| k != &id);
+        }
+
+        while buffers.len() >= MAX_BUFFER_COUNT {
+            if let Some(oldest) = access_order.pop_front() {
+                buffers.remove(&oldest);
+            } else {
+                break;
+            }
+        }
+
         buffers.insert(
-            id,
+            id.clone(),
             Arc::new(ManagedBuffer {
                 rope,
                 path: abs.to_string_lossy().to_string(),
             }),
         );
+        access_order.push_back(id);
         Ok(line_count)
     }
 
@@ -75,6 +94,8 @@ impl BufferManager {
     pub fn close_buffer(&self, id: &str) {
         let mut buffers = self.buffers.lock().unwrap();
         buffers.remove(id);
+        let mut access_order = self.access_order.lock().unwrap();
+        access_order.retain(|k| k != id);
     }
 }
 

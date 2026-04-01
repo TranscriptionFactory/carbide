@@ -69,6 +69,7 @@ export class DocumentStore {
 
   set_content_state(tab_id: string, state: DocumentContentState): void {
     this.content_states = new Map(this.content_states).set(tab_id, state);
+    this.#evict_inactive_content();
   }
 
   get_content_state(tab_id: string): DocumentContentState | undefined {
@@ -96,6 +97,22 @@ export class DocumentStore {
   clear_content_state(tab_id: string): void {
     const next = new Map(this.content_states);
     next.delete(tab_id);
+    this.content_states = next;
+  }
+
+  #evict_inactive_content(): void {
+    const limit = this.inactive_content_limit;
+    const entries = Array.from(this.content_states.entries()).sort(
+      ([, a], [, b]) => b.last_accessed_at - a.last_accessed_at,
+    );
+
+    if (entries.length <= limit) return;
+
+    const to_remove = entries.slice(limit);
+    const next = new Map(this.content_states);
+    for (const [tab_id] of to_remove) {
+      next.delete(tab_id);
+    }
     this.content_states = next;
   }
 

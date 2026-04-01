@@ -3,7 +3,7 @@ use log::error;
 use std::sync::Mutex;
 use tauri::http::{Request, Response};
 
-const MAX_CACHEABLE_BYTES: usize = 10 * 1024 * 1024;
+const MAX_CACHEABLE_BYTES: usize = 5 * 1024 * 1024;
 
 pub struct CachedAsset {
     pub bytes: Vec<u8>,
@@ -51,9 +51,9 @@ pub struct AssetCacheState {
 impl AssetCacheState {
     pub fn new() -> Self {
         Self {
-            vault: Mutex::new(ObservableCache::new(256)),
-            plugin: Mutex::new(ObservableCache::new(64)),
-            excalidraw: Mutex::new(ObservableCache::new(128)),
+            vault: Mutex::new(ObservableCache::new(64)),
+            plugin: Mutex::new(ObservableCache::new(32)),
+            excalidraw: Mutex::new(ObservableCache::new(32)),
         }
     }
 }
@@ -85,10 +85,7 @@ fn internal_error_response() -> Response<Vec<u8>> {
         })
 }
 
-fn finish_response(
-    builder: tauri::http::response::Builder,
-    body: Vec<u8>,
-) -> Response<Vec<u8>> {
+fn finish_response(builder: tauri::http::response::Builder, body: Vec<u8>) -> Response<Vec<u8>> {
     builder.body(body).unwrap_or_else(|error| {
         error!("Failed to build asset response: {}", error);
         internal_error_response()
@@ -103,10 +100,7 @@ pub fn check_conditional(req: &Request<Vec<u8>>, etag: &str) -> bool {
     req.headers()
         .get("If-None-Match")
         .and_then(|v| v.to_str().ok())
-        .map(|v| {
-            v.split(',')
-                .any(|t| t.trim().trim_matches('"') == etag)
-        })
+        .map(|v| v.split(',').any(|t| t.trim().trim_matches('"') == etag))
         .unwrap_or(false)
 }
 
