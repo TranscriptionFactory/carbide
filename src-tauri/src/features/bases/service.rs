@@ -5,7 +5,6 @@ use crate::features::search::service as search_service;
 use crate::shared::storage;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::io::Write;
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -54,8 +53,7 @@ pub fn bases_save_view(
 
     let json = serde_json::to_string_pretty(&view).map_err(|e| e.to_string())?;
 
-    let mut file = std::fs::File::create(abs).map_err(|e| e.to_string())?;
-    file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+    crate::shared::io_utils::atomic_write(&abs, json.as_bytes())?;
 
     Ok(())
 }
