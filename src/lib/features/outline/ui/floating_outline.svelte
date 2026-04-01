@@ -55,7 +55,7 @@
 <style>
   .FloatingOutline {
     position: absolute;
-    top: var(--space-3);
+    top: var(--space-10);
     right: var(--space-3);
     z-index: 10;
     display: flex;
