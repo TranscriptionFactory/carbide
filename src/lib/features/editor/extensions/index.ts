@@ -17,6 +17,7 @@ import { create_embed_extension } from "./embed_extension";
 import { create_paste_extension } from "./paste_extension";
 import { create_lsp_extension } from "./lsp_extension";
 import { create_toolbar_extension } from "./toolbar_extension";
+import { create_image_context_menu_extension } from "./image_context_menu_extension";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -42,6 +43,7 @@ export function assemble_extensions(ctx: PluginContext): AssembledExtensions {
     create_paste_extension(ctx),
     create_lsp_extension(ctx),
     create_toolbar_extension(),
+    create_image_context_menu_extension(),
   ];
 
   const plugins: Plugin[] = [];

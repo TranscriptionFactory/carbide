@@ -606,6 +606,63 @@ export function register_note_actions(input: ActionRegistrationInput) {
         services.note.reset_asset_write_operation();
       },
     });
+
+    registry.register({
+      id: ACTION_IDS.image_copy,
+      label: "Copy Image",
+      execute: async () => {
+        toast.info("Copy image not yet implemented");
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.image_copy_url,
+      label: "Copy Image URL",
+      execute: async (src: unknown) => {
+        if (typeof src !== "string" || !src) return;
+        await services.clipboard.copy_text(src);
+        toast.success("Image URL copied");
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.image_open_in_browser,
+      label: "Open in Browser",
+      execute: async (src: unknown) => {
+        if (typeof src !== "string" || !src) return;
+        if (/^[a-z][a-z0-9+.-]*:/i.test(src)) {
+          void services.shell.open_url(src);
+        } else {
+          toast.info("Local images cannot be opened in browser");
+        }
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.image_save_as,
+      label: "Save Image As",
+      execute: async (src: unknown) => {
+        if (typeof src !== "string" || !src) return;
+        toast.info("Save image not yet implemented");
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.image_delete,
+      label: "Delete Image",
+      execute: async (pos: unknown) => {
+        if (typeof pos !== "number" || pos < 0) return;
+        toast.info("Delete image not yet implemented");
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.image_edit_alt_text,
+      label: "Edit Alt Text",
+      execute: async (_args: unknown) => {
+        toast.info("Edit alt text not yet implemented");
+      },
+    });
   }
 
   function register_delete_actions() {

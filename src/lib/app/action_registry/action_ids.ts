@@ -41,6 +41,14 @@ export const ACTION_IDS = {
   note_cancel_save: "note.cancel_save",
   note_toggle_star: "note.toggle_star",
 
+  image_copy: "image.copy",
+  image_copy_url: "image.copy_url",
+  image_open_in_browser: "image.open_in_browser",
+  image_save_as: "image.save_as",
+  image_delete: "image.delete",
+  image_edit_alt_text: "image.edit_alt_text",
+  image_resize: "image.resize",
+
   vault_request_change: "vault.request_change",
   vault_close_change: "vault.close_change",
   vault_choose: "vault.choose",
