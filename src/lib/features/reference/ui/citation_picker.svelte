@@ -86,18 +86,9 @@
     await ctx.action_registry.execute("reference.insert_citation", item.id);
   }
 
-  async function open_linked_source_csl(item: CslItem) {
-    await ctx.action_registry.execute("document.open", {
-      file_path: item._linked_file_path,
-    });
-  }
-
-  async function open_linked_note(note: LinkedNoteInfo) {
-    if (note.external_file_path) {
-      await ctx.action_registry.execute("document.open", {
-        file_path: note.external_file_path,
-      });
-    }
+  async function open_file(path: string | undefined) {
+    if (!path) return;
+    await ctx.action_registry.execute("document.open", { file_path: path });
   }
 
   function format_linked_note_line(note: LinkedNoteInfo): string {
@@ -189,7 +180,9 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
+              is_linked(item)
+                ? open_file(item._linked_file_path as string)
+                : insert(item)}
             title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="text-sm font-medium truncate">
@@ -211,7 +204,7 @@
         {#each linked_results as note (note.path)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => open_linked_note(note)}
+            onclick={() => open_file(note.external_file_path)}
             title="Open linked file"
           >
             <div class="flex items-center gap-1.5">
@@ -237,7 +230,9 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
+              is_linked(item)
+                ? open_file(item._linked_file_path as string)
+                : insert(item)}
             title={is_linked(item)
               ? "Open linked file"
               : "Import and insert [@{item.id}]"}
@@ -268,7 +263,9 @@
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
             onclick={() =>
-              is_linked(item) ? open_linked_source_csl(item) : insert(item)}
+              is_linked(item)
+                ? open_file(item._linked_file_path as string)
+                : insert(item)}
             title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
           >
             <div class="flex items-center gap-1.5">

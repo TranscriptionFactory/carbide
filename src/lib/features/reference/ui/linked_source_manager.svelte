@@ -18,16 +18,16 @@
   let item_counts = $state<Record<string, number>>({});
 
   async function refresh_counts() {
-    for (const source of ref_store.linked_sources) {
-      try {
-        const count = await ref_service.count_linked_notes_for_source(
-          source.name,
-        );
-        item_counts = { ...item_counts, [source.id]: count };
-      } catch {
-        // best-effort
-      }
+    const sources = ref_store.linked_sources;
+    const results = await Promise.allSettled(
+      sources.map((s) => ref_service.count_linked_notes_for_source(s.name)),
+    );
+    const next: Record<string, number> = {};
+    for (let i = 0; i < sources.length; i++) {
+      const r = results[i]!;
+      next[sources[i]!.id] = r.status === "fulfilled" ? r.value : 0;
     }
+    item_counts = next;
   }
 
   $effect(() => {

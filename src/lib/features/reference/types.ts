@@ -80,6 +80,7 @@ export type LinkedSourceMeta = {
 export type LinkedNoteInfo = {
   path: string;
   title: string;
+  mtime_ms: number;
   citekey?: string;
   authors?: string;
   year?: number;

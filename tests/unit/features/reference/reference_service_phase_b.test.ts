@@ -40,10 +40,10 @@ function make_linked_note_info(
   return {
     path: "@linked/Papers/test.pdf",
     title: "Test Paper",
+    mtime_ms: 1000,
     citekey: "smith2024-abc123",
     authors: "Smith, John",
     year: 2024,
-    doi: undefined,
     item_type: "article",
     external_file_path: "/papers/test.pdf",
     linked_source_id: "source-1",
@@ -164,7 +164,10 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
         null,
         null,
         ls_port,
-        { get_vault_setting: vi.fn(() => Promise.resolve(null)), set_vault_setting: vi.fn(() => Promise.resolve()) } as never,
+        {
+          get_vault_setting: vi.fn(() => Promise.resolve(null)),
+          set_vault_setting: vi.fn(() => Promise.resolve()),
+        } as never,
       );
 
       store.add_linked_source({
@@ -234,7 +237,10 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
         null,
         null,
         ls_port,
-        { get_vault_setting: vi.fn(() => Promise.resolve(null)), set_vault_setting: vi.fn(() => Promise.resolve()) } as never,
+        {
+          get_vault_setting: vi.fn(() => Promise.resolve(null)),
+          set_vault_setting: vi.fn(() => Promise.resolve()),
+        } as never,
       );
 
       store.add_linked_source({
@@ -247,10 +253,7 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
 
       await service.remove_linked_source("source-1", true);
 
-      expect(ls_port.clear_source).toHaveBeenCalledWith(
-        "test-vault",
-        "Papers",
-      );
+      expect(ls_port.clear_source).toHaveBeenCalledWith("test-vault", "Papers");
       expect(storage.remove_item).not.toHaveBeenCalled();
       expect(store.linked_sources).toHaveLength(0);
     });
