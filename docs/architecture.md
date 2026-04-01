@@ -63,22 +63,23 @@ When a user clicks a button, presses a shortcut, or picks a command:
 
 Each feature is a vertical slice owning its own stores, services, actions, ports, adapters, domain logic, and UI:
 
-| Feature     | Owns                                                          |
-| ----------- | ------------------------------------------------------------- |
-| `vault`     | Vault registry, open/close lifecycle, settings, watcher setup |
-| `note`      | Note CRUD, save/rename/delete, image assets                   |
-| `folder`    | Folder CRUD, file tree rendering, drag-and-drop moves         |
-| `editor`    | ProseMirror session, buffer management, markdown sync         |
-| `search`    | Full-text search, omnibar, find-in-file, wiki suggestions     |
-| `tab`       | Tab bar, tab lifecycle, tab caching and persistence           |
-| `git`       | Git init, status, commit, history, checkpoint, restore        |
-| `settings`  | App and vault settings read/write                             |
-| `hotkey`    | Custom hotkey editing and persistence                         |
-| `theme`     | Theme CRUD, switching, custom theme editing                   |
-| `links`     | Backlinks, local links, link repair on rename                 |
-| `clipboard` | Copy markdown to clipboard                                    |
-| `shell`     | Open external URLs                                            |
-| `watcher`   | Filesystem watcher start/stop                                 |
+| Feature     | Owns                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `vault`     | Vault registry, open/close lifecycle, settings, watcher setup                                                             |
+| `note`      | Note CRUD, save/rename/delete, image assets                                                                               |
+| `folder`    | Folder CRUD, file tree rendering, drag-and-drop moves                                                                     |
+| `editor`    | ProseMirror session, buffer management, markdown sync                                                                     |
+| `search`    | Full-text search, semantic search, omnibar, find-in-file, wiki suggestions, embeddings                                    |
+| `reference` | Citation library (`library.json`), linked sources (unified note model), DOI lookup, citation picker, BibTeX/Zotero import |
+| `tab`       | Tab bar, tab lifecycle, tab caching and persistence                                                                       |
+| `git`       | Git init, status, commit, history, checkpoint, restore                                                                    |
+| `settings`  | App and vault settings read/write                                                                                         |
+| `hotkey`    | Custom hotkey editing and persistence                                                                                     |
+| `theme`     | Theme CRUD, switching, custom theme editing                                                                               |
+| `links`     | Backlinks, local links, link repair on rename                                                                             |
+| `clipboard` | Copy markdown to clipboard                                                                                                |
+| `shell`     | Open external URLs                                                                                                        |
+| `watcher`   | Filesystem watcher start/stop                                                                                             |
 
 ### Folder structure (first 2 levels)
 

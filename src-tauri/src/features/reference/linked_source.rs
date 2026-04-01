@@ -659,7 +659,6 @@ pub async fn linked_source_list_files(
 pub fn linked_source_index_content(
     app: tauri::AppHandle,
     vault_id: String,
-    source_id: String,
     source_name: String,
     file_path: String,
     title: String,
@@ -672,7 +671,6 @@ pub fn linked_source_index_content(
     crate::features::search::service::linked_source_index(
         &app,
         &vault_id,
-        &source_id,
         &source_name,
         &file_path,
         &title,

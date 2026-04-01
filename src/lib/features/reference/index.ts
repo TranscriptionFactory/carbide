@@ -29,7 +29,6 @@ export {
   match_query,
 } from "./domain/csl_utils";
 export {
-  scan_entry_to_csl_item,
   derive_title_from_filename,
   parse_author_string,
   generate_linked_source_id,

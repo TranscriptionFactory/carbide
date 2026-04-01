@@ -631,7 +631,6 @@ fn upsert_plain_content(
 
 pub fn upsert_linked_content(
     conn: &Connection,
-    source_id: &str,
     source_name: &str,
     file_path: &str,
     title: &str,
@@ -652,7 +651,7 @@ pub fn upsert_linked_content(
         mtime_ms: modified_at as i64,
         size_bytes: body.len() as i64,
         file_type: Some(file_type.to_string()),
-        source: Some(format!("linked:{source_id}")),
+        source: Some("linked".to_string()),
     };
     upsert_plain_content(conn, &meta, body, page_offsets)?;
     update_linked_metadata(conn, &meta.path, linked_meta)?;

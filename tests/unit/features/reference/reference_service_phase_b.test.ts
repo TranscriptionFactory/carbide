@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ReferenceService } from "$lib/features/reference/application/reference_service";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
@@ -88,39 +88,8 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
   let ls_port: LinkedSourcePort;
   const now_ms = () => 1000;
 
-  describe("migrate_linked_items_from_library", () => {
-    it("removes linked source items from library.json on load", async () => {
-      const linked_item: CslItem = {
-        ...make_item("linked-1"),
-        _source: "linked_source",
-        _linked_source_id: "source-1",
-        _linked_file_path: "/papers/test.pdf",
-      };
-      const manual_item = make_item("manual-1");
-      storage = make_mock_storage([linked_item, manual_item]);
-      store = new ReferenceStore();
-      op_store = new OpStore();
-      ls_port = make_mock_linked_source_port();
-
-      const service = new ReferenceService(
-        storage,
-        store,
-        make_vault_store(),
-        op_store,
-        now_ms,
-        null,
-        null,
-        ls_port,
-      );
-
-      await service.load_library();
-
-      expect(store.library_items).toHaveLength(1);
-      expect(store.library_items[0]!.id).toBe("manual-1");
-      expect(storage.save_library).toHaveBeenCalled();
-    });
-
-    it("is idempotent — no-op when no linked items exist", async () => {
+  describe("load_library", () => {
+    it("loads library items into store", async () => {
       const manual_item = make_item("manual-1");
       storage = make_mock_storage([manual_item]);
       store = new ReferenceStore();
@@ -141,7 +110,7 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
       await service.load_library();
 
       expect(store.library_items).toHaveLength(1);
-      expect(storage.save_library).not.toHaveBeenCalled();
+      expect(store.library_items[0]!.id).toBe("manual-1");
     });
   });
 

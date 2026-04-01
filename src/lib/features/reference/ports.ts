@@ -62,7 +62,6 @@ export interface LinkedSourcePort {
   ): Promise<{ file_path: string; modified_at: number }[]>;
   index_content(
     vault_id: string,
-    source_id: string,
     source_name: string,
     entry: ScanEntry,
     linked_meta: LinkedSourceMeta,

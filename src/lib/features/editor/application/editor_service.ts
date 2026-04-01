@@ -577,29 +577,17 @@ export class EditorService {
     if (!reference_store) return;
 
     const all = reference_store.library_items;
-    const filtered = query
-      ? all.filter((item) => match_query(item, query))
-      : all;
-
-    const vault_path = this.vault_store.vault?.path ?? null;
-
-    const items: CiteSuggestionItem[] = filtered.slice(0, 20).map((item) => {
-      let linked_file_path: string | null = null;
-      const raw_path = item._linked_file_path;
-      if (typeof raw_path === "string" && raw_path && vault_path) {
-        const prefix = vault_path.endsWith("/") ? vault_path : `${vault_path}/`;
-        linked_file_path = raw_path.startsWith(prefix)
-          ? raw_path.slice(prefix.length)
-          : raw_path;
-      }
-      return {
+    const items: CiteSuggestionItem[] = [];
+    for (const item of all) {
+      if (query && !match_query(item, query)) continue;
+      items.push({
         citekey: item.id,
         title: item.title ?? "",
         authors: format_authors(item.author),
         year: String(extract_year(item) ?? ""),
-        linked_file_path,
-      };
-    });
+      });
+      if (items.length >= 20) break;
+    }
 
     this.session?.set_cite_suggestions?.(items);
   }

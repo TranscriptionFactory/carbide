@@ -23,15 +23,21 @@ export function extract_year(item: CslItem): number | null {
   return null;
 }
 
-export function generate_citekey(item: CslItem): string {
-  const first_author = item.author?.[0];
-  const family = first_author?.family ?? first_author?.literal ?? "unknown";
-  const year = extract_year(item) ?? "nd";
-  const slug = family
+export function citekey_slug(
+  family: string,
+  year: number | string | null | undefined,
+): string {
+  const slug = (family || "unknown")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
     .slice(0, 20);
-  return `${slug}${year}`;
+  return `${slug}${year ?? "nd"}`;
+}
+
+export function generate_citekey(item: CslItem): string {
+  const first_author = item.author?.[0];
+  const family = first_author?.family ?? first_author?.literal ?? "unknown";
+  return citekey_slug(family, extract_year(item));
 }
 
 export function match_query(item: CslItem, query: string): boolean {

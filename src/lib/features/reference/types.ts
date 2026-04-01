@@ -35,7 +35,6 @@ export type ReferenceSource =
   | "citationjs"
   | "manual"
   | "translation_server"
-  | "linked_source"
   | "extension";
 
 export type LinkedSource = {

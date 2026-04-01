@@ -1,18 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
-import type { CslItem } from "$lib/features/reference/types";
+import type { CslItem, LinkedNoteInfo } from "$lib/features/reference/types";
 
-function make_linked_item(id: string, file_path: string): CslItem {
-  return {
-    id,
-    type: "article-journal",
-    title: `Title for ${id}`,
-    _source: "linked_source",
-    _linked_file_path: file_path,
-  };
-}
-
-function make_regular_item(id: string): CslItem {
+function make_library_item(id: string): CslItem {
   return {
     id,
     type: "article-journal",
@@ -20,8 +10,16 @@ function make_regular_item(id: string): CslItem {
   };
 }
 
-function is_linked(item: CslItem): boolean {
-  return item._source === "linked_source";
+function make_linked_note(
+  path: string,
+  external_file_path: string,
+): LinkedNoteInfo {
+  return {
+    path,
+    title: `Title for ${path}`,
+    mtime_ms: 1000,
+    external_file_path,
+  };
 }
 
 function create_harness() {
@@ -41,26 +39,48 @@ function create_harness() {
     execute: insert_citation,
   });
 
-  async function handle_item_click(item: CslItem) {
-    if (is_linked(item)) {
+  async function handle_library_item_click(item: CslItem) {
+    await registry.execute("reference.insert_citation", item.id);
+  }
+
+  async function handle_linked_note_click(note: LinkedNoteInfo) {
+    if (note.external_file_path) {
       await registry.execute("document.open", {
-        file_path: item._linked_file_path,
+        file_path: note.external_file_path,
       });
-    } else {
-      await registry.execute("reference.insert_citation", item.id);
     }
   }
 
-  return { registry, document_open, insert_citation, handle_item_click };
+  return {
+    registry,
+    document_open,
+    insert_citation,
+    handle_library_item_click,
+    handle_linked_note_click,
+  };
 }
 
-describe("citation picker linked source click routing", () => {
-  it("calls document.open with file_path for a linked source item", async () => {
-    const { document_open, insert_citation, handle_item_click } =
+describe("citation picker click routing", () => {
+  it("inserts citation for a library item", async () => {
+    const { insert_citation, document_open, handle_library_item_click } =
       create_harness();
-    const item = make_linked_item("smith2024", "/vault/papers/smith2024.pdf");
+    const item = make_library_item("doe2023");
 
-    await handle_item_click(item);
+    await handle_library_item_click(item);
+
+    expect(insert_citation).toHaveBeenCalledWith("doe2023");
+    expect(document_open).not.toHaveBeenCalled();
+  });
+
+  it("opens file for a linked note", async () => {
+    const { document_open, insert_citation, handle_linked_note_click } =
+      create_harness();
+    const note = make_linked_note(
+      "@linked/Papers/smith2024.pdf",
+      "/vault/papers/smith2024.pdf",
+    );
+
+    await handle_linked_note_click(note);
 
     expect(document_open).toHaveBeenCalledWith({
       file_path: "/vault/papers/smith2024.pdf",
@@ -68,43 +88,19 @@ describe("citation picker linked source click routing", () => {
     expect(insert_citation).not.toHaveBeenCalled();
   });
 
-  it("calls reference.insert_citation for a non-linked item", async () => {
-    const { document_open, insert_citation, handle_item_click } =
+  it("opens file for an HTML linked note", async () => {
+    const { document_open, insert_citation, handle_linked_note_click } =
       create_harness();
-    const item = make_regular_item("doe2023");
+    const note = make_linked_note(
+      "@linked/Sources/article.html",
+      "/vault/sources/article.html",
+    );
 
-    await handle_item_click(item);
-
-    expect(insert_citation).toHaveBeenCalledWith("doe2023");
-    expect(document_open).not.toHaveBeenCalled();
-  });
-
-  it("calls document.open for an HTML linked source item", async () => {
-    const { document_open, insert_citation, handle_item_click } =
-      create_harness();
-    const item = make_linked_item("web2024", "/vault/sources/article.html");
-
-    await handle_item_click(item);
+    await handle_linked_note_click(note);
 
     expect(document_open).toHaveBeenCalledWith({
       file_path: "/vault/sources/article.html",
     });
     expect(insert_citation).not.toHaveBeenCalled();
-  });
-
-  it("calls insert_citation for item with _source other than linked_source", async () => {
-    const { document_open, insert_citation, handle_item_click } =
-      create_harness();
-    const item: CslItem = {
-      id: "zotero2024",
-      type: "article-journal",
-      title: "Zotero Paper",
-      _source: "zotero",
-    };
-
-    await handle_item_click(item);
-
-    expect(insert_citation).toHaveBeenCalledWith("zotero2024");
-    expect(document_open).not.toHaveBeenCalled();
   });
 });

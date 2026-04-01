@@ -74,8 +74,14 @@ function make_mock_vault_settings_port(
   sources: LinkedSource[] = [],
 ): VaultSettingsPort {
   return {
-    get_vault_setting: vi.fn(async () => sources),
+    get_vault_setting: vi.fn(
+      async () => sources,
+    ) as VaultSettingsPort["get_vault_setting"],
     set_vault_setting: vi.fn(async () => {}),
+    get_local_setting: vi.fn(
+      async () => null,
+    ) as VaultSettingsPort["get_local_setting"],
+    set_local_setting: vi.fn(async () => {}),
   };
 }
 
