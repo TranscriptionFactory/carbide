@@ -30,6 +30,7 @@
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
   import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
+  import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OmnibarItem } from "$lib/shared/types/search";
@@ -573,6 +574,8 @@
     if (!open) stores.vim_nav.cheatsheet_open = false;
   }}
 />
+
+<MissingLinkedSourceDialog />
 
 <HotkeyRecorderDialog
   open={stores.ui.hotkey_recorder.open}

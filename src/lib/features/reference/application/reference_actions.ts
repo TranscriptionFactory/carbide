@@ -269,4 +269,32 @@ export function register_reference_actions(input: {
       await reference_service.toggle_linked_source(source_id);
     },
   });
+
+  registry.register({
+    id: "reference.relocate_linked_source",
+    label: "References: Relocate Missing Source",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { id } = args as { id: string };
+      if (typeof id !== "string") return;
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        directory: true,
+        title: "Select new location for linked source",
+      });
+      if (!selected || typeof selected !== "string") return;
+      await reference_service.relocate_linked_source(id, selected);
+    },
+  });
+
+  registry.register({
+    id: "reference.delete_linked_source_data",
+    label: "References: Delete Missing Source Data",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { id } = args as { id: string };
+      if (typeof id !== "string") return;
+      await reference_service.delete_linked_source_data(id);
+    },
+  });
 }

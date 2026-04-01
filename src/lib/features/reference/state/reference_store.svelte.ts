@@ -2,6 +2,11 @@ import type { CslItem, LinkedSource, PdfAnnotation } from "../types";
 
 export type LinkedSourceSyncStatus = "idle" | "scanning" | "error";
 
+export type MissingLinkedSource = {
+  source: LinkedSource;
+  item_count: number;
+};
+
 export class ReferenceStore {
   library_items = $state<CslItem[]>([]);
   search_results = $state<CslItem[]>([]);
@@ -17,6 +22,7 @@ export class ReferenceStore {
   linked_source_sync_status = $state<Record<string, LinkedSourceSyncStatus>>(
     {},
   );
+  missing_linked_sources = $state<MissingLinkedSource[]>([]);
 
   set_library_items(items: CslItem[]) {
     this.library_items = items;
@@ -121,6 +127,16 @@ export class ReferenceStore {
     };
   }
 
+  set_missing_linked_sources(missing: MissingLinkedSource[]) {
+    this.missing_linked_sources = missing;
+  }
+
+  dismiss_missing_linked_source(source_id: string) {
+    this.missing_linked_sources = this.missing_linked_sources.filter(
+      (m) => m.source.id !== source_id,
+    );
+  }
+
   reset() {
     this.library_items = [];
     this.search_results = [];
@@ -131,5 +147,6 @@ export class ReferenceStore {
     this.error = null;
     this.linked_sources = [];
     this.linked_source_sync_status = {};
+    this.missing_linked_sources = [];
   }
 }
