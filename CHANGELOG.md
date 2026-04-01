@@ -1,5 +1,11 @@
 # carbide
 
+## 1.11.0
+
+### Minor Changes
+
+- c8ac662: Changeset: High-Priority Feature Implementation — 2026-04-01
+
 ## 1.10.0
 
 ### Minor Changes
