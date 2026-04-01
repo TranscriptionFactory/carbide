@@ -132,7 +132,6 @@ enum DbCommand {
         cancel: Arc<AtomicBool>,
     },
     UpsertLinkedContent {
-        source_id: String,
         source_name: String,
         file_path: String,
         title: String,
@@ -349,7 +348,6 @@ fn dispatch_command(
             let _ = reply.send(result);
         }
         DbCommand::UpsertLinkedContent {
-            source_id,
             source_name,
             file_path,
             title,
@@ -363,7 +361,6 @@ fn dispatch_command(
         } => {
             let result = search_db::upsert_linked_content(
                 conn,
-                &source_id,
                 &source_name,
                 &file_path,
                 &title,
@@ -1372,7 +1369,6 @@ pub fn index_remove_notes_by_prefix(
 pub fn linked_source_index(
     app: &AppHandle,
     vault_id: &str,
-    source_id: &str,
     source_name: &str,
     file_path: &str,
     title: &str,
@@ -1383,7 +1379,6 @@ pub fn linked_source_index(
     linked_meta: crate::features::search::model::LinkedSourceMeta,
 ) -> Result<(), String> {
     send_write_blocking(app, vault_id, |reply| DbCommand::UpsertLinkedContent {
-        source_id: source_id.to_string(),
         source_name: source_name.to_string(),
         file_path: file_path.to_string(),
         title: title.to_string(),

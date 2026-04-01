@@ -15,7 +15,6 @@ import type {
   LinkedSource,
   LinkedSourceMeta,
   PdfAnnotation,
-  ReferenceLibrary,
   ReferenceSource,
   ScanEntry,
 } from "../types";
@@ -81,11 +80,7 @@ export class ReferenceService {
     this.store.set_loading(true);
     try {
       const library = await this.storage_port.load_library(vault_id);
-      const migrated = await this.migrate_linked_items_from_library(
-        vault_id,
-        library,
-      );
-      this.store.set_library_items(migrated.items);
+      this.store.set_library_items(library.items);
       this.store.set_error(null);
       this.op_store.succeed(op_key);
     } catch (e) {
@@ -95,21 +90,6 @@ export class ReferenceService {
     } finally {
       this.store.set_loading(false);
     }
-  }
-
-  private async migrate_linked_items_from_library(
-    vault_id: string,
-    library: ReferenceLibrary,
-  ): Promise<ReferenceLibrary> {
-    const linked = library.items.filter((i) => i._source === "linked_source");
-    if (linked.length === 0) return library;
-
-    const cleaned_items = library.items.filter(
-      (i) => i._source !== "linked_source",
-    );
-    const cleaned = { ...library, items: cleaned_items };
-    await this.storage_port.save_library(vault_id, cleaned);
-    return cleaned;
   }
 
   async add_reference(item: CslItem, _source: ReferenceSource): Promise<void> {
@@ -607,7 +587,6 @@ export class ReferenceService {
             batch.map((entry) =>
               ls_port.index_content(
                 vault_id,
-                source_id,
                 source.name,
                 entry,
                 scan_entry_to_linked_meta(entry, source_id),
@@ -688,7 +667,6 @@ export class ReferenceService {
       const vault_id = this.require_vault_id();
       await ls_port.index_content(
         vault_id,
-        source_id,
         source.name,
         entry,
         scan_entry_to_linked_meta(entry, source_id),

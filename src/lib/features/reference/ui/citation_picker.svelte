@@ -107,10 +107,6 @@
     return parts.join(" · ");
   }
 
-  function is_linked(item: CslItem): boolean {
-    return item._source === "linked_source";
-  }
-
   async function test_connections() {
     for (const ext of ref_service.get_registered_extensions()) {
       await ctx.action_registry.execute(
@@ -179,11 +175,8 @@
         {#each local_results as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() =>
-              is_linked(item)
-                ? open_file(item._linked_file_path as string)
-                : insert(item)}
-            title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
+            onclick={() => insert(item)}
+            title="Insert [@{item.id}]"
           >
             <div class="text-sm font-medium truncate">
               {item.title ?? item.id}
@@ -229,13 +222,8 @@
         {#each group.items as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() =>
-              is_linked(item)
-                ? open_file(item._linked_file_path as string)
-                : insert(item)}
-            title={is_linked(item)
-              ? "Open linked file"
-              : "Import and insert [@{item.id}]"}
+            onclick={() => insert(item)}
+            title="Import and insert [@{item.id}]"
           >
             <div class="text-sm font-medium truncate">
               {item.title ?? item.id}
@@ -262,19 +250,11 @@
         {#each ref_store.library_items as item (item.id)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() =>
-              is_linked(item)
-                ? open_file(item._linked_file_path as string)
-                : insert(item)}
-            title={is_linked(item) ? "Open linked file" : "Insert [@{item.id}]"}
+            onclick={() => insert(item)}
+            title="Insert [@{item.id}]"
           >
-            <div class="flex items-center gap-1.5">
-              {#if is_linked(item)}
-                <Link class="w-3 h-3 text-muted-foreground shrink-0" />
-              {/if}
-              <span class="text-sm font-medium truncate">
-                {item.title ?? item.id}
-              </span>
+            <div class="text-sm font-medium truncate">
+              {item.title ?? item.id}
             </div>
             <div class="text-xs text-muted-foreground truncate">
               {format_item_line(item)}

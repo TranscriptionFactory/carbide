@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  scan_entry_to_csl_item,
+  scan_entry_to_linked_meta,
   derive_title_from_filename,
   parse_author_string,
   parse_creation_date,
@@ -77,52 +77,75 @@ describe("parse_author_string", () => {
   });
 });
 
-describe("scan_entry_to_csl_item", () => {
-  it("converts full entry to CslItem", () => {
+describe("scan_entry_to_linked_meta", () => {
+  it("converts full entry to LinkedSourceMeta", () => {
     const entry = make_entry();
-    const item = scan_entry_to_csl_item(entry, "source-1");
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
 
-    expect(item.title).toBe("Deep Learning Fundamentals");
-    expect(item.DOI).toBe("10.1234/test.5678");
-    expect(item.type).toBe("article");
-    expect(item.author).toEqual([
-      { family: "Smith", given: "John" },
-      { family: "Doe", given: "Jane" },
-    ]);
-    expect(item._linked_source_id).toBe("source-1");
-    expect(item._linked_file_path).toBe(
+    expect(meta.citekey).toMatch(/smith2024/);
+    expect(meta.item_type).toBe("article");
+    expect(meta.authors).toBe("Smith, John; Doe, Jane");
+    expect(meta.year).toBe(2024);
+    expect(meta.doi).toBe("10.1234/test.5678");
+    expect(meta.external_file_path).toBe(
       "/home/user/papers/machine_learning.pdf",
     );
-    expect(item._source).toBe("linked_source");
-    expect(item.keyword).toBe("machine learning, neural networks");
-    expect(item.abstract).toBe("An introduction to deep learning");
-    expect(item.id).toBeTruthy();
+    expect(meta.linked_source_id).toBe("source-1");
+    expect(meta.abstract).toBe("An introduction to deep learning");
   });
 
-  it("derives title from filename when title is null", () => {
-    const entry = make_entry({ title: null });
-    const item = scan_entry_to_csl_item(entry, "source-1");
-    expect(item.title).toBe("machine learning");
+  it("sets item_type to webpage for HTML files", () => {
+    const entry = make_entry({ file_type: "html" });
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.item_type).toBe("webpage");
   });
 
   it("handles entry with no author", () => {
     const entry = make_entry({ author: null });
-    const item = scan_entry_to_csl_item(entry, "source-1");
-    expect(item.author).toBeUndefined();
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.authors).toBeUndefined();
+    expect(meta.citekey).toMatch(/unknown2024/);
   });
 
-  it("sets type to webpage for HTML files", () => {
-    const entry = make_entry({ file_type: "html" });
-    const item = scan_entry_to_csl_item(entry, "source-1");
-    expect(item.type).toBe("webpage");
+  it("handles entry with no creation_date", () => {
+    const entry = make_entry({ creation_date: null });
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.year).toBeUndefined();
+    expect(meta.citekey).toMatch(/smithnd/);
+  });
+
+  it("omits optional fields when not present", () => {
+    const entry = make_entry({
+      doi: null,
+      isbn: null,
+      arxiv_id: null,
+      subject: null,
+    });
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.doi).toBeUndefined();
+    expect(meta.isbn).toBeUndefined();
+    expect(meta.arxiv_id).toBeUndefined();
+    expect(meta.abstract).toBeUndefined();
+  });
+
+  it("maps isbn when present", () => {
+    const entry = make_entry({ isbn: "9783161484100" });
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.isbn).toBe("9783161484100");
+  });
+
+  it("maps arxiv_id when present", () => {
+    const entry = make_entry({ arxiv_id: "2301.07041v2" });
+    const meta = scan_entry_to_linked_meta(entry, "source-1");
+    expect(meta.arxiv_id).toBe("2301.07041v2");
   });
 
   it("generates unique citekeys for different file paths", () => {
     const entry1 = make_entry({ file_path: "/a/paper.pdf" });
     const entry2 = make_entry({ file_path: "/b/paper.pdf" });
-    const item1 = scan_entry_to_csl_item(entry1, "s1");
-    const item2 = scan_entry_to_csl_item(entry2, "s1");
-    expect(item1.id).not.toBe(item2.id);
+    const meta1 = scan_entry_to_linked_meta(entry1, "s1");
+    const meta2 = scan_entry_to_linked_meta(entry2, "s1");
+    expect(meta1.citekey).not.toBe(meta2.citekey);
   });
 });
 
@@ -169,41 +192,6 @@ describe("parse_creation_date", () => {
 
   it("returns null for implausible year", () => {
     expect(parse_creation_date("0001")).toBeNull();
-  });
-});
-
-describe("scan_entry_to_csl_item with new fields", () => {
-  it("maps isbn to CslItem.ISBN", () => {
-    const entry = make_entry({ isbn: "9783161484100" });
-    const item = scan_entry_to_csl_item(entry, "s1");
-    expect(item.ISBN).toBe("9783161484100");
-  });
-
-  it("maps arxiv_id to CslItem._arxiv_id", () => {
-    const entry = make_entry({ arxiv_id: "2301.07041v2" });
-    const item = scan_entry_to_csl_item(entry, "s1");
-    expect(item._arxiv_id).toBe("2301.07041v2");
-  });
-
-  it("parses creation_date into issued date-parts", () => {
-    const entry = make_entry({ creation_date: "D:20240101120000" });
-    const item = scan_entry_to_csl_item(entry, "s1");
-    expect(item.issued).toEqual({ "date-parts": [[2024, 1, 1]] });
-  });
-
-  it("omits issued when creation_date is null", () => {
-    const entry = make_entry({ creation_date: null });
-    const item = scan_entry_to_csl_item(entry, "s1");
-    expect(item.issued).toBeUndefined();
-  });
-
-  it("generates citekey with year from parsed date", () => {
-    const entry = make_entry({
-      creation_date: "D:20240101120000",
-      doi: null,
-    });
-    const item = scan_entry_to_csl_item(entry, "s1");
-    expect(item.id).toMatch(/smith2024/);
   });
 });
 

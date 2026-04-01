@@ -1,11 +1,5 @@
-import type {
-  CslDate,
-  CslItem,
-  CslName,
-  LinkedSourceMeta,
-  ScanEntry,
-} from "../types";
-import { generate_citekey } from "./csl_utils";
+import type { CslDate, CslName, LinkedSourceMeta, ScanEntry } from "../types";
+import { citekey_slug } from "./csl_utils";
 
 export function generate_linked_source_id(): string {
   return crypto.randomUUID();
@@ -71,67 +65,20 @@ export function parse_creation_date(raw: string): CslDate | null {
   return null;
 }
 
-export function scan_entry_to_csl_item(
-  entry: ScanEntry,
-  source_id: string,
-): CslItem {
-  const title = entry.title ?? derive_title_from_filename(entry.file_path);
-
-  const item: CslItem = {
-    id: "",
-    type: entry.file_type === "html" ? "webpage" : "article",
-    title,
-    _linked_source_id: source_id,
-    _linked_file_path: entry.file_path,
-    _linked_file_modified_at: entry.modified_at,
-    _source: "linked_source" as const,
-  };
-
-  if (entry.author) {
-    item.author = parse_author_string(entry.author);
-  }
-  if (entry.doi) {
-    item.DOI = entry.doi;
-  }
-  if (entry.isbn) {
-    item.ISBN = entry.isbn;
-  }
-  if (entry.arxiv_id) {
-    item._arxiv_id = entry.arxiv_id;
-  }
-
-  if (entry.keywords) {
-    item.keyword = entry.keywords;
-  }
-  if (entry.subject) {
-    item.abstract = entry.subject;
-  }
-
-  if (entry.creation_date) {
-    const issued = parse_creation_date(entry.creation_date);
-    if (issued) {
-      item.issued = issued;
-    }
-  }
-
-  item.id = generate_citekey(item);
-
-  // Ensure uniqueness by appending a hash suffix from file path
-  const hash = simple_hash(entry.file_path);
-  item.id = `${item.id}-${hash}`;
-
-  return item;
-}
-
 export function scan_entry_to_linked_meta(
   entry: ScanEntry,
   source_id: string,
 ): LinkedSourceMeta {
-  const csl = scan_entry_to_csl_item(entry, source_id);
-  const year = csl.issued?.["date-parts"]?.[0]?.[0];
+  const family = entry.author ? first_author_family(entry.author) : "unknown";
+  const year = entry.creation_date
+    ? parse_year_from_date(entry.creation_date)
+    : undefined;
+  const hash = simple_hash(entry.file_path);
+  const citekey = `${citekey_slug(family, year)}-${hash}`;
+
   const meta: LinkedSourceMeta = {
-    citekey: csl.id,
-    item_type: csl.type,
+    citekey,
+    item_type: entry.file_type === "html" ? "webpage" : "article",
     external_file_path: entry.file_path,
     linked_source_id: source_id,
   };
@@ -142,6 +89,24 @@ export function scan_entry_to_linked_meta(
   if (entry.arxiv_id) meta.arxiv_id = entry.arxiv_id;
   if (entry.subject) meta.abstract = entry.subject;
   return meta;
+}
+
+function first_author_family(author_str: string): string {
+  const first = author_str.includes(";")
+    ? author_str.split(";")[0]!.trim()
+    : author_str.split(",").length > 2
+      ? author_str.split(",")[0]!.trim()
+      : author_str.trim();
+  if (!first) return "unknown";
+  const comma_parts = first.split(",").map((p) => p.trim());
+  if (comma_parts.length >= 2) return comma_parts[0]!;
+  const words = first.split(/\s+/);
+  return words.length >= 2 ? words[words.length - 1]! : first;
+}
+
+function parse_year_from_date(raw: string): number | undefined {
+  const parsed = parse_creation_date(raw);
+  return parsed?.["date-parts"]?.[0]?.[0];
 }
 
 function simple_hash(str: string): string {

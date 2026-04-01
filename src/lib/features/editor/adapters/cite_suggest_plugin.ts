@@ -18,7 +18,6 @@ export type CiteSuggestionItem = {
   title: string;
   authors: string;
   year: string;
-  linked_file_path: string | null;
 };
 
 type CiteSuggestState = {
@@ -167,9 +166,7 @@ export function create_cite_suggest_prose_plugin(
     const item = state.items[index];
     if (!item) return;
 
-    const replacement = item.linked_file_path
-      ? `[[${item.linked_file_path}|@${item.citekey}]]`
-      : `[@${item.citekey}]`;
+    const replacement = `[@${item.citekey}]`;
 
     const selection_from = view.state.selection.from;
     const replace_to = Math.min(selection_from, view.state.doc.content.size);
