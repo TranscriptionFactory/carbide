@@ -578,11 +578,15 @@
                             }
                           }}
                           on_open_in_default_app={(path: string) => {
-                            const vault_path = stores.vault.vault?.path;
-                            if (vault_path) {
-                              void services.shell.open_path(
-                                `${vault_path}/${path}`,
-                              );
+                            if (path.startsWith("/")) {
+                              void services.shell.open_path(path);
+                            } else {
+                              const vault_path = stores.vault.vault?.path;
+                              if (vault_path) {
+                                void services.shell.open_path(
+                                  `${vault_path}/${path}`,
+                                );
+                              }
                             }
                           }}
                           on_generate_description={stores.ui.editor_settings
@@ -808,11 +812,15 @@
                             }
                           }}
                           on_open_in_default_app={(path: string) => {
-                            const vault_path = stores.vault.vault?.path;
-                            if (vault_path) {
-                              void services.shell.open_path(
-                                `${vault_path}/${path}`,
-                              );
+                            if (path.startsWith("/")) {
+                              void services.shell.open_path(path);
+                            } else {
+                              const vault_path = stores.vault.vault?.path;
+                              if (vault_path) {
+                                void services.shell.open_path(
+                                  `${vault_path}/${path}`,
+                                );
+                              }
                             }
                           }}
                           on_generate_description={stores.ui.editor_settings

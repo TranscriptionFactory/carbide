@@ -53,6 +53,7 @@
 <script lang="ts">
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
+  import { is_linked_note_path } from "$lib/shared/types/note";
   import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
   import * as ContextMenu from "$lib/components/ui/context-menu";
@@ -168,6 +169,8 @@
     on_retry_load,
     on_retry_load_more,
   }: Props = $props();
+
+  const is_linked = $derived(is_linked_note_path(node.path));
 
   function activate_row() {
     if (node.is_folder) {
@@ -390,31 +393,33 @@
             {/if}
           </ContextMenu.Item>
         {:else}
-          <ContextMenu.Item
-            onSelect={() => {
-              on_request_create_note?.();
-            }}
-          >
-            <FilePlus class="mr-2 h-4 w-4" />
-            <span>New Note</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => {
-              if (on_request_create_folder) {
-                on_request_create_folder(node.path);
-              }
-            }}
-          >
-            <FolderPlus class="mr-2 h-4 w-4" />
-            <span>New Folder</span>
-          </ContextMenu.Item>
-          {#if on_request_create_canvas}
-            <ContextMenu.Item onSelect={() => on_request_create_canvas()}>
+          {#if !is_linked}
+            <ContextMenu.Item
+              onSelect={() => {
+                on_request_create_note?.();
+              }}
+            >
               <FilePlus class="mr-2 h-4 w-4" />
-              <span>New Canvas</span>
+              <span>New Note</span>
             </ContextMenu.Item>
+            <ContextMenu.Item
+              onSelect={() => {
+                if (on_request_create_folder) {
+                  on_request_create_folder(node.path);
+                }
+              }}
+            >
+              <FolderPlus class="mr-2 h-4 w-4" />
+              <span>New Folder</span>
+            </ContextMenu.Item>
+            {#if on_request_create_canvas}
+              <ContextMenu.Item onSelect={() => on_request_create_canvas()}>
+                <FilePlus class="mr-2 h-4 w-4" />
+                <span>New Canvas</span>
+              </ContextMenu.Item>
+            {/if}
+            <ContextMenu.Separator />
           {/if}
-          <ContextMenu.Separator />
           <ContextMenu.Item onSelect={() => on_toggle_star?.(node.path)}>
             {#if is_starred}
               <StarOff class="mr-2 h-4 w-4" />
@@ -437,7 +442,7 @@
             <Copy class="mr-2 h-4 w-4" />
             <span>Copy Folder Path</span>
           </ContextMenu.Item>
-          {#if on_request_rename_folder || on_request_delete_folder}
+          {#if !is_linked && (on_request_rename_folder || on_request_delete_folder)}
             <ContextMenu.Separator />
             {#if on_request_rename_folder}
               <ContextMenu.Item
@@ -555,7 +560,14 @@
             <Copy class="mr-2 h-4 w-4" />
             <span>Copy File Path</span>
           </ContextMenu.Item>
-          {#if on_open_to_side}
+          {#if is_linked && on_open_in_default_app}
+            <ContextMenu.Separator />
+            <ContextMenu.Item onSelect={() => on_open_in_default_app(node.note?.external_file_path ?? node.path)}>
+              <ExternalLink class="mr-2 h-4 w-4" />
+              <span>Open in Default App</span>
+            </ContextMenu.Item>
+          {/if}
+          {#if !is_linked && on_open_to_side}
             <ContextMenu.Item
               onSelect={() => {
                 on_open_to_side(node.path);
@@ -565,13 +577,13 @@
               <span>Open to Side</span>
             </ContextMenu.Item>
           {/if}
-          {#if on_open_in_new_window}
+          {#if !is_linked && on_open_in_new_window}
             <ContextMenu.Item onSelect={() => on_open_in_new_window(node.path)}>
               <AppWindow class="mr-2 h-4 w-4" />
               <span>Open in New Window</span>
             </ContextMenu.Item>
           {/if}
-          {#if on_generate_description}
+          {#if !is_linked && on_generate_description}
             <ContextMenu.Separator />
             <ContextMenu.Item
               onSelect={() => on_generate_description(node.path)}
@@ -580,7 +592,7 @@
               <span>Generate Description</span>
             </ContextMenu.Item>
           {/if}
-          {#if on_request_rename || on_request_delete}
+          {#if !is_linked && (on_request_rename || on_request_delete)}
             <ContextMenu.Separator />
             {#if on_request_rename}
               <ContextMenu.Item

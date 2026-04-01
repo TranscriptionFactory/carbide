@@ -21,7 +21,7 @@ import {
   save_and_insert_image,
 } from "$lib/features/note/application/note_action_helpers";
 import { is_draft_note_path } from "$lib/features/note/domain/ensure_open_note";
-import type { NoteMeta } from "$lib/shared/types/note";
+import { is_linked_note_path, type NoteMeta } from "$lib/shared/types/note";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 import type { ImagePasteRequest } from "$lib/shared/types/editor";
 import {
@@ -376,6 +376,14 @@ export function register_note_actions(input: ActionRegistrationInput) {
       execute: async (note_input: unknown) => {
         const parsed = parse_note_open_input(note_input);
         const note_path = parsed.note_path;
+
+        if (is_linked_note_path(note_path)) {
+          const note = stores.notes.notes.find((n) => n.path === note_path);
+          if (note?.external_file_path) {
+            await services.shell.open_path(note.external_file_path);
+          }
+          return;
+        }
 
         const existing_tab = stores.tab.find_tab_by_path(note_path as NotePath);
         if (existing_tab) {

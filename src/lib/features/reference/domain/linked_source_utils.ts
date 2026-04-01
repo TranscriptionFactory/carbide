@@ -1,4 +1,12 @@
-import type { CslDate, CslName, LinkedSourceMeta, ScanEntry } from "../types";
+import type {
+  CslDate,
+  CslName,
+  LinkedNoteInfo,
+  LinkedSourceMeta,
+  ScanEntry,
+} from "../types";
+import type { NoteMeta } from "$lib/shared/types/note";
+import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { citekey_slug } from "./csl_utils";
 
 export function generate_linked_source_id(): string {
@@ -115,4 +123,26 @@ function simple_hash(str: string): string {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   }
   return Math.abs(h).toString(36).slice(0, 6);
+}
+
+export function linked_note_to_meta(info: LinkedNoteInfo): NoteMeta {
+  const meta: NoteMeta = {
+    id: info.path as NoteId,
+    path: info.path as NotePath,
+    name: info.title,
+    title: info.title,
+    blurb: "",
+    mtime_ms: info.mtime_ms,
+    size_bytes: 0,
+    file_type: null,
+    source: "linked",
+  };
+  if (info.citekey) meta.citekey = info.citekey;
+  if (info.authors) meta.authors = info.authors;
+  if (info.year) meta.year = info.year;
+  if (info.doi) meta.doi = info.doi;
+  if (info.item_type) meta.item_type = info.item_type;
+  if (info.external_file_path) meta.external_file_path = info.external_file_path;
+  if (info.linked_source_id) meta.linked_source_id = info.linked_source_id;
+  return meta;
 }
