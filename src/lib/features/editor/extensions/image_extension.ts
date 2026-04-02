@@ -39,6 +39,8 @@ const IMAGE_LOAD_ERROR_PLACEHOLDER = create_icon_placeholder_data_uri(
   "#b91c1c",
 );
 
+const RESOLVED_URL_CACHE_MAX = 2000;
+
 function create_image_block_view_plugin(ctx: PluginContext): Plugin {
   const resolved_url_cache = new Map<string, string>();
   const pending_listeners = new Map<string, Set<HTMLImageElement>>();
@@ -47,6 +49,9 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
     if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return src;
     const cached = resolved_url_cache.get(src);
     if (cached) return cached;
+    if (resolved_url_cache.size >= RESOLVED_URL_CACHE_MAX) {
+      resolved_url_cache.clear();
+    }
     if (!ctx.resolve_asset_url_for_vault) return src;
     const vault_id = ctx.get_vault_id();
     if (!vault_id) return src;

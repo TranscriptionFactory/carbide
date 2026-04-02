@@ -197,7 +197,7 @@ pub fn watch_vault(
                 return;
             }
         };
-        let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
+        let (tx, rx) = mpsc::sync_channel::<Result<notify::Event, notify::Error>>(512);
 
         let mut watcher = match RecommendedWatcher::new(
             move |res| {
@@ -218,10 +218,18 @@ pub fn watch_vault(
         }
 
         let mut last_emitted: HashMap<String, Instant> = HashMap::new();
+        let debounce_ttl = Duration::from_secs(60);
+        let mut last_cleanup = Instant::now();
 
         loop {
             if stop_rx.try_recv().is_ok() {
                 break;
+            }
+
+            if last_cleanup.elapsed() > debounce_ttl {
+                let cutoff = Instant::now() - debounce_ttl;
+                last_emitted.retain(|_, v| *v > cutoff);
+                last_cleanup = Instant::now();
             }
 
             let res = match rx.recv_timeout(Duration::from_millis(200)) {

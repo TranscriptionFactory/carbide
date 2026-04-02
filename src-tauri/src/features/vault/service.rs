@@ -26,12 +26,15 @@ fn is_vault_path_available(path: &str) -> bool {
 
     let path = path.to_string();
     let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let result = std::fs::metadata(&path)
-            .map(|metadata| metadata.is_dir())
-            .unwrap_or(false);
-        let _ = tx.send(result);
-    });
+    std::thread::Builder::new()
+        .name("vault-path-check".to_string())
+        .spawn(move || {
+            let result = std::fs::metadata(&path)
+                .map(|metadata| metadata.is_dir())
+                .unwrap_or(false);
+            let _ = tx.send(result);
+        })
+        .ok();
     rx.recv_timeout(Duration::from_millis(500)).unwrap_or(false)
 }
 

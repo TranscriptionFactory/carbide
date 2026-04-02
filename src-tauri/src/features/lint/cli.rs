@@ -1,5 +1,5 @@
 use super::types::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub async fn check_vault(
     binary: &Path,
@@ -27,7 +27,11 @@ pub async fn format_file_with_rumdl(
     content: &str,
 ) -> Result<String, anyhow::Error> {
     let config = super::config::config_path(vault_path);
-    let tmp_path = PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
+    let tmp = tempfile::Builder::new()
+        .prefix("carbide_fmt_")
+        .suffix(".md")
+        .tempfile()?;
+    let tmp_path = tmp.path().to_path_buf();
 
     tokio::fs::write(&tmp_path, content).await?;
 
@@ -39,7 +43,7 @@ pub async fn format_file_with_rumdl(
     let output = cmd.current_dir(vault_path).output().await;
 
     let formatted = tokio::fs::read_to_string(&tmp_path).await;
-    let _ = tokio::fs::remove_file(&tmp_path).await;
+    drop(tmp);
 
     output?;
     Ok(formatted?)
@@ -49,7 +53,11 @@ pub async fn format_file_with_prettier(
     vault_path: &Path,
     content: &str,
 ) -> Result<String, anyhow::Error> {
-    let tmp_path = PathBuf::from(format!("/tmp/carbide_fmt_{}.md", std::process::id()));
+    let tmp = tempfile::Builder::new()
+        .prefix("carbide_fmt_")
+        .suffix(".md")
+        .tempfile()?;
+    let tmp_path = tmp.path().to_path_buf();
     tokio::fs::write(&tmp_path, content).await?;
 
     let output = tokio::process::Command::new("npx")
@@ -65,7 +73,7 @@ pub async fn format_file_with_prettier(
         .await;
 
     let formatted = tokio::fs::read_to_string(&tmp_path).await;
-    let _ = tokio::fs::remove_file(&tmp_path).await;
+    drop(tmp);
 
     let output = output?;
     if !output.status.success() {

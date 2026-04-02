@@ -199,7 +199,10 @@ fn shutdown_worker(worker: &mut VaultWorker) {
             let _ = done_tx.send(());
         });
         if done_rx.recv_timeout(Duration::from_secs(5)).is_err() {
-            log::warn!("shutdown_worker: timed out joining worker thread");
+            log::warn!(
+                "shutdown_worker: timed out joining worker thread — \
+                 helper thread and worker thread leaked"
+            );
         }
     }
 }

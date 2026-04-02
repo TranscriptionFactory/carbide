@@ -3,7 +3,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 use std::sync::LazyLock;
 use std::time::Duration;
 use walkdir::WalkDir;
@@ -199,18 +198,13 @@ fn extract_pdf_text_subprocess(path: &Path) -> Result<(String, Vec<usize>), Stri
         .spawn()
         .map_err(|e| format!("spawn extraction subprocess: {e}"))?;
 
-    // Wait with timeout to prevent hanging on degenerate PDFs
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        std::thread::sleep(PDF_EXTRACT_TIMEOUT);
-        let _ = tx.send(());
-    });
+    let deadline = std::time::Instant::now() + PDF_EXTRACT_TIMEOUT;
 
     let output = loop {
         match child.try_wait() {
             Ok(Some(_status)) => break child.wait_with_output(),
             Ok(None) => {
-                if rx.try_recv().is_ok() {
+                if std::time::Instant::now() >= deadline {
                     let _ = child.kill();
                     let _ = child.wait();
                     return Err("PDF text extraction timed out".to_string());
