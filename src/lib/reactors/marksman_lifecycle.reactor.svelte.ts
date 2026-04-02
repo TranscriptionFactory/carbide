@@ -35,9 +35,12 @@ export function create_marksman_lifecycle_reactor(
         return;
       }
 
+      // Snapshot to avoid deep proxy tracking of ai_providers in async body
+      const settings_snapshot = $state.snapshot(ui_store.editor_settings);
+
       const do_start = async () => {
         if (provider === "iwes") {
-          const resolved = resolve_iwe_ai_provider(ui_store.editor_settings);
+          const resolved = resolve_iwe_ai_provider(settings_snapshot);
           if (resolved && !is_output_file_provider(resolved)) {
             await marksman_service.iwe_config_rewrite_provider(resolved);
             last_applied_provider_key = `${resolved.id}:${resolved.model ?? ""}:${resolved.transport.kind === "cli" ? resolved.transport.command : ""}`;
@@ -74,7 +77,8 @@ export function create_marksman_lifecycle_reactor(
       const lsp_provider = ui_store.editor_settings.markdown_lsp_provider;
       if (lsp_provider !== "iwes") return;
 
-      const resolved = resolve_iwe_ai_provider(ui_store.editor_settings);
+      const settings_snapshot = $state.snapshot(ui_store.editor_settings);
+      const resolved = resolve_iwe_ai_provider(settings_snapshot);
       if (!resolved || is_output_file_provider(resolved)) return;
 
       const status = marksman_store?.status;
