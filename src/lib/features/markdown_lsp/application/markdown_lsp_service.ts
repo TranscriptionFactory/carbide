@@ -70,6 +70,7 @@ export class MarkdownLspService {
     await this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
+        await this.port.stop(vault_id).catch(() => {});
         this.subscribe_diagnostics();
         this.subscribe_status();
         const result = await this.port.start(

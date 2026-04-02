@@ -319,6 +319,13 @@ pub async fn markdown_lsp_start(
         request_timeout_ms: 30_000,
     };
 
+    // Stop existing client FIRST to avoid duplicate processes
+    let state = markdown_lsp_state(&app);
+    let old_client = state.clients.lock().await.remove(&vault_id);
+    if let Some(old) = old_client {
+        old.stop().await;
+    }
+
     let mut client = RestartableLspClient::start(RestartableConfig::new(config))
         .await
         .map_err(err)?;
@@ -337,10 +344,7 @@ pub async fn markdown_lsp_start(
         spawn_status_forwarder(app.clone(), vault_id.clone(), rx);
     }
 
-    let state = markdown_lsp_state(&app);
-    if let Some(old_client) = state.clients.lock().await.insert(vault_id, client) {
-        old_client.stop().await;
-    }
+    state.clients.lock().await.insert(vault_id, client);
     Ok(MarkdownLspStartResult {
         completion_trigger_characters: trigger_characters,
     })

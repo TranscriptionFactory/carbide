@@ -24,6 +24,7 @@ export function create_markdown_lsp_lifecycle_reactor(
   const cleanup_restart_listener = setup_restart_listener(markdown_lsp_service);
 
   let last_applied_provider_key = "";
+  let last_started_key = "";
 
   const cleanup_effect = $effect.root(() => {
     $effect(() => {
@@ -37,9 +38,14 @@ export function create_markdown_lsp_lifecycle_reactor(
       const custom_path = ui_store.editor_settings.markdown_lsp_binary_path;
 
       if (!vault_id || !enabled || !is_vault_mode) {
+        last_started_key = "";
         void markdown_lsp_service.stop();
         return;
       }
+
+      const start_key = `${vault_id}:${provider}:${custom_path ?? ""}`;
+      if (start_key === last_started_key) return;
+      last_started_key = start_key;
 
       // Snapshot to avoid deep proxy tracking of ai_providers in async body
       const settings_snapshot = $state.snapshot(ui_store.editor_settings);
@@ -60,6 +66,7 @@ export function create_markdown_lsp_lifecycle_reactor(
       });
 
       return () => {
+        last_started_key = "";
         void markdown_lsp_service.stop().catch((error: unknown) => {
           log.from_error("Failed to stop markdown LSP for vault", error);
         });
