@@ -74,6 +74,9 @@ pub async fn download_tool(app: &AppHandle, tool_id: &str) -> Result<PathBuf, St
     #[cfg(unix)]
     set_executable(&dest).await?;
 
+    #[cfg(target_os = "macos")]
+    codesign_adhoc(&dest);
+
     emit_progress(app, tool_id, 100.0);
 
     let _ = app.emit(
@@ -195,6 +198,19 @@ fn extract_zip(data: &[u8], dest: &PathBuf, bin_filename: &str) -> Result<(), St
         "Binary '{}' not found in zip archive",
         bin_filename
     ))
+}
+
+#[cfg(target_os = "macos")]
+fn codesign_adhoc(path: &std::path::Path) {
+    let _ = std::process::Command::new("xattr")
+        .args(["-d", "com.apple.quarantine"])
+        .arg(path)
+        .output();
+
+    let _ = std::process::Command::new("codesign")
+        .args(["--force", "--sign", "-"])
+        .arg(path)
+        .output();
 }
 
 #[cfg(unix)]
