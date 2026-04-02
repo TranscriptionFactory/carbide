@@ -791,10 +791,21 @@ pub fn update_linked_metadata(
     m: &crate::features::search::model::LinkedSourceMeta,
 ) -> Result<(), String> {
     conn.execute(
-        "UPDATE notes SET citekey = ?1, authors = ?2, year = ?3, doi = ?4, isbn = ?5, \
-         arxiv_id = ?6, journal = ?7, abstract = ?8, item_type = ?9, \
-         external_file_path = ?10, linked_source_id = ?11, \
-         vault_relative_path = ?12, home_relative_path = ?13 WHERE path = ?14",
+        "UPDATE notes SET \
+         citekey = COALESCE(?1, citekey), \
+         authors = COALESCE(?2, authors), \
+         year = COALESCE(?3, year), \
+         doi = COALESCE(?4, doi), \
+         isbn = COALESCE(?5, isbn), \
+         arxiv_id = COALESCE(?6, arxiv_id), \
+         journal = COALESCE(?7, journal), \
+         abstract = COALESCE(?8, abstract), \
+         item_type = COALESCE(?9, item_type), \
+         external_file_path = COALESCE(?10, external_file_path), \
+         linked_source_id = COALESCE(?11, linked_source_id), \
+         vault_relative_path = COALESCE(?12, vault_relative_path), \
+         home_relative_path = COALESCE(?13, home_relative_path) \
+         WHERE path = ?14",
         params![
             m.citekey,
             m.authors,
@@ -2959,6 +2970,78 @@ mod tests {
         let all = list_all_tags(&conn).unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].tag, "gamma");
+    }
+
+    #[test]
+    fn update_linked_metadata_partial_preserves_existing_fields() {
+        use crate::features::search::model::LinkedSourceMeta;
+
+        let conn = open_mem_db();
+        let meta = note("linked/paper.md", "Paper");
+        upsert_note(&conn, &meta, "body").expect("upsert");
+
+        let full = LinkedSourceMeta {
+            citekey: Some("smith2024".into()),
+            authors: Some("Smith, J.".into()),
+            year: Some(2024),
+            doi: Some("10.1234/test".into()),
+            isbn: Some("978-0-123456-78-9".into()),
+            arxiv_id: Some("2401.00001".into()),
+            journal: Some("Nature".into()),
+            r#abstract: Some("An abstract.".into()),
+            item_type: Some("article".into()),
+            external_file_path: Some("/files/paper.pdf".into()),
+            linked_source_id: Some("zotero-123".into()),
+            vault_relative_path: Some("papers/paper.pdf".into()),
+            home_relative_path: Some("~/papers/paper.pdf".into()),
+        };
+        update_linked_metadata(&conn, "linked/paper.md", &full).expect("full update");
+
+        let partial = LinkedSourceMeta {
+            vault_relative_path: Some("papers/moved.pdf".into()),
+            ..Default::default()
+        };
+        update_linked_metadata(&conn, "linked/paper.md", &partial).expect("partial update");
+
+        let row = conn
+            .query_row(
+                "SELECT citekey, authors, year, doi, isbn, arxiv_id, journal, abstract, \
+                 item_type, external_file_path, linked_source_id, vault_relative_path, \
+                 home_relative_path FROM notes WHERE path = ?1",
+                params!["linked/paper.md"],
+                |r| {
+                    Ok((
+                        r.get::<_, Option<String>>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                        r.get::<_, Option<i32>>(2)?,
+                        r.get::<_, Option<String>>(3)?,
+                        r.get::<_, Option<String>>(4)?,
+                        r.get::<_, Option<String>>(5)?,
+                        r.get::<_, Option<String>>(6)?,
+                        r.get::<_, Option<String>>(7)?,
+                        r.get::<_, Option<String>>(8)?,
+                        r.get::<_, Option<String>>(9)?,
+                        r.get::<_, Option<String>>(10)?,
+                        r.get::<_, Option<String>>(11)?,
+                        r.get::<_, Option<String>>(12)?,
+                    ))
+                },
+            )
+            .expect("select row");
+
+        assert_eq!(row.0.as_deref(), Some("smith2024"), "citekey preserved");
+        assert_eq!(row.1.as_deref(), Some("Smith, J."), "authors preserved");
+        assert_eq!(row.2, Some(2024), "year preserved");
+        assert_eq!(row.3.as_deref(), Some("10.1234/test"), "doi preserved");
+        assert_eq!(row.4.as_deref(), Some("978-0-123456-78-9"), "isbn preserved");
+        assert_eq!(row.5.as_deref(), Some("2401.00001"), "arxiv_id preserved");
+        assert_eq!(row.6.as_deref(), Some("Nature"), "journal preserved");
+        assert_eq!(row.7.as_deref(), Some("An abstract."), "abstract preserved");
+        assert_eq!(row.8.as_deref(), Some("article"), "item_type preserved");
+        assert_eq!(row.9.as_deref(), Some("/files/paper.pdf"), "external_file_path preserved");
+        assert_eq!(row.10.as_deref(), Some("zotero-123"), "linked_source_id preserved");
+        assert_eq!(row.11.as_deref(), Some("papers/moved.pdf"), "vault_relative_path updated");
+        assert_eq!(row.12.as_deref(), Some("~/papers/paper.pdf"), "home_relative_path preserved");
     }
 }
 
