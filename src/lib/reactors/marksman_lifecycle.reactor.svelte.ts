@@ -24,12 +24,13 @@ export function create_marksman_lifecycle_reactor(
 
   const cleanup_effect = $effect.root(() => {
     $effect(() => {
-      const vault = vault_store.vault;
+      const vault_id = vault_store.active_vault_id;
+      const is_vault_mode = vault_store.is_vault_mode;
       const enabled = ui_store.editor_settings.marksman_enabled;
       const provider = ui_store.editor_settings.markdown_lsp_provider;
       const custom_path = ui_store.editor_settings.marksman_binary_path;
 
-      if (!vault || !enabled || !vault_store.is_vault_mode) {
+      if (!vault_id || !enabled || !is_vault_mode) {
         void marksman_service.stop();
         return;
       }

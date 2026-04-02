@@ -75,8 +75,8 @@ export class VaultStore {
   }
 
   update_note_count(count: number) {
-    if (this.vault) {
-      this.vault = { ...this.vault, note_count: count };
+    if (this.vault && this.vault.note_count !== count) {
+      this.vault.note_count = count;
     }
   }
 
