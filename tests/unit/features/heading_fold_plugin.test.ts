@@ -201,6 +201,49 @@ describe("heading_fold_plugin state", () => {
     expect(tr.docChanged).toBe(false);
   });
 
+  it("restores fold state from a set of positions", () => {
+    let state = create_state_with_plugin(
+      make_heading(1, "A"),
+      make_paragraph("a"),
+      make_heading(2, "B"),
+      make_paragraph("b"),
+    );
+    const ranges = compute_heading_ranges(state.doc);
+    const h1_pos = ranges[0]!.heading_pos;
+
+    state = state.apply(
+      state.tr.setMeta(heading_fold_plugin_key, {
+        action: "restore",
+        folded: new Set([h1_pos]),
+      }),
+    );
+    const plugin_state = heading_fold_plugin_key.getState(state);
+
+    expect(plugin_state!.folded.has(h1_pos)).toBe(true);
+    expect(plugin_state!.folded.size).toBe(1);
+  });
+
+  it("filters invalid positions on restore", () => {
+    let state = create_state_with_plugin(
+      make_heading(1, "A"),
+      make_paragraph("a"),
+    );
+    const ranges = compute_heading_ranges(state.doc);
+    const valid_pos = ranges[0]!.heading_pos;
+
+    state = state.apply(
+      state.tr.setMeta(heading_fold_plugin_key, {
+        action: "restore",
+        folded: new Set([valid_pos, 9999]),
+      }),
+    );
+    const plugin_state = heading_fold_plugin_key.getState(state);
+
+    expect(plugin_state!.folded.has(valid_pos)).toBe(true);
+    expect(plugin_state!.folded.has(9999)).toBe(false);
+    expect(plugin_state!.folded.size).toBe(1);
+  });
+
   it("maps folded positions through document edits", () => {
     let state = create_state_with_plugin(
       make_heading(1, "Title"),

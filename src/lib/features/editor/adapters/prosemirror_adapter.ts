@@ -46,7 +46,9 @@ import {
   toggle_heading_fold,
   collapse_all_headings,
   expand_all_headings,
+  restore_heading_folds,
 } from "$lib/features/editor/extensions";
+import { heading_fold_plugin_key } from "$lib/features/editor/adapters/heading_fold_plugin";
 import type {
   ResolveAssetUrlForVault,
   CiteSuggestionItem,
@@ -658,6 +660,10 @@ export function create_prosemirror_editor_port(args?: {
             sync_runtime_dirty_from_buffer(saved_entry);
             is_large_note = is_large_markdown(current_markdown);
 
+            const saved_fold_state = heading_fold_plugin_key.getState(
+              saved_entry.state,
+            );
+
             const cached_ydoc = ydoc_manager.get(next_config.note_path);
             if (cached_ydoc) {
               current_xml_fragment = cached_ydoc.xml_fragment;
@@ -683,6 +689,10 @@ export function create_prosemirror_editor_port(args?: {
               plugins: build_plugins(current_xml_fragment),
             });
             v.updateState(new_state);
+
+            if (saved_fold_state && saved_fold_state.folded.size > 0) {
+              restore_heading_folds(v, saved_fold_state.folded);
+            }
           } else {
             const normalized_initial_markdown = normalize_markdown(
               next_config.initial_markdown,
