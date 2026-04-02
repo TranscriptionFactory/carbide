@@ -338,7 +338,9 @@ pub async fn marksman_start(
     }
 
     let state = marksman_state(&app);
-    state.clients.lock().await.insert(vault_id, client);
+    if let Some(old_client) = state.clients.lock().await.insert(vault_id, client) {
+        old_client.stop().await;
+    }
     Ok(MarksmanStartResult {
         completion_trigger_characters: trigger_characters,
     })
