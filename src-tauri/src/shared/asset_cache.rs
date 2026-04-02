@@ -1,26 +1,16 @@
 use crate::shared::cache::ObservableCache;
 use log::error;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::http::{Request, Response};
 
 const MAX_CACHEABLE_BYTES: usize = 5 * 1024 * 1024;
 
+#[derive(Clone)]
 pub struct CachedAsset {
-    pub bytes: Vec<u8>,
+    pub bytes: Arc<[u8]>,
     pub mime: String,
     pub etag: String,
     pub content_length: usize,
-}
-
-impl Clone for CachedAsset {
-    fn clone(&self) -> Self {
-        Self {
-            bytes: self.bytes.clone(),
-            mime: self.mime.clone(),
-            etag: self.etag.clone(),
-            content_length: self.content_length,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -51,9 +41,9 @@ pub struct AssetCacheState {
 impl AssetCacheState {
     pub fn new() -> Self {
         Self {
-            vault: Mutex::new(ObservableCache::new(64)),
-            plugin: Mutex::new(ObservableCache::new(32)),
-            excalidraw: Mutex::new(ObservableCache::new(32)),
+            vault: Mutex::new(ObservableCache::new_with_byte_limit(64, 128 * 1024 * 1024)),
+            plugin: Mutex::new(ObservableCache::new_with_byte_limit(32, 64 * 1024 * 1024)),
+            excalidraw: Mutex::new(ObservableCache::new_with_byte_limit(32, 32 * 1024 * 1024)),
         }
     }
 }
@@ -113,7 +103,7 @@ pub fn build_cached_response(
     let body = if is_304 {
         Vec::new()
     } else {
-        asset.bytes.clone()
+        asset.bytes.to_vec()
     };
 
     let mut builder = Response::builder()
@@ -170,7 +160,7 @@ pub fn serve_with_cache(
     let etag = compute_etag(&bytes);
     let content_length = bytes.len();
     let asset = CachedAsset {
-        bytes,
+        bytes: Arc::from(bytes),
         mime,
         etag,
         content_length,
@@ -181,7 +171,7 @@ pub fn serve_with_cache(
 
     if content_length <= MAX_CACHEABLE_BYTES {
         let mut c = poisoned_cache_guard(cache.lock(), "serve_with_cache");
-        c.insert(key, asset);
+        c.insert(key, asset, content_length);
     }
 
     response
@@ -238,7 +228,7 @@ mod tests {
     #[test]
     fn response_immutable_headers() {
         let asset = CachedAsset {
-            bytes: vec![1, 2, 3],
+            bytes: Arc::from(vec![1u8, 2, 3]),
             mime: "image/png".into(),
             etag: "abc123".into(),
             content_length: 3,
@@ -255,7 +245,7 @@ mod tests {
     #[test]
     fn response_304_empty_body() {
         let asset = CachedAsset {
-            bytes: vec![1, 2, 3],
+            bytes: Arc::from(vec![1u8, 2, 3]),
             mime: "image/png".into(),
             etag: "abc123".into(),
             content_length: 3,
@@ -270,7 +260,7 @@ mod tests {
     fn cache_miss_then_hit() {
         let cache = Mutex::new(ObservableCache::<String, CachedAsset>::new(4));
         let asset = CachedAsset {
-            bytes: vec![10, 20],
+            bytes: Arc::from(vec![10u8, 20]),
             mime: "text/plain".into(),
             etag: compute_etag(&[10, 20]),
             content_length: 2,
@@ -278,13 +268,13 @@ mod tests {
         {
             let mut c = cache.lock().unwrap();
             assert!(c.get(&"key".to_string()).is_none());
-            c.insert("key".to_string(), asset.clone());
+            c.insert("key".to_string(), asset.clone(), 2);
         }
         {
             let mut c = cache.lock().unwrap();
             let hit = c.get_cloned(&"key".to_string());
             assert!(hit.is_some());
-            assert_eq!(hit.unwrap().bytes, vec![10, 20]);
+            assert_eq!(&*hit.unwrap().bytes, &[10u8, 20]);
         }
     }
 
@@ -292,16 +282,16 @@ mod tests {
     fn invalidate_prefix() {
         let cache = Mutex::new(ObservableCache::<String, CachedAsset>::new(8));
         let make = |_: &str| CachedAsset {
-            bytes: vec![1],
+            bytes: Arc::from(vec![1u8]),
             mime: "x".into(),
             etag: "e".into(),
             content_length: 1,
         };
         {
             let mut c = cache.lock().unwrap();
-            c.insert("v1/a.png".into(), make("v1/a.png"));
-            c.insert("v1/b.png".into(), make("v1/b.png"));
-            c.insert("v2/c.png".into(), make("v2/c.png"));
+            c.insert("v1/a.png".into(), make("v1/a.png"), 1);
+            c.insert("v1/b.png".into(), make("v1/b.png"), 1);
+            c.insert("v2/c.png".into(), make("v2/c.png"), 1);
             let removed = c.invalidate_matching(|k| k.starts_with("v1/"));
             assert_eq!(removed, 2);
             assert_eq!(c.len(), 1);
