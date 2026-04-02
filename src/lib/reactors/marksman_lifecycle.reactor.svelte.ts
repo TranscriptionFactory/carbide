@@ -35,11 +35,20 @@ export function create_marksman_lifecycle_reactor(
         return;
       }
 
-      void marksman_service
-        .start(provider, custom_path || undefined)
-        .catch((error: unknown) => {
-          log.from_error("Failed to start markdown LSP for vault", error);
-        });
+      const do_start = async () => {
+        if (provider === "iwes") {
+          const resolved = resolve_iwe_ai_provider(ui_store.editor_settings);
+          if (resolved && !is_output_file_provider(resolved)) {
+            await marksman_service.iwe_config_rewrite_provider(resolved);
+            last_applied_provider_key = `${resolved.id}:${resolved.model ?? ""}:${resolved.transport.kind === "cli" ? resolved.transport.command : ""}`;
+          }
+        }
+        await marksman_service.start(provider, custom_path || undefined);
+      };
+
+      void do_start().catch((error: unknown) => {
+        log.from_error("Failed to start markdown LSP for vault", error);
+      });
 
       return () => {
         void marksman_service.stop().catch((error: unknown) => {
