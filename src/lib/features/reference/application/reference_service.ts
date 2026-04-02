@@ -590,94 +590,106 @@ export class ReferenceService {
         }
       }
 
-      const new_entries: ScanEntry[] = [];
-      const batch_size = 5;
-      for (let i = 0; i < needs_extraction.length; i += batch_size) {
-        const batch = needs_extraction.slice(i, i + batch_size);
-        const results = await Promise.allSettled(
-          batch.map((fp) => ls_port.extract_file(fp)),
-        );
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-            new_entries.push(result.value);
-          }
-        }
-      }
-
-      try {
-        for (const removed_path of removed_paths) {
-          const note = existing_by_path.get(removed_path);
-          if (note) {
-            const resolve_meta: LinkedSourceMeta = {
-              external_file_path: removed_path,
-            };
-            if (note.vault_relative_path)
-              resolve_meta.vault_relative_path = note.vault_relative_path;
-            if (note.home_relative_path)
-              resolve_meta.home_relative_path = note.home_relative_path;
-            const resolved = resolve_linked_path(
-              resolve_meta,
+      for (const removed_path of removed_paths) {
+        const note = existing_by_path.get(removed_path);
+        if (note) {
+          const resolve_meta: LinkedSourceMeta = {
+            external_file_path: removed_path,
+          };
+          if (note.vault_relative_path)
+            resolve_meta.vault_relative_path = note.vault_relative_path;
+          if (note.home_relative_path)
+            resolve_meta.home_relative_path = note.home_relative_path;
+          const resolved = resolve_linked_path(
+            resolve_meta,
+            vault_root,
+            home_dir,
+          );
+          if (
+            resolved &&
+            resolved !== removed_path &&
+            current_files.has(resolved)
+          ) {
+            const updated_meta = enrich_meta_with_paths(
+              { external_file_path: resolved },
               vault_root,
               home_dir,
             );
-            if (
-              resolved &&
-              resolved !== removed_path &&
-              current_files.has(resolved)
-            ) {
-              const updated_meta = enrich_meta_with_paths(
-                { external_file_path: resolved },
-                vault_root,
-                home_dir,
-              );
-              await ls_port.update_linked_metadata(
-                vault_id,
-                source.name,
-                removed_path,
-                updated_meta,
-              );
-              continue;
-            }
+            await ls_port.update_linked_metadata(
+              vault_id,
+              source.name,
+              removed_path,
+              updated_meta,
+            );
+            continue;
           }
-          await ls_port.remove_content(vault_id, source.name, removed_path);
         }
-        for (let i = 0; i < new_entries.length; i += batch_size) {
-          const batch = new_entries.slice(i, i + batch_size);
-          await Promise.all(
-            batch.map((entry) =>
-              ls_port.index_content(
-                vault_id,
-                source.name,
-                entry,
-                scan_entry_to_linked_meta(
-                  entry,
-                  source_id,
-                  vault_root,
-                  home_dir,
-                ),
-              ),
+        await ls_port.remove_content(vault_id, source.name, removed_path);
+      }
+
+      const new_entries: ScanEntry[] = [];
+      const all_errors: string[] = [];
+      const batch_size = 5;
+      const total = needs_extraction.length;
+
+      for (let i = 0; i < total; i += batch_size) {
+        const batch = needs_extraction.slice(i, i + batch_size);
+        const extract_results = await Promise.allSettled(
+          batch.map((fp) => ls_port.extract_file(fp)),
+        );
+
+        const extracted: ScanEntry[] = [];
+        for (const result of extract_results) {
+          if (result.status === "fulfilled") {
+            extracted.push(result.value);
+          } else {
+            all_errors.push(error_message(result.reason));
+          }
+        }
+
+        const index_results = await Promise.allSettled(
+          extracted.map((entry) =>
+            ls_port.index_content(
+              vault_id,
+              source.name,
+              entry,
+              scan_entry_to_linked_meta(entry, source_id, vault_root, home_dir),
             ),
-          );
-        }
-        if (vault_root && home_dir) {
-          for (const note of existing_notes) {
-            if (note.external_file_path && !note.vault_relative_path) {
-              const enriched = enrich_meta_with_paths(
-                { external_file_path: note.external_file_path },
-                vault_root,
-                home_dir,
-              );
-              await ls_port.update_linked_metadata(
-                vault_id,
-                source.name,
-                note.external_file_path,
-                enriched,
-              );
-            }
+          ),
+        );
+
+        for (let j = 0; j < index_results.length; j++) {
+          const result = index_results[j]!;
+          if (result.status === "fulfilled") {
+            new_entries.push(extracted[j]!);
+          } else {
+            all_errors.push(error_message(result.reason));
           }
         }
-      } catch (e) {
-        console.error("FTS indexing failed during scan:", error_message(e));
+
+        this.store.set_linked_source_scan_progress(source_id, {
+          processed: Math.min(i + batch_size, total),
+          total,
+          errors: all_errors.length,
+        });
+      }
+
+      if (vault_root && home_dir) {
+        for (const note of existing_notes) {
+          if (note.external_file_path && !note.vault_relative_path) {
+            const enriched = enrich_meta_with_paths(
+              { external_file_path: note.external_file_path },
+              vault_root,
+              home_dir,
+            );
+            await ls_port.update_linked_metadata(
+              vault_id,
+              source.name,
+              note.external_file_path,
+              enriched,
+            );
+          }
+        }
       }
 
       this.store.update_linked_source(source_id, {
@@ -691,7 +703,7 @@ export class ReferenceService {
         .map((e) => ({ doi: e.doi!, file_path: e.file_path }));
       void this.enrich_dois(entries_with_doi, source.name);
 
-      return { added: new_entries.length, errors: [] };
+      return { added: new_entries.length, errors: all_errors };
     } catch (e) {
       const msg = error_message(e);
       this.store.set_linked_source_sync_status(source_id, "error");
