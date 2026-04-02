@@ -286,6 +286,179 @@ struct ExtractedTag {
     source: &'static str,
 }
 
+struct ExtractedHeading {
+    level: i32,
+    text: String,
+    line: i64,
+    slug: String,
+}
+
+struct ExtractedCodeBlock {
+    line: i64,
+    language: Option<String>,
+    length: i64,
+}
+
+struct ExtractedSection {
+    heading_id: String,
+    level: i32,
+    title: String,
+    start_line: i64,
+    end_line: i64,
+    word_count: i64,
+}
+
+fn extract_markdown_structure(
+    markdown: &str,
+) -> (Vec<ExtractedHeading>, Vec<ExtractedCodeBlock>, Vec<ExtractedSection>) {
+    use regex::Regex;
+    use std::collections::HashMap;
+    use std::sync::LazyLock;
+
+    static HEADING_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").unwrap());
+
+    let mut headings = Vec::new();
+    let mut code_blocks = Vec::new();
+    let mut sections = Vec::new();
+    let mut occurrence_counts: HashMap<String, usize> = HashMap::new();
+
+    let mut in_frontmatter = false;
+    let mut in_code_block = false;
+    let mut code_block_start: i64 = 0;
+    let mut code_block_lang: Option<String> = None;
+
+    let lines: Vec<&str> = markdown.lines().collect();
+    let total_lines = lines.len();
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+
+        if line_idx == 0 && trimmed == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if trimmed == "---" {
+                in_frontmatter = false;
+            }
+            continue;
+        }
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            if in_code_block {
+                let length = line_idx as i64 - code_block_start - 1;
+                code_blocks.push(ExtractedCodeBlock {
+                    line: code_block_start,
+                    language: code_block_lang.take(),
+                    length: length.max(0),
+                });
+                in_code_block = false;
+            } else {
+                in_code_block = true;
+                code_block_start = line_idx as i64;
+                let fence_char = &trimmed[..1];
+                let after_fence = trimmed.trim_start_matches(|c: char| c.to_string() == fence_char);
+                let lang = after_fence.split_whitespace().next().unwrap_or("").to_string();
+                code_block_lang = if lang.is_empty() { None } else { Some(lang) };
+            }
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+
+        if let Some(caps) = HEADING_RE.captures(trimmed) {
+            let level = caps[1].len() as i32;
+            let text = caps[2].trim_end_matches(|c: char| c == '#' || c == ' ').to_string();
+            let base_slug = {
+                let s: String = text
+                    .to_lowercase()
+                    .chars()
+                    .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '-' })
+                    .collect();
+                let s = s.trim_matches('-').to_string();
+                format!("h-{level}-{s}")
+            };
+            let count = occurrence_counts.get(&base_slug).copied().unwrap_or(0);
+            occurrence_counts.insert(base_slug.clone(), count + 1);
+            let slug = format!("{base_slug}-{count}");
+
+            headings.push(ExtractedHeading {
+                level,
+                text,
+                line: line_idx as i64,
+                slug,
+            });
+        }
+    }
+
+    // Build sections from headings
+    for (i, heading) in headings.iter().enumerate() {
+        let start_line = heading.line;
+        let end_line = if i + 1 < headings.len() {
+            headings[i + 1].line - 1
+        } else {
+            (total_lines as i64).saturating_sub(1)
+        };
+
+        let word_count: i64 = (start_line..=end_line)
+            .filter_map(|l| lines.get(l as usize))
+            .map(|l| l.split_whitespace().count() as i64)
+            .sum();
+
+        sections.push(ExtractedSection {
+            heading_id: heading.slug.clone(),
+            level: heading.level,
+            title: heading.text.clone(),
+            start_line,
+            end_line,
+            word_count,
+        });
+    }
+
+    (headings, code_blocks, sections)
+}
+
+fn sync_headings(conn: &Connection, path: &str, headings: &[ExtractedHeading]) -> Result<(), String> {
+    conn.execute("DELETE FROM note_headings WHERE note_path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    for h in headings {
+        conn.execute(
+            "INSERT INTO note_headings (note_path, level, text, line) VALUES (?1, ?2, ?3, ?4)",
+            params![path, h.level, h.text, h.line],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn sync_code_blocks(conn: &Connection, path: &str, blocks: &[ExtractedCodeBlock]) -> Result<(), String> {
+    conn.execute("DELETE FROM note_code_blocks WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    for b in blocks {
+        conn.execute(
+            "INSERT INTO note_code_blocks (path, line, language, length) VALUES (?1, ?2, ?3, ?4)",
+            params![path, b.line, b.language, b.length],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn sync_sections(conn: &Connection, path: &str, sections: &[ExtractedSection]) -> Result<(), String> {
+    conn.execute("DELETE FROM note_sections WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    for s in sections {
+        conn.execute(
+            "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![path, s.heading_id, s.level, s.title, s.start_line, s.end_line, s.word_count],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
     use regex::Regex;
     use std::sync::LazyLock;
@@ -679,9 +852,13 @@ pub fn upsert_note_simple(
     let word_count = raw_markdown.split_whitespace().count() as i64;
     let char_count = raw_markdown.len() as i64;
 
+    let (headings, code_blocks, sections) = extract_markdown_structure(raw_markdown);
+    let heading_count = headings.len() as i64;
+    let reading_time_secs = word_count * 60 / 200;
+
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type],
+        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
     )
     .map_err(|e| e.to_string())?;
 
@@ -696,6 +873,9 @@ pub fn upsert_note_simple(
 
     let tags = extract_tags(raw_markdown);
     sync_tags(conn, &meta.path, &tags)?;
+    sync_headings(conn, &meta.path, &headings)?;
+    sync_code_blocks(conn, &meta.path, &code_blocks)?;
+    sync_sections(conn, &meta.path, &sections)?;
 
     Ok(())
 }
@@ -2253,10 +2433,10 @@ mod tests {
         upsert_note(&conn, &meta, body).expect("upsert");
 
         let stats = get_note_stats(&conn, "test.md").expect("stats");
-        assert_eq!(stats.heading_count, 0);
+        assert_eq!(stats.heading_count, 2);
         assert!(stats.word_count > 0);
         assert!(stats.char_count > 0);
-        assert!(stats.reading_time_secs >= 0);
+        assert!(stats.reading_time_secs > 0);
         assert!(stats.last_indexed_at > 0);
     }
 
@@ -3042,6 +3222,106 @@ mod tests {
         assert_eq!(row.10.as_deref(), Some("zotero-123"), "linked_source_id preserved");
         assert_eq!(row.11.as_deref(), Some("papers/moved.pdf"), "vault_relative_path updated");
         assert_eq!(row.12.as_deref(), Some("~/papers/paper.pdf"), "home_relative_path preserved");
+    }
+
+    #[test]
+    fn upsert_note_populates_headings_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("h.md", "H");
+        let body = "# First\n\nSome text.\n\n## Second\n\nMore text.\n\n### Third";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let rows: Vec<(i32, String, i64)> = conn
+            .prepare("SELECT level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
+            .unwrap()
+            .query_map(params!["h.md"], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0], (1, "First".to_string(), 0));
+        assert_eq!(rows[1], (2, "Second".to_string(), 4));
+        assert_eq!(rows[2], (3, "Third".to_string(), 8));
+    }
+
+    #[test]
+    fn upsert_note_populates_sections_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("s.md", "S");
+        let body = "# Intro\n\nHello world.\n\n## Details\n\nOne two three four five.";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let rows: Vec<(String, i32, String, i64, i64, i64)> = conn
+            .prepare("SELECT heading_id, level, title, start_line, end_line, word_count FROM note_sections WHERE path = ?1 ORDER BY start_line")
+            .unwrap()
+            .query_map(params!["s.md"], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].0, "h-1-intro-0");
+        assert_eq!(rows[0].1, 1);
+        assert_eq!(rows[0].3, 0); // start_line
+        assert_eq!(rows[0].4, 3); // end_line (before next heading)
+        assert_eq!(rows[1].0, "h-2-details-0");
+        assert_eq!(rows[1].1, 2);
+        assert_eq!(rows[1].3, 4); // start_line
+    }
+
+    #[test]
+    fn upsert_note_populates_code_blocks_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("c.md", "C");
+        let body = "# Code\n\n```rust\nfn main() {}\n```\n\nText.\n\n```\nplain\nblock\n```";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let rows: Vec<(i64, Option<String>, i64)> = conn
+            .prepare("SELECT line, language, length FROM note_code_blocks WHERE path = ?1 ORDER BY line")
+            .unwrap()
+            .query_map(params!["c.md"], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0], (2, Some("rust".to_string()), 1));
+        assert_eq!(rows[1], (8, None, 2));
+    }
+
+    #[test]
+    fn upsert_note_headings_inside_code_blocks_ignored() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("cb.md", "CB");
+        let body = "# Real\n\n```\n# Fake heading\n## Also fake\n```\n\n## Also Real";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let stats = get_note_stats(&conn, "cb.md").expect("stats");
+        assert_eq!(stats.heading_count, 2);
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM note_headings WHERE note_path = ?1",
+                params!["cb.md"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 2);
     }
 }
 
