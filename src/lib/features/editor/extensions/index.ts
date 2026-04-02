@@ -79,6 +79,7 @@ export {
   toggle_heading_fold,
   collapse_all_headings,
   expand_all_headings,
+  restore_heading_folds,
 } from "./heading_extension";
 export { find_highlight_plugin_key } from "./find_extension";
 export {

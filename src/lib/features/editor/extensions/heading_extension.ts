@@ -5,6 +5,7 @@ import {
   toggle_heading_fold,
   collapse_all_headings,
   expand_all_headings,
+  restore_heading_folds,
 } from "../adapters/heading_fold_plugin";
 import type { EditorExtension } from "./types";
 
@@ -17,4 +18,9 @@ export function create_heading_extension(): EditorExtension {
   return { plugins };
 }
 
-export { toggle_heading_fold, collapse_all_headings, expand_all_headings };
+export {
+  toggle_heading_fold,
+  collapse_all_headings,
+  expand_all_headings,
+  restore_heading_folds,
+};

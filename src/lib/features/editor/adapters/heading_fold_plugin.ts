@@ -20,7 +20,8 @@ type HeadingFoldState = {
 type FoldMeta =
   | { action: "toggle"; pos: number }
   | { action: "collapse_all" }
-  | { action: "expand_all" };
+  | { action: "expand_all" }
+  | { action: "restore"; folded: Set<number> };
 
 export const heading_fold_plugin_key = new PluginKey<HeadingFoldState>(
   "heading_fold",
@@ -203,6 +204,20 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
                 ),
               };
             }
+            case "restore": {
+              const valid = new Set<number>();
+              const ranges = compute_heading_ranges(new_state.doc);
+              const heading_positions = new Set(
+                ranges.map((r) => r.heading_pos),
+              );
+              for (const pos of meta.folded) {
+                if (heading_positions.has(pos)) valid.add(pos);
+              }
+              return {
+                folded: valid,
+                decorations: build_decorations(new_state.doc, valid, ranges),
+              };
+            }
           }
         } else if (tr.docChanged) {
           folded = map_folded_set(prev.folded, tr);
@@ -263,6 +278,15 @@ export function collapse_all_headings(view: EditorView) {
 export function expand_all_headings(view: EditorView) {
   const tr = view.state.tr.setMeta(heading_fold_plugin_key, {
     action: "expand_all",
+  } satisfies FoldMeta);
+  view.dispatch(tr);
+}
+
+export function restore_heading_folds(view: EditorView, folded: Set<number>) {
+  if (folded.size === 0) return;
+  const tr = view.state.tr.setMeta(heading_fold_plugin_key, {
+    action: "restore",
+    folded,
   } satisfies FoldMeta);
   view.dispatch(tr);
 }
