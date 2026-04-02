@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
-import type { MarksmanHoverResult } from "$lib/features/marksman";
+import type { MarkdownLspHoverResult } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
 const lsp_hover_plugin_key = new PluginKey("lsp-hover");
@@ -20,7 +20,7 @@ export function create_lsp_hover_plugin(input: {
   on_hover: (
     line: number,
     character: number,
-  ) => Promise<MarksmanHoverResult | null>;
+  ) => Promise<MarkdownLspHoverResult | null>;
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,

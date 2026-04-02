@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
-import type { MarksmanCodeAction } from "$lib/features/marksman";
+import type { MarkdownLspCodeAction } from "$lib/features/markdown_lsp";
 import { Lightbulb } from "lucide-static";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import {
@@ -16,7 +16,11 @@ const lsp_code_action_plugin_key = new PluginKey<DecorationSet>(
 );
 
 type PluginMeta =
-  | { type: "set_actions"; actions: MarksmanCodeAction[]; widget_pos: number }
+  | {
+      type: "set_actions";
+      actions: MarkdownLspCodeAction[];
+      widget_pos: number;
+    }
   | { type: "clear" };
 
 type LspAction = {
@@ -33,8 +37,8 @@ export function create_lsp_code_action_plugin(input: {
     start_character: number,
     end_line: number,
     end_character: number,
-  ) => Promise<MarksmanCodeAction[]>;
-  on_resolve: (action: MarksmanCodeAction) => void;
+  ) => Promise<MarkdownLspCodeAction[]>;
+  on_resolve: (action: MarkdownLspCodeAction) => void;
   on_lsp_code_actions?:
     | ((
         start_line: number,
@@ -45,7 +49,7 @@ export function create_lsp_code_action_plugin(input: {
     | undefined;
   on_lsp_resolve?: ((action: LspAction) => void) | undefined;
 }): Plugin {
-  let current_actions: MarksmanCodeAction[] = [];
+  let current_actions: MarkdownLspCodeAction[] = [];
   let current_lsp_actions: LspAction[] | null = null;
   let dropdown: HTMLElement | null = null;
   let detach_dismiss: (() => void) | null = null;
@@ -110,7 +114,7 @@ export function create_lsp_code_action_plugin(input: {
       )
       .then((actions) => {
         current_lsp_actions = actions;
-        current_actions = actions as MarksmanCodeAction[];
+        current_actions = actions as MarkdownLspCodeAction[];
         if (actions.length === 0) {
           view.dispatch(
             view.state.tr.setMeta(lsp_code_action_plugin_key, {
@@ -122,7 +126,7 @@ export function create_lsp_code_action_plugin(input: {
         view.dispatch(
           view.state.tr.setMeta(lsp_code_action_plugin_key, {
             type: "set_actions",
-            actions: actions as MarksmanCodeAction[],
+            actions: actions as MarkdownLspCodeAction[],
             widget_pos: view.state.selection.from,
           }),
         );

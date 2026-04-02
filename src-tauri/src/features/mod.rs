@@ -4,7 +4,7 @@ pub mod canvas;
 pub mod code_lsp;
 pub mod git;
 pub mod lint;
-pub mod marksman;
+pub mod markdown_lsp;
 pub mod notes;
 pub mod pipeline;
 pub mod plugin;

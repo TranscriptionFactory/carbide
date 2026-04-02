@@ -5,7 +5,7 @@ function state(
   input?: Partial<{
     last_note_path: string | null;
     last_panel_open: boolean;
-    last_marksman_status: string;
+    last_markdown_lsp_status: string;
     last_is_dirty: boolean;
     loaded_note_path: string | null;
   }>,
@@ -13,7 +13,7 @@ function state(
   return {
     last_note_path: null,
     last_panel_open: false,
-    last_marksman_status: "idle",
+    last_markdown_lsp_status: "idle",
     last_is_dirty: false,
     loaded_note_path: null,
     ...input,
@@ -24,7 +24,7 @@ function input(
   value: Partial<{
     open_note_path: string | null;
     panel_open: boolean;
-    marksman_status: string;
+    markdown_lsp_status: string;
     is_dirty: boolean;
     snapshot_note_path: string | null;
     global_status: "idle" | "loading" | "ready" | "error";
@@ -33,7 +33,7 @@ function input(
   return {
     open_note_path: null,
     panel_open: false,
-    marksman_status: "running",
+    markdown_lsp_status: "running",
     is_dirty: false,
     snapshot_note_path: null,
     global_status: "idle" as const,
@@ -99,12 +99,12 @@ describe("backlinks_sync.reactor", () => {
       state({
         last_note_path: "docs/a.md",
         last_panel_open: true,
-        last_marksman_status: "starting",
+        last_markdown_lsp_status: "starting",
       }),
       input({
         open_note_path: "docs/a.md",
         panel_open: true,
-        marksman_status: "running",
+        markdown_lsp_status: "running",
         snapshot_note_path: null,
         global_status: "idle",
       }),

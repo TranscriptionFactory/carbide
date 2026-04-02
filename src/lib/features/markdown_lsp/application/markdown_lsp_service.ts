@@ -1,16 +1,16 @@
-import type { MarksmanPort } from "$lib/features/marksman/ports";
-import type { MarksmanStore } from "$lib/features/marksman/state/marksman_store.svelte";
+import type { MarkdownLspPort } from "$lib/features/markdown_lsp/ports";
+import type { MarkdownLspStore } from "$lib/features/markdown_lsp/state/markdown_lsp_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
-  MarksmanCodeAction,
-  MarksmanDiagnosticsEvent,
-  MarksmanPrepareRenameResult,
-  MarksmanStatusEvent,
-  MarksmanTextEdit,
-  MarksmanWorkspaceEditResult,
-} from "$lib/features/marksman/types";
+  MarkdownLspCodeAction,
+  MarkdownLspDiagnosticsEvent,
+  MarkdownLspPrepareRenameResult,
+  MarkdownLspStatusEvent,
+  MarkdownLspTextEdit,
+  MarkdownLspWorkspaceEditResult,
+} from "$lib/features/markdown_lsp/types";
 import type {
   DiagnosticsStore,
   Diagnostic,
@@ -18,7 +18,7 @@ import type {
 } from "$lib/features/diagnostics";
 import { create_logger } from "$lib/shared/utils/logger";
 
-const log = create_logger("marksman_service");
+const log = create_logger("markdown_lsp_service");
 const CHANNEL_CLOSED_PATTERN = "channel closed";
 function is_channel_closed_error(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
@@ -45,7 +45,7 @@ function uri_to_relative_path(uri: string, vault_path: string): string | null {
   return relative;
 }
 
-export class MarksmanService {
+export class MarkdownLspService {
   private lifecycle = Promise.resolve();
   private doc_versions = new Map<string, number>();
   private unsubscribe_diagnostics: (() => void) | null = null;
@@ -54,8 +54,8 @@ export class MarksmanService {
   private last_custom_binary_path: string | undefined = undefined;
 
   constructor(
-    private readonly port: MarksmanPort,
-    private readonly store: MarksmanStore,
+    private readonly port: MarkdownLspPort,
+    private readonly store: MarkdownLspStore,
     private readonly vault_store: VaultStore,
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
@@ -103,18 +103,18 @@ export class MarksmanService {
       try {
         await this.port.stop(vault_id);
       } catch (e) {
-        log.from_error("Failed to stop Marksman", e);
+        log.from_error("Failed to stop markdown LSP", e);
       }
       this.doc_versions.clear();
       this.store.reset();
-      this.diagnostics_store?.clear_source("marksman");
+      this.diagnostics_store?.clear_source("markdown_lsp");
     });
   }
 
   private subscribe_diagnostics(): void {
     if (!this.diagnostics_store) return;
     this.unsubscribe_diagnostics = this.port.subscribe_diagnostics(
-      (event: MarksmanDiagnosticsEvent) => {
+      (event: MarkdownLspDiagnosticsEvent) => {
         this.handle_diagnostics(event);
       },
     );
@@ -122,13 +122,13 @@ export class MarksmanService {
 
   private subscribe_status(): void {
     this.unsubscribe_status = this.port.subscribe_status(
-      (event: MarksmanStatusEvent) => {
+      (event: MarkdownLspStatusEvent) => {
         this.handle_status_change(event);
       },
     );
   }
 
-  private handle_status_change(event: MarksmanStatusEvent): void {
+  private handle_status_change(event: MarkdownLspStatusEvent): void {
     const { status } = event;
     if (status === "running") {
       this.store.set_status("running");
@@ -150,7 +150,7 @@ export class MarksmanService {
     }
   }
 
-  private handle_diagnostics(event: MarksmanDiagnosticsEvent): void {
+  private handle_diagnostics(event: MarkdownLspDiagnosticsEvent): void {
     if (!this.diagnostics_store) return;
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) return;
@@ -159,18 +159,18 @@ export class MarksmanService {
     if (!relative_path) return;
 
     const diagnostics: Diagnostic[] = event.diagnostics.map((d) => ({
-      source: "marksman" as const,
+      source: "markdown_lsp" as const,
       line: d.line + 1,
       column: d.character + 1,
       end_line: d.end_line + 1,
       end_column: d.end_character + 1,
       severity: to_diagnostic_severity(d.severity),
       message: d.message,
-      rule_id: "marksman",
+      rule_id: "markdown_lsp",
       fixable: false,
     }));
 
-    this.diagnostics_store.push("marksman", relative_path, diagnostics);
+    this.diagnostics_store.push("markdown_lsp", relative_path, diagnostics);
   }
 
   async did_open(file_path: string, content: string): Promise<void> {
@@ -317,7 +317,7 @@ export class MarksmanService {
     start_character: number,
     end_line: number,
     end_character: number,
-  ): Promise<MarksmanCodeAction[]> {
+  ): Promise<MarkdownLspCodeAction[]> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return [];
 
@@ -339,7 +339,7 @@ export class MarksmanService {
 
   async code_action_resolve(
     code_action_json: string,
-  ): Promise<MarksmanWorkspaceEditResult | null> {
+  ): Promise<MarkdownLspWorkspaceEditResult | null> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return null;
 
@@ -384,7 +384,7 @@ export class MarksmanService {
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanPrepareRenameResult | null> {
+  ): Promise<MarkdownLspPrepareRenameResult | null> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return null;
 
@@ -456,7 +456,7 @@ export class MarksmanService {
     }
   }
 
-  async formatting(file_path: string): Promise<MarksmanTextEdit[]> {
+  async formatting(file_path: string): Promise<MarkdownLspTextEdit[]> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return [];
 
@@ -506,8 +506,8 @@ export class MarksmanService {
     if (!is_channel_closed_error(e)) return false;
     if (this.store.status !== "running") return true;
 
-    log.warn("Marksman LSP process died — backend will handle restart");
-    this.store.set_error("Marksman process crashed — restarting...");
+    log.warn("Markdown LSP process died — backend will handle restart");
+    this.store.set_error("Markdown LSP process crashed — restarting...");
 
     return true;
   }

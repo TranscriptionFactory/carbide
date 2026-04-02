@@ -1,80 +1,80 @@
-export type MarksmanStatus =
+export type MarkdownLspStatus =
   | "idle"
   | "starting"
   | "running"
   | "error"
   | "stopped";
 
-export type MarksmanHoverResult = {
+export type MarkdownLspHoverResult = {
   contents: string | null;
 };
 
-export type MarksmanRange = {
+export type MarkdownLspRange = {
   start_line: number;
   start_character: number;
   end_line: number;
   end_character: number;
 };
 
-export type MarksmanLocation = {
+export type MarkdownLspLocation = {
   uri: string;
-  range: MarksmanRange;
+  range: MarkdownLspRange;
 };
 
-export type MarksmanCodeAction = {
+export type MarkdownLspCodeAction = {
   title: string;
   kind: string | null;
   data: string | null;
   raw_json: string;
 };
 
-export type MarksmanCompletionItem = {
+export type MarkdownLspCompletionItem = {
   label: string;
   detail: string | null;
   insert_text: string | null;
 };
 
-export type MarksmanStartResult = {
+export type MarkdownLspStartResult = {
   completion_trigger_characters: string[];
 };
 
-export type MarksmanSymbol = {
+export type MarkdownLspSymbol = {
   name: string;
   kind: number;
-  location: MarksmanLocation;
+  location: MarkdownLspLocation;
 };
 
-export type MarksmanTextEdit = {
-  range: MarksmanRange;
+export type MarkdownLspTextEdit = {
+  range: MarkdownLspRange;
   new_text: string;
 };
 
-export type MarksmanWorkspaceEditResult = {
+export type MarkdownLspWorkspaceEditResult = {
   files_created: string[];
   files_deleted: string[];
   files_modified: string[];
   errors: string[];
 };
 
-export type MarksmanPrepareRenameResult = {
-  range: MarksmanRange;
+export type MarkdownLspPrepareRenameResult = {
+  range: MarkdownLspRange;
   placeholder: string;
 };
 
-export type MarksmanInlayHint = {
+export type MarkdownLspInlayHint = {
   position_line: number;
   position_character: number;
   label: string;
 };
 
-export type MarksmanDocumentSymbol = {
+export type MarkdownLspDocumentSymbol = {
   name: string;
   kind: number;
   container_name: string | null;
-  location: MarksmanLocation;
+  location: MarkdownLspLocation;
 };
 
-export type MarksmanLspDiagnostic = {
+export type MarkdownLspLspDiagnostic = {
   line: number;
   character: number;
   end_line: number;
@@ -83,20 +83,22 @@ export type MarksmanLspDiagnostic = {
   message: string;
 };
 
-export type MarksmanDiagnosticsEvent = {
+export type MarkdownLspDiagnosticsEvent = {
   type: "diagnostics_updated";
   vault_id: string;
   uri: string;
-  diagnostics: MarksmanLspDiagnostic[];
+  diagnostics: MarkdownLspLspDiagnostic[];
 };
 
-export type MarksmanStatusEvent = {
+export type MarkdownLspStatusEvent = {
   type: "status_changed";
   vault_id: string;
   status: string;
 };
 
-export type MarksmanEvent = MarksmanDiagnosticsEvent | MarksmanStatusEvent;
+export type MarkdownLspEvent =
+  | MarkdownLspDiagnosticsEvent
+  | MarkdownLspStatusEvent;
 
 export type IweActionInfo = {
   name: string;

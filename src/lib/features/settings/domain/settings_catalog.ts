@@ -674,13 +674,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
-    key: "marksman_enabled",
-    label: "Enable Marksman",
+    key: "markdown_lsp_enabled",
+    label: "Enable Markdown LSP",
     description:
-      "Enable the Marksman language server for wiki-link completion, go-to-definition, hover, and diagnostics",
+      "Enable the markdown language server for wiki-link completion, go-to-definition, hover, and diagnostics",
     category: "Tools",
     keywords: [
-      "marksman",
+      "markdown_lsp",
       "lsp",
       "language",
       "server",
@@ -707,7 +707,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
-    key: "marksman_binary_path",
+    key: "markdown_lsp_binary_path",
     label: "Markdown LSP Binary Path",
     description:
       "Custom path to the LSP binary. Leave empty to auto-detect from PATH or toolchain",

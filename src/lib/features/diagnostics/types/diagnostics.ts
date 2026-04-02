@@ -1,6 +1,6 @@
 export type DiagnosticSource =
   | "lint"
-  | "marksman"
+  | "markdown_lsp"
   | "ast"
   | "code_lsp"
   | "plugin"

@@ -40,7 +40,7 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
 }
 
 async fn shutdown_managed_processes(app: &tauri::AppHandle) {
-    app.state::<features::marksman::MarksmanState>()
+    app.state::<features::markdown_lsp::MarkdownLspState>()
         .shutdown()
         .await;
     app.state::<features::code_lsp::CodeLspState>()
@@ -91,14 +91,14 @@ pub fn run() {
         .manage(shared::buffer::BufferManager::new())
         .manage(features::lint::service::LintState::default())
         .manage(features::code_lsp::CodeLspState::default())
-        .manage(features::marksman::MarksmanState::default())
+        .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
-                if arg == "--restart-marksman" {
-                    let _ = app.emit("marksman-restart-requested", ());
+                if arg == "--restart-markdown-lsp" {
+                    let _ = app.emit("markdown-lsp-restart-requested", ());
                     return;
                 }
                 if !arg.starts_with('-') {
@@ -266,26 +266,26 @@ pub fn run() {
             features::code_lsp::code_lsp_stop_vault,
             features::code_lsp::code_lsp_available_languages,
             features::code_lsp::code_lsp_get_status,
-            features::marksman::service::marksman_start,
-            features::marksman::service::marksman_stop,
-            features::marksman::service::marksman_did_open,
-            features::marksman::service::marksman_did_change,
-            features::marksman::service::marksman_did_save,
-            features::marksman::service::marksman_hover,
-            features::marksman::service::marksman_references,
-            features::marksman::service::marksman_definition,
-            features::marksman::service::marksman_code_actions,
-            features::marksman::service::marksman_code_action_resolve,
-            features::marksman::service::marksman_workspace_symbols,
-            features::marksman::service::marksman_rename,
-            features::marksman::service::marksman_prepare_rename,
-            features::marksman::service::marksman_completion,
-            features::marksman::service::marksman_formatting,
-            features::marksman::service::marksman_inlay_hints,
-            features::marksman::service::marksman_document_symbols,
-            features::marksman::service::iwe_config_status,
-            features::marksman::service::iwe_config_reset,
-            features::marksman::service::iwe_config_rewrite_provider,
+            features::markdown_lsp::service::markdown_lsp_start,
+            features::markdown_lsp::service::markdown_lsp_stop,
+            features::markdown_lsp::service::markdown_lsp_did_open,
+            features::markdown_lsp::service::markdown_lsp_did_change,
+            features::markdown_lsp::service::markdown_lsp_did_save,
+            features::markdown_lsp::service::markdown_lsp_hover,
+            features::markdown_lsp::service::markdown_lsp_references,
+            features::markdown_lsp::service::markdown_lsp_definition,
+            features::markdown_lsp::service::markdown_lsp_code_actions,
+            features::markdown_lsp::service::markdown_lsp_code_action_resolve,
+            features::markdown_lsp::service::markdown_lsp_workspace_symbols,
+            features::markdown_lsp::service::markdown_lsp_rename,
+            features::markdown_lsp::service::markdown_lsp_prepare_rename,
+            features::markdown_lsp::service::markdown_lsp_completion,
+            features::markdown_lsp::service::markdown_lsp_formatting,
+            features::markdown_lsp::service::markdown_lsp_inlay_hints,
+            features::markdown_lsp::service::markdown_lsp_document_symbols,
+            features::markdown_lsp::service::iwe_config_status,
+            features::markdown_lsp::service::iwe_config_reset,
+            features::markdown_lsp::service::iwe_config_rewrite_provider,
             features::search::service::tags_list_all,
             features::toolchain::service::toolchain_list_tools,
             features::toolchain::service::toolchain_install,

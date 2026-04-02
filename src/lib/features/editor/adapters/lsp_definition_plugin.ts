@@ -1,12 +1,12 @@
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { MarksmanLocation } from "$lib/features/marksman";
+import type { MarkdownLspLocation } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
 export function create_lsp_definition_plugin(input: {
   on_definition: (
     line: number,
     character: number,
-  ) => Promise<MarksmanLocation[]>;
+  ) => Promise<MarkdownLspLocation[]>;
   on_navigate: (uri: string) => void;
 }): Plugin {
   return new Plugin({

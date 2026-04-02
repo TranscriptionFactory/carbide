@@ -6,12 +6,12 @@ import { as_note_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { OrphanLink, SemanticSearchHit } from "$lib/shared/types/search";
-import type { MarksmanPort } from "$lib/features/marksman";
-import type { MarksmanStore } from "$lib/features/marksman";
+import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
+import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
 
-function make_marksman_port(
-  overrides: Partial<MarksmanPort> = {},
-): MarksmanPort {
+function make_markdown_lsp_port(
+  overrides: Partial<MarkdownLspPort> = {},
+): MarkdownLspPort {
   return {
     start: vi.fn().mockResolvedValue({ completion_trigger_characters: [] }),
     stop: vi.fn().mockResolvedValue(undefined),
@@ -42,11 +42,11 @@ function make_marksman_port(
     document_symbols: vi.fn().mockResolvedValue([]),
     subscribe_diagnostics: vi.fn().mockReturnValue(() => {}),
     ...overrides,
-  } as MarksmanPort;
+  } as MarkdownLspPort;
 }
 
-function make_marksman_store(status = "running"): MarksmanStore {
-  return { status } as MarksmanStore;
+function make_markdown_lsp_store(status = "running"): MarkdownLspStore {
+  return { status } as MarkdownLspStore;
 }
 
 function note(path: string): NoteMeta {
@@ -86,7 +86,7 @@ function create_deferred<T>() {
 describe("LinksService", () => {
   it("loads backlinks from Marksman references", async () => {
     const vault = create_test_vault();
-    const marksman_port = make_marksman_port({
+    const markdown_lsp_port = make_markdown_lsp_port({
       references: vi.fn().mockResolvedValue([
         {
           uri: `file://${vault.path}/a.md`,
@@ -118,12 +118,12 @@ describe("LinksService", () => {
       search_port,
       vault_store,
       links_store,
-      marksman_port,
-      make_marksman_store(),
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
     );
     await service.load_note_links("target.md");
 
-    expect(marksman_port.references).toHaveBeenCalledWith(
+    expect(markdown_lsp_port.references).toHaveBeenCalledWith(
       "vault-1",
       "target.md",
       0,
@@ -143,17 +143,17 @@ describe("LinksService", () => {
       orphan_links: [orphan("missing/z.md")],
     });
 
-    const marksman_port = make_marksman_port();
+    const markdown_lsp_port = make_markdown_lsp_port();
     const service = new LinksService(
       make_search_port(),
       vault_store,
       links_store,
-      marksman_port,
-      make_marksman_store(),
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
     );
     await service.load_note_links("target.md");
 
-    expect(marksman_port.references).not.toHaveBeenCalled();
+    expect(markdown_lsp_port.references).not.toHaveBeenCalled();
     expect(links_store.active_note_path).toBeNull();
     expect(links_store.global_status).toBe("idle");
     expect(links_store.backlinks).toEqual([]);
@@ -187,7 +187,7 @@ describe("LinksService", () => {
     let call_count = 0;
 
     const vault = create_test_vault();
-    const marksman_port = make_marksman_port({
+    const markdown_lsp_port = make_markdown_lsp_port({
       references: vi.fn().mockImplementation(() => {
         call_count += 1;
         return call_count === 1 ? first.promise : second.promise;
@@ -201,8 +201,8 @@ describe("LinksService", () => {
       make_search_port(),
       vault_store,
       links_store,
-      marksman_port,
-      make_marksman_store(),
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
     );
 
     const first_load = service.load_note_links("a.md");
@@ -238,7 +238,7 @@ describe("LinksService", () => {
       }>
     >();
     const vault = create_test_vault();
-    const marksman_port = make_marksman_port({
+    const markdown_lsp_port = make_markdown_lsp_port({
       references: vi.fn().mockReturnValue(deferred.promise),
     });
 
@@ -249,8 +249,8 @@ describe("LinksService", () => {
       make_search_port(),
       vault_store,
       links_store,
-      marksman_port,
-      make_marksman_store(),
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
     );
 
     const inflight = service.load_note_links("target.md");
@@ -279,8 +279,8 @@ describe("LinksService", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
     const markdown = "[[target]] [site](https://example.com)";
 
@@ -301,8 +301,8 @@ describe("LinksService", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
     const markdown = "[[target]] [site](https://example.com)";
 
@@ -323,8 +323,8 @@ describe("LinksService", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     service.update_local_note_links("docs/a.md", "[[first]]");
@@ -389,8 +389,8 @@ describe("LinksService.load_suggested_links", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     await service.load_suggested_links("note.md");
@@ -426,8 +426,8 @@ describe("LinksService.load_suggested_links", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     await service.load_suggested_links("note.md");
@@ -444,8 +444,8 @@ describe("LinksService.load_suggested_links", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     await service.load_suggested_links("note.md");
@@ -467,8 +467,8 @@ describe("LinksService.load_suggested_links", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     await service.load_suggested_links("note.md");
@@ -497,8 +497,8 @@ describe("LinksService.load_suggested_links", () => {
       search_port,
       vault_store,
       links_store,
-      make_marksman_port(),
-      make_marksman_store(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
     );
 
     const first_load = service.load_suggested_links("a.md");

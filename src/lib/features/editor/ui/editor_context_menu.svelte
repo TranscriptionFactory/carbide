@@ -1,7 +1,7 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
-  import { to_transform_action_id } from "$lib/features/marksman";
+  import { to_transform_action_id } from "$lib/features/markdown_lsp";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import type { Snippet } from "svelte";
 
@@ -11,7 +11,7 @@
 
   const is_iwe = $derived(
     stores.ui.editor_settings.markdown_lsp_provider === "iwes" &&
-      stores.marksman.status === "running",
+      stores.markdown_lsp.status === "running",
   );
 
   const refactor_items = [
@@ -29,7 +29,7 @@
   ] as const;
 
   const transform_items = $derived(
-    stores.marksman.transform_actions.map((a) => ({
+    stores.markdown_lsp.transform_actions.map((a) => ({
       id: to_transform_action_id(a.name),
       label: a.title,
     })),
