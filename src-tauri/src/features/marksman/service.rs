@@ -1524,6 +1524,14 @@ pub async fn iwe_config_rewrite_provider(
 
     let rewritten = rewrite_iwe_config(&content, &command, &args, model, &provider_config.name);
 
+    if rewritten == content {
+        log::debug!(
+            "IWE config unchanged for provider '{}', skipping write",
+            provider_config.name
+        );
+        return Ok(());
+    }
+
     tokio::fs::write(&config_path, &rewritten)
         .await
         .map_err(|e| format!("Failed to write IWE config: {}", e))?;
