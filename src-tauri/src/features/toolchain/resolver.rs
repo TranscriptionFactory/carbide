@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 use tauri::Manager;
 
@@ -14,7 +14,7 @@ pub async fn resolve(
     if let Some(path) = custom_path {
         let p = PathBuf::from(path);
         if p.exists() {
-            return Ok(p);
+            return Ok(ready(p));
         }
         return Err(format!(
             "Custom binary path does not exist: {}",
@@ -25,16 +25,16 @@ pub async fn resolve(
     let spec = registry::get(tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
     if let Some(sidecar) = sidecar_path(app, spec.binary_name) {
-        return Ok(sidecar);
+        return Ok(ready(sidecar));
     }
 
     let downloaded = downloaded_path(app, tool_id, spec.version, spec.binary_name)?;
     if downloaded.exists() {
-        return Ok(downloaded);
+        return Ok(ready(downloaded));
     }
 
     if let Ok(found) = which(spec.binary_name) {
-        return Ok(found);
+        return Ok(ready(found));
     }
 
     if spec.downloadable() {
@@ -42,7 +42,7 @@ pub async fn resolve(
             "{} not found locally, attempting auto-download",
             spec.display_name
         );
-        return super::downloader::download_tool(app, tool_id).await;
+        return super::downloader::download_tool(app, tool_id).await.map(ready);
     }
 
     Err(format!(
@@ -50,6 +50,27 @@ pub async fn resolve(
         spec.display_name
     ))
 }
+
+fn ready(path: PathBuf) -> PathBuf {
+    ensure_macos_executable(&path);
+    path
+}
+
+#[cfg(target_os = "macos")]
+fn ensure_macos_executable(path: &Path) {
+    let _ = std::process::Command::new("xattr")
+        .args(["-d", "com.apple.quarantine"])
+        .arg(path)
+        .output();
+
+    let _ = std::process::Command::new("codesign")
+        .args(["--force", "--sign", "-"])
+        .arg(path)
+        .output();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ensure_macos_executable(_path: &Path) {}
 
 fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
     let (with_triple, without_triple) = if cfg!(target_os = "windows") {
