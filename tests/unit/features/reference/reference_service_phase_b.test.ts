@@ -334,6 +334,102 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
     });
   });
 
+  describe("scan_linked_source resume-on-failure", () => {
+    function make_service_with_ls_port(ls_port: LinkedSourcePort) {
+      storage = make_mock_storage([]);
+      store = new ReferenceStore();
+      op_store = new OpStore();
+
+      const service = new ReferenceService(
+        storage,
+        store,
+        make_vault_store(),
+        op_store,
+        now_ms,
+        null,
+        null,
+        ls_port,
+        {
+          get_vault_setting: vi.fn(() => Promise.resolve(null)),
+          set_vault_setting: vi.fn(() => Promise.resolve()),
+        } as never,
+      );
+
+      store.add_linked_source({
+        id: "source-1",
+        path: "/papers",
+        name: "Papers",
+        enabled: true,
+        last_scan_at: null,
+      });
+
+      return { service, store };
+    }
+
+    it("partial extraction failure: others still indexed, errors reported", async () => {
+      ls_port = make_mock_linked_source_port();
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { file_path: "/papers/a.pdf", modified_at: 2000 },
+        { file_path: "/papers/b.pdf", modified_at: 2000 },
+        { file_path: "/papers/c.pdf", modified_at: 2000 },
+      ]);
+      (ls_port.extract_file as ReturnType<typeof vi.fn>).mockImplementation(
+        (path: string) => {
+          if (path === "/papers/b.pdf")
+            return Promise.reject(new Error("corrupt file"));
+          return Promise.resolve(make_scan_entry({ file_path: path }));
+        },
+      );
+
+      const { service } = make_service_with_ls_port(ls_port);
+      const result = await service.scan_linked_source("source-1");
+
+      expect(result.added).toBe(2);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain("corrupt file");
+      expect(ls_port.index_content).toHaveBeenCalledTimes(2);
+    });
+
+    it("partial index failure: others still indexed, errors reported", async () => {
+      ls_port = make_mock_linked_source_port();
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { file_path: "/papers/a.pdf", modified_at: 2000 },
+        { file_path: "/papers/b.pdf", modified_at: 2000 },
+      ]);
+      (ls_port.index_content as ReturnType<typeof vi.fn>)
+        .mockImplementationOnce(() => Promise.resolve())
+        .mockImplementationOnce(() =>
+          Promise.reject(new Error("DB write failed")),
+        );
+
+      const { service } = make_service_with_ls_port(ls_port);
+      const result = await service.scan_linked_source("source-1");
+
+      expect(result.added).toBe(1);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain("DB write failed");
+    });
+
+    it("resume correctness: re-scan skips already-indexed files (mtime match)", async () => {
+      const existing_note = make_linked_note_info({
+        external_file_path: "/papers/a.pdf",
+        mtime_ms: 2000,
+      });
+      ls_port = make_mock_linked_source_port([existing_note]);
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { file_path: "/papers/a.pdf", modified_at: 2000 },
+        { file_path: "/papers/b.pdf", modified_at: 3000 },
+      ]);
+
+      const { service } = make_service_with_ls_port(ls_port);
+      const result = await service.scan_linked_source("source-1");
+
+      expect(result.added).toBe(1);
+      expect(ls_port.extract_file).toHaveBeenCalledTimes(1);
+      expect(ls_port.extract_file).toHaveBeenCalledWith("/papers/b.pdf");
+    });
+  });
+
   describe("ReferenceStore: removed linked source methods", () => {
     it("no longer has get_linked_source_items", () => {
       const store = new ReferenceStore();

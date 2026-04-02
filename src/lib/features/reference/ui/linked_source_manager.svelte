@@ -62,6 +62,10 @@
   function get_sync_status(source_id: string): "idle" | "scanning" | "error" {
     return ref_store.linked_source_sync_status[source_id] ?? "idle";
   }
+
+  function get_scan_progress(source_id: string) {
+    return ref_store.linked_source_scan_progress[source_id];
+  }
 </script>
 
 <div class="LinkedSourceManager">
@@ -88,6 +92,7 @@
     {#each ref_store.linked_sources as source (source.id)}
       {@const status = get_sync_status(source.id)}
       {@const count = get_item_count(source.id)}
+      {@const progress = get_scan_progress(source.id)}
       <div
         class="px-3 py-2 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
       >
@@ -95,6 +100,11 @@
           <div class="flex items-center gap-1.5 min-w-0 flex-1">
             {#if status === "scanning"}
               <Loader2 class="w-3 h-3 animate-spin text-muted-foreground" />
+              {#if progress}
+                <span class="text-[10px] text-muted-foreground tabular-nums">
+                  {progress.processed}/{progress.total}
+                </span>
+              {/if}
             {:else if status === "error"}
               <AlertCircle class="w-3 h-3 text-destructive" />
             {/if}

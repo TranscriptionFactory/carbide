@@ -2,6 +2,8 @@ import type { CslItem, LinkedSource, PdfAnnotation } from "../types";
 
 export type LinkedSourceSyncStatus = "idle" | "scanning" | "error";
 
+export type ScanProgress = { processed: number; total: number; errors: number };
+
 export type MissingLinkedSource = {
   source: LinkedSource;
   item_count: number;
@@ -23,6 +25,7 @@ export class ReferenceStore {
     {},
   );
   missing_linked_sources = $state<MissingLinkedSource[]>([]);
+  linked_source_scan_progress = $state<Record<string, ScanProgress>>({});
 
   set_library_items(items: CslItem[]) {
     this.library_items = items;
@@ -127,6 +130,13 @@ export class ReferenceStore {
     };
   }
 
+  set_linked_source_scan_progress(id: string, progress: ScanProgress) {
+    this.linked_source_scan_progress = {
+      ...this.linked_source_scan_progress,
+      [id]: progress,
+    };
+  }
+
   set_missing_linked_sources(missing: MissingLinkedSource[]) {
     this.missing_linked_sources = missing;
   }
@@ -148,5 +158,6 @@ export class ReferenceStore {
     this.linked_sources = [];
     this.linked_source_sync_status = {};
     this.missing_linked_sources = [];
+    this.linked_source_scan_progress = {};
   }
 }
