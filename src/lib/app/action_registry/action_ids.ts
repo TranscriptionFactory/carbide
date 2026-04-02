@@ -293,7 +293,7 @@ export const ACTION_IDS = {
   toolchain_install: "toolchain.install",
   toolchain_manage: "toolchain.manage",
 
-  marksman_code_action_resolve: "marksman.code_action_resolve",
+  markdown_lsp_code_action_resolve: "markdown_lsp.code_action_resolve",
 
   lsp_code_actions: "lsp.code_actions",
   lsp_code_action_resolve: "lsp.code_action_resolve",

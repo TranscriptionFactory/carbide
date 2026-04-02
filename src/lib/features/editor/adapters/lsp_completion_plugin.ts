@@ -1,6 +1,6 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import type { MarksmanCompletionItem } from "$lib/features/marksman";
+import type { MarkdownLspCompletionItem } from "$lib/features/markdown_lsp";
 import {
   create_cursor_anchor,
   position_suggest_dropdown,
@@ -18,7 +18,7 @@ export const lsp_completion_plugin_key = new PluginKey<LspCompletionState>(
 
 type LspCompletionState = {
   active: boolean;
-  items: MarksmanCompletionItem[];
+  items: MarkdownLspCompletionItem[];
   selected_index: number;
   from: number;
   query: string;
@@ -40,7 +40,7 @@ function create_dropdown(): HTMLElement {
 
 function render_items(
   dropdown: HTMLElement,
-  items: MarksmanCompletionItem[],
+  items: MarkdownLspCompletionItem[],
   selected_index: number,
   on_select: (index: number) => void,
 ) {
@@ -101,7 +101,7 @@ export function create_lsp_completion_plugin(input: {
   on_completion: (
     line: number,
     character: number,
-  ) => Promise<MarksmanCompletionItem[]>;
+  ) => Promise<MarkdownLspCompletionItem[]>;
   get_trigger_characters: () => string[];
 }): Plugin<LspCompletionState> {
   let dropdown: HTMLElement | null = null;
@@ -182,7 +182,7 @@ export function create_lsp_completion_plugin(input: {
       apply(tr, prev) {
         const meta = tr.getMeta(lsp_completion_plugin_key) as
           | LspCompletionState
-          | { items: MarksmanCompletionItem[] }
+          | { items: MarkdownLspCompletionItem[] }
           | undefined;
         if (meta) {
           if ("active" in meta) return meta;

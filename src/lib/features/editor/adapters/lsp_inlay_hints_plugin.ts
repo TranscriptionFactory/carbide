@@ -2,14 +2,14 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
-import type { MarksmanInlayHint } from "$lib/features/marksman";
+import type { MarkdownLspInlayHint } from "$lib/features/markdown_lsp";
 import { offset_for_line_character } from "./lsp_plugin_utils";
 
 const lsp_inlay_hints_plugin_key = new PluginKey<DecorationSet>(
   "lsp-inlay-hints",
 );
 
-function apply_hints(view: EditorView, hints: MarksmanInlayHint[]) {
+function apply_hints(view: EditorView, hints: MarkdownLspInlayHint[]) {
   if (hints.length === 0) {
     view.dispatch(
       view.state.tr.setMeta(lsp_inlay_hints_plugin_key, DecorationSet.empty),
@@ -41,7 +41,7 @@ function apply_hints(view: EditorView, hints: MarksmanInlayHint[]) {
 }
 
 export function create_lsp_inlay_hints_plugin(input: {
-  on_inlay_hints: () => Promise<MarksmanInlayHint[]>;
+  on_inlay_hints: () => Promise<MarkdownLspInlayHint[]>;
 }): Plugin {
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
 

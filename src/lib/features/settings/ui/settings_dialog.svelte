@@ -54,7 +54,7 @@
     EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
     type MarkdownLspProvider,
   } from "$lib/shared/types/editor_settings";
-  import type { IweConfigStatus } from "$lib/features/marksman";
+  import type { IweConfigStatus } from "$lib/features/markdown_lsp";
   import type {
     AiProviderConfig,
     AiTransport,
@@ -3585,9 +3585,9 @@
                 >
               </div>
               <Switch.Root
-                checked={editor_settings.marksman_enabled}
+                checked={editor_settings.markdown_lsp_enabled}
                 onCheckedChange={(v: boolean) => {
-                  update("marksman_enabled", v);
+                  update("markdown_lsp_enabled", v);
                 }}
               />
             </div>
@@ -3633,9 +3633,9 @@
                 placeholder={editor_settings.markdown_lsp_provider === "iwes"
                   ? "/usr/local/bin/iwes"
                   : "/usr/local/bin/marksman"}
-                value={editor_settings.marksman_binary_path}
+                value={editor_settings.markdown_lsp_binary_path}
                 oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-                  update("marksman_binary_path", e.currentTarget.value);
+                  update("markdown_lsp_binary_path", e.currentTarget.value);
                 }}
               />
             </div>

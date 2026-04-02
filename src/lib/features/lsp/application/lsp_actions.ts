@@ -7,7 +7,7 @@ import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { LspStore } from "$lib/features/lsp/state/lsp_store.svelte";
 import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp/types";
-import type { MarksmanService } from "$lib/features/marksman";
+import type { MarkdownLspService } from "$lib/features/markdown_lsp";
 import {
   apply_workspace_edit_result,
   type WorkspaceEditDeps,
@@ -22,7 +22,7 @@ export function register_lsp_actions(input: {
   diagnostics_store: DiagnosticsStore;
   ui_store: UIStore;
   op_store: OpStore;
-  marksman_service: MarksmanService;
+  markdown_lsp_service: MarkdownLspService;
   workspace_edit_deps: WorkspaceEditDeps;
 }): void {
   const {
@@ -30,7 +30,7 @@ export function register_lsp_actions(input: {
     lsp_store,
     diagnostics_store,
     ui_store,
-    marksman_service,
+    markdown_lsp_service,
     workspace_edit_deps,
   } = input;
 
@@ -48,9 +48,9 @@ export function register_lsp_actions(input: {
     label: "Resolve Code Action",
     execute: async (action) => {
       const code_action = action as LspCodeAction;
-      const lsp_sources = ["Marksman", "IWE"];
+      const lsp_sources = ["Markdown LSP", "IWE"];
       if (lsp_sources.includes(code_action.source)) {
-        const result = await marksman_service.code_action_resolve(
+        const result = await markdown_lsp_service.code_action_resolve(
           code_action.raw_json,
         );
         if (result) {

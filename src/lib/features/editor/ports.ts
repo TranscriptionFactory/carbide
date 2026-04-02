@@ -82,11 +82,11 @@ export type EditorEventHandlers = {
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
-  on_marksman_hover?: (
+  on_markdown_lsp_hover?: (
     line: number,
     character: number,
   ) => Promise<{ contents: string | null } | null>;
-  on_marksman_definition?: (
+  on_markdown_lsp_definition?: (
     line: number,
     character: number,
   ) => Promise<
@@ -100,22 +100,22 @@ export type EditorEventHandlers = {
       };
     }>
   >;
-  on_marksman_definition_navigate?: (uri: string) => void;
-  on_marksman_completion?: (
+  on_markdown_lsp_definition_navigate?: (uri: string) => void;
+  on_markdown_lsp_completion?: (
     line: number,
     character: number,
   ) => Promise<
     Array<{ label: string; detail: string | null; insert_text: string | null }>
   >;
-  get_marksman_completion_trigger_characters?: () => string[];
-  on_marksman_inlay_hints?: () => Promise<
+  get_markdown_lsp_completion_trigger_characters?: () => string[];
+  on_markdown_lsp_inlay_hints?: () => Promise<
     Array<{
       position_line: number;
       position_character: number;
       label: string;
     }>
   >;
-  on_marksman_code_actions?: (
+  on_markdown_lsp_code_actions?: (
     start_line: number,
     start_character: number,
     end_line: number,
@@ -128,7 +128,7 @@ export type EditorEventHandlers = {
       raw_json: string;
     }>
   >;
-  on_marksman_code_action_resolve?: (action: {
+  on_markdown_lsp_code_action_resolve?: (action: {
     title: string;
     kind: string | null;
     data: string | null;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { apply_workspace_edit_result } from "$lib/features/lsp/application/apply_workspace_edit_result";
 import type { WorkspaceEditDeps } from "$lib/features/lsp/application/apply_workspace_edit_result";
-import type { MarksmanWorkspaceEditResult } from "$lib/features/marksman";
+import type { MarkdownLspWorkspaceEditResult } from "$lib/features/markdown_lsp";
 import type { MarkdownText } from "$lib/shared/types/ids";
 
 function create_deps() {
@@ -78,7 +78,7 @@ function create_deps() {
 describe("apply_workspace_edit_result", () => {
   it("does nothing for empty result", async () => {
     const { deps, mocks } = create_deps();
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: [],
@@ -99,7 +99,7 @@ describe("apply_workspace_edit_result", () => {
       meta: { id: "notes/test.md", path: "notes/test.md" },
     } as WorkspaceEditDeps["editor_store"]["open_note"];
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: ["file:///vault/notes/test.md"],
@@ -128,7 +128,7 @@ describe("apply_workspace_edit_result", () => {
       meta: { id: "notes/test.md", path: "notes/test.md" },
     } as WorkspaceEditDeps["editor_store"]["open_note"];
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: ["file:///vault/notes/test.md"],
@@ -152,7 +152,7 @@ describe("apply_workspace_edit_result", () => {
     } as WorkspaceEditDeps["editor_store"]["open_note"];
     mocks.read_note_content.mockRejectedValue(new Error("read failed"));
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: ["file:///vault/notes/test.md"],
@@ -173,7 +173,7 @@ describe("apply_workspace_edit_result", () => {
     } as WorkspaceEditDeps["editor_store"]["open_note"];
     mocks.find_tab_by_path.mockReturnValue({ id: "tab-1" });
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: ["file:///vault/notes/test.md"],
@@ -189,7 +189,7 @@ describe("apply_workspace_edit_result", () => {
   it("suppresses watcher for all affected paths", async () => {
     const { deps, mocks } = create_deps();
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: ["file:///vault/notes/new.md"],
       files_deleted: ["file:///vault/notes/old.md"],
       files_modified: ["file:///vault/notes/changed.md"],
@@ -207,7 +207,7 @@ describe("apply_workspace_edit_result", () => {
     const { deps, mocks } = create_deps();
     mocks.find_tab_by_path.mockReturnValue({ id: "tab-1" });
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: ["file:///vault/notes/removed.md"],
       files_modified: [],
@@ -223,7 +223,7 @@ describe("apply_workspace_edit_result", () => {
   it("reconciles workspace with index sync when files are created", async () => {
     const { deps, mocks } = create_deps();
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: ["file:///vault/notes/new.md"],
       files_deleted: [],
       files_modified: [],
@@ -245,7 +245,7 @@ describe("apply_workspace_edit_result", () => {
   it("reports errors via op_store", async () => {
     const { deps, mocks } = create_deps();
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: [],
@@ -266,7 +266,7 @@ describe("apply_workspace_edit_result", () => {
       meta: { path: "notes/test.md" },
     } as WorkspaceEditDeps["editor_store"]["open_note"];
 
-    const result: MarksmanWorkspaceEditResult = {
+    const result: MarkdownLspWorkspaceEditResult = {
       files_created: [],
       files_deleted: [],
       files_modified: ["file:///other-vault/notes/test.md"],

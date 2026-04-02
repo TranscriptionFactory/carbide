@@ -18,7 +18,7 @@ import type { PluginHostPort, PluginSettingsPort } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
-import type { MarksmanPort } from "$lib/features/marksman";
+import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 
 import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
@@ -55,7 +55,7 @@ export type Ports = {
   canvas: CanvasPort;
   tag: TagPort;
   lint: LintPort;
-  marksman: MarksmanPort;
+  markdown_lsp: MarkdownLspPort;
 
   toolchain: ToolchainPort;
   code_lsp: CodeLspPort;

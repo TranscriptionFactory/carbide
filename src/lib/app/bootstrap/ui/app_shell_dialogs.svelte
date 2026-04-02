@@ -42,7 +42,7 @@
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
-  import type { IweConfigStatus } from "$lib/features/marksman";
+  import type { IweConfigStatus } from "$lib/features/markdown_lsp";
 
   type Props = {
     hide_choose_vault_button?: boolean;
@@ -96,7 +96,7 @@
       return;
     }
     try {
-      const result = await ports.marksman.iwe_config_status(vault_id);
+      const result = await ports.markdown_lsp.iwe_config_status(vault_id);
       if (seq !== iwe_fetch_seq) return;
       iwe_config_status = result;
     } catch {

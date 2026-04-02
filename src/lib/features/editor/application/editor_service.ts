@@ -58,12 +58,12 @@ export type EditorServiceCallbacks = {
     note_path: NotePath,
     file: PastedImagePayload,
   ) => void;
-  on_marksman_hover?: (
+  on_markdown_lsp_hover?: (
     file_path: string,
     line: number,
     character: number,
   ) => Promise<{ contents: string | null } | null>;
-  on_marksman_definition?: (
+  on_markdown_lsp_definition?: (
     file_path: string,
     line: number,
     character: number,
@@ -78,23 +78,23 @@ export type EditorServiceCallbacks = {
       };
     }>
   >;
-  on_marksman_definition_navigate?: (uri: string) => void;
-  on_marksman_completion?: (
+  on_markdown_lsp_definition_navigate?: (uri: string) => void;
+  on_markdown_lsp_completion?: (
     file_path: string,
     line: number,
     character: number,
   ) => Promise<
     Array<{ label: string; detail: string | null; insert_text: string | null }>
   >;
-  get_marksman_completion_trigger_characters?: () => string[];
-  on_marksman_inlay_hints?: (file_path: string) => Promise<
+  get_markdown_lsp_completion_trigger_characters?: () => string[];
+  on_markdown_lsp_inlay_hints?: (file_path: string) => Promise<
     Array<{
       position_line: number;
       position_character: number;
       label: string;
     }>
   >;
-  on_marksman_code_actions?: (
+  on_markdown_lsp_code_actions?: (
     file_path: string,
     start_line: number,
     start_character: number,
@@ -108,7 +108,7 @@ export type EditorServiceCallbacks = {
       raw_json: string;
     }>
   >;
-  on_marksman_code_action_resolve?: (action: {
+  on_markdown_lsp_code_action_resolve?: (action: {
     title: string;
     kind: string | null;
     data: string | null;
@@ -695,9 +695,9 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.on_marksman_hover) {
-      const hover_cb = this.callbacks.on_marksman_hover;
-      events.on_marksman_hover = (line: number, character: number) => {
+    if (this.callbacks.on_markdown_lsp_hover) {
+      const hover_cb = this.callbacks.on_markdown_lsp_hover;
+      events.on_markdown_lsp_hover = (line: number, character: number) => {
         const note = this.active_note;
         if (
           !note ||
@@ -710,9 +710,9 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.on_marksman_definition) {
-      const def_cb = this.callbacks.on_marksman_definition;
-      events.on_marksman_definition = (line: number, character: number) => {
+    if (this.callbacks.on_markdown_lsp_definition) {
+      const def_cb = this.callbacks.on_markdown_lsp_definition;
+      events.on_markdown_lsp_definition = (line: number, character: number) => {
         const note = this.active_note;
         if (
           !note ||
@@ -725,14 +725,14 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.on_marksman_definition_navigate) {
-      events.on_marksman_definition_navigate =
-        this.callbacks.on_marksman_definition_navigate;
+    if (this.callbacks.on_markdown_lsp_definition_navigate) {
+      events.on_markdown_lsp_definition_navigate =
+        this.callbacks.on_markdown_lsp_definition_navigate;
     }
 
-    if (this.callbacks.on_marksman_completion) {
-      const completion_cb = this.callbacks.on_marksman_completion;
-      events.on_marksman_completion = (line: number, character: number) => {
+    if (this.callbacks.on_markdown_lsp_completion) {
+      const completion_cb = this.callbacks.on_markdown_lsp_completion;
+      events.on_markdown_lsp_completion = (line: number, character: number) => {
         const note = this.active_note;
         if (
           !note ||
@@ -745,14 +745,14 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.get_marksman_completion_trigger_characters) {
-      events.get_marksman_completion_trigger_characters =
-        this.callbacks.get_marksman_completion_trigger_characters;
+    if (this.callbacks.get_markdown_lsp_completion_trigger_characters) {
+      events.get_markdown_lsp_completion_trigger_characters =
+        this.callbacks.get_markdown_lsp_completion_trigger_characters;
     }
 
-    if (this.callbacks.on_marksman_inlay_hints) {
-      const hints_cb = this.callbacks.on_marksman_inlay_hints;
-      events.on_marksman_inlay_hints = () => {
+    if (this.callbacks.on_markdown_lsp_inlay_hints) {
+      const hints_cb = this.callbacks.on_markdown_lsp_inlay_hints;
+      events.on_markdown_lsp_inlay_hints = () => {
         const note = this.active_note;
         if (
           !note ||
@@ -765,9 +765,9 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.on_marksman_code_actions) {
-      const code_actions_cb = this.callbacks.on_marksman_code_actions;
-      events.on_marksman_code_actions = (
+    if (this.callbacks.on_markdown_lsp_code_actions) {
+      const code_actions_cb = this.callbacks.on_markdown_lsp_code_actions;
+      events.on_markdown_lsp_code_actions = (
         start_line,
         start_character,
         end_line,
@@ -791,9 +791,9 @@ export class EditorService {
       };
     }
 
-    if (this.callbacks.on_marksman_code_action_resolve) {
-      events.on_marksman_code_action_resolve =
-        this.callbacks.on_marksman_code_action_resolve;
+    if (this.callbacks.on_markdown_lsp_code_action_resolve) {
+      events.on_markdown_lsp_code_action_resolve =
+        this.callbacks.on_markdown_lsp_code_action_resolve;
     }
 
     if (this.callbacks.on_lsp_code_actions) {

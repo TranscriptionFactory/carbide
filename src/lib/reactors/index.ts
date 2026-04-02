@@ -28,7 +28,7 @@ import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.sv
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
-import { create_marksman_lifecycle_reactor } from "$lib/reactors/marksman_lifecycle.reactor.svelte";
+import { create_markdown_lsp_lifecycle_reactor } from "$lib/reactors/markdown_lsp_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
 import { create_code_lsp_document_sync_reactor } from "$lib/reactors/code_lsp_document_sync.reactor.svelte";
 import { create_code_lsp_lifecycle_reactor } from "$lib/reactors/code_lsp_lifecycle.reactor.svelte";
@@ -68,7 +68,10 @@ import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
-import type { MarksmanStore, MarksmanService } from "$lib/features/marksman";
+import type {
+  MarkdownLspStore,
+  MarkdownLspService,
+} from "$lib/features/markdown_lsp";
 import type { MetadataStore, MetadataService } from "$lib/features/metadata";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
@@ -111,8 +114,8 @@ export type ReactorContext = {
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
-  marksman_store: MarksmanStore;
-  marksman_service: MarksmanService;
+  markdown_lsp_store: MarkdownLspStore;
+  markdown_lsp_service: MarkdownLspService;
   diagnostics_store: DiagnosticsStore;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
@@ -199,7 +202,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_backlinks_sync_reactor(
       context.editor_store,
       context.ui_store,
-      context.marksman_store,
+      context.markdown_lsp_store,
       context.links_store,
       context.links_service,
     ),
@@ -288,28 +291,28 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.plugin_service,
     ),
-    create_marksman_lifecycle_reactor(
+    create_markdown_lsp_lifecycle_reactor(
       context.vault_store,
-      context.marksman_service,
+      context.markdown_lsp_service,
       context.ui_store,
-      context.marksman_store,
+      context.markdown_lsp_store,
       context.action_registry,
     ),
     create_lsp_document_sync_reactor(context.editor_store, [
       {
-        is_ready: () => context.marksman_store.status === "running",
+        is_ready: () => context.markdown_lsp_store.status === "running",
         debounce_ms: 300,
         on_open: (path, content) => {
-          void context.marksman_service
+          void context.markdown_lsp_service
             .did_open(path, content)
-            .then(() => context.marksman_service.document_symbols(path));
+            .then(() => context.markdown_lsp_service.document_symbols(path));
         },
         on_change: (path, content) =>
-          void context.marksman_service.did_change(path, content),
+          void context.markdown_lsp_service.did_change(path, content),
         on_save: (path, content) =>
-          void context.marksman_service.did_save(path, content),
+          void context.markdown_lsp_service.did_save(path, content),
         on_close: (path) =>
-          context.diagnostics_store.clear_file("marksman", path),
+          context.diagnostics_store.clear_file("markdown_lsp", path),
       },
       {
         is_ready: () => context.lint_store.is_running,

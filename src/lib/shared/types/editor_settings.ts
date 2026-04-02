@@ -133,9 +133,9 @@ export type EditorSettings = {
   lint_formatter: LintFormatter;
   lint_rules_toml: string;
   rumdl_binary_path: string;
-  marksman_enabled: boolean;
+  markdown_lsp_enabled: boolean;
   markdown_lsp_provider: MarkdownLspProvider;
-  marksman_binary_path: string;
+  markdown_lsp_binary_path: string;
   iwe_ai_provider_id: string;
   reference_enabled: boolean;
   reference_citation_style: string;
@@ -216,9 +216,9 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   lint_formatter: "prettier",
   lint_rules_toml: "",
   rumdl_binary_path: "",
-  marksman_enabled: true,
+  markdown_lsp_enabled: true,
   markdown_lsp_provider: "iwes",
-  marksman_binary_path: "",
+  markdown_lsp_binary_path: "",
   iwe_ai_provider_id: "auto",
   reference_enabled: false,
   reference_citation_style: "apa",

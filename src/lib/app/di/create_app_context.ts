@@ -53,9 +53,9 @@ import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
-import { MarksmanService } from "$lib/features/marksman";
+import { MarkdownLspService } from "$lib/features/markdown_lsp";
 import { register_lsp_actions } from "$lib/features/lsp";
-import { register_iwe_actions } from "$lib/features/marksman";
+import { register_iwe_actions } from "$lib/features/markdown_lsp";
 import {
   ToolchainService,
   register_toolchain_actions,
@@ -207,11 +207,11 @@ export function create_app_context(input: {
         note_path,
         image: file,
       }),
-    on_marksman_hover: async (file_path, line, character) => {
+    on_markdown_lsp_hover: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.marksman.status !== "running") return null;
+      if (!vault_id || stores.markdown_lsp.status !== "running") return null;
       try {
-        return await input.ports.marksman.hover(
+        return await input.ports.markdown_lsp.hover(
           vault_id,
           file_path,
           line,
@@ -221,11 +221,11 @@ export function create_app_context(input: {
         return null;
       }
     },
-    on_marksman_definition: async (file_path, line, character) => {
+    on_markdown_lsp_definition: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.marksman.status !== "running") return [];
+      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
       try {
-        return await input.ports.marksman.definition(
+        return await input.ports.markdown_lsp.definition(
           vault_id,
           file_path,
           line,
@@ -235,7 +235,7 @@ export function create_app_context(input: {
         return [];
       }
     },
-    on_marksman_definition_navigate: (uri: string) => {
+    on_markdown_lsp_definition_navigate: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
       let decoded: string;
@@ -249,13 +249,13 @@ export function create_app_context(input: {
       const relative_path = decoded.slice(prefix.length);
       void action_registry.execute(ACTION_IDS.note_open, relative_path);
     },
-    get_marksman_completion_trigger_characters: () =>
-      stores.marksman.completion_trigger_characters,
-    on_marksman_completion: async (file_path, line, character) => {
+    get_markdown_lsp_completion_trigger_characters: () =>
+      stores.markdown_lsp.completion_trigger_characters,
+    on_markdown_lsp_completion: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.marksman.status !== "running") return [];
+      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
       try {
-        return await input.ports.marksman.completion(
+        return await input.ports.markdown_lsp.completion(
           vault_id,
           file_path,
           line,
@@ -265,16 +265,16 @@ export function create_app_context(input: {
         return [];
       }
     },
-    on_marksman_inlay_hints: async (file_path) => {
+    on_markdown_lsp_inlay_hints: async (file_path) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.marksman.status !== "running") return [];
+      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
       try {
-        return await input.ports.marksman.inlay_hints(vault_id, file_path);
+        return await input.ports.markdown_lsp.inlay_hints(vault_id, file_path);
       } catch {
         return [];
       }
     },
-    on_marksman_code_actions: async (
+    on_markdown_lsp_code_actions: async (
       file_path,
       start_line,
       start_character,
@@ -282,9 +282,9 @@ export function create_app_context(input: {
       end_character,
     ) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.marksman.status !== "running") return [];
+      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
       try {
-        const actions = await input.ports.marksman.code_actions(
+        const actions = await input.ports.markdown_lsp.code_actions(
           vault_id,
           file_path,
           start_line,
@@ -292,16 +292,16 @@ export function create_app_context(input: {
           end_line,
           end_character,
         );
-        stores.marksman.set_code_actions(actions);
+        stores.markdown_lsp.set_code_actions(actions);
         return actions;
       } catch {
-        stores.marksman.set_code_actions([]);
+        stores.markdown_lsp.set_code_actions([]);
         return [];
       }
     },
-    on_marksman_code_action_resolve: (action) => {
+    on_markdown_lsp_code_action_resolve: (action) => {
       void action_registry.execute(
-        ACTION_IDS.marksman_code_action_resolve,
+        ACTION_IDS.markdown_lsp_code_action_resolve,
         action,
       );
     },
@@ -321,9 +321,9 @@ export function create_app_context(input: {
       }> = [];
 
       const vault_id = stores.vault.vault?.id;
-      if (vault_id && stores.marksman.status === "running") {
+      if (vault_id && stores.markdown_lsp.status === "running") {
         try {
-          const marksman_actions = await input.ports.marksman.code_actions(
+          const md_lsp_actions = await input.ports.markdown_lsp.code_actions(
             vault_id,
             file_path,
             start_line,
@@ -334,8 +334,8 @@ export function create_app_context(input: {
           const source =
             stores.ui.editor_settings.markdown_lsp_provider === "iwes"
               ? "IWE"
-              : "Marksman";
-          all_actions.push(...marksman_actions.map((a) => ({ ...a, source })));
+              : "Markdown LSP";
+          all_actions.push(...md_lsp_actions.map((a) => ({ ...a, source })));
         } catch {
           /* ignore */
         }
@@ -421,8 +421,8 @@ export function create_app_context(input: {
     input.ports.search,
     stores.vault,
     stores.links,
-    input.ports.marksman,
-    stores.marksman,
+    input.ports.markdown_lsp,
+    stores.markdown_lsp,
   );
 
   const hotkey_service = new HotkeyService(
@@ -514,9 +514,9 @@ export function create_app_context(input: {
   );
   code_lsp_service.start();
 
-  const marksman_service = new MarksmanService(
-    input.ports.marksman,
-    stores.marksman,
+  const markdown_lsp_service = new MarkdownLspService(
+    input.ports.markdown_lsp,
+    stores.markdown_lsp,
     stores.vault,
     stores.diagnostics,
   );
@@ -829,10 +829,10 @@ export function create_app_context(input: {
   };
 
   action_registry.register({
-    id: ACTION_IDS.marksman_code_action_resolve,
-    label: "Marksman: Resolve Code Action",
+    id: ACTION_IDS.markdown_lsp_code_action_resolve,
+    label: "Markdown LSP: Resolve Code Action",
     execute: async (action) => {
-      const result = await marksman_service.code_action_resolve(
+      const result = await markdown_lsp_service.code_action_resolve(
         (action as { raw_json: string }).raw_json,
       );
       if (result) {
@@ -850,15 +850,15 @@ export function create_app_context(input: {
     diagnostics_store: stores.diagnostics,
     ui_store: stores.ui,
     op_store: stores.op,
-    marksman_service,
+    markdown_lsp_service,
     workspace_edit_deps,
   });
 
   register_iwe_actions({
     registry: action_registry,
     editor_store: stores.editor,
-    marksman_store: stores.marksman,
-    marksman_service,
+    markdown_lsp_store: stores.markdown_lsp,
+    markdown_lsp_service,
     ui_store: stores.ui,
     workspace_edit_deps,
     command_sink: {
@@ -929,8 +929,8 @@ export function create_app_context(input: {
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
-    marksman_store: stores.marksman,
-    marksman_service,
+    markdown_lsp_store: stores.markdown_lsp,
+    markdown_lsp_service,
     diagnostics_store: stores.diagnostics,
     metadata_store: stores.metadata,
     metadata_service,
@@ -957,7 +957,7 @@ export function create_app_context(input: {
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();
-      void marksman_service.stop();
+      void markdown_lsp_service.stop();
       code_lsp_service.stop();
       toolchain_service.dispose();
     },

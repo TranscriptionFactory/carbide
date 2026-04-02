@@ -34,7 +34,7 @@ import {
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
-import { create_marksman_tauri_adapter } from "$lib/features/marksman";
+import { create_markdown_lsp_tauri_adapter } from "$lib/features/markdown_lsp";
 
 import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
@@ -102,7 +102,7 @@ export function create_prod_ports(): Ports {
     canvas,
     tag: create_tag_tauri_adapter(),
     lint: create_lint_tauri_adapter(),
-    marksman: create_marksman_tauri_adapter(),
+    markdown_lsp: create_markdown_lsp_tauri_adapter(),
 
     toolchain: create_toolchain_tauri_adapter(),
     code_lsp: create_code_lsp_tauri_adapter(),

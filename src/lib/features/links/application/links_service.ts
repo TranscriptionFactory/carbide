@@ -2,8 +2,8 @@ import type { SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
 import type { LinksStore } from "$lib/features/links/state/links_store.svelte";
 import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
-import type { MarksmanPort } from "$lib/features/marksman";
-import type { MarksmanStore } from "$lib/features/marksman";
+import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
+import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -48,8 +48,8 @@ export class LinksService {
     private readonly search_port: SearchPort,
     private readonly vault_store: VaultStore,
     private readonly links_store: LinksStore,
-    private readonly marksman_port: MarksmanPort,
-    private readonly marksman_store: MarksmanStore,
+    private readonly markdown_lsp_port: MarkdownLspPort,
+    private readonly markdown_lsp_store: MarkdownLspStore,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -84,7 +84,7 @@ export class LinksService {
 
     this.links_store.start_global_load(note_path);
 
-    if (this.marksman_store.status !== "running") {
+    if (this.markdown_lsp_store.status !== "running") {
       this.links_store.set_global_snapshot(note_path, {
         backlinks: [],
         outlinks: [],
@@ -96,7 +96,7 @@ export class LinksService {
     const vault_path = this.vault_store.vault?.path ?? "";
 
     try {
-      const locations = await this.marksman_port.references(
+      const locations = await this.markdown_lsp_port.references(
         vault_id,
         note_path,
         0,
@@ -121,7 +121,9 @@ export class LinksService {
     } catch (error) {
       if (this.is_global_request_stale(revision)) return;
       const message = error_message(error);
-      log.error("Failed to load backlinks from Marksman", { error: message });
+      log.error("Failed to load backlinks from markdown LSP", {
+        error: message,
+      });
       this.links_store.set_global_error(note_path, message);
     }
   }

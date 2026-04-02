@@ -12,11 +12,11 @@ use tokio::sync::Mutex;
 
 use super::types::*;
 
-pub struct MarksmanState {
+pub struct MarkdownLspState {
     clients: Mutex<HashMap<String, RestartableLspClient>>,
 }
 
-impl Default for MarksmanState {
+impl Default for MarkdownLspState {
     fn default() -> Self {
         Self {
             clients: Mutex::new(HashMap::new()),
@@ -24,10 +24,10 @@ impl Default for MarksmanState {
     }
 }
 
-impl MarksmanState {
+impl MarkdownLspState {
     pub async fn shutdown(&self) {
         for (id, client) in self.clients.lock().await.drain() {
-            log::info!("Stopping marksman LSP for vault {}", id);
+            log::info!("Stopping markdown LSP for vault {}", id);
             client.stop().await;
         }
     }
@@ -41,7 +41,7 @@ impl MarksmanState {
         let clients = self.clients.lock().await;
         let client = clients
             .get(vault_id)
-            .ok_or_else(|| format!("Marksman not started for vault {}", vault_id))?;
+            .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?;
         client.send_request(method, params).await.map_err(err)
     }
 
@@ -54,7 +54,7 @@ impl MarksmanState {
         let clients = self.clients.lock().await;
         let client = clients
             .get(vault_id)
-            .ok_or_else(|| format!("Marksman not started for vault {}", vault_id))?;
+            .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?;
         client.send_notification(method, params).await.map_err(err)
     }
 }
@@ -85,8 +85,8 @@ fn text_document_position(uri: &str, line: u32, character: u32) -> serde_json::V
     })
 }
 
-fn marksman_state(app: &AppHandle) -> tauri::State<'_, MarksmanState> {
-    app.state::<MarksmanState>()
+fn markdown_lsp_state(app: &AppHandle) -> tauri::State<'_, MarkdownLspState> {
+    app.state::<MarkdownLspState>()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -158,7 +158,7 @@ fn spawn_notification_forwarder(
             if notification.method == "textDocument/publishDiagnostics" {
                 if let Some((uri, diagnostics)) = parse_lsp_diagnostics(&notification.params) {
                     let _ = app.emit(
-                        "marksman_event",
+                        "markdown_lsp_event",
                         MarksmanEvent::DiagnosticsUpdated {
                             vault_id: vault_id.clone(),
                             uri,
@@ -188,7 +188,7 @@ fn spawn_status_forwarder(
                 LspSessionStatus::Failed { message } => format!("failed: {}", message),
             };
             let _ = app.emit(
-                "marksman_event",
+                "markdown_lsp_event",
                 MarksmanEvent::StatusChanged {
                     vault_id: vault_id.clone(),
                     status: status_str,
@@ -200,12 +200,12 @@ fn spawn_status_forwarder(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_start(
+pub async fn markdown_lsp_start(
     app: AppHandle,
     vault_id: String,
     provider: Option<String>,
     custom_binary_path: Option<String>,
-) -> Result<MarksmanStartResult, String> {
+) -> Result<MarkdownLspStartResult, String> {
     let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
     if vault_mode == storage::VaultMode::Browse {
         return Err("Markdown LSP is only available in vault mode".to_string());
@@ -337,19 +337,19 @@ pub async fn marksman_start(
         spawn_status_forwarder(app.clone(), vault_id.clone(), rx);
     }
 
-    let state = marksman_state(&app);
+    let state = markdown_lsp_state(&app);
     if let Some(old_client) = state.clients.lock().await.insert(vault_id, client) {
         old_client.stop().await;
     }
-    Ok(MarksmanStartResult {
+    Ok(MarkdownLspStartResult {
         completion_trigger_characters: trigger_characters,
     })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_stop(app: AppHandle, vault_id: String) -> Result<(), String> {
-    let state = marksman_state(&app);
+pub async fn markdown_lsp_stop(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let state = markdown_lsp_state(&app);
     if let Some(client) = state.clients.lock().await.remove(&vault_id) {
         client.stop().await;
     }
@@ -358,7 +358,7 @@ pub async fn marksman_stop(app: AppHandle, vault_id: String) -> Result<(), Strin
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_did_open(
+pub async fn markdown_lsp_did_open(
     app: AppHandle,
     vault_id: String,
     file_path: String,
@@ -366,7 +366,7 @@ pub async fn marksman_did_open(
 ) -> Result<(), String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    marksman_state(&app)
+    markdown_lsp_state(&app)
         .notify(
             &vault_id,
             "textDocument/didOpen",
@@ -384,7 +384,7 @@ pub async fn marksman_did_open(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_did_change(
+pub async fn markdown_lsp_did_change(
     app: AppHandle,
     vault_id: String,
     file_path: String,
@@ -393,7 +393,7 @@ pub async fn marksman_did_change(
 ) -> Result<(), String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    marksman_state(&app)
+    markdown_lsp_state(&app)
         .notify(
             &vault_id,
             "textDocument/didChange",
@@ -407,7 +407,7 @@ pub async fn marksman_did_change(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_did_save(
+pub async fn markdown_lsp_did_save(
     app: AppHandle,
     vault_id: String,
     file_path: String,
@@ -415,7 +415,7 @@ pub async fn marksman_did_save(
 ) -> Result<(), String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    marksman_state(&app)
+    markdown_lsp_state(&app)
         .notify(
             &vault_id,
             "textDocument/didSave",
@@ -429,16 +429,16 @@ pub async fn marksman_did_save(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_hover(
+pub async fn markdown_lsp_hover(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
-) -> Result<MarksmanHoverResult, String> {
+) -> Result<MarkdownLspHoverResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/hover",
@@ -452,21 +452,21 @@ pub async fn marksman_hover(
         .and_then(|v| v.as_str())
         .map(String::from);
 
-    Ok(MarksmanHoverResult { contents })
+    Ok(MarkdownLspHoverResult { contents })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_references(
+pub async fn markdown_lsp_references(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
-) -> Result<Vec<MarksmanLocation>, String> {
+) -> Result<Vec<MarkdownLspLocation>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/references",
@@ -483,16 +483,16 @@ pub async fn marksman_references(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_definition(
+pub async fn markdown_lsp_definition(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
-) -> Result<Vec<MarksmanLocation>, String> {
+) -> Result<Vec<MarkdownLspLocation>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/definition",
@@ -505,7 +505,7 @@ pub async fn marksman_definition(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_code_actions(
+pub async fn markdown_lsp_code_actions(
     app: AppHandle,
     vault_id: String,
     file_path: String,
@@ -513,10 +513,10 @@ pub async fn marksman_code_actions(
     start_character: u32,
     end_line: u32,
     end_character: u32,
-) -> Result<Vec<MarksmanCodeAction>, String> {
+) -> Result<Vec<MarkdownLspCodeAction>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/codeAction",
@@ -536,7 +536,7 @@ pub async fn marksman_code_actions(
         .unwrap_or(&vec![])
         .iter()
         .filter_map(|a| {
-            Some(MarksmanCodeAction {
+            Some(MarkdownLspCodeAction {
                 title: a.get("title")?.as_str()?.to_string(),
                 kind: a.get("kind").and_then(|k| k.as_str()).map(String::from),
                 data: a.get("data").map(|d| d.to_string()),
@@ -550,14 +550,14 @@ pub async fn marksman_code_actions(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_code_action_resolve(
+pub async fn markdown_lsp_code_action_resolve(
     app: AppHandle,
     vault_id: String,
     code_action_json: String,
-) -> Result<MarksmanWorkspaceEditResult, String> {
+) -> Result<MarkdownLspWorkspaceEditResult, String> {
     let parsed: serde_json::Value =
         serde_json::from_str(&code_action_json).map_err(|e| e.to_string())?;
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(&vault_id, "codeAction/resolve", parsed)
         .await?;
 
@@ -567,12 +567,12 @@ pub async fn marksman_code_action_resolve(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_workspace_symbols(
+pub async fn markdown_lsp_workspace_symbols(
     app: AppHandle,
     vault_id: String,
     query: String,
-) -> Result<Vec<MarksmanSymbol>, String> {
-    let result = marksman_state(&app)
+) -> Result<Vec<MarkdownLspSymbol>, String> {
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "workspace/symbol",
@@ -586,7 +586,7 @@ pub async fn marksman_workspace_symbols(
         .iter()
         .filter_map(|s| {
             let loc = s.get("location")?;
-            Some(MarksmanSymbol {
+            Some(MarkdownLspSymbol {
                 name: s.get("name")?.as_str()?.to_string(),
                 kind: s.get("kind")?.as_u64()? as u32,
                 location: parse_location_obj(loc)?,
@@ -599,17 +599,17 @@ pub async fn marksman_workspace_symbols(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_rename(
+pub async fn markdown_lsp_rename(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
     new_name: String,
-) -> Result<MarksmanWorkspaceEditResult, String> {
+) -> Result<MarkdownLspWorkspaceEditResult, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/rename",
@@ -626,16 +626,16 @@ pub async fn marksman_rename(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_prepare_rename(
+pub async fn markdown_lsp_prepare_rename(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
-) -> Result<Option<MarksmanPrepareRenameResult>, String> {
+) -> Result<Option<MarkdownLspPrepareRenameResult>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/prepareRename",
@@ -657,10 +657,10 @@ pub async fn marksman_prepare_rename(
         .unwrap_or("")
         .to_string();
 
-    Ok(Some(MarksmanPrepareRenameResult { range, placeholder }))
+    Ok(Some(MarkdownLspPrepareRenameResult { range, placeholder }))
 }
 
-fn normalize_completion_item(item: &serde_json::Value) -> Option<MarksmanCompletionItem> {
+fn normalize_completion_item(item: &serde_json::Value) -> Option<MarkdownLspCompletionItem> {
     let raw_label = item.get("label")?.as_str()?.to_string();
     let title_part = raw_label.trim().trim_start_matches("🔗").trim();
     let raw_insert = item
@@ -680,7 +680,7 @@ fn normalize_completion_item(item: &serde_json::Value) -> Option<MarksmanComplet
     } else {
         (raw_label, raw_insert)
     };
-    Some(MarksmanCompletionItem {
+    Some(MarkdownLspCompletionItem {
         label,
         detail: item
             .get("detail")
@@ -711,17 +711,17 @@ fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_completion(
+pub async fn markdown_lsp_completion(
     app: AppHandle,
     vault_id: String,
     file_path: String,
     line: u32,
     character: u32,
-) -> Result<Vec<MarksmanCompletionItem>, String> {
+) -> Result<Vec<MarkdownLspCompletionItem>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
     log::trace!("Marksman completion request uri={}", uri);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/completion",
@@ -757,14 +757,14 @@ pub async fn marksman_completion(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_formatting(
+pub async fn markdown_lsp_formatting(
     app: AppHandle,
     vault_id: String,
     file_path: String,
-) -> Result<Vec<MarksmanTextEdit>, String> {
+) -> Result<Vec<MarkdownLspTextEdit>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/formatting",
@@ -781,7 +781,7 @@ pub async fn marksman_formatting(
         .iter()
         .filter_map(|edit| {
             let range = parse_range_obj(edit.get("range")?)?;
-            Some(MarksmanTextEdit {
+            Some(MarkdownLspTextEdit {
                 range,
                 new_text: edit.get("newText")?.as_str()?.replace('\t', "    "),
             })
@@ -793,14 +793,14 @@ pub async fn marksman_formatting(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_inlay_hints(
+pub async fn markdown_lsp_inlay_hints(
     app: AppHandle,
     vault_id: String,
     file_path: String,
-) -> Result<Vec<MarksmanInlayHint>, String> {
+) -> Result<Vec<MarkdownLspInlayHint>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/inlayHint",
@@ -831,7 +831,7 @@ pub async fn marksman_inlay_hints(
             } else {
                 return None;
             };
-            Some(MarksmanInlayHint {
+            Some(MarkdownLspInlayHint {
                 position_line: pos.get("line")?.as_u64()? as u32,
                 position_character: pos.get("character")?.as_u64()? as u32,
                 label,
@@ -844,14 +844,14 @@ pub async fn marksman_inlay_hints(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn marksman_document_symbols(
+pub async fn markdown_lsp_document_symbols(
     app: AppHandle,
     vault_id: String,
     file_path: String,
-) -> Result<Vec<MarksmanDocumentSymbol>, String> {
+) -> Result<Vec<MarkdownLspDocumentSymbol>, String> {
     let vault_path = storage::vault_path(&app, &vault_id)?;
     let uri = file_uri(&vault_path, &file_path);
-    let result = marksman_state(&app)
+    let result = markdown_lsp_state(&app)
         .request(
             &vault_id,
             "textDocument/documentSymbol",
@@ -867,7 +867,7 @@ pub async fn marksman_document_symbols(
         .iter()
         .filter_map(|s| {
             let loc = s.get("location")?;
-            Some(MarksmanDocumentSymbol {
+            Some(MarkdownLspDocumentSymbol {
                 name: s.get("name")?.as_str()?.to_string(),
                 kind: s.get("kind")?.as_u64()? as u32,
                 container_name: s
@@ -882,10 +882,10 @@ pub async fn marksman_document_symbols(
     Ok(symbols)
 }
 
-fn parse_range_obj(v: &serde_json::Value) -> Option<MarksmanRange> {
+fn parse_range_obj(v: &serde_json::Value) -> Option<MarkdownLspRange> {
     let start = v.get("start")?;
     let end = v.get("end")?;
-    Some(MarksmanRange {
+    Some(MarkdownLspRange {
         start_line: start.get("line")?.as_u64()? as u32,
         start_character: start.get("character")?.as_u64()? as u32,
         end_line: end.get("line")?.as_u64()? as u32,
@@ -893,14 +893,14 @@ fn parse_range_obj(v: &serde_json::Value) -> Option<MarksmanRange> {
     })
 }
 
-fn parse_location_obj(v: &serde_json::Value) -> Option<MarksmanLocation> {
-    Some(MarksmanLocation {
+fn parse_location_obj(v: &serde_json::Value) -> Option<MarkdownLspLocation> {
+    Some(MarkdownLspLocation {
         uri: v.get("uri")?.as_str()?.to_string(),
         range: parse_range_obj(v.get("range")?)?,
     })
 }
 
-fn parse_locations(v: &serde_json::Value) -> Result<Vec<MarksmanLocation>, String> {
+fn parse_locations(v: &serde_json::Value) -> Result<Vec<MarkdownLspLocation>, String> {
     if v.is_null() {
         return Ok(vec![]);
     }
@@ -944,8 +944,8 @@ fn percent_decode(s: &str) -> String {
 async fn apply_workspace_edit(
     _vault_path: &std::path::Path,
     edit_response: &serde_json::Value,
-) -> Result<MarksmanWorkspaceEditResult, String> {
-    let mut result = MarksmanWorkspaceEditResult {
+) -> Result<MarkdownLspWorkspaceEditResult, String> {
+    let mut result = MarkdownLspWorkspaceEditResult {
         files_created: vec![],
         files_deleted: vec![],
         files_modified: vec![],

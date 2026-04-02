@@ -3,7 +3,7 @@ import type { NoteService } from "$lib/features/note";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { TabStore, TabService } from "$lib/features/tab";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
-import type { MarksmanWorkspaceEditResult } from "$lib/features/marksman";
+import type { MarkdownLspWorkspaceEditResult } from "$lib/features/markdown_lsp";
 import type { WatcherService } from "$lib/features/watcher";
 import {
   reconcile_workspace,
@@ -30,7 +30,7 @@ export type WorkspaceEditDeps = {
 };
 
 export async function apply_workspace_edit_result(
-  result: MarksmanWorkspaceEditResult,
+  result: MarkdownLspWorkspaceEditResult,
   deps: WorkspaceEditDeps,
 ): Promise<void> {
   const {

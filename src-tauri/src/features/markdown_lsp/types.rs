@@ -2,12 +2,12 @@ use serde::Serialize;
 use specta::Type;
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanHoverResult {
+pub struct MarkdownLspHoverResult {
     pub contents: Option<String>,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanRange {
+pub struct MarkdownLspRange {
     pub start_line: u32,
     pub start_character: u32,
     pub end_line: u32,
@@ -15,13 +15,13 @@ pub struct MarksmanRange {
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanLocation {
+pub struct MarkdownLspLocation {
     pub uri: String,
-    pub range: MarksmanRange,
+    pub range: MarkdownLspRange,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanCodeAction {
+pub struct MarkdownLspCodeAction {
     pub title: String,
     pub kind: Option<String>,
     pub data: Option<String>,
@@ -29,35 +29,35 @@ pub struct MarksmanCodeAction {
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanCompletionItem {
+pub struct MarkdownLspCompletionItem {
     pub label: String,
     pub detail: Option<String>,
     pub insert_text: Option<String>,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanSymbol {
+pub struct MarkdownLspSymbol {
     pub name: String,
     pub kind: u32,
-    pub location: MarksmanLocation,
+    pub location: MarkdownLspLocation,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanDocumentSymbol {
+pub struct MarkdownLspDocumentSymbol {
     pub name: String,
     pub kind: u32,
     pub container_name: Option<String>,
-    pub location: MarksmanLocation,
+    pub location: MarkdownLspLocation,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanTextEdit {
-    pub range: MarksmanRange,
+pub struct MarkdownLspTextEdit {
+    pub range: MarkdownLspRange,
     pub new_text: String,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanWorkspaceEditResult {
+pub struct MarkdownLspWorkspaceEditResult {
     pub files_created: Vec<String>,
     pub files_deleted: Vec<String>,
     pub files_modified: Vec<String>,
@@ -65,20 +65,20 @@ pub struct MarksmanWorkspaceEditResult {
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanPrepareRenameResult {
-    pub range: MarksmanRange,
+pub struct MarkdownLspPrepareRenameResult {
+    pub range: MarkdownLspRange,
     pub placeholder: String,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanInlayHint {
+pub struct MarkdownLspInlayHint {
     pub position_line: u32,
     pub position_character: u32,
     pub label: String,
 }
 
 #[derive(Debug, Serialize, Type)]
-pub struct MarksmanStartResult {
+pub struct MarkdownLspStartResult {
     pub completion_trigger_characters: Vec<String>,
 }
 

@@ -1,27 +1,27 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
-  MarksmanCodeAction,
-  MarksmanCompletionItem,
-  MarksmanDiagnosticsEvent,
-  MarksmanDocumentSymbol,
-  MarksmanHoverResult,
-  MarksmanInlayHint,
-  MarksmanLocation,
-  MarksmanPrepareRenameResult,
-  MarksmanStartResult,
-  MarksmanStatusEvent,
-  MarksmanSymbol,
-  MarksmanTextEdit,
-  MarksmanWorkspaceEditResult,
-} from "$lib/features/marksman/types";
+  MarkdownLspCodeAction,
+  MarkdownLspCompletionItem,
+  MarkdownLspDiagnosticsEvent,
+  MarkdownLspDocumentSymbol,
+  MarkdownLspHoverResult,
+  MarkdownLspInlayHint,
+  MarkdownLspLocation,
+  MarkdownLspPrepareRenameResult,
+  MarkdownLspStartResult,
+  MarkdownLspStatusEvent,
+  MarkdownLspSymbol,
+  MarkdownLspTextEdit,
+  MarkdownLspWorkspaceEditResult,
+} from "$lib/features/markdown_lsp/types";
 
-export interface MarksmanPort {
+export interface MarkdownLspPort {
   start(
     vault_id: string,
     provider?: string,
     custom_binary_path?: string,
-  ): Promise<MarksmanStartResult>;
+  ): Promise<MarkdownLspStartResult>;
   stop(vault_id: string): Promise<void>;
 
   did_open(vault_id: string, file_path: string, content: string): Promise<void>;
@@ -38,19 +38,19 @@ export interface MarksmanPort {
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanHoverResult>;
+  ): Promise<MarkdownLspHoverResult>;
   references(
     vault_id: string,
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanLocation[]>;
+  ): Promise<MarkdownLspLocation[]>;
   definition(
     vault_id: string,
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanLocation[]>;
+  ): Promise<MarkdownLspLocation[]>;
   code_actions(
     vault_id: string,
     file_path: string,
@@ -58,44 +58,52 @@ export interface MarksmanPort {
     start_character: number,
     end_line: number,
     end_character: number,
-  ): Promise<MarksmanCodeAction[]>;
+  ): Promise<MarkdownLspCodeAction[]>;
   code_action_resolve(
     vault_id: string,
     code_action_json: string,
-  ): Promise<MarksmanWorkspaceEditResult>;
-  workspace_symbols(vault_id: string, query: string): Promise<MarksmanSymbol[]>;
+  ): Promise<MarkdownLspWorkspaceEditResult>;
+  workspace_symbols(
+    vault_id: string,
+    query: string,
+  ): Promise<MarkdownLspSymbol[]>;
   rename(
     vault_id: string,
     file_path: string,
     line: number,
     character: number,
     new_name: string,
-  ): Promise<MarksmanWorkspaceEditResult>;
+  ): Promise<MarkdownLspWorkspaceEditResult>;
   prepare_rename(
     vault_id: string,
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanPrepareRenameResult | null>;
+  ): Promise<MarkdownLspPrepareRenameResult | null>;
   completion(
     vault_id: string,
     file_path: string,
     line: number,
     character: number,
-  ): Promise<MarksmanCompletionItem[]>;
-  formatting(vault_id: string, file_path: string): Promise<MarksmanTextEdit[]>;
+  ): Promise<MarkdownLspCompletionItem[]>;
+  formatting(
+    vault_id: string,
+    file_path: string,
+  ): Promise<MarkdownLspTextEdit[]>;
   inlay_hints(
     vault_id: string,
     file_path: string,
-  ): Promise<MarksmanInlayHint[]>;
+  ): Promise<MarkdownLspInlayHint[]>;
   document_symbols(
     vault_id: string,
     file_path: string,
-  ): Promise<MarksmanDocumentSymbol[]>;
+  ): Promise<MarkdownLspDocumentSymbol[]>;
   subscribe_diagnostics(
-    callback: (event: MarksmanDiagnosticsEvent) => void,
+    callback: (event: MarkdownLspDiagnosticsEvent) => void,
   ): () => void;
-  subscribe_status(callback: (event: MarksmanStatusEvent) => void): () => void;
+  subscribe_status(
+    callback: (event: MarkdownLspStatusEvent) => void,
+  ): () => void;
 
   iwe_config_status(vault_id: string): Promise<IweConfigStatus>;
   iwe_config_reset(vault_id: string): Promise<void>;

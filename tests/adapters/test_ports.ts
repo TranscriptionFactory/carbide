@@ -109,7 +109,7 @@ export function create_test_ports(): Ports {
       get_status: () => Promise.resolve("stopped" as const),
       subscribe_events: () => () => {},
     },
-    marksman: {
+    markdown_lsp: {
       start: () => Promise.resolve({ completion_trigger_characters: [] }),
       stop: () => Promise.resolve(),
       did_open: () => Promise.resolve(),

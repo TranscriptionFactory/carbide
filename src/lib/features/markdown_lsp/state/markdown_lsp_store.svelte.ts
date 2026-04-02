@@ -1,30 +1,30 @@
 import type {
   IweActionInfo,
-  MarksmanCodeAction,
-  MarksmanCompletionItem,
-  MarksmanDocumentSymbol,
-  MarksmanHoverResult,
-  MarksmanInlayHint,
-  MarksmanLocation,
-  MarksmanStatus,
-  MarksmanSymbol,
-} from "$lib/features/marksman/types";
+  MarkdownLspCodeAction,
+  MarkdownLspCompletionItem,
+  MarkdownLspDocumentSymbol,
+  MarkdownLspHoverResult,
+  MarkdownLspInlayHint,
+  MarkdownLspLocation,
+  MarkdownLspStatus,
+  MarkdownLspSymbol,
+} from "$lib/features/markdown_lsp/types";
 
-export class MarksmanStore {
-  status = $state<MarksmanStatus>("idle");
-  last_hover = $state<MarksmanHoverResult | null>(null);
-  references = $state<MarksmanLocation[]>([]);
-  code_actions = $state<MarksmanCodeAction[]>([]);
-  symbols = $state<MarksmanSymbol[]>([]);
-  completions = $state<MarksmanCompletionItem[]>([]);
-  inlay_hints = $state<MarksmanInlayHint[]>([]);
-  document_symbols = $state<MarksmanDocumentSymbol[]>([]);
+export class MarkdownLspStore {
+  status = $state<MarkdownLspStatus>("idle");
+  last_hover = $state<MarkdownLspHoverResult | null>(null);
+  references = $state<MarkdownLspLocation[]>([]);
+  code_actions = $state<MarkdownLspCodeAction[]>([]);
+  symbols = $state<MarkdownLspSymbol[]>([]);
+  completions = $state<MarkdownLspCompletionItem[]>([]);
+  inlay_hints = $state<MarkdownLspInlayHint[]>([]);
+  document_symbols = $state<MarkdownLspDocumentSymbol[]>([]);
   completion_trigger_characters = $state<string[]>([]);
   transform_actions = $state<IweActionInfo[]>([]);
   error = $state<string | null>(null);
   loading = $state(false);
 
-  set_status(status: MarksmanStatus) {
+  set_status(status: MarkdownLspStatus) {
     this.status = status;
     if (status !== "error") {
       this.error = null;
@@ -36,31 +36,31 @@ export class MarksmanStore {
     this.status = "error";
   }
 
-  set_hover(result: MarksmanHoverResult | null) {
+  set_hover(result: MarkdownLspHoverResult | null) {
     this.last_hover = result;
   }
 
-  set_references(refs: MarksmanLocation[]) {
+  set_references(refs: MarkdownLspLocation[]) {
     this.references = refs;
   }
 
-  set_code_actions(actions: MarksmanCodeAction[]) {
+  set_code_actions(actions: MarkdownLspCodeAction[]) {
     this.code_actions = actions;
   }
 
-  set_symbols(symbols: MarksmanSymbol[]) {
+  set_symbols(symbols: MarkdownLspSymbol[]) {
     this.symbols = symbols;
   }
 
-  set_completions(items: MarksmanCompletionItem[]) {
+  set_completions(items: MarkdownLspCompletionItem[]) {
     this.completions = items;
   }
 
-  set_inlay_hints(hints: MarksmanInlayHint[]) {
+  set_inlay_hints(hints: MarkdownLspInlayHint[]) {
     this.inlay_hints = hints;
   }
 
-  set_document_symbols(symbols: MarksmanDocumentSymbol[]) {
+  set_document_symbols(symbols: MarkdownLspDocumentSymbol[]) {
     this.document_symbols = symbols;
   }
 
