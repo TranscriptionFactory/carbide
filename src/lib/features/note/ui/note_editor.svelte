@@ -108,7 +108,7 @@
               on_selection_change={(selection) =>
                 stores.editor.set_selection(open_note.meta.id, selection)}
               on_outline_change={(headings) =>
-                stores.outline?.set_headings(headings)}
+                stores.outline?.set_headings(headings, open_note.meta.path)}
               on_destroy={(state) => {
                 stores.editor.set_cursor_offset(state.cursor_offset);
                 stores.editor.set_scroll_fraction(state.scroll_fraction);
@@ -155,7 +155,7 @@
             on_selection_change={(selection) =>
               stores.editor.set_selection(open_note.meta.id, selection)}
             on_outline_change={(headings) =>
-              stores.outline?.set_headings(headings)}
+              stores.outline?.set_headings(headings, open_note.meta.path)}
             on_destroy={(state) => {
               stores.editor.set_cursor_offset(state.cursor_offset);
               stores.editor.set_scroll_fraction(state.scroll_fraction);
