@@ -225,6 +225,7 @@ export class UIStore {
   selected_items = $state(new SvelteSet<string>());
   selection_anchor = $state<string | null>(null);
   editor_settings = $state<EditorSettings>({ ...DEFAULT_EDITOR_SETTINGS });
+  editor_settings_loaded = $state(false);
   system_dialog_open = $state(false);
   recent_command_ids = $state<string[]>([]);
 
@@ -527,6 +528,7 @@ export class UIStore {
 
   set_editor_settings(settings: EditorSettings) {
     this.editor_settings = settings;
+    this.editor_settings_loaded = true;
   }
 
   set_system_dialog_open(open: boolean) {
@@ -577,5 +579,6 @@ export class UIStore {
     this.zen_mode = false;
     this.context_rail_open = false;
     this.context_rail_tab = "links";
+    this.editor_settings_loaded = false;
   }
 }

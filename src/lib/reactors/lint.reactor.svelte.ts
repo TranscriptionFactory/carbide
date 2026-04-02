@@ -24,6 +24,9 @@ export function create_lint_reactor(
         return;
       }
 
+      const settings_loaded = ui_store.editor_settings_loaded;
+      if (!settings_loaded) return;
+
       const lint_enabled = ui_store.editor_settings.lint_enabled;
       if (!lint_enabled) {
         void lint_service.stop();

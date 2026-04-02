@@ -26,6 +26,9 @@ export function create_marksman_lifecycle_reactor(
     $effect(() => {
       const vault_id = vault_store.active_vault_id;
       const is_vault_mode = vault_store.is_vault_mode;
+      const settings_loaded = ui_store.editor_settings_loaded;
+      if (!settings_loaded) return;
+
       const enabled = ui_store.editor_settings.marksman_enabled;
       const provider = ui_store.editor_settings.markdown_lsp_provider;
       const custom_path = ui_store.editor_settings.marksman_binary_path;
@@ -74,6 +77,9 @@ export function create_marksman_lifecycle_reactor(
     }
 
     $effect(() => {
+      const settings_loaded = ui_store.editor_settings_loaded;
+      if (!settings_loaded) return;
+
       const lsp_provider = ui_store.editor_settings.markdown_lsp_provider;
       if (lsp_provider !== "iwes") return;
 
