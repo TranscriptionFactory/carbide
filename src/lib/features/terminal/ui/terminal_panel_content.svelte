@@ -174,8 +174,8 @@
     align-items: center;
     justify-content: space-between;
     min-height: var(--size-touch-md, 32px);
-    padding-inline: var(--space-3);
-    gap: var(--space-2);
+    padding-inline: var(--space-1);
+    gap: var(--space-1);
     flex-shrink: 0;
     background: var(--sidebar);
     border-block-end: 1px solid var(--border);
@@ -215,7 +215,7 @@
     align-items: center;
     gap: var(--space-1, 4px);
     min-height: 38px;
-    padding: var(--space-2, 8px);
+    padding: var(--space-1);
     overflow-x: auto;
     border-block-end: 1px solid var(--border);
     background: color-mix(in srgb, var(--sidebar) 88%, black);
@@ -224,10 +224,10 @@
   .TerminalPanel__tab {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2, 8px);
+    gap: var(--space-1);
     min-width: 0;
     max-width: 220px;
-    padding-inline: var(--space-2, 8px);
+    padding-inline: var(--space-1);
     height: 30px;
     border-radius: var(--radius-sm);
     border: 1px solid transparent;
@@ -252,7 +252,7 @@
   .TerminalPanel__tabButton {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2, 8px);
+    gap: var(--space-1);
     min-width: 0;
     flex: 1;
     height: 100%;
