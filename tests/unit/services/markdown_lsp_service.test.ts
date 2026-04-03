@@ -8,6 +8,7 @@ import type {
   MarkdownLspDiagnosticsEvent,
   MarkdownLspStatusEvent,
 } from "$lib/features/markdown_lsp/types";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_vault } from "../helpers/test_fixtures";
 
 function create_mock_port() {
@@ -79,6 +80,17 @@ function create_mock_port() {
 }
 
 describe("MarkdownLspService", () => {
+  const iwe_provider_config: AiProviderConfig = {
+    id: "claude",
+    name: "Claude Code",
+    transport: {
+      kind: "cli",
+      command: "claude",
+      args: ["-p", "{prompt}"],
+    },
+    model: "sonnet",
+  };
+
   it("replaces existing listeners before subscribing again", async () => {
     const { port } = create_mock_port();
     const diagnostics_unsubscribe_1 = vi.fn();
@@ -147,5 +159,54 @@ describe("MarkdownLspService", () => {
 
     expect(store.status).toBe("error");
     expect(store.error).toBe("failed: right vault");
+  });
+
+  it("passes startup reason and initial IWE provider config to the port", async () => {
+    const { port } = create_mock_port();
+    const store = new MarkdownLspStore();
+    const diagnostics_store = new DiagnosticsStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new MarkdownLspService(
+      port,
+      store,
+      vault_store,
+      diagnostics_store,
+    );
+
+    await service.start("iwes", undefined, {
+      reason: "lazy_open_note",
+      initial_iwe_provider_config: iwe_provider_config,
+    });
+
+    expect(port.start).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      "iwes",
+      undefined,
+      "lazy_open_note",
+      iwe_provider_config,
+    );
+  });
+
+  it("does not restart after rewriting config when the LSP is idle", async () => {
+    const { port } = create_mock_port();
+    const store = new MarkdownLspStore();
+    const diagnostics_store = new DiagnosticsStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new MarkdownLspService(
+      port,
+      store,
+      vault_store,
+      diagnostics_store,
+    );
+
+    await service.rewrite_provider_and_restart(iwe_provider_config);
+
+    expect(port.iwe_config_rewrite_provider).toHaveBeenCalledOnce();
+    expect(port.stop).not.toHaveBeenCalled();
+    expect(port.start).not.toHaveBeenCalled();
   });
 });

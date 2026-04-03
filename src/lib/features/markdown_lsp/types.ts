@@ -39,6 +39,12 @@ export type MarkdownLspStartResult = {
   effective_provider: string;
 };
 
+export type MarkdownLspStartReason =
+  | "initial_start"
+  | "lazy_open_note"
+  | "explicit_restart"
+  | "explicit_action";
+
 export type MarkdownLspSymbol = {
   name: string;
   kind: number;

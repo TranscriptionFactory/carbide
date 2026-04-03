@@ -7,6 +7,7 @@ import type {
   MarkdownLspCodeAction,
   MarkdownLspDiagnosticsEvent,
   MarkdownLspPrepareRenameResult,
+  MarkdownLspStartReason,
   MarkdownLspStartResult,
   MarkdownLspStatusEvent,
   MarkdownLspTextEdit,
@@ -65,12 +66,17 @@ export class MarkdownLspService {
   async start(
     provider?: string,
     custom_binary_path?: string,
+    options?: {
+      reason?: MarkdownLspStartReason;
+      initial_iwe_provider_config?: AiProviderConfig;
+    },
   ): Promise<MarkdownLspStartResult | null> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return null;
 
     this.last_provider = provider;
     this.last_custom_binary_path = custom_binary_path;
+    const startup_reason = options?.reason ?? "initial_start";
 
     return this.run_lifecycle(async () => {
       this.store.set_status("starting");
@@ -91,12 +97,19 @@ export class MarkdownLspService {
           vault_id,
           provider,
           custom_binary_path || undefined,
+          startup_reason,
+          options?.initial_iwe_provider_config,
         );
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
         this.active_vault_id = vault_id;
         this.store.set_status("running");
+        log.info("Markdown LSP started", {
+          startup_reason,
+          requested_provider: provider ?? "iwes",
+          effective_provider: result.effective_provider,
+        });
         return result;
       } catch (e) {
         this.unsubscribe_all();
@@ -109,7 +122,9 @@ export class MarkdownLspService {
 
   async restart(): Promise<void> {
     await this.stop();
-    await this.start(this.last_provider, this.last_custom_binary_path);
+    await this.start(this.last_provider, this.last_custom_binary_path, {
+      reason: "explicit_restart",
+    });
   }
 
   async stop(): Promise<void> {
@@ -580,10 +595,28 @@ export class MarkdownLspService {
   ): Promise<void> {
     const ok = await this.iwe_config_rewrite_provider(provider_config);
     if (!ok) return;
+    if (this.store.status !== "running") {
+      log.info("Rewrote IWE config without restart because LSP is idle", {
+        provider: provider_config.name,
+      });
+      return;
+    }
     log.info("Rewrote IWE config, restarting LSP", {
       provider: provider_config.name,
     });
     await this.restart();
+  }
+
+  async ensure_started(
+    provider?: string,
+    custom_binary_path?: string,
+    options?: {
+      reason?: MarkdownLspStartReason;
+      initial_iwe_provider_config?: AiProviderConfig;
+    },
+  ): Promise<MarkdownLspStartResult | null> {
+    if (this.store.status === "running") return null;
+    return this.start(provider, custom_binary_path, options);
   }
 
   private run_lifecycle<T>(operation: () => Promise<T>): Promise<T> {

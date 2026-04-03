@@ -22,11 +22,19 @@ import type {
 
 export function create_markdown_lsp_tauri_adapter(): MarkdownLspPort {
   return {
-    start: (vault_id, provider, custom_binary_path) =>
+    start: (
+      vault_id,
+      provider,
+      custom_binary_path,
+      startup_reason,
+      initial_iwe_provider_config,
+    ) =>
       tauri_invoke<MarkdownLspStartResult>("markdown_lsp_start", {
         vaultId: vault_id,
         provider: provider ?? null,
         customBinaryPath: custom_binary_path ?? null,
+        startupReason: startup_reason ?? null,
+        initialIweProviderConfig: initial_iwe_provider_config ?? null,
       }),
 
     stop: (vault_id) =>
