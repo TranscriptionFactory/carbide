@@ -121,6 +121,8 @@ export function create_markdown_lsp_lifecycle_reactor(
     });
 
     if (markdown_lsp_store && action_registry) {
+      let refresh_timer: ReturnType<typeof setTimeout> | null = null;
+      let refresh_in_flight = false;
       $effect(() => {
         const settings_loaded = ui_store.editor_settings_loaded;
         if (!settings_loaded) return;
@@ -130,11 +132,19 @@ export function create_markdown_lsp_lifecycle_reactor(
         const vault_id = vault_store.active_vault_id;
         if (!vault_id || !enabled || provider !== "iwes") return;
 
-        void action_registry
-          .execute("iwe.refresh_transforms")
-          .catch((error: unknown) => {
-            log.from_error("Failed to refresh IWE transforms", error);
-          });
+        if (refresh_timer) clearTimeout(refresh_timer);
+        refresh_timer = setTimeout(() => {
+          if (refresh_in_flight) return;
+          refresh_in_flight = true;
+          void action_registry
+            .execute("iwe.refresh_transforms")
+            .catch((error: unknown) => {
+              log.from_error("Failed to refresh IWE transforms", error);
+            })
+            .finally(() => {
+              refresh_in_flight = false;
+            });
+        }, 500);
       });
     }
   });
