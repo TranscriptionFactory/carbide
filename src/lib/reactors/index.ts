@@ -293,6 +293,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
     create_markdown_lsp_lifecycle_reactor(
       context.vault_store,
+      context.editor_store,
       context.markdown_lsp_service,
       context.ui_store,
       context.markdown_lsp_store,

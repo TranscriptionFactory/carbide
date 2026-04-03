@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
@@ -134,6 +135,7 @@ fn validate_iwe_working_dir(vault_path: &Path) -> Result<(), String> {
 }
 
 async fn preflight_iwe_startup(vault_path: &Path, binary_path: &Path) -> Result<(), String> {
+    let started_at = Instant::now();
     validate_iwe_working_dir(vault_path)?;
     let mut child = tokio::process::Command::new(binary_path)
         .current_dir(vault_path)
@@ -144,6 +146,10 @@ async fn preflight_iwe_startup(vault_path: &Path, binary_path: &Path) -> Result<
         .map_err(|e| format!("IWE process startup failed: {}", e))?;
     let _ = child.start_kill();
     let _ = child.wait().await;
+    log::info!(
+        "markdown_lsp_startup phase=preflight_iwe_startup duration_ms={}",
+        started_at.elapsed().as_millis()
+    );
     Ok(())
 }
 
@@ -344,7 +350,10 @@ pub async fn markdown_lsp_start(
     vault_id: String,
     provider: Option<String>,
     custom_binary_path: Option<String>,
+    startup_reason: Option<String>,
+    initial_iwe_provider_config: Option<AiProviderConfig>,
 ) -> Result<MarkdownLspStartResult, String> {
+    let startup_started_at = Instant::now();
     let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
     if vault_mode == storage::VaultMode::Browse {
         return Err("Markdown LSP is only available in vault mode".to_string());
@@ -357,12 +366,38 @@ pub async fn markdown_lsp_start(
 
     let custom_ref = custom_binary_path.as_deref();
     let preferred = provider.as_deref().unwrap_or("iwes");
+    let startup_reason = startup_reason.unwrap_or_else(|| "initial_start".to_string());
+    let resolution_started_at = Instant::now();
     let startup =
         resolve_markdown_lsp_startup(&app, preferred, custom_ref, &vault_path).await?;
+    log::info!(
+        "markdown_lsp_startup phase=resolve_startup startup_reason={} requested_provider={} effective_provider={} duration_ms={}",
+        startup_reason,
+        preferred,
+        startup.effective_provider.as_str(),
+        resolution_started_at.elapsed().as_millis()
+    );
     let effective_provider = startup.effective_provider;
 
     if matches!(effective_provider, MarkdownLspProvider::Iwes) {
+        let config_started_at = Instant::now();
         ensure_iwe_config(&app, &vault_path).await?;
+        log::info!(
+            "markdown_lsp_startup phase=ensure_iwe_config startup_reason={} duration_ms={}",
+            startup_reason,
+            config_started_at.elapsed().as_millis()
+        );
+        if let Some(provider_config) = initial_iwe_provider_config.as_ref() {
+            let rewrite_started_at = Instant::now();
+            iwe_config_rewrite_provider(app.clone(), vault_id.clone(), provider_config.clone())
+                .await?;
+            log::info!(
+                "markdown_lsp_startup phase=initial_config_rewrite startup_reason={} provider={} duration_ms={}",
+                startup_reason,
+                provider_config.name,
+                rewrite_started_at.elapsed().as_millis()
+            );
+        }
     }
 
     let config = LspClientConfig {
@@ -429,9 +464,16 @@ pub async fn markdown_lsp_start(
         old.stop().await;
     }
 
+    let spawn_started_at = Instant::now();
     let mut client = RestartableLspClient::start(RestartableConfig::new(config))
         .await
         .map_err(err)?;
+    log::info!(
+        "markdown_lsp_startup phase=lsp_initialize_completed startup_reason={} effective_provider={} duration_ms={}",
+        startup_reason,
+        effective_provider.as_str(),
+        spawn_started_at.elapsed().as_millis()
+    );
 
     let trigger_characters = effective_provider.completion_trigger_characters();
 
@@ -444,6 +486,12 @@ pub async fn markdown_lsp_start(
     }
 
     state.clients.lock().await.insert(vault_id, client);
+    log::info!(
+        "markdown_lsp_startup phase=complete startup_reason={} effective_provider={} total_duration_ms={}",
+        startup_reason,
+        effective_provider.as_str(),
+        startup_started_at.elapsed().as_millis()
+    );
     Ok(MarkdownLspStartResult {
         completion_trigger_characters: trigger_characters,
         effective_provider: effective_provider.as_str().to_string(),

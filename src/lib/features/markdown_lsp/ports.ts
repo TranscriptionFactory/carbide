@@ -9,6 +9,7 @@ import type {
   MarkdownLspInlayHint,
   MarkdownLspLocation,
   MarkdownLspPrepareRenameResult,
+  MarkdownLspStartReason,
   MarkdownLspStartResult,
   MarkdownLspStatusEvent,
   MarkdownLspSymbol,
@@ -21,6 +22,8 @@ export interface MarkdownLspPort {
     vault_id: string,
     provider?: string,
     custom_binary_path?: string,
+    startup_reason?: MarkdownLspStartReason,
+    initial_iwe_provider_config?: AiProviderConfig,
   ): Promise<MarkdownLspStartResult>;
   stop(vault_id: string): Promise<void>;
 

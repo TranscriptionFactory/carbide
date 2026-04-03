@@ -56,12 +56,16 @@ function make_structural_executor(deps: IweActionDeps) {
       markdown_lsp_service,
       workspace_edit_deps,
     } = deps;
-    if (markdown_lsp_store.status !== "running") return;
     if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
 
     const open_note = editor_store.open_note;
     const cursor = editor_store.cursor;
     if (!open_note || !cursor) return;
+
+    await markdown_lsp_service.ensure_started("iwes", undefined, {
+      reason: "explicit_action",
+    });
+    if (markdown_lsp_store.status !== "running") return;
 
     const kind = IWE_ACTION_KINDS[action_id];
     if (!kind) return;
@@ -110,12 +114,16 @@ function make_transform_executor(deps: IweActionDeps) {
       markdown_lsp_service,
       workspace_edit_deps,
     } = deps;
-    if (markdown_lsp_store.status !== "running") return;
     if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
 
     const open_note = editor_store.open_note;
     const cursor = editor_store.cursor;
     if (!open_note || !cursor) return;
+
+    await markdown_lsp_service.ensure_started("iwes", undefined, {
+      reason: "explicit_action",
+    });
+    if (markdown_lsp_store.status !== "running") return;
 
     const kind = `custom.${action_name}`;
     const line = cursor.line - 1;

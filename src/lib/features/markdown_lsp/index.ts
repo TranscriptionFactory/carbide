@@ -17,6 +17,7 @@ export type {
   MarkdownLspLocation,
   MarkdownLspCodeAction,
   MarkdownLspCompletionItem,
+  MarkdownLspStartReason,
   MarkdownLspStartResult,
   MarkdownLspSymbol,
   MarkdownLspTextEdit,
