@@ -44,6 +44,7 @@ export function create_lsp_inlay_hints_plugin(input: {
   on_inlay_hints: () => Promise<MarkdownLspInlayHint[]>;
 }): Plugin {
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
+  let fetch_in_flight = false;
 
   return new Plugin({
     key: lsp_inlay_hints_plugin_key,
@@ -75,13 +76,17 @@ export function create_lsp_inlay_hints_plugin(input: {
 
       return {
         update(view, prev_state: EditorState) {
-          if (view.state.doc === prev_state.doc) return;
-          if (debounce_timer) clearTimeout(debounce_timer);
-          debounce_timer = setTimeout(() => {
-            void input.on_inlay_hints().then((hints) => {
-              apply_hints(view, hints);
-            });
-          }, 1000);
+          if (!view.state.doc.eq(prev_state.doc)) {
+            if (debounce_timer) clearTimeout(debounce_timer);
+            debounce_timer = setTimeout(() => {
+              if (fetch_in_flight) return;
+              fetch_in_flight = true;
+              void input.on_inlay_hints().then((hints) => {
+                fetch_in_flight = false;
+                apply_hints(view, hints);
+              });
+            }, 1000);
+          }
         },
         destroy() {
           if (debounce_timer) clearTimeout(debounce_timer);

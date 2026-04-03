@@ -210,6 +210,7 @@ async fn lsp_run_loop(
     let notification_tx_clone = notification_tx;
     let (reader_stop_tx, mut reader_stop_rx) = oneshot::channel::<()>();
 
+    let stdin_clone = stdin.clone();
     let reader_handle = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -217,7 +218,7 @@ async fn lsp_run_loop(
                 msg = read_lsp_message(&mut stdout_reader) => {
                     match msg {
                         Ok(Some(message)) => {
-                            dispatch_message(message, &pending_clone, &notification_tx_clone).await;
+                            dispatch_message(message, &pending_clone, &notification_tx_clone, &stdin_clone).await;
                         }
                         Ok(None) => break,
                         Err(e) => {
@@ -282,8 +283,40 @@ async fn dispatch_message(
     message: serde_json::Value,
     pending: &Arc<Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>>,
     notification_tx: &mpsc::Sender<ServerNotification>,
+    stdin: &Arc<Mutex<tokio::process::ChildStdin>>,
 ) {
-    if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
+    let has_method = message.get("method").is_some();
+    let has_id = message.get("id").is_some();
+
+    if has_id && has_method {
+        // Server→client request (e.g. workspace/inlayHint/refresh).
+        // LSP spec requires a response. Send null result to acknowledge.
+        let id_value = message.get("id").cloned().unwrap();
+        let method = message
+            .get("method")
+            .and_then(|m| m.as_str())
+            .unwrap_or("unknown");
+        log::debug!("LSP server request: {} (id={id_value})", method);
+
+        let response =
+            serde_json::json!({ "jsonrpc": "2.0", "id": id_value, "result": null });
+        if let Err(e) = write_lsp_message(stdin, &response).await {
+            log::warn!("Failed to respond to server request {}: {}", method, e);
+        }
+
+        // Also forward as notification so the frontend can react
+        let params = message
+            .get("params")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let _ = notification_tx
+            .send(ServerNotification {
+                method: method.to_string(),
+                params,
+            })
+            .await;
+    } else if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
+        // Response to a client→server request
         let mut pending = pending.lock().await;
         if let Some(tx) = pending.remove(&id) {
             if let Some(error) = message.get("error") {
@@ -317,6 +350,7 @@ async fn dispatch_message(
             }
         }
     } else if let Some(method) = message.get("method").and_then(|m| m.as_str()) {
+        // Pure notification (no id)
         let params = message
             .get("params")
             .cloned()
