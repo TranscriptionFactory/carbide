@@ -214,7 +214,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-1, 4px);
-    min-height: 38px;
+    min-height: 32px;
     padding: var(--space-1);
     overflow-x: auto;
     border-block-end: 1px solid var(--border);
@@ -228,7 +228,7 @@
     min-width: 0;
     max-width: 220px;
     padding-inline: var(--space-1);
-    height: 30px;
+    height: 26px;
     border-radius: var(--radius-sm);
     border: 1px solid transparent;
     background: transparent;
@@ -294,14 +294,14 @@
   }
 
   :global(.TerminalPanel__tabCloseButton) {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     color: inherit;
   }
 
   :global(.TerminalPanel__tabCloseIcon) {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
   }
 
   .TerminalPanel__sessions {
