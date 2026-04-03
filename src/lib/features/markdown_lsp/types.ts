@@ -36,6 +36,7 @@ export type MarkdownLspCompletionItem = {
 
 export type MarkdownLspStartResult = {
   completion_trigger_characters: string[];
+  effective_provider: string;
 };
 
 export type MarkdownLspSymbol = {

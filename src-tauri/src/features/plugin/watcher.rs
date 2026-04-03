@@ -84,6 +84,16 @@ pub fn watch_plugins(
     stop_active_runtime(&state)?;
 
     let plugins_root = Path::new(&vault_path).join(".carbide").join("plugins");
+    if !plugins_root.exists() {
+        log::debug!(
+            "Plugin watcher skipped for vault_path={} because plugins dir is missing",
+            vault_path
+        );
+        if let Ok(mut current) = state.current_vault_path.lock() {
+            *current = Some(vault_path);
+        }
+        return Ok(());
+    }
     let plugins_root_canon = plugins_root
         .canonicalize()
         .map_err(|e| format!("plugins dir not found: {e}"))?;
