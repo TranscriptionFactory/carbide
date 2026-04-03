@@ -110,7 +110,11 @@ export function create_test_ports(): Ports {
       subscribe_events: () => () => {},
     },
     markdown_lsp: {
-      start: () => Promise.resolve({ completion_trigger_characters: [] }),
+      start: () =>
+        Promise.resolve({
+          completion_trigger_characters: [],
+          effective_provider: "marksman",
+        }),
       stop: () => Promise.resolve(),
       did_open: () => Promise.resolve(),
       did_change: () => Promise.resolve(),

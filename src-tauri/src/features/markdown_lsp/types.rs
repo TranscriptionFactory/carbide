@@ -80,6 +80,7 @@ pub struct MarkdownLspInlayHint {
 #[derive(Debug, Serialize, Type)]
 pub struct MarkdownLspStartResult {
     pub completion_trigger_characters: Vec<String>,
+    pub effective_provider: String,
 }
 
 #[derive(Debug, Clone, Serialize, Type)]

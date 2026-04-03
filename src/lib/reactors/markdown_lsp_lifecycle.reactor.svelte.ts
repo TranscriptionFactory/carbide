@@ -14,6 +14,28 @@ import {
 
 const log = create_logger("markdown_lsp_lifecycle_reactor");
 
+export function should_start_markdown_lsp(
+  requested_start_key: string,
+  pending_start_key: string,
+  last_requested_start_key: string,
+): boolean {
+  return (
+    requested_start_key !== pending_start_key &&
+    requested_start_key !== last_requested_start_key
+  );
+}
+
+export function should_rewrite_iwe_provider(
+  provider_key: string,
+  last_applied_provider_key: string,
+  last_effective_start_key: string,
+  status: string | undefined,
+): boolean {
+  if (status !== "running") return false;
+  if (provider_key === last_applied_provider_key) return false;
+  return last_effective_start_key.endsWith(":iwes");
+}
+
 export function create_markdown_lsp_lifecycle_reactor(
   vault_store: VaultStore,
   markdown_lsp_service: MarkdownLspService,
@@ -24,7 +46,10 @@ export function create_markdown_lsp_lifecycle_reactor(
   const cleanup_restart_listener = setup_restart_listener(markdown_lsp_service);
 
   let last_applied_provider_key = "";
-  let last_started_key = "";
+  let last_requested_start_key = "";
+  let last_effective_start_key = "";
+  let pending_start_key = "";
+  let active_vault_id: string | null = null;
 
   const cleanup_effect = $effect.root(() => {
     $effect(() => {
@@ -38,39 +63,47 @@ export function create_markdown_lsp_lifecycle_reactor(
       const custom_path = ui_store.editor_settings.markdown_lsp_binary_path;
 
       if (!vault_id || !enabled || !is_vault_mode) {
-        last_started_key = "";
-        void markdown_lsp_service.stop();
+        last_requested_start_key = "";
+        last_effective_start_key = "";
+        pending_start_key = "";
+        last_applied_provider_key = "";
+        const vault_id_to_stop = active_vault_id;
+        active_vault_id = null;
+        if (vault_id_to_stop) {
+          void markdown_lsp_service.stop_for_vault(vault_id_to_stop);
+        }
         return;
       }
 
-      const start_key = `${vault_id}:${provider}:${custom_path ?? ""}`;
-      if (start_key === last_started_key) return;
-      last_started_key = start_key;
+      const requested_start_key = `${vault_id}:${provider}:${custom_path ?? ""}`;
+      if (
+        !should_start_markdown_lsp(
+          requested_start_key,
+          pending_start_key,
+          last_requested_start_key,
+        )
+      ) {
+        return;
+      }
+      pending_start_key = requested_start_key;
 
       // Snapshot to avoid deep proxy tracking of ai_providers in async body
-      const settings_snapshot = $state.snapshot(ui_store.editor_settings);
-
-      const do_start = async () => {
-        if (provider === "iwes") {
-          const resolved = resolve_iwe_ai_provider(settings_snapshot);
-          if (resolved && !is_output_file_provider(resolved)) {
-            await markdown_lsp_service.iwe_config_rewrite_provider(resolved);
-            last_applied_provider_key = `${resolved.id}:${resolved.model ?? ""}:${resolved.transport.kind === "cli" ? resolved.transport.command : ""}`;
+      void markdown_lsp_service
+        .start(provider, custom_path || undefined)
+        .then((effective_provider) => {
+          if (!effective_provider?.effective_provider) return;
+          active_vault_id = vault_id;
+          last_requested_start_key = requested_start_key;
+          last_effective_start_key = `${requested_start_key}:${effective_provider.effective_provider}`;
+        })
+        .catch((error: unknown) => {
+          log.from_error("Failed to start markdown LSP for vault", error);
+        })
+        .finally(() => {
+          if (pending_start_key === requested_start_key) {
+            pending_start_key = "";
           }
-        }
-        await markdown_lsp_service.start(provider, custom_path || undefined);
-      };
-
-      void do_start().catch((error: unknown) => {
-        log.from_error("Failed to start markdown LSP for vault", error);
-      });
-
-      return () => {
-        last_started_key = "";
-        void markdown_lsp_service.stop().catch((error: unknown) => {
-          log.from_error("Failed to stop markdown LSP for vault", error);
         });
-      };
     });
 
     if (markdown_lsp_store && action_registry) {
@@ -98,10 +131,17 @@ export function create_markdown_lsp_lifecycle_reactor(
       if (!resolved || is_output_file_provider(resolved)) return;
 
       const status = markdown_lsp_store?.status;
-      if (status !== "running") return;
-
       const key = `${resolved.id}:${resolved.model ?? ""}:${resolved.transport.kind === "cli" ? resolved.transport.command : ""}`;
-      if (key === last_applied_provider_key) return;
+      if (
+        !should_rewrite_iwe_provider(
+          key,
+          last_applied_provider_key,
+          last_effective_start_key,
+          status,
+        )
+      ) {
+        return;
+      }
       last_applied_provider_key = key;
 
       void markdown_lsp_service
@@ -115,6 +155,11 @@ export function create_markdown_lsp_lifecycle_reactor(
   return () => {
     cleanup_effect();
     cleanup_restart_listener();
+    const vault_id_to_stop = active_vault_id;
+    active_vault_id = null;
+    if (vault_id_to_stop) {
+      void markdown_lsp_service.stop_for_vault(vault_id_to_stop);
+    }
   };
 }
 

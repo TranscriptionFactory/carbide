@@ -7,6 +7,7 @@ import type {
   MarkdownLspCodeAction,
   MarkdownLspDiagnosticsEvent,
   MarkdownLspPrepareRenameResult,
+  MarkdownLspStartResult,
   MarkdownLspStatusEvent,
   MarkdownLspTextEdit,
   MarkdownLspWorkspaceEditResult,
@@ -52,6 +53,7 @@ export class MarkdownLspService {
   private unsubscribe_status: (() => void) | null = null;
   private last_provider: string | undefined = undefined;
   private last_custom_binary_path: string | undefined = undefined;
+  private active_vault_id: string | null = null;
 
   constructor(
     private readonly port: MarkdownLspPort,
@@ -60,17 +62,29 @@ export class MarkdownLspService {
     private readonly diagnostics_store?: DiagnosticsStore,
   ) {}
 
-  async start(provider?: string, custom_binary_path?: string): Promise<void> {
+  async start(
+    provider?: string,
+    custom_binary_path?: string,
+  ): Promise<MarkdownLspStartResult | null> {
     const vault_id = this.vault_store.vault?.id;
-    if (!vault_id) return;
+    if (!vault_id) return null;
 
     this.last_provider = provider;
     this.last_custom_binary_path = custom_binary_path;
 
-    await this.run_lifecycle(async () => {
+    return this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
-        await this.port.stop(vault_id).catch(() => {});
+        this.unsubscribe_all();
+        if (this.active_vault_id && this.active_vault_id !== vault_id) {
+          await this.port.stop(this.active_vault_id).catch((error: unknown) => {
+            log.from_error(
+              `Failed to stop markdown LSP for inactive vault ${this.active_vault_id}`,
+              error,
+            );
+          });
+        }
+        this.doc_versions.clear();
         this.subscribe_diagnostics();
         this.subscribe_status();
         const result = await this.port.start(
@@ -81,11 +95,14 @@ export class MarkdownLspService {
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
+        this.active_vault_id = vault_id;
         this.store.set_status("running");
+        return result;
       } catch (e) {
         this.unsubscribe_all();
         log.from_error("Failed to start markdown LSP", e);
         this.store.set_error(e instanceof Error ? e.message : String(e));
+        return null;
       }
     });
   }
@@ -98,13 +115,19 @@ export class MarkdownLspService {
   async stop(): Promise<void> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return;
+    await this.stop_for_vault(vault_id);
+  }
 
+  async stop_for_vault(vault_id: string): Promise<void> {
     await this.run_lifecycle(async () => {
       this.unsubscribe_all();
       try {
         await this.port.stop(vault_id);
       } catch (e) {
         log.from_error("Failed to stop markdown LSP", e);
+      }
+      if (this.active_vault_id === vault_id) {
+        this.active_vault_id = null;
       }
       this.doc_versions.clear();
       this.store.reset();
@@ -130,6 +153,7 @@ export class MarkdownLspService {
   }
 
   private handle_status_change(event: MarkdownLspStatusEvent): void {
+    if (event.vault_id !== this.vault_store.vault?.id) return;
     const { status } = event;
     if (status === "running") {
       this.store.set_status("running");
@@ -153,6 +177,7 @@ export class MarkdownLspService {
 
   private handle_diagnostics(event: MarkdownLspDiagnosticsEvent): void {
     if (!this.diagnostics_store) return;
+    if (event.vault_id !== this.vault_store.vault?.id) return;
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) return;
 
@@ -561,7 +586,7 @@ export class MarkdownLspService {
     await this.restart();
   }
 
-  private run_lifecycle(operation: () => Promise<void>): Promise<void> {
+  private run_lifecycle<T>(operation: () => Promise<T>): Promise<T> {
     const next = this.lifecycle.then(operation, operation);
     this.lifecycle = next.then(
       () => undefined,

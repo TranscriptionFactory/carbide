@@ -13,7 +13,10 @@ function make_markdown_lsp_port(
   overrides: Partial<MarkdownLspPort> = {},
 ): MarkdownLspPort {
   return {
-    start: vi.fn().mockResolvedValue({ completion_trigger_characters: [] }),
+    start: vi.fn().mockResolvedValue({
+      completion_trigger_characters: [],
+      effective_provider: "marksman",
+    }),
     stop: vi.fn().mockResolvedValue(undefined),
     did_open: vi.fn().mockResolvedValue(undefined),
     did_change: vi.fn().mockResolvedValue(undefined),
