@@ -329,7 +329,7 @@ export function create_app_context(input: {
     stores.outline,
     input.ports.assets,
     input.ports.tag,
-    stores.reference,
+    is_lite ? undefined : stores.reference,
   );
 
   const settings_service = new SettingsService(
@@ -668,7 +668,7 @@ export function create_app_context(input: {
       bases: stores.bases,
       task: stores.task,
       parsed_note_cache: stores.parsed_note_cache,
-      reference: stores.reference,
+      ...(is_lite ? {} : { reference: stores.reference }),
     },
     services: app_services,
     default_mount_config: input.default_mount_config,

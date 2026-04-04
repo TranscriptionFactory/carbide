@@ -215,6 +215,13 @@ export async function load_linked_source_folder(
   input: ActionRegistrationInput,
   folder_path: string,
 ): Promise<void> {
+  const reference_store = input.stores.reference;
+  const reference_service = input.services.reference;
+  if (!reference_store || !reference_service) {
+    set_load_state(input, folder_path, "loaded", null);
+    return;
+  }
+
   const source_name = folder_path.replace(/^@linked\/?/, "");
   if (!source_name) return;
 
@@ -223,15 +230,9 @@ export async function load_linked_source_folder(
 
   set_load_state(input, folder_path, "loading", null);
   try {
-    const sources = input.stores.reference.linked_sources;
+    const sources = reference_store.linked_sources;
     const source = sources.find((s) => s.name === source_name && s.enabled);
     if (!source) {
-      set_load_state(input, folder_path, "loaded", null);
-      return;
-    }
-
-    const reference_service = input.services.reference;
-    if (!reference_service) {
       set_load_state(input, folder_path, "loaded", null);
       return;
     }
@@ -261,9 +262,12 @@ export async function load_linked_source_folder(
 export async function inject_linked_source_folders(
   input: ActionRegistrationInput,
 ): Promise<void> {
-  const sources = input.stores.reference.linked_sources.filter(
-    (s) => s.enabled,
-  );
+  const reference_store = input.stores.reference;
+  if (!reference_store) {
+    return;
+  }
+
+  const sources = reference_store.linked_sources.filter((s) => s.enabled);
   if (sources.length === 0) return;
 
   const folder_paths: string[] = ["@linked"];

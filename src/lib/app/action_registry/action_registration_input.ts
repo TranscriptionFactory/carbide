@@ -47,7 +47,7 @@ export type ActionRegistrationInput = {
     bases: BasesStore;
     task: TaskStore;
     parsed_note_cache: ParsedNoteCache;
-    reference: ReferenceStore;
+    reference?: ReferenceStore;
   };
   services: {
     vault: VaultService;
