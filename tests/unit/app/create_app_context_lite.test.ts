@@ -347,6 +347,25 @@ describe("create_app_context lite composition", () => {
     expect(registered_action_ids.has(ACTION_IDS.iwe_refresh_transforms)).toBe(
       false,
     );
+    expect(registered_action_ids.has(ACTION_IDS.ui_open_vault_dashboard)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.ui_close_vault_dashboard)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.ui_quick_capture)).toBe(false);
+    expect(registered_action_ids.has(ACTION_IDS.ui_toggle_tasks_panel)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.ui_show_tasks_list)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.ui_show_tasks_kanban)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.ui_show_tasks_schedule)).toBe(
+      false,
+    );
 
     context.destroy();
     expect(mocks.plugin_destroy).not.toHaveBeenCalled();

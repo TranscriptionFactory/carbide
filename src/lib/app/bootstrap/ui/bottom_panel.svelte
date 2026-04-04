@@ -2,7 +2,7 @@
   import { Terminal, CircleAlert, Search, Zap } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
-  import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
+  import type { BottomPanelTab } from "$lib/app/orchestration/app_surface";
 
   const { stores, action_registry } = use_app_context();
 
@@ -12,7 +12,7 @@
   const has_issues = $derived(error_count + warning_count > 0);
 
   function set_tab(tab: BottomPanelTab) {
-    stores.ui.bottom_panel_tab = tab;
+    stores.ui.set_bottom_panel_tab(tab);
     if (tab === "terminal") {
       stores.terminal.open();
     }

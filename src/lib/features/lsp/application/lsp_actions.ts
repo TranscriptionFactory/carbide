@@ -39,7 +39,7 @@ export function register_lsp_actions(input: {
     label: "Code Actions",
     execute: async () => {
       ui_store.bottom_panel_open = true;
-      ui_store.bottom_panel_tab = "lsp_results";
+      ui_store.set_bottom_panel_tab("lsp_results");
     },
   });
 
@@ -95,7 +95,7 @@ export function register_lsp_actions(input: {
         ui_store.bottom_panel_open = false;
       } else {
         ui_store.bottom_panel_open = true;
-        ui_store.bottom_panel_tab = "lsp_results";
+        ui_store.set_bottom_panel_tab("lsp_results");
       }
     },
   });

@@ -8,10 +8,8 @@ import type {
 import type { LintService } from "$lib/features/lint/application/lint_service";
 import type { LintStore } from "$lib/features/lint/state/lint_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
-import type {
-  UIStore,
-  BottomPanelTab,
-} from "$lib/app/orchestration/ui_store.svelte";
+import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { BottomPanelTab } from "$lib/app/orchestration/app_surface";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 
@@ -49,13 +47,22 @@ function create_mock_diagnostics_store(
 }
 
 function create_mock_ui_store() {
-  return {
+  const store = {
     bottom_panel_open: false,
     bottom_panel_tab: "terminal" as BottomPanelTab,
     editor_settings: { ...DEFAULT_EDITOR_SETTINGS },
-  } as unknown as Pick<
+  };
+
+  return Object.assign(store, {
+    set_bottom_panel_tab: (tab: BottomPanelTab) => {
+      store.bottom_panel_tab = tab;
+    },
+  }) as unknown as Pick<
     UIStore,
-    "bottom_panel_open" | "bottom_panel_tab" | "editor_settings"
+    | "bottom_panel_open"
+    | "bottom_panel_tab"
+    | "editor_settings"
+    | "set_bottom_panel_tab"
   >;
 }
 
@@ -68,7 +75,10 @@ describe("register_lint_actions", () => {
   let actions: Map<string, AppAction>;
   let ui_store: Pick<
     UIStore,
-    "bottom_panel_open" | "bottom_panel_tab" | "editor_settings"
+    | "bottom_panel_open"
+    | "bottom_panel_tab"
+    | "editor_settings"
+    | "set_bottom_panel_tab"
   >;
 
   beforeEach(() => {

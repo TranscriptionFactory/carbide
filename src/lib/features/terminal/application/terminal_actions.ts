@@ -49,7 +49,7 @@ export function register_terminal_actions(
         return;
       }
 
-      ui_store.bottom_panel_tab = "terminal";
+      ui_store.set_bottom_panel_tab("terminal");
       ui_store.bottom_panel_open = true;
       terminal_store.open();
     },

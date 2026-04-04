@@ -28,6 +28,11 @@ import { QueryStore } from "$lib/features/query";
 import { ParsedNoteCache } from "$lib/features/note";
 import { ReferenceStore } from "$lib/features/reference";
 import { VimNavStore } from "$lib/features/vim_nav";
+import type { AppTarget } from "$lib/features/window";
+import {
+  FULL_APP_SURFACE,
+  LITE_APP_SURFACE,
+} from "$lib/app/orchestration/app_surface";
 
 export type AppStores = {
   vault: VaultStore;
@@ -64,12 +69,13 @@ export type AppStores = {
   vim_nav: VimNavStore;
 };
 
-export function create_app_stores(): AppStores {
+export function create_app_stores(app_target: AppTarget = "full"): AppStores {
+  const surface = app_target === "lite" ? LITE_APP_SURFACE : FULL_APP_SURFACE;
   return {
     vault: new VaultStore(),
     notes: new NotesStore(),
     editor: new EditorStore(),
-    ui: new UIStore(),
+    ui: new UIStore(surface),
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),

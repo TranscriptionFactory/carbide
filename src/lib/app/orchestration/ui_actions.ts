@@ -11,6 +11,7 @@ type SidebarView =
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
+  const is_full = input.app_target !== "lite";
 
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();
@@ -94,7 +95,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     execute: (view: unknown) => {
       const next_view = parse_sidebar_view(view);
       stores.ui.set_sidebar_view(next_view);
-      if (next_view === "dashboard") {
+      if (is_full && next_view === "dashboard") {
         void services.vault.refresh_dashboard_stats();
       }
     },
@@ -140,80 +141,82 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     },
   });
 
-  registry.register({
-    id: ACTION_IDS.ui_toggle_tasks_panel,
-    label: "Toggle Tasks Panel",
-    shortcut: "CmdOrCtrl+Alt+T",
-    execute: async () => {
-      if (
-        stores.ui.context_rail_open &&
-        stores.ui.context_rail_tab === "tasks"
-      ) {
-        stores.ui.close_context_rail("tasks");
-      } else {
-        if (stores.graph.panel_open) {
-          await registry.execute(ACTION_IDS.graph_close, {
-            preserve_context_rail: true,
-          });
+  if (is_full) {
+    registry.register({
+      id: ACTION_IDS.ui_toggle_tasks_panel,
+      label: "Toggle Tasks Panel",
+      shortcut: "CmdOrCtrl+Alt+T",
+      execute: async () => {
+        if (
+          stores.ui.context_rail_open &&
+          stores.ui.context_rail_tab === "tasks"
+        ) {
+          stores.ui.close_context_rail("tasks");
+        } else {
+          if (stores.graph.panel_open) {
+            await registry.execute(ACTION_IDS.graph_close, {
+              preserve_context_rail: true,
+            });
+          }
+          stores.ui.set_context_rail_tab("tasks");
         }
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.ui_show_tasks_list,
+      label: "Show Task List",
+      execute: () => {
+        stores.task.setViewMode("list");
         stores.ui.set_context_rail_tab("tasks");
-      }
-    },
-  });
+      },
+    });
 
-  registry.register({
-    id: ACTION_IDS.ui_show_tasks_list,
-    label: "Show Task List",
-    execute: () => {
-      stores.task.setViewMode("list");
-      stores.ui.set_context_rail_tab("tasks");
-    },
-  });
+    registry.register({
+      id: ACTION_IDS.ui_show_tasks_kanban,
+      label: "Show Task Kanban",
+      execute: () => {
+        stores.task.setViewMode("kanban");
+        stores.ui.set_context_rail_tab("tasks");
+      },
+    });
 
-  registry.register({
-    id: ACTION_IDS.ui_show_tasks_kanban,
-    label: "Show Task Kanban",
-    execute: () => {
-      stores.task.setViewMode("kanban");
-      stores.ui.set_context_rail_tab("tasks");
-    },
-  });
+    registry.register({
+      id: ACTION_IDS.ui_show_tasks_schedule,
+      label: "Show Task Schedule",
+      execute: () => {
+        stores.task.setViewMode("schedule");
+        stores.ui.set_context_rail_tab("tasks");
+      },
+    });
 
-  registry.register({
-    id: ACTION_IDS.ui_show_tasks_schedule,
-    label: "Show Task Schedule",
-    execute: () => {
-      stores.task.setViewMode("schedule");
-      stores.ui.set_context_rail_tab("tasks");
-    },
-  });
+    registry.register({
+      id: ACTION_IDS.ui_quick_capture,
+      label: "Quick Capture Task",
+      shortcut: "CmdOrCtrl+Shift+K",
+      execute: () => {
+        stores.ui.quick_capture_open = true;
+      },
+    });
 
-  registry.register({
-    id: ACTION_IDS.ui_quick_capture,
-    label: "Quick Capture Task",
-    shortcut: "CmdOrCtrl+Shift+K",
-    execute: () => {
-      stores.ui.quick_capture_open = true;
-    },
-  });
+    registry.register({
+      id: ACTION_IDS.ui_open_vault_dashboard,
+      label: "Open Vault Dashboard",
+      shortcut: "CmdOrCtrl+Shift+D",
+      execute: () => {
+        set_vault_dashboard_open(true);
+        void services.vault.refresh_dashboard_stats();
+      },
+    });
 
-  registry.register({
-    id: ACTION_IDS.ui_open_vault_dashboard,
-    label: "Open Vault Dashboard",
-    shortcut: "CmdOrCtrl+Shift+D",
-    execute: () => {
-      set_vault_dashboard_open(true);
-      void services.vault.refresh_dashboard_stats();
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.ui_close_vault_dashboard,
-    label: "Close Vault Dashboard",
-    execute: () => {
-      set_vault_dashboard_open(false);
-    },
-  });
+    registry.register({
+      id: ACTION_IDS.ui_close_vault_dashboard,
+      label: "Close Vault Dashboard",
+      execute: () => {
+        set_vault_dashboard_open(false);
+      },
+    });
+  }
 
   registry.register({
     id: ACTION_IDS.outline_scroll_to_heading,

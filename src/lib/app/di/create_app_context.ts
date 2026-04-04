@@ -99,7 +99,7 @@ export function create_app_context(input: {
   const now_ms = input.now_ms ?? (() => Date.now());
   const app_target = input.app_target ?? "full";
   const is_lite = app_target === "lite";
-  const stores = create_app_stores();
+  const stores = create_app_stores(app_target);
   function require_vault() {
     const vault = stores.vault.vault;
     if (!vault) throw new Error("No active vault");

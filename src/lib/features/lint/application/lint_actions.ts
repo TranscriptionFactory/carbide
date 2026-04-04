@@ -109,7 +109,7 @@ export function register_lint_actions(input: {
         ui_store.bottom_panel_open = false;
         return;
       }
-      ui_store.bottom_panel_tab = "problems";
+      ui_store.set_bottom_panel_tab("problems");
       ui_store.bottom_panel_open = true;
     },
   });
@@ -121,7 +121,7 @@ export function register_lint_actions(input: {
     when: () =>
       lint_store.is_running && diagnostics_store.active_diagnostics.length > 0,
     execute: () => {
-      ui_store.bottom_panel_tab = "problems";
+      ui_store.set_bottom_panel_tab("problems");
       ui_store.bottom_panel_open = true;
     },
   });
@@ -133,7 +133,7 @@ export function register_lint_actions(input: {
     when: () =>
       lint_store.is_running && diagnostics_store.active_diagnostics.length > 0,
     execute: () => {
-      ui_store.bottom_panel_tab = "problems";
+      ui_store.set_bottom_panel_tab("problems");
       ui_store.bottom_panel_open = true;
     },
   });

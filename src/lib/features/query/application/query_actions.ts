@@ -32,7 +32,7 @@ export function register_query_actions(
       if (ui_store.bottom_panel_open && ui_store.bottom_panel_tab === "query") {
         ui_store.bottom_panel_open = false;
       } else {
-        ui_store.bottom_panel_tab = "query";
+        ui_store.set_bottom_panel_tab("query");
         ui_store.bottom_panel_open = true;
       }
     },
@@ -42,7 +42,7 @@ export function register_query_actions(
     id: ACTION_IDS.query_open,
     label: "Query Notes",
     execute: () => {
-      ui_store.bottom_panel_tab = "query";
+      ui_store.set_bottom_panel_tab("query");
       ui_store.bottom_panel_open = true;
     },
   });

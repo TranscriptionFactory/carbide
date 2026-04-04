@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ui_actions } from "$lib/app/orchestration/ui_actions";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import { LITE_APP_SURFACE } from "$lib/app/orchestration/app_surface";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
@@ -17,9 +18,9 @@ import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 
-function create_ui_stores() {
+function create_ui_stores(app_target: "full" | "lite" = "full") {
   return {
-    ui: new UIStore(),
+    ui: new UIStore(app_target === "lite" ? LITE_APP_SURFACE : undefined),
     vault: new VaultStore(),
     notes: new NotesStore(),
     editor: new EditorStore(),
@@ -36,35 +37,53 @@ function create_ui_stores() {
   };
 }
 
+function register_actions_for_test(
+  registry: ActionRegistry,
+  stores: ReturnType<typeof create_ui_stores>,
+  app_target: "full" | "lite" = "full",
+) {
+  let refresh_called = 0;
+
+  register_ui_actions({
+    registry,
+    app_target,
+    stores,
+    services: {
+      reference: {},
+      vault: {
+        refresh_dashboard_stats: async () => {
+          refresh_called += 1;
+          return await Promise.resolve({ status: "skipped" as const });
+        },
+      },
+      shell: {
+        open_url: async () => {},
+        open_path: async () => {},
+        reveal_in_file_manager: async () => {},
+      },
+    } as never,
+    default_mount_config: {
+      reset_app_state: true,
+      bootstrap_default_vault_path: null,
+    },
+  });
+
+  return {
+    refresh_called: () => refresh_called,
+  };
+}
+
 describe("register_ui_actions", () => {
   it("opens and closes vault dashboard", async () => {
     const registry = new ActionRegistry();
-    let refresh_called = 0;
     const stores = create_ui_stores();
-    const refresh_dashboard_stats = async () => {
-      refresh_called += 1;
-      return await Promise.resolve({ status: "skipped" as const });
-    };
-
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: { refresh_dashboard_stats },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    const { refresh_called } = register_actions_for_test(registry, stores);
 
     expect(stores.ui.vault_dashboard.open).toBe(false);
 
     await registry.execute(ACTION_IDS.ui_open_vault_dashboard);
     expect(stores.ui.vault_dashboard.open).toBe(true);
-    expect(refresh_called).toBe(1);
+    expect(refresh_called()).toBe(1);
 
     await registry.execute(ACTION_IDS.ui_close_vault_dashboard);
     expect(stores.ui.vault_dashboard.open).toBe(false);
@@ -72,54 +91,40 @@ describe("register_ui_actions", () => {
 
   it("accepts dashboard sidebar view", async () => {
     const registry = new ActionRegistry();
-    let refresh_called = 0;
     const stores = create_ui_stores();
-
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () => {
-            refresh_called += 1;
-            return await Promise.resolve({ status: "skipped" as const });
-          },
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    const { refresh_called } = register_actions_for_test(registry, stores);
 
     expect(stores.ui.sidebar_view).toBe("explorer");
     await registry.execute(ACTION_IDS.ui_set_sidebar_view, "dashboard");
     expect(stores.ui.sidebar_view).toBe("dashboard");
-    expect(refresh_called).toBe(1);
+    expect(refresh_called()).toBe(1);
+  });
+
+  it("does not register full-only ui actions for lite", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores("lite");
+
+    register_actions_for_test(registry, stores, "lite");
+
+    const registered = new Set(registry.get_all().map((action) => action.id));
+
+    expect(registered.has(ACTION_IDS.ui_open_vault_dashboard)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_close_vault_dashboard)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_quick_capture)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_toggle_tasks_panel)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_show_tasks_list)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_show_tasks_kanban)).toBe(false);
+    expect(registered.has(ACTION_IDS.ui_show_tasks_schedule)).toBe(false);
+
+    await registry.execute(ACTION_IDS.ui_set_sidebar_view, "dashboard");
+    expect(stores.ui.sidebar_view).toBe("explorer");
   });
 
   it("toggles zen mode", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    register_actions_for_test(registry, stores);
 
     expect(stores.ui.zen_mode).toBe(false);
     await registry.execute(ACTION_IDS.ui_toggle_zen_mode);
@@ -146,22 +151,7 @@ describe("register_ui_actions", () => {
       execute: close_graph,
     });
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    register_actions_for_test(registry, stores);
 
     await registry.execute(ACTION_IDS.ui_toggle_context_rail);
 
@@ -179,22 +169,7 @@ describe("register_ui_actions", () => {
       outline_mode: "floating",
     });
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    register_actions_for_test(registry, stores);
 
     expect(stores.ui.floating_outline_collapsed).toBe(false);
 
@@ -210,22 +185,7 @@ describe("register_ui_actions", () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    register_actions_for_test(registry, stores);
 
     await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
     expect(stores.ui.context_rail_open).toBe(true);
@@ -250,22 +210,7 @@ describe("register_ui_actions", () => {
       execute: close_graph,
     });
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+    register_actions_for_test(registry, stores);
 
     await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
 

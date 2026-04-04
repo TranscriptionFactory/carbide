@@ -182,33 +182,6 @@
       ? starred_header_actions
       : explorer_header_actions,
   );
-
-  $effect(() => {
-    if (
-      stores.ui.sidebar_view !== "explorer" &&
-      stores.ui.sidebar_view !== "starred"
-    ) {
-      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "explorer");
-    }
-  });
-
-  $effect(() => {
-    if (
-      stores.ui.context_rail_tab !== "links" &&
-      stores.ui.context_rail_tab !== "outline"
-    ) {
-      stores.ui.set_context_rail_tab("links");
-    }
-  });
-
-  $effect(() => {
-    if (
-      stores.ui.bottom_panel_tab !== "terminal" &&
-      stores.ui.bottom_panel_tab !== "problems"
-    ) {
-      stores.ui.bottom_panel_tab = "problems";
-    }
-  });
 </script>
 
 {#if stores.vault.vault}

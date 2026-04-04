@@ -13,7 +13,7 @@
   const has_issues = $derived(error_count + warning_count > 0);
 
   function set_tab(tab: "terminal" | "problems") {
-    stores.ui.bottom_panel_tab = tab;
+    stores.ui.set_bottom_panel_tab(tab);
     if (tab === "terminal") {
       stores.terminal.open();
     }

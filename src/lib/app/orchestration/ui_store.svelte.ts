@@ -20,6 +20,16 @@ import type {
 } from "$lib/shared/types/filetree";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
 import type { OmnibarScope } from "$lib/shared/types/search";
+import {
+  FULL_APP_SURFACE,
+  normalize_bottom_panel_tab,
+  normalize_context_rail_tab,
+  normalize_sidebar_view,
+  type AppSurfaceConfig,
+  type BottomPanelTab,
+  type ContextRailTab,
+  type SidebarView,
+} from "$lib/app/orchestration/app_surface";
 import type {
   HotkeyConfig,
   HotkeyOverride,
@@ -28,21 +38,6 @@ import type {
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
-type SidebarView =
-  | "explorer"
-  | "dashboard"
-  | "starred"
-  | "graph"
-  | "tasks"
-  | (string & {});
-type ContextRailTab =
-  | "links"
-  | "outline"
-  | "ai"
-  | "graph"
-  | "tasks"
-  | "metadata";
-export type BottomPanelTab = "terminal" | "problems" | "lsp_results" | "query";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -196,6 +191,15 @@ function initial_settings_dialog(settings: EditorSettings) {
 }
 
 export class UIStore {
+  readonly surface: AppSurfaceConfig;
+
+  constructor(surface: AppSurfaceConfig = FULL_APP_SURFACE) {
+    this.surface = surface;
+    this.sidebar_view = surface.default_sidebar_view;
+    this.bottom_panel_tab = surface.default_bottom_panel_tab;
+    this.context_rail_tab = surface.default_context_rail_tab;
+  }
+
   user_themes = $state<Theme[]>([]);
   active_theme_id = $state<string>(DEFAULT_THEME_ID);
 
@@ -219,7 +223,7 @@ export class UIStore {
   sidebar_open = $state(true);
   zen_mode = $state(false);
   floating_outline_collapsed = $state(false);
-  sidebar_view = $state<SidebarView>("explorer");
+  sidebar_view = $state<SidebarView>(FULL_APP_SURFACE.default_sidebar_view);
   selected_folder_path = $state("");
   filetree_revealed_note_path = $state("");
   selected_items = $state(new SvelteSet<string>());
@@ -393,10 +397,14 @@ export class UIStore {
   quick_capture_open = $state(false);
 
   bottom_panel_open = $state(false);
-  bottom_panel_tab = $state<BottomPanelTab>("terminal");
+  bottom_panel_tab = $state<BottomPanelTab>(
+    FULL_APP_SURFACE.default_bottom_panel_tab,
+  );
 
   context_rail_open = $state(false);
-  context_rail_tab = $state<ContextRailTab>("links");
+  context_rail_tab = $state<ContextRailTab>(
+    FULL_APP_SURFACE.default_context_rail_tab,
+  );
   context_rail_side = $state<"left" | "right">("right");
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });
@@ -444,7 +452,7 @@ export class UIStore {
   }
 
   set_sidebar_view(view: SidebarView) {
-    this.sidebar_view = view;
+    this.sidebar_view = normalize_sidebar_view(this.surface, view);
     this.sidebar_open = true;
   }
 
@@ -517,13 +525,17 @@ export class UIStore {
   }
 
   close_context_rail(tab: ContextRailTab = this.context_rail_tab) {
-    this.context_rail_tab = tab;
+    this.context_rail_tab = normalize_context_rail_tab(this.surface, tab);
     this.context_rail_open = false;
   }
 
   set_context_rail_tab(tab: ContextRailTab) {
-    this.context_rail_tab = tab;
+    this.context_rail_tab = normalize_context_rail_tab(this.surface, tab);
     this.context_rail_open = true;
+  }
+
+  set_bottom_panel_tab(tab: BottomPanelTab) {
+    this.bottom_panel_tab = normalize_bottom_panel_tab(this.surface, tab);
   }
 
   set_editor_settings(settings: EditorSettings) {
@@ -578,7 +590,9 @@ export class UIStore {
     this.vault_switcher_open = false;
     this.zen_mode = false;
     this.context_rail_open = false;
-    this.context_rail_tab = "links";
+    this.bottom_panel_tab = this.surface.default_bottom_panel_tab;
+    this.context_rail_tab = this.surface.default_context_rail_tab;
+    this.sidebar_view = this.surface.default_sidebar_view;
     this.editor_settings_loaded = false;
   }
 }
