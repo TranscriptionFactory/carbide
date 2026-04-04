@@ -136,7 +136,7 @@ export function create_app_context(input: {
       return true;
     },
     input.ports.index,
-    is_lite ? undefined : stores.plugin,
+    is_lite ? undefined : stores.plugin!,
     () =>
       build_command_context(
         is_lite
@@ -147,7 +147,7 @@ export function create_app_context(input: {
           : {
               editor: stores.editor,
               git: stores.git,
-              ai: stores.ai,
+              ai: stores.ai!,
             },
       ),
     get_commands_registry(app_target),
@@ -329,7 +329,7 @@ export function create_app_context(input: {
     stores.outline,
     input.ports.assets,
     input.ports.tag,
-    is_lite ? undefined : stores.reference,
+    is_lite ? undefined : stores.reference!,
   );
 
   const settings_service = new SettingsService(
@@ -488,20 +488,20 @@ export function create_app_context(input: {
     ? null
     : (() => {
         const plugin_settings_service = new PluginSettingsService(
-          stores.plugin_settings,
+          stores.plugin_settings!,
           stores.vault,
           input.ports.plugin_settings,
         );
 
         const plugin_service = new PluginService(
-          stores.plugin,
+          stores.plugin!,
           stores.vault,
           input.ports.plugin,
         );
 
         plugin_service.set_settings_service(
           plugin_settings_service,
-          stores.plugin_settings,
+          stores.plugin_settings!,
         );
 
         plugin_service.on_plugin_cleanup((plugin_id) => {
@@ -540,7 +540,7 @@ export function create_app_context(input: {
 
         const code_lsp_service = new CodeLspService(
           input.ports.code_lsp,
-          stores.code_lsp,
+          stores.code_lsp!,
           stores.diagnostics,
         );
         code_lsp_service.start();
@@ -566,22 +566,22 @@ export function create_app_context(input: {
         const canvas_service = new CanvasService(
           input.ports.canvas,
           stores.vault,
-          stores.canvas,
+          stores.canvas!,
           stores.op,
           now_ms,
         );
         const tag_service = new TagService(
           input.ports.tag,
-          stores.tag,
+          stores.tag!,
           stores.vault,
         );
         const metadata_service = new MetadataService(
-          stores.metadata,
+          stores.metadata!,
           stores.editor,
         );
         const toolchain_service = new ToolchainService(
           input.ports.toolchain,
-          stores.toolchain,
+          stores.toolchain!,
         );
         const query_service = new QueryService(
           {
@@ -590,14 +590,14 @@ export function create_app_context(input: {
             tags: input.ports.tag,
             bases: input.ports.bases,
           },
-          stores.query,
+          stores.query!,
           stores.vault,
           input.ports.saved_query,
           stores.op,
         );
         const reference_service = new ReferenceService(
           input.ports.reference_storage,
-          stores.reference,
+          stores.reference!,
           stores.vault,
           stores.op,
           now_ms,
@@ -808,7 +808,7 @@ export function create_app_context(input: {
 
     register_ai_actions({
       ...base_action_input,
-      ai_store: stores.ai,
+      ai_store: stores.ai!,
       ai_service: full_runtime.ai_service,
     });
 
@@ -826,20 +826,20 @@ export function create_app_context(input: {
     register_tag_actions(
       action_registry,
       full_runtime.tag_service,
-      stores.tag,
+      stores.tag!,
       stores.ui,
     );
     register_metadata_actions(
       action_registry,
       full_runtime.metadata_service,
-      stores.metadata,
+      stores.metadata!,
       stores.ui,
     );
 
     register_reference_actions({
       registry: action_registry,
       reference_service: full_runtime.reference_service,
-      reference_store: stores.reference,
+      reference_store: stores.reference!,
       editor_service,
       ui_store: stores.ui,
     });
@@ -928,10 +928,10 @@ export function create_app_context(input: {
       workspace_edit_deps,
       command_sink: {
         register: (cmd) => {
-          stores.plugin.register_command(cmd);
+          stores.plugin!.register_command(cmd);
         },
         unregister: (id) => {
-          stores.plugin.unregister_command(id);
+          stores.plugin!.unregister_command(id);
         },
       },
     });
@@ -1012,13 +1012,13 @@ export function create_app_context(input: {
         plugin_service: full_runtime.plugin_service,
         workspace_index_port: input.ports.index,
         markdown_lsp_service,
-        metadata_store: stores.metadata,
+        metadata_store: stores.metadata!,
         metadata_service: full_runtime.metadata_service,
         toolchain_service: full_runtime.toolchain_service,
         document_store: stores.document,
         code_lsp_service: full_runtime.code_lsp_service,
         reference_service: full_runtime.reference_service,
-        reference_store: stores.reference,
+        reference_store: stores.reference!,
       })
     : mount_lite_reactors(core_reactor_context);
 
