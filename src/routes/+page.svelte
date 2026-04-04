@@ -2,10 +2,13 @@
   import { onDestroy, onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { create_prod_ports } from "$lib/app/create_prod_ports";
-  import { create_app_context } from "$lib/app/di/create_app_context";
   import { provide_app_context } from "$lib/app/context/app_context.svelte";
   import { as_vault_path } from "$lib/shared/types/ids";
-  import { AppShell, ViewerShell } from "$lib/app";
+  import {
+    create_full_app_context,
+    FullAppShell,
+    FullViewerShell,
+  } from "$lib/app";
   import { parse_window_init } from "$lib/features/window";
 
   const url_params = new URLSearchParams(window.location.search);
@@ -16,7 +19,7 @@
 
   const ports = create_prod_ports();
 
-  const app = create_app_context({
+  const app = create_full_app_context({
     ports,
     now_ms: () => Date.now(),
     default_mount_config: {
@@ -54,7 +57,7 @@
 </script>
 
 {#if window_init.kind === "viewer"}
-  <ViewerShell />
+  <FullViewerShell />
 {:else}
-  <AppShell />
+  <FullAppShell />
 {/if}
