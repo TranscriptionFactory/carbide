@@ -1,6 +1,10 @@
 import { toast } from "svelte-sonner";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
+import {
+  filter_registered_hotkey_config,
+  filter_registered_hotkey_overrides,
+} from "$lib/app/action_registry/filter_registered_hotkeys";
 import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type {
@@ -10,6 +14,13 @@ import type {
 
 export function register_settings_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
+  const excluded_action_ids =
+    input.app_target === "lite"
+      ? new Set([
+          ACTION_IDS.ui_open_vault_dashboard,
+          ACTION_IDS.ui_quick_capture,
+        ])
+      : undefined;
   let settings_open_revision = 0;
   let last_active_category: SettingsCategory = "theme";
 
@@ -31,10 +42,15 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   }
 
   function build_hotkey_draft(overrides: typeof stores.ui.hotkey_overrides) {
-    const draft_overrides = [...overrides];
-    const draft_config = services.hotkey.merge_config(
-      DEFAULT_HOTKEYS,
-      draft_overrides,
+    const draft_overrides = filter_registered_hotkey_overrides(
+      registry,
+      [...overrides],
+      excluded_action_ids,
+    );
+    const draft_config = filter_registered_hotkey_config(
+      registry,
+      services.hotkey.merge_config(DEFAULT_HOTKEYS, draft_overrides),
+      excluded_action_ids,
     );
     return {
       draft_overrides,
@@ -84,16 +100,23 @@ export function register_settings_actions(input: ActionRegistrationInput) {
 
   async function persist_hotkey_draft() {
     const draft_overrides = stores.ui.settings_dialog.hotkey_draft_overrides;
-    await services.hotkey.save_hotkey_overrides(draft_overrides);
-    stores.ui.hotkey_overrides = draft_overrides;
-
-    const config = services.hotkey.merge_config(
-      DEFAULT_HOTKEYS,
+    const filtered_overrides = filter_registered_hotkey_overrides(
+      registry,
       draft_overrides,
+      excluded_action_ids,
+    );
+    await services.hotkey.save_hotkey_overrides(filtered_overrides);
+    stores.ui.hotkey_overrides = filtered_overrides;
+
+    const config = filter_registered_hotkey_config(
+      registry,
+      services.hotkey.merge_config(DEFAULT_HOTKEYS, filtered_overrides),
+      excluded_action_ids,
     );
     stores.ui.set_hotkeys_config(config);
     stores.ui.settings_dialog = {
       ...stores.ui.settings_dialog,
+      hotkey_draft_overrides: filtered_overrides,
       hotkey_draft_config: config,
     };
   }

@@ -27,9 +27,11 @@ import type { ParsedNoteCache } from "$lib/features/note";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { ReferenceStore } from "$lib/features/reference";
 import type { ReferenceService } from "$lib/features/reference";
+import type { AppTarget } from "$lib/features/window";
 
 export type ActionRegistrationInput = {
   registry: ActionRegistry;
+  app_target?: AppTarget;
   workspace_reconcile?: WorkspaceReconcile | undefined;
   stores: {
     ui: UIStore;

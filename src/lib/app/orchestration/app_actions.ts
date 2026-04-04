@@ -4,6 +4,10 @@ import type { OpenNoteState } from "$lib/shared/types/editor";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { as_note_path, as_vault_path } from "$lib/shared/types/ids";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
+import {
+  filter_registered_hotkey_config,
+  filter_registered_hotkey_overrides,
+} from "$lib/app/action_registry/filter_registered_hotkeys";
 import { set_load_state, set_pagination } from "$lib/features/folder";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
@@ -33,6 +37,11 @@ type AppBootstrapData = {
     ReturnType<ActionRegistrationInput["services"]["theme"]["load_themes"]>
   >;
 };
+
+const LITE_HIDDEN_HOTKEY_ACTION_IDS = new Set([
+  ACTION_IDS.ui_open_vault_dashboard,
+  ACTION_IDS.ui_quick_capture,
+]);
 
 function set_startup_loading(input: ActionRegistrationInput) {
   input.stores.ui.startup = {
@@ -97,6 +106,8 @@ function apply_loaded_preferences(
   data: Omit<AppBootstrapData, "vault_initialize_result">,
 ) {
   const { stores, services } = input;
+  const excluded_action_ids =
+    input.app_target === "lite" ? LITE_HIDDEN_HOTKEY_ACTION_IDS : undefined;
   stores.ui.set_user_themes(data.theme_result.user_themes);
   stores.ui.set_active_theme_id(data.theme_result.active_theme_id);
   stores.ui.set_color_scheme_preference(
@@ -106,10 +117,16 @@ function apply_loaded_preferences(
   stores.ui.set_system_dark_theme_id(data.theme_result.system_dark_theme_id);
   stores.ui.set_recent_command_ids(data.recent_command_ids);
 
-  stores.ui.hotkey_overrides = data.hotkey_overrides;
-  const hotkeys_config = services.hotkey.merge_config(
-    DEFAULT_HOTKEYS,
+  const hotkey_overrides = filter_registered_hotkey_overrides(
+    input.registry,
     data.hotkey_overrides,
+    excluded_action_ids,
+  );
+  stores.ui.hotkey_overrides = hotkey_overrides;
+  const hotkeys_config = filter_registered_hotkey_config(
+    input.registry,
+    services.hotkey.merge_config(DEFAULT_HOTKEYS, hotkey_overrides),
+    excluded_action_ids,
   );
   stores.ui.set_hotkeys_config(hotkeys_config);
 }
@@ -141,9 +158,14 @@ async function mount_ready_vault_state(
   });
 
   if (input.stores.vault.is_vault_mode) {
-    await input.registry.execute(ACTION_IDS.git_check_repo);
+    if (input.app_target !== "lite") {
+      await input.registry.execute(ACTION_IDS.git_check_repo);
+    }
 
-    if (input.stores.ui.editor_settings.show_vault_dashboard_on_open) {
+    if (
+      input.app_target !== "lite" &&
+      input.stores.ui.editor_settings.show_vault_dashboard_on_open
+    ) {
       await input.registry.execute(ACTION_IDS.ui_open_vault_dashboard);
     }
   }

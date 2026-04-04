@@ -98,6 +98,29 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const app_target = input.app_target ?? "full";
+  const lite_disabled_commands = new Set([
+    "create_new_canvas",
+    "show_vault_dashboard",
+    "git_version_history",
+    "git_create_checkpoint",
+    "git_init_repo",
+    "git_push",
+    "git_pull",
+    "git_fetch",
+    "git_add_remote",
+    "ai_assistant",
+    "toggle_graph_panel",
+    "toggle_tasks_panel",
+    "toggle_metadata_panel",
+    "toggle_bases_panel",
+    "quick_capture_task",
+    "show_tasks_list",
+    "show_tasks_kanban",
+    "show_tasks_schedule",
+    "open_plugins",
+    "query_open",
+    "query_toggle_panel",
+  ]);
   const stores = create_app_stores();
   function require_vault() {
     const vault = stores.vault.vault;
@@ -166,6 +189,9 @@ export function create_app_context(input: {
     stores.op,
     now_ms,
     (command) => {
+      if (app_target === "lite" && lite_disabled_commands.has(command.id)) {
+        return false;
+      }
       if (command.id === "ai_assistant") {
         return stores.ui.editor_settings.ai_enabled;
       }
@@ -595,6 +621,7 @@ export function create_app_context(input: {
   reference_service.register_extension(zotero_bbt_extension);
 
   const base_action_input = {
+    app_target,
     registry: action_registry,
     workspace_reconcile,
     stores: {
@@ -738,8 +765,6 @@ export function create_app_context(input: {
     },
   });
 
-  register_plugin_actions(base_action_input, plugin_service);
-
   register_terminal_actions({
     ...base_action_input,
     terminal_store: stores.terminal,
@@ -758,38 +783,42 @@ export function create_app_context(input: {
     window_port: input.ports.window,
   });
 
-  register_ai_actions({
-    ...base_action_input,
-    ai_store: stores.ai,
-    ai_service,
-  });
+  if (app_target !== "lite") {
+    register_plugin_actions(base_action_input, plugin_service);
 
-  register_graph_actions({
-    ...base_action_input,
-    graph_store: stores.graph,
-    graph_service,
-  });
+    register_ai_actions({
+      ...base_action_input,
+      ai_store: stores.ai,
+      ai_service,
+    });
 
-  register_canvas_actions({
-    ...base_action_input,
-    canvas_service,
-  });
+    register_graph_actions({
+      ...base_action_input,
+      graph_store: stores.graph,
+      graph_service,
+    });
 
-  register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
-  register_metadata_actions(
-    action_registry,
-    metadata_service,
-    stores.metadata,
-    stores.ui,
-  );
+    register_canvas_actions({
+      ...base_action_input,
+      canvas_service,
+    });
 
-  register_reference_actions({
-    registry: action_registry,
-    reference_service,
-    reference_store: stores.reference,
-    editor_service,
-    ui_store: stores.ui,
-  });
+    register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
+    register_metadata_actions(
+      action_registry,
+      metadata_service,
+      stores.metadata,
+      stores.ui,
+    );
+
+    register_reference_actions({
+      registry: action_registry,
+      reference_service,
+      reference_store: stores.reference,
+      editor_service,
+      ui_store: stores.ui,
+    });
+  }
 
   register_lint_actions({
     registry: action_registry,
@@ -886,17 +915,24 @@ export function create_app_context(input: {
     toolchain_service,
   });
 
-  register_bases_actions(
-    action_registry,
-    bases_service,
-    stores.bases,
-    stores.vault,
-    stores.ui,
-  );
+  if (app_target !== "lite") {
+    register_bases_actions(
+      action_registry,
+      bases_service,
+      stores.bases,
+      stores.vault,
+      stores.ui,
+    );
 
-  register_task_actions(action_registry, task_service, stores.task, stores.ui);
+    register_task_actions(
+      action_registry,
+      task_service,
+      stores.task,
+      stores.ui,
+    );
 
-  register_query_actions(action_registry, query_service, stores.ui);
+    register_query_actions(action_registry, query_service, stores.ui);
+  }
 
   register_vim_nav_actions({
     registry: action_registry,

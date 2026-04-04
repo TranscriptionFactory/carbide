@@ -11,7 +11,6 @@ import {
 import { register_ui_actions } from "$lib/app/orchestration/ui_actions";
 import { register_help_actions } from "$lib/app/orchestration/help_actions";
 import { register_tab_actions } from "$lib/features/tab";
-import { register_git_actions } from "$lib/features/git";
 import { register_hotkey_actions } from "$lib/features/hotkey";
 import { register_theme_actions } from "$lib/features/theme";
 
@@ -25,7 +24,6 @@ export function register_core_actions(input: ActionRegistrationInput) {
   register_ui_actions(input);
   register_find_in_file_actions(input);
   register_tab_actions(input);
-  register_git_actions(input);
   register_hotkey_actions(input);
   register_help_actions(input);
   register_theme_actions(input);

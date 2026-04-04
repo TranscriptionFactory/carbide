@@ -46,9 +46,11 @@
 
   type Props = {
     hide_choose_vault_button?: boolean;
+    app_target?: "full" | "lite";
   };
 
-  let { hide_choose_vault_button = false }: Props = $props();
+  let { hide_choose_vault_button = false, app_target = "full" }: Props =
+    $props();
 
   const { stores, action_registry, ports } = use_app_context();
 
@@ -56,7 +58,7 @@
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
   const vault_dashboard_open = $derived(
-    is_vault_mode && stores.ui.vault_dashboard.open,
+    app_target === "full" && is_vault_mode && stores.ui.vault_dashboard.open,
   );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({
@@ -343,7 +345,7 @@
   open={stores.ui.settings_dialog.open}
   editor_settings={stores.ui.settings_dialog.current_settings}
   folder_paths={stores.ui.settings_dialog.all_folder_paths}
-  git_enabled={stores.git.enabled}
+  git_enabled={app_target === "full" && stores.git.enabled}
   git_remote_url={stores.ui.settings_dialog.git_remote_url}
   active_category={stores.ui.settings_dialog.active_category}
   is_saving={stores.op.is_pending("settings.save")}
@@ -422,17 +424,19 @@
     void action_registry.execute(ACTION_IDS.folder_cancel_create)}
 />
 
-<SaveCanvasDialog
-  open={stores.ui.create_canvas_dialog.open}
-  folder_path={stores.ui.create_canvas_dialog.folder_path}
-  canvas_name={stores.ui.create_canvas_dialog.canvas_name}
-  on_name_change={(name: string) =>
-    void action_registry.execute(ACTION_IDS.canvas_update_create_name, name)}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.canvas_confirm_create)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.canvas_cancel_create)}
-/>
+{#if app_target === "full"}
+  <SaveCanvasDialog
+    open={stores.ui.create_canvas_dialog.open}
+    folder_path={stores.ui.create_canvas_dialog.folder_path}
+    canvas_name={stores.ui.create_canvas_dialog.canvas_name}
+    on_name_change={(name: string) =>
+      void action_registry.execute(ACTION_IDS.canvas_update_create_name, name)}
+    on_confirm={() =>
+      void action_registry.execute(ACTION_IDS.canvas_confirm_create)}
+    on_cancel={() =>
+      void action_registry.execute(ACTION_IDS.canvas_cancel_create)}
+  />
+{/if}
 
 <Omnibar
   open={stores.ui.omnibar.open}
@@ -509,58 +513,60 @@
   }}
 />
 
-<VersionHistoryDialog
-  open={stores.ui.version_history_dialog.open}
-  note_path={stores.ui.version_history_dialog.note_path}
-  commits={stores.git.history}
-  is_loading={stores.git.is_loading_history}
-  has_more={stores.git.has_more_history}
-  is_loading_more={stores.git.is_loading_more_history}
-  is_restoring={stores.op.is_pending("git.restore")}
-  selected_commit={stores.git.selected_commit}
-  diff={stores.git.selected_diff}
-  file_content={stores.git.selected_file_content}
-  on_close={() => void action_registry.execute(ACTION_IDS.git_close_history)}
-  on_select_commit={(commit) =>
-    void action_registry.execute(ACTION_IDS.git_select_commit, commit)}
-  on_load_more={() =>
-    void action_registry.execute(ACTION_IDS.git_load_more_history)}
-  on_restore={(commit) =>
-    void action_registry.execute(ACTION_IDS.git_restore_version, commit)}
-/>
+{#if app_target === "full"}
+  <VersionHistoryDialog
+    open={stores.ui.version_history_dialog.open}
+    note_path={stores.ui.version_history_dialog.note_path}
+    commits={stores.git.history}
+    is_loading={stores.git.is_loading_history}
+    has_more={stores.git.has_more_history}
+    is_loading_more={stores.git.is_loading_more_history}
+    is_restoring={stores.op.is_pending("git.restore")}
+    selected_commit={stores.git.selected_commit}
+    diff={stores.git.selected_diff}
+    file_content={stores.git.selected_file_content}
+    on_close={() => void action_registry.execute(ACTION_IDS.git_close_history)}
+    on_select_commit={(commit) =>
+      void action_registry.execute(ACTION_IDS.git_select_commit, commit)}
+    on_load_more={() =>
+      void action_registry.execute(ACTION_IDS.git_load_more_history)}
+    on_restore={(commit) =>
+      void action_registry.execute(ACTION_IDS.git_restore_version, commit)}
+  />
 
-<CheckpointDialog
-  open={stores.ui.checkpoint_dialog.open}
-  description={stores.ui.checkpoint_dialog.description}
-  is_loading={stores.git.sync_status === "committing"}
-  on_update_description={(value) =>
-    void action_registry.execute(
-      ACTION_IDS.git_update_checkpoint_description,
-      value,
-    )}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.git_confirm_checkpoint)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.git_cancel_checkpoint)}
-/>
+  <CheckpointDialog
+    open={stores.ui.checkpoint_dialog.open}
+    description={stores.ui.checkpoint_dialog.description}
+    is_loading={stores.git.sync_status === "committing"}
+    on_update_description={(value) =>
+      void action_registry.execute(
+        ACTION_IDS.git_update_checkpoint_description,
+        value,
+      )}
+    on_confirm={() =>
+      void action_registry.execute(ACTION_IDS.git_confirm_checkpoint)}
+    on_cancel={() =>
+      void action_registry.execute(ACTION_IDS.git_cancel_checkpoint)}
+  />
 
-<AddRemoteDialog
-  open={stores.ui.add_remote_dialog.open}
-  url={stores.ui.add_remote_dialog.url}
-  is_loading={stores.op.is_pending("git.add_remote")}
-  error={stores.git.error}
-  on_update_url={(value) =>
-    void action_registry.execute(ACTION_IDS.git_update_remote_url, value)}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.git_confirm_add_remote)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.git_cancel_add_remote)}
-/>
+  <AddRemoteDialog
+    open={stores.ui.add_remote_dialog.open}
+    url={stores.ui.add_remote_dialog.url}
+    is_loading={stores.op.is_pending("git.add_remote")}
+    error={stores.git.error}
+    on_update_url={(value) =>
+      void action_registry.execute(ACTION_IDS.git_update_remote_url, value)}
+    on_confirm={() =>
+      void action_registry.execute(ACTION_IDS.git_confirm_add_remote)}
+    on_cancel={() =>
+      void action_registry.execute(ACTION_IDS.git_cancel_add_remote)}
+  />
 
-<QuickCaptureDialog
-  open={stores.ui.quick_capture_open}
-  on_open_change={(open) => (stores.ui.quick_capture_open = open)}
-/>
+  <QuickCaptureDialog
+    open={stores.ui.quick_capture_open}
+    on_open_change={(open) => (stores.ui.quick_capture_open = open)}
+  />
+{/if}
 
 <HelpDialog
   open={stores.ui.help_dialog.open}
@@ -575,7 +581,9 @@
   }}
 />
 
-<MissingLinkedSourceDialog />
+{#if app_target === "full"}
+  <MissingLinkedSourceDialog />
+{/if}
 
 <HotkeyRecorderDialog
   open={stores.ui.hotkey_recorder.open}
