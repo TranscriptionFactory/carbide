@@ -9,7 +9,7 @@ import { VaultService } from "$lib/features/vault";
 import { NoteService } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
-import { SearchService } from "$lib/features/search";
+import { SearchService, get_commands_registry } from "$lib/features/search";
 import { build_command_context } from "$lib/features/search/domain/build_command_context";
 import {
   EditorService,
@@ -99,29 +99,6 @@ export function create_app_context(input: {
   const now_ms = input.now_ms ?? (() => Date.now());
   const app_target = input.app_target ?? "full";
   const is_lite = app_target === "lite";
-  const lite_disabled_commands = new Set([
-    "create_new_canvas",
-    "show_vault_dashboard",
-    "git_version_history",
-    "git_create_checkpoint",
-    "git_init_repo",
-    "git_push",
-    "git_pull",
-    "git_fetch",
-    "git_add_remote",
-    "ai_assistant",
-    "toggle_graph_panel",
-    "toggle_tasks_panel",
-    "toggle_metadata_panel",
-    "toggle_bases_panel",
-    "quick_capture_task",
-    "show_tasks_list",
-    "show_tasks_kanban",
-    "show_tasks_schedule",
-    "open_plugins",
-    "query_open",
-    "query_toggle_panel",
-  ]);
   const stores = create_app_stores();
   function require_vault() {
     const vault = stores.vault.vault;
@@ -141,9 +118,6 @@ export function create_app_context(input: {
     stores.op,
     now_ms,
     (command) => {
-      if (is_lite && lite_disabled_commands.has(command.id)) {
-        return false;
-      }
       if (command.id === "ai_assistant") {
         return stores.ui.editor_settings.ai_enabled;
       }
@@ -167,6 +141,7 @@ export function create_app_context(input: {
         ai: stores.ai,
         ui: stores.ui,
       }),
+    get_commands_registry(app_target),
   );
 
   const editor_callbacks: EditorServiceCallbacks = {
@@ -288,7 +263,10 @@ export function create_app_context(input: {
         action,
       );
     },
-    on_lsp_code_actions: async (
+  };
+
+  if (!is_lite) {
+    editor_callbacks.on_lsp_code_actions = async (
       file_path,
       start_line,
       start_character,
@@ -326,11 +304,11 @@ export function create_app_context(input: {
 
       stores.lsp.set_code_actions(all_actions);
       return all_actions;
-    },
-    on_lsp_code_action_resolve: (action) => {
+    };
+    editor_callbacks.on_lsp_code_action_resolve = (action) => {
       void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
-    },
-  };
+    };
+  }
 
   const editor_service = new EditorService(
     input.ports.editor,
@@ -918,37 +896,37 @@ export function create_app_context(input: {
     },
   });
 
-  register_lsp_actions({
-    registry: action_registry,
-    lsp_store: stores.lsp,
-    editor_store: stores.editor,
-    editor_service,
-    note_service,
-    diagnostics_store: stores.diagnostics,
-    ui_store: stores.ui,
-    op_store: stores.op,
-    markdown_lsp_service,
-    workspace_edit_deps,
-  });
-
-  register_iwe_actions({
-    registry: action_registry,
-    editor_store: stores.editor,
-    markdown_lsp_store: stores.markdown_lsp,
-    markdown_lsp_service,
-    ui_store: stores.ui,
-    workspace_edit_deps,
-    command_sink: {
-      register: (cmd) => {
-        stores.plugin.register_command(cmd);
-      },
-      unregister: (id) => {
-        stores.plugin.unregister_command(id);
-      },
-    },
-  });
-
   if (full_runtime) {
+    register_lsp_actions({
+      registry: action_registry,
+      lsp_store: stores.lsp,
+      editor_store: stores.editor,
+      editor_service,
+      note_service,
+      diagnostics_store: stores.diagnostics,
+      ui_store: stores.ui,
+      op_store: stores.op,
+      markdown_lsp_service,
+      workspace_edit_deps,
+    });
+
+    register_iwe_actions({
+      registry: action_registry,
+      editor_store: stores.editor,
+      markdown_lsp_store: stores.markdown_lsp,
+      markdown_lsp_service,
+      ui_store: stores.ui,
+      workspace_edit_deps,
+      command_sink: {
+        register: (cmd) => {
+          stores.plugin.register_command(cmd);
+        },
+        unregister: (id) => {
+          stores.plugin.unregister_command(id);
+        },
+      },
+    });
+
     register_toolchain_actions({
       registry: action_registry,
       toolchain_service: full_runtime.toolchain_service,

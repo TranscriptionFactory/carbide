@@ -1,8 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+
+vi.mock("$lib/generated/bindings", () => ({}));
+
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import { FULL_COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -399,7 +402,9 @@ describe("register_omnibar_actions", () => {
     ] as const;
 
     for (const [command_id, action_id] of cases) {
-      const command = COMMANDS_REGISTRY.find((item) => item.id === command_id);
+      const command = FULL_COMMANDS_REGISTRY.find(
+        (item) => item.id === command_id,
+      );
       if (!command) {
         throw new Error(`missing command definition for ${command_id}`);
       }

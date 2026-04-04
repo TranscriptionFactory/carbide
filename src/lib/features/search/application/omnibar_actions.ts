@@ -2,7 +2,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
 import type { CommandId } from "$lib/features/search/types/command_palette";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import { get_commands_registry } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 import { detect_file_type } from "$lib/features/document";
@@ -288,7 +288,7 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
       close_omnibar(input);
       input.stores.ui.add_recent_command(
         item.command.id,
-        COMMANDS_REGISTRY.length,
+        get_commands_registry(input.app_target).length,
       );
       await execute_command(input, item.command.id);
       break;

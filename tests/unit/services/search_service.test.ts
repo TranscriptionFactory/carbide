@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { SearchService } from "$lib/features/search/application/search_service";
+import {
+  FULL_COMMANDS_REGISTRY,
+  LITE_COMMANDS_REGISTRY,
+} from "$lib/features/search/domain/search_commands";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import {
@@ -278,6 +282,65 @@ describe("SearchService", () => {
         (result) =>
           result.kind === "command" && result.command.id === "ai_assistant",
       ),
+    ).toBe(false);
+  });
+
+  it("uses the lite command registry when provided", () => {
+    const search_port = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([]),
+      suggest_planned_links: vi.fn().mockResolvedValue([]),
+      search_notes: vi.fn().mockResolvedValue([]),
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+      }),
+      extract_local_note_links: vi
+        .fn()
+        .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+      rewrite_note_links: vi
+        .fn()
+        .mockImplementation((markdown: string) =>
+          Promise.resolve({ markdown, changed: false }),
+        ),
+      resolve_note_link: vi.fn().mockResolvedValue(null),
+      resolve_wiki_link: vi.fn().mockResolvedValue(null),
+      semantic_search: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi.fn().mockResolvedValue({
+        total_notes: 0,
+        embedded_notes: 0,
+        model_version: "unavailable",
+        is_embedding: false,
+      }),
+      find_similar_notes: vi.fn().mockResolvedValue([]),
+      semantic_search_batch: vi.fn().mockResolvedValue([]),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+      get_note_stats: vi.fn().mockResolvedValue({}),
+    };
+
+    const service = new SearchService(
+      search_port,
+      new VaultStore(),
+      new OpStore(),
+      () => 1,
+      () => true,
+      undefined,
+      undefined,
+      undefined,
+      LITE_COMMANDS_REGISTRY,
+    );
+
+    expect(
+      FULL_COMMANDS_REGISTRY.some((command) => command.id === "query_open"),
+    ).toBe(true);
+    expect(
+      service
+        .search_commands("query")
+        .some(
+          (result) =>
+            result.kind === "command" && result.command.id === "query_open",
+        ),
     ).toBe(false);
   });
 
