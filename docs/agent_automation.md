@@ -17,10 +17,10 @@ The two approaches covered here are:
 
 ## When to use which
 
-| Approach | Best for | Strengths | Weaknesses |
-| --- | --- | --- | --- |
-| Agent orchestration frameworks | durable multi-step workflows, API-driven systems, retries, branching logic | structured state, observability, tool composition, reusable workflows | more setup, usually requires API-first integration |
-| CLI/TUI automation tools | driving an existing local Codex CLI workflow | simple, fast, minimal infrastructure, good for local repos | more brittle, weaker state management, harder to scale |
+| Approach                       | Best for                                                                   | Strengths                                                             | Weaknesses                                             |
+| ------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------ |
+| Agent orchestration frameworks | durable multi-step workflows, API-driven systems, retries, branching logic | structured state, observability, tool composition, reusable workflows | more setup, usually requires API-first integration     |
+| CLI/TUI automation tools       | driving an existing local Codex CLI workflow                               | simple, fast, minimal infrastructure, good for local repos            | more brittle, weaker state management, harder to scale |
 
 ## Common workflow model
 
@@ -210,6 +210,178 @@ This keeps runs clean and prevents context drift.
 TaskSpec -> PromptBuilder -> AgentRun -> Wait -> RepoInspect -> Validate -> NextStepPrompt -> New AgentRun
 ```
 
+### Python orchestration starter template
+
+The simplest useful framework-style implementation is a Python controller that treats the agent as a run-producing service and keeps workflow state in a local JSON file.
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict
+from pathlib import Path
+import json
+import subprocess
+import time
+
+STATE_PATH = Path("automation/state/lite_pruning.json")
+PROMPT_PATH = Path("automation/prompts/current_prompt.md")
+LOG_DIR = Path("automation/logs")
+
+
+@dataclass
+class WorkflowState:
+    task_id: str
+    iteration: int
+    branch: str
+    base_commit: str
+    last_commit: str | None
+    last_prompt_path: str | None
+    last_run_status: str | None
+    next_goal: str
+
+
+class RepoInspector:
+    def run(self, *args: str) -> str:
+        return subprocess.check_output(args, text=True).strip()
+
+    def snapshot(self) -> dict[str, str]:
+        return {
+            "branch": self.run("git", "branch", "--show-current"),
+            "head": self.run("git", "rev-parse", "HEAD"),
+            "status": self.run("git", "status", "--short"),
+            "last_commit": self.run("git", "log", "--oneline", "-1"),
+            "diff_stat": self.run("git", "diff", "--stat"),
+        }
+
+
+class Validator:
+    def run(self) -> dict[str, int]:
+        commands = {
+            "check": ["pnpm", "check"],
+            "lint": ["pnpm", "lint"],
+            "test": ["pnpm", "test"],
+        }
+        results = {}
+        for name, command in commands.items():
+            proc = subprocess.run(command)
+            results[name] = proc.returncode
+        return results
+
+
+class PromptBuilder:
+    def build(self, state: WorkflowState, repo: dict[str, str]) -> str:
+        return f"""Continue from commit {repo['head']}.
+
+Read first:
+- AGENTS.md
+- docs/architecture.md
+- carbide/plans/2026-04-03_carbide_lite_bootstrap_split_plan.md
+- carbide/plans/2026-04-03_carbide_lite_standalone_app_plan.md
+
+Goal:
+- {state.next_goal}
+
+Constraints:
+- keep lint/formatter support intact for lite
+- keep the door open for LSP/markdown-lsp
+- preserve full behavior exactly
+
+Deliver:
+- code changes
+- focused tests
+- validation summary
+- commit
+"""
+
+
+class AgentRunner:
+    def start_run(self, prompt_text: str) -> Path:
+        PROMPT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        PROMPT_PATH.write_text(prompt_text)
+        log_path = LOG_DIR / f"run_{int(time.time())}.log"
+        with log_path.open("w") as log_file:
+            subprocess.run(["codex", "exec", str(PROMPT_PATH)], stdout=log_file, stderr=subprocess.STDOUT)
+        return log_path
+
+
+class NextStepGenerator:
+    def build(self, repo: dict[str, str], validation: dict[str, int]) -> str:
+        if validation["check"] != 0:
+            return "fix the typecheck regression introduced in the last slice"
+        if validation["test"] != 0:
+            return "inspect whether the failing tests are newly introduced or known unrelated failures"
+        return "remove the next lite/full shared typing placeholder seam"
+
+
+def load_state() -> WorkflowState:
+    if not STATE_PATH.exists():
+        return WorkflowState(
+            task_id="lite-bootstrap-pruning",
+            iteration=1,
+            branch="carbide-lite",
+            base_commit="HEAD",
+            last_commit=None,
+            last_prompt_path=None,
+            last_run_status=None,
+            next_goal="remove the next lite/full shared typing placeholder seam",
+        )
+    return WorkflowState(**json.loads(STATE_PATH.read_text()))
+
+
+def save_state(state: WorkflowState) -> None:
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATE_PATH.write_text(json.dumps(asdict(state), indent=2))
+
+
+def main() -> None:
+    state = load_state()
+    repo_inspector = RepoInspector()
+    validator = Validator()
+    prompt_builder = PromptBuilder()
+    runner = AgentRunner()
+    next_step = NextStepGenerator()
+
+    repo_before = repo_inspector.snapshot()
+    prompt = prompt_builder.build(state, repo_before)
+    log_path = runner.start_run(prompt)
+    validation = validator.run()
+    repo_after = repo_inspector.snapshot()
+
+    state.iteration += 1
+    state.last_commit = repo_after["head"]
+    state.last_prompt_path = str(PROMPT_PATH)
+    state.last_run_status = "completed"
+    state.next_goal = next_step.build(repo_after, validation)
+    save_state(state)
+
+    print("log:", log_path)
+    print("next goal:", state.next_goal)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+This example is intentionally small. In production, add:
+
+- explicit run IDs
+- retry limits
+- parsing of known unrelated failures
+- stop conditions
+- structured logs per iteration
+- separate validation logs instead of mixed stdout
+
+### Framework template design notes
+
+A good first version should keep three boundaries clean:
+
+- prompt construction should be pure and deterministic
+- agent execution should be replaceable
+- next-step generation should consume repo state, not vague memory
+
+That makes it easy to migrate from a local CLI-backed runner to a real API-backed orchestrator later.
+
 ### Good use cases
 
 - multi-day refactors
@@ -394,6 +566,126 @@ That makes the loop resumable.
 - treat timeouts as failures, not success
 - keep prompts in files, not inline shell strings
 - prefer Python controllers over giant shell scripts once logic grows
+
+### tmux starter script
+
+Use this when you want a debuggable local session you can attach to while the agent is working.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+TASK_NAME="lite-pruning"
+SESSION="codex-${TASK_NAME}"
+PROMPT_FILE="automation/prompts/${TASK_NAME}.md"
+TRANSCRIPT_DIR="automation/logs/${TASK_NAME}"
+mkdir -p "${TRANSCRIPT_DIR}"
+
+if tmux has-session -t "${SESSION}" 2>/dev/null; then
+  tmux kill-session -t "${SESSION}"
+fi
+
+tmux new-session -d -s "${SESSION}" -c "$(pwd)"
+tmux send-keys -t "${SESSION}" "codex" C-m
+sleep 2
+
+tmux load-buffer "${PROMPT_FILE}"
+tmux paste-buffer -t "${SESSION}"
+tmux send-keys -t "${SESSION}" C-m
+
+while true; do
+  tmux capture-pane -pt "${SESSION}" > "${TRANSCRIPT_DIR}/latest.log"
+  if grep -q "validation results" "${TRANSCRIPT_DIR}/latest.log"; then
+    break
+  fi
+  sleep 10
+done
+
+git status --short > "${TRANSCRIPT_DIR}/git_status.txt"
+git log --oneline -1 > "${TRANSCRIPT_DIR}/last_commit.txt"
+pnpm check > "${TRANSCRIPT_DIR}/check.log" 2>&1 || true
+pnpm test > "${TRANSCRIPT_DIR}/test.log" 2>&1 || true
+
+tmux kill-session -t "${SESSION}"
+```
+
+This script assumes there is some recognizable completion marker in the transcript. If there is not, replace the `grep` check with one of these:
+
+- idle prompt detection
+- no new output for N seconds
+- a wrapper command that prints a final sentinel line
+
+### pexpect starter script
+
+Use this when you want local automation in Python without managing a visible tmux session.
+
+```python
+from pathlib import Path
+import pexpect
+import subprocess
+import time
+
+PROMPT_PATH = Path("automation/prompts/lite_pruning.md")
+TRANSCRIPT_PATH = Path("automation/logs/lite_pruning/session.log")
+TRANSCRIPT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+child = pexpect.spawn("codex", encoding="utf-8", timeout=30)
+child.logfile = TRANSCRIPT_PATH.open("w")
+
+child.expect([r">", r"Codex", pexpect.TIMEOUT])
+child.sendline(PROMPT_PATH.read_text())
+
+completed = False
+last_change = time.time()
+last_size = 0
+
+while not completed:
+    try:
+        child.expect([r"validation results", r"commit", pexpect.TIMEOUT], timeout=15)
+        completed = True
+    except pexpect.TIMEOUT:
+        current_size = TRANSCRIPT_PATH.stat().st_size
+        if current_size != last_size:
+            last_size = current_size
+            last_change = time.time()
+        elif time.time() - last_change > 60:
+            raise TimeoutError("agent output went idle before a completion marker appeared")
+
+child.close()
+
+subprocess.run(["git", "status", "--short"], check=False)
+subprocess.run(["pnpm", "check"], check=False)
+subprocess.run(["pnpm", "test"], check=False)
+```
+
+### CLI/TUI template design notes
+
+Keep these rules in place:
+
+- prompts should live in files so you can audit them
+- transcripts should always be persisted
+- completion detection should have both a positive signal and a timeout fallback
+- repo validation should happen after the agent exits, not by guessing from transcript text
+- every new implementation slice should start in a fresh session or fresh process
+
+### Suggested directory layout for local automation
+
+```text
+automation/
+  prompts/
+    lite_pruning_01.md
+    lite_pruning_02.md
+  logs/
+    lite_pruning/
+      run_01_agent.log
+      run_01_check.log
+      run_01_test.log
+  state/
+    lite_pruning.json
+  scripts/
+    run_with_tmux.sh
+    run_with_pexpect.py
+```
 
 ## Which one should you choose?
 
