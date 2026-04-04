@@ -2,6 +2,7 @@ export { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 export { ActionRegistry } from "$lib/app/action_registry/action_registry";
 export type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 export { register_actions } from "$lib/app/action_registry/register_actions";
+export { register_core_actions } from "$lib/app/action_registry/register_core_actions";
 export { create_full_app_context } from "$lib/app/full/create_full_app_context";
 export { create_lite_app_context } from "$lib/app/lite/create_lite_app_context";
 export { register_full_actions } from "$lib/app/full/register_full_actions";

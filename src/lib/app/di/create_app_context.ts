@@ -2,7 +2,8 @@ import type { Ports } from "$lib/app/di/app_ports";
 import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
-import { register_actions } from "$lib/app/action_registry/register_actions";
+import { register_full_actions } from "$lib/app/full/register_full_actions";
+import { register_lite_actions } from "$lib/app/lite/register_lite_actions";
 import type { AppMountConfig } from "$lib/features/vault";
 import { VaultService } from "$lib/features/vault";
 import { NoteService } from "$lib/features/note";
@@ -633,7 +634,11 @@ export function create_app_context(input: {
     default_mount_config: input.default_mount_config,
   };
 
-  register_actions(base_action_input);
+  if (app_target === "lite") {
+    register_lite_actions(base_action_input);
+  } else {
+    register_full_actions(base_action_input);
+  }
 
   register_links_actions(action_registry, editor_service);
 
