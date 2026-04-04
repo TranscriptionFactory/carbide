@@ -8,6 +8,7 @@ export {
   LITE_COMMANDS_REGISTRY,
   get_commands_registry,
 } from "$lib/features/search/domain/search_commands";
+export { build_command_context } from "$lib/features/search/domain/build_command_context";
 export { SearchStore } from "$lib/features/search/state/search_store.svelte";
 export type { IndexProgress } from "$lib/features/search/state/search_store.svelte";
 export type {

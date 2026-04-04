@@ -67,6 +67,15 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   rename_note: ACTION_IDS.note_request_rename,
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
 };
+
+function supports_structured_query_shortcut(
+  input: Pick<ActionRegistrationInput, "app_target">,
+) {
+  return get_commands_registry(input.app_target).some(
+    (command) => command.id === "query_open",
+  );
+}
+
 function set_omnibar_state(
   input: ActionRegistrationInput,
   patch: Partial<ActionRegistrationInput["stores"]["ui"]["omnibar"]>,
@@ -313,6 +322,8 @@ const OMNIBAR_SEARCH_DEBOUNCE_MS = 150;
 
 export function register_omnibar_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
+  const structured_query_shortcut_enabled =
+    supports_structured_query_shortcut(input);
 
   let search_debounce_timer: ReturnType<typeof setTimeout> | null = null;
   function cancel_search_debounce() {
@@ -391,7 +402,10 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
         return;
       }
 
-      if (normalized_query.trim().startsWith("?")) {
+      if (
+        structured_query_shortcut_enabled &&
+        normalized_query.trim().startsWith("?")
+      ) {
         set_omnibar_searching(input, false);
         stores.search.clear_omnibar();
         return;
@@ -446,7 +460,7 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     label: "Confirm Omnibar Item",
     execute: async (arg: unknown) => {
       const current_query = stores.ui.omnibar.query.trim();
-      if (current_query.startsWith("?")) {
+      if (structured_query_shortcut_enabled && current_query.startsWith("?")) {
         close_omnibar(input);
         const query_text = current_query.slice(1).trim();
         if (query_text) {
