@@ -1,5 +1,6 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+#[cfg(feature = "feat-semantic-search")]
 use crate::features::search::vector_db;
 use crate::shared::constants;
 use crate::shared::io_utils;
@@ -133,13 +134,17 @@ fn is_canvas_file(abs: &Path) -> bool {
 
 fn extract_indexable_body(abs: &Path, raw: &str) -> String {
     if is_canvas_file(abs) {
-        match crate::features::canvas::canvas_link_extractor::extract_canvas_content(raw) {
-            Ok(content) => content.text_body,
-            Err(_) => String::new(),
+        #[cfg(feature = "feat-canvas")]
+        {
+            match crate::features::canvas::canvas_link_extractor::extract_canvas_content(raw) {
+                Ok(content) => return content.text_body,
+                Err(_) => return String::new(),
+            }
         }
-    } else {
-        raw.to_string()
+        #[cfg(not(feature = "feat-canvas"))]
+        return String::new();
     }
+    raw.to_string()
 }
 
 pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
@@ -822,7 +827,8 @@ pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, Str
     Ok(conn)
 }
 
-fn try_init_vector_tables(conn: &Connection) {
+fn try_init_vector_tables(#[allow(unused_variables)] conn: &Connection) {
+    #[cfg(feature = "feat-semantic-search")]
     if let Err(e) = vector_db::init_vector_schema(conn) {
         log::warn!("Failed to init vector schema: {e}");
     }
@@ -1277,6 +1283,7 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
         params![path],
     )
     .map_err(|e| e.to_string())?;
+    #[cfg(feature = "feat-semantic-search")]
     if let Err(e) = vector_db::remove_embedding(conn, path) {
         log::debug!("vector_db::remove_embedding skipped: {e}");
     }
@@ -1367,6 +1374,7 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
     match result {
         Ok(_) => {
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            #[cfg(feature = "feat-semantic-search")]
             if let Err(e) = vector_db::remove_embeddings_by_prefix(conn, prefix) {
                 log::debug!("vector_db::remove_embeddings_by_prefix skipped: {e}");
             }
@@ -1657,15 +1665,24 @@ fn index_single_file_text(
     if is_canvas_file(abs) {
         let body = extract_indexable_body(abs, raw);
         upsert_note_inner(conn, meta, &body)?;
-        let targets = crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
-            .unwrap_or_default();
-        pending_links.push((meta.path.clone(), targets));
+        #[cfg(feature = "feat-canvas")]
+        {
+            let targets =
+                crate::features::canvas::canvas_link_extractor::extract_all_link_targets(raw)
+                    .unwrap_or_default();
+            pending_links.push((meta.path.clone(), targets));
+        }
+        #[cfg(not(feature = "feat-canvas"))]
+        pending_links.push((meta.path.clone(), vec![]));
     } else if abs.extension().and_then(|x| x.to_str()) == Some("md") {
         meta.title = extract_title_from_markdown(raw).unwrap_or_else(|| meta.name.clone());
         upsert_note_inner(conn, meta, raw)?;
         pending_links.push((meta.path.clone(), vec![]));
-        let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
-        crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
+        #[cfg(feature = "feat-tasks")]
+        {
+            let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
+            crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
+        }
         let props = extract_frontmatter_properties(raw);
         save_properties(conn, &meta.path, &props)?;
     }
@@ -3444,6 +3461,7 @@ pub fn rename_folder_paths(
     match result {
         Ok(_) => {
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            #[cfg(feature = "feat-semantic-search")]
             if let Err(e) = vector_db::rename_embeddings_by_prefix(conn, old_prefix, new_prefix) {
                 log::debug!("vector_db::rename_embeddings_by_prefix skipped: {e}");
             }
@@ -3519,6 +3537,7 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
     match result {
         Ok(_) => {
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            #[cfg(feature = "feat-semantic-search")]
             if let Err(e) = vector_db::rename_embedding_path(conn, old_path, new_path) {
                 log::debug!("vector_db::rename_embedding_path skipped: {e}");
             }

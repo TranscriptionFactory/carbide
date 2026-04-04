@@ -1,7 +1,10 @@
 pub mod db;
+#[cfg(feature = "feat-semantic-search")]
 pub mod embeddings;
+#[cfg(feature = "feat-semantic-search")]
 pub mod hybrid;
 pub mod model;
 pub mod service;
 pub mod text_extractor;
+#[cfg(feature = "feat-semantic-search")]
 pub mod vector_db;

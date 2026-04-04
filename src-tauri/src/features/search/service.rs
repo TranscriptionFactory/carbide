@@ -1,10 +1,13 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
+#[cfg(feature = "feat-semantic-search")]
 use crate::features::search::embeddings::EmbeddingServiceState;
+use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+#[cfg(feature = "feat-semantic-search")]
 use crate::features::search::model::{
-    BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope,
-    SemanticSearchHit,
+    BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, SemanticSearchHit,
 };
+#[cfg(feature = "feat-semantic-search")]
 use crate::features::search::{hybrid, vector_db};
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
@@ -51,6 +54,7 @@ pub enum IndexProgressEvent {
     },
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[derive(Clone, Serialize, Type)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum EmbeddingProgressEvent {
@@ -119,12 +123,14 @@ enum DbCommand {
         changed_paths: Vec<String>,
         removed_paths: Vec<String>,
     },
+    #[cfg(feature = "feat-semantic-search")]
     EmbedBatch {
         vault_root: PathBuf,
         app_handle: AppHandle,
         vault_id: String,
         cancel: Arc<AtomicBool>,
     },
+    #[cfg(feature = "feat-semantic-search")]
     RebuildEmbeddings {
         vault_root: PathBuf,
         app_handle: AppHandle,
@@ -359,7 +365,7 @@ fn dispatch_command(
             file_type,
             modified_at,
             linked_meta,
-            app_handle,
+            app_handle: _app_handle,
             reply,
         } => {
             let result = search_db::upsert_linked_content(
@@ -376,34 +382,37 @@ fn dispatch_command(
             match &result {
                 Ok(meta) => {
                     notes_cache.insert(meta.path.clone(), meta.clone());
-                    let embed_text = if body.trim().is_empty() {
-                        Path::new(&file_path)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or(&file_path)
-                            .to_string()
-                    } else {
-                        body.clone()
-                    };
-                    let embedding_state = app_handle.state::<EmbeddingServiceState>();
-                    let cache_dir = resolve_embedding_cache_dir(&app_handle);
-                    match embedding_state.get_or_init(cache_dir, &app_handle) {
-                        Ok(model) => {
-                            match model.embed_one(&embed_text) {
-                                Ok(vec) => {
-                                    if let Err(e) = vector_db::upsert_embedding(conn, &meta.path, &vec) {
-                                        log::warn!("writer: embed linked note failed: {e}");
+                    #[cfg(feature = "feat-semantic-search")]
+                    {
+                        let embed_text = if body.trim().is_empty() {
+                            Path::new(&file_path)
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or(&file_path)
+                                .to_string()
+                        } else {
+                            body.clone()
+                        };
+                        let embedding_state = _app_handle.state::<EmbeddingServiceState>();
+                        let cache_dir = resolve_embedding_cache_dir(&_app_handle);
+                        match embedding_state.get_or_init(cache_dir, &_app_handle) {
+                            Ok(model) => {
+                                match model.embed_one(&embed_text) {
+                                    Ok(vec) => {
+                                        if let Err(e) = vector_db::upsert_embedding(conn, &meta.path, &vec) {
+                                            log::warn!("writer: embed linked note failed: {e}");
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::warn!("writer: embed linked note model error: {e}");
+                                        let _ = vector_db::remove_embedding(conn, &meta.path);
                                     }
                                 }
-                                Err(e) => {
-                                    log::warn!("writer: embed linked note model error: {e}");
-                                    let _ = vector_db::remove_embedding(conn, &meta.path);
-                                }
                             }
-                        }
-                        Err(e) => {
-                            log::debug!("writer: embedding model unavailable for linked note: {e}");
-                            let _ = vector_db::remove_embedding(conn, &meta.path);
+                            Err(e) => {
+                                log::debug!("writer: embedding model unavailable for linked note: {e}");
+                                let _ = vector_db::remove_embedding(conn, &meta.path);
+                            }
                         }
                     }
                 }
@@ -521,6 +530,7 @@ fn dispatch_command(
                 &removed_paths,
             );
         }
+        #[cfg(feature = "feat-semantic-search")]
         DbCommand::EmbedBatch {
             vault_root,
             app_handle,
@@ -537,6 +547,7 @@ fn dispatch_command(
                 false,
             );
         }
+        #[cfg(feature = "feat-semantic-search")]
         DbCommand::RebuildEmbeddings {
             vault_root,
             app_handle,
@@ -580,7 +591,8 @@ fn handle_upsert(
     meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_simple(conn, &meta, &markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
-    let _ = vector_db::remove_embedding(conn, note_id);
+    #[cfg(feature = "feat-semantic-search")]
+    { let _ = vector_db::remove_embedding(conn, note_id); }
     Ok(())
 }
 
@@ -596,7 +608,8 @@ fn handle_upsert_with_content(
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_simple(conn, &meta, markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
-    let _ = vector_db::remove_embedding(conn, note_id);
+    #[cfg(feature = "feat-semantic-search")]
+    { let _ = vector_db::remove_embedding(conn, note_id); }
     Ok(())
 }
 
@@ -666,8 +679,11 @@ fn run_index_op(
                 match cmd {
                     DbCommand::Rebuild { .. }
                     | DbCommand::Sync { .. }
-                    | DbCommand::SyncPaths { .. }
-                    | DbCommand::EmbedBatch { .. }
+                    | DbCommand::SyncPaths { .. } => {
+                        deferred.borrow_mut().push(cmd);
+                    }
+                    #[cfg(feature = "feat-semantic-search")]
+                    DbCommand::EmbedBatch { .. }
                     | DbCommand::RebuildEmbeddings { .. } => {
                         deferred.borrow_mut().push(cmd);
                     }
@@ -926,6 +942,7 @@ fn handle_sync_paths(
     }
 }
 
+#[cfg(feature = "feat-semantic-search")]
 fn handle_embed_batch(
     conn: &Connection,
     _vault_root: &Path,
@@ -1066,6 +1083,7 @@ fn handle_embed_batch(
     );
 }
 
+#[cfg(feature = "feat-semantic-search")]
 fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {
     let dir = app
         .path()
@@ -1424,6 +1442,7 @@ pub fn linked_source_clear(
     })
 }
 
+#[cfg(feature = "feat-references")]
 #[tauri::command]
 #[specta::specta]
 pub fn query_linked_notes_by_source(
@@ -1436,6 +1455,7 @@ pub fn query_linked_notes_by_source(
     })
 }
 
+#[cfg(feature = "feat-references")]
 #[tauri::command]
 #[specta::specta]
 pub fn count_linked_notes_by_source(
@@ -1448,6 +1468,7 @@ pub fn count_linked_notes_by_source(
     })
 }
 
+#[cfg(feature = "feat-references")]
 #[tauri::command]
 #[specta::specta]
 pub fn find_note_by_citekey(
@@ -1460,6 +1481,7 @@ pub fn find_note_by_citekey(
     })
 }
 
+#[cfg(feature = "feat-references")]
 #[tauri::command]
 #[specta::specta]
 pub fn search_linked_notes(
@@ -1474,6 +1496,7 @@ pub fn search_linked_notes(
     })
 }
 
+#[cfg(feature = "feat-references")]
 #[tauri::command]
 #[specta::specta]
 pub fn update_linked_note_metadata(
@@ -1521,6 +1544,7 @@ pub fn index_rename_note(
     })
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn semantic_search(
@@ -1547,6 +1571,7 @@ pub fn semantic_search(
     })
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn find_similar_notes(
@@ -1604,6 +1629,7 @@ pub fn find_similar_notes(
     })
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn semantic_search_batch(
@@ -1634,6 +1660,7 @@ pub fn semantic_search_batch(
     })
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub async fn hybrid_search(
@@ -1663,6 +1690,7 @@ pub async fn hybrid_search(
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<EmbeddingStatus, String> {
@@ -1680,6 +1708,7 @@ pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<Embeddin
     })
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
@@ -1698,6 +1727,7 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
     )
 }
 
+#[cfg(feature = "feat-semantic-search")]
 #[tauri::command]
 #[specta::specta]
 pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
