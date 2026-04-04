@@ -233,6 +233,14 @@
     });
   });
 
+  const visible_item_index = $derived.by(() => {
+    const map = new Map<OmnibarItem, number>();
+    for (let i = 0; i < visible_items.length; i++) {
+      map.set(visible_items[i]!, i);
+    }
+    return map;
+  });
+
   const action_id_to_key = $derived.by(() => {
     const map = new Map<string, string>();
     for (const b of hotkeys_config.bindings) {
@@ -441,7 +449,7 @@
             </button>
             {#if !is_collapsed}
               {#each group.items as item (get_item_id(item))}
-                {@const vis_index = visible_items.indexOf(item)}
+                {@const vis_index = visible_item_index.get(item) ?? -1}
                 <button
                   id={get_item_id(item)}
                   role="option"

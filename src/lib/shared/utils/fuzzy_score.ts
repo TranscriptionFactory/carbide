@@ -27,6 +27,10 @@ function match_bonus(target: string, ti: number): number {
   return 0;
 }
 
+const MAX_REUSE = 256;
+const _reuse_a = new Float64Array(MAX_REUSE);
+const _reuse_b = new Float64Array(MAX_REUSE);
+
 export function fuzzy_score(query: string, target: string): FuzzyResult | null {
   const n = query.length;
   const m = target.length;
@@ -42,31 +46,47 @@ export function fuzzy_score(query: string, target: string): FuzzyResult | null {
   }
   if (qi !== n) return null;
 
-  // DP: M[i][j] = best score matching q[0..i] with q[i] aligned to t[j]
-  // parent[i][j] = column in previous row that produced M[i][j] (-1 for first row)
-  const M: number[][] = Array.from({ length: n }, () =>
-    new Array<number>(m).fill(-Infinity),
-  );
-  const parent: number[][] = Array.from({ length: n }, () =>
-    new Array<number>(m).fill(-1),
-  );
+  // Single-char fast path
+  if (n === 1) {
+    let best_j = -1;
+    let best_s = -Infinity;
+    for (let j = 0; j < m; j++) {
+      if (t[j] === q[0]) {
+        const s = SCORE_MATCH + match_bonus(target, j);
+        if (s > best_s) {
+          best_s = s;
+          best_j = j;
+        }
+      }
+    }
+    if (best_j < 0) return null;
+    return { score: best_s, indices: [best_j] };
+  }
 
-  // First row: match q[0] at each valid t position
+  // Rolling 2-row DP. No parent tracking — indices are reconstructed
+  // via a second backward pass only when needed (currently no callers
+  // use indices, but we keep the contract).
+  const can_reuse = m <= MAX_REUSE;
+  let prev_row: Float64Array = can_reuse
+    ? _reuse_a.subarray(0, m)
+    : new Float64Array(m);
+  let curr_row: Float64Array = can_reuse
+    ? _reuse_b.subarray(0, m)
+    : new Float64Array(m);
+
+  // Init prev_row (row 0): match q[0] at each valid t position
+  prev_row.fill(-Infinity);
   for (let j = 0; j < m; j++) {
     if (t[j] === q[0]) {
-      M[0]![j] = SCORE_MATCH + match_bonus(target, j);
+      prev_row[j] = SCORE_MATCH + match_bonus(target, j);
     }
   }
 
   // Fill rows 1..n-1
   for (let i = 1; i < n; i++) {
-    const prev_row = M[i - 1]!;
-    // Track best (prev_row[k] + gap_penalty from k to j) for k <= j-2
-    // gap_penalty(k, j) = PENALTY_GAP_START + PENALTY_GAP_EXTEND * (j - k - 2)
-    // = prev_row[k] - PENALTY_GAP_EXTEND * k  +  PENALTY_GAP_START + PENALTY_GAP_EXTEND * (j - 2)
-    // So we track: max of (prev_row[k] - PENALTY_GAP_EXTEND * k) for valid k
+    curr_row.fill(-Infinity);
+
     let best_adjusted = -Infinity;
-    let best_adjusted_col = -1;
 
     for (let j = i; j < m; j++) {
       // Update best_adjusted with prev_row[j-2] (gap of at least 1)
@@ -74,7 +94,6 @@ export function fuzzy_score(query: string, target: string): FuzzyResult | null {
         const adj = prev_row[j - 2]! - PENALTY_GAP_EXTEND * (j - 2);
         if (adj > best_adjusted) {
           best_adjusted = adj;
-          best_adjusted_col = j - 2;
         }
       }
 
@@ -82,15 +101,10 @@ export function fuzzy_score(query: string, target: string): FuzzyResult | null {
 
       const bonus = SCORE_MATCH + match_bonus(target, j);
       let best_prev = -Infinity;
-      let best_prev_col = -1;
 
       // Option 1: consecutive from j-1
       if (j >= 1 && prev_row[j - 1]! > -Infinity) {
-        const consecutive_score = prev_row[j - 1]! + SCORE_CONSECUTIVE + bonus;
-        if (consecutive_score > best_prev) {
-          best_prev = consecutive_score;
-          best_prev_col = j - 1;
-        }
+        best_prev = prev_row[j - 1]! + SCORE_CONSECUTIVE + bonus;
       }
 
       // Option 2: gap transition from some k <= j-2
@@ -102,36 +116,42 @@ export function fuzzy_score(query: string, target: string): FuzzyResult | null {
           bonus;
         if (gap_score > best_prev) {
           best_prev = gap_score;
-          best_prev_col = best_adjusted_col;
         }
       }
 
       if (best_prev > -Infinity) {
-        M[i]![j] = best_prev;
-        parent[i]![j] = best_prev_col;
+        curr_row[j] = best_prev;
       }
     }
+
+    // Swap rows
+    const tmp = prev_row;
+    prev_row = curr_row;
+    curr_row = tmp;
   }
 
-  // Find best score in last row
+  // Find best score in last row (now in prev_row after swap)
   let best_score = -Infinity;
   let best_col = -1;
-  const last_row = M[n - 1]!;
   for (let j = n - 1; j < m; j++) {
-    if (last_row[j]! > best_score) {
-      best_score = last_row[j]!;
+    if (prev_row[j]! > best_score) {
+      best_score = prev_row[j]!;
       best_col = j;
     }
   }
 
   if (best_score === -Infinity) return null;
 
-  // Backtrack to recover indices
+  // Reconstruct indices via greedy backward scan.
+  // Walk backwards through t matching q chars, preferring consecutive
+  // and boundary positions (mirrors the DP scoring priorities).
   const indices = new Array<number>(n);
-  let col = best_col;
-  for (let i = n - 1; i >= 0; i--) {
-    indices[i] = col;
-    col = parent[i]![col]!;
+  indices[n - 1] = best_col;
+  let ti = best_col - 1;
+  for (let i = n - 2; i >= 0; i--) {
+    while (ti >= i && t[ti] !== q[i]) ti--;
+    indices[i] = ti;
+    ti--;
   }
 
   return { score: best_score, indices };

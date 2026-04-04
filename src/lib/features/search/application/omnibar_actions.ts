@@ -423,6 +423,7 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     label: "Set Omnibar Scope",
     execute: async (scope: unknown) => {
       const new_scope = scope as OmnibarScope;
+      cancel_search_debounce();
       set_omnibar_state(input, {
         scope: new_scope,
         selected_index: 0,
