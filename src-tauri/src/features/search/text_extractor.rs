@@ -1,5 +1,7 @@
 use std::path::Path;
+#[cfg(feature = "feat-references")]
 use std::sync::mpsc;
+#[cfg(feature = "feat-references")]
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,7 +84,10 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
             page_offsets: vec![],
         },
         FileCategory::Pdf => {
+            #[cfg(feature = "feat-references")]
             let (body, page_offsets) = extract_pdf_text(bytes).unwrap_or_default();
+            #[cfg(not(feature = "feat-references"))]
+            let (body, page_offsets) = (String::new(), vec![]);
             ExtractedContent {
                 category: FileCategory::Pdf,
                 body,
@@ -105,8 +110,10 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
     }
 }
 
+#[cfg(feature = "feat-references")]
 const PDF_EXTRACT_TIMEOUT: Duration = Duration::from_secs(15);
 
+#[cfg(feature = "feat-references")]
 fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
     let owned = bytes.to_vec();
     let (tx, rx) = mpsc::channel();

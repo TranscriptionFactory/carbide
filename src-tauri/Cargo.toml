@@ -14,6 +14,35 @@ path = "src/lib.rs"
 name = "carbide"
 path = "src/main.rs"
 
+[features]
+default = ["full"]
+lite = []
+full = [
+    "lite",
+    "feat-ai",
+    "feat-semantic-search",
+    "feat-plugins",
+    "feat-references",
+    "feat-canvas",
+    "feat-tasks",
+    "feat-bases",
+    "feat-toolchain",
+]
+feat-ai = []
+feat-semantic-search = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:hf-hub",
+    "dep:tokenizers",
+]
+feat-plugins = ["dep:serde_yml"]
+feat-references = ["dep:pdf-extract", "dep:lopdf", "dep:zip"]
+feat-canvas = []
+feat-tasks = []
+feat-bases = []
+feat-toolchain = ["dep:flate2", "dep:tar"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -25,7 +54,6 @@ mime_guess = "2.0.5"
 notify = "7.0.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
-serde_yml = "0.0.12"
 rusqlite = { version = "0.32", features = ["bundled"] }
 log = "0.4"
 tauri = { version = "2", features = [] }
@@ -47,11 +75,6 @@ ropey = "1.6.1"
 tauri-plugin-single-instance = "2.4.0"
 regex = "1.12.3"
 lazy_static = "1.5.0"
-candle-core = { version = "0.9", default-features = false }
-candle-nn = { version = "0.9", default-features = false }
-candle-transformers = { version = "0.9", default-features = false }
-hf-hub = { version = "0.5", features = ["tokio"] }
-tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
 specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
@@ -59,13 +82,21 @@ tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 lsp-types = "0.97"
 reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
 sha2 = "0.10"
-flate2 = "1"
-tar = "0.4"
-zip = { version = "2", default-features = false, features = ["deflate"] }
 url = "2.5.8"
-pdf-extract = "0.10.0"
-lopdf = "0.34"
 rayon = "1.10"
+
+# Optional deps gated by features
+candle-core = { version = "0.9", default-features = false, optional = true }
+candle-nn = { version = "0.9", default-features = false, optional = true }
+candle-transformers = { version = "0.9", default-features = false, optional = true }
+hf-hub = { version = "0.5", features = ["tokio"], optional = true }
+tokenizers = { version = "0.22", default-features = false, features = ["onig"], optional = true }
+serde_yml = { version = "0.0.12", optional = true }
+pdf-extract = { version = "0.10.0", optional = true }
+lopdf = { version = "0.34", optional = true }
+zip = { version = "2", default-features = false, features = ["deflate"], optional = true }
+flate2 = { version = "1", optional = true }
+tar = { version = "0.4", optional = true }
 
 [dev-dependencies]
 filetime = "0.2"

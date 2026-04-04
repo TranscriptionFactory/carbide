@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 use super::lsp::LintLspSession;
 use super::types::*;
 use crate::features::settings;
+#[cfg(feature = "feat-toolchain")]
 use crate::features::toolchain;
 
 #[derive(Default)]
@@ -42,8 +43,11 @@ impl LintState {
             .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
             .and_then(|v| v.as_str().map(|s| s.to_string()))
             .filter(|s| !s.is_empty());
+        #[cfg(feature = "feat-toolchain")]
         let binary_path =
             toolchain::resolver::resolve(&app, "rumdl", custom_path.as_deref()).await?;
+        #[cfg(not(feature = "feat-toolchain"))]
+        let binary_path = std::path::PathBuf::from(custom_path.as_deref().unwrap_or("rumdl"));
 
         let client = LintLspSession::start(
             vault_id.to_string(),

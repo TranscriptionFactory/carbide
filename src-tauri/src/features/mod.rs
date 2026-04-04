@@ -1,18 +1,26 @@
+#[cfg(feature = "feat-ai")]
 pub mod ai;
+#[cfg(feature = "feat-bases")]
 pub mod bases;
+#[cfg(feature = "feat-canvas")]
 pub mod canvas;
 pub mod code_lsp;
 pub mod git;
 pub mod lint;
 pub mod markdown_lsp;
 pub mod notes;
+#[cfg(feature = "feat-ai")]
 pub mod pipeline;
+#[cfg(feature = "feat-plugins")]
 pub mod plugin;
+#[cfg(feature = "feat-references")]
 pub mod reference;
 
 pub mod search;
 pub mod settings;
+#[cfg(feature = "feat-tasks")]
 pub mod tasks;
+#[cfg(feature = "feat-toolchain")]
 pub mod toolchain;
 pub mod vault;
 pub mod vault_settings;

@@ -1,4 +1,6 @@
+#[cfg(feature = "feat-ai")]
 use crate::features::ai::service::AiProviderConfig;
+#[cfg(feature = "feat-toolchain")]
 use crate::features::toolchain;
 use crate::shared::lsp_client::{
     LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig, RestartableLspClient,
@@ -178,6 +180,7 @@ async fn ensure_iwe_config(app: &AppHandle, vault_path: &Path) -> Result<(), Str
     Ok(())
 }
 
+#[allow(unused_variables)]
 async fn resolve_markdown_lsp_startup(
     app: &AppHandle,
     preferred: &str,
@@ -186,14 +189,22 @@ async fn resolve_markdown_lsp_startup(
 ) -> Result<MarkdownLspStartupResolution, String> {
     match preferred {
         "iwes" => {
-            let iwe_path = match toolchain::resolver::resolve(app, "iwes", custom_ref).await {
+            #[cfg(feature = "feat-toolchain")]
+            let iwe_path_result = toolchain::resolver::resolve(app, "iwes", custom_ref).await;
+            #[cfg(not(feature = "feat-toolchain"))]
+            let iwe_path_result: Result<std::path::PathBuf, String> =
+                Ok(std::path::PathBuf::from(custom_ref.unwrap_or("iwes")));
+            let iwe_path = match iwe_path_result {
                 Ok(path) => path,
                 Err(error) => {
                     log::warn!(
                         "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed error={}",
                         error
                     );
+                    #[cfg(feature = "feat-toolchain")]
                     let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
+                    #[cfg(not(feature = "feat-toolchain"))]
+                    let marksman_path = std::path::PathBuf::from("marksman");
                     return Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,
                         binary_path: marksman_path,
@@ -218,7 +229,10 @@ async fn resolve_markdown_lsp_startup(
                         "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_preflight_failed error={}",
                         error
                     );
+                    #[cfg(feature = "feat-toolchain")]
                     let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
+                    #[cfg(not(feature = "feat-toolchain"))]
+                    let marksman_path = std::path::PathBuf::from("marksman");
                     Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,
                         binary_path: marksman_path,
@@ -226,10 +240,17 @@ async fn resolve_markdown_lsp_startup(
                 }
             }
         }
-        "marksman" => Ok(MarkdownLspStartupResolution {
-            effective_provider: MarkdownLspProvider::Marksman,
-            binary_path: toolchain::resolver::resolve(app, "marksman", custom_ref).await?,
-        }),
+        "marksman" => {
+            #[cfg(feature = "feat-toolchain")]
+            let binary_path = toolchain::resolver::resolve(app, "marksman", custom_ref).await?;
+            #[cfg(not(feature = "feat-toolchain"))]
+            let binary_path =
+                std::path::PathBuf::from(custom_ref.unwrap_or("marksman"));
+            Ok(MarkdownLspStartupResolution {
+                effective_provider: MarkdownLspProvider::Marksman,
+                binary_path,
+            })
+        }
         other => Err(format!("Unknown markdown LSP provider: {}", other)),
     }
 }
@@ -351,7 +372,7 @@ pub async fn markdown_lsp_start(
     provider: Option<String>,
     custom_binary_path: Option<String>,
     startup_reason: Option<String>,
-    initial_iwe_provider_config: Option<AiProviderConfig>,
+    #[allow(unused_variables)] initial_iwe_provider_config: Option<serde_json::Value>,
 ) -> Result<MarkdownLspStartResult, String> {
     let startup_started_at = Instant::now();
     let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
@@ -387,16 +408,19 @@ pub async fn markdown_lsp_start(
             startup_reason,
             config_started_at.elapsed().as_millis()
         );
-        if let Some(provider_config) = initial_iwe_provider_config.as_ref() {
-            let rewrite_started_at = Instant::now();
-            iwe_config_rewrite_provider(app.clone(), vault_id.clone(), provider_config.clone())
-                .await?;
-            log::info!(
-                "markdown_lsp_startup phase=initial_config_rewrite startup_reason={} provider={} duration_ms={}",
-                startup_reason,
-                provider_config.name,
-                rewrite_started_at.elapsed().as_millis()
-            );
+        #[cfg(feature = "feat-ai")]
+        if let Some(ref raw) = initial_iwe_provider_config {
+            if let Ok(provider_config) = serde_json::from_value::<AiProviderConfig>(raw.clone()) {
+                let rewrite_started_at = Instant::now();
+                iwe_config_rewrite_provider(app.clone(), vault_id.clone(), provider_config.clone())
+                    .await?;
+                log::info!(
+                    "markdown_lsp_startup phase=initial_config_rewrite startup_reason={} provider={} duration_ms={}",
+                    startup_reason,
+                    provider_config.name,
+                    rewrite_started_at.elapsed().as_millis()
+                );
+            }
         }
     }
 
@@ -1407,6 +1431,7 @@ pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), St
     Ok(())
 }
 
+#[cfg(feature = "feat-ai")]
 struct ManagedTransform {
     command_name: &'static str,
     action_name: &'static str,
@@ -1414,6 +1439,7 @@ struct ManagedTransform {
     prompt: &'static str,
 }
 
+#[cfg(feature = "feat-ai")]
 const MANAGED_TRANSFORMS: &[ManagedTransform] = &[
     ManagedTransform {
         command_name: "ai_rewrite",
@@ -1447,24 +1473,30 @@ const MANAGED_TRANSFORMS: &[ManagedTransform] = &[
     },
 ];
 
+#[cfg(feature = "feat-ai")]
 const MANAGED_COMMAND_PREFIXES: &[&str] = &["ai_", "claude_"];
 
+#[cfg(feature = "feat-ai")]
 fn is_managed_command(name: &str) -> bool {
     MANAGED_COMMAND_PREFIXES.iter().any(|p| name.starts_with(p))
 }
 
+#[cfg(feature = "feat-ai")]
 fn is_managed_action(name: &str) -> bool {
     MANAGED_TRANSFORMS.iter().any(|t| t.action_name == name)
 }
 
+#[cfg(feature = "feat-ai")]
 fn provider_uses_prompt_in_args(args: &[String]) -> bool {
     args.iter().any(|a| a.contains("{prompt}"))
 }
 
+#[cfg(feature = "feat-ai")]
 fn provider_uses_output_file(args: &[String]) -> bool {
     args.iter().any(|a| a.contains("{output_file}"))
 }
 
+#[cfg(feature = "feat-ai")]
 fn build_command_toml(
     transform: &ManagedTransform,
     command: &str,
@@ -1500,6 +1532,7 @@ fn build_command_toml(
     )
 }
 
+#[cfg(feature = "feat-ai")]
 fn build_action_toml(
     transform: &ManagedTransform,
     provider_name: &str,
@@ -1521,6 +1554,7 @@ fn build_action_toml(
     )
 }
 
+#[cfg(feature = "feat-ai")]
 fn rewrite_iwe_config(
     content: &str,
     command: &str,
@@ -1641,6 +1675,7 @@ fn rewrite_iwe_config(
     output
 }
 
+#[cfg(feature = "feat-ai")]
 #[tauri::command]
 #[specta::specta]
 pub async fn iwe_config_rewrite_provider(

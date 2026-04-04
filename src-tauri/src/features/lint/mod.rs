@@ -11,6 +11,7 @@ use std::path::Path;
 use tauri::{AppHandle, State};
 
 use super::settings;
+#[cfg(feature = "feat-toolchain")]
 use super::toolchain;
 
 fn resolve_uri(vault_path: &Path, rel_path: &str) -> String {
@@ -24,7 +25,12 @@ async fn resolve_rumdl_binary(app: &AppHandle) -> Result<std::path::PathBuf, Str
         .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .filter(|s| !s.is_empty());
-    toolchain::resolver::resolve(app, "rumdl", custom_path.as_deref()).await
+    #[cfg(feature = "feat-toolchain")]
+    return toolchain::resolver::resolve(app, "rumdl", custom_path.as_deref()).await;
+    #[cfg(not(feature = "feat-toolchain"))]
+    return Ok(std::path::PathBuf::from(
+        custom_path.as_deref().unwrap_or("rumdl"),
+    ));
 }
 
 #[tauri::command]
