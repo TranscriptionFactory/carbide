@@ -1,0 +1,11 @@
+{
+  "productName": "Carbide Lite",
+  "app": {
+    "windows": [
+      {
+        "title": "Carbide Lite",
+        "url": "/?app_target=lite"
+      }
+    ]
+  }
+}
