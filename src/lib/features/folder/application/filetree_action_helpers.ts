@@ -230,7 +230,13 @@ export async function load_linked_source_folder(
       return;
     }
 
-    const notes = await input.services.reference.query_all_linked_notes();
+    const reference_service = input.services.reference;
+    if (!reference_service) {
+      set_load_state(input, folder_path, "loaded", null);
+      return;
+    }
+
+    const notes = await reference_service.query_all_linked_notes();
     const source_notes = notes
       .filter((n) => n.linked_source_id === source.id)
       .map(linked_note_to_meta);

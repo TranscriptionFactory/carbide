@@ -62,7 +62,7 @@ export type ActionRegistrationInput = {
     git: GitService;
     hotkey: HotkeyService;
     theme: ThemeService;
-    reference: ReferenceService;
+    reference?: ReferenceService;
   };
   default_mount_config: AppMountConfig;
 };

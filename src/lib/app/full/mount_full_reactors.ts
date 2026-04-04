@@ -1,5 +1,5 @@
-import { mount_reactors, type ReactorContext } from "$lib/reactors";
+import { mount_reactors, type FullReactorContext } from "$lib/reactors";
 
-export function mount_full_reactors(context: ReactorContext): () => void {
+export function mount_full_reactors(context: FullReactorContext): () => void {
   return mount_reactors(context);
 }

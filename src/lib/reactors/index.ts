@@ -60,7 +60,6 @@ import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import type { SecondaryEditorManager } from "$lib/features/tab";
 import type { DocumentService } from "$lib/features/document";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
@@ -81,53 +80,55 @@ import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 
-export type ReactorContext = {
+export type CoreReactorContext = {
   editor_store: EditorStore;
   ui_store: UIStore;
   op_store: OpStore;
   notes_store: NotesStore;
-  search_store: SearchStore;
   vault_store: VaultStore;
   tab_store: TabStore;
-  git_store: GitStore;
   terminal_store: TerminalStore;
   links_store: LinksStore;
-  graph_store: GraphStore;
-  bases_store: BasesStore;
   editor_service: EditorService;
   note_service: NoteService;
   vault_service: VaultService;
   settings_service: SettingsService;
   tab_service: TabService;
-  git_service: GitService;
   links_service: LinksService;
-  terminal_service: TerminalService;
-  graph_service: GraphService;
-  bases_service: BasesService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
-  workspace_reconcile?: WorkspaceReconcile | undefined;
-  secondary_editor_manager: SecondaryEditorManager;
+  workspace_reconcile?: WorkspaceReconcile;
   document_service: DocumentService;
-  task_service: TaskService;
-  plugin_service: PluginService;
-  workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
   lint_service: LintService;
   markdown_lsp_store: MarkdownLspStore;
-  markdown_lsp_service: MarkdownLspService;
   diagnostics_store: DiagnosticsStore;
+  theme_service: ThemeService;
+  terminal_service: TerminalService;
+};
+
+export type FullReactorContext = CoreReactorContext & {
+  search_store: SearchStore;
+  git_store: GitStore;
+  graph_store: GraphStore;
+  bases_store: BasesStore;
+  git_service: GitService;
+  graph_service: GraphService;
+  bases_service: BasesService;
+  task_service: TaskService;
+  plugin_service: PluginService;
+  workspace_index_port: WorkspaceIndexPort;
+  markdown_lsp_service: MarkdownLspService;
   metadata_store: MetadataStore;
   metadata_service: MetadataService;
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
   code_lsp_service: CodeLspService;
-  theme_service: ThemeService;
   reference_service: ReferenceService;
   reference_store: ReferenceStore;
 };
 
-export function mount_core_reactors(context: ReactorContext): () => void {
+export function mount_core_reactors(context: CoreReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
   const unmounts = [
@@ -169,17 +170,6 @@ export function mount_core_reactors(context: ReactorContext): () => void {
       context.tab_store,
       context.vault_store,
       context.tab_service,
-    ),
-    create_git_autocommit_reactor(
-      context.editor_store,
-      context.git_store,
-      context.ui_store,
-      context.git_service,
-    ),
-    create_git_auto_fetch_reactor(
-      context.git_store,
-      context.ui_store,
-      context.git_service,
     ),
     create_recent_commands_persist_reactor(
       context.ui_store,
@@ -272,7 +262,7 @@ export function mount_core_reactors(context: ReactorContext): () => void {
   };
 }
 
-export function mount_reactors(context: ReactorContext): () => void {
+export function mount_reactors(context: FullReactorContext): () => void {
   const cleanup_core_reactors = mount_core_reactors(context);
 
   const full_only_unmounts = [

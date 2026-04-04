@@ -1,5 +1,5 @@
-import { mount_core_reactors, type ReactorContext } from "$lib/reactors";
+import { mount_core_reactors, type CoreReactorContext } from "$lib/reactors";
 
-export function mount_lite_reactors(context: ReactorContext): () => void {
+export function mount_lite_reactors(context: CoreReactorContext): () => void {
   return mount_core_reactors(context);
 }

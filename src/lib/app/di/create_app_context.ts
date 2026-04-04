@@ -135,57 +135,6 @@ export function create_app_context(input: {
     () => stores.vault.is_vault_mode,
   );
 
-  const plugin_settings_service = new PluginSettingsService(
-    stores.plugin_settings,
-    stores.vault,
-    input.ports.plugin_settings,
-  );
-
-  const plugin_service = new PluginService(
-    stores.plugin,
-    stores.vault,
-    input.ports.plugin,
-  );
-
-  plugin_service.set_settings_service(
-    plugin_settings_service,
-    stores.plugin_settings,
-  );
-
-  plugin_service.on_plugin_cleanup((plugin_id) => {
-    stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
-  });
-
-  if (!is_lite) {
-    plugin_service.register_sidebar_view({
-      id: "canvases",
-      label: "Canvases",
-      icon: PencilRuler,
-      panel: CanvasPanel,
-    });
-
-    plugin_service.register_sidebar_view({
-      id: "plugins",
-      label: "Plugins",
-      icon: Blocks,
-      panel: PluginManager,
-    });
-
-    plugin_service.register_sidebar_view({
-      id: "references",
-      label: "References",
-      icon: BookMarked,
-      panel: CitationPicker,
-    });
-
-    plugin_service.register_sidebar_view({
-      id: "bases",
-      label: "Bases",
-      icon: Table,
-      panel: BasesPanel,
-    });
-  }
-
   const search_service = new SearchService(
     input.ports.search,
     stores.vault,
@@ -541,15 +490,6 @@ export function create_app_context(input: {
     stores.diagnostics,
   );
 
-  const code_lsp_service = new CodeLspService(
-    input.ports.code_lsp,
-    stores.code_lsp,
-    stores.diagnostics,
-  );
-  if (!is_lite) {
-    code_lsp_service.start();
-  }
-
   const markdown_lsp_service = new MarkdownLspService(
     input.ports.markdown_lsp,
     stores.markdown_lsp,
@@ -557,75 +497,171 @@ export function create_app_context(input: {
     stores.diagnostics,
   );
 
-  const graph_service = new GraphService(
-    input.ports.graph,
-    input.ports.search,
-    stores.vault,
-    stores.editor,
-    stores.graph,
-  );
+  const full_runtime = is_lite
+    ? null
+    : (() => {
+        const plugin_settings_service = new PluginSettingsService(
+          stores.plugin_settings,
+          stores.vault,
+          input.ports.plugin_settings,
+        );
 
-  const ai_service = new AiService(input.ports.ai, stores.vault);
+        const plugin_service = new PluginService(
+          stores.plugin,
+          stores.vault,
+          input.ports.plugin,
+        );
 
-  const bases_service = new BasesService(input.ports.bases, stores.bases);
+        plugin_service.set_settings_service(
+          plugin_settings_service,
+          stores.plugin_settings,
+        );
 
-  const task_service = new TaskService(
-    input.ports.task,
-    stores.task,
-    stores.vault,
-    stores.editor,
-    (line_number, status) =>
-      editor_service.update_task_checkbox(line_number, status),
-  );
+        plugin_service.on_plugin_cleanup((plugin_id) => {
+          stores.diagnostics.clear_source(
+            `plugin:${plugin_id}` as DiagnosticSource,
+          );
+        });
 
-  const canvas_service = new CanvasService(
-    input.ports.canvas,
-    stores.vault,
-    stores.canvas,
-    stores.op,
-    now_ms,
-  );
+        plugin_service.register_sidebar_view({
+          id: "canvases",
+          label: "Canvases",
+          icon: PencilRuler,
+          panel: CanvasPanel,
+        });
 
-  const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
+        plugin_service.register_sidebar_view({
+          id: "plugins",
+          label: "Plugins",
+          icon: Blocks,
+          panel: PluginManager,
+        });
 
-  const metadata_service = new MetadataService(stores.metadata, stores.editor);
+        plugin_service.register_sidebar_view({
+          id: "references",
+          label: "References",
+          icon: BookMarked,
+          panel: CitationPicker,
+        });
 
-  const toolchain_service = new ToolchainService(
-    input.ports.toolchain,
-    stores.toolchain,
-  );
+        plugin_service.register_sidebar_view({
+          id: "bases",
+          label: "Bases",
+          icon: Table,
+          panel: BasesPanel,
+        });
 
-  const query_service = new QueryService(
-    {
-      search: input.ports.search,
-      index: input.ports.index,
-      tags: input.ports.tag,
-      bases: input.ports.bases,
-    },
-    stores.query,
-    stores.vault,
-    input.ports.saved_query,
-    stores.op,
-  );
+        const code_lsp_service = new CodeLspService(
+          input.ports.code_lsp,
+          stores.code_lsp,
+          stores.diagnostics,
+        );
+        code_lsp_service.start();
 
-  const reference_service = new ReferenceService(
-    input.ports.reference_storage,
-    stores.reference,
-    stores.vault,
-    stores.op,
-    now_ms,
-    input.ports.citation,
-    input.ports.doi_lookup,
-    input.ports.linked_source,
-    input.ports.vault_settings,
-  );
+        const graph_service = new GraphService(
+          input.ports.graph,
+          input.ports.search,
+          stores.vault,
+          stores.editor,
+          stores.graph,
+        );
 
-  if (!is_lite) {
-    const zotero_bbt_extension = new ZoteroBbtExtension(
-      create_zotero_bbt_adapter(),
-    );
-    reference_service.register_extension(zotero_bbt_extension);
-  }
+        const ai_service = new AiService(input.ports.ai, stores.vault);
+        const bases_service = new BasesService(input.ports.bases, stores.bases);
+        const task_service = new TaskService(
+          input.ports.task,
+          stores.task,
+          stores.vault,
+          stores.editor,
+          (line_number, status) =>
+            editor_service.update_task_checkbox(line_number, status),
+        );
+        const canvas_service = new CanvasService(
+          input.ports.canvas,
+          stores.vault,
+          stores.canvas,
+          stores.op,
+          now_ms,
+        );
+        const tag_service = new TagService(
+          input.ports.tag,
+          stores.tag,
+          stores.vault,
+        );
+        const metadata_service = new MetadataService(
+          stores.metadata,
+          stores.editor,
+        );
+        const toolchain_service = new ToolchainService(
+          input.ports.toolchain,
+          stores.toolchain,
+        );
+        const query_service = new QueryService(
+          {
+            search: input.ports.search,
+            index: input.ports.index,
+            tags: input.ports.tag,
+            bases: input.ports.bases,
+          },
+          stores.query,
+          stores.vault,
+          input.ports.saved_query,
+          stores.op,
+        );
+        const reference_service = new ReferenceService(
+          input.ports.reference_storage,
+          stores.reference,
+          stores.vault,
+          stores.op,
+          now_ms,
+          input.ports.citation,
+          input.ports.doi_lookup,
+          input.ports.linked_source,
+          input.ports.vault_settings,
+        );
+
+        const zotero_bbt_extension = new ZoteroBbtExtension(
+          create_zotero_bbt_adapter(),
+        );
+        reference_service.register_extension(zotero_bbt_extension);
+
+        return {
+          plugin_settings_service,
+          plugin_service,
+          code_lsp_service,
+          graph_service,
+          ai_service,
+          bases_service,
+          task_service,
+          canvas_service,
+          tag_service,
+          metadata_service,
+          toolchain_service,
+          query_service,
+          reference_service,
+        };
+      })();
+
+  const app_services = {
+    vault: vault_service,
+    note: note_service,
+    folder: folder_service,
+    settings: settings_service,
+    search: search_service,
+    editor: editor_service,
+    clipboard: clipboard_service,
+    shell: shell_service,
+    tab: tab_service,
+    git: git_service,
+    hotkey: hotkey_service,
+    theme: theme_service,
+    bases: full_runtime?.bases_service as BasesService,
+    task: full_runtime?.task_service as TaskService,
+    plugin: full_runtime?.plugin_service as PluginService,
+    plugin_settings:
+      full_runtime?.plugin_settings_service as PluginSettingsService,
+    reference: full_runtime?.reference_service as ReferenceService,
+  };
 
   const base_action_input = {
     app_target,
@@ -647,25 +683,7 @@ export function create_app_context(input: {
       parsed_note_cache: stores.parsed_note_cache,
       reference: stores.reference,
     },
-    services: {
-      vault: vault_service,
-      note: note_service,
-      folder: folder_service,
-      settings: settings_service,
-      search: search_service,
-      editor: editor_service,
-      clipboard: clipboard_service,
-      shell: shell_service,
-      tab: tab_service,
-      git: git_service,
-      hotkey: hotkey_service,
-      theme: theme_service,
-      bases: bases_service,
-      task: task_service,
-      plugin: plugin_service,
-      plugin_settings: plugin_settings_service,
-      reference: reference_service,
-    },
+    services: app_services,
     default_mount_config: input.default_mount_config,
   };
 
@@ -677,8 +695,8 @@ export function create_app_context(input: {
 
   register_links_actions(action_registry, editor_service);
 
-  if (!is_lite) {
-    plugin_service.initialize_rpc({
+  if (full_runtime) {
+    full_runtime.plugin_service.initialize_rpc({
       services: {
         note: {
           async read_note(note_path) {
@@ -719,7 +737,7 @@ export function create_app_context(input: {
           },
         },
         editor: editor_service,
-        plugin: plugin_service,
+        plugin: full_runtime.plugin_service,
       },
       stores: {
         notes: stores.notes,
@@ -798,37 +816,42 @@ export function create_app_context(input: {
     window_port: input.ports.window,
   });
 
-  if (!is_lite) {
-    register_plugin_actions(base_action_input, plugin_service);
+  if (full_runtime) {
+    register_plugin_actions(base_action_input, full_runtime.plugin_service);
 
     register_ai_actions({
       ...base_action_input,
       ai_store: stores.ai,
-      ai_service,
+      ai_service: full_runtime.ai_service,
     });
 
     register_graph_actions({
       ...base_action_input,
       graph_store: stores.graph,
-      graph_service,
+      graph_service: full_runtime.graph_service,
     });
 
     register_canvas_actions({
       ...base_action_input,
-      canvas_service,
+      canvas_service: full_runtime.canvas_service,
     });
 
-    register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);
+    register_tag_actions(
+      action_registry,
+      full_runtime.tag_service,
+      stores.tag,
+      stores.ui,
+    );
     register_metadata_actions(
       action_registry,
-      metadata_service,
+      full_runtime.metadata_service,
       stores.metadata,
       stores.ui,
     );
 
     register_reference_actions({
       registry: action_registry,
-      reference_service,
+      reference_service: full_runtime.reference_service,
       reference_store: stores.reference,
       editor_service,
       ui_store: stores.ui,
@@ -925,15 +948,15 @@ export function create_app_context(input: {
     },
   });
 
-  register_toolchain_actions({
-    registry: action_registry,
-    toolchain_service,
-  });
+  if (full_runtime) {
+    register_toolchain_actions({
+      registry: action_registry,
+      toolchain_service: full_runtime.toolchain_service,
+    });
 
-  if (!is_lite) {
     register_bases_actions(
       action_registry,
-      bases_service,
+      full_runtime.bases_service,
       stores.bases,
       stores.vault,
       stores.ui,
@@ -941,12 +964,16 @@ export function create_app_context(input: {
 
     register_task_actions(
       action_registry,
-      task_service,
+      full_runtime.task_service,
       stores.task,
       stores.ui,
     );
 
-    register_query_actions(action_registry, query_service, stores.ui);
+    register_query_actions(
+      action_registry,
+      full_runtime.query_service,
+      stores.ui,
+    );
   }
 
   register_vim_nav_actions({
@@ -957,75 +984,76 @@ export function create_app_context(input: {
     vim_nav_store: stores.vim_nav,
   });
 
-  const cleanup_reactors = (
-    is_lite ? mount_lite_reactors : mount_full_reactors
-  )({
+  const core_reactor_context = {
     editor_store: stores.editor,
     ui_store: stores.ui,
     op_store: stores.op,
     notes_store: stores.notes,
-    search_store: stores.search,
     vault_store: stores.vault,
     tab_store: stores.tab,
-    git_store: stores.git,
     terminal_store: stores.terminal,
     links_store: stores.links,
-    graph_store: stores.graph,
-    bases_store: stores.bases,
     editor_service,
     note_service,
     vault_service,
     settings_service,
     tab_service,
-    git_service,
     links_service,
-    terminal_service,
-    graph_service,
-    bases_service,
     watcher_service,
     action_registry,
     workspace_reconcile,
-    secondary_editor_manager,
     document_service,
-    task_service,
-    plugin_service,
-    workspace_index_port: input.ports.index,
     lint_store: stores.lint,
     lint_service,
     markdown_lsp_store: stores.markdown_lsp,
-    markdown_lsp_service,
     diagnostics_store: stores.diagnostics,
-    metadata_store: stores.metadata,
-    metadata_service,
-    toolchain_service,
-    document_store: stores.document,
-    code_lsp_service,
     theme_service,
-    reference_service,
-    reference_store: stores.reference,
-  });
+    terminal_service,
+  };
+
+  const cleanup_reactors = full_runtime
+    ? mount_full_reactors({
+        ...core_reactor_context,
+        search_store: stores.search,
+        git_store: stores.git,
+        graph_store: stores.graph,
+        bases_store: stores.bases,
+        git_service,
+        graph_service: full_runtime.graph_service,
+        bases_service: full_runtime.bases_service,
+        task_service: full_runtime.task_service,
+        plugin_service: full_runtime.plugin_service,
+        workspace_index_port: input.ports.index,
+        markdown_lsp_service,
+        metadata_store: stores.metadata,
+        metadata_service: full_runtime.metadata_service,
+        toolchain_service: full_runtime.toolchain_service,
+        document_store: stores.document,
+        code_lsp_service: full_runtime.code_lsp_service,
+        reference_service: full_runtime.reference_service,
+        reference_store: stores.reference,
+      })
+    : mount_lite_reactors(core_reactor_context);
 
   return {
     app_target,
     ports: input.ports,
     stores,
-    services: base_action_input.services,
+    services: app_services,
     action_registry,
     secondary_editor_manager,
     terminal_runtime: terminal_service,
     destroy: () => {
       cleanup_reactors();
-      plugin_service.destroy();
+      full_runtime?.plugin_service.destroy();
       terminal_service.destroy();
       secondary_editor_manager.destroy();
       editor_service.unmount();
       void watcher_service.stop();
       void lint_service.stop();
       void markdown_lsp_service.stop();
-      if (!is_lite) {
-        code_lsp_service.stop();
-      }
-      toolchain_service.dispose();
+      full_runtime?.code_lsp_service.stop();
+      full_runtime?.toolchain_service.dispose();
     },
   };
 }
