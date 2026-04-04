@@ -327,6 +327,16 @@ describe("create_app_context lite composition", () => {
     expect(
       (context.services as { reference?: unknown }).reference,
     ).toBeUndefined();
+    expect(context.stores.ai).toBeUndefined();
+    expect(context.stores.plugin).toBeUndefined();
+    expect(context.stores.plugin_settings).toBeUndefined();
+    expect(context.stores.canvas).toBeUndefined();
+    expect(context.stores.tag).toBeUndefined();
+    expect(context.stores.metadata).toBeUndefined();
+    expect(context.stores.toolchain).toBeUndefined();
+    expect(context.stores.code_lsp).toBeUndefined();
+    expect(context.stores.query).toBeUndefined();
+    expect(context.stores.reference).toBeUndefined();
 
     const registered_action_ids = new Set(
       context.action_registry.get_all().map((action) => action.id),

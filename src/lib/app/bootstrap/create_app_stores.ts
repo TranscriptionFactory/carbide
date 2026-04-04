@@ -47,10 +47,10 @@ export type AppStores = {
   outline: OutlineStore;
   terminal: TerminalStore;
   document: DocumentStore;
-  ai: AiStore;
   graph: GraphStore;
   bases: BasesStore;
   task: TaskStore;
+  ai: AiStore;
   plugin: PluginStore;
   plugin_settings: PluginSettingsStore;
   canvas: CanvasStore;
@@ -84,25 +84,40 @@ export function create_app_stores(app_target: AppTarget = "full"): AppStores {
     outline: new OutlineStore(),
     terminal: new TerminalStore(),
     document: new DocumentStore(),
-    ai: new AiStore(),
     graph: new GraphStore(),
     bases: new BasesStore(),
     task: new TaskStore(),
-    plugin: new PluginStore(),
-    plugin_settings: new PluginSettingsStore(),
-    canvas: new CanvasStore(),
-    tag: new TagStore(),
     lint: new LintStore(),
     log: new LogStore(),
     markdown_lsp: new MarkdownLspStore(),
     lsp: new LspStore(),
     diagnostics: new DiagnosticsStore(),
-    metadata: new MetadataStore(),
-    toolchain: new ToolchainStore(),
-    code_lsp: new CodeLspStore(),
-    query: new QueryStore(),
     parsed_note_cache: new ParsedNoteCache(),
-    reference: new ReferenceStore(),
     vim_nav: new VimNavStore(),
+    ...(app_target === "lite"
+      ? {
+          ai: undefined as unknown as AiStore,
+          plugin: undefined as unknown as PluginStore,
+          plugin_settings: undefined as unknown as PluginSettingsStore,
+          canvas: undefined as unknown as CanvasStore,
+          tag: undefined as unknown as TagStore,
+          metadata: undefined as unknown as MetadataStore,
+          toolchain: undefined as unknown as ToolchainStore,
+          code_lsp: undefined as unknown as CodeLspStore,
+          query: undefined as unknown as QueryStore,
+          reference: undefined as unknown as ReferenceStore,
+        }
+      : {
+          ai: new AiStore(),
+          plugin: new PluginStore(),
+          plugin_settings: new PluginSettingsStore(),
+          canvas: new CanvasStore(),
+          tag: new TagStore(),
+          metadata: new MetadataStore(),
+          toolchain: new ToolchainStore(),
+          code_lsp: new CodeLspStore(),
+          query: new QueryStore(),
+          reference: new ReferenceStore(),
+        }),
   };
 }
