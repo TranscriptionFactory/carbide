@@ -33,7 +33,7 @@ async function apply_opened_vault(
     error_message: null,
   });
 
-  if (input.stores.vault.is_vault_mode) {
+  if (input.stores.vault.is_vault_mode && input.app_target !== "lite") {
     await input.registry.execute(ACTION_IDS.git_check_repo);
   }
 

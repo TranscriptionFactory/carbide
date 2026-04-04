@@ -22,7 +22,9 @@ import {
   create_test_note,
 } from "../helpers/test_fixtures";
 
-function create_vault_actions_harness() {
+function create_vault_actions_harness(options?: {
+  app_target?: "lite" | "full";
+}) {
   const registry = new ActionRegistry();
   const execute_open_dashboard = vi.fn();
   const stores = {
@@ -91,7 +93,10 @@ function create_vault_actions_harness() {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
     },
+    app_target: options?.app_target,
   });
+
+  const execute_git_check_repo = vi.fn();
 
   registry.register({
     id: ACTION_IDS.ui_open_vault_dashboard,
@@ -108,10 +113,16 @@ function create_vault_actions_harness() {
   registry.register({
     id: ACTION_IDS.git_check_repo,
     label: "Check Git Repo",
-    execute: async () => {},
+    execute: execute_git_check_repo,
   });
 
-  return { registry, stores, services, execute_open_dashboard };
+  return {
+    registry,
+    stores,
+    services,
+    execute_open_dashboard,
+    execute_git_check_repo,
+  };
 }
 
 describe("register_vault_actions", () => {
@@ -288,6 +299,32 @@ describe("register_vault_actions", () => {
     await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
 
     expect(execute_open_dashboard).not.toHaveBeenCalled();
+  });
+
+  it("skips git_check_repo in lite mode after successful vault switch", async () => {
+    const { registry, stores, services, execute_git_check_repo } =
+      create_vault_actions_harness({ app_target: "lite" });
+
+    stores.vault.set_vault({
+      id: as_vault_id("vault-next"),
+      name: "Next",
+      path: as_vault_path("/vault/next"),
+      created_at: 0,
+      mode: "vault",
+    });
+
+    services.vault.change_vault_by_id = vi.fn().mockResolvedValue({
+      status: "opened",
+      editor_settings: {
+        ...stores.ui.editor_settings,
+        show_vault_dashboard_on_open: false,
+      },
+      opened_from_vault_switch: true,
+    });
+
+    await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
+
+    expect(execute_git_check_repo).not.toHaveBeenCalled();
   });
 
   it("leaves the editor empty when a vault opens without restored tabs", async () => {
