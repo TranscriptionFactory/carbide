@@ -1,4 +1,6 @@
 declare global {
+  const __CARBIDE_LITE__: boolean;
+
   namespace App {}
 
   interface FileSystemDirectoryHandle {

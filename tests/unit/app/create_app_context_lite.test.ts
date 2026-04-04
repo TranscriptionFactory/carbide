@@ -243,7 +243,7 @@ function create_ports() {
   } as never;
 }
 
-describe("create_app_context lite composition", () => {
+describe.runIf(__CARBIDE_LITE__)("create_app_context lite composition", () => {
   beforeEach(() => {
     for (const value of Object.values(mocks)) {
       if (typeof value === "function") {
@@ -278,7 +278,6 @@ describe("create_app_context lite composition", () => {
         reset_app_state: false,
         bootstrap_default_vault_path: null,
       },
-      app_target: "lite",
     });
 
     expect(mocks.plugin_settings_service_constructor).not.toHaveBeenCalled();
@@ -341,15 +340,9 @@ describe("create_app_context lite composition", () => {
     expect(context.stores.bases).toBeUndefined();
     expect(context.stores.task).toBeUndefined();
 
-    expect(
-      (context.services as { bases?: unknown }).bases,
-    ).toBeUndefined();
-    expect(
-      (context.services as { task?: unknown }).task,
-    ).toBeUndefined();
-    expect(
-      (context.services as { plugin?: unknown }).plugin,
-    ).toBeUndefined();
+    expect((context.services as { bases?: unknown }).bases).toBeUndefined();
+    expect((context.services as { task?: unknown }).task).toBeUndefined();
+    expect((context.services as { plugin?: unknown }).plugin).toBeUndefined();
     expect(
       (context.services as { plugin_settings?: unknown }).plugin_settings,
     ).toBeUndefined();

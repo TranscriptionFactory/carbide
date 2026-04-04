@@ -36,10 +36,9 @@
     },
   };
 
-  const app =
-    app_target === "lite"
-      ? create_lite_app_context(app_context_input)
-      : create_full_app_context(app_context_input);
+  const app = __CARBIDE_LITE__
+    ? create_lite_app_context(app_context_input)
+    : create_full_app_context(app_context_input);
 
   provide_app_context(app);
 
@@ -66,12 +65,12 @@
 </script>
 
 {#if window_init.kind === "viewer"}
-  {#if app_target === "lite"}
+  {#if __CARBIDE_LITE__}
     <LiteViewerShell />
   {:else}
     <FullViewerShell />
   {/if}
-{:else if app_target === "lite"}
+{:else if __CARBIDE_LITE__}
   <LiteAppShell />
 {:else}
   <FullAppShell />

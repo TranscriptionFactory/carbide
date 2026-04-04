@@ -28,7 +28,8 @@ import {
 import { create_test_note, create_test_vault } from "../helpers/test_fixtures";
 import type { AppTarget } from "$lib/features/window";
 
-function create_omnibar_actions_harness(app_target: AppTarget = "full") {
+function create_omnibar_actions_harness() {
+  const app_target: AppTarget = __CARBIDE_LITE__ ? "lite" : "full";
   const registry = new ActionRegistry();
   const stores = {
     ui: new UIStore(),
@@ -270,54 +271,59 @@ describe("register_omnibar_actions", () => {
     ]);
   });
 
-  it("runs structured query shortcut in full", async () => {
-    const { registry, stores } = create_omnibar_actions_harness("full");
-    const execute_query_open = vi.fn().mockResolvedValue(undefined);
-    const execute_query_execute = vi.fn().mockResolvedValue(undefined);
+  it.runIf(!__CARBIDE_LITE__)(
+    "runs structured query shortcut in full",
+    async () => {
+      const { registry, stores } = create_omnibar_actions_harness();
+      const execute_query_open = vi.fn().mockResolvedValue(undefined);
+      const execute_query_execute = vi.fn().mockResolvedValue(undefined);
 
-    registry.register({
-      id: ACTION_IDS.query_open,
-      label: "Open Query",
-      execute: execute_query_open,
-    });
-    registry.register({
-      id: ACTION_IDS.query_execute,
-      label: "Execute Query",
-      execute: execute_query_execute,
-    });
+      registry.register({
+        id: ACTION_IDS.query_open,
+        label: "Open Query",
+        execute: execute_query_open,
+      });
+      registry.register({
+        id: ACTION_IDS.query_execute,
+        label: "Execute Query",
+        execute: execute_query_execute,
+      });
 
-    stores.ui.omnibar = {
-      ...stores.ui.omnibar,
-      open: true,
-      query: "?status:open",
-    };
+      stores.ui.omnibar = {
+        ...stores.ui.omnibar,
+        open: true,
+        query: "?status:open",
+      };
 
-    await registry.execute(ACTION_IDS.omnibar_confirm_item);
+      await registry.execute(ACTION_IDS.omnibar_confirm_item);
 
-    expect(stores.ui.omnibar.open).toBe(false);
-    expect(execute_query_open).toHaveBeenCalledTimes(1);
-    expect(execute_query_execute).toHaveBeenCalledWith("status:open");
-  });
+      expect(stores.ui.omnibar.open).toBe(false);
+      expect(execute_query_open).toHaveBeenCalledTimes(1);
+      expect(execute_query_execute).toHaveBeenCalledWith("status:open");
+    },
+  );
 
-  it("does not assume structured query actions exist in lite", async () => {
-    const { registry, stores, services } =
-      create_omnibar_actions_harness("lite");
+  it.runIf(__CARBIDE_LITE__)(
+    "does not assume structured query actions exist in lite",
+    async () => {
+      const { registry, stores, services } = create_omnibar_actions_harness();
 
-    await registry.execute(ACTION_IDS.omnibar_open);
-    await registry.execute(ACTION_IDS.omnibar_set_query, "?status:open");
-    await vi.advanceTimersByTimeAsync(200);
+      await registry.execute(ACTION_IDS.omnibar_open);
+      await registry.execute(ACTION_IDS.omnibar_set_query, "?status:open");
+      await vi.advanceTimersByTimeAsync(200);
 
-    expect(services.search.search_omnibar).toHaveBeenCalledWith(
-      "?status:open",
-      expect.objectContaining({ enabled: true }),
-    );
-    expect(stores.ui.omnibar.open).toBe(true);
+      expect(services.search.search_omnibar).toHaveBeenCalledWith(
+        "?status:open",
+        expect.objectContaining({ enabled: true }),
+      );
+      expect(stores.ui.omnibar.open).toBe(true);
 
-    await expect(
-      registry.execute(ACTION_IDS.omnibar_confirm_item),
-    ).resolves.toBeUndefined();
-    expect(stores.ui.omnibar.open).toBe(true);
-  });
+      await expect(
+        registry.execute(ACTION_IDS.omnibar_confirm_item),
+      ).resolves.toBeUndefined();
+      expect(stores.ui.omnibar.open).toBe(true);
+    },
+  );
 
   it("opens planned-note omnibar hit via wiki-link action", async () => {
     const { registry, stores } = create_omnibar_actions_harness();

@@ -14,13 +14,9 @@ import type {
 
 export function register_settings_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
-  const excluded_action_ids =
-    input.app_target === "lite"
-      ? new Set([
-          ACTION_IDS.ui_open_vault_dashboard,
-          ACTION_IDS.ui_quick_capture,
-        ])
-      : undefined;
+  const excluded_action_ids = __CARBIDE_LITE__
+    ? new Set([ACTION_IDS.ui_open_vault_dashboard, ACTION_IDS.ui_quick_capture])
+    : undefined;
   let settings_open_revision = 0;
   let last_active_category: SettingsCategory = "theme";
 

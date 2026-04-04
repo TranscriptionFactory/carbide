@@ -22,9 +22,7 @@ import {
   create_test_note,
 } from "../helpers/test_fixtures";
 
-function create_vault_actions_harness(options?: {
-  app_target?: "lite" | "full";
-}) {
+function create_vault_actions_harness() {
   const registry = new ActionRegistry();
   const execute_open_dashboard = vi.fn();
   const stores = {
@@ -93,7 +91,7 @@ function create_vault_actions_harness(options?: {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
     },
-    app_target: options?.app_target,
+    app_target: __CARBIDE_LITE__ ? "lite" : "full",
   });
 
   const execute_git_check_repo = vi.fn();
@@ -301,31 +299,37 @@ describe("register_vault_actions", () => {
     expect(execute_open_dashboard).not.toHaveBeenCalled();
   });
 
-  it("skips git_check_repo in lite mode after successful vault switch", async () => {
-    const { registry, stores, services, execute_git_check_repo } =
-      create_vault_actions_harness({ app_target: "lite" });
+  it.runIf(__CARBIDE_LITE__)(
+    "skips git_check_repo in lite mode after successful vault switch",
+    async () => {
+      const { registry, stores, services, execute_git_check_repo } =
+        create_vault_actions_harness();
 
-    stores.vault.set_vault({
-      id: as_vault_id("vault-next"),
-      name: "Next",
-      path: as_vault_path("/vault/next"),
-      created_at: 0,
-      mode: "vault",
-    });
+      stores.vault.set_vault({
+        id: as_vault_id("vault-next"),
+        name: "Next",
+        path: as_vault_path("/vault/next"),
+        created_at: 0,
+        mode: "vault",
+      });
 
-    services.vault.change_vault_by_id = vi.fn().mockResolvedValue({
-      status: "opened",
-      editor_settings: {
-        ...stores.ui.editor_settings,
-        show_vault_dashboard_on_open: false,
-      },
-      opened_from_vault_switch: true,
-    });
+      services.vault.change_vault_by_id = vi.fn().mockResolvedValue({
+        status: "opened",
+        editor_settings: {
+          ...stores.ui.editor_settings,
+          show_vault_dashboard_on_open: false,
+        },
+        opened_from_vault_switch: true,
+      });
 
-    await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
+      await registry.execute(
+        ACTION_IDS.vault_select,
+        as_vault_id("vault-next"),
+      );
 
-    expect(execute_git_check_repo).not.toHaveBeenCalled();
-  });
+      expect(execute_git_check_repo).not.toHaveBeenCalled();
+    },
+  );
 
   it("leaves the editor empty when a vault opens without restored tabs", async () => {
     const { registry, stores, services } = create_vault_actions_harness();

@@ -130,7 +130,7 @@ function create_lite_input(): ActionRegistrationInput {
   };
 }
 
-describe("lite core action smoke", () => {
+describe.runIf(__CARBIDE_LITE__)("lite core action smoke", () => {
   it("registers all core actions without error", () => {
     const input = create_lite_input();
 

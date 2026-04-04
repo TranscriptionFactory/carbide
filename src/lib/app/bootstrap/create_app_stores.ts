@@ -28,7 +28,6 @@ import { QueryStore } from "$lib/features/query";
 import { ParsedNoteCache } from "$lib/features/note";
 import { ReferenceStore } from "$lib/features/reference";
 import { VimNavStore } from "$lib/features/vim_nav";
-import type { AppTarget } from "$lib/features/window";
 import {
   FULL_APP_SURFACE,
   LITE_APP_SURFACE,
@@ -74,8 +73,8 @@ export type FullOnlyAppStores = {
 
 export type AppStores = CoreAppStores & Partial<FullOnlyAppStores>;
 
-export function create_app_stores(app_target: AppTarget = "full"): AppStores {
-  const surface = app_target === "lite" ? LITE_APP_SURFACE : FULL_APP_SURFACE;
+export function create_app_stores(): AppStores {
+  const surface = __CARBIDE_LITE__ ? LITE_APP_SURFACE : FULL_APP_SURFACE;
   const core: CoreAppStores = {
     vault: new VaultStore(),
     notes: new NotesStore(),
@@ -98,7 +97,7 @@ export function create_app_stores(app_target: AppTarget = "full"): AppStores {
     vim_nav: new VimNavStore(),
   };
 
-  if (app_target === "lite") {
+  if (__CARBIDE_LITE__) {
     return core;
   }
 

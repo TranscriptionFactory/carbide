@@ -47,11 +47,9 @@
 
   type Props = {
     hide_choose_vault_button?: boolean;
-    app_target?: "full" | "lite";
   };
 
-  let { hide_choose_vault_button = false, app_target = "full" }: Props =
-    $props();
+  let { hide_choose_vault_button = false }: Props = $props();
 
   const { stores, action_registry, ports } = use_app_context();
 
@@ -59,7 +57,7 @@
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
   const vault_dashboard_open = $derived(
-    app_target === "full" && is_vault_mode && stores.ui.vault_dashboard.open,
+    !__CARBIDE_LITE__ && is_vault_mode && stores.ui.vault_dashboard.open,
   );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({
@@ -346,7 +344,7 @@
   open={stores.ui.settings_dialog.open}
   editor_settings={stores.ui.settings_dialog.current_settings}
   folder_paths={stores.ui.settings_dialog.all_folder_paths}
-  git_enabled={app_target === "full" && stores.git.enabled}
+  git_enabled={!__CARBIDE_LITE__ && stores.git.enabled}
   git_remote_url={stores.ui.settings_dialog.git_remote_url}
   active_category={stores.ui.settings_dialog.active_category}
   is_saving={stores.op.is_pending("settings.save")}
@@ -425,7 +423,7 @@
     void action_registry.execute(ACTION_IDS.folder_cancel_create)}
 />
 
-{#if app_target === "full"}
+{#if !__CARBIDE_LITE__}
   <SaveCanvasDialog
     open={stores.ui.create_canvas_dialog.open}
     folder_path={stores.ui.create_canvas_dialog.folder_path}
@@ -446,7 +444,7 @@
   is_searching={stores.ui.omnibar.is_searching}
   scope={stores.ui.omnibar.scope}
   items={stores.search.omnibar_items}
-  commands={get_commands_registry(app_target)}
+  commands={get_commands_registry()}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
   hotkeys_config={stores.ui.hotkeys_config}
@@ -515,7 +513,7 @@
   }}
 />
 
-{#if app_target === "full"}
+{#if !__CARBIDE_LITE__}
   <VersionHistoryDialog
     open={stores.ui.version_history_dialog.open}
     note_path={stores.ui.version_history_dialog.note_path}
@@ -583,7 +581,7 @@
   }}
 />
 
-{#if app_target === "full"}
+{#if !__CARBIDE_LITE__}
   <MissingLinkedSourceDialog />
 {/if}
 

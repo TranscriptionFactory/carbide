@@ -1,4 +1,3 @@
-import type { AppTarget } from "$lib/features/window";
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 
 export const CORE_COMMANDS_REGISTRY: CommandDefinition[] = [
@@ -520,10 +519,6 @@ export const FULL_COMMANDS_REGISTRY: CommandDefinition[] = [
 
 export const LITE_COMMANDS_REGISTRY = CORE_COMMANDS_REGISTRY;
 
-export function get_commands_registry(
-  app_target: AppTarget = "full",
-): CommandDefinition[] {
-  return app_target === "lite"
-    ? LITE_COMMANDS_REGISTRY
-    : FULL_COMMANDS_REGISTRY;
+export function get_commands_registry(): CommandDefinition[] {
+  return __CARBIDE_LITE__ ? LITE_COMMANDS_REGISTRY : FULL_COMMANDS_REGISTRY;
 }

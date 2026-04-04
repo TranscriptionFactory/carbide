@@ -101,8 +101,8 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const app_target = input.app_target ?? "full";
-  const is_lite = app_target === "lite";
-  const stores = create_app_stores(app_target);
+  const is_lite = __CARBIDE_LITE__;
+  const stores = create_app_stores();
   function require_vault() {
     const vault = stores.vault.vault;
     if (!vault) throw new Error("No active vault");
@@ -150,7 +150,7 @@ export function create_app_context(input: {
               ai: stores.ai!,
             },
       ),
-    get_commands_registry(app_target),
+    get_commands_registry(),
   );
 
   const editor_callbacks: EditorServiceCallbacks = {

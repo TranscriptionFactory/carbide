@@ -18,9 +18,9 @@ import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
 
-function create_ui_stores(app_target: "full" | "lite" = "full") {
+function create_ui_stores() {
   return {
-    ui: new UIStore(app_target === "lite" ? LITE_APP_SURFACE : undefined),
+    ui: new UIStore(__CARBIDE_LITE__ ? LITE_APP_SURFACE : undefined),
     vault: new VaultStore(),
     notes: new NotesStore(),
     editor: new EditorStore(),
@@ -40,13 +40,12 @@ function create_ui_stores(app_target: "full" | "lite" = "full") {
 function register_actions_for_test(
   registry: ActionRegistry,
   stores: ReturnType<typeof create_ui_stores>,
-  app_target: "full" | "lite" = "full",
 ) {
   let refresh_called = 0;
 
   register_ui_actions({
     registry,
-    app_target,
+    app_target: __CARBIDE_LITE__ ? "lite" : "full",
     stores,
     services: {
       reference: {},
@@ -100,25 +99,28 @@ describe("register_ui_actions", () => {
     expect(refresh_called()).toBe(1);
   });
 
-  it("does not register full-only ui actions for lite", async () => {
-    const registry = new ActionRegistry();
-    const stores = create_ui_stores("lite");
+  it.runIf(__CARBIDE_LITE__)(
+    "does not register full-only ui actions for lite",
+    async () => {
+      const registry = new ActionRegistry();
+      const stores = create_ui_stores();
 
-    register_actions_for_test(registry, stores, "lite");
+      register_actions_for_test(registry, stores);
 
-    const registered = new Set(registry.get_all().map((action) => action.id));
+      const registered = new Set(registry.get_all().map((action) => action.id));
 
-    expect(registered.has(ACTION_IDS.ui_open_vault_dashboard)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_close_vault_dashboard)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_quick_capture)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_toggle_tasks_panel)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_show_tasks_list)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_show_tasks_kanban)).toBe(false);
-    expect(registered.has(ACTION_IDS.ui_show_tasks_schedule)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_open_vault_dashboard)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_close_vault_dashboard)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_quick_capture)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_toggle_tasks_panel)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_show_tasks_list)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_show_tasks_kanban)).toBe(false);
+      expect(registered.has(ACTION_IDS.ui_show_tasks_schedule)).toBe(false);
 
-    await registry.execute(ACTION_IDS.ui_set_sidebar_view, "dashboard");
-    expect(stores.ui.sidebar_view).toBe("explorer");
-  });
+      await registry.execute(ACTION_IDS.ui_set_sidebar_view, "dashboard");
+      expect(stores.ui.sidebar_view).toBe("explorer");
+    },
+  );
 
   it("toggles zen mode", async () => {
     const registry = new ActionRegistry();

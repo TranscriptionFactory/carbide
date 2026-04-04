@@ -106,8 +106,9 @@ function apply_loaded_preferences(
   data: Omit<AppBootstrapData, "vault_initialize_result">,
 ) {
   const { stores, services } = input;
-  const excluded_action_ids =
-    input.app_target === "lite" ? LITE_HIDDEN_HOTKEY_ACTION_IDS : undefined;
+  const excluded_action_ids = __CARBIDE_LITE__
+    ? LITE_HIDDEN_HOTKEY_ACTION_IDS
+    : undefined;
   stores.ui.set_user_themes(data.theme_result.user_themes);
   stores.ui.set_active_theme_id(data.theme_result.active_theme_id);
   stores.ui.set_color_scheme_preference(
@@ -158,12 +159,12 @@ async function mount_ready_vault_state(
   });
 
   if (input.stores.vault.is_vault_mode) {
-    if (input.app_target !== "lite") {
+    if (!__CARBIDE_LITE__) {
       await input.registry.execute(ACTION_IDS.git_check_repo);
     }
 
     if (
-      input.app_target !== "lite" &&
+      !__CARBIDE_LITE__ &&
       input.stores.ui.editor_settings.show_vault_dashboard_on_open
     ) {
       await input.registry.execute(ACTION_IDS.ui_open_vault_dashboard);

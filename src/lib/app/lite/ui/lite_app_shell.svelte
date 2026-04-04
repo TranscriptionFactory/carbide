@@ -108,7 +108,7 @@
   </main>
 {/if}
 
-<AppShellDialogs app_target="lite" {hide_choose_vault_button} />
+<AppShellDialogs {hide_choose_vault_button} />
 
 <svelte:window
   onclick={external_links.handle_click}

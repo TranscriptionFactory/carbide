@@ -68,12 +68,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
 };
 
-function supports_structured_query_shortcut(
-  input: Pick<ActionRegistrationInput, "app_target">,
-) {
-  return get_commands_registry(input.app_target).some(
-    (command) => command.id === "query_open",
-  );
+function supports_structured_query_shortcut() {
+  return get_commands_registry().some((command) => command.id === "query_open");
 }
 
 function set_omnibar_state(
@@ -297,7 +293,7 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
       close_omnibar(input);
       input.stores.ui.add_recent_command(
         item.command.id,
-        get_commands_registry(input.app_target).length,
+        get_commands_registry().length,
       );
       await execute_command(input, item.command.id);
       break;
@@ -323,7 +319,7 @@ const OMNIBAR_SEARCH_DEBOUNCE_MS = 150;
 export function register_omnibar_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
   const structured_query_shortcut_enabled =
-    supports_structured_query_shortcut(input);
+    supports_structured_query_shortcut();
 
   let search_debounce_timer: ReturnType<typeof setTimeout> | null = null;
   function cancel_search_debounce() {

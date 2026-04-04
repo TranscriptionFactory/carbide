@@ -1,5 +1,8 @@
 {
   "productName": "Carbide Lite",
+  "build": {
+    "devUrl": "http://127.0.0.1:5174"
+  },
   "app": {
     "windows": [
       {

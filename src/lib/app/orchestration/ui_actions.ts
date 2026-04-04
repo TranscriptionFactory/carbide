@@ -11,7 +11,7 @@ type SidebarView =
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
-  const is_full = input.app_target !== "lite";
+  const is_full = !__CARBIDE_LITE__;
 
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();

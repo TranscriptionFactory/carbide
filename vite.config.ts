@@ -31,6 +31,9 @@ function manual_chunks(id: string): string | undefined {
 }
 
 export default defineConfig({
+  define: {
+    __CARBIDE_LITE__: JSON.stringify(process.env.CARBIDE_VARIANT === "lite"),
+  },
   plugins: [sveltekit(), tailwindcss()],
   build: {
     chunkSizeWarningLimit: 3500,
@@ -59,7 +62,7 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173,
+    port: process.env.CARBIDE_VARIANT === "lite" ? 5174 : 5173,
     strictPort: true,
   },
   css: {
