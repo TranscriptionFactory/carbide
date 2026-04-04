@@ -80,7 +80,8 @@ import {
 } from "$lib/features/zotero_bbt";
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
-import { mount_reactors } from "$lib/reactors";
+import { mount_full_reactors } from "$lib/app/full/mount_full_reactors";
+import { mount_lite_reactors } from "$lib/app/lite/mount_lite_reactors";
 import { Blocks, PencilRuler, BookMarked, Table } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
@@ -905,7 +906,9 @@ export function create_app_context(input: {
     vim_nav_store: stores.vim_nav,
   });
 
-  const cleanup_reactors = mount_reactors({
+  const cleanup_reactors = (
+    app_target === "lite" ? mount_lite_reactors : mount_full_reactors
+  )({
     editor_store: stores.editor,
     ui_store: stores.ui,
     op_store: stores.op,
