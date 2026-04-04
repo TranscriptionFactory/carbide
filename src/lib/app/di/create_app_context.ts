@@ -9,8 +9,11 @@ import { VaultService } from "$lib/features/vault";
 import { NoteService } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
-import { SearchService, get_commands_registry } from "$lib/features/search";
-import { build_command_context } from "$lib/features/search/domain/build_command_context";
+import {
+  SearchService,
+  build_command_context,
+  get_commands_registry,
+} from "$lib/features/search";
 import {
   EditorService,
   type EditorServiceCallbacks,
@@ -133,14 +136,20 @@ export function create_app_context(input: {
       return true;
     },
     input.ports.index,
-    stores.plugin,
+    is_lite ? undefined : stores.plugin,
     () =>
-      build_command_context({
-        editor: stores.editor,
-        git: stores.git,
-        ai: stores.ai,
-        ui: stores.ui,
-      }),
+      build_command_context(
+        is_lite
+          ? {
+              editor: stores.editor,
+              git: stores.git,
+            }
+          : {
+              editor: stores.editor,
+              git: stores.git,
+              ai: stores.ai,
+            },
+      ),
     get_commands_registry(app_target),
   );
 

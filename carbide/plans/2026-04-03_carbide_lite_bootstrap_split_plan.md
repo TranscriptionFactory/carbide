@@ -412,6 +412,8 @@ Completed on 2026-04-03:
 - lite UI surface state is now explicit per product via `app_surface.ts`, so lite stores default/clamp sidebar/context-rail/bottom-panel state to retained surfaces instead of relying on layout-time repair effects
 - lite no longer registers full-only shared UI actions for vault dashboard, quick capture, or task-rail toggles from the core action path
 
+- shared omnibar/search command context is now product-aware: lite no longer threads plugin command state or AI CLI state into command search, and the `?` structured-query shortcut only activates when the full query command surface exists
+
 Remaining in this plan slice:
 
 - prune more lite-only action registration beyond git and shared UI seams once the remaining app bootstrap dependencies are split cleanly

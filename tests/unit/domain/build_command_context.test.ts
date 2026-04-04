@@ -3,20 +3,17 @@ import { build_command_context } from "$lib/features/search/domain/build_command
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
-import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
 function make_stores(
   overrides: {
     editor?: Partial<EditorStore>;
     git?: Partial<GitStore>;
     ai?: Partial<AiStore>;
-    ui?: Partial<UIStore>;
   } = {},
 ) {
   const editor = new EditorStore();
   const git = new GitStore();
   const ai = new AiStore();
-  const ui = new UIStore();
 
   if (overrides.editor?.open_note) {
     editor.open_note = overrides.editor.open_note;
@@ -37,7 +34,7 @@ function make_stores(
     ai.dialog.cli_status = overrides.ai.dialog.cli_status;
   }
 
-  return { editor, git, ai, ui };
+  return { editor, git, ai };
 }
 
 function make_open_note(path: string) {
@@ -102,6 +99,12 @@ describe("build_command_context", () => {
       ai: { dialog: { cli_status: "unavailable" } as any },
     });
     const ctx = build_command_context(stores);
+    expect(ctx.has_ai_cli).toBe(false);
+  });
+
+  it("returns false when AI state is omitted", () => {
+    const { editor, git } = make_stores();
+    const ctx = build_command_context({ editor, git });
     expect(ctx.has_ai_cli).toBe(false);
   });
 

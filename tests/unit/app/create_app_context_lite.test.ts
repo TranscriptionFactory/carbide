@@ -366,6 +366,8 @@ describe("create_app_context lite composition", () => {
     expect(registered_action_ids.has(ACTION_IDS.ui_show_tasks_schedule)).toBe(
       false,
     );
+    expect(registered_action_ids.has(ACTION_IDS.query_open)).toBe(false);
+    expect(registered_action_ids.has(ACTION_IDS.query_execute)).toBe(false);
 
     context.destroy();
     expect(mocks.plugin_destroy).not.toHaveBeenCalled();

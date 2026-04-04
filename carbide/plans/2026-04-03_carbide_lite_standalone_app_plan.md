@@ -347,6 +347,8 @@ Current repo state on 2026-04-03:
 - lite no longer wires the full-only LSP results / IWE action path, keeping markdown diagnostics while dropping removed editor-adjacent full-product surfaces
 - lite now uses an explicit lite UI surface config for sidebar/context-rail/bottom-panel state, and its shared UI action registration no longer includes vault-dashboard, quick-capture, or task-panel actions
 
+- shared omnibar/search state now respects product boundaries: lite no longer carries plugin-command/AI-command assumptions in command search, and the `?` structured-query shortcut is only enabled on the full query surface
+
 Still remaining before the product definition is satisfied:
 
 - prune more lite action/service wiring for removed subsystems until the lite composition root only constructs retained capabilities
