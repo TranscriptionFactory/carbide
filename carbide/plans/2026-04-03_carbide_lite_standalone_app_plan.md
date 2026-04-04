@@ -1,7 +1,7 @@
 # Carbide Lite — Standalone Bundled App Plan
 
 **Date:** 2026-04-03  
-**Status:** Planning
+**Status:** In Progress
 
 ## Decision
 
@@ -327,3 +327,19 @@ The first implementation step should be to create the **app-layer split**, not t
 ## Conclusion
 
 Implement Carbide Lite as a **second application target sharing the existing feature codebase**, not as a toggle inside the main Carbide UI. The split belongs at the app/bootstrap/composition-root layer.
+
+## Implementation progress
+
+Current repo state on 2026-04-03:
+
+- lite can boot as a distinct app target via `app_target=lite`
+- lite now has explicit shell/layout components instead of direct full-shell proxies
+- lite activity bar excludes dashboard/graph/tasks/tags/plugin-injected views
+- lite context rail excludes AI and metadata
+- lite bottom panel excludes query and LSP results
+
+Still remaining before the product definition is satisfied:
+
+- remove full-only dialogs and shell affordances from the lite app shell where they still leak through shared dialog wiring
+- prune lite action/reactor/service wiring for removed subsystems
+- verify retained workflows end to end and add focused lite boot/layout tests

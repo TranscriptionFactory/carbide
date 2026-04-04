@@ -1,7 +1,7 @@
 # Carbide Lite — Bootstrap Split Plan
 
 **Date:** 2026-04-03  
-**Status:** Planning
+**Status:** In Progress
 
 ## Purpose
 
@@ -390,3 +390,20 @@ The next code change should be:
 > Extract the current app bootstrap into explicit **full-app** modules and add parallel **lite-app** bootstrap placeholders, without changing existing runtime behavior.
 
 That is the cleanest possible starting point for implementing Carbide Lite.
+
+## Implementation progress
+
+Completed on 2026-04-03:
+
+- explicit full/lite boot selection in `src/routes/+page.svelte`
+- explicit full/lite composition root selection in `create_app_context.ts`
+- explicit full/lite action registration entrypoints
+- explicit full/lite reactor mounting entrypoints
+- explicit lite shell/layout components that no longer proxy directly to full shell/layout
+- first lite UI pruning pass: activity bar limited to explorer/starred/help/settings, context rail limited to links/outline, bottom panel limited to terminal/problems
+
+Remaining in this plan slice:
+
+- prune lite-only action registration once the reduced lite shell no longer references full-only actions
+- prune lite-only reactor mounting once removed surfaces are fully disconnected
+- trim remaining lite shell reuse such as full dialog wiring where needed
