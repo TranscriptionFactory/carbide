@@ -139,7 +139,7 @@ describe("plugin_manager.svelte", () => {
       },
     });
 
-    stores.plugin.plugins.set(
+    stores.plugin!.plugins.set(
       "settings-plugin",
       make_plugin({
         manifest: make_manifest({
@@ -173,7 +173,7 @@ describe("plugin_manager.svelte", () => {
   it("hides the settings gear for plugins without settings", () => {
     const { app_context, stores } = create_context();
 
-    stores.plugin.plugins.set(
+    stores.plugin!.plugins.set(
       "plain-plugin",
       make_plugin({
         manifest: make_manifest({

@@ -15,14 +15,15 @@
   import HierarchyTreeView from "$lib/features/graph/ui/hierarchy_tree_view.svelte";
 
   const { stores, action_registry } = use_app_context();
+  const graph = stores.graph!;
 
-  const status = $derived(stores.graph.status);
-  const snapshot = $derived(stores.graph.snapshot);
-  const vault_snapshot = $derived(stores.graph.vault_snapshot);
-  const view_mode = $derived(stores.graph.view_mode);
-  const filter_query = $derived(stores.graph.filter_query);
-  const semantic_edges = $derived(stores.graph.semantic_edges);
-  const show_semantic_edges = $derived(stores.graph.show_semantic_edges);
+  const status = $derived(graph.status);
+  const snapshot = $derived(graph.snapshot);
+  const vault_snapshot = $derived(graph.vault_snapshot);
+  const view_mode = $derived(graph.view_mode);
+  const filter_query = $derived(graph.filter_query);
+  const semantic_edges = $derived(graph.semantic_edges);
+  const show_semantic_edges = $derived(graph.show_semantic_edges);
   const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
   const max_vault_size = $derived(
     stores.ui.editor_settings.semantic_graph_max_vault_size,
@@ -158,8 +159,8 @@
       <VaultGraphCanvas
         snapshot={vault_snapshot}
         {filter_query}
-        selected_node_ids={stores.graph.selected_node_ids}
-        hovered_node_id={stores.graph.hovered_node_id}
+        selected_node_ids={graph.selected_node_ids}
+        hovered_node_id={graph.hovered_node_id}
         {semantic_edges}
         {show_semantic_edges}
         theme={stores.ui.active_theme}
@@ -186,8 +187,8 @@
         {snapshot}
         {filter_query}
         {container_width}
-        selected_node_ids={stores.graph.selected_node_ids}
-        hovered_node_id={stores.graph.hovered_node_id}
+        selected_node_ids={graph.selected_node_ids}
+        hovered_node_id={graph.hovered_node_id}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>
@@ -208,7 +209,7 @@
       </p>
     {:else if status === "error"}
       <p class="GraphTabView__message GraphTabView__message--error">
-        {stores.graph.error ?? "Graph unavailable"}
+        {graph.error ?? "Graph unavailable"}
       </p>
     {:else}
       <div class="GraphTabView__empty">

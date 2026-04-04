@@ -10,7 +10,7 @@
   } from "@lucide/svelte";
 
   const ctx = use_app_context();
-  const ref_store = ctx.stores.reference;
+  const ref_store = ctx.stores.reference!;
 
   let processing = $state(false);
 

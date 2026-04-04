@@ -6,7 +6,7 @@
 
   let { tasks }: { tasks: Task[] } = $props();
   const { services } = use_app_context();
-  const taskService = services.task;
+  const taskService = services.task!;
 
   const groupedByDate = $derived.by(() => {
     const groups = new Map<string, Task[]>();

@@ -5,8 +5,9 @@
   import AiAssistantContent from "$lib/features/ai/ui/ai_assistant_content.svelte";
 
   const { stores, action_registry } = use_app_context();
+  const ai = stores.ai!;
 
-  const session = $derived(stores.ai.dialog);
+  const session = $derived(ai.dialog);
   const ai_disabled = $derived(!stores.ui.editor_settings.ai_enabled);
   const has_session = $derived(session.open && session.context !== null);
   const original_text = $derived(

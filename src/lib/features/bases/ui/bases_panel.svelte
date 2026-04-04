@@ -33,7 +33,8 @@
   ];
 
   const { stores, services, action_registry } = use_app_context();
-  const bases_store = stores.bases;
+  const bases_store = stores.bases!;
+  const bases_svc = services.bases!;
   const vault_store = stores.vault;
 
   let filters_open = $state(false);
@@ -47,8 +48,8 @@
   function refresh() {
     const vault_id = vault_store.active_vault_id;
     if (vault_id) {
-      void services.bases.refresh_properties(vault_id);
-      void services.bases.run_query(vault_id);
+      void bases_svc.refresh_properties(vault_id);
+      void bases_svc.run_query(vault_id);
     }
   }
 
@@ -119,7 +120,7 @@
   function run_query() {
     const vault_id = vault_store.active_vault_id;
     if (vault_id) {
-      void services.bases.run_query(vault_id);
+      void bases_svc.run_query(vault_id);
     }
   }
 

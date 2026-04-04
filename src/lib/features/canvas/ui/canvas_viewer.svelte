@@ -13,9 +13,10 @@
 
   let { tab_id, file_path, file_type }: Props = $props();
   const { stores } = use_app_context();
+  const canvas = stores.canvas!;
 
   const canvas_state: CanvasTabState | undefined = $derived(
-    stores.canvas.get_state(tab_id),
+    canvas.get_state(tab_id),
   );
 
   let excalidraw_host: ExcalidrawHost | undefined = $state();
@@ -35,7 +36,7 @@
 
   $effect(() => {
     if (file_type !== "excalidraw") return;
-    stores.canvas.register_scene_provider(tab_id, async () => {
+    canvas.register_scene_provider(tab_id, async () => {
       return excalidraw_host
         ? await excalidraw_host.get_scene()
         : (canvas_state?.excalidraw_scene ?? {
@@ -46,12 +47,12 @@
             appState: {},
           });
     });
-    stores.canvas.register_svg_export_provider(tab_id, async () => {
+    canvas.register_svg_export_provider(tab_id, async () => {
       return excalidraw_host ? await excalidraw_host.export_svg() : "";
     });
     return () => {
-      stores.canvas.unregister_scene_provider(tab_id);
-      stores.canvas.unregister_svg_export_provider(tab_id);
+      canvas.unregister_scene_provider(tab_id);
+      canvas.unregister_svg_export_provider(tab_id);
     };
   });
 
@@ -59,7 +60,7 @@
   const view_background_color = $derived(is_dark ? "#121212" : "#ffffff");
 
   function handle_camera_change(camera: Camera) {
-    stores.canvas.set_camera(tab_id, camera);
+    canvas.set_camera(tab_id, camera);
   }
 
   function handle_excalidraw_change(
@@ -68,7 +69,7 @@
     dirty: boolean,
   ) {
     if (dirty) {
-      stores.canvas.set_dirty(tab_id, true);
+      canvas.set_dirty(tab_id, true);
     }
   }
 </script>

@@ -17,6 +17,7 @@
   const { plugin_id, plugin_name, permissions, on_close }: Props = $props();
 
   const { services } = use_app_context();
+  const plugin_settings_svc = services.plugin_settings!;
   const log = create_logger("plugin_permission_dialog");
 
   const PERMISSION_LABELS: Record<string, string> = {
@@ -77,14 +78,8 @@
         Promise.all(
           grants.map((g) =>
             g.approve
-              ? services.plugin_settings.approve_permission(
-                  plugin_id,
-                  g.permission,
-                )
-              : services.plugin_settings.deny_permission(
-                  plugin_id,
-                  g.permission,
-                ),
+              ? plugin_settings_svc.approve_permission(plugin_id, g.permission)
+              : plugin_settings_svc.deny_permission(plugin_id, g.permission),
           ),
         ),
       );

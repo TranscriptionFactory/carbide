@@ -13,6 +13,9 @@
   import PluginSettingsDialog from "./plugin_settings_dialog.svelte";
 
   const { stores, services } = use_app_context();
+  const plugin_store = stores.plugin!;
+  const plugin_settings_store = stores.plugin_settings!;
+  const plugin_svc = services.plugin!;
 
   let is_discovering = $state(false);
   let reloading_ids = $state(new Set<string>());
@@ -29,25 +32,25 @@
   async function discover_plugins() {
     is_discovering = true;
     try {
-      await services.plugin.discover();
+      await plugin_svc.discover();
     } finally {
       is_discovering = false;
     }
   }
 
-  const plugin_list = $derived(Array.from(stores.plugin.plugins.values()));
+  const plugin_list = $derived(Array.from(plugin_store.plugins.values()));
   const settings_dialog_plugin = $derived(
     settings_dialog_plugin_id
-      ? (stores.plugin.plugins.get(settings_dialog_plugin_id) ?? null)
+      ? (plugin_store.plugins.get(settings_dialog_plugin_id) ?? null)
       : null,
   );
 
   function pending_permissions(plugin_id: string): string[] {
-    return stores.plugin_settings.get_pending_permissions(plugin_id);
+    return plugin_settings_store.get_pending_permissions(plugin_id);
   }
 
   function can_open_settings(plugin_id: string): boolean {
-    return services.plugin.can_open_settings(plugin_id);
+    return plugin_svc.can_open_settings(plugin_id);
   }
 
   function open_permissions(plugin_id: string, plugin_name: string) {
@@ -63,7 +66,7 @@
   async function open_settings(plugin_id: string) {
     if (!can_open_settings(plugin_id)) return;
     settings_dialog_plugin_id = plugin_id;
-    await services.plugin.ensure_settings_ready(plugin_id);
+    await plugin_svc.ensure_settings_ready(plugin_id);
   }
 
   function close_settings_dialog() {
@@ -73,7 +76,7 @@
   async function reload_plugin(id: string) {
     reloading_ids = new Set([...reloading_ids, id]);
     try {
-      await services.plugin.reload_plugin(id);
+      await plugin_svc.reload_plugin(id);
     } finally {
       reloading_ids = new Set([...reloading_ids].filter((x) => x !== id));
     }
@@ -163,7 +166,7 @@
                     size="icon"
                     class="w-8 h-8"
                     onclick={() =>
-                      services.plugin.unload_then_idle(plugin.manifest.id)}
+                      plugin_svc.unload_then_idle(plugin.manifest.id)}
                     title="Unload plugin"
                   >
                     <Square class="w-3.5 h-3.5" />
@@ -174,7 +177,7 @@
                     size="icon"
                     class="w-8 h-8"
                     onclick={() =>
-                      services.plugin.load_and_activate(plugin.manifest.id)}
+                      plugin_svc.load_and_activate(plugin.manifest.id)}
                     title="Load plugin"
                   >
                     <Play class="w-4 h-4" />
@@ -198,8 +201,8 @@
                   class="h-7 text-xs px-2"
                   onclick={() =>
                     plugin.enabled
-                      ? services.plugin.disable_plugin(plugin.manifest.id)
-                      : services.plugin.enable_plugin(plugin.manifest.id)}
+                      ? plugin_svc.disable_plugin(plugin.manifest.id)
+                      : plugin_svc.enable_plugin(plugin.manifest.id)}
                   disabled={plugin.status === "loading"}
                 >
                   {plugin.enabled ? "Enabled" : "Disabled"}
@@ -233,7 +236,7 @@
     plugin_id={settings_dialog_plugin.manifest.id}
     plugin_name={settings_dialog_plugin.manifest.name}
     plugin_version={settings_dialog_plugin.manifest.version}
-    settings_schema={services.plugin.get_effective_settings_schema(
+    settings_schema={plugin_svc.get_effective_settings_schema(
       settings_dialog_plugin.manifest.id,
     )}
     on_close={close_settings_dialog}

@@ -10,10 +10,11 @@
   import { ACTION_IDS } from "$lib/app";
 
   const { stores, action_registry } = use_app_context();
+  const graph = stores.graph!;
 
-  const tree = $derived(stores.graph.hierarchy_tree);
-  const status = $derived(stores.graph.status);
-  const root_key = $derived(stores.graph.hierarchy_root_key);
+  const tree = $derived(graph.hierarchy_tree);
+  const status = $derived(graph.status);
+  const root_key = $derived(graph.hierarchy_root_key);
 
   let collapsed = $state(new Set<string>());
 

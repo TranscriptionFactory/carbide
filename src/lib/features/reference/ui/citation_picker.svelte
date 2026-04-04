@@ -8,8 +8,8 @@
   import LinkedSourceManager from "./linked_source_manager.svelte";
 
   const ctx = use_app_context();
-  const ref_store = ctx.stores.reference;
-  const ref_service = ctx.services.reference;
+  const ref_store = ctx.stores.reference!;
+  const ref_service = ctx.services.reference!;
 
   let query = $state("");
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;

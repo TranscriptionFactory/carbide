@@ -12,7 +12,7 @@
   import { build_tag_tree, filter_tag_tree } from "../domain/build_tag_tree";
 
   const { stores, action_registry } = use_app_context();
-  const tag_store = stores.tag;
+  const tag_store = stores.tag!;
 
   let tag_tree = $derived(build_tag_tree(tag_store.tags));
 

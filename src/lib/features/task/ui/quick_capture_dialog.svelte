@@ -13,7 +13,7 @@
     on_open_change,
   }: { open: boolean; on_open_change: (open: boolean) => void } = $props();
   const { stores, services } = use_app_context();
-  const taskService = services.task;
+  const taskService = services.task!;
 
   let text = $state("");
   let targetPath = $state(stores.editor.open_note?.meta.path || "Inbox.md");

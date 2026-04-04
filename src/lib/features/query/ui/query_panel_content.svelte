@@ -10,18 +10,19 @@
   import Rows from "@lucide/svelte/icons/rows-3";
 
   const { stores, action_registry } = use_app_context();
+  const query = stores.query!;
 
   type ResultViewMode = "list" | "cards" | "feed";
 
-  let input_value = $state(stores.query.query_text || "");
+  let input_value = $state(query.query_text || "");
   let save_name = $state("");
   let show_save_input = $state(false);
   let view_mode: ResultViewMode = $state("list");
-  const status = $derived(stores.query.status);
-  const result = $derived(stores.query.result);
-  const error = $derived(stores.query.error);
-  const saved_queries = $derived(stores.query.saved_queries);
-  const active_path = $derived(stores.query.active_saved_path);
+  const status = $derived(query.status);
+  const result = $derived(query.result);
+  const error = $derived(query.error);
+  const saved_queries = $derived(query.saved_queries);
+  const active_path = $derived(query.active_saved_path);
   const save_op = $derived(stores.op.get("query.save"));
   const save_error = $derived(
     save_op.status === "error" ? save_op.error : null,
@@ -79,7 +80,7 @@
 
   async function load_query(path: string) {
     await action_registry.execute(ACTION_IDS.query_load, path);
-    input_value = stores.query.query_text;
+    input_value = query.query_text;
   }
 
   function delete_query(event: MouseEvent, path: string) {

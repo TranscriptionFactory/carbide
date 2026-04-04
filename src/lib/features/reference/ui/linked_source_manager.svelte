@@ -12,8 +12,8 @@
   } from "@lucide/svelte";
 
   const ctx = use_app_context();
-  const ref_store = ctx.stores.reference;
-  const ref_service = ctx.services.reference;
+  const ref_store = ctx.stores.reference!;
+  const ref_service = ctx.services.reference!;
 
   let item_counts = $state<Record<string, number>>({});
 

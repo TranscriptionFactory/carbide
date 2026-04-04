@@ -3,8 +3,9 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
 
   const { stores, services } = use_app_context();
+  const plugin_store = stores.plugin!;
 
-  const active_ids = $derived(stores.plugin.active_plugin_ids);
+  const active_ids = $derived(plugin_store.active_plugin_ids);
   const vault_path = $derived(stores.vault.vault?.path ?? "");
 
   let ready = $state(false);

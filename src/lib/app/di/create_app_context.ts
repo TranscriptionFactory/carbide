@@ -550,14 +550,17 @@ export function create_app_context(input: {
           input.ports.search,
           stores.vault,
           stores.editor,
-          stores.graph,
+          stores.graph!,
         );
 
         const ai_service = new AiService(input.ports.ai, stores.vault);
-        const bases_service = new BasesService(input.ports.bases, stores.bases);
+        const bases_service = new BasesService(
+          input.ports.bases,
+          stores.bases!,
+        );
         const task_service = new TaskService(
           input.ports.task,
-          stores.task,
+          stores.task!,
           stores.vault,
           stores.editor,
           (line_number, status) =>
@@ -642,12 +645,15 @@ export function create_app_context(input: {
     git: git_service,
     hotkey: hotkey_service,
     theme: theme_service,
-    bases: full_runtime?.bases_service as BasesService,
-    task: full_runtime?.task_service as TaskService,
-    plugin: full_runtime?.plugin_service as PluginService,
-    plugin_settings:
-      full_runtime?.plugin_settings_service as PluginSettingsService,
-    reference: full_runtime?.reference_service as ReferenceService,
+    ...(full_runtime
+      ? {
+          bases: full_runtime.bases_service,
+          task: full_runtime.task_service,
+          plugin: full_runtime.plugin_service,
+          plugin_settings: full_runtime.plugin_settings_service,
+          reference: full_runtime.reference_service,
+        }
+      : {}),
   };
 
   const base_action_input = {
@@ -664,11 +670,15 @@ export function create_app_context(input: {
       tab: stores.tab,
       git: stores.git,
       outline: stores.outline,
-      graph: stores.graph,
-      bases: stores.bases,
-      task: stores.task,
       parsed_note_cache: stores.parsed_note_cache,
-      ...(is_lite ? {} : { reference: stores.reference }),
+      ...(is_lite
+        ? {}
+        : {
+            graph: stores.graph,
+            bases: stores.bases,
+            task: stores.task,
+            reference: stores.reference,
+          }),
     },
     services: app_services,
     default_mount_config: input.default_mount_config,
@@ -814,7 +824,7 @@ export function create_app_context(input: {
 
     register_graph_actions({
       ...base_action_input,
-      graph_store: stores.graph,
+      graph_store: stores.graph!,
       graph_service: full_runtime.graph_service,
     });
 
@@ -944,7 +954,7 @@ export function create_app_context(input: {
     register_bases_actions(
       action_registry,
       full_runtime.bases_service,
-      stores.bases,
+      stores.bases!,
       stores.vault,
       stores.ui,
     );
@@ -952,7 +962,7 @@ export function create_app_context(input: {
     register_task_actions(
       action_registry,
       full_runtime.task_service,
-      stores.task,
+      stores.task!,
       stores.ui,
     );
 
@@ -1003,8 +1013,8 @@ export function create_app_context(input: {
         ...core_reactor_context,
         search_store: stores.search,
         git_store: stores.git,
-        graph_store: stores.graph,
-        bases_store: stores.bases,
+        graph_store: stores.graph!,
+        bases_store: stores.bases!,
         git_service,
         graph_service: full_runtime.graph_service,
         bases_service: full_runtime.bases_service,

@@ -17,7 +17,11 @@ export { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 export { OpStore } from "$lib/app/orchestration/op_store.svelte";
 
 export { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
-export type { AppStores } from "$lib/app/bootstrap/create_app_stores";
+export type {
+  AppStores,
+  CoreAppStores,
+  FullOnlyAppStores,
+} from "$lib/app/bootstrap/create_app_stores";
 export { default as FullAppShell } from "$lib/app/full/ui/full_app_shell.svelte";
 export { default as FullViewerShell } from "$lib/app/full/ui/full_viewer_shell.svelte";
 export { default as LiteAppShell } from "$lib/app/lite/ui/lite_app_shell.svelte";

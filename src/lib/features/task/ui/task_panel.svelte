@@ -18,8 +18,8 @@
   import { ACTION_IDS } from "$lib/app";
 
   const { stores, services, action_registry } = use_app_context();
-  const taskStore = stores.task;
-  const taskService = services.task;
+  const taskStore = stores.task!;
+  const taskService = services.task!;
 
   let showCompleted = $state(false);
 

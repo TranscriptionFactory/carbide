@@ -24,12 +24,14 @@
   }: Props = $props();
 
   const { stores, services } = use_app_context();
+  const plugin_settings_store = stores.plugin_settings!;
+  const plugin_settings_svc = services.plugin_settings!;
 
   let open = $state(true);
   let draft_values = $state<Record<string, string>>({});
 
   function current_value(schema: PluginSettingSchema): unknown {
-    const current = stores.plugin_settings.get_setting(plugin_id, schema.key);
+    const current = plugin_settings_store.get_setting(plugin_id, schema.key);
     if (current !== undefined) {
       return current;
     }
@@ -71,7 +73,7 @@
 
   function update_text_setting(schema: PluginSettingSchema, value: string) {
     draft_values = { ...draft_values, [schema.key]: value };
-    void services.plugin_settings.set_setting(plugin_id, schema.key, value);
+    void plugin_settings_svc.set_setting(plugin_id, schema.key, value);
   }
 
   function update_number_draft(schema: PluginSettingSchema, value: string) {
@@ -94,11 +96,7 @@
         ...draft_values,
         [schema.key]: value_as_text(next_value),
       };
-      void services.plugin_settings.set_setting(
-        plugin_id,
-        schema.key,
-        next_value,
-      );
+      void plugin_settings_svc.set_setting(plugin_id, schema.key, next_value);
       return;
     }
 
@@ -109,14 +107,14 @@
     }
 
     draft_values = { ...draft_values, [schema.key]: String(parsed) };
-    void services.plugin_settings.set_setting(plugin_id, schema.key, parsed);
+    void plugin_settings_svc.set_setting(plugin_id, schema.key, parsed);
   }
 
   function update_boolean_setting(
     schema: PluginSettingSchema,
     checked: boolean,
   ) {
-    void services.plugin_settings.set_setting(plugin_id, schema.key, checked);
+    void plugin_settings_svc.set_setting(plugin_id, schema.key, checked);
   }
 
   function update_select_setting(
@@ -125,7 +123,7 @@
   ) {
     if (!value) return;
     draft_values = { ...draft_values, [schema.key]: value };
-    void services.plugin_settings.set_setting(plugin_id, schema.key, value);
+    void plugin_settings_svc.set_setting(plugin_id, schema.key, value);
   }
 
   function handle_open_change(value: boolean) {

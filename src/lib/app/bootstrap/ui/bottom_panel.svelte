@@ -5,6 +5,7 @@
   import type { BottomPanelTab } from "$lib/app/orchestration/app_surface";
 
   const { stores, action_registry } = use_app_context();
+  const query = stores.query!;
 
   const active_tab = $derived(stores.ui.bottom_panel_tab);
   const error_count = $derived(stores.diagnostics.error_count);
@@ -37,7 +38,7 @@
   const load_lsp_results = () =>
     import("$lib/features/lsp/ui/lsp_results_panel_content.svelte");
 
-  const query_result_count = $derived(stores.query.result?.total ?? 0);
+  const query_result_count = $derived(query.result?.total ?? 0);
 </script>
 
 <div class="BottomPanel">
