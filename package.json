@@ -25,6 +25,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sidecar": "bash scripts/download_rumdl.sh && bash scripts/build-iwes.sh",
+    "dev:lite": "tauri dev --config src-tauri/tauri.lite.conf.json",
+    "build:lite": "tauri build --config src-tauri/tauri.lite.conf.json",
     "tauri": "tauri",
     "version": "changeset version && node scripts/sync-versions.mjs && pnpm install"
   },
