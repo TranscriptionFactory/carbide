@@ -2,8 +2,28 @@
   "productName": "Carbide Lite",
   "build": {
     "beforeDevCommand": "CARBIDE_VARIANT=lite pnpm dev",
-    "beforeBuildCommand": "svelte-kit sync && pnpm build:excalidraw && CARBIDE_VARIANT=lite pnpm codegen && CARBIDE_VARIANT=lite pnpm build",
+    "beforeBuildCommand": "svelte-kit sync && CARBIDE_VARIANT=lite pnpm codegen && CARBIDE_VARIANT=lite pnpm build",
     "devUrl": "http://127.0.0.1:5174"
+  },
+  "bundle": {
+    "externalBin": ["binaries/iwes", "binaries/rumdl"],
+    "resources": [
+      "resources/iwe-default-config.toml"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "mdx"],
+        "name": "Markdown Document",
+        "mimeType": "text/markdown",
+        "role": "Editor"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Text Document",
+        "mimeType": "text/plain",
+        "role": "Editor"
+      }
+    ]
   },
   "app": {
     "windows": [
