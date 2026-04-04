@@ -339,8 +339,10 @@ Current repo state on 2026-04-03:
 - lite bottom panel excludes query and LSP results
 - lite dialog hosting now suppresses full-only surfaces such as git history/checkpoints, canvas creation, quick capture, vault dashboard, and linked-source dialogs
 - lite no longer registers git actions in its app-layer action entrypoint, and lite omnibar command availability now hides removed full-product commands
+- lite now mounts only the shared/core reactor set, so git/graph/bases/tasks/plugins/references/update-check/LSP/toolchain lifecycle work no longer starts behind the lite shell
+- lite bootstrap now skips code-LSP startup, plugin RPC initialization, and built-in plugin sidebar registrations for full-only panels
 
 Still remaining before the product definition is satisfied:
 
-- prune more lite action/reactor/service wiring for removed subsystems
+- prune more lite action/service wiring for removed subsystems until the lite composition root only constructs retained capabilities
 - verify retained workflows end to end and add focused lite boot/layout tests

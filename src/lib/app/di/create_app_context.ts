@@ -98,6 +98,7 @@ export function create_app_context(input: {
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const app_target = input.app_target ?? "full";
+  const is_lite = app_target === "lite";
   const lite_disabled_commands = new Set([
     "create_new_canvas",
     "show_vault_dashboard",
@@ -155,33 +156,35 @@ export function create_app_context(input: {
     stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
   });
 
-  plugin_service.register_sidebar_view({
-    id: "canvases",
-    label: "Canvases",
-    icon: PencilRuler,
-    panel: CanvasPanel,
-  });
+  if (!is_lite) {
+    plugin_service.register_sidebar_view({
+      id: "canvases",
+      label: "Canvases",
+      icon: PencilRuler,
+      panel: CanvasPanel,
+    });
 
-  plugin_service.register_sidebar_view({
-    id: "plugins",
-    label: "Plugins",
-    icon: Blocks,
-    panel: PluginManager,
-  });
+    plugin_service.register_sidebar_view({
+      id: "plugins",
+      label: "Plugins",
+      icon: Blocks,
+      panel: PluginManager,
+    });
 
-  plugin_service.register_sidebar_view({
-    id: "references",
-    label: "References",
-    icon: BookMarked,
-    panel: CitationPicker,
-  });
+    plugin_service.register_sidebar_view({
+      id: "references",
+      label: "References",
+      icon: BookMarked,
+      panel: CitationPicker,
+    });
 
-  plugin_service.register_sidebar_view({
-    id: "bases",
-    label: "Bases",
-    icon: Table,
-    panel: BasesPanel,
-  });
+    plugin_service.register_sidebar_view({
+      id: "bases",
+      label: "Bases",
+      icon: Table,
+      panel: BasesPanel,
+    });
+  }
 
   const search_service = new SearchService(
     input.ports.search,
@@ -189,7 +192,7 @@ export function create_app_context(input: {
     stores.op,
     now_ms,
     (command) => {
-      if (app_target === "lite" && lite_disabled_commands.has(command.id)) {
+      if (is_lite && lite_disabled_commands.has(command.id)) {
         return false;
       }
       if (command.id === "ai_assistant") {
@@ -543,7 +546,9 @@ export function create_app_context(input: {
     stores.code_lsp,
     stores.diagnostics,
   );
-  code_lsp_service.start();
+  if (!is_lite) {
+    code_lsp_service.start();
+  }
 
   const markdown_lsp_service = new MarkdownLspService(
     input.ports.markdown_lsp,
@@ -615,10 +620,12 @@ export function create_app_context(input: {
     input.ports.vault_settings,
   );
 
-  const zotero_bbt_extension = new ZoteroBbtExtension(
-    create_zotero_bbt_adapter(),
-  );
-  reference_service.register_extension(zotero_bbt_extension);
+  if (!is_lite) {
+    const zotero_bbt_extension = new ZoteroBbtExtension(
+      create_zotero_bbt_adapter(),
+    );
+    reference_service.register_extension(zotero_bbt_extension);
+  }
 
   const base_action_input = {
     app_target,
@@ -662,7 +669,7 @@ export function create_app_context(input: {
     default_mount_config: input.default_mount_config,
   };
 
-  if (app_target === "lite") {
+  if (is_lite) {
     register_lite_actions(base_action_input);
   } else {
     register_full_actions(base_action_input);
@@ -670,100 +677,108 @@ export function create_app_context(input: {
 
   register_links_actions(action_registry, editor_service);
 
-  plugin_service.initialize_rpc({
-    services: {
-      note: {
-        async read_note(note_path) {
-          const vault = stores.vault.vault;
-          if (!vault) throw new Error("No active vault");
-          return input.ports.notes.read_note(vault.id, as_note_path(note_path));
+  if (!is_lite) {
+    plugin_service.initialize_rpc({
+      services: {
+        note: {
+          async read_note(note_path) {
+            const vault = stores.vault.vault;
+            if (!vault) throw new Error("No active vault");
+            return input.ports.notes.read_note(
+              vault.id,
+              as_note_path(note_path),
+            );
+          },
+          async create_note(note_path, markdown) {
+            const vault = stores.vault.vault;
+            if (!vault) throw new Error("No active vault");
+            const note = await input.ports.notes.create_note(
+              vault.id,
+              as_note_path(note_path),
+              as_markdown_text(markdown),
+            );
+            stores.notes.add_note(note);
+            await input.ports.index.upsert_note(vault.id, note.path);
+            return note;
+          },
+          async write_note(note_path, markdown) {
+            const vault = stores.vault.vault;
+            if (!vault) throw new Error("No active vault");
+            return input.ports.notes.write_and_index_note(
+              vault.id,
+              as_note_path(note_path),
+              as_markdown_text(markdown),
+            );
+          },
+          async delete_note(note_path) {
+            const note = stores.notes.notes.find(
+              (entry) => entry.path === note_path,
+            );
+            if (!note) throw new Error("Note not found");
+            return note_service.delete_note(note);
+          },
         },
-        async create_note(note_path, markdown) {
-          const vault = stores.vault.vault;
-          if (!vault) throw new Error("No active vault");
-          const note = await input.ports.notes.create_note(
+        editor: editor_service,
+        plugin: plugin_service,
+      },
+      stores: {
+        notes: stores.notes,
+        editor: stores.editor,
+      },
+      search: {
+        async fts(query, limit) {
+          const vault = require_vault();
+          const hits = await input.ports.search.search_notes(
             vault.id,
-            as_note_path(note_path),
-            as_markdown_text(markdown),
+            { raw: query, text: query, scope: "content", domain: "notes" },
+            limit,
           );
-          stores.notes.add_note(note);
-          await input.ports.index.upsert_note(vault.id, note.path);
-          return note;
+          return hits.map((h) => ({ path: h.note.path, score: h.score }));
         },
-        async write_note(note_path, markdown) {
-          const vault = stores.vault.vault;
-          if (!vault) throw new Error("No active vault");
-          return input.ports.notes.write_and_index_note(
-            vault.id,
-            as_note_path(note_path),
-            as_markdown_text(markdown),
-          );
+        async tags() {
+          return input.ports.tag.list_all_tags(require_vault().id);
         },
-        async delete_note(note_path) {
-          const note = stores.notes.notes.find(
-            (entry) => entry.path === note_path,
-          );
-          if (!note) throw new Error("Note not found");
-          return note_service.delete_note(note);
+        async notes_for_tag(tag) {
+          return input.ports.tag.get_notes_for_tag(require_vault().id, tag);
         },
       },
-      editor: editor_service,
-      plugin: plugin_service,
-    },
-    stores: {
-      notes: stores.notes,
-      editor: stores.editor,
-    },
-    search: {
-      async fts(query, limit) {
-        const vault = require_vault();
-        const hits = await input.ports.search.search_notes(
-          vault.id,
-          { raw: query, text: query, scope: "content", domain: "notes" },
-          limit,
-        );
-        return hits.map((h) => ({ path: h.note.path, score: h.score }));
+      diagnostics: {
+        push(source_id, file_path, diagnostics) {
+          const source = source_id as DiagnosticSource;
+          stores.diagnostics.push(source, file_path, diagnostics);
+        },
+        clear(source_id, file_path) {
+          const source = source_id as DiagnosticSource;
+          if (file_path) {
+            stores.diagnostics.clear_file(source, file_path);
+          } else {
+            stores.diagnostics.clear_source(source);
+          }
+        },
       },
-      async tags() {
-        return input.ports.tag.list_all_tags(require_vault().id);
+      metadata: {
+        async query(query: import("$lib/features/bases").BaseQuery) {
+          return input.ports.bases.query(require_vault().id, query);
+        },
+        async list_properties() {
+          return input.ports.bases.list_properties(require_vault().id);
+        },
+        async get_backlinks(note_path) {
+          const snapshot = await input.ports.search.get_note_links_snapshot(
+            require_vault().id,
+            note_path,
+          );
+          return snapshot.backlinks.map((n) => ({ path: n.path }));
+        },
+        async get_stats(note_path) {
+          return input.ports.search.get_note_stats(
+            require_vault().id,
+            note_path,
+          );
+        },
       },
-      async notes_for_tag(tag) {
-        return input.ports.tag.get_notes_for_tag(require_vault().id, tag);
-      },
-    },
-    diagnostics: {
-      push(source_id, file_path, diagnostics) {
-        const source = source_id as DiagnosticSource;
-        stores.diagnostics.push(source, file_path, diagnostics);
-      },
-      clear(source_id, file_path) {
-        const source = source_id as DiagnosticSource;
-        if (file_path) {
-          stores.diagnostics.clear_file(source, file_path);
-        } else {
-          stores.diagnostics.clear_source(source);
-        }
-      },
-    },
-    metadata: {
-      async query(query: import("$lib/features/bases").BaseQuery) {
-        return input.ports.bases.query(require_vault().id, query);
-      },
-      async list_properties() {
-        return input.ports.bases.list_properties(require_vault().id);
-      },
-      async get_backlinks(note_path) {
-        const snapshot = await input.ports.search.get_note_links_snapshot(
-          require_vault().id,
-          note_path,
-        );
-        return snapshot.backlinks.map((n) => ({ path: n.path }));
-      },
-      async get_stats(note_path) {
-        return input.ports.search.get_note_stats(require_vault().id, note_path);
-      },
-    },
-  });
+    });
+  }
 
   register_terminal_actions({
     ...base_action_input,
@@ -783,7 +798,7 @@ export function create_app_context(input: {
     window_port: input.ports.window,
   });
 
-  if (app_target !== "lite") {
+  if (!is_lite) {
     register_plugin_actions(base_action_input, plugin_service);
 
     register_ai_actions({
@@ -915,7 +930,7 @@ export function create_app_context(input: {
     toolchain_service,
   });
 
-  if (app_target !== "lite") {
+  if (!is_lite) {
     register_bases_actions(
       action_registry,
       bases_service,
@@ -943,7 +958,7 @@ export function create_app_context(input: {
   });
 
   const cleanup_reactors = (
-    app_target === "lite" ? mount_lite_reactors : mount_full_reactors
+    is_lite ? mount_lite_reactors : mount_full_reactors
   )({
     editor_store: stores.editor,
     ui_store: stores.ui,
@@ -1007,7 +1022,9 @@ export function create_app_context(input: {
       void watcher_service.stop();
       void lint_service.stop();
       void markdown_lsp_service.stop();
-      code_lsp_service.stop();
+      if (!is_lite) {
+        code_lsp_service.stop();
+      }
       toolchain_service.dispose();
     },
   };

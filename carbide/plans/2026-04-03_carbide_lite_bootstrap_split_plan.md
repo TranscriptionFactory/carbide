@@ -403,9 +403,10 @@ Completed on 2026-04-03:
 - first lite UI pruning pass: activity bar limited to explorer/starred/help/settings, context rail limited to links/outline, bottom panel limited to terminal/problems
 - lite now suppresses full-only dialogs in the shared dialog host and stops registering git actions in the lite action entrypoint
 - lite omnibar command availability now hides removed product commands such as git, graph, tasks, bases, query, canvas, AI, and plugin surfaces
+- lite reactor mounting now routes through a shared core reactor set, leaving git/graph/bases/tasks/plugins/references/update-check/LSP/toolchain lifecycle work on the full-product path only
+- lite composition no longer starts the code LSP service, initializes plugin RPC, or registers built-in plugin sidebar surfaces for full-only views
 
 Remaining in this plan slice:
 
 - prune more lite-only action registration beyond git once the remaining app bootstrap dependencies are split cleanly
-- prune lite-only reactor mounting once removed surfaces are fully disconnected
-- trim remaining lite-only service/reactor wiring that still initializes removed subsystems behind the scenes
+- trim remaining lite-only service construction so removed full-product subsystems are not even instantiated when Lite boots
