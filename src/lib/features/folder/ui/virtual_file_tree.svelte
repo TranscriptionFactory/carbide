@@ -409,10 +409,29 @@
   }
 
   let filter_query = $state("");
+  let debounced_filter = $state("");
+  let filter_debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let filter_input_el: HTMLInputElement | null = $state(null);
 
+  const FILTER_DEBOUNCE_MS = 100;
+
+  $effect(() => {
+    const q = filter_query;
+    if (!q.trim()) {
+      if (filter_debounce_timer) clearTimeout(filter_debounce_timer);
+      filter_debounce_timer = null;
+      debounced_filter = "";
+      return;
+    }
+    if (filter_debounce_timer) clearTimeout(filter_debounce_timer);
+    filter_debounce_timer = setTimeout(() => {
+      filter_debounce_timer = null;
+      debounced_filter = q;
+    }, FILTER_DEBOUNCE_MS);
+  });
+
   const filtered_nodes = $derived.by(() => {
-    const q = filter_query.trim();
+    const q = debounced_filter.trim();
     if (!q) return nodes;
     return nodes.filter((node) => {
       if (node.is_load_more) return false;
