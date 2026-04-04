@@ -127,14 +127,10 @@ export type ReactorContext = {
   reference_store: ReferenceStore;
 };
 
-export function mount_reactors(context: ReactorContext): () => void {
+export function mount_core_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
   const unmounts = [
-    create_plugin_note_indexed_reactor(
-      context.search_store,
-      context.plugin_service,
-    ),
     create_editor_sync_reactor(context.editor_store, context.editor_service),
     create_editor_appearance_reactor(context.ui_store, context.editor_service),
     create_editor_width_reactor(context.ui_store),
@@ -239,6 +235,62 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.terminal_service,
     ),
+    create_menu_action_reactor(
+      (action_id) => void context.action_registry.execute(action_id),
+    ),
+    create_lint_reactor(
+      context.vault_store,
+      context.editor_store,
+      context.lint_store,
+      context.lint_service,
+      context.ui_store,
+      context.note_service,
+      context.editor_service,
+    ),
+    create_lsp_document_sync_reactor(context.editor_store, [
+      {
+        is_ready: () => context.lint_store.is_running,
+        debounce_ms: 300,
+        on_open: (path, content) =>
+          void context.lint_service.notify_file_opened(path, content),
+        on_change: (path, content) =>
+          void context.lint_service.notify_file_changed(path, content),
+        on_close: (path) => void context.lint_service.notify_file_closed(path),
+      },
+    ]),
+    create_diagnostics_active_file_reactor(
+      context.editor_store,
+      context.diagnostics_store,
+    ),
+  ];
+
+  return () => {
+    for (const unmount of unmounts) {
+      unmount();
+    }
+    conflict_toast_manager.dismiss_all();
+  };
+}
+
+export function mount_reactors(context: ReactorContext): () => void {
+  const cleanup_core_reactors = mount_core_reactors(context);
+
+  const full_only_unmounts = [
+    create_plugin_note_indexed_reactor(
+      context.search_store,
+      context.plugin_service,
+    ),
+    create_git_autocommit_reactor(
+      context.editor_store,
+      context.git_store,
+      context.ui_store,
+      context.git_service,
+    ),
+    create_git_auto_fetch_reactor(
+      context.git_store,
+      context.ui_store,
+      context.git_service,
+    ),
     create_graph_refresh_reactor(
       context.graph_store,
       context.vault_store,
@@ -259,9 +311,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.task_service,
       context.watcher_service,
     ),
-    create_menu_action_reactor(
-      (action_id) => void context.action_registry.execute(action_id),
-    ),
     create_embedding_model_loaded_reactor(
       context.vault_store,
       context.workspace_index_port,
@@ -270,15 +319,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_store,
       context.ui_store,
       context.links_service,
-    ),
-    create_lint_reactor(
-      context.vault_store,
-      context.editor_store,
-      context.lint_store,
-      context.lint_service,
-      context.ui_store,
-      context.note_service,
-      context.editor_service,
     ),
     create_update_check_reactor(),
     create_metadata_sync_reactor(
@@ -315,20 +355,7 @@ export function mount_reactors(context: ReactorContext): () => void {
         on_close: (path) =>
           context.diagnostics_store.clear_file("markdown_lsp", path),
       },
-      {
-        is_ready: () => context.lint_store.is_running,
-        debounce_ms: 300,
-        on_open: (path, content) =>
-          void context.lint_service.notify_file_opened(path, content),
-        on_change: (path, content) =>
-          void context.lint_service.notify_file_changed(path, content),
-        on_close: (path) => void context.lint_service.notify_file_closed(path),
-      },
     ]),
-    create_diagnostics_active_file_reactor(
-      context.editor_store,
-      context.diagnostics_store,
-    ),
     create_code_lsp_document_sync_reactor(
       context.document_store,
       context.code_lsp_service,
@@ -349,9 +376,9 @@ export function mount_reactors(context: ReactorContext): () => void {
   ];
 
   return () => {
-    for (const unmount of unmounts) {
+    for (const unmount of full_only_unmounts) {
       unmount();
     }
-    conflict_toast_manager.dismiss_all();
+    cleanup_core_reactors();
   };
 }
