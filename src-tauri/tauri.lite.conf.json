@@ -1,6 +1,8 @@
 {
   "productName": "Carbide Lite",
   "build": {
+    "beforeDevCommand": "CARBIDE_VARIANT=lite pnpm dev",
+    "beforeBuildCommand": "svelte-kit sync && pnpm build:excalidraw && CARBIDE_VARIANT=lite pnpm codegen && CARBIDE_VARIANT=lite pnpm build",
     "devUrl": "http://127.0.0.1:5174"
   },
   "app": {
