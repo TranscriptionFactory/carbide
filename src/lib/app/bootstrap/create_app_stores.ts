@@ -34,7 +34,7 @@ import {
   LITE_APP_SURFACE,
 } from "$lib/app/orchestration/app_surface";
 
-export type AppStores = {
+export type CoreAppStores = {
   vault: VaultStore;
   notes: NotesStore;
   editor: EditorStore;
@@ -47,31 +47,36 @@ export type AppStores = {
   outline: OutlineStore;
   terminal: TerminalStore;
   document: DocumentStore;
-  graph: GraphStore;
-  bases: BasesStore;
-  task: TaskStore;
-  ai: AiStore;
-  plugin: PluginStore;
-  plugin_settings: PluginSettingsStore;
-  canvas: CanvasStore;
-  tag: TagStore;
   lint: LintStore;
   log: LogStore;
   markdown_lsp: MarkdownLspStore;
   lsp: LspStore;
   diagnostics: DiagnosticsStore;
+  parsed_note_cache: ParsedNoteCache;
+  vim_nav: VimNavStore;
+};
+
+export type FullOnlyAppStores = {
+  ai: AiStore;
+  plugin: PluginStore;
+  plugin_settings: PluginSettingsStore;
+  canvas: CanvasStore;
+  tag: TagStore;
   metadata: MetadataStore;
   toolchain: ToolchainStore;
   code_lsp: CodeLspStore;
   query: QueryStore;
-  parsed_note_cache: ParsedNoteCache;
   reference: ReferenceStore;
-  vim_nav: VimNavStore;
+  graph: GraphStore;
+  bases: BasesStore;
+  task: TaskStore;
 };
+
+export type AppStores = CoreAppStores & Partial<FullOnlyAppStores>;
 
 export function create_app_stores(app_target: AppTarget = "full"): AppStores {
   const surface = app_target === "lite" ? LITE_APP_SURFACE : FULL_APP_SURFACE;
-  return {
+  const core: CoreAppStores = {
     vault: new VaultStore(),
     notes: new NotesStore(),
     editor: new EditorStore(),
@@ -84,9 +89,6 @@ export function create_app_stores(app_target: AppTarget = "full"): AppStores {
     outline: new OutlineStore(),
     terminal: new TerminalStore(),
     document: new DocumentStore(),
-    graph: new GraphStore(),
-    bases: new BasesStore(),
-    task: new TaskStore(),
     lint: new LintStore(),
     log: new LogStore(),
     markdown_lsp: new MarkdownLspStore(),
@@ -94,30 +96,26 @@ export function create_app_stores(app_target: AppTarget = "full"): AppStores {
     diagnostics: new DiagnosticsStore(),
     parsed_note_cache: new ParsedNoteCache(),
     vim_nav: new VimNavStore(),
-    ...(app_target === "lite"
-      ? {
-          ai: undefined as unknown as AiStore,
-          plugin: undefined as unknown as PluginStore,
-          plugin_settings: undefined as unknown as PluginSettingsStore,
-          canvas: undefined as unknown as CanvasStore,
-          tag: undefined as unknown as TagStore,
-          metadata: undefined as unknown as MetadataStore,
-          toolchain: undefined as unknown as ToolchainStore,
-          code_lsp: undefined as unknown as CodeLspStore,
-          query: undefined as unknown as QueryStore,
-          reference: undefined as unknown as ReferenceStore,
-        }
-      : {
-          ai: new AiStore(),
-          plugin: new PluginStore(),
-          plugin_settings: new PluginSettingsStore(),
-          canvas: new CanvasStore(),
-          tag: new TagStore(),
-          metadata: new MetadataStore(),
-          toolchain: new ToolchainStore(),
-          code_lsp: new CodeLspStore(),
-          query: new QueryStore(),
-          reference: new ReferenceStore(),
-        }),
+  };
+
+  if (app_target === "lite") {
+    return core;
+  }
+
+  return {
+    ...core,
+    ai: new AiStore(),
+    plugin: new PluginStore(),
+    plugin_settings: new PluginSettingsStore(),
+    canvas: new CanvasStore(),
+    tag: new TagStore(),
+    metadata: new MetadataStore(),
+    toolchain: new ToolchainStore(),
+    code_lsp: new CodeLspStore(),
+    query: new QueryStore(),
+    reference: new ReferenceStore(),
+    graph: new GraphStore(),
+    bases: new BasesStore(),
+    task: new TaskStore(),
   };
 }

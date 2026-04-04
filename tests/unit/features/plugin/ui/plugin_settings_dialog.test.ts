@@ -48,11 +48,11 @@ function create_entry(
 
 function create_context(settings: Record<string, unknown> = {}) {
   const stores = create_app_stores();
-  stores.plugin_settings.set_entry("plugin-a", create_entry(settings));
+  stores.plugin_settings!.set_entry("plugin-a", create_entry(settings));
 
   const plugin_settings = {
     set_setting: vi.fn((plugin_id: string, key: string, value: unknown) => {
-      stores.plugin_settings.set_setting(plugin_id, key, value);
+      stores.plugin_settings!.set_setting(plugin_id, key, value);
       return Promise.resolve();
     }),
   };

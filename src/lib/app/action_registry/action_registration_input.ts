@@ -43,9 +43,9 @@ export type ActionRegistrationInput = {
     tab: TabStore;
     git: GitStore;
     outline: OutlineStore;
-    graph: GraphStore;
-    bases: BasesStore;
-    task: TaskStore;
+    graph?: GraphStore;
+    bases?: BasesStore;
+    task?: TaskStore;
     parsed_note_cache: ParsedNoteCache;
     reference?: ReferenceStore;
   };

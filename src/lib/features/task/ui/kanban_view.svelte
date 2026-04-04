@@ -63,8 +63,8 @@
 
   let { tasks }: { tasks: Task[] } = $props();
   const { stores, services } = use_app_context();
-  const taskStore = stores.task;
-  const taskService = services.task;
+  const taskStore = stores.task!;
+  const taskService = services.task!;
 
   const columns = $derived(
     derive_kanban_columns(tasks, taskStore.kanbanGroupProperty),

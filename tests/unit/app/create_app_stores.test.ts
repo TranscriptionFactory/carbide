@@ -16,6 +16,33 @@ describe("create_app_stores", () => {
     expect(stores.code_lsp).toBeUndefined();
     expect(stores.query).toBeUndefined();
     expect(stores.reference).toBeUndefined();
+    expect(stores.graph).toBeUndefined();
+    expect(stores.bases).toBeUndefined();
+    expect(stores.task).toBeUndefined();
+  });
+
+  it("instantiates all core stores for lite", () => {
+    const stores = create_app_stores("lite");
+
+    expect(stores.vault).toBeDefined();
+    expect(stores.notes).toBeDefined();
+    expect(stores.editor).toBeDefined();
+    expect(stores.ui).toBeDefined();
+    expect(stores.op).toBeDefined();
+    expect(stores.search).toBeDefined();
+    expect(stores.tab).toBeDefined();
+    expect(stores.git).toBeDefined();
+    expect(stores.links).toBeDefined();
+    expect(stores.outline).toBeDefined();
+    expect(stores.terminal).toBeDefined();
+    expect(stores.document).toBeDefined();
+    expect(stores.lint).toBeDefined();
+    expect(stores.log).toBeDefined();
+    expect(stores.markdown_lsp).toBeDefined();
+    expect(stores.lsp).toBeDefined();
+    expect(stores.diagnostics).toBeDefined();
+    expect(stores.parsed_note_cache).toBeDefined();
+    expect(stores.vim_nav).toBeDefined();
   });
 
   it("keeps full-only stores in full mode", () => {
@@ -31,5 +58,8 @@ describe("create_app_stores", () => {
     expect(stores.code_lsp).toBeDefined();
     expect(stores.query).toBeDefined();
     expect(stores.reference).toBeDefined();
+    expect(stores.graph).toBeDefined();
+    expect(stores.bases).toBeDefined();
+    expect(stores.task).toBeDefined();
   });
 });

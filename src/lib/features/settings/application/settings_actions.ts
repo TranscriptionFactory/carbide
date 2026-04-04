@@ -244,7 +244,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           );
         }
         if (semantic_graph_changed) {
-          stores.graph.set_semantic_edges([]);
+          stores.graph?.set_semantic_edges([]);
         }
       }
 

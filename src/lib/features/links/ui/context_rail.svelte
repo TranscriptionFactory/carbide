@@ -7,6 +7,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
 
   const { stores, action_registry } = use_app_context();
+  const ai = stores.ai!;
 
   const tabs = [
     { id: "links" as const, label: "Links" },
@@ -21,7 +22,7 @@
       return;
     }
 
-    if (stores.ai.dialog.open) {
+    if (ai.dialog.open) {
       stores.ui.set_context_rail_tab("ai");
       void action_registry.execute(ACTION_IDS.ai_open_assistant);
       return;

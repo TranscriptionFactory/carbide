@@ -38,6 +38,9 @@
   } from "@lucide/svelte";
 
   const { stores, action_registry, services } = use_app_context();
+  const task_store = stores.task!;
+  const plugin_store = stores.plugin!;
+  const tag_store = stores.tag!;
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
   const split_view_active = $derived(stores.tab.is_split);
@@ -45,7 +48,7 @@
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
   const dashboard_task_counts = $derived.by(() => {
-    const tasks = stores.task.tasks;
+    const tasks = task_store.tasks;
     if (tasks.length === 0) return null;
     let todo = 0,
       doing = 0,
@@ -293,7 +296,7 @@
           sidebar_open={stores.ui.sidebar_open}
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
-          dynamic_views={stores.plugin.sidebar_views}
+          dynamic_views={plugin_store.sidebar_views}
           context_rail_open={stores.ui.context_rail_open}
           on_toggle_context_rail={is_command_deck ||
           is_grounded_heavy ||
@@ -409,9 +412,9 @@
                         <span class="SidebarHeader__title">Starred</span>
                       {:else if stores.ui.sidebar_view === "dashboard"}
                         <span class="SidebarHeader__title">Dashboard</span>
-                      {:else if stores.plugin.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
+                      {:else if plugin_store.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
                         <span class="SidebarHeader__title">
-                          {stores.plugin.sidebar_views.find(
+                          {plugin_store.sidebar_views.find(
                             (v) => v.id === stores.ui.sidebar_view,
                           )?.label}
                         </span>
@@ -660,7 +663,7 @@
                           git_branch={stores.git.branch}
                           git_is_dirty={stores.git.is_dirty}
                           git_pending_files={stores.git.pending_files}
-                          tags={stores.tag.tags}
+                          tags={tag_store.tags}
                           on_tag_click={(tag: string) =>
                             void action_registry.execute(
                               ACTION_IDS.tags_select,
@@ -695,7 +698,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#each stores.plugin.sidebar_views as view (view.id)}
+                  {#each plugin_store.sidebar_views as view (view.id)}
                     {#if is_vault_mode && stores.ui.sidebar_view === view.id}
                       <Sidebar.Group class="h-full">
                         <Sidebar.GroupContent class="h-full">
@@ -1033,7 +1036,7 @@
         split_view={stores.editor.split_view}
         on_split_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_split_view)}
-        status_bar_items={stores.plugin.status_bar_items}
+        status_bar_items={plugin_store.status_bar_items}
         on_mode_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_mode)}
         show_line_numbers={stores.ui.editor_settings.source_editor_line_numbers}

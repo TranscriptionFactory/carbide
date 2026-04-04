@@ -337,6 +337,22 @@ describe("create_app_context lite composition", () => {
     expect(context.stores.code_lsp).toBeUndefined();
     expect(context.stores.query).toBeUndefined();
     expect(context.stores.reference).toBeUndefined();
+    expect(context.stores.graph).toBeUndefined();
+    expect(context.stores.bases).toBeUndefined();
+    expect(context.stores.task).toBeUndefined();
+
+    expect(
+      (context.services as { bases?: unknown }).bases,
+    ).toBeUndefined();
+    expect(
+      (context.services as { task?: unknown }).task,
+    ).toBeUndefined();
+    expect(
+      (context.services as { plugin?: unknown }).plugin,
+    ).toBeUndefined();
+    expect(
+      (context.services as { plugin_settings?: unknown }).plugin_settings,
+    ).toBeUndefined();
 
     const registered_action_ids = new Set(
       context.action_registry.get_all().map((action) => action.id),

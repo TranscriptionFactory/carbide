@@ -106,7 +106,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Toggle Context Panel",
     shortcut: "CmdOrCtrl+Shift+L",
     execute: async () => {
-      if (stores.graph.panel_open) {
+      if (stores.graph?.panel_open) {
         await registry.execute(ACTION_IDS.graph_close);
         return;
       }
@@ -131,7 +131,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       ) {
         stores.ui.close_context_rail("outline");
       } else {
-        if (stores.graph.panel_open) {
+        if (stores.graph?.panel_open) {
           await registry.execute(ACTION_IDS.graph_close, {
             preserve_context_rail: true,
           });
@@ -153,7 +153,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
         ) {
           stores.ui.close_context_rail("tasks");
         } else {
-          if (stores.graph.panel_open) {
+          if (stores.graph?.panel_open) {
             await registry.execute(ACTION_IDS.graph_close, {
               preserve_context_rail: true,
             });
@@ -167,7 +167,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.ui_show_tasks_list,
       label: "Show Task List",
       execute: () => {
-        stores.task.setViewMode("list");
+        stores.task!.setViewMode("list");
         stores.ui.set_context_rail_tab("tasks");
       },
     });
@@ -176,7 +176,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.ui_show_tasks_kanban,
       label: "Show Task Kanban",
       execute: () => {
-        stores.task.setViewMode("kanban");
+        stores.task!.setViewMode("kanban");
         stores.ui.set_context_rail_tab("tasks");
       },
     });
@@ -185,7 +185,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.ui_show_tasks_schedule,
       label: "Show Task Schedule",
       execute: () => {
-        stores.task.setViewMode("schedule");
+        stores.task!.setViewMode("schedule");
         stores.ui.set_context_rail_tab("tasks");
       },
     });

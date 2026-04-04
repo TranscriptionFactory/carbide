@@ -9,14 +9,15 @@
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
   const { stores, action_registry } = use_app_context();
+  const metadata = stores.metadata!;
 
-  const properties = $derived(stores.metadata.properties);
-  const tags = $derived(stores.metadata.tags);
-  const loading = $derived(stores.metadata.loading);
-  const error = $derived(stores.metadata.error);
+  const properties = $derived(metadata.properties);
+  const tags = $derived(metadata.tags);
+  const loading = $derived(metadata.loading);
+  const error = $derived(metadata.error);
   const has_data = $derived(properties.length > 0 || tags.length > 0);
-  const editing_key = $derived(stores.metadata.editing_key);
-  const adding = $derived(stores.metadata.adding);
+  const editing_key = $derived(metadata.editing_key);
+  const adding = $derived(metadata.adding);
 
   const frontmatter_tags = $derived(
     tags.filter((t) => t.source === "frontmatter"),
@@ -28,7 +29,7 @@
   let edit_value = $state("");
 
   function handle_add() {
-    stores.metadata.begin_add();
+    metadata.begin_add();
     new_key = "";
     new_value = "";
   }
@@ -43,7 +44,7 @@
   }
 
   function handle_edit(key: string, current_value: string) {
-    stores.metadata.begin_edit(key);
+    metadata.begin_edit(key);
     edit_value = current_value;
   }
 
@@ -60,7 +61,7 @@
   }
 
   function cancel() {
-    stores.metadata.cancel_edit();
+    metadata.cancel_edit();
   }
 </script>
 

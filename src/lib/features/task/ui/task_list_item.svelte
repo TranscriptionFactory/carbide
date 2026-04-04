@@ -8,7 +8,7 @@
 
   let { task }: { task: Task } = $props();
   const context = use_app_context();
-  const taskService = context.services.task;
+  const taskService = context.services.task!;
   const actionRegistry = context.action_registry;
 
   async function setStatus(status: TaskStatus) {

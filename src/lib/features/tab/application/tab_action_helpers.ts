@@ -324,7 +324,7 @@ export async function close_tab_immediate(
     services.editor.close_buffer?.(tab.note_path);
   }
   if (tab.kind === "graph") {
-    stores.graph.set_view_mode("neighborhood");
+    stores.graph?.set_view_mode("neighborhood");
   }
 
   if (was_active) {
