@@ -1,8 +1,10 @@
 export type {
+  AppTarget,
   WindowKind,
   WindowInit,
 } from "$lib/features/window/domain/window_types";
 export {
+  parse_app_target,
   parse_window_init,
   compute_title,
 } from "$lib/features/window/domain/window_types";

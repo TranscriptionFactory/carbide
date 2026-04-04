@@ -1,13 +1,14 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import type { WindowPort } from "$lib/features/window/ports";
+import type { AppTarget, WindowPort } from "$lib/features/window/ports";
 
 export function register_window_actions(
   input: ActionRegistrationInput & {
+    app_target: AppTarget;
     window_port: WindowPort;
   },
 ) {
-  const { registry, stores, window_port } = input;
+  const { app_target, registry, stores, window_port } = input;
 
   registry.register({
     id: ACTION_IDS.window_open_viewer,
@@ -22,12 +23,14 @@ export function register_window_actions(
           kind: "main",
           vault_path,
           file_path,
+          app_target,
         });
       } else {
         await window_port.open_window({
           kind: "viewer",
           vault_path,
           file_path,
+          app_target,
         });
       }
     },
@@ -39,7 +42,7 @@ export function register_window_actions(
     execute: async () => {
       const vault_path = stores.vault.vault?.path;
       if (!vault_path) return;
-      await window_port.open_window({ kind: "main", vault_path });
+      await window_port.open_window({ kind: "main", vault_path, app_target });
     },
   });
 }

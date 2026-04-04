@@ -6,6 +6,9 @@ import { compute_title } from "$lib/features/window/domain/window_types";
 function build_url(init: WindowInit): string {
   const params = new URLSearchParams();
   params.set("window_kind", init.kind);
+  if (init.app_target === "lite") {
+    params.set("app_target", init.app_target);
+  }
   if (init.kind === "main") {
     if (init.vault_path) params.set("vault_path", init.vault_path);
     if (init.file_path) params.set("file_path", init.file_path);

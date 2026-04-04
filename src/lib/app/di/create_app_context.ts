@@ -36,6 +36,7 @@ import {
 } from "$lib/features/document";
 import { GraphService, register_graph_actions } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
+import type { AppTarget } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
 import {
   BasesService,
@@ -91,8 +92,10 @@ export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
   default_mount_config: AppMountConfig;
+  app_target?: AppTarget;
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
+  const app_target = input.app_target ?? "full";
   const stores = create_app_stores();
   function require_vault() {
     const vault = stores.vault.vault;
@@ -745,6 +748,7 @@ export function create_app_context(input: {
 
   register_window_actions({
     ...base_action_input,
+    app_target,
     window_port: input.ports.window,
   });
 
@@ -943,6 +947,7 @@ export function create_app_context(input: {
   });
 
   return {
+    app_target,
     ports: input.ports,
     stores,
     services: base_action_input.services,
