@@ -343,6 +343,8 @@ Current repo state on 2026-04-03:
 - lite no longer registers git actions in its app-layer action entrypoint, and lite omnibar command availability now hides removed full-product commands
 - lite now mounts only the shared/core reactor set, so git/graph/bases/tasks/plugins/references/update-check/LSP/toolchain lifecycle work no longer starts behind the lite shell
 - lite bootstrap now skips code-LSP startup, plugin RPC initialization, and built-in plugin sidebar registrations for full-only panels
+- lite command search now comes from an explicit lite command registry instead of filtering the full command catalog after composition
+- lite no longer wires the full-only LSP results / IWE action path, keeping markdown diagnostics while dropping removed editor-adjacent full-product surfaces
 
 Still remaining before the product definition is satisfied:
 

@@ -33,6 +33,7 @@
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
+  import { get_commands_registry } from "$lib/features/search";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type { OmnibarScope } from "$lib/shared/types/search";
   import type {
@@ -445,6 +446,7 @@
   is_searching={stores.ui.omnibar.is_searching}
   scope={stores.ui.omnibar.scope}
   items={stores.search.omnibar_items}
+  commands={get_commands_registry(app_target)}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
   hotkeys_config={stores.ui.hotkeys_config}

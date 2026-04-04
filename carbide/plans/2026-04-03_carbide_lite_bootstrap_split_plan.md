@@ -407,6 +407,8 @@ Completed on 2026-04-03:
 - lite omnibar command availability now hides removed product commands such as git, graph, tasks, bases, query, canvas, AI, and plugin surfaces
 - lite reactor mounting now routes through a shared core reactor set, leaving git/graph/bases/tasks/plugins/references/update-check/LSP/toolchain lifecycle work on the full-product path only
 - lite composition no longer starts the code LSP service, initializes plugin RPC, or registers built-in plugin sidebar surfaces for full-only views
+- lite now uses explicit full-vs-lite command registries instead of a lite-only disabled-command denylist in `create_app_context.ts`
+- lite no longer registers full-only LSP-results and IWE action seams, so removed query/LSP-adjacent editor surfaces are pruned at the app boundary instead of being merely hidden
 
 Remaining in this plan slice:
 

@@ -205,6 +205,7 @@ vi.mock("$lib/app/full/mount_full_reactors", () => ({
 }));
 
 import { create_app_context } from "$lib/app/di/create_app_context";
+import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 function create_ports() {
   return {
     vault: {},
@@ -326,6 +327,26 @@ describe("create_app_context lite composition", () => {
     expect(
       (context.services as { reference?: unknown }).reference,
     ).toBeUndefined();
+
+    const registered_action_ids = new Set(
+      context.action_registry.get_all().map((action) => action.id),
+    );
+    expect(registered_action_ids.has(ACTION_IDS.lsp_code_actions)).toBe(false);
+    expect(registered_action_ids.has(ACTION_IDS.lsp_code_action_resolve)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.lsp_refresh_diagnostics)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.lsp_toggle_results)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.iwe_extract_section)).toBe(
+      false,
+    );
+    expect(registered_action_ids.has(ACTION_IDS.iwe_refresh_transforms)).toBe(
+      false,
+    );
 
     context.destroy();
     expect(mocks.plugin_destroy).not.toHaveBeenCalled();

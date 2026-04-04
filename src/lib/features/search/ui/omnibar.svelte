@@ -25,8 +25,10 @@
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
   import type { NoteMeta } from "$lib/shared/types/note";
-  import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
-  import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+  import type {
+    CommandDefinition,
+    CommandIcon as CommandIconType,
+  } from "$lib/features/search/types/command_palette";
   import { COMMAND_TO_ACTION_ID } from "$lib/features/search/application/omnibar_actions";
   import { HotkeyKey } from "$lib/features/hotkey";
   import type { HotkeyConfig } from "$lib/features/hotkey";
@@ -83,6 +85,7 @@
     is_searching: boolean;
     scope: OmnibarScope;
     items: OmnibarItem[];
+    commands: CommandDefinition[];
     recent_notes: NoteMeta[];
     recent_command_ids: string[];
     hotkeys_config: HotkeyConfig;
@@ -101,6 +104,7 @@
     is_searching,
     scope,
     items,
+    commands,
     recent_notes,
     recent_command_ids,
     hotkeys_config,
@@ -189,7 +193,7 @@
 
   const sorted_commands = $derived.by(() => {
     const mru_index = new Map(recent_command_ids.map((id, i) => [id, i]));
-    return [...COMMANDS_REGISTRY].sort((a, b) => {
+    return [...commands].sort((a, b) => {
       const a_idx = mru_index.get(a.id);
       const b_idx = mru_index.get(b.id);
       if (a_idx !== undefined && b_idx !== undefined) return a_idx - b_idx;
@@ -245,10 +249,7 @@
     !has_query && !is_command_mode && !is_all_vaults && recent_notes.length > 0,
   );
   const show_commands_header = $derived(
-    !has_query &&
-      !is_command_mode &&
-      !is_all_vaults &&
-      COMMANDS_REGISTRY.length > 0,
+    !has_query && !is_command_mode && !is_all_vaults && commands.length > 0,
   );
   const commands_start_index = $derived(
     !has_query && !is_command_mode && !is_all_vaults ? recent_notes.length : -1,

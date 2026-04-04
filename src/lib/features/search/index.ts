@@ -1,6 +1,13 @@
 export { SearchService } from "$lib/features/search/application/search_service";
 export { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
 export { register_find_in_file_actions } from "$lib/features/search/application/find_in_file_actions";
+export {
+  CORE_COMMANDS_REGISTRY,
+  FULL_COMMANDS_REGISTRY,
+  FULL_ONLY_COMMANDS_REGISTRY,
+  LITE_COMMANDS_REGISTRY,
+  get_commands_registry,
+} from "$lib/features/search/domain/search_commands";
 export { SearchStore } from "$lib/features/search/state/search_store.svelte";
 export type { IndexProgress } from "$lib/features/search/state/search_store.svelte";
 export type {

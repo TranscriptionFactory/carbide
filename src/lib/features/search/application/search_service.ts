@@ -23,7 +23,7 @@ import type {
 } from "$lib/features/search/types/search_service_result";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { search_within_text } from "$lib/features/search/domain/search_within_text";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import { FULL_COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
 import { SETTINGS_REGISTRY } from "$lib/features/settings";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -213,6 +213,7 @@ export class SearchService {
     private readonly index_port?: WorkspaceIndexPort,
     private readonly plugin_store?: PluginStore,
     private readonly build_context?: () => CommandContext,
+    private readonly command_registry: readonly CommandDefinition[] = FULL_COMMANDS_REGISTRY,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -512,7 +513,7 @@ export class SearchService {
   }
 
   search_commands(query: string): OmnibarItem[] {
-    const static_commands = COMMANDS_REGISTRY;
+    const static_commands = this.command_registry;
     const dynamic_commands = this.plugin_store?.commands ?? [];
     const all_commands = [...static_commands, ...dynamic_commands];
 
