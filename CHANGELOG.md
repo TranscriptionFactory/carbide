@@ -1,5 +1,11 @@
 # carbide
 
+## 1.11.1
+
+### Patch Changes
+
+- 273265b: omnifind and file search memory fixes
+
 ## 1.11.0
 
 ### Minor Changes
