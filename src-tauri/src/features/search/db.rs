@@ -3673,6 +3673,30 @@ pub fn list_all_tags(
         .map_err(|e| e.to_string())
 }
 
+pub fn get_notes_for_tag(conn: &Connection, tag: &str) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT DISTINCT path FROM note_inline_tags WHERE tag = ?1 ORDER BY path ASC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![tag], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_notes_for_tag_prefix(conn: &Connection, tag: &str) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT path FROM note_inline_tags WHERE (tag = ?1 OR tag LIKE ?2) ORDER BY path ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![tag, format!("{tag}/%")], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 pub fn list_all_properties(
     conn: &Connection,
 ) -> Result<Vec<crate::features::search::model::PropertyInfo>, String> {
