@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 10 / 46 units complete
+**Progress:** 11 / 46 units complete
 
 ---
 
@@ -131,9 +131,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Add column, populate from `fs::metadata().created()`, fallback to `mtime_ms` on Linux.
   - _Completed 2026-04-05 `917c541e`. Added `ctime_ms` field to `IndexNoteMeta` (Rust) and `NoteMeta` (TS). Extended `file_meta()` to return 3-tuple (mtime, ctime, size) using `fs::metadata().created()` with fallback to mtime when birth time unavailable (Linux). Added `ctime_ms INTEGER DEFAULT 0` column via schema migration. Updated all INSERT/SELECT statements in db.rs (upsert_note_simple, upsert_plain_content, query_bases, note_meta_with_stats_from_row). Propagated through 3 Tauri adapters, 6 source files, 55 test files. 2 new Rust tests (persistence round-trip + default-zero for legacy). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **4.2** Populate `note_links` table — **Rust session**
+- [x] **4.2** Populate `note_links` table — **Rust session**
   - Files: `db.rs` (INSERT in `upsert_note`), `service.rs` (new `get_note_links` command)
   - Extend outlink extraction to capture link_text, link_type, section_heading, target_anchor. Resolve `outlinks` vs `note_links` dual-table question. Decision-heavy — keep focused.
+  - _Completed 2026-04-05 `92d11f26`. Added wiki link extraction (wikilinks + embeds) in `extract_links()` during `upsert_note_simple`. Populates `note_links` table with target_path, link_text, link_type (wikilink/embed), section_heading (nearest heading above link), target_anchor. Also feeds extracted wikilink targets into outlinks table (previously empty for .md files). Added `NoteLink` model, `get_note_links` db query + specta Tauri command. Decision: kept `outlinks` as fast path for backlink/orphan queries — `note_links` is the rich version with metadata. 7 new tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
