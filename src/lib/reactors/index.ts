@@ -193,6 +193,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.editor_store,
       context.editor_service,
+      context.search_store,
     ),
     create_local_links_sync_reactor(
       context.editor_store,

@@ -1,6 +1,8 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 
+const FIND_DEBOUNCE_MS = 100;
+
 export function register_find_in_file_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
   const CLOSED_FIND_STATE = {
@@ -10,6 +12,15 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     replace_text: "",
     show_replace: false,
   } as const;
+
+  let find_debounce_timer: ReturnType<typeof setTimeout> | null = null;
+
+  function cancel_find_debounce() {
+    if (find_debounce_timer !== null) {
+      clearTimeout(find_debounce_timer);
+      find_debounce_timer = null;
+    }
+  }
 
   function update_find_state(
     patch: Partial<ActionRegistrationInput["stores"]["ui"]["find_in_file"]>,
@@ -21,12 +32,13 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
   }
 
   function close_find() {
+    cancel_find_debounce();
     update_find_state(CLOSED_FIND_STATE);
-    stores.search.clear_in_file_matches();
+    stores.search.set_find_match_count(0);
   }
 
   function move_selection(step: 1 | -1) {
-    const total_matches = stores.search.in_file_matches.length;
+    const total_matches = stores.search.find_match_count;
     if (total_matches === 0) {
       return;
     }
@@ -40,9 +52,17 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
       query,
       selected_match_index: 0,
     });
-    const markdown = stores.editor.open_note?.markdown ?? "";
-    const matches = services.search.search_within_file(markdown, query);
-    stores.search.set_in_file_matches(matches);
+
+    cancel_find_debounce();
+
+    if (!query.trim()) {
+      stores.search.set_find_match_count(0);
+      return;
+    }
+
+    find_debounce_timer = setTimeout(() => {
+      find_debounce_timer = null;
+    }, FIND_DEBOUNCE_MS);
   }
 
   registry.register({
@@ -52,7 +72,8 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       update_find_state({ open: !stores.ui.find_in_file.open });
       if (!stores.ui.find_in_file.open) {
-        stores.search.clear_in_file_matches();
+        cancel_find_debounce();
+        stores.search.set_find_match_count(0);
       }
     },
   });
@@ -121,17 +142,13 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.find_in_file_replace_one,
     label: "Replace",
     execute: () => {
-      const { selected_match_index, query, replace_text } =
-        stores.ui.find_in_file;
-      const total = stores.search.in_file_matches.length;
+      const { selected_match_index, replace_text } = stores.ui.find_in_file;
+      const total = stores.search.find_match_count;
       if (total === 0) return;
       services.editor.replace_at_match(selected_match_index, replace_text);
-      const markdown = services.editor.get_markdown();
-      const matches = services.search.search_within_file(markdown, query);
-      stores.search.set_in_file_matches(matches);
       const new_index =
-        matches.length > 0
-          ? Math.min(selected_match_index, matches.length - 1)
+        stores.search.find_match_count > 0
+          ? Math.min(selected_match_index, stores.search.find_match_count - 1)
           : 0;
       update_find_state({ selected_match_index: new_index });
     },
@@ -141,12 +158,9 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.find_in_file_replace_all,
     label: "Replace All",
     execute: () => {
-      const { query, replace_text } = stores.ui.find_in_file;
-      if (stores.search.in_file_matches.length === 0) return;
+      const { replace_text } = stores.ui.find_in_file;
+      if (stores.search.find_match_count === 0) return;
       services.editor.replace_all_matches(replace_text);
-      const markdown = services.editor.get_markdown();
-      const matches = services.search.search_within_file(markdown, query);
-      stores.search.set_in_file_matches(matches);
       update_find_state({ selected_match_index: 0 });
     },
   });

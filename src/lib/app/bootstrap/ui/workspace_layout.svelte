@@ -885,7 +885,7 @@
                       <FindInFileBar
                         open={stores.ui.find_in_file.open}
                         query={stores.ui.find_in_file.query}
-                        matches={stores.search.in_file_matches}
+                        match_count={stores.search.find_match_count}
                         selected_match_index={stores.ui.find_in_file
                           .selected_match_index}
                         show_replace={stores.ui.find_in_file.show_replace}

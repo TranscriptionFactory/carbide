@@ -1,6 +1,5 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { InFileMatch } from "$lib/shared/types/search";
   import ChevronUpIcon from "@lucide/svelte/icons/chevron-up";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
@@ -9,7 +8,7 @@
   type Props = {
     open: boolean;
     query: string;
-    matches: InFileMatch[];
+    match_count: number;
     selected_match_index: number;
     show_replace: boolean;
     replace_text: string;
@@ -26,7 +25,7 @@
   let {
     open,
     query,
-    matches,
+    match_count,
     selected_match_index,
     show_replace,
     replace_text,
@@ -44,8 +43,8 @@
   let replace_input_ref: HTMLInputElement | null = $state(null);
 
   const count_display = $derived(
-    matches.length > 0
-      ? `${String(selected_match_index + 1)} of ${String(matches.length)}`
+    match_count > 0
+      ? `${String(selected_match_index + 1)} of ${String(match_count)}`
       : query.trim()
         ? "No results"
         : "",
@@ -111,14 +110,14 @@
       <button
         class="FindInFileBar__nav"
         onclick={on_prev}
-        disabled={matches.length === 0}
+        disabled={match_count === 0}
       >
         <ChevronUpIcon />
       </button>
       <button
         class="FindInFileBar__nav"
         onclick={on_next}
-        disabled={matches.length === 0}
+        disabled={match_count === 0}
       >
         <ChevronDownIcon />
       </button>
@@ -143,14 +142,14 @@
         <button
           class="FindInFileBar__action"
           onclick={on_replace_one}
-          disabled={matches.length === 0}
+          disabled={match_count === 0}
         >
           Replace
         </button>
         <button
           class="FindInFileBar__action"
           onclick={on_replace_all}
-          disabled={matches.length === 0}
+          disabled={match_count === 0}
         >
           All
         </button>

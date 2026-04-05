@@ -1,5 +1,5 @@
 use crate::shared::asset_cache::{
-    build_skip_response, serve_with_cache, AssetCacheState, CachePolicy,
+    serve_with_cache, AssetCacheState, CachePolicy,
 };
 use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
@@ -505,19 +505,26 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
                 _ => return error_response("carbide-asset", &uri, 404, "file asset not found"),
             };
 
-            let bytes = match std::fs::read(&abs) {
-                Ok(b) => b,
-                Err(error) => {
-                    return error_response(
-                        "carbide-asset",
-                        &uri,
-                        404,
-                        format!("file asset unreadable: {}", error),
-                    );
-                }
-            };
-            let mime = mime_guess::from_path(&abs).first_or_octet_stream();
-            build_skip_response(bytes, mime.as_ref())
+            let cache_state = app.state::<AssetCacheState>();
+            let cache_key = format!("file/{}", abs.display());
+            let target_path = abs.clone();
+
+            serve_with_cache(
+                &cache_state.vault,
+                cache_key,
+                CachePolicy::ShortWithValidation,
+                &req,
+                || {
+                    let bytes = match std::fs::read(&target_path) {
+                        Ok(b) => b,
+                        Err(_) => return None,
+                    };
+                    let mime = mime_guess::from_path(&target_path)
+                        .first_or_octet_stream()
+                        .to_string();
+                    Some((bytes, mime))
+                },
+            )
         }
         _ => error_response("carbide-asset", &uri, 400, "unknown asset namespace"),
     }

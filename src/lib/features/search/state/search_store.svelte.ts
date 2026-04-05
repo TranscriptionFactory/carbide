@@ -11,6 +11,7 @@ export type IndexProgress = {
 export class SearchStore {
   omnibar_items = $state<OmnibarItem[]>([]);
   in_file_matches = $state<InFileMatch[]>([]);
+  find_match_count = $state(0);
   index_progress = $state<IndexProgress>({
     status: "idle",
     indexed: 0,
@@ -63,17 +64,23 @@ export class SearchStore {
     this.in_file_matches = matches;
   }
 
+  set_find_match_count(count: number) {
+    this.find_match_count = count;
+  }
+
   clear_omnibar() {
     this.omnibar_items = [];
   }
 
   clear_in_file_matches() {
     this.in_file_matches = [];
+    this.find_match_count = 0;
   }
 
   reset() {
     this.omnibar_items = [];
     this.in_file_matches = [];
+    this.find_match_count = 0;
     this.index_progress = { status: "idle", indexed: 0, total: 0, error: null };
   }
 }

@@ -820,7 +820,8 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           set_cite_suggestions(view, items);
         },
-        update_find_state(query: string, selected_index: number) {
+        update_find_state(query: string, selected_index: number): number {
+          let match_count = 0;
           run_view_action((v) => {
             const tr = v.state.tr.setMeta(find_highlight_plugin_key, {
               query,
@@ -828,8 +829,10 @@ export function create_prosemirror_editor_port(args?: {
             });
             v.dispatch(tr);
 
+            const plugin_state = find_highlight_plugin_key.getState(v.state);
+            match_count = plugin_state?.match_positions.length ?? 0;
+
             if (query) {
-              const plugin_state = find_highlight_plugin_key.getState(v.state);
               const positions = plugin_state?.match_positions;
               const match = positions?.[selected_index];
               if (match) {
@@ -842,6 +845,7 @@ export function create_prosemirror_editor_port(args?: {
               }
             }
           });
+          return match_count;
         },
         replace_at_match(match_index: number, replacement: string) {
           run_view_action((v) => {

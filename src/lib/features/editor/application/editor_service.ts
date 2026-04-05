@@ -388,8 +388,8 @@ export class EditorService {
     this.session?.close_buffer(note_path);
   }
 
-  update_find_state(query: string, selected_index: number) {
-    this.session?.update_find_state?.(query, selected_index);
+  update_find_state(query: string, selected_index: number): number {
+    return this.session?.update_find_state?.(query, selected_index) ?? 0;
   }
 
   replace_at_match(match_index: number, replacement: string) {
