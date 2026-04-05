@@ -2,216 +2,343 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
+**Progress:** 0 / 46 units complete
+
+---
+
+## How to Use This Document
+
+This is a living checklist. Each unit `[ ]` becomes `[x]` when complete, with a date and commit hash. The **next unit to implement** is always the first unchecked `[ ]` box whose step has no unmet dependencies (see dependency graph in the roadmap).
+
+When starting a session, say: _"Next step from `carbide/2026-04-05_conversation_work_units.md`"_ — Claude will read the doc, find the next unchecked unit, read the design reference, and begin.
+
+When finishing a session, Claude updates this file: checks the box, adds date + commit, and notes anything the next unit needs to know.
+
+### Headless execution
+
+```bash
+claude --dangerously-skip-permissions -p "$(cat carbide/implementation_prompt.md)"
+```
+
+Run repeatedly. Each invocation completes one unit, updates checkboxes, and the next invocation picks up where it left off. Inspect results between batches.
+
+### Batches
+
+Review between batches — check the branch, run the app, read commits. Each batch is a natural ship point.
+
+| Batch | Steps | Units | Runs | Review gate |
+|-------|-------|-------|------|-------------|
+| **A** | 1–2 | 1.1–1.5, 2.1 | 6 | MCP stdio works in Claude Desktop; headings command callable |
+| **B** | 3–4 | 3.1–3.3, 4.1–4.2 | 5 | Type inference in bases; frontmatter edits round-trip; `ctime_ms` + `note_links` populated |
+| **C** | 5–6 | 5.1–5.3, 6.1–6.2 | 5 | Suggested Links panel shows metadata + semantic rules with provenance |
+| **D** | 7–8 | 7.1–7.6, 8.1–8.2 | 8 | `carbide read/search` works from terminal; Claude Desktop + Code auto-configured |
+| **E** | 9–10 | 9.1, 10.1–10.3 | 4 | `getFileCache` composite endpoint; plugins lazy-load with timeouts |
+| **F** | 11–12 | 11.1–11.2, 12.1–12.5 | 7 | Block-level suggestions; full MCP + CLI surface |
+| **G** | 13–15 | 13.1–13.2, 14.1–14.2, 15.1–15.2 | 6 | Drag blocks; live metadata events; graph shows smart link edges |
+| **H** | 16 | 16.1–16.5 | 5 | Bulk property ops; nested props; plugin SDK; CLI TUI |
 
 ---
 
 ## Sizing Principles
 
-Each unit is scoped for a single Claude Code Opus 4.6 conversation (~1-4 hours of focused work). Sizing criteria:
-
 - **One coherent concern per conversation.** Rust backend vs TypeScript frontend are usually separate sessions.
 - **Ends with a commit.** Every unit produces passing `pnpm check && pnpm lint && pnpm test && cargo check`.
-- **≤8 files touched.** Beyond that, context quality degrades.
-- **≤1 major decision.** If a unit requires multiple design choices, split it.
+- **≤8 files touched.** Beyond that, context quality degrades. If scope creep pushes beyond this, stop and split.
+- **≤1 major design decision.** If you hit a second, document it and ask.
 - **Tests included.** Each unit ships with tests for the code it introduces.
-- **Branch per step.** Units within a step share a branch (e.g., `feat/mcp-stdio`). Merge to `main` when the step is complete.
+- **Branch per step.** Units within a step share a branch. Merge to `main` when the step is complete.
+- **Do not modify code outside the unit's scope** even if you spot issues — note them for a separate session.
 
 ---
 
 ## Step 1: MCP Stdio Server + Tier 1 Tools
 
 **Branch:** `feat/mcp-stdio`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → "Phase 1: Core MCP Server"
+**Depends on:** nothing
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **1.1** | Module scaffold + MCP types + JSON-RPC 2.0 message parsing | `mcp/mod.rs`, `mcp/types.rs`, `mcp/router.rs` + tests | Define `McpRequest`, `McpResponse`, `ToolDefinition`, `McpError`. JSON-RPC 2.0 parse/serialize. No transport yet — pure types + router dispatch skeleton |
-| **1.2** | Stdio transport + server lifecycle | `mcp/server.rs`, `mcp/transport.rs`, Tauri command wiring | Stdin/stdout line-delimited JSON-RPC. `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. `McpState` managed state. Test with `echo '{"jsonrpc":"2.0",...}' \| cargo run` |
-| **1.3** | Tier 1 tools — notes CRUD | `mcp/tools/mod.rs`, `mcp/tools/notes.rs` | `list_notes`, `read_note`, `create_note`, `update_note`, `delete_note`. Each tool calls existing service functions. Tool definitions (name, description, input schema) |
-| **1.4** | Tier 1 tools — search + metadata + vault | `mcp/tools/search.rs`, `mcp/tools/metadata.rs`, `mcp/tools/vault.rs` | `search_notes` (wraps OmniFind), `get_note_metadata`, `list_vaults`. Resource definitions (vault structure, config, properties) |
-| **1.5** | Frontend MCP feature + settings toggle | `src/lib/features/mcp/` scaffold, settings UI | `McpStore` (status/config), settings panel toggle, autostart reactor. Thin — backend does the work |
+- [ ] **1.1** Module scaffold + MCP types + JSON-RPC 2.0 message parsing
+  - Files: `src-tauri/src/features/mcp/mod.rs`, `types.rs`, `router.rs` + tests
+  - Define `McpRequest`, `McpResponse`, `ToolDefinition`, `McpError`. JSON-RPC 2.0 parse/serialize. No transport yet — pure types + router dispatch skeleton.
+
+- [ ] **1.2** Stdio transport + server lifecycle
+  - Files: `mcp/server.rs`, `mcp/transport.rs`, Tauri command wiring
+  - Stdin/stdout line-delimited JSON-RPC. `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. `McpState` managed state.
+
+- [ ] **1.3** Tier 1 tools — notes CRUD
+  - Files: `mcp/tools/mod.rs`, `mcp/tools/notes.rs`
+  - `list_notes`, `read_note`, `create_note`, `update_note`, `delete_note`. Each calls existing service functions.
+
+- [ ] **1.4** Tier 1 tools — search + metadata + vault
+  - Files: `mcp/tools/search.rs`, `mcp/tools/metadata.rs`, `mcp/tools/vault.rs`
+  - `search_notes` (wraps OmniFind), `get_note_metadata`, `list_vaults`. Resource definitions.
+
+- [ ] **1.5** Frontend MCP feature + settings toggle
+  - Files: `src/lib/features/mcp/` scaffold, settings UI
+  - `McpStore` (status/config), settings panel toggle, autostart reactor. Thin — backend does the work.
 
 ---
 
 ## Step 2: Headings Tauri Command
 
-**Branch:** `feat/metadata-headings-cmd` (or commit directly to `main` — trivial)
+**Branch:** `feat/metadata-headings-cmd` (or commit directly to `main`)
+**Design ref:** `carbide/metadata_api_surface.md` → Phase A2
+**Depends on:** nothing
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **2.1** | Add `get_note_headings` Tauri command | `service.rs` (add command), `db.rs` (expose existing query) | Single conversation. Wrap existing query at `db.rs:3237`. Add specta annotation. Wire in Tauri app builder. Test |
+- [ ] **2.1** Add `get_note_headings` Tauri command
+  - Files: `service.rs`, `db.rs` (expose existing query at `db.rs:3237`)
+  - Wrap existing query. Add specta annotation. Wire in Tauri app builder. Test.
 
 ---
 
 ## Step 3: Metadata Foundations
 
 **Branch:** `feat/metadata-foundations`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → "Gap 3: Metadata System" (3a, 3b, 3c)
+**Depends on:** nothing (benefits Step 1 but not blocked)
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **3.1** | Property type inference | `infer_property_type.ts` (new), test file, update `extract_metadata.ts` call site | Pure function + exhaustive unit tests (dates, booleans, numbers, arrays, tags, edge cases). Update SQLite `property_type` semantics. **TypeScript session** |
-| **3.2** | Frontmatter writer | `frontmatter_writer.ts` (new), test file | `update/add/remove_frontmatter_property()`, `ensure_frontmatter()`. Heavy on edge-case tests (comments, indentation, quoting, array formatting, empty frontmatter). **TypeScript session** — this is the trickiest unit in Step 3 |
-| **3.3** | Property enumeration with types + unique values | `db.rs` (extend `list_all_properties` query), `model.rs` (update `PropertyInfo`), frontend type updates | SQL extension to return top-N unique values. Update frontend `BasesPort`/adapter. **Rust + TS session** |
+- [ ] **3.1** Property type inference — **TypeScript session**
+  - Files: `infer_property_type.ts` (new), test file, update `extract_metadata.ts` call site
+  - Pure function + exhaustive unit tests (dates, booleans, numbers, arrays, tags, edge cases). Update SQLite `property_type` semantics.
+
+- [ ] **3.2** Frontmatter writer — **TypeScript session**
+  - Files: `frontmatter_writer.ts` (new), test file
+  - `update/add/remove_frontmatter_property()`, `ensure_frontmatter()`. Heavy on edge-case tests (comments, indentation, quoting, array formatting, empty frontmatter). Trickiest unit in Step 3.
+
+- [ ] **3.3** Property enumeration with types + unique values — **Rust + TS session**
+  - Files: `db.rs` (extend `list_all_properties`), `model.rs` (update `PropertyInfo`), frontend type updates
+  - SQL extension to return top-N unique values. Update frontend `BasesPort`/adapter.
 
 ---
 
 ## Step 4: Backend Enrichment
 
 **Branch:** `feat/metadata-enrichment`
+**Design ref:** `carbide/metadata_api_surface.md` → Phases A1, A3
+**Depends on:** nothing (parallel-safe with Step 3)
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **4.1** | `ctime_ms` capture | `model.rs` (add field), `db.rs` (schema + indexing), frontend `NoteMeta` propagation | Add column, populate from `fs::metadata().created()`, fallback to `mtime_ms` on Linux. **Rust session** with small TS type update |
-| **4.2** | Populate `note_links` table | `db.rs` (INSERT in `upsert_note`), `service.rs` (new Tauri command `get_note_links`) | Extend outlink extraction pass to capture link_text, link_type, section_heading, target_anchor. Resolve `outlinks` vs `note_links` dual-table question here. **Rust session** — decision-heavy, keep focused |
+- [ ] **4.1** `ctime_ms` capture — **Rust session**
+  - Files: `model.rs`, `db.rs` (schema + indexing), frontend `NoteMeta` propagation
+  - Add column, populate from `fs::metadata().created()`, fallback to `mtime_ms` on Linux.
+
+- [ ] **4.2** Populate `note_links` table — **Rust session**
+  - Files: `db.rs` (INSERT in `upsert_note`), `service.rs` (new `get_note_links` command)
+  - Extend outlink extraction to capture link_text, link_type, section_heading, target_anchor. Resolve `outlinks` vs `note_links` dual-table question. Decision-heavy — keep focused.
 
 ---
 
 ## Step 5: Smart Linking Phase 1
 
 **Branch:** `feat/smart-linking`
+**Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → "Feature 1: Smart Linking", Phase 1
+**Depends on:** Steps 3-4 make rules richer but existing tables suffice for MVP
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **5.1** | Rust backend — rule types + config persistence + SQL rule execution | `src-tauri/src/features/smart_links/` (new module) | Tauri commands: `smart_links_load_rules`, `smart_links_save_rules`, `smart_links_compute_suggestions`. SQL queries for `same_day`, `shared_tag`, `shared_property`. Config as JSON in `.carbide/smart-links/rules.json`. **Rust session** |
-| **5.2** | TypeScript frontend — store + service + port extension + LinksService integration | `src/lib/features/smart_links/` (new), extend `SearchPort`, update `LinksService` | `SmartLinksStore`, `SmartLinksService`, extend `SuggestedLink` type with provenance. Wire `load_suggested_links()` to union explicit + smart suggestions. **TypeScript session** |
-| **5.3** | UI — rule configuration + provenance display | Settings UI for rule toggles/weights, provenance chips in Suggested Links panel | Reuse shadcn toggle/slider components. Show which rules triggered each suggestion. **Svelte/UI session** |
+- [ ] **5.1** Rust backend — rule types + config persistence + SQL rule execution — **Rust session**
+  - Files: `src-tauri/src/features/smart_links/` (new module)
+  - Tauri commands: `smart_links_load_rules`, `smart_links_save_rules`, `smart_links_compute_suggestions`. SQL queries for `same_day`, `shared_tag`, `shared_property`. Config as JSON in `.carbide/smart-links/rules.json`.
+
+- [ ] **5.2** TypeScript frontend — store + service + port extension + LinksService integration — **TypeScript session**
+  - Files: `src/lib/features/smart_links/` (new), extend `SearchPort`, update `LinksService`
+  - `SmartLinksStore`, `SmartLinksService`, extend `SuggestedLink` type with provenance. Wire `load_suggested_links()` to union explicit + smart suggestions.
+
+- [ ] **5.3** UI — rule configuration + provenance display — **Svelte/UI session**
+  - Files: Settings UI for rule toggles/weights, provenance chips in Suggested Links panel
+  - Reuse shadcn toggle/slider components. Show which rules triggered each suggestion.
 
 ---
 
 ## Step 6: Smart Linking Phase 2
 
 **Branch:** `feat/smart-linking` (continue)
+**Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 2
+**Depends on:** Step 5
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **6.1** | Semantic rule wiring + scoring engine | Rust: add `semantic_similarity` rule execution (call `find_similar_notes` directly), `title_overlap`, `shared_outlinks` queries. Scoring: weighted aggregation, dedup, sort | **Rust session**. Key constraint: call `knn_search`/`find_similar_notes()` directly, never hybrid search |
-| **6.2** | Frontend scoring integration + tests | TS: update service to handle multi-rule results. Integration tests for weighted merge, dedup, ranking | **TypeScript session**. End-to-end test: multiple rules enabled, verify composite ranking |
+- [ ] **6.1** Semantic rule wiring + scoring engine — **Rust session**
+  - Rust: `semantic_similarity` rule (call `find_similar_notes` directly — never hybrid search), `title_overlap`, `shared_outlinks` queries. Weighted aggregation, dedup, sort.
+
+- [ ] **6.2** Frontend scoring integration + tests — **TypeScript session**
+  - TS: update service to handle multi-rule results. Integration tests for weighted merge, dedup, ranking.
 
 ---
 
 ## Step 7: HTTP Server + CLI Binary
 
 **Branch:** `feat/http-cli`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 3 + `carbide/cli_design.md`
+**Depends on:** Step 1 (MCP server exists), Step 3 (enriched metadata)
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **7.1** | Axum server scaffold + auth middleware + health endpoint | `mcp/transport.rs` (extend) or new `http/` module, `auth.rs` | Axum server started from Tauri setup. Bearer token from `~/.carbide/mcp-token`. `GET /health` returns status. CORS localhost-only. **Rust session** |
-| **7.2** | `/mcp` JSON-RPC route | HTTP route handler that delegates to existing MCP router | Thin adapter — same tool dispatch as stdio. Test with curl. **Rust session** (small, can combine with 7.1 if time allows) |
-| **7.3** | `/cli/*` REST routes — read operations | `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status` | Each route is ~5-10 lines. Accepts JSON body, returns JSON. **Rust session** |
-| **7.4** | `/cli/*` REST routes — write operations | `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete` | Same pattern as 7.3. **Rust session** (can combine with 7.3 if routes are thin enough) |
-| **7.5** | CLI crate scaffold + core read commands | `src-tauri/crates/carbide-cli/` — `main.rs`, `client.rs`, `auth.rs`, `vault.rs`, `format.rs`, `commands/notes.rs`, `commands/search.rs` | Clap derive API. `carbide read`, `carbide search`, `carbide files`, `carbide tags`, `carbide outline`. Output formatting (plain text + `--json`). **Rust session** |
-| **7.6** | CLI write + vault + general commands | `commands/vault.rs`, `commands/metadata.rs`, `commands/general.rs`, `launch.rs` | `carbide create/write/append/rename/move/delete`, `carbide vault/vaults/vault:open`, `carbide help/version/status`. App launch detection (check `/health`, launch if down, poll). **Rust session** |
+- [ ] **7.1** Axum server scaffold + auth middleware + health endpoint — **Rust session**
+  - Files: `mcp/transport.rs` (extend) or new `http/` module, `auth.rs`
+  - Axum on port 3457. Bearer token from `~/.carbide/mcp-token`. `GET /health`. CORS localhost-only.
+
+- [ ] **7.2** `/mcp` JSON-RPC route — **Rust session**
+  - Thin adapter — same tool dispatch as stdio. Test with curl. Small — can combine with 7.1.
+
+- [ ] **7.3** `/cli/*` REST routes — read operations — **Rust session**
+  - `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status`. Each ~5-10 lines.
+
+- [ ] **7.4** `/cli/*` REST routes — write operations — **Rust session**
+  - `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete`. Can combine with 7.3 if thin enough.
+
+- [ ] **7.5** CLI crate scaffold + core read commands — **Rust session**
+  - Files: `src-tauri/crates/carbide-cli/` — `main.rs`, `client.rs`, `auth.rs`, `vault.rs`, `format.rs`, `commands/notes.rs`, `commands/search.rs`
+  - Clap derive API. `carbide read`, `carbide search`, `carbide files`, `carbide tags`, `carbide outline`. Plain text + `--json`.
+
+- [ ] **7.6** CLI write + vault + general commands — **Rust session**
+  - `carbide create/write/append/rename/move/delete`, `carbide vault/vaults/vault:open`, `carbide help/version/status`. App launch detection (check `/health`, launch if down, poll 10s).
 
 ---
 
 ## Step 8: Auto-Setup + Shell Integration
 
 **Branch:** `feat/http-cli` (continue) or `feat/auto-setup`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 4
+**Depends on:** Step 7
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **8.1** | Claude Desktop/Code auto-config + settings UI | `mcp/setup.rs`, `.mcp.json` generation, settings panel updates | Write/merge `claude_desktop_config.json`. Generate `.mcp.json` in vault root. Settings UI: auto-setup button, token regen, connection status. **Rust + Svelte session** |
-| **8.2** | CLI PATH registration + shell completions | `launch.rs` (symlink logic), clap completions generation, `--install-cli` command | Platform-specific symlink/PATH. Clap generates bash/zsh/fish completions. **Rust session** |
+- [ ] **8.1** Claude Desktop/Code auto-config + settings UI — **Rust + Svelte session**
+  - `mcp/setup.rs`, `.mcp.json` generation, settings panel updates. Write/merge `claude_desktop_config.json`. Auto-setup button, token regen, connection status.
+
+- [ ] **8.2** CLI PATH registration + shell completions — **Rust session**
+  - Symlink logic, clap completions (bash/zsh/fish), `--install-cli` command.
 
 ---
 
 ## Step 9: Composite getFileCache
 
 **Branch:** `feat/metadata-file-cache`
+**Design ref:** `carbide/metadata_api_surface.md` → Phases B1, B2
+**Depends on:** Steps 2, 3, 4
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **9.1** | `note_get_file_cache` Tauri command + plugin RPC wiring | `service.rs` (new command), `db.rs` (composite query), `plugin_rpc_handler.ts` (new method) | Assembly from existing tables. Single SQL transaction or multi-query. Wire as `metadata.getFileCache(path)`. Clean up dead `note_get_metadata` reference. **Rust + TS session** |
+- [ ] **9.1** `note_get_file_cache` Tauri command + plugin RPC wiring — **Rust + TS session**
+  - Files: `service.rs`, `db.rs` (composite query), `plugin_rpc_handler.ts`
+  - Assembly from existing tables. Wire as `metadata.getFileCache(path)`. Clean up dead `note_get_metadata` reference.
 
 ---
 
 ## Step 10: Plugin Hardening
 
 **Branch:** `feat/plugin-hardening`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 5 (Gaps 2a-2e)
+**Depends on:** nothing (independent)
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **10.1** | Activation events + lazy loading | Plugin service (`should_activate` pattern matching), manifest type update | `on_startup_finished`, `on_file_type:*`, `vault_contains:*`. Plugins not matching stay unloaded. **TypeScript session** |
-| **10.2** | Lifecycle hooks + RPC timeouts + rate limiting | `plugin_host_adapter.ts`, plugin store | `activate`/`deactivate` postMessage protocol. `Promise.race` timeout wrapper. Sliding window rate limiter. Error budget counter (10 → auto-disable). **TypeScript session** |
-| **10.3** | Richer settings schema | Setting type definitions, settings tab renderer | `textarea`, `min`/`max`, `placeholder`, `description`. **Svelte/UI session** (small, can combine with 10.2) |
+- [ ] **10.1** Activation events + lazy loading — **TypeScript session**
+  - Plugin service `should_activate` pattern matching, manifest type update. `on_startup_finished`, `on_file_type:*`, `vault_contains:*`.
+
+- [ ] **10.2** Lifecycle hooks + RPC timeouts + rate limiting — **TypeScript session**
+  - `plugin_host_adapter.ts`, plugin store. `activate`/`deactivate` protocol. `Promise.race` timeout. Sliding window rate limiter. Error budget (10 → auto-disable).
+
+- [ ] **10.3** Richer settings schema — **Svelte/UI session**
+  - `textarea`, `min`/`max`, `placeholder`, `description`. Small — can combine with 10.2.
 
 ---
 
 ## Step 11: Block Embeddings
 
 **Branch:** `feat/block-embeddings`
+**Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 3
+**Depends on:** Step 6 (smart linking engine)
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **11.1** | `block_embeddings` table + embedding pipeline extension | `db.rs` (schema), `embeddings.rs` (iterate `note_sections`, embed above threshold), `vector_db.rs` (storage) | Size threshold: 20 words OR >10 lines. Reuse Snowflake Arctic Embed XS. Backfill during normal indexing. **Rust session** |
-| **11.2** | `block_knn_search` + `block_semantic_similarity` smart link rule | `vector_db.rs` (new search function), smart_links module (new rule) | Brute-force linear scan (fine for MVP). Wire into smart link scoring. **Rust session** |
+- [ ] **11.1** `block_embeddings` table + embedding pipeline extension — **Rust session**
+  - Files: `db.rs` (schema), `embeddings.rs`, `vector_db.rs`
+  - Threshold: 20 words OR >10 lines. Reuse Snowflake Arctic Embed XS. Backfill during indexing.
+
+- [ ] **11.2** `block_knn_search` + `block_semantic_similarity` smart link rule — **Rust session**
+  - `vector_db.rs` (new search), smart_links module (new rule). Brute-force scan fine for MVP.
 
 ---
 
 ## Step 12: Extended MCP/CLI Tools
 
 **Branch:** `feat/extended-tools`
+**Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 6
+**Depends on:** Steps 7-8
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **12.1** | MCP Tier 2 tools | `mcp/tools/` — backlinks, outlinks, references, properties, query_by_property | Each tool wraps existing service function. **Rust session** |
-| **12.2** | MCP Tier 3 + plugin MCP bridge | `mcp/tools/` — git tools, rename. `plugin_rpc_handler.ts` — `mcp.*` namespace | Git tools wrap existing commands. Plugin bridge: `mcp.list_tools`, `mcp.call_tool`, `mcp.register_tool`. **Rust + TS session** |
-| **12.3** | CLI git + reference commands | `commands/git.rs`, `commands/references.rs` | `git:status/commit/log/diff/push/pull/restore/init`, `references/reference:add/reference:search/reference:bbt`. **Rust session** |
-| **12.4** | CLI bases + tasks + plugins + dev commands | `commands/bases.rs`, `commands/tasks.rs`, `commands/plugins.rs`, `commands/dev.rs` | Remaining CLI surface. **Rust session** |
-| **12.5** | Slash command contribution point | Plugin manifest extension, ProseMirror slash command hook, RPC handler | `contributes.slash_commands` in manifest. Editor `/` menu integration. **TS + Svelte session** — most complex unit in Step 12 |
+- [ ] **12.1** MCP Tier 2 tools — **Rust session**
+  - `mcp/tools/` — backlinks, outlinks, references, properties, query_by_property.
+
+- [ ] **12.2** MCP Tier 3 + plugin MCP bridge — **Rust + TS session**
+  - Git tools, rename. `plugin_rpc_handler.ts` `mcp.*` namespace: `list_tools`, `call_tool`, `register_tool`.
+
+- [ ] **12.3** CLI git + reference commands — **Rust session**
+  - `git:status/commit/log/diff/push/pull/restore/init`, `references/reference:add/search/bbt`.
+
+- [ ] **12.4** CLI bases + tasks + plugins + dev commands — **Rust session**
+  - Remaining CLI surface.
+
+- [ ] **12.5** Slash command contribution point — **TS + Svelte session**
+  - Plugin manifest `contributes.slash_commands`. ProseMirror `/` menu hook. Most complex unit in Step 12.
 
 ---
 
 ## Step 13: Editor Drag Handles
 
 **Branch:** `feat/editor-drag-blocks`
+**Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 4
+**Depends on:** nothing
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **13.1** | Block detection ProseMirror plugin + drag handle UI | New ProseMirror plugin, gutter decoration | Detect block boundaries, render grip icon on hover for eligible blocks. **TypeScript/ProseMirror session** |
-| **13.2** | Drag-and-drop implementation + markdown round-trip | Drop handler, content reordering, re-indexing trigger | Reorder updates markdown content. Verify AST round-trip preserves formatting. **TypeScript/ProseMirror session** |
+- [ ] **13.1** Block detection ProseMirror plugin + drag handle UI — **TypeScript/ProseMirror session**
+  - Detect block boundaries, render grip icon on hover for eligible blocks.
+
+- [ ] **13.2** Drag-and-drop + markdown round-trip — **TypeScript/ProseMirror session**
+  - Drop handler, content reordering, re-indexing trigger. Verify AST round-trip.
 
 ---
 
 ## Step 14: Metadata Events + Link Resolution
 
 **Branch:** `feat/metadata-events`
+**Design ref:** `carbide/metadata_api_surface.md` → Phases C1, A4, D1
+**Depends on:** Steps 4, 9
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **14.1** | `metadata-changed` event emission + plugin bridge | Rust event emission on upsert/rename/delete, TS plugin bridge subscription | Tauri event system → plugin iframe forwarding. `events.on("metadata-changed", cb)` in plugin SDK. **Rust + TS session** |
-| **14.2** | Resolved/unresolved link map + `getFirstLinkpathDest` with index | `db.rs` (link resolution query), `service.rs` (extend resolve commands) | Cross-reference `note_links.target` against `notes` table. Extend `resolve_note_link`/`resolve_wiki_link` with vault index search. **Rust session** |
+- [ ] **14.1** `metadata-changed` event emission + plugin bridge — **Rust + TS session**
+  - Rust event on upsert/rename/delete → plugin iframe forwarding. `events.on("metadata-changed", cb)`.
+
+- [ ] **14.2** Resolved/unresolved link map + `getFirstLinkpathDest` with index — **Rust session**
+  - Cross-reference `note_links.target` against `notes`. Extend resolve commands with vault index search.
 
 ---
 
 ## Step 15: Graph Visualization
 
 **Branch:** `feat/graph-smart-links`
+**Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 5
+**Depends on:** Steps 5-6, 11
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **15.1** | Smart link edges in graph data model | Rust graph builder (add smart link edge type), TS graph types (`VaultGraphSnapshot`, `GraphNeighborhoodSnapshot`) | New edge type with provenance metadata. **Rust + TS session** |
-| **15.2** | Rendering layer — dashed edges, hover provenance, section-level edges | D3/rendering updates, tooltip UI | Visual differentiation from explicit links. Block-level edges when embeddings exist. **Svelte/D3 session** |
+- [ ] **15.1** Smart link edges in graph data model — **Rust + TS session**
+  - Rust graph builder (new edge type), TS graph types. Provenance metadata.
+
+- [ ] **15.2** Rendering — dashed edges, hover provenance, section-level edges — **Svelte/D3 session**
+  - Visual differentiation from explicit links. Block-level edges when embeddings exist.
 
 ---
 
 ## Step 16: Power Features
 
-**Branch:** Per-feature branches
+**Branch:** per-feature branches
+**Design ref:** `carbide/mcp_native_gaps_plan.md` Phase 7 + `carbide/metadata_api_surface.md` 3d-3e
+**Depends on:** all prior
 
-| Unit | Scope | Files | Notes |
-|------|-------|-------|-------|
-| **16.1** | Bulk property rename | Tauri command + frontmatter writer integration + UI confirmation dialog | Query matching notes → read → rewrite → write atomically → git checkpoint. **Rust + TS session** |
-| **16.2** | Bulk property delete | Same pattern as 16.1 | Can combine with 16.1 if straightforward. **Rust + TS session** |
-| **16.3** | Nested property flattening | `extract_metadata.ts` (flatten one level with dot notation), metadata panel display update | `author.name` indexing from nested YAML. Write-back preserves original structure. **TypeScript session** |
-| **16.4** | Plugin SDK package | `@carbide/plugin-types` npm package, `create-carbide-plugin` template | RPC types, manifest schema, event types. Scaffold generator. **TypeScript session** |
-| **16.5** | CLI TUI mode | `src-tauri/crates/carbide-cli/src/tui/` — ratatui or rustyline | Interactive mode with autocomplete, history, live results. **Rust session** — exploratory, may span multiple conversations |
+- [ ] **16.1** Bulk property rename — **Rust + TS session**
+  - Tauri command + frontmatter writer + UI confirmation + git checkpoint.
+
+- [ ] **16.2** Bulk property delete — **Rust + TS session**
+  - Same pattern as 16.1. Can combine if straightforward.
+
+- [ ] **16.3** Nested property flattening — **TypeScript session**
+  - `extract_metadata.ts` dot notation (`author.name`). Write-back preserves original structure.
+
+- [ ] **16.4** Plugin SDK package — **TypeScript session**
+  - `@carbide/plugin-types`, `create-carbide-plugin` template.
+
+- [ ] **16.5** CLI TUI mode — **Rust session**
+  - ratatui or rustyline. Exploratory — may span multiple conversations.
 
 ---
 
 ## Summary
 
-| Step | Units | Total Sessions |
-|------|-------|----------------|
+| Step | Units | Sessions |
+|------|-------|----------|
 | 1. MCP Stdio | 5 | 5 |
 | 2. Headings Cmd | 1 | 1 |
 | 3. Metadata Foundations | 3 | 3 |
@@ -228,6 +355,4 @@ Each unit is scoped for a single Claude Code Opus 4.6 conversation (~1-4 hours o
 | 14. Metadata Events | 2 | 2 |
 | 15. Graph Viz | 2 | 2 |
 | 16. Power Features | 5 | 5 |
-| **Total** | **46** | **~43-46 sessions** |
-
-Each session targets 1-4 hours. At 2-3 sessions/day, the full roadmap is ~15-23 working days of focused implementation. Steps 1-6 (MCP core + metadata + smart linking) are ~16 sessions / ~6-8 days — the critical path to a differentiated product.
+| **Total** | **46** | **~43-46** |
