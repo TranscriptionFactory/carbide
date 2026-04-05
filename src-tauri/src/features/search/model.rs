@@ -186,3 +186,10 @@ pub struct TagInfo {
     pub tag: String,
     pub count: usize,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct NoteHeading {
+    pub level: i32,
+    pub text: String,
+    pub line: i64,
+}

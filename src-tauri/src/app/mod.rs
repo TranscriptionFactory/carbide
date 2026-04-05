@@ -179,6 +179,7 @@ pub fn run() {
             features::search::service::embed_sync,
             features::search::service::shutdown_search_worker,
             features::search::service::get_note_stats,
+            features::search::service::get_note_headings,
             features::search::service::resolve_note_link,
             features::search::service::resolve_wiki_link,
             features::bases::service::bases_list_properties,

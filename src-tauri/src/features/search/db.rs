@@ -2332,6 +2332,25 @@ pub fn get_note_stats(
     .map_err(|e| e.to_string())
 }
 
+pub fn get_note_headings(
+    conn: &Connection,
+    path: &str,
+) -> Result<Vec<crate::features::search::model::NoteHeading>, String> {
+    let mut stmt = conn
+        .prepare("SELECT level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path], |row| {
+            Ok(crate::features::search::model::NoteHeading {
+                level: row.get(0)?,
+                text: row.get(1)?,
+                line: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
 #[allow(dead_code)]
 pub fn get_index_meta(conn: &Connection, key: &str) -> Option<String> {
     conn.query_row(
@@ -3247,6 +3266,35 @@ mod tests {
         assert_eq!(rows[0], (1, "First".to_string(), 0));
         assert_eq!(rows[1], (2, "Second".to_string(), 4));
         assert_eq!(rows[2], (3, "Third".to_string(), 8));
+    }
+
+    #[test]
+    fn get_note_headings_returns_ordered_results() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("gh.md", "GH");
+        let body = "# Alpha\n\nText.\n\n## Beta\n\nMore.\n\n### Gamma";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let headings = get_note_headings(&conn, "gh.md").expect("query");
+        assert_eq!(headings.len(), 3);
+        assert_eq!(headings[0].level, 1);
+        assert_eq!(headings[0].text, "Alpha");
+        assert_eq!(headings[0].line, 0);
+        assert_eq!(headings[1].level, 2);
+        assert_eq!(headings[1].text, "Beta");
+        assert_eq!(headings[2].level, 3);
+        assert_eq!(headings[2].text, "Gamma");
+    }
+
+    #[test]
+    fn get_note_headings_returns_empty_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let headings = get_note_headings(&conn, "nonexistent.md").expect("query");
+        assert!(headings.is_empty());
     }
 
     #[test]
