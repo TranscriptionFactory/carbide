@@ -8,7 +8,7 @@ describe("extract_metadata", () => {
 
     expect(result.properties).toEqual([
       { key: "title", value: "Hello World", type: "string" },
-      { key: "date", value: "2026-01-01", type: "string" },
+      { key: "date", value: "2026-01-01", type: "date" },
     ]);
   });
 
@@ -53,7 +53,7 @@ describe("extract_metadata", () => {
 
     expect(count).toEqual({ key: "count", value: "42", type: "number" });
     expect(enabled).toEqual({ key: "enabled", value: "true", type: "boolean" });
-    expect(items?.type).toBe("array");
+    expect(items?.type).toBe("tags");
   });
 
   it("returns empty metadata for markdown without frontmatter", () => {

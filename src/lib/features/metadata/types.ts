@@ -1,7 +1,15 @@
+export type PropertyType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "date"
+  | "array"
+  | "tags";
+
 export type NoteProperty = {
   key: string;
   value: string;
-  type: string;
+  type: PropertyType;
 };
 
 export type NoteTag = {

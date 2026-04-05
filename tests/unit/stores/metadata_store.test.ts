@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
+import type { NoteProperty } from "$lib/features/metadata/types";
 
 describe("MetadataStore", () => {
   it("starts with empty state", () => {
@@ -13,7 +14,9 @@ describe("MetadataStore", () => {
 
   it("sets metadata for a note", () => {
     const store = new MetadataStore();
-    const properties = [{ key: "title", value: "Test", type: "string" }];
+    const properties: NoteProperty[] = [
+      { key: "title", value: "Test", type: "string" },
+    ];
     const tags = [{ tag: "svelte", source: "frontmatter" as const }];
 
     store.set_metadata("notes/test.md", properties, tags);
@@ -43,7 +46,7 @@ describe("MetadataStore", () => {
     const store = new MetadataStore();
     store.set_metadata(
       "notes/test.md",
-      [{ key: "k", value: "v", type: "string" }],
+      [{ key: "k", value: "v", type: "string" } as NoteProperty],
       [{ tag: "t", source: "inline" as const }],
     );
     store.set_loading(true);
