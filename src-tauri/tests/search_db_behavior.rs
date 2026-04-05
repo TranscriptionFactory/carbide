@@ -1,11 +1,12 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest,
-    get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
-    rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path, search,
-    set_outlinks, suggest_planned, sync_index, upsert_note,
+    get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
+    open_search_db_at_path, query_bases, rebuild_index, remove_notes_by_prefix,
+    rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
+    upsert_note,
 };
-use crate::features::search::model::{IndexNoteMeta, SearchScope};
+use crate::features::search::model::{BaseQuery, IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
@@ -51,7 +52,7 @@ fn unchanged_files_detected() {
     let p = write_md(root, "note.md", "content");
     set_mtime(&p, 0);
 
-    let (mtime, size) = notes_service::file_meta(&p).expect("file metadata should be loaded");
+    let (mtime, _, size) = notes_service::file_meta(&p).expect("file metadata should be loaded");
     let mut manifest = BTreeMap::new();
     manifest.insert("note.md".to_string(), (mtime, size));
 
@@ -80,6 +81,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
             title: title.to_string(),
             name: name.to_string(),
             mtime_ms: 100,
+            ctime_ms: 50,
             size_bytes: 10,
             file_type: None,
             source: None,
@@ -114,6 +116,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         title: "Old".to_string(),
         name: "old".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -124,6 +127,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         title: "Source".to_string(),
         name: "source".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -161,6 +165,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         title: "Source A".to_string(),
         name: "source-a".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -171,6 +176,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         title: "Source B".to_string(),
         name: "source-b".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -181,6 +187,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         title: "Existing".to_string(),
         name: "existing".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -291,6 +298,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         title: "A".to_string(),
         name: "a".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -301,6 +309,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         title: "B".to_string(),
         name: "b".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 10,
         file_type: None,
         source: None,
@@ -334,6 +343,7 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
             title: title.to_string(),
             name: name.to_string(),
             mtime_ms: 100,
+            ctime_ms: 50,
             size_bytes: 10,
             file_type: None,
             source: None,
@@ -360,6 +370,7 @@ fn upsert_note_indexes_basic_metadata() {
         title: "Test".into(),
         name: "test".into(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 50,
         file_type: None,
         source: None,
@@ -388,6 +399,7 @@ fn remove_note_clears_note_record() {
         title: "Test".into(),
         name: "test".into(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 50,
         file_type: None,
         source: None,
@@ -418,6 +430,7 @@ fn search_returns_file_type_from_db() {
         title: "Report".to_string(),
         name: "report".to_string(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 1000,
         file_type: Some("pdf".to_string()),
         source: None,
@@ -441,6 +454,7 @@ fn rename_note_path_moves_note_record() {
         title: "Old".into(),
         name: "old".into(),
         mtime_ms: 100,
+        ctime_ms: 50,
         size_bytes: 50,
         file_type: None,
         source: None,
@@ -581,4 +595,50 @@ fn frontmatter_properties_populated_during_index() {
         )
         .expect("priority query should succeed");
     assert_eq!(priority_type, "number");
+}
+
+#[test]
+fn upsert_note_persists_ctime_ms() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "note.md".into(),
+        path: "note.md".into(),
+        title: "Note".into(),
+        name: "note".into(),
+        mtime_ms: 2000,
+        ctime_ms: 1000,
+        size_bytes: 20,
+        file_type: None,
+        source: None,
+    };
+    upsert_note(&conn, &meta, "hello world").expect("upsert");
+
+    let results = query_bases(&conn, BaseQuery { filters: vec![], sort: vec![], limit: 100, offset: 0 }).expect("query_bases");
+    assert_eq!(results.rows.len(), 1);
+    assert_eq!(results.rows[0].note.ctime_ms, 1000);
+    assert_eq!(results.rows[0].note.mtime_ms, 2000);
+}
+
+#[test]
+fn ctime_ms_defaults_to_zero_for_legacy_notes() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("open db");
+
+    let meta = IndexNoteMeta {
+        id: "old.md".into(),
+        path: "old.md".into(),
+        title: "Old".into(),
+        name: "old".into(),
+        mtime_ms: 500,
+        ctime_ms: 0,
+        size_bytes: 10,
+        file_type: None,
+        source: None,
+    };
+    upsert_note(&conn, &meta, "content").expect("upsert");
+
+    let results = query_bases(&conn, BaseQuery { filters: vec![], sort: vec![], limit: 100, offset: 0 }).expect("query_bases");
+    assert_eq!(results.rows[0].note.ctime_ms, 0);
 }

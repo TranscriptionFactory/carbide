@@ -680,16 +680,14 @@ describe("PluginRpcHandler", () => {
     function make_metadata_backend() {
       return {
         query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
-        list_properties: vi
-          .fn()
-          .mockResolvedValue([
-            {
-              name: "status",
-              property_type: "string",
-              count: 5,
-              unique_values: null,
-            },
-          ]),
+        list_properties: vi.fn().mockResolvedValue([
+          {
+            name: "status",
+            property_type: "string",
+            count: 5,
+            unique_values: null,
+          },
+        ]),
         get_backlinks: vi
           .fn()
           .mockResolvedValue([{ path: "notes/linking.md" }]),
