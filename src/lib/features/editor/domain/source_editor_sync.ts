@@ -12,6 +12,10 @@ export type SourceEditorMarkdownSyncState = {
 export function sync_source_editor_markdown(
   input: SourceEditorMarkdownSyncInput,
 ): SourceEditorMarkdownSyncState {
+  if (input.next_markdown === input.content) {
+    return { content: input.content, applied_markdown: input.next_markdown };
+  }
+
   if (input.applied_markdown === input.next_markdown) {
     return {
       content: input.content,

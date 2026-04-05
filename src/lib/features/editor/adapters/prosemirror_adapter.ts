@@ -217,6 +217,7 @@ export function create_prosemirror_editor_port(args?: {
       let current_markdown = normalize_markdown(initial_markdown);
       let saved_markdown = current_markdown;
       let current_is_dirty = false;
+      let suppress_change_echo = false;
       let view: EditorView | null = null;
       let outline_timer: ReturnType<typeof setTimeout> | undefined;
       let is_large_note = is_large_markdown(current_markdown);
@@ -294,6 +295,7 @@ export function create_prosemirror_editor_port(args?: {
       // Session-specific plugins (tightly coupled to session state)
       base_plugins.push(
         create_markdown_change_plugin((doc) => {
+          if (suppress_change_echo) return;
           const new_md = normalize_markdown(serialize_markdown(doc));
           if (new_md === current_markdown) return;
           current_markdown = new_md;
@@ -562,7 +564,9 @@ export function create_prosemirror_editor_port(args?: {
             old_end,
             new Slice(slice, 0, 0),
           );
+          suppress_change_echo = true;
           view.dispatch(tr);
+          suppress_change_echo = false;
 
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;

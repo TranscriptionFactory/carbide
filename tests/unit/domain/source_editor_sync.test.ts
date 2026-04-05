@@ -53,4 +53,30 @@ describe("sync_source_editor_markdown", () => {
       applied_markdown: "beta",
     });
   });
+
+  it("skips replace when store already matches editor content", () => {
+    expect(
+      sync_source_editor_markdown({
+        content: "hello",
+        applied_markdown: "old",
+        next_markdown: "hello",
+      }),
+    ).toEqual({
+      content: "hello",
+      applied_markdown: "hello",
+    });
+  });
+
+  it("applies normalized round-trip that differs from editor content", () => {
+    expect(
+      sync_source_editor_markdown({
+        content: "hello ",
+        applied_markdown: "old",
+        next_markdown: "hello",
+      }),
+    ).toEqual({
+      content: "hello",
+      applied_markdown: "hello",
+    });
+  });
 });

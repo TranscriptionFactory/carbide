@@ -54,6 +54,7 @@
   let view: EditorView | undefined;
   let view_mounted = $state(false);
   let last_applied_markdown: string | null = null;
+  let dispatching_from_store = false;
   let store_timer: ReturnType<typeof setTimeout> | null = null;
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
@@ -126,9 +127,11 @@
 
     last_applied_markdown = next_state.applied_markdown;
     const doc = view.state.doc;
+    dispatching_from_store = true;
     view.dispatch({
       changes: { from: 0, to: doc.length, insert: next_state.content },
     });
+    dispatching_from_store = false;
 
     on_selection_change?.(compute_selection_snapshot());
     if (on_outline_change) {
@@ -181,7 +184,7 @@
 
       const update_listener = cm_view_mod.EditorView.updateListener.of(
         (update) => {
-          if (update.docChanged) {
+          if (update.docChanged && !dispatching_from_store) {
             queue_store_sync();
             queue_outline_sync(update.state.doc.toString());
           }
