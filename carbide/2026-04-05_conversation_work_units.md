@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 4 / 46 units complete
+**Progress:** 5 / 46 units complete
 
 ---
 
@@ -77,9 +77,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - `search_notes` (wraps OmniFind), `get_note_metadata`, `list_vaults`. Resource definitions.
   - _Completed 2026-04-05 `088ead37`. Three new tool modules: search_notes wraps index_search with configurable limit (default 20, max 100); get_note_metadata combines build_note_meta + get_note_stats + tags/properties from search DB into text output; list_vaults exposes vault registry. Router extended to 8 total tools. Made parse_args pub(crate) for cross-module reuse. 12 new tests + updated 2 existing tests for new tool count. Pre-existing lint/test failures unchanged._
 
-- [ ] **1.5** Frontend MCP feature + settings toggle
+- [x] **1.5** Frontend MCP feature + settings toggle
   - Files: `src/lib/features/mcp/` scaffold, settings UI
   - `McpStore` (status/config), settings panel toggle, autostart reactor. Thin — backend does the work.
+  - _Completed 2026-04-05 `23335416`. Built full frontend MCP feature module: McpStore ($state status/transport), McpPort interface + TauriAdapter (start/stop/get_status), McpService (start/stop/refresh_status with error resilience), mcp_autostart reactor (starts MCP on vault open when mcp_enabled=true). Added mcp_enabled to EditorSettings (default true, global-only). Full DI wiring across app_ports, create_app_stores, create_app_context, create_prod_ports, reactors/index. 9 tests (6 service + 3 store). Settings dialog toggle UI deferred — can be added alongside Step 8 auto-setup panel. Pre-existing lint (build_command_context.ts layering) and test (document_service) failures unchanged._
 
 ---
 
