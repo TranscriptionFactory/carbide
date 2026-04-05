@@ -309,6 +309,14 @@ struct ExtractedSection {
     word_count: i64,
 }
 
+struct ExtractedLink {
+    target: String,
+    display_text: String,
+    link_type: &'static str,
+    anchor: Option<String>,
+    section_heading: Option<String>,
+}
+
 fn extract_markdown_structure(
     markdown: &str,
 ) -> (Vec<ExtractedHeading>, Vec<ExtractedCodeBlock>, Vec<ExtractedSection>) {
@@ -557,6 +565,97 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
     }
 
     tags
+}
+
+fn extract_links(markdown: &str, headings: &[ExtractedHeading]) -> Vec<ExtractedLink> {
+    use regex::Regex;
+    use std::sync::LazyLock;
+
+    static WIKI_LINK_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(!?)\[\[([^\]\n]+?)]]").unwrap());
+
+    let mut links = Vec::new();
+    let mut in_frontmatter = false;
+    let mut in_code_block = false;
+
+    let lines: Vec<&str> = markdown.lines().collect();
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+
+        if line_idx == 0 && trimmed == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if trimmed == "---" {
+                in_frontmatter = false;
+            }
+            continue;
+        }
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+
+        let section_heading = headings
+            .iter()
+            .rev()
+            .find(|h| h.line <= line_idx as i64)
+            .map(|h| h.text.clone());
+
+        for caps in WIKI_LINK_RE.captures_iter(line) {
+            let is_embed = &caps[1] == "!";
+            let inner = &caps[2];
+
+            let (target_part, display) = match inner.split_once('|') {
+                Some((t, d)) => (t.trim(), d.trim().to_string()),
+                None => (inner.trim(), inner.trim().to_string()),
+            };
+
+            let (target, anchor) = match target_part.split_once('#') {
+                Some((t, a)) => (t, Some(a.to_string())),
+                None => (target_part, None),
+            };
+
+            let target_str = if target.is_empty() && anchor.is_some() {
+                String::new()
+            } else {
+                target.to_string()
+            };
+
+            links.push(ExtractedLink {
+                target: target_str,
+                display_text: display,
+                link_type: if is_embed { "embed" } else { "wikilink" },
+                anchor,
+                section_heading: section_heading.clone(),
+            });
+        }
+    }
+
+    links
+}
+
+fn sync_links(conn: &Connection, path: &str, links: &[ExtractedLink]) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM note_links WHERE source_path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for link in links {
+        conn.execute(
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type, section_heading, target_anchor) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![path, link.target, link.display_text, link.link_type, link.section_heading, link.anchor],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 fn sync_tags(conn: &Connection, path: &str, tags: &[ExtractedTag]) -> Result<(), String> {
@@ -844,7 +943,7 @@ pub fn upsert_note_simple(
     conn: &Connection,
     meta: &IndexNoteMeta,
     raw_markdown: &str,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -879,7 +978,16 @@ pub fn upsert_note_simple(
     sync_code_blocks(conn, &meta.path, &code_blocks)?;
     sync_sections(conn, &meta.path, &sections)?;
 
-    Ok(())
+    let links = extract_links(raw_markdown, &headings);
+    sync_links(conn, &meta.path, &links)?;
+
+    let targets: Vec<String> = links
+        .iter()
+        .filter(|l| l.link_type == "wikilink" && !l.target.is_empty())
+        .map(|l| l.target.clone())
+        .collect();
+
+    Ok(targets)
 }
 
 pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
@@ -887,7 +995,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
         .map_err(|e| e.to_string())?;
     let result = upsert_note_simple(conn, meta, body);
     match result {
-        Ok(()) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
+        Ok(_targets) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
             Err(e)
@@ -895,7 +1003,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
     }
 }
 
-fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
+fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<Vec<String>, String> {
     upsert_note_simple(conn, meta, body)
 }
 
@@ -1665,8 +1773,8 @@ fn index_single_file_text(
         pending_links.push((meta.path.clone(), targets));
     } else if abs.extension().and_then(|x| x.to_str()) == Some("md") {
         meta.title = extract_title_from_markdown(raw).unwrap_or_else(|| meta.name.clone());
-        upsert_note_inner(conn, meta, raw)?;
-        pending_links.push((meta.path.clone(), vec![]));
+        let targets = upsert_note_inner(conn, meta, raw)?;
+        pending_links.push((meta.path.clone(), targets));
         let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
         crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
         let props = extract_frontmatter_properties(raw);
@@ -2351,6 +2459,29 @@ pub fn get_note_headings(
                 level: row.get(0)?,
                 text: row.get(1)?,
                 line: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+pub fn get_note_links(
+    conn: &Connection,
+    path: &str,
+) -> Result<Vec<crate::features::search::model::NoteLink>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT target_path, link_text, link_type, section_heading, target_anchor FROM note_links WHERE source_path = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path], |row| {
+            Ok(crate::features::search::model::NoteLink {
+                target_path: row.get(0)?,
+                link_text: row.get(1)?,
+                link_type: row.get(2)?,
+                section_heading: row.get(3)?,
+                target_anchor: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -3356,6 +3487,93 @@ mod tests {
 
         let headings = get_note_headings(&conn, "nonexistent.md").expect("query");
         assert!(headings.is_empty());
+    }
+
+    #[test]
+    fn upsert_note_populates_note_links_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("links.md", "Links");
+        let body = "# Section A\n\nSee [[other-note]] and [[folder/deep|Deep Note]].\n\n## Section B\n\nEmbed: ![[image.png]]";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let links = get_note_links(&conn, "links.md").expect("query");
+        assert_eq!(links.len(), 3);
+
+        assert_eq!(links[0].target_path, "other-note");
+        assert_eq!(links[0].link_text, "other-note");
+        assert_eq!(links[0].link_type, "wikilink");
+        assert_eq!(links[0].section_heading.as_deref(), Some("Section A"));
+        assert!(links[0].target_anchor.is_none());
+
+        assert_eq!(links[1].target_path, "folder/deep");
+        assert_eq!(links[1].link_text, "Deep Note");
+        assert_eq!(links[1].link_type, "wikilink");
+
+        assert_eq!(links[2].target_path, "image.png");
+        assert_eq!(links[2].link_type, "embed");
+        assert_eq!(links[2].section_heading.as_deref(), Some("Section B"));
+    }
+
+    #[test]
+    fn extract_links_with_anchors() {
+        let headings = vec![];
+        let links = extract_links("Check [[note#heading]] here", &headings);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "note");
+        assert_eq!(links[0].anchor.as_deref(), Some("heading"));
+        assert_eq!(links[0].display_text, "note#heading");
+    }
+
+    #[test]
+    fn extract_links_skips_code_blocks() {
+        let headings = vec![];
+        let md = "[[visible]]\n```\n[[hidden]]\n```\n[[also-visible]]";
+        let links = extract_links(md, &headings);
+        let targets: Vec<&str> = links.iter().map(|l| l.target.as_str()).collect();
+        assert_eq!(targets, vec!["visible", "also-visible"]);
+    }
+
+    #[test]
+    fn extract_links_skips_frontmatter() {
+        let headings = vec![];
+        let md = "---\naliases: [[hidden]]\n---\n[[visible]]";
+        let links = extract_links(md, &headings);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "visible");
+    }
+
+    #[test]
+    fn extract_links_multiple_per_line() {
+        let headings = vec![];
+        let md = "See [[alpha]] and [[beta]] and ![[gamma]]";
+        let links = extract_links(md, &headings);
+        assert_eq!(links.len(), 3);
+        assert_eq!(links[0].target, "alpha");
+        assert_eq!(links[1].target, "beta");
+        assert_eq!(links[2].target, "gamma");
+        assert_eq!(links[2].link_type, "embed");
+    }
+
+    #[test]
+    fn upsert_note_simple_returns_wikilink_targets() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("src.md", "Src");
+        let body = "Link to [[target-a]] and ![[embed.png]] and [[target-b]]";
+        let targets = upsert_note_simple(&conn, &meta, body).expect("upsert");
+        assert_eq!(targets, vec!["target-a", "target-b"]);
+    }
+
+    #[test]
+    fn get_note_links_returns_empty_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let links = get_note_links(&conn, "nonexistent.md").expect("query");
+        assert!(links.is_empty());
     }
 
     #[test]
