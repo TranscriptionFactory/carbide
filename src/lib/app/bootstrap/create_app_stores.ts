@@ -29,6 +29,7 @@ import { ParsedNoteCache } from "$lib/features/note";
 import { ReferenceStore } from "$lib/features/reference";
 import { VimNavStore } from "$lib/features/vim_nav";
 import { McpStore } from "$lib/features/mcp";
+import { SmartLinksStore } from "$lib/features/smart_links";
 
 export type AppStores = {
   vault: VaultStore;
@@ -64,6 +65,7 @@ export type AppStores = {
   reference: ReferenceStore;
   vim_nav: VimNavStore;
   mcp: McpStore;
+  smart_links: SmartLinksStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -101,5 +103,6 @@ export function create_app_stores(): AppStores {
     reference: new ReferenceStore(),
     vim_nav: new VimNavStore(),
     mcp: new McpStore(),
+    smart_links: new SmartLinksStore(),
   };
 }

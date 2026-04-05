@@ -5,6 +5,10 @@ import type {
   RewriteResult,
   SearchPort,
 } from "$lib/features/search/ports";
+import type {
+  SmartLinkRuleGroup,
+  SmartLinkSuggestion,
+} from "$lib/features/smart_links";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
 import type {
   NoteSearchHit,
@@ -361,6 +365,39 @@ export function create_search_tauri_adapter(): SearchPort {
         vaultId: vault_id,
         notePath: note_path,
       });
+    },
+
+    async load_smart_link_rules(
+      vault_id: VaultId,
+    ): Promise<SmartLinkRuleGroup[]> {
+      return invoke_search<SmartLinkRuleGroup[]>("smart_links_load_rules", {
+        vaultId: vault_id,
+      });
+    },
+
+    async save_smart_link_rules(
+      vault_id: VaultId,
+      rules: SmartLinkRuleGroup[],
+    ): Promise<void> {
+      await invoke_search<undefined>("smart_links_save_rules", {
+        vaultId: vault_id,
+        rules,
+      });
+    },
+
+    async compute_smart_link_suggestions(
+      vault_id: VaultId,
+      note_path: string,
+      limit = 20,
+    ): Promise<SmartLinkSuggestion[]> {
+      return invoke_search<SmartLinkSuggestion[]>(
+        "smart_links_compute_suggestions",
+        {
+          vaultId: vault_id,
+          notePath: note_path,
+          limit,
+        },
+      );
     },
   };
 }

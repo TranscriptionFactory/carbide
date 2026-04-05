@@ -1,6 +1,9 @@
 import type { SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
-import type { LinksStore } from "$lib/features/links/state/links_store.svelte";
+import type {
+  LinksStore,
+  SuggestedLink,
+} from "$lib/features/links/state/links_store.svelte";
 import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
@@ -8,6 +11,7 @@ import type { NoteMeta } from "$lib/shared/types/note";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import { extract_local_links } from "../domain/extract_local_links";
+import type { SmartLinkSuggestion } from "$lib/features/smart_links";
 
 const log = create_logger("links_service");
 
@@ -161,16 +165,34 @@ export class LinksService {
     this.links_store.start_suggested_links_load(note_path);
 
     try {
-      const hits = await this.search_port.find_similar_notes(
-        vault_id,
-        note_path,
-        limit,
-        true,
-      );
+      const [semantic_hits, smart_suggestions] = await Promise.allSettled([
+        this.search_port.find_similar_notes(vault_id, note_path, limit, true),
+        this.search_port.compute_smart_link_suggestions(
+          vault_id,
+          note_path,
+          limit,
+        ),
+      ]);
       if (this.links_store.suggested_links_note_path !== note_path) return;
-      const suggested = hits
-        .map((hit) => ({ note: hit.note, similarity: 1 - hit.distance }))
-        .filter((s) => s.similarity > similarity_threshold);
+
+      const suggested = merge_suggestions(
+        semantic_hits.status === "fulfilled" ? semantic_hits.value : [],
+        smart_suggestions.status === "fulfilled" ? smart_suggestions.value : [],
+        similarity_threshold,
+        limit,
+      );
+
+      if (semantic_hits.status === "rejected") {
+        log.error("Failed to load semantic suggestions", {
+          error: error_message(semantic_hits.reason),
+        });
+      }
+      if (smart_suggestions.status === "rejected") {
+        log.error("Failed to load smart link suggestions", {
+          error: error_message(smart_suggestions.reason),
+        });
+      }
+
       this.links_store.set_suggested_links(note_path, suggested);
     } catch (error) {
       if (this.links_store.suggested_links_note_path !== note_path) return;
@@ -190,4 +212,47 @@ export class LinksService {
     this.last_local_markdown = null;
     this.links_store.clear();
   }
+}
+
+function smart_suggestion_to_suggested_link(
+  s: SmartLinkSuggestion,
+): SuggestedLink {
+  return {
+    note: path_to_note_meta(s.targetPath),
+    similarity: s.score,
+    rules: s.rules,
+  };
+}
+
+function merge_suggestions(
+  semantic_hits: { note: NoteMeta; distance: number }[],
+  smart_suggestions: SmartLinkSuggestion[],
+  similarity_threshold: number,
+  limit: number,
+): SuggestedLink[] {
+  const by_path = new Map<string, SuggestedLink>();
+
+  for (const hit of semantic_hits) {
+    const similarity = 1 - hit.distance;
+    if (similarity <= similarity_threshold) continue;
+    by_path.set(hit.note.path, {
+      note: hit.note,
+      similarity,
+      rules: [{ ruleId: "semantic_similarity", rawScore: similarity }],
+    });
+  }
+
+  for (const s of smart_suggestions) {
+    const existing = by_path.get(s.targetPath);
+    if (existing) {
+      existing.similarity = Math.max(existing.similarity, s.score);
+      existing.rules = [...(existing.rules ?? []), ...s.rules];
+    } else {
+      by_path.set(s.targetPath, smart_suggestion_to_suggested_link(s));
+    }
+  }
+
+  return [...by_path.values()]
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
 }

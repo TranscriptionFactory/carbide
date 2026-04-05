@@ -73,6 +73,7 @@ import {
   CitationPicker,
 } from "$lib/features/reference";
 import { McpService } from "$lib/features/mcp";
+import { SmartLinksService } from "$lib/features/smart_links";
 import {
   ZoteroBbtExtension,
   create_zotero_bbt_adapter,
@@ -375,6 +376,12 @@ export function create_app_context(input: {
 
   const mcp_service = new McpService(input.ports.mcp, stores.mcp);
 
+  const smart_links_service = new SmartLinksService(
+    input.ports.search,
+    stores.vault,
+    stores.smart_links,
+  );
+
   const link_repair_service = new LinkRepairService(
     input.ports.notes,
     input.ports.search,
@@ -629,6 +636,7 @@ export function create_app_context(input: {
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
       reference: reference_service,
+      smart_links: smart_links_service,
     },
     default_mount_config: input.default_mount_config,
   };
