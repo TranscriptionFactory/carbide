@@ -1764,6 +1764,18 @@ pub fn get_note_headings(
     })
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn get_note_links(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Vec<crate::features::search::model::NoteLink>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::get_note_links(conn, &note_path)
+    })
+}
+
 fn strip_link_suffix(raw: &str) -> &str {
     let trimmed = raw.trim();
     match trimmed.find(|c| c == '?' || c == '#') {

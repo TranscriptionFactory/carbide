@@ -195,3 +195,12 @@ pub struct NoteHeading {
     pub text: String,
     pub line: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct NoteLink {
+    pub target_path: String,
+    pub link_text: String,
+    pub link_type: String,
+    pub section_heading: Option<String>,
+    pub target_anchor: Option<String>,
+}
