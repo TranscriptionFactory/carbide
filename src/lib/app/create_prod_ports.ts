@@ -39,6 +39,7 @@ import { create_markdown_lsp_tauri_adapter } from "$lib/features/markdown_lsp";
 import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
+import { create_mcp_tauri_adapter } from "$lib/features/mcp";
 import {
   create_reference_tauri_adapter,
   create_citationjs_adapter,
@@ -111,5 +112,6 @@ export function create_prod_ports(): Ports {
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),
     linked_source: create_linked_source_tauri_adapter(),
+    mcp: create_mcp_tauri_adapter(),
   };
 }

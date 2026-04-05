@@ -28,6 +28,7 @@ import { QueryStore } from "$lib/features/query";
 import { ParsedNoteCache } from "$lib/features/note";
 import { ReferenceStore } from "$lib/features/reference";
 import { VimNavStore } from "$lib/features/vim_nav";
+import { McpStore } from "$lib/features/mcp";
 
 export type AppStores = {
   vault: VaultStore;
@@ -62,6 +63,7 @@ export type AppStores = {
   parsed_note_cache: ParsedNoteCache;
   reference: ReferenceStore;
   vim_nav: VimNavStore;
+  mcp: McpStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -98,5 +100,6 @@ export function create_app_stores(): AppStores {
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
     vim_nav: new VimNavStore(),
+    mcp: new McpStore(),
   };
 }

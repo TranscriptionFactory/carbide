@@ -141,6 +141,7 @@ export type EditorSettings = {
   reference_citation_style: string;
   reference_include_sources_in_search: boolean;
   vim_nav_enabled: boolean;
+  mcp_enabled: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -224,6 +225,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   reference_citation_style: "apa",
   reference_include_sources_in_search: true,
   vim_nav_enabled: false,
+  mcp_enabled: true,
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -340,6 +342,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_show_blurb",
   "file_tree_blurb_position",
   "vim_nav_enabled",
+  "mcp_enabled",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
