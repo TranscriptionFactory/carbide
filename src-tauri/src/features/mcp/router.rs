@@ -160,7 +160,11 @@ impl McpRouter {
     }
 
     fn get_tool_definitions(&self) -> Vec<ToolDefinition> {
-        tools::notes::tool_definitions()
+        let mut defs = tools::notes::tool_definitions();
+        defs.extend(tools::search::tool_definitions());
+        defs.extend(tools::metadata::tool_definitions());
+        defs.extend(tools::vault::tool_definitions());
+        defs
     }
 
     fn dispatch_tool(&self, name: &str, arguments: Option<&Value>) -> ToolResult {
@@ -170,6 +174,15 @@ impl McpRouter {
         };
 
         if let Some(result) = tools::notes::dispatch(app, name, arguments) {
+            return result;
+        }
+        if let Some(result) = tools::search::dispatch(app, name, arguments) {
+            return result;
+        }
+        if let Some(result) = tools::metadata::dispatch(app, name, arguments) {
+            return result;
+        }
+        if let Some(result) = tools::vault::dispatch(app, name, arguments) {
             return result;
         }
 
