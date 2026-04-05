@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 5 / 46 units complete
+**Progress:** 6 / 46 units complete
 
 ---
 
@@ -90,9 +90,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/metadata_api_surface.md` → Phase A2
 **Depends on:** nothing
 
-- [ ] **2.1** Add `get_note_headings` Tauri command
+- [x] **2.1** Add `get_note_headings` Tauri command
   - Files: `service.rs`, `db.rs` (expose existing query at `db.rs:3237`)
   - Wrap existing query. Add specta annotation. Wire in Tauri app builder. Test.
+  - _Completed 2026-04-05 `87c9c9d1`. Added NoteHeading model type (level/text/line) to model.rs, get_note_headings query function to db.rs, specta-annotated Tauri command to service.rs, wired in app/mod.rs. 2 new tests (ordered results + empty for missing note). Pre-existing lint/test failures unchanged._
 
 ---
 
