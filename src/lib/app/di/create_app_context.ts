@@ -72,6 +72,7 @@ import {
   register_reference_actions,
   CitationPicker,
 } from "$lib/features/reference";
+import { McpService } from "$lib/features/mcp";
 import {
   ZoteroBbtExtension,
   create_zotero_bbt_adapter,
@@ -371,6 +372,8 @@ export function create_app_context(input: {
   );
 
   const watcher_service = new WatcherService(input.ports.watcher);
+
+  const mcp_service = new McpService(input.ports.mcp, stores.mcp);
 
   const link_repair_service = new LinkRepairService(
     input.ports.notes,
@@ -940,6 +943,7 @@ export function create_app_context(input: {
     theme_service,
     reference_service,
     reference_store: stores.reference,
+    mcp_service,
   });
 
   return {
@@ -960,6 +964,7 @@ export function create_app_context(input: {
       void markdown_lsp_service.stop();
       code_lsp_service.stop();
       toolchain_service.dispose();
+      void mcp_service.stop();
     },
   };
 }

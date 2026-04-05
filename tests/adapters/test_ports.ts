@@ -230,5 +230,12 @@ export function create_test_ports(): Ports {
       update_linked_metadata: () => Promise.resolve(false),
       resolve_home_dir: () => Promise.resolve("/Users/test"),
     },
+    mcp: {
+      start: () =>
+        Promise.resolve({ status: "running" as const, transport: "stdio" }),
+      stop: () => Promise.resolve(),
+      get_status: () =>
+        Promise.resolve({ status: "stopped" as const, transport: null }),
+    },
   };
 }
