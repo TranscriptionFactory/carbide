@@ -683,7 +683,12 @@ describe("PluginRpcHandler", () => {
         list_properties: vi
           .fn()
           .mockResolvedValue([
-            { name: "status", property_type: "string", count: 5 },
+            {
+              name: "status",
+              property_type: "string",
+              count: 5,
+              unique_values: null,
+            },
           ]),
         get_backlinks: vi
           .fn()
@@ -731,7 +736,12 @@ describe("PluginRpcHandler", () => {
 
       expect(response.error).toBeUndefined();
       expect(response.result).toEqual([
-        { name: "status", property_type: "string", count: 5 },
+        {
+          name: "status",
+          property_type: "string",
+          count: 5,
+          unique_values: null,
+        },
       ]);
       expect(metadata.list_properties).toHaveBeenCalled();
     });

@@ -2662,6 +2662,60 @@ mod tests {
     }
 
     #[test]
+    fn list_all_properties_returns_unique_values_when_low_cardinality() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("uv/a.md", "A"), "body").expect("upsert");
+        upsert_note(&conn, &note("uv/b.md", "B"), "body").expect("upsert");
+        upsert_note(&conn, &note("uv/c.md", "C"), "body").expect("upsert");
+        insert_prop(&conn, "uv/a.md", "status", "active", "string");
+        insert_prop(&conn, "uv/b.md", "status", "done", "string");
+        insert_prop(&conn, "uv/c.md", "status", "active", "string");
+        insert_prop(&conn, "uv/a.md", "priority", "1", "number");
+
+        let props = list_all_properties(&conn).expect("list");
+        let status = props.iter().find(|p| p.name == "status").unwrap();
+        let uv = status.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv.len(), 2);
+        assert!(uv.contains(&"active".to_string()));
+        assert!(uv.contains(&"done".to_string()));
+
+        let priority = props.iter().find(|p| p.name == "priority").unwrap();
+        let uv = priority.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv, &vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn list_all_properties_skips_unique_values_when_high_cardinality() {
+        let conn = open_mem_db();
+        for i in 0..101 {
+            let path = format!("hc/{}.md", i);
+            upsert_note(&conn, &note(&path, &format!("N{}", i)), "body").expect("upsert");
+            insert_prop(&conn, &path, "id", &format!("id-{}", i), "string");
+        }
+
+        let props = list_all_properties(&conn).expect("list");
+        let id_prop = props.iter().find(|p| p.name == "id").unwrap();
+        assert!(id_prop.unique_values.is_none());
+    }
+
+    #[test]
+    fn list_all_properties_unique_values_sorted_and_capped_at_20() {
+        let conn = open_mem_db();
+        for i in 0..25 {
+            let path = format!("cap/{}.md", i);
+            upsert_note(&conn, &note(&path, &format!("N{}", i)), "body").expect("upsert");
+            insert_prop(&conn, &path, "color", &format!("color-{:02}", i), "string");
+        }
+
+        let props = list_all_properties(&conn).expect("list");
+        let color = props.iter().find(|p| p.name == "color").unwrap();
+        let uv = color.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv.len(), 20);
+        assert_eq!(uv[0], "color-00");
+        assert_eq!(uv[19], "color-19");
+    }
+
+    #[test]
     fn query_bases_no_filters_returns_all_notes() {
         let conn = open_mem_db();
         upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
@@ -3763,12 +3817,44 @@ pub fn list_all_properties(
                 name: row.get(0)?,
                 property_type: row.get(1)?,
                 count: row.get(2)?,
+                unique_values: None,
             })
         })
         .map_err(|e| e.to_string())?;
 
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())
+    let mut props: Vec<_> = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut uv_stmt = conn
+        .prepare(
+            "SELECT value FROM (
+                 SELECT value, ROW_NUMBER() OVER (ORDER BY value) AS rn
+                 FROM (SELECT DISTINCT value FROM note_properties WHERE key = ?1)
+             ) WHERE rn <= 20",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut count_stmt = conn
+        .prepare("SELECT COUNT(DISTINCT value) FROM note_properties WHERE key = ?1")
+        .map_err(|e| e.to_string())?;
+
+    for prop in props.iter_mut() {
+        let distinct_count: u32 = count_stmt
+            .query_row(params![prop.name], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+
+        if distinct_count <= 100 {
+            let values: Vec<String> = uv_stmt
+                .query_map(params![prop.name], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            prop.unique_values = Some(values);
+        }
+    }
+
+    Ok(props)
 }
 
 pub fn query_bases(

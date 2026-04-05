@@ -32,7 +32,7 @@ function make_note_row(id: string): BaseNoteRow {
 }
 
 function make_property(name: string): PropertyInfo {
-  return { name, property_type: "text", count: 1 };
+  return { name, property_type: "text", count: 1, unique_values: null };
 }
 
 describe("BasesStore", () => {

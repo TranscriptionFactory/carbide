@@ -36,8 +36,8 @@ function make_service(port_overrides: Partial<BasesPort> = {}) {
 describe("BasesService", () => {
   it("refresh_properties calls port and updates store", async () => {
     const props: PropertyInfo[] = [
-      { name: "title", property_type: "text", count: 5 },
-      { name: "status", property_type: "text", count: 3 },
+      { name: "title", property_type: "text", count: 5, unique_values: null },
+      { name: "status", property_type: "text", count: 3, unique_values: null },
     ];
     const { service, store, port } = make_service({
       list_properties: vi.fn().mockResolvedValue(props),
