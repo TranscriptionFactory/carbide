@@ -324,6 +324,9 @@ pub fn run() {
             features::mcp::server::mcp_start,
             features::mcp::server::mcp_stop,
             features::mcp::server::mcp_status,
+            features::smart_links::smart_links_load_rules,
+            features::smart_links::smart_links_save_rules,
+            features::smart_links::smart_links_compute_suggestions,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
