@@ -179,6 +179,7 @@ pub struct PropertyInfo {
     pub name: String,
     pub property_type: String,
     pub count: usize,
+    pub unique_values: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
