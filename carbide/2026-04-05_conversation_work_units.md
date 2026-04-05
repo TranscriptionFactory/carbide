@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 8 / 46 units complete
+**Progress:** 9 / 46 units complete
 
 ---
 
@@ -113,9 +113,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - `update/add/remove_frontmatter_property()`, `ensure_frontmatter()`. Heavy on edge-case tests (comments, indentation, quoting, array formatting, empty frontmatter). Trickiest unit in Step 3.
   - _Completed 2026-04-05 `b8db31b7`. Created `frontmatter_writer.ts` in `metadata/domain/` with 4 exported functions operating on raw markdown strings. Format-preserving: finds YAML block boundaries via regex, modifies only within delimiters. Quoting heuristic for special YAML chars (`:`, `#`, `{}`, `[]`, booleans, null). Arrays inline for ≤3 items, multi-line with `- ` prefix otherwise. Multi-line array values consumed correctly during update/remove. 53 tests covering: add/update/remove for all types, empty frontmatter, no frontmatter, sequential operations, round-trips, special chars, partial key matching, escaping. Exported via metadata feature index.ts. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **3.3** Property enumeration with types + unique values — **Rust + TS session**
+- [x] **3.3** Property enumeration with types + unique values — **Rust + TS session**
   - Files: `db.rs` (extend `list_all_properties`), `model.rs` (update `PropertyInfo`), frontend type updates
   - SQL extension to return top-N unique values. Update frontend `BasesPort`/adapter.
+  - _Completed 2026-04-05 `1c6ba082`. Added `unique_values: Option<Vec<String>>` to PropertyInfo in Rust model + TS interface. Extended `list_all_properties` with two additional prepared statements: count distinct values per key, fetch top-20 sorted values for properties with ≤100 distinct values (None for high-cardinality). Updated bases_panel built-in properties, BasesStore/BasesService/plugin_rpc_handler tests. 3 new Rust tests (low cardinality, high cardinality skip, cap at 20). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
