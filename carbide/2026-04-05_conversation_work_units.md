@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 11 / 46 units complete
+**Progress:** 12 / 46 units complete
 
 ---
 
@@ -144,9 +144,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → "Feature 1: Smart Linking", Phase 1
 **Depends on:** Steps 3-4 make rules richer but existing tables suffice for MVP
 
-- [ ] **5.1** Rust backend — rule types + config persistence + SQL rule execution — **Rust session**
+- [x] **5.1** Rust backend — rule types + config persistence + SQL rule execution — **Rust session**
   - Files: `src-tauri/src/features/smart_links/` (new module)
   - Tauri commands: `smart_links_load_rules`, `smart_links_save_rules`, `smart_links_compute_suggestions`. SQL queries for `same_day`, `shared_tag`, `shared_property`. Config as JSON in `.carbide/smart-links/rules.json`.
+  - _Completed 2026-04-05 `e7d91629`. New `smart_links` feature module with 3 files: `mod.rs` (types + Tauri commands), `config.rs` (JSON persistence with default-on-first-access), `rules.rs` (SQL execution engine). Types: SmartLinkRule, SmartLinkRuleGroup, SmartLinkRuleMatch, SmartLinkSuggestion — all with camelCase serde + specta. Rule config uses `HashMap<String, String>` (not serde_json::Value) for specta compatibility. Three SQL rules: `same_day` (mtime date match via SQLite date()), `shared_tag` (Jaccard overlap against note_inline_tags), `shared_property` (key-value pair match against note_properties). Weighted score aggregation with dedup by target path. Default rules: same_day(0.3), shared_tag(0.5), shared_property(0.4). 11 tests (8 rule + 3 config). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **5.2** TypeScript frontend — store + service + port extension + LinksService integration — **TypeScript session**
   - Files: `src/lib/features/smart_links/` (new), extend `SearchPort`, update `LinksService`
