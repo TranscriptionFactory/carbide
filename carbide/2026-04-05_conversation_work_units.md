@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 3 / 46 units complete
+**Progress:** 4 / 46 units complete
 
 ---
 
@@ -72,9 +72,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - `list_notes`, `read_note`, `create_note`, `update_note`, `delete_note`. Each calls existing service functions.
   - _Completed 2026-04-05 `0d3d8717`. Five MCP tool definitions with camelCase JSON schemas + dispatch handlers. Router uses `Option<AppHandle>` — `with_app()` for production, `new()` for tests. read_note/update_note bypass BufferManager for direct disk IO (MCP doesn't need editor buffer state). Made `build_note_meta` pub(crate). Added `#[serde(rename_all = "camelCase")]` on ToolDefinition for MCP protocol compliance. 8 new tool-specific tests + updated 2 existing tests. Pre-existing lint/test failures unchanged._
 
-- [ ] **1.4** Tier 1 tools — search + metadata + vault
+- [x] **1.4** Tier 1 tools — search + metadata + vault
   - Files: `mcp/tools/search.rs`, `mcp/tools/metadata.rs`, `mcp/tools/vault.rs`
   - `search_notes` (wraps OmniFind), `get_note_metadata`, `list_vaults`. Resource definitions.
+  - _Completed 2026-04-05 `088ead37`. Three new tool modules: search_notes wraps index_search with configurable limit (default 20, max 100); get_note_metadata combines build_note_meta + get_note_stats + tags/properties from search DB into text output; list_vaults exposes vault registry. Router extended to 8 total tools. Made parse_args pub(crate) for cross-module reuse. 12 new tests + updated 2 existing tests for new tool count. Pre-existing lint/test failures unchanged._
 
 - [ ] **1.5** Frontend MCP feature + settings toggle
   - Files: `src/lib/features/mcp/` scaffold, settings UI
