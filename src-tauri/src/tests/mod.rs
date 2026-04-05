@@ -10,6 +10,12 @@ mod search_db_behavior;
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
 
+#[path = "../../tests/mcp_types.rs"]
+mod mcp_types;
+
+#[path = "../../tests/mcp_router.rs"]
+mod mcp_router;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
