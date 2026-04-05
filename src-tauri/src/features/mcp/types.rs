@@ -157,6 +157,7 @@ pub struct InitializeResult {
 // --- Tool Definitions ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,

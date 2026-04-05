@@ -16,6 +16,9 @@ mod mcp_types;
 #[path = "../../tests/mcp_router.rs"]
 mod mcp_router;
 
+#[path = "../../tests/mcp_tools_notes.rs"]
+mod mcp_tools_notes;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};

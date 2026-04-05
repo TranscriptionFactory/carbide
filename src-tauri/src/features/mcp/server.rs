@@ -1,6 +1,7 @@
 use serde::Serialize;
 use specta::Type;
 use std::sync::Arc;
+use tauri::AppHandle;
 use tokio::sync::{watch, Mutex};
 
 use crate::features::mcp::router::McpRouter;
@@ -36,7 +37,7 @@ impl Default for McpState {
 }
 
 impl McpState {
-    pub async fn start_stdio(&self) -> Result<McpStatusInfo, String> {
+    pub async fn start_stdio(&self, app: AppHandle) -> Result<McpStatusInfo, String> {
         let mut status = self.status.lock().await;
         if *status == McpServerStatus::Running {
             return Ok(McpStatusInfo {
@@ -46,7 +47,7 @@ impl McpState {
         }
 
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
-        let router = Arc::new(tokio::sync::Mutex::new(McpRouter::new()));
+        let router = Arc::new(tokio::sync::Mutex::new(McpRouter::with_app(app)));
 
         let stdin = tokio::io::stdin();
         let stdout = tokio::io::stdout();
@@ -110,8 +111,11 @@ impl McpState {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mcp_start(state: tauri::State<'_, McpState>) -> Result<McpStatusInfo, String> {
-    state.start_stdio().await
+pub async fn mcp_start(
+    app: AppHandle,
+    state: tauri::State<'_, McpState>,
+) -> Result<McpStatusInfo, String> {
+    state.start_stdio(app).await
 }
 
 #[tauri::command]

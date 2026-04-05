@@ -172,11 +172,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tools_list_returns_empty_tools() {
+    async fn tools_list_returns_note_tools() {
         let input = r#"{"jsonrpc":"2.0","method":"tools/list","id":1}"#;
         let output = run_with_input(&format!("{}\n", input)).await;
         let resp = parse_response(output.trim());
-        assert_eq!(resp["result"]["tools"], serde_json::json!([]));
+        let tools = resp["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 5);
     }
 
     #[tokio::test]

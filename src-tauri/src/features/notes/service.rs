@@ -409,7 +409,7 @@ pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64), String> {
     Ok((mtime, size))
 }
 
-fn build_note_meta(
+pub(crate) fn build_note_meta(
     root: &Path,
     rel_path: &str,
     cached_titles: Option<&std::collections::HashMap<String, String>>,

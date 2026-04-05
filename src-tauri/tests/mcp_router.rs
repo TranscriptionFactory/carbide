@@ -74,13 +74,50 @@ fn initialize_without_params_returns_error() {
 }
 
 #[test]
-fn tools_list_returns_empty_for_now() {
+fn tools_list_returns_note_tools() {
     let mut router = McpRouter::new();
     let req = make_request("tools/list", None, 1);
     let resp = router.handle_request(&req).unwrap();
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();
-    assert_eq!(result["tools"], json!([]));
+    let tools = result["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 5);
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert!(names.contains(&"list_notes"));
+    assert!(names.contains(&"read_note"));
+    assert!(names.contains(&"create_note"));
+    assert!(names.contains(&"update_note"));
+    assert!(names.contains(&"delete_note"));
+}
+
+#[test]
+fn tool_definitions_have_valid_schemas() {
+    let mut router = McpRouter::new();
+    let req = make_request("tools/list", None, 1);
+    let resp = router.handle_request(&req).unwrap();
+    let result = resp.result.unwrap();
+    let tools = result["tools"].as_array().unwrap();
+    for tool in tools {
+        assert!(!tool["description"].as_str().unwrap().is_empty());
+        assert_eq!(tool["inputSchema"]["type"], "object");
+        assert!(tool["inputSchema"]["required"].is_array());
+    }
+}
+
+#[test]
+fn tools_call_without_app_returns_no_context_error() {
+    let mut router = McpRouter::new();
+    let req = make_request(
+        "tools/call",
+        Some(json!({ "name": "list_notes", "arguments": { "vault_id": "test" } })),
+        1,
+    );
+    let resp = router.handle_request(&req).unwrap();
+    assert!(resp.error.is_none());
+    let result = resp.result.unwrap();
+    assert!(result["is_error"].as_bool().unwrap());
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("No app context"));
 }
 
 #[test]

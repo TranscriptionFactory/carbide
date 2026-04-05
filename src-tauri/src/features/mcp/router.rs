@@ -1,5 +1,7 @@
 use serde_json::Value;
+use tauri::AppHandle;
 
+use crate::features::mcp::tools;
 use crate::features::mcp::types::{
     InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
     ResourceDefinition, ServerCapabilities, ServerInfo, ToolCallParams, ToolDefinition, ToolResult,
@@ -8,11 +10,22 @@ use crate::features::mcp::types::{
 
 pub struct McpRouter {
     initialized: bool,
+    app: Option<AppHandle>,
 }
 
 impl McpRouter {
     pub fn new() -> Self {
-        Self { initialized: false }
+        Self {
+            initialized: false,
+            app: None,
+        }
+    }
+
+    pub fn with_app(app: AppHandle) -> Self {
+        Self {
+            initialized: false,
+            app: Some(app),
+        }
     }
 
     pub fn handle_request(&mut self, request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
@@ -147,13 +160,19 @@ impl McpRouter {
     }
 
     fn get_tool_definitions(&self) -> Vec<ToolDefinition> {
-        // Tool definitions will be populated in unit 1.3 and 1.4.
-        // For now, return empty — the dispatch skeleton is in place.
-        vec![]
+        tools::notes::tool_definitions()
     }
 
-    fn dispatch_tool(&self, name: &str, _arguments: Option<&Value>) -> ToolResult {
-        // Tool handlers will be added in units 1.3 and 1.4.
+    fn dispatch_tool(&self, name: &str, arguments: Option<&Value>) -> ToolResult {
+        let app = match &self.app {
+            Some(a) => a,
+            None => return ToolResult::error("No app context available".into()),
+        };
+
+        if let Some(result) = tools::notes::dispatch(app, name, arguments) {
+            return result;
+        }
+
         ToolResult::error(format!("Unknown tool: {}", name))
     }
 }
