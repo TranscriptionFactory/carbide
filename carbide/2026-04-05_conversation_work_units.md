@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 1 / 46 units complete
+**Progress:** 2 / 46 units complete
 
 ---
 
@@ -62,9 +62,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Define `McpRequest`, `McpResponse`, `ToolDefinition`, `McpError`. JSON-RPC 2.0 parse/serialize. No transport yet — pure types + router dispatch skeleton.
   - _Completed 2026-04-05 `fc6decde`. Built full JSON-RPC 2.0 types (request/response/error with serde), MCP protocol types (InitializeResult, ToolDefinition, ToolCallParams, ToolResult with ContentBlock tagged enum, ResourceDefinition), and McpRouter with dispatch for initialize/ping/tools-list/tools-call/resources-list/resources-read. 25 tests. Tool definitions and dispatch are empty stubs — unit 1.3 populates them. Pre-existing lint failures in `build_command_context.ts` and 1 pre-existing test failure in document store — not related to MCP._
 
-- [ ] **1.2** Stdio transport + server lifecycle
+- [x] **1.2** Stdio transport + server lifecycle
   - Files: `mcp/server.rs`, `mcp/transport.rs`, Tauri command wiring
   - Stdin/stdout line-delimited JSON-RPC. `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. `McpState` managed state.
+  - _Completed 2026-04-05 `b3926bcc`. Built generic async JSON-RPC stream transport over AsyncBufRead/AsyncWrite with tokio::select shutdown. McpState manages lifecycle (start_stdio/stop/get_status/shutdown). Three Tauri commands with specta annotations wired into app builder + shutdown hook. Added tokio `io-std` and `io-util` features. 10 transport tests. Pre-existing lint (build_command_context.ts layering) and test (document_service) failures unchanged. MCP types use snake_case serde — will need `rename_all = "camelCase"` before real MCP client integration (noted for future unit)._
 
 - [ ] **1.3** Tier 1 tools — notes CRUD
   - Files: `mcp/tools/mod.rs`, `mcp/tools/notes.rs`
