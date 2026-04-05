@@ -1,66 +1,82 @@
 version = 3
 
-[markdown]
-refs_extension = ""
-date_format = "%b %d, %Y"
-
 [library]
 path = ""
 date_format = "%Y-%m-%d"
 
-[completion]
+[markdown]
+refs_extension = ""
+date_format = "%b %d, %Y"
 
-[commands.default]
-run = "claude -p"
+[completion]
+link_format = "wiki"
+
+[commands]
+
+[commands.ai_rewrite]
+run = "claude"
+args = ["-p", "Rewrite the following text to improve clarity and readability. Keep the language personable, not overly formal. Simplify language, organize sentences logically, remove ambiguity. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the rewritten text:\n\n{{context}}", "--output-format", "text"]
 timeout_seconds = 120
 
-[actions.expand]
-type = "transform"
-title = "Expand"
-command = "default"
-input_template = """
-Here's a text that I'm going to ask you to edit. The text is marked with {{context_start}}{{context_end}} tag.
+[commands.ai_summarize]
+run = "claude"
+args = ["-p", "Summarize the following text concisely. Output only the summary:\n\n{{context}}", "--output-format", "text"]
+timeout_seconds = 120
 
-The part you'll need to update is marked with {{update_start}}{{update_end}}.
+[commands.ai_expand]
+run = "claude"
+args = ["-p", "Expand the following text into a couple of detailed paragraphs. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the expanded text:\n\n{{context}}", "--output-format", "text"]
+timeout_seconds = 120
 
-{{context_start}}
+[commands.ai_keywords]
+run = "claude"
+args = ["-p", "Mark the most important keywords with bold using ** markdown syntax. Keep the text otherwise completely unchanged. Output only the text with bold keywords:\n\n{{context}}", "--output-format", "text"]
+timeout_seconds = 120
 
-{{context}}
+[commands.ai_emojify]
+run = "claude"
+args = ["-p", "Add a relevant emoji before each list item, header, or paragraph. Keep the text otherwise completely unchanged. Output only the text with emojis:\n\n{{context}}", "--output-format", "text"]
+timeout_seconds = 120
 
-{{context_end}}
+# Structural actions
 
-- You can't replace entire text, your answer will be inserted in place of the {{update_start}}{{update_end}}. Don't include the {{context_start}}{{context_end}} and {{context_start}}{{context_end}} tags in your output.
-- Preserve the links in the text. Do not return list item "-" or header "#" prefix
-
-Expand the text you need to update, generate a couple paragraphs.
-"""
+[actions.extract]
+type = "extract"
+title = "Extract section"
+link_type = "wiki"
+key_template = "{{slug}}"
 
 [actions.extract_all]
 type = "extract_all"
 title = "Extract all subsections"
-link_type = "markdown"
-key_template = "{{id}}"
+link_type = "wiki"
+key_template = "{{slug}}"
 
-[actions.rewrite]
-type = "transform"
-title = "Rewrite"
-command = "default"
-input_template = """
-Here's a text that I'm going to ask you to edit. The text is marked with {{context_start}}{{context_end}} tag.
+[actions.inline_section]
+type = "inline"
+title = "Inline as section"
+inline_type = "section"
 
-The part you'll need to update is marked with {{update_start}}{{update_end}}.
+[actions.inline_quote]
+type = "inline"
+title = "Inline as quote"
+inline_type = "quote"
+keep_target = true
 
-{{context_start}}
+[actions.sort]
+type = "sort"
+title = "Sort A-Z"
 
-{{context}}
+[actions.sort_reverse]
+type = "sort"
+title = "Sort Z-A"
+reverse = true
 
-{{context_end}}
-
-- You can't replace entire text, your answer will be inserted in place of the {{update_start}}{{update_end}}. Don't include the {{context_start}}{{context_end}} and {{context_start}}{{context_end}} tags in your output.
-- Preserve the links in the text. Do not return list item "-" or header "#" prefix
-
-Your goal is to rewrite a given text to improve its clarity and readability. Ensure the language remains personable and not overly formal. Focus on simplifying language, organizing sentences logically, and removing ambiguity while maintaining a conversational tone.
-"""
+[actions.link]
+type = "link"
+title = "Create link"
+link_type = "wiki"
+key_template = "{{slug}}"
 
 [actions.today]
 type = "attach"
@@ -72,78 +88,39 @@ document_template = """
 {{content}}
 """
 
-[actions.sort_desc]
-type = "sort"
-title = "Sort Z-A"
-reverse = true
+# Transform actions
 
-[actions.extract]
-type = "extract"
-title = "Extract"
-link_type = "markdown"
-key_template = "{{id}}"
-
-[actions.sort]
-type = "sort"
-title = "Sort A-Z"
-reverse = false
-
-[actions.link]
-type = "link"
-title = "Link"
-link_type = "markdown"
-key_template = "{{id}}"
-
-[actions.inline_section]
-type = "inline"
-title = "Inline section"
-inline_type = "section"
-keep_target = false
-
-[actions.emoji]
+[actions.rewrite]
 type = "transform"
-title = "Emojify"
-command = "default"
-input_template = """
-Here's a text that I'm going to ask you to edit. The text is marked with {{context_start}} {{context_end}} tags.
+title = "Rewrite (AI)"
+command = "ai_rewrite"
+input_template = "{{context}}"
 
-- The part you'll need to update is marked with {{update_start}} {{update_end}} tags.
-- You can't replace entire text, your answer will be inserted in between {{update_start}} {{update_end}} tags.
-- Add a relevant emoji one per list item (prior to list item text), header (prior to header text) or paragraph. Keep the text otherwise unchanged.
-- Don't include the {{update_start}} {{update_end}} tags in your answer.
+[actions.summarize]
+type = "transform"
+title = "Summarize (AI)"
+command = "ai_summarize"
+input_template = "{{context}}"
 
-{{context_start}}
-
-{{context}}
-
-{{context_end}}
-"""
-
-[actions.inline_quote]
-type = "inline"
-title = "Inline quote"
-inline_type = "quote"
-keep_target = false
+[actions.expand]
+type = "transform"
+title = "Expand (AI)"
+command = "ai_expand"
+input_template = "{{context}}"
 
 [actions.keywords]
 type = "transform"
-title = "Keywords"
-command = "default"
-input_template = """
-Here's a text that I'm going to ask you to edit. The text is marked with {{context_start}}{{context_end}} tag.
+title = "Keywords (AI)"
+command = "ai_keywords"
+input_template = "{{context}}"
 
-The part you'll need to update is marked with {{update_start}}{{update_end}}.
+[actions.emojify]
+type = "transform"
+title = "Emojify (AI)"
+command = "ai_emojify"
+input_template = "{{context}}"
 
-{{context_start}}
-
-{{context}}
-
-{{context_end}}
-
-- You can't replace entire text, your answer will be inserted in place of the {{update_start}}{{update_end}}. Don't include the {{context_start}}{{context_end}} and {{context_start}}{{context_end}} tags in your output.
-
-Mark most important keywords with bold using ** markdown syntax. Keep the text unchanged!
-"""
+# Templates
 
 [templates.default]
 key_template = "{{slug}}"

@@ -4,6 +4,14 @@ version = 3
 
 [library]
 path = ""
+date_format = "%Y-%m-%d"
+
+[markdown]
+refs_extension = ""
+date_format = "%b %d, %Y"
+
+[completion]
+link_format = "wiki"
 
 # Commands define external executables that transform actions can invoke.
 # The {{context}} variable expands to the selected text/block content.
@@ -42,11 +50,13 @@ timeout_seconds = 120
 [actions.extract]
 type = "extract"
 title = "Extract section"
+link_type = "wiki"
 key_template = "{{slug}}"
 
 [actions.extract_all]
 type = "extract_all"
 title = "Extract all subsections"
+link_type = "wiki"
 key_template = "{{slug}}"
 
 [actions.inline_section]
@@ -62,17 +72,28 @@ keep_target = true
 
 [actions.sort]
 type = "sort"
-title = "Sort list"
+title = "Sort A-Z"
 
 [actions.sort_reverse]
 type = "sort"
-title = "Sort list (reverse)"
+title = "Sort Z-A"
 reverse = true
 
 [actions.link]
 type = "link"
 title = "Create link"
+link_type = "wiki"
 key_template = "{{slug}}"
+
+[actions.today]
+type = "attach"
+title = "Add Date"
+key_template = "{{today}}"
+document_template = """
+# {{today}}
+
+{{content}}
+"""
 
 # Transform actions — pipe content through external commands
 
@@ -106,5 +127,11 @@ title = "Emojify (AI)"
 command = "ai_emojify"
 input_template = "{{context}}"
 
-[markdown]
-refs_extension = ""
+# Templates for new note creation
+
+[templates.default]
+key_template = "{{slug}}"
+document_template = """
+# {{title}}
+
+{{content}}"""
