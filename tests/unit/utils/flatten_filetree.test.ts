@@ -12,6 +12,7 @@ function make_note(path: string, title?: string): NoteMeta {
     title: title ?? path.replace(/\.md$/, "").split("/").pop() ?? "",
     blurb: "",
     mtime_ms: Date.now(),
+    ctime_ms: 0,
     size_bytes: 100,
     file_type: null,
   };
@@ -359,6 +360,7 @@ describe("flatten_filetree", () => {
       extension: "png",
       size_bytes: 1024,
       mtime_ms: 0,
+      ctime_ms: 0,
     };
     const result = flatten_filetree({
       notes: [],
@@ -387,6 +389,7 @@ describe("flatten_filetree", () => {
       extension: "png",
       size_bytes: 512,
       mtime_ms: 0,
+      ctime_ms: 0,
     };
     const result = flatten_filetree({
       notes: [note],
@@ -431,6 +434,7 @@ describe("flatten_filetree", () => {
       extension: "pdf",
       size_bytes: 2048,
       mtime_ms: 0,
+      ctime_ms: 0,
     };
     const result = flatten_filetree({
       notes: [],

@@ -12,6 +12,7 @@ function note(path: string): NoteMeta {
     title: p,
     blurb: "",
     mtime_ms: 0,
+    ctime_ms: 0,
     size_bytes: 0,
     file_type: null,
   };

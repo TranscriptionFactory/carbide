@@ -258,7 +258,7 @@ fn handle_update_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
 
     match io_utils::atomic_write(&abs, args.content.as_bytes()) {
         Ok(()) => {
-            let (mtime_ms, _) = file_meta(&abs).unwrap_or((0, 0));
+            let (mtime_ms, _, _) = file_meta(&abs).unwrap_or((0, 0, 0));
             ToolResult::text(format!("Updated: {} (mtime={})", args.path, mtime_ms))
         }
         Err(e) => ToolResult::error(format!("Failed to write note: {}", e)),

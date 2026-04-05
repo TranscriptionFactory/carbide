@@ -13,6 +13,7 @@ function open_note(buffer_id: string) {
       name: "a.md",
       title: "a",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },

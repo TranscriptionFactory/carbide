@@ -17,6 +17,7 @@ function make_meta(path: string, title?: string): NoteMeta {
     title: title ?? path.replace(".md", ""),
     blurb: "",
     mtime_ms: 0,
+    ctime_ms: 0,
     size_bytes: 0,
     file_type: null,
   };

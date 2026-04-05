@@ -12,6 +12,7 @@ function note(path: string): NoteMeta {
     title: path.split("/").pop()?.replace(".md", "") ?? "",
     blurb: "",
     mtime_ms: 0,
+    ctime_ms: 0,
     size_bytes: 0,
     file_type: null,
   };

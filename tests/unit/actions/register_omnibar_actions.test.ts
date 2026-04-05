@@ -198,6 +198,7 @@ describe("register_omnibar_actions", () => {
                 name: "ml",
                 title: "ML",
                 mtime_ms: 0,
+                ctime_ms: 0,
                 size_bytes: 0,
                 file_type: null,
               },

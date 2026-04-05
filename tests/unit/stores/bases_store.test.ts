@@ -11,6 +11,7 @@ function make_note_row(id: string): BaseNoteRow {
       title: id,
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },

@@ -154,13 +154,14 @@ pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNo
             .unwrap_or_default()
             .to_string()
     };
-    let (mtime_ms, size_bytes) = notes_service::file_meta(abs)?;
+    let (mtime_ms, ctime_ms, size_bytes) = notes_service::file_meta(abs)?;
     Ok(IndexNoteMeta {
         id: rel.clone(),
         path: rel,
         title: name.clone(),
         name,
         mtime_ms,
+        ctime_ms,
         size_bytes,
         file_type: None,
         source: None,
@@ -785,6 +786,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "file_type TEXT DEFAULT 'markdown'",
         "page_offsets TEXT DEFAULT NULL",
         "source TEXT DEFAULT 'vault'",
+        "ctime_ms INTEGER DEFAULT 0",
         // Linked-source metadata columns (unified note model)
         "citekey TEXT",
         "authors TEXT",
@@ -857,8 +859,8 @@ pub fn upsert_note_simple(
     let reading_time_secs = word_count * 60 / 200;
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
+        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
     )
     .map_err(|e| e.to_string())?;
 
@@ -919,8 +921,8 @@ fn upsert_plain_content(
     };
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8, ?9, ?10)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
+        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, ?11)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
     )
     .map_err(|e| e.to_string())?;
 
@@ -956,6 +958,7 @@ pub fn upsert_linked_content(
         title: title.to_string(),
         name,
         mtime_ms: modified_at as i64,
+        ctime_ms: modified_at as i64,
         size_bytes: body.len() as i64,
         file_type: Some(file_type.to_string()),
         source: Some("linked".to_string()),
@@ -1487,7 +1490,7 @@ pub fn compute_sync_plan(
         match manifest.get(&rel) {
             None => added.push(abs.clone()),
             Some(&(db_mtime, db_size)) => match notes_service::file_meta(abs) {
-                Ok((disk_mtime, disk_size)) => {
+                Ok((disk_mtime, _, disk_size)) => {
                     if disk_mtime != db_mtime || disk_size != db_size {
                         modified.push(abs.clone());
                     } else {
@@ -2042,6 +2045,7 @@ fn note_meta_from_row_cols(
         title,
         name,
         mtime_ms: row.get(2)?,
+        ctime_ms: 0,
         size_bytes: row.get(3)?,
         file_type,
         source: None,
@@ -2060,21 +2064,22 @@ fn note_meta_with_stats_from_row(
         title,
         name,
         mtime_ms: row.get(2)?,
-        size_bytes: row.get(3)?,
-        file_type: row.get(10).ok(),
+        ctime_ms: row.get::<_, i64>(3).unwrap_or(0),
+        size_bytes: row.get(4)?,
+        file_type: row.get(11).ok(),
         source: None,
     };
     let stats = crate::features::search::model::NoteStats {
-        word_count: row.get(4).unwrap_or(0),
-        char_count: row.get(5).unwrap_or(0),
-        heading_count: row.get(6).unwrap_or(0),
-        outlink_count: row.get(7).unwrap_or(0),
-        reading_time_secs: row.get(8).unwrap_or(0),
-        task_count: row.get(11).unwrap_or(0),
-        tasks_done: row.get(12).unwrap_or(0),
-        tasks_todo: row.get(13).unwrap_or(0),
-        next_due_date: row.get(14).ok().flatten(),
-        last_indexed_at: row.get(9).unwrap_or(0),
+        word_count: row.get(5).unwrap_or(0),
+        char_count: row.get(6).unwrap_or(0),
+        heading_count: row.get(7).unwrap_or(0),
+        outlink_count: row.get(8).unwrap_or(0),
+        reading_time_secs: row.get(9).unwrap_or(0),
+        task_count: row.get(12).unwrap_or(0),
+        tasks_done: row.get(13).unwrap_or(0),
+        tasks_todo: row.get(14).unwrap_or(0),
+        next_due_date: row.get(15).ok().flatten(),
+        last_indexed_at: row.get(10).unwrap_or(0),
     };
     Ok((meta, stats))
 }
@@ -2227,6 +2232,7 @@ pub fn fuzzy_suggest(
                     title,
                     name,
                     mtime_ms,
+                    ctime_ms: 0,
                     size_bytes,
                     file_type,
                     source: None,
@@ -2416,6 +2422,7 @@ mod tests {
             title: title.to_string(),
             name: file_stem_string(Path::new(path)),
             mtime_ms: 100,
+            ctime_ms: 50,
             size_bytes: 10,
             file_type: None,
             source: None,
@@ -3868,7 +3875,7 @@ pub fn query_bases(
         "outlink_count",
         "reading_time_secs",
     ];
-    let direct_columns = ["path", "title", "mtime_ms", "size_bytes"];
+    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes"];
     let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
 
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
@@ -3999,7 +4006,7 @@ pub fn query_bases(
     }
 
     let sql = format!(
-        "SELECT notes.path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
+        "SELECT notes.path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
          COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date \
          FROM notes \
          LEFT JOIN ( \

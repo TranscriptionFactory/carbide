@@ -73,6 +73,7 @@ export function create_untitled_open_note(args: {
       title,
       blurb: "",
       mtime_ms: args.now_ms,
+      ctime_ms: args.now_ms,
       size_bytes: 0,
       file_type: null,
     },

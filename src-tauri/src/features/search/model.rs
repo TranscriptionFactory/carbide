@@ -48,6 +48,7 @@ pub struct IndexNoteMeta {
     pub title: String,
     pub name: String,
     pub mtime_ms: i64,
+    pub ctime_ms: i64,
     pub size_bytes: i64,
     #[serde(default)]
     pub file_type: Option<String>,

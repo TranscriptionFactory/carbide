@@ -54,6 +54,7 @@ function create_app_note(path = "notes/a.md"): OpenNoteState {
       title: "a",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },

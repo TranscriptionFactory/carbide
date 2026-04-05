@@ -24,6 +24,7 @@ function create_note(index: number) {
     title: file.replace(".md", ""),
     blurb: "",
     mtime_ms: 0,
+    ctime_ms: 0,
     size_bytes: 0,
     file_type: null,
   };
