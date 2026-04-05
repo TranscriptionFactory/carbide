@@ -287,6 +287,8 @@ pub fn run() {
             features::markdown_lsp::service::iwe_config_reset,
             features::markdown_lsp::service::iwe_config_rewrite_provider,
             features::search::service::tags_list_all,
+            features::search::service::tags_get_notes_for_tag,
+            features::search::service::tags_get_notes_for_tag_prefix,
             features::toolchain::service::toolchain_list_tools,
             features::toolchain::service::toolchain_install,
             features::toolchain::service::toolchain_uninstall,

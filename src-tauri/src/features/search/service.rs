@@ -218,6 +218,30 @@ pub fn tags_list_all(
 
 #[tauri::command]
 #[specta::specta]
+pub fn tags_get_notes_for_tag(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+) -> Result<Vec<String>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::get_notes_for_tag(conn, &tag)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn tags_get_notes_for_tag_prefix(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+) -> Result<Vec<String>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::get_notes_for_tag_prefix(conn, &tag)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
