@@ -1,3 +1,4 @@
 [submodule "vendor/iwe"]
 	path = vendor/iwe
 	url = https://github.com/TranscriptionFactory/iwe.git
+	branch = main
