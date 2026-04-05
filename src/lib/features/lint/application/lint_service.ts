@@ -25,6 +25,7 @@ export class LintService {
   private event_unsubscribe: (() => void) | null = null;
   private lifecycle = Promise.resolve();
   private file_versions = new Map<string, number>();
+  private failed_config_key: string | null = null;
 
   constructor(
     private readonly port: LintPort,
@@ -41,6 +42,11 @@ export class LintService {
     user_overrides: string = "",
     browse_mode: boolean = false,
   ): Promise<void> {
+    const config_key = `${vault_id}:${vault_path}:${user_overrides}:${browse_mode}`;
+    if (this.failed_config_key === config_key) {
+      return;
+    }
+
     await this.run_lifecycle(async () => {
       this.teardown();
       this.event_unsubscribe = this.port.subscribe_events((event) => {
@@ -53,8 +59,10 @@ export class LintService {
           user_overrides,
           browse_mode,
         );
+        this.failed_config_key = null;
       } catch (error) {
         log.from_error("Failed to start lint", error);
+        this.failed_config_key = config_key;
       }
     });
   }
@@ -207,6 +215,10 @@ export class LintService {
     const next = current + 1;
     this.file_versions.set(path, next);
     return next;
+  }
+
+  clear_failure(): void {
+    this.failed_config_key = null;
   }
 
   private teardown_local(): void {

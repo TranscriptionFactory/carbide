@@ -141,6 +141,7 @@ fn classify_event(
             vault_id: vault_id.to_string(),
             folder_path: rel_path,
         }),
+        _ if is_dir => None,
         EventKind::Create(_) if is_markdown => Some(VaultFsEvent::NoteAdded {
             vault_id: vault_id.to_string(),
             note_path: rel_path,
@@ -257,6 +258,9 @@ pub fn watch_vault(
                 let Some(rel) = rel_path(&root_canon, &abs) else {
                     continue;
                 };
+                if rel.is_empty() {
+                    continue;
+                }
                 let is_dir = abs.is_dir()
                     || (matches!(kind, EventKind::Remove(_))
                         && !abs.exists()
@@ -315,4 +319,73 @@ pub fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
         *current = None;
     }
     stop_active_runtime(&state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use notify::event::{CreateKind, ModifyKind, RemoveKind};
+
+    #[test]
+    fn classify_modify_on_directory_returns_none() {
+        let result = classify_event(
+            &EventKind::Modify(ModifyKind::Any),
+            "v1",
+            "assets".to_string(),
+            false,
+            true,
+        );
+        assert!(result.is_none(), "Modify on directory should be filtered out");
+    }
+
+    #[test]
+    fn classify_modify_on_file_returns_asset_changed() {
+        let result = classify_event(
+            &EventKind::Modify(ModifyKind::Any),
+            "v1",
+            "image.png".to_string(),
+            false,
+            false,
+        );
+        assert!(matches!(result, Some(VaultFsEvent::AssetChanged { .. })));
+    }
+
+    #[test]
+    fn classify_modify_on_markdown_returns_note_changed() {
+        let result = classify_event(
+            &EventKind::Modify(ModifyKind::Any),
+            "v1",
+            "note.md".to_string(),
+            true,
+            false,
+        );
+        assert!(matches!(
+            result,
+            Some(VaultFsEvent::NoteChangedExternally { .. })
+        ));
+    }
+
+    #[test]
+    fn classify_create_directory_returns_folder_created() {
+        let result = classify_event(
+            &EventKind::Create(CreateKind::Any),
+            "v1",
+            "new_folder".to_string(),
+            false,
+            true,
+        );
+        assert!(matches!(result, Some(VaultFsEvent::FolderCreated { .. })));
+    }
+
+    #[test]
+    fn classify_remove_directory_returns_folder_removed() {
+        let result = classify_event(
+            &EventKind::Remove(RemoveKind::Any),
+            "v1",
+            "old_folder".to_string(),
+            false,
+            true,
+        );
+        assert!(matches!(result, Some(VaultFsEvent::FolderRemoved { .. })));
+    }
 }
