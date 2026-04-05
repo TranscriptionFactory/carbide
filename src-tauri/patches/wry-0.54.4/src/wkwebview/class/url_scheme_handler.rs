@@ -5,6 +5,7 @@
 use std::{
   borrow::Cow,
   ffi::{c_char, c_void, CStr},
+  mem::ManuallyDrop,
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
@@ -19,8 +20,8 @@ use objc2::{
   AllocAnyThread, ClassType, Message,
 };
 use objc2_foundation::{
-  NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSURL,
-  NSUUID,
+  NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSUInteger,
+  NSURL, NSUUID,
 };
 use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
@@ -233,27 +234,20 @@ extern "C" fn start_task(
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
-                let content = sent_response.body();
-                // default: application/octet-stream, but should be provided by the client
-                let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
-                // default to 200
+                // Extract headers/status/version before consuming the body
+                let wanted_mime = sent_response.headers().get(CONTENT_TYPE).cloned();
                 let wanted_status_code = sent_response.status().as_u16() as i32;
-                // default to HTTP/1.1
                 let wanted_version = format!("{:#?}", sent_response.version());
 
                 let headers = NSMutableDictionary::new();
-                if let Some(mime) = wanted_mime {
+                if let Some(ref mime) = wanted_mime {
                   headers.insert(
                     &*NSString::from_str(CONTENT_TYPE.as_str()),
                     &*NSString::from_str(mime.to_str().unwrap()),
                   );
                 }
-                headers.insert(
-                  &*NSString::from_str(CONTENT_LENGTH.as_str()),
-                  &*NSString::from_str(&content.len().to_string()),
-                );
 
-                // add headers
+                // Copy all response headers into the NS dictionary
                 for (name, value) in sent_response.headers().iter() {
                   if let Ok(value) = value.to_str() {
                     headers.insert(
@@ -262,6 +256,15 @@ extern "C" fn start_task(
                     );
                   }
                 }
+
+                // Consume the response to take ownership of the body (avoids a copy)
+                let (_, body) = sent_response.into_parts();
+
+                // Set content-length from body after extraction
+                headers.insert(
+                  &*NSString::from_str(CONTENT_LENGTH.as_str()),
+                  &*NSString::from_str(&body.len().to_string()),
+                );
 
                 let urlresponse = NSHTTPURLResponse::alloc();
                 let response = NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
@@ -277,21 +280,34 @@ extern "C" fn start_task(
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
-                // Use map_err to convert Option<Retained<Exception>> to crate::Error
                 objc2::exception::catch(AssertUnwindSafe(|| {
                   task.didReceiveResponse(&response);
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                // Send data
-                let data = NSData::alloc();
-                // MIGRATE NOTE: we copied the content to the NSData because content will be freed
-                // when out of scope but NSData will also free the content when it's done and cause doube free.
-                let data = NSData::initWithBytes_length(
-                  data,
-                  content.as_ptr() as *mut c_void,
-                  content.len(),
-                );
+                // Build NSData — zero-copy for non-empty bodies
+                let data = if body.is_empty() {
+                  NSData::new()
+                } else {
+                  let body_vec = body.into_owned();
+                  let capacity = body_vec.capacity();
+                  let mut body_vec = ManuallyDrop::new(body_vec);
+                  let len = body_vec.len();
+                  let ptr = NonNull::new(body_vec.as_mut_ptr() as *mut c_void)
+                    .expect("Vec pointer is non-null");
+
+                  let dealloc =
+                    block2::RcBlock::new(move |bytes: NonNull<c_void>, len: NSUInteger| {
+                      let _ = Vec::<u8>::from_raw_parts(bytes.as_ptr() as *mut u8, len, capacity);
+                    });
+
+                  NSData::initWithBytesNoCopy_length_deallocator(
+                    NSData::alloc(),
+                    ptr,
+                    len,
+                    Some(&dealloc),
+                  )
+                };
 
                 // Check validity again
                 check_webview_id_valid(webview_id)?;
