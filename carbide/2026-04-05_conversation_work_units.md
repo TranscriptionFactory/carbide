@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 33 / 46 units complete
+**Progress:** 34 / 46 units complete
 
 ---
 
@@ -289,14 +289,15 @@ Review between batches — check the branch, run the app, read commits. Each bat
 
 - [x] **12.2** MCP Tier 3 + plugin MCP bridge — **Rust + TS session**
   - Git tools, rename. `plugin_rpc_handler.ts` `mcp.*` namespace: `list_tools`, `call_tool`, `register_tool`.
-  - _Completed 2026-04-06 `63b8bcb9`. New git.rs tool module with git_status (calls git_service::git_status, formats branch/files/ahead-behind), git_log (calls collect_git_log, now pub(crate), formats short_hash/author/message), rename_note (calls notes_service::rename_note). Made collect_git_log pub(crate). Router extended to 17 total tools. Plugin MCP bridge: mcp.* namespace in plugin_rpc_handler with 3 actions — list_tools (enumerates native + plugin-registered tools), call_tool (delegates to McpPort backend), register_tool (stores plugin tool definitions TS-side with namespaced names, requires mcp:register permission). McpPort extended with list_tool_definitions/call_tool backed by two new Tauri commands (without specta — use serde_json::Value). Decision: plugin-registered tools stored TS-side only; wiring them into Rust MCP router for external MCP clients deferred to future unit. 9 new Rust tests + 7 new TS tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
+  - _Completed 2026-04-06 `63b8bcb9`. New git.rs tool module with git_status (calls git_service::git_status, formats branch/files/ahead-behind), git_log (calls collect_git_log, now pub(crate), formats short_hash/author/message), rename_note (calls notes_service::rename_note). Made collect_git_log pub(crate). Router extended to 17 total tools. Plugin MCP bridge: mcp.\* namespace in plugin_rpc_handler with 3 actions — list_tools (enumerates native + plugin-registered tools), call_tool (delegates to McpPort backend), register_tool (stores plugin tool definitions TS-side with namespaced names, requires mcp:register permission). McpPort extended with list_tool_definitions/call_tool backed by two new Tauri commands (without specta — use serde_json::Value). Decision: plugin-registered tools stored TS-side only; wiring them into Rust MCP router for external MCP clients deferred to future unit. 9 new Rust tests + 7 new TS tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [x] **12.3** CLI git + reference commands — **Rust session**
   - `git:status/commit/log/diff/push/pull/restore/init`, `references/reference:add/search/bbt`.
   - _Completed 2026-04-06 `3d0179b1`. Eight /cli/git/* backend routes (status, commit, log, diff, push, pull, restore, init) + 4 /cli/references/* routes (list, search by text, add by DOI, BBT search). New git_diff_working() in git/service.rs diffs HEAD against working tree+index. CLI commands/git.rs with nested GitAction subcommand enum (8 actions). CLI commands/references.rs with 4 functions (list, search, add, bbt_search). References search does case-insensitive full-text match on serialized JSON. BBT search defaults to localhost:23119. 9 new backend tests (param deserialization). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **12.4** CLI bases + tasks + plugins + dev commands — **Rust session**
+- [x] **12.4** CLI bases + tasks + plugins + dev commands — **Rust session**
   - Remaining CLI surface.
+  - _Completed 2026-04-06 `48f0017c`. Six new backend routes: /cli/bases/query (structured filter+sort), /cli/bases/properties, /cli/tasks (query with status/path filters), /cli/tasks/update (toggle task state in file + re-index), /cli/dev/index/build, /cli/dev/index/rebuild. Three new CLI command modules: bases.rs (bases:query with filter expression parsing e.g. status=draft, sort with -prefix for descending; bases:properties), tasks.rs (tasks list with --status/--path filters; task:update), dev.rs (dev index:build/index:rebuild). Bases filter parser handles 6 operators (= != > < >= <=). Task update writes to file then re-indexes tasks in search DB via open_search_db. Plugin commands (plugins, plugin:enable/disable/reload) skipped — plugin state is frontend-only with no Rust Tauri commands to proxy. eval/screenshot/lint/format skipped — require frontend eval bridge not yet built. 7 new backend tests + 6 new CLI tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **12.5** Slash command contribution point — **TS + Svelte session**
   - Plugin manifest `contributes.slash_commands`. ProseMirror `/` menu hook. Most complex unit in Step 12.
