@@ -5,6 +5,7 @@ import type {
   RewriteResult,
   SearchPort,
 } from "$lib/features/search/ports";
+import type { FileCache } from "$lib/features/metadata";
 import type {
   SmartLinkRuleGroup,
   SmartLinkSuggestion,
@@ -362,6 +363,16 @@ export function create_search_tauri_adapter(): SearchPort {
       note_path: string,
     ): Promise<NoteStats> {
       return invoke_search<NoteStats>("get_note_stats", {
+        vaultId: vault_id,
+        notePath: note_path,
+      });
+    },
+
+    async get_file_cache(
+      vault_id: VaultId,
+      note_path: string,
+    ): Promise<FileCache> {
+      return invoke_search<FileCache>("note_get_file_cache", {
         vaultId: vault_id,
         notePath: note_path,
       });

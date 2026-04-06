@@ -2488,6 +2488,41 @@ pub fn get_note_links(
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
+pub fn get_file_cache(
+    conn: &Connection,
+    path: &str,
+) -> Result<crate::features::search::model::FileCache, String> {
+    let (mtime_ms, ctime_ms, size_bytes) = conn
+        .query_row(
+            "SELECT mtime_ms, ctime_ms, size_bytes FROM notes WHERE path = ?1",
+            params![path],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+        )
+        .map_err(|e| format!("Note not found: {e}"))?;
+
+    let stats = get_note_stats(conn, path)?;
+    let frontmatter = get_note_properties(conn, path)?;
+    let tags = get_note_tags(conn, path)?;
+    let headings = get_note_headings(conn, path)?;
+    let all_links = get_note_links(conn, path)?;
+
+    let (embeds, links): (Vec<_>, Vec<_>) = all_links
+        .into_iter()
+        .partition(|l| l.link_type == "embed");
+
+    Ok(crate::features::search::model::FileCache {
+        frontmatter,
+        tags,
+        headings,
+        links,
+        embeds,
+        stats,
+        ctime_ms,
+        mtime_ms,
+        size_bytes,
+    })
+}
+
 #[allow(dead_code)]
 pub fn get_index_meta(conn: &Connection, key: &str) -> Option<String> {
     conn.query_row(
@@ -3649,6 +3684,61 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn get_file_cache_assembles_all_tables() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("cache.md", "Cache Test");
+        let body = "---\ntitle: Cache Test\ntags: [rust, test]\n---\n# Heading\n\nSome content with [[target]] and ![[embed.png]].\n\n## Sub heading";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let props = extract_frontmatter_properties(body);
+        save_properties(&conn, "cache.md", &props).expect("properties");
+
+        let cache = get_file_cache(&conn, "cache.md").expect("file cache");
+
+        assert_eq!(cache.mtime_ms, 100);
+        assert_eq!(cache.ctime_ms, 50);
+        assert_eq!(cache.size_bytes, 10);
+        assert!(cache.stats.word_count > 0);
+        assert_eq!(cache.headings.len(), 2);
+        assert_eq!(cache.headings[0].text, "Heading");
+        assert_eq!(cache.headings[1].text, "Sub heading");
+        assert!(cache.frontmatter.contains_key("title"));
+        assert_eq!(cache.frontmatter["title"].0, "Cache Test");
+    }
+
+    #[test]
+    fn get_file_cache_separates_links_and_embeds() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("linky.md", "Linky");
+        let body = "Hello [[note-a]] and ![[embed.png]] plus [[note-b]].";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let cache = get_file_cache(&conn, "linky.md").expect("file cache");
+
+        let link_targets: Vec<&str> = cache.links.iter().map(|l| l.target_path.as_str()).collect();
+        let embed_targets: Vec<&str> = cache.embeds.iter().map(|l| l.target_path.as_str()).collect();
+
+        assert!(link_targets.contains(&"note-a"));
+        assert!(link_targets.contains(&"note-b"));
+        assert!(embed_targets.contains(&"embed.png"));
+        assert!(!link_targets.contains(&"embed.png"));
+    }
+
+    #[test]
+    fn get_file_cache_returns_error_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let result = get_file_cache(&conn, "nonexistent.md");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Note not found"));
     }
 }
 

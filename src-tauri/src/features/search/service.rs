@@ -1776,6 +1776,18 @@ pub fn get_note_links(
     })
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn note_get_file_cache(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<crate::features::search::model::FileCache, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::get_file_cache(conn, &note_path)
+    })
+}
+
 fn strip_link_suffix(raw: &str) -> &str {
     let trimmed = raw.trim();
     match trimmed.find(|c| c == '?' || c == '#') {

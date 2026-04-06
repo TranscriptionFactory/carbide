@@ -204,3 +204,16 @@ pub struct NoteLink {
     pub section_heading: Option<String>,
     pub target_anchor: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct FileCache {
+    pub frontmatter: BTreeMap<String, (String, String)>,
+    pub tags: Vec<String>,
+    pub headings: Vec<NoteHeading>,
+    pub links: Vec<NoteLink>,
+    pub embeds: Vec<NoteLink>,
+    pub stats: NoteStats,
+    pub ctime_ms: i64,
+    pub mtime_ms: i64,
+    pub size_bytes: i64,
+}

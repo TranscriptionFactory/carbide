@@ -738,6 +738,9 @@ export function create_app_context(input: {
       async get_stats(note_path) {
         return input.ports.search.get_note_stats(require_vault().id, note_path);
       },
+      async get_file_cache(note_path) {
+        return input.ports.search.get_file_cache(require_vault().id, note_path);
+      },
     },
   });
 
