@@ -2,6 +2,10 @@ import { Plugin, PluginKey, NodeSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
+import {
+  compute_block_drop,
+  apply_block_move,
+} from "../domain/compute_block_drop";
 
 export const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
 
@@ -34,9 +38,54 @@ function create_handle_element(): HTMLDivElement {
   return handle;
 }
 
+type BlockDragState = {
+  dragging_from: number | null;
+};
+
 export function create_block_drag_handle_prose_plugin(): Plugin {
   return new Plugin({
     key: block_drag_handle_plugin_key,
+
+    state: {
+      init(): BlockDragState {
+        return { dragging_from: null };
+      },
+      apply(_tr, value): BlockDragState {
+        return value;
+      },
+    },
+
+    props: {
+      handleDrop(view, event, _slice, moved) {
+        const plugin_state = block_drag_handle_plugin_key.getState(
+          view.state,
+        ) as BlockDragState | undefined;
+        if (!plugin_state?.dragging_from && plugin_state?.dragging_from !== 0)
+          return false;
+        if (!moved) return false;
+
+        const source_pos = plugin_state.dragging_from;
+        const coords = view.posAtCoords({
+          left: event.clientX,
+          top: event.clientY,
+        });
+        if (!coords) return false;
+
+        const result = compute_block_drop(
+          view.state.doc,
+          source_pos,
+          coords.pos,
+        );
+        if (!result) return false;
+
+        const tr = view.state.tr;
+        apply_block_move(tr, result);
+        view.dispatch(tr);
+
+        plugin_state.dragging_from = null;
+        return true;
+      },
+    },
 
     view(editor_view: EditorView) {
       const handle = create_handle_element();
@@ -133,6 +182,13 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = true;
         handle.classList.add("block-drag-handle--dragging");
 
+        const plugin_state = block_drag_handle_plugin_key.getState(
+          editor_view.state,
+        ) as BlockDragState | undefined;
+        if (plugin_state) {
+          plugin_state.dragging_from = current_block_pos;
+        }
+
         const sel = NodeSelection.create(
           editor_view.state.doc,
           current_block_pos,
@@ -154,6 +210,14 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       function on_dragend() {
         is_dragging = false;
         handle.classList.remove("block-drag-handle--dragging");
+
+        const plugin_state = block_drag_handle_plugin_key.getState(
+          editor_view.state,
+        ) as BlockDragState | undefined;
+        if (plugin_state) {
+          plugin_state.dragging_from = null;
+        }
+
         hide_handle();
       }
 
