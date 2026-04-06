@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 29 / 46 units complete
+**Progress:** 30 / 46 units complete
 
 ---
 
@@ -271,8 +271,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Threshold: 20 words OR >10 lines. Reuse Snowflake Arctic Embed XS. Backfill during indexing.
   - _Completed 2026-04-06 `3d061841`. Added `block_embeddings` table (path + heading_id composite PK) to `init_vector_schema`. Full CRUD: upsert/remove/rename (single + prefix) for block embeddings, mirroring note_embeddings pattern. `block_knn_search(path, heading_id, distance)` brute-force scan. `get_block_embedded_keys` uses `path\0heading_id` composite keys for dedup. Extended `handle_embed_batch` with `handle_block_embed_batch` — queries `get_embeddable_sections(20 words OR 10 lines)`, extracts section text from FTS body by line range, batch-embeds with same Snowflake Arctic Embed XS model. Cleanup wired into `remove_note`, `remove_notes_by_prefix`, `rename_note_path`, `rename_paths_by_prefix`, and `clear_all_embeddings`. 9 new tests (7 vector_db + 2 db). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **11.2** `block_knn_search` + `block_semantic_similarity` smart link rule — **Rust session**
+- [x] **11.2** `block_knn_search` + `block_semantic_similarity` smart link rule — **Rust session**
   - `vector_db.rs` (new search), smart_links module (new rule). Brute-force scan fine for MVP.
+  - _Completed 2026-04-06 `f7aedc3c`. Added `get_block_embeddings_for_note()` to vector_db.rs for retrieving a note's block embeddings. New `block_semantic_similarity` rule in rules.rs: iterates source note's block embeddings, runs block_knn_search per block, aggregates best similarity score per target note path. Added to default_rules as disabled (opt-in, weight 0.5) in semantic group. New `find_similar_blocks` Tauri command in service.rs for direct block-level search (takes note_path + heading_id, returns BlockSearchHit with path/heading_id/distance). BlockSearchHit type added to model.rs. 5 new tests (2 vector_db + 3 smart_links_rules) + 2 updated config tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
