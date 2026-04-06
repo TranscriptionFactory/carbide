@@ -637,6 +637,7 @@ export function create_app_context(input: {
       plugin_settings: plugin_settings_service,
       reference: reference_service,
       smart_links: smart_links_service,
+      mcp: mcp_service,
     },
     default_mount_config: input.default_mount_config,
   };

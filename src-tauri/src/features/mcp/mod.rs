@@ -3,6 +3,7 @@ pub mod cli_routes;
 pub mod http;
 pub mod router;
 pub mod server;
+pub mod setup;
 pub mod tools;
 pub mod transport;
 pub mod types;

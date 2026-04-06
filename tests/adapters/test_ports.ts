@@ -236,6 +236,18 @@ export function create_test_ports(): Ports {
       stop: () => Promise.resolve(),
       get_status: () =>
         Promise.resolve({ status: "stopped" as const, transport: null }),
+      setup_claude_desktop: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
+      setup_claude_code: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
+      regenerate_token: () => Promise.resolve("mock_token"),
+      get_setup_status: () =>
+        Promise.resolve({
+          claudeDesktopConfigured: false,
+          claudeCodeConfigured: false,
+          httpPort: 3457,
+          tokenExists: false,
+        }),
     },
   };
 }
