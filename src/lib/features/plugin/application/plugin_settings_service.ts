@@ -50,15 +50,26 @@ function create_entry_from_manifest(input: {
   };
 }
 
+export type SettingChangedCallback = (
+  plugin_id: string,
+  key: string,
+  value: unknown,
+) => void;
+
 export class PluginSettingsService {
   private save_timer: ReturnType<typeof setTimeout> | null = null;
   private save_promise: Promise<void> | null = null;
+  private on_setting_changed: SettingChangedCallback | null = null;
 
   constructor(
     private store: PluginSettingsStore,
     private vault_store: VaultStore,
     private port: PluginSettingsPort,
   ) {}
+
+  set_on_setting_changed(callback: SettingChangedCallback): void {
+    this.on_setting_changed = callback;
+  }
 
   private get vault_path(): string | undefined {
     return this.vault_store.vault?.path;
@@ -123,6 +134,7 @@ export class PluginSettingsService {
   set_setting(plugin_id: string, key: string, value: unknown): Promise<void> {
     this.store.set_setting(plugin_id, key, value);
     this.schedule_save();
+    this.on_setting_changed?.(plugin_id, key, value);
     return Promise.resolve();
   }
 

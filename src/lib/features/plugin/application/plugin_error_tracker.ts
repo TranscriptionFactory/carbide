@@ -5,8 +5,11 @@ interface ErrorEntry {
   timestamp_ms: number;
 }
 
+const CONSECUTIVE_ERROR_BUDGET = 10;
+
 export class PluginErrorTracker {
   private entries: Map<string, ErrorEntry[]> = new Map();
+  private consecutive_errors: Map<string, number> = new Map();
 
   constructor(private now_ms: () => number = () => Date.now()) {}
 
@@ -18,6 +21,11 @@ export class PluginErrorTracker {
     pruned.push({ plugin_id, timestamp_ms });
     this.entries.set(plugin_id, pruned);
 
+    const consecutive = (this.consecutive_errors.get(plugin_id) ?? 0) + 1;
+    this.consecutive_errors.set(plugin_id, consecutive);
+
+    if (consecutive >= CONSECUTIVE_ERROR_BUDGET) return "auto_disable";
+
     const within_5s = pruned.filter(
       (e) => timestamp_ms - e.timestamp_ms <= 5_000,
     ).length;
@@ -28,11 +36,21 @@ export class PluginErrorTracker {
     return "none";
   }
 
+  record_success(plugin_id: string): void {
+    this.consecutive_errors.set(plugin_id, 0);
+  }
+
+  get_consecutive_errors(plugin_id: string): number {
+    return this.consecutive_errors.get(plugin_id) ?? 0;
+  }
+
   reset(plugin_id: string): void {
     this.entries.delete(plugin_id);
+    this.consecutive_errors.delete(plugin_id);
   }
 
   clear_all(): void {
     this.entries.clear();
+    this.consecutive_errors.clear();
   }
 }

@@ -29,12 +29,17 @@ import {
   extract_file_extension,
   file_matches_vault_contains,
 } from "../domain/match_activation_event";
+import { with_timeout, RpcTimeoutError } from "../domain/rpc_timeout";
+import { PluginRateLimiter } from "../domain/rate_limiter";
 
 const log = create_logger("plugin_service");
+
+const DEACTIVATE_TIMEOUT_MS = 2_000;
 
 export class PluginService {
   private rpc_handler: PluginRpcHandler | null = null;
   private error_tracker = new PluginErrorTracker();
+  private rate_limiter = new PluginRateLimiter();
   private notification_port: PluginNotificationPort | null = null;
   private event_bus = new PluginEventBus();
   private settings_service: PluginSettingsService | null = null;
@@ -86,6 +91,9 @@ export class PluginService {
         "events:subscribe",
       );
     });
+    settings_service.set_on_setting_changed((plugin_id, key, value) => {
+      this.notify_settings_changed(plugin_id, { [key]: value });
+    });
   }
 
   on_plugin_cleanup(callback: (plugin_id: string) => void) {
@@ -121,6 +129,29 @@ export class PluginService {
 
   emit_plugin_event(type: PluginEventType, data?: unknown) {
     this.event_bus.emit({ type, data, timestamp: Date.now() });
+  }
+
+  private send_lifecycle_hook(
+    plugin_id: string,
+    hook: "activate" | "deactivate" | "on_settings_change",
+    context?: Record<string, unknown>,
+  ): Promise<void> {
+    const post_message = this.iframe_post_message_map.get(plugin_id);
+    if (!post_message) return Promise.resolve();
+
+    post_message({ type: "lifecycle", hook, context: context ?? {} });
+
+    if (hook === "deactivate") {
+      return new Promise<void>((resolve) => {
+        setTimeout(resolve, DEACTIVATE_TIMEOUT_MS);
+      });
+    }
+
+    return Promise.resolve();
+  }
+
+  notify_settings_changed(plugin_id: string, changed: Record<string, unknown>) {
+    this.send_lifecycle_hook(plugin_id, "on_settings_change", { changed });
   }
 
   // Command registration
@@ -353,8 +384,10 @@ export class PluginService {
   }
 
   async unload_plugin(id: string) {
+    await this.send_lifecycle_hook(id, "deactivate");
     await this.host_port.unload(id);
     this.error_tracker.reset(id);
+    this.rate_limiter.reset(id);
     this.event_bus.unsubscribe_all(id);
     this.unregister_iframe_messenger(id);
     this.clear_plugin_contributions(id);
@@ -535,11 +568,26 @@ export class PluginService {
       return { id: request.id, error: "Plugin or RPC handler not initialized" };
     }
 
-    const response = await this.rpc_handler.handle_request(
-      id,
-      plugin.manifest,
-      request,
-    );
+    if (!this.rate_limiter.is_allowed(id)) {
+      return {
+        id: request.id,
+        error: "Rate limit exceeded (100 calls/minute)",
+      };
+    }
+
+    let response: RpcResponse;
+    try {
+      response = await with_timeout(
+        this.rpc_handler.handle_request(id, plugin.manifest, request),
+        request.method,
+      );
+    } catch (e) {
+      if (e instanceof RpcTimeoutError) {
+        response = { id: request.id, error: e.message };
+      } else {
+        response = { id: request.id, error: error_message(e) };
+      }
+    }
 
     if (response.error) {
       const action = this.error_tracker.record_error(id, Date.now());
@@ -556,6 +604,8 @@ export class PluginService {
           plugin.manifest.name,
         );
       }
+    } else {
+      this.error_tracker.record_success(id);
     }
 
     return response;

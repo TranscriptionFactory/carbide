@@ -45,12 +45,16 @@
     if (!sandboxed_iframe) return;
 
     const timer = setTimeout(() => {
-      post_message({ method: "lifecycle.activate", params: [] });
+      post_message({
+        type: "lifecycle",
+        hook: "activate",
+        context: { plugin_id, vault_path },
+      });
     }, 0);
 
     return () => {
       clearTimeout(timer);
-      post_message({ method: "lifecycle.deactivate", params: [] });
+      post_message({ type: "lifecycle", hook: "deactivate", context: {} });
     };
   });
 
