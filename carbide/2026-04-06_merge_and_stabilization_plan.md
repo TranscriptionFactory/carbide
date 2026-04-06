@@ -14,69 +14,116 @@
 ```
 d6a47599 (v1.13.0, original main)
   ├─ 39cab98d (current main HEAD, +1 doc commit)
-  ├─ feat/extended-tools  ←  72 commits (Steps 1-12, the full feature stack)
-  └─ feat/editor-drag-blocks  ←  9 commits (Step 13, independent)
+  ├─ feat/extended-tools  ←  76 commits (Steps 1-12, full feature stack)
+  │     includes: feat/mcp-stdio → feat/metadata-headings-cmd → feat/metadata-foundations
+  │       → feat/metadata-enrichment → feat/smart-linking → feat/http-cli
+  │       → feat/metadata-file-cache → feat/plugin-hardening → feat/block-embeddings
+  └─ feat/editor-drag-blocks  ←  9 commits (Step 13, independent, branched from d6a47599)
 ```
-
-Both feature branches diverged from `d6a47599`. They share no commits. `feat/editor-drag-blocks` is 15 files, +1,061 lines — all editor domain code with good test coverage (515 lines tests / 386 lines code). It does not touch any MCP, CLI, smart links, or plugin code.
-
-Merging `feat/extended-tools` into main requires a merge commit (main diverged by 1 doc commit). `feat/editor-drag-blocks` is a separate 3-way merge — optional, see below.
 
 ---
 
-## Phase 1: Merge the Stack
+## Decision: Partial Merge at `feat/metadata-file-cache` (Step 9)
 
-**Decision: Merge everything.** The audit flagged plugin hardening and block embeddings as premature, but they are baked into the linear stack. Excising them via interactive rebase across 72 commits is more risk than keeping them. Refactoring happens post-merge.
+The audit flagged Steps 10-12 as problematic:
+- **Step 10 (plugin hardening):** Premature — rate limiting, error budgets, activation events for 0 plugins
+- **Step 11 (block embeddings):** O(n*m) brute-force KNN, disabled by default, high infrastructure cost
+- **Step 12 (extended tools):** Brings useful MCP/CLI tools but also 1,489 lines of duplicated `cli_routes.rs` + slash commands that depend on plugin hardening
 
-### Commands
+**Merge through Step 9. Archive Steps 10-12 for reference. Reimplement the useful parts of Step 12 later with a proper shared service layer.**
+
+| What you get (Steps 1-9, 52 commits, +9,614 lines) | What you defer |
+|-----------------------------------------------------|----------------|
+| MCP server (types, router, JSON-RPC dispatch) | Plugin hardening (rate limiting, error budgets, activation events) |
+| Metadata foundations (type inference, frontmatter writer, property enumeration) | Block embeddings (schema, KNN, block_semantic_similarity rule) |
+| Backend enrichment (ctime_ms, note_links table) | Tier 2/3 MCP tools (backlinks, git, references, properties) |
+| Smart links engine + UI (7 rules, weighted scoring, provenance) | Extended CLI commands (git, references, bases, tasks, dev) |
+| HTTP server + CLI binary + auto-setup | Slash command contribution point |
+| Composite getFileCache endpoint | 1,489-line `cli_routes.rs` duplication |
+
+---
+
+## Phase 1: Merge Steps 1-9 + Cherry-Pick Docs
+
+### 1a. Merge
 
 ```bash
-# 1. Ensure working tree is clean
+# 1. Ensure clean
 git status
 
-# 2. Merge the full feature stack into main
+# 2. Merge through Step 9
 git checkout main
-git merge feat/extended-tools -m "Merge feat/extended-tools: MCP server, HTTP API, CLI, smart links, plugin hardening, block embeddings, extended tools (Steps 1-12)"
+git merge feat/metadata-file-cache -m "$(cat <<'EOF'
+Merge Steps 1-9: MCP server, metadata, smart links, HTTP/CLI, getFileCache
+
+Steps merged:
+  1. MCP stdio server + Tier 1 tools (notes CRUD, search, metadata, vault)
+  2. Headings Tauri command
+  3. Metadata foundations (type inference, frontmatter writer, property enumeration)
+  4. Backend enrichment (ctime_ms, note_links table)
+  5-6. Smart links engine (7 rules, weighted scoring, provenance UI)
+  7-8. HTTP server, CLI binary, auto-setup for Claude Desktop/Code
+  9. Composite getFileCache endpoint
+
+Steps 10-12 deferred (plugin hardening, block embeddings, extended tools).
+See carbide/2026-04-06_extended_tools_branch_audit.md for rationale.
+EOF
+)"
 
 # 3. Verify
 pnpm check && pnpm lint && pnpm test
 cd src-tauri && cargo check && cd ..
-
-# 4. (Optional) Merge editor drag blocks — see decision below
-git merge feat/editor-drag-blocks -m "Merge feat/editor-drag-blocks: block detection plugin + drag-and-drop (Step 13)"
-
-# 5. Verify again
-pnpm check && pnpm lint && pnpm test
-
-# 6. Cleanup stale branch
-git branch -d feat/smart-linking-plan
-
-# 7. Cleanup merged stack branches (all contained in main now)
-git branch -d feat/mcp-stdio feat/metadata-headings-cmd feat/metadata-foundations \
-  feat/metadata-enrichment feat/smart-linking feat/http-cli feat/metadata-file-cache \
-  feat/plugin-hardening feat/block-embeddings feat/extended-tools
-# Only if merged: git branch -d feat/editor-drag-blocks
 ```
 
-### Expected Conflicts
+### 1b. Cherry-pick documents from this session
 
-The `feat/extended-tools` merge may conflict on files modified by `39cab98d` (agent automation docs). Likely trivial — docs-only.
+Three checkpoint commits on `feat/extended-tools` contain planning docs created during this review. These docs are relevant regardless of which code ships.
 
-The `feat/editor-drag-blocks` merge (if done) will be a 3-way merge from the `d6a47599` base. Expect conflicts in `extensions/index.ts` (adjacent imports from both branches) and possibly `editor.css` (both add styles in different sections). The drag blocks code itself is clean — 15 files, all editor-focused, no overlap with MCP/CLI/smart-links/plugins.
+```bash
+# Cherry-pick the three doc checkpoints (docs only, no code conflicts)
+git cherry-pick ff7fb7b1 --no-commit  # mcp_transports_terminal_plan.md + conversation log
+git cherry-pick c09e9a89 --no-commit  # audit, ancestry, toolbar review, merge plan
+git cherry-pick 63f15c05 --no-commit  # merge plan updates
 
-### Decision: `feat/editor-drag-blocks`
+# Review what's staged — should be only carbide/*.md files
+# Remove conversation-2026-04-06-155756.md if present (ephemeral, shouldn't be committed)
+git reset HEAD conversation-2026-04-06-155756.md 2>/dev/null
+git checkout -- conversation-2026-04-06-155756.md 2>/dev/null
 
-This is **optional and independent**. The feature is self-contained (block detection plugin, drag handles, drop reordering) with good tests. It does not interact with any audit concerns.
+# Commit as a single docs commit
+git commit -m "docs: add planning documents from branch audit and stabilization review"
+```
 
-- **Merge now** if you want the feature and are comfortable with the implementation
-- **Defer** if you'd rather stabilize the stack first and review drag blocks separately
-- **Leave on branch** indefinitely — it won't conflict with any planned work since it touches only editor domain code
+If cherry-pick conflicts on `carbide/2026-04-05_conversation_work_units.md` (the checkbox file was updated by Steps 10-12), resolve by keeping the Step 9 version (checkboxes through 9.1 checked).
+
+### 1c. Archive discarded branches
+
+```bash
+# Tag for reference
+git tag archive/plugin-hardening feat/plugin-hardening
+git tag archive/block-embeddings feat/block-embeddings
+git tag archive/extended-tools feat/extended-tools
+
+# Delete the branch refs
+git branch -D feat/plugin-hardening feat/block-embeddings feat/extended-tools
+
+# Cleanup merged stack branches
+git branch -d feat/mcp-stdio feat/metadata-headings-cmd feat/metadata-foundations \
+  feat/metadata-enrichment feat/smart-linking feat/http-cli feat/metadata-file-cache
+
+# Cleanup stale planning branch
+git branch -d feat/smart-linking-plan
+```
+
+### 1d. Decision: `feat/editor-drag-blocks`
+
+Independent branch (9 commits, 15 files, +1,061 lines, all editor code). Does not interact with any audit concerns. Leave on branch — merge whenever you've reviewed the UX.
 
 ---
 
 ## Phase 2: Bug Fixes (High Impact, Small Effort)
 
-These fix real user-facing bugs. Ship before any refactoring.
+Ship before any refactoring. These fix real user-facing bugs.
 
 ### 2a. Terminal Bugs — 1 session, ~6 files
 
@@ -110,50 +157,37 @@ These fix real user-facing bugs. Ship before any refactoring.
 
 **Source:** `2026-04-06_extended_tools_branch_audit.md` → "Refactoring Roadmap"
 
-Work in priority order. Each item is a separate branch.
+Since we merged only through Step 9, some audit items no longer apply (plugin hardening, block embeddings, slash commands were not merged). Remaining items:
 
-### 3a. Extract shared service wrappers — `refactor/shared-ops`
-
-**Priority 1 from audit. Highest-leverage refactor.**
-
-Create `src-tauri/src/features/mcp/shared_ops.rs`:
-- Extract vault path resolution + service call patterns from both `cli_routes.rs` and `tools/*.rs`
-- Each shared op returns a structured result type
-- MCP tools format as `ToolResult` text
-- CLI routes return as JSON
-
-Simultaneously:
-- Add Axum auth middleware layer to the CLI router (kills 30+ copy-pasted `check_auth` calls)
-- Consolidate overlapping param structs between `cli_routes.rs` and `tools/*.rs`
-
-**Expected outcome:** `cli_routes.rs` shrinks significantly; `tools/*.rs` shrinks moderately; new `shared_ops.rs` is ~300-400 lines of clean service wrappers.
-
-### 3b. DRY fixes — `refactor/mcp-dry`
+### 3a. DRY fixes — `refactor/mcp-dry`
 
 Small, low-risk:
-- Extract `prop()` helper to `tools/mod.rs` (currently copy-pasted in 7 modules)
-- Extract `VaultArgs` to `tools/mod.rs` (duplicated in git.rs, graph.rs)
+- Extract `prop()` helper to `tools/mod.rs` (copy-pasted in 7 tool modules)
+- Extract `VaultArgs` to `tools/mod.rs` (duplicated in multiple modules)
 - Remove unused `SmartLinkRule.config` field from Rust types + TS types
 - Consolidate `HttpServerState` three mutexes → single `Arc<Mutex<ServerInner>>`
 
-### 3c. Stdio transport decision — `refactor/stdio-cleanup` or `feat/mcp-stdio-proxy`
+### 3b. Stdio transport cleanup — `refactor/stdio-cleanup`
 
-**Choose one:**
+The in-process stdio transport (`server.rs`, `transport.rs`) is unreachable from the app — the frontend calls `http_server_*` commands. The CLI proxy approach (Phase 4b) makes in-process stdio unnecessary.
 
-**Option A — Remove unreachable stdio code (~340 lines):**
-If the stdio proxy from the transports plan (Phase 4 below) replaces the in-process stdio transport, remove `server.rs`, `transport.rs`, and the unreachable `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. The CLI proxy approach makes the in-process transport unnecessary.
+- Remove `McpState`, `server.rs`, `transport.rs` (~340 lines)
+- Remove unreachable `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands from `app/mod.rs`
 
-**Option B — Keep for future use:**
-If in-process stdio is still desired (e.g., for a future non-Tauri binary), keep but document why it's currently unreachable.
+### 3c. Shared service wrappers — `refactor/shared-ops`
 
-**Recommendation: Option A.** The CLI proxy (`carbide mcp`) from Phase 4 is the right stdio solution — it avoids the Tauri stdout capture problem entirely.
+**Do this when reimplementing extended CLI/MCP tools (Phase 4c), not before.** Since the 1,489-line `cli_routes.rs` was not merged, build the shared layer from scratch as the foundation for new routes.
+
+Create `src-tauri/src/features/mcp/shared_ops.rs`:
+- Vault path resolution + service call wrappers returning structured results
+- MCP tools format as `ToolResult` text; CLI routes return as JSON
+- Axum auth middleware on the CLI router from the start
 
 ---
 
-## Phase 4: MCP Transport Improvements
+## Phase 4: MCP Transport + Extended Tools (Reimplemented Clean)
 
-**Source:** `2026-04-06_mcp_transports_terminal_plan.md` → Parts 1-3
-**Depends on:** Phase 1 (merge), Phase 3a nice-to-have but not blocking
+**Source:** `2026-04-06_mcp_transports_terminal_plan.md` + archived `feat/extended-tools` as reference
 
 ### 4a. Streamable HTTP — `feat/mcp-streamable-http`
 
@@ -170,11 +204,28 @@ Single Rust session. Adds `carbide mcp` subcommand:
 - `ensure_running_with_timeout` extraction (30s for cold launch)
 - Update Desktop setup to write stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`)
 - Add `carbide setup desktop` / `carbide setup code` CLI commands
-
-### 4c. CLI polish (fold into 4a/4b sessions)
-
 - `carbide status` shows MCP server address + CLI install state
-- `SetupStatus.cli_installed` field
+
+### 4c. Extended MCP/CLI tools (reimplemented) — `feat/extended-tools-v2`
+
+Reimplement the useful parts of archived Step 12, built on `shared_ops` from Phase 3c:
+
+**MCP tools to reimplement** (reference: `archive/extended-tools` `tools/` modules):
+- `get_backlinks`, `get_outgoing_links` — graph queries
+- `list_properties`, `query_notes_by_property` — property queries
+- `list_references`, `search_references` — citation lookups
+- `git_status`, `git_log` — git tools
+- `rename_note`
+
+**CLI routes to reimplement** (via `shared_ops`, with auth middleware):
+- `/cli/git/*` — git operations
+- `/cli/references/*` — citation operations
+- `/cli/bases/*` — structured property queries
+
+**Skip for now:**
+- Slash command contribution point (no plugins yet)
+- Plugin MCP bridge (`mcp.*` RPC namespace — no plugins yet)
+- `/cli/tasks/*`, `/cli/dev/*` — low priority
 
 ---
 
@@ -194,21 +245,22 @@ Expect ~10-15 conflicts concentrated in `create_app_context.ts`, `reactors/index
 ## Ordering Summary
 
 ```
-Phase 1: Merge feat/extended-tools into main           ← do first, unblocks everything
+Phase 1: Merge feat/metadata-file-cache (Steps 1-9)   ← do first
+  │       + cherry-pick docs + archive Steps 10-12
   │
   ├─ Phase 2a: Terminal bug fixes                      ← high impact, independent
   ├─ Phase 2b: Floating toolbar fixes                  ← high impact, independent
   │
-  ├─ Phase 3a: Extract shared service wrappers         ← biggest tech debt item
-  ├─ Phase 3b: DRY fixes                               ← small, can parallelize
-  ├─ Phase 3c: Stdio cleanup (remove dead code)        ← quick if doing 4b
+  ├─ Phase 3a: DRY fixes                               ← small, can parallelize with 2
+  ├─ Phase 3b: Stdio cleanup (remove dead code)         ← small, unblocks 4b
   │
-  ├─ Phase 4a: Streamable HTTP                         ← independent of 3
-  ├─ Phase 4b: stdio CLI proxy                         ← depends on 4a
+  ├─ Phase 4a: Streamable HTTP                          ← independent
+  ├─ Phase 4b: stdio CLI proxy                          ← depends on 4a
+  ├─ Phase 4c: Extended tools v2 (with shared_ops)      ← depends on 3c (built during 4c)
   │
-  ├─ (Optional) Merge feat/editor-drag-blocks          ← independent, can merge anytime
+  ├─ (Optional) Merge feat/editor-drag-blocks           ← independent, anytime
   │
-  └─ Phase 5: carbide-lite rebase                      ← after main is stable
+  └─ Phase 5: carbide-lite rebase                       ← after main is stable
 ```
 
-Phases 2a, 2b, 3a, 3b can all run in parallel. Phase 4 can start as soon as Phase 1 is done. Phase 5 waits for everything else. `feat/editor-drag-blocks` is independent — merge whenever you're comfortable with it.
+Phases 2 and 3a/3b can all run in parallel. Phase 4 can start as soon as Phase 1 is done. Phase 5 waits for everything else.
