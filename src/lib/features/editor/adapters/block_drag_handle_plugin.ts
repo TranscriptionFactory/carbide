@@ -93,11 +93,9 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let is_dragging = false;
 
       const editor_dom = editor_view.dom;
-      const parent = editor_dom.parentElement;
-      if (!parent) return {};
 
-      parent.style.position = "relative";
-      parent.appendChild(handle);
+      editor_dom.style.position = "relative";
+      editor_dom.appendChild(handle);
 
       function position_handle(view: EditorView, block_pos: number) {
         const node = view.state.doc.nodeAt(block_pos);
