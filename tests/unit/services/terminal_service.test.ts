@@ -335,6 +335,38 @@ describe("TerminalService", () => {
     );
   });
 
+  it("reconciles a manual-policy session with metadata-only update (no kill, no respawn)", async () => {
+    const { service, store, kill_session, spawn_session } =
+      create_terminal_service_harness();
+
+    await service.ensure_active_session({
+      cols: 80,
+      rows: 24,
+      shell_path: "/bin/zsh",
+      cwd: "/vault-a",
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+    });
+
+    expect(spawn_session).toHaveBeenCalledTimes(1);
+
+    await service.reconcile_session(DEFAULT_TERMINAL_SESSION_ID, {
+      shell_path: "/bin/zsh",
+      cwd: "/vault-b",
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+    });
+
+    expect(kill_session).not.toHaveBeenCalled();
+    expect(spawn_session).toHaveBeenCalledTimes(1);
+    expect(store.get_session(DEFAULT_TERMINAL_SESSION_ID)).toMatchObject({
+      cwd: "/vault-b",
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+      status: "running",
+    });
+  });
+
   it("closes the active session and clears store state", async () => {
     const {
       service,

@@ -36,11 +36,12 @@
   }
 
   function build_session_request(): TerminalSessionRequest {
+    const session = stores.terminal.get_session(session_id);
     const target = resolve_terminal_session_target({
       follow_active_vault:
         stores.ui.editor_settings.terminal_follow_active_vault,
       followed_cwd: stores.vault.vault?.path ?? undefined,
-      fixed_cwd: stores.vault.vault?.path ?? undefined,
+      fixed_cwd: session?.cwd ?? stores.vault.vault?.path ?? undefined,
     });
 
     return {
