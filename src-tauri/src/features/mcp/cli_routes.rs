@@ -6,11 +6,13 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use crate::features::git::service as git_service;
 use crate::features::mcp::http::{check_auth, HttpAppState};
 use crate::features::notes::service::{
     self as notes_service, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs,
     NoteDeleteArgs, NoteRenameArgs,
 };
+use crate::features::reference::service as reference_service;
 use crate::features::search::db as search_db;
 use crate::features::search::model::SearchScope;
 use crate::features::search::service::with_read_conn;
@@ -153,6 +155,18 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/rename", post(cli_rename))
         .route("/move", post(cli_move))
         .route("/delete", post(cli_delete))
+        .route("/git/status", post(cli_git_status))
+        .route("/git/commit", post(cli_git_commit))
+        .route("/git/log", post(cli_git_log))
+        .route("/git/diff", post(cli_git_diff))
+        .route("/git/push", post(cli_git_push))
+        .route("/git/pull", post(cli_git_pull))
+        .route("/git/restore", post(cli_git_restore))
+        .route("/git/init", post(cli_git_init))
+        .route("/references", post(cli_references))
+        .route("/references/search", post(cli_references_search))
+        .route("/references/add", post(cli_references_add))
+        .route("/references/bbt/search", post(cli_references_bbt_search))
 }
 
 async fn cli_read(
@@ -615,6 +629,329 @@ async fn cli_delete(
     }
 }
 
+// --- Git routes ---
+
+#[derive(Deserialize)]
+struct GitCommitParams {
+    vault_id: String,
+    message: String,
+    #[serde(default)]
+    files: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct GitLogParams {
+    vault_id: String,
+    #[serde(default)]
+    file_path: Option<String>,
+    #[serde(default = "default_git_log_limit")]
+    limit: usize,
+}
+
+fn default_git_log_limit() -> usize {
+    20
+}
+
+#[derive(Deserialize)]
+struct GitDiffParams {
+    vault_id: String,
+    #[serde(default)]
+    path: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GitPullParams {
+    vault_id: String,
+    #[serde(default)]
+    strategy: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GitRestoreParams {
+    vault_id: String,
+    path: String,
+    commit: String,
+}
+
+async fn cli_git_status(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    match git_service::git_status(root.to_string_lossy().into_owned()) {
+        Ok(status) => (StatusCode::OK, Json(status)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_git_commit(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<GitCommitParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    match git_service::git_stage_and_commit(
+        root.to_string_lossy().into_owned(),
+        params.message,
+        params.files,
+    ) {
+        Ok(hash) => (StatusCode::OK, Json(serde_json::json!({ "ok": true, "hash": hash }))).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_git_log(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<GitLogParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let limit = params.limit.min(100);
+    match git_service::collect_git_log(
+        &root.to_string_lossy(),
+        params.file_path.as_deref(),
+        limit,
+    ) {
+        Ok(commits) => (StatusCode::OK, Json(commits)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_git_diff(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<GitDiffParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    match git_service::git_diff_working(&root.to_string_lossy(), params.path.as_deref()) {
+        Ok(diff) => (StatusCode::OK, Json(diff)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_git_push(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let result = git_service::git_push(root.to_string_lossy().into_owned());
+    (StatusCode::OK, Json(result)).into_response()
+}
+
+async fn cli_git_pull(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<GitPullParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let result = git_service::git_pull(root.to_string_lossy().into_owned(), params.strategy);
+    (StatusCode::OK, Json(result)).into_response()
+}
+
+async fn cli_git_restore(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<GitRestoreParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    match git_service::git_restore_file(
+        root.to_string_lossy().into_owned(),
+        params.path,
+        params.commit,
+    ) {
+        Ok(hash) => (StatusCode::OK, Json(serde_json::json!({ "ok": true, "hash": hash }))).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_git_init(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    match git_service::git_init_repo(root.to_string_lossy().into_owned()) {
+        Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+// --- Reference routes ---
+
+#[derive(Deserialize)]
+struct ReferencesSearchParams {
+    vault_id: String,
+    query: String,
+}
+
+#[derive(Deserialize)]
+struct ReferencesAddParams {
+    vault_id: String,
+    doi: String,
+}
+
+const DEFAULT_BBT_URL: &str = "http://localhost:23119/better-bibtex/json-rpc";
+
+#[derive(Deserialize)]
+struct ReferencesBbtSearchParams {
+    #[serde(default)]
+    query: String,
+    #[serde(default)]
+    limit: Option<u32>,
+    #[serde(default)]
+    bbt_url: Option<String>,
+}
+
+async fn cli_references(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match reference_service::reference_load_library(state.app().clone(), params.vault_id) {
+        Ok(library) => (StatusCode::OK, Json(library.items)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_references_search(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<ReferencesSearchParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let library = match reference_service::reference_load_library(
+        state.app().clone(),
+        params.vault_id,
+    ) {
+        Ok(lib) => lib,
+        Err(e) => return internal_err(e),
+    };
+
+    let query_lower = params.query.to_lowercase();
+    let matches: Vec<&serde_json::Value> = library
+        .items
+        .iter()
+        .filter(|item| {
+            let text = serde_json::to_string(item).unwrap_or_default().to_lowercase();
+            text.contains(&query_lower)
+        })
+        .collect();
+
+    (StatusCode::OK, Json(matches)).into_response()
+}
+
+async fn cli_references_add(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<ReferencesAddParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let item = match reference_service::reference_doi_lookup(params.doi).await {
+        Ok(Some(item)) => item,
+        Ok(None) => return json_err(StatusCode::NOT_FOUND, "DOI not found"),
+        Err(e) => return internal_err(e),
+    };
+
+    match reference_service::reference_add_item(state.app().clone(), params.vault_id, item.clone())
+    {
+        Ok(_library) => (StatusCode::CREATED, Json(item)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_references_bbt_search(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<ReferencesBbtSearchParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let bbt_url = params.bbt_url.unwrap_or_else(|| DEFAULT_BBT_URL.to_string());
+
+    match reference_service::reference_bbt_search(bbt_url, params.query, params.limit).await {
+        Ok(items) => (StatusCode::OK, Json(items)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -821,5 +1158,72 @@ mod tests {
         let content = "---\ntitle: Test\ndate: 2026-01-01\ntags: [a, b]\n---\nContent here";
         let pos = find_frontmatter_end(content).unwrap();
         assert_eq!(&content[pos..], "Content here");
+    }
+
+    #[test]
+    fn test_git_commit_params_deserialization() {
+        let json = r#"{"vault_id":"v1","message":"checkpoint"}"#;
+        let params: GitCommitParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.vault_id, "v1");
+        assert_eq!(params.message, "checkpoint");
+        assert!(params.files.is_none());
+    }
+
+    #[test]
+    fn test_git_commit_params_with_files() {
+        let json = r#"{"vault_id":"v1","message":"save","files":["a.md","b.md"]}"#;
+        let params: GitCommitParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.files.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_git_log_params_defaults() {
+        let json = r#"{"vault_id":"v1"}"#;
+        let params: GitLogParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.limit, 20);
+        assert!(params.file_path.is_none());
+    }
+
+    #[test]
+    fn test_git_diff_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"notes/test.md"}"#;
+        let params: GitDiffParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path.as_deref(), Some("notes/test.md"));
+    }
+
+    #[test]
+    fn test_git_restore_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"note.md","commit":"abc123"}"#;
+        let params: GitRestoreParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "note.md");
+        assert_eq!(params.commit, "abc123");
+    }
+
+    #[test]
+    fn test_references_search_params_deserialization() {
+        let json = r#"{"vault_id":"v1","query":"machine learning"}"#;
+        let params: ReferencesSearchParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.query, "machine learning");
+    }
+
+    #[test]
+    fn test_references_add_params_deserialization() {
+        let json = r#"{"vault_id":"v1","doi":"10.1038/nature12373"}"#;
+        let params: ReferencesAddParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.doi, "10.1038/nature12373");
+    }
+
+    #[test]
+    fn test_references_bbt_search_params_defaults() {
+        let json = r#"{"query":"neural"}"#;
+        let params: ReferencesBbtSearchParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.query, "neural");
+        assert!(params.limit.is_none());
+        assert!(params.bbt_url.is_none());
+    }
+
+    #[test]
+    fn test_default_git_log_limit() {
+        assert_eq!(default_git_log_limit(), 20);
     }
 }

@@ -556,6 +556,41 @@ pub fn git_diff(
     })
 }
 
+pub(crate) fn git_diff_working(
+    vault_path: &str,
+    file_path: Option<&str>,
+) -> Result<GitDiff, String> {
+    let repo = open_repo(vault_path)?;
+
+    let head_tree = repo
+        .head()
+        .ok()
+        .and_then(|h| h.peel_to_tree().ok());
+
+    let mut diff_opts = DiffOptions::new();
+    if let Some(path) = file_path {
+        diff_opts.pathspec(path);
+    }
+    diff_opts.include_untracked(true);
+
+    let diff = repo
+        .diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut diff_opts))
+        .map_err(|e| format!("failed to diff working tree: {}", e))?;
+
+    let stats = diff
+        .stats()
+        .map_err(|e| format!("failed to get diff stats: {}", e))?;
+    let additions = stats.insertions();
+    let deletions = stats.deletions();
+    let hunks = collect_diff_hunks(&diff)?;
+
+    Ok(GitDiff {
+        additions,
+        deletions,
+        hunks,
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn git_show_file_at_commit(
