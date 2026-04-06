@@ -5,8 +5,9 @@ use tempfile::TempDir;
 fn load_creates_defaults_when_missing() {
     let tmp = TempDir::new().expect("temp dir");
     let rules = crate::features::smart_links::config::load_rules(tmp.path()).expect("load");
-    assert_eq!(rules.len(), 1);
+    assert_eq!(rules.len(), 2);
     assert_eq!(rules[0].rules.len(), 3);
+    assert_eq!(rules[1].rules.len(), 3);
 
     let config_path = tmp.path().join(".carbide/smart-links/rules.json");
     assert!(config_path.is_file());

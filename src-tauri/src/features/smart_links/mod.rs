@@ -74,6 +74,34 @@ pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
                 },
             ],
         },
+        SmartLinkRuleGroup {
+            id: "semantic".into(),
+            name: "Semantic Rules".into(),
+            enabled: true,
+            rules: vec![
+                SmartLinkRule {
+                    id: "semantic_similarity".into(),
+                    name: "Semantic similarity".into(),
+                    enabled: true,
+                    weight: 0.6,
+                    config: Default::default(),
+                },
+                SmartLinkRule {
+                    id: "title_overlap".into(),
+                    name: "Title overlap".into(),
+                    enabled: false,
+                    weight: 0.3,
+                    config: Default::default(),
+                },
+                SmartLinkRule {
+                    id: "shared_outlinks".into(),
+                    name: "Shared outlinks".into(),
+                    enabled: false,
+                    weight: 0.4,
+                    config: Default::default(),
+                },
+            ],
+        },
     ]
 }
 
