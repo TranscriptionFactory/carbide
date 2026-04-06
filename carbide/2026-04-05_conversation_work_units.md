@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 26 / 46 units complete
+**Progress:** 27 / 46 units complete
 
 ---
 
@@ -250,8 +250,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Plugin service `should_activate` pattern matching, manifest type update. `on_startup_finished`, `on_file_type:*`, `vault_contains:*`.
   - _Completed 2026-04-06 `1f04cd0b`. Extended ActivationEvent union type with on_startup_finished, on_file_type:\*, vault_contains:\*. New domain module match_activation_event.ts with pattern matching (case-insensitive file type, path-based vault_contains with dot-prefix/suffix matching). Refactored should_activate to delegate to domain function. Added activate_for_file_type method + set_vault_file_lister for DI. New plugin_file_type reactor watches editor_store.open_note for on_file_type triggers. initialize_active_vault now scans vault files for vault_contains patterns and fires on_startup_finished after startup+vault_contains. 30 new domain tests + 8 new service tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **10.2** Lifecycle hooks + RPC timeouts + rate limiting — **TypeScript session**
+- [x] **10.2** Lifecycle hooks + RPC timeouts + rate limiting — **TypeScript session**
   - `plugin_host_adapter.ts`, plugin store. `activate`/`deactivate` protocol. `Promise.race` timeout. Sliding window rate limiter. Error budget (10 → auto-disable).
+  - _Completed 2026-04-06 `0b4817a3`. Lifecycle hooks: activate/deactivate/on_settings_change sent via postMessage with structured {type, hook, context} format. Iframe host sends activate with plugin_id+vault_path context on mount, deactivate on destroy. Settings changes auto-forwarded via PluginSettingsService callback. RPC timeouts: new rpc_timeout.ts domain module with Promise.race — 5s default, 30s for vault.* fs methods. Rate limiting: new rate_limiter.ts domain module with sliding window (100 calls/min per plugin, pruning old timestamps). Error budget: extended PluginErrorTracker with consecutive error counter (10 → auto_disable) alongside existing time-window threshold; record_success resets consecutive counter on successful RPC. All integrated in PluginService.handle_rpc. 30 new tests (8 rate limiter, 6 rpc timeout, 11 error tracker, 5 service hardening). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **10.3** Richer settings schema — **Svelte/UI session**
   - `textarea`, `min`/`max`, `placeholder`, `description`. Small — can combine with 10.2.
