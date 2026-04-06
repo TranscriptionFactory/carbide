@@ -2,8 +2,10 @@ mod auth;
 mod client;
 mod commands;
 mod format;
+mod install;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 
 use client::CarbideClient;
 
@@ -14,8 +16,14 @@ struct Cli {
     vault: Option<String>,
     #[arg(long, global = true, help = "Output as JSON")]
     json: bool,
+    #[arg(long, help = "Create symlink at /usr/local/bin/carbide")]
+    install_cli: bool,
+    #[arg(long, help = "Remove symlink at /usr/local/bin/carbide")]
+    uninstall_cli: bool,
+    #[arg(long, help = "Generate shell completions", value_name = "SHELL")]
+    completions: Option<Shell>,
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
@@ -167,9 +175,44 @@ fn launch_app() -> Result<(), String> {
     }
 }
 
+fn generate_completions(shell: Shell) {
+    let mut cmd = Cli::command();
+    clap_complete::generate(shell, &mut cmd, "carbide", &mut std::io::stdout());
+}
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
+
+    if let Some(shell) = cli.completions {
+        generate_completions(shell);
+        return;
+    }
+
+    if cli.install_cli {
+        if let Err(e) = install::install_cli() {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    if cli.uninstall_cli {
+        if let Err(e) = install::uninstall_cli() {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    let command = match cli.command {
+        Some(cmd) => cmd,
+        None => {
+            let _ = Cli::command().print_help();
+            eprintln!();
+            std::process::exit(1);
+        }
+    };
 
     let client = match CarbideClient::new() {
         Ok(c) => c,
@@ -184,7 +227,7 @@ async fn main() {
         std::process::exit(1);
     }
 
-    let result = match cli.command {
+    let result = match command {
         Command::Status => {
             let raw = client.post_raw("/cli/status", &serde_json::json!({})).await;
             match raw {
