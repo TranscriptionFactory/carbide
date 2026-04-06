@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand};
 use client::CarbideClient;
 
 #[derive(Parser)]
-#[command(name = "carbide", about = "CLI client for Carbide note-taking app")]
+#[command(name = "carbide", about = "CLI client for Carbide note-taking app", version)]
 struct Cli {
     #[arg(long, global = true, help = "Vault ID (defaults to active vault)")]
     vault: Option<String>,
@@ -23,6 +23,55 @@ enum Command {
     #[command(about = "Read a note")]
     Read {
         #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+    },
+    #[command(about = "Create a new note")]
+    Create {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+        #[arg(long, help = "Initial content")]
+        content: Option<String>,
+        #[arg(long, help = "Overwrite if exists")]
+        overwrite: bool,
+    },
+    #[command(about = "Write content to a note (replaces existing content)")]
+    Write {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+        #[arg(long, help = "New content")]
+        content: String,
+    },
+    #[command(about = "Append content to a note")]
+    Append {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+        #[arg(long, help = "Content to append")]
+        content: String,
+    },
+    #[command(about = "Prepend content after frontmatter")]
+    Prepend {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+        #[arg(long, help = "Content to prepend")]
+        content: String,
+    },
+    #[command(about = "Rename a note")]
+    Rename {
+        #[arg(help = "Current note path")]
+        path: String,
+        #[arg(long, help = "New path")]
+        new_path: String,
+    },
+    #[command(name = "move", about = "Move a note to a different folder")]
+    Move {
+        #[arg(help = "Note path")]
+        path: String,
+        #[arg(long, help = "Target folder")]
+        to: String,
+    },
+    #[command(about = "Delete a note")]
+    Delete {
+        #[arg(help = "Note path")]
         path: String,
     },
     #[command(about = "Search notes")]
@@ -44,6 +93,10 @@ enum Command {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
     },
+    #[command(about = "Show active vault info")]
+    Vault,
+    #[command(about = "List known vaults")]
+    Vaults,
     #[command(about = "Show app status")]
     Status,
 }
@@ -61,6 +114,59 @@ async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result
         .ok_or_else(|| "no active vault. Open Carbide and select a vault, or pass --vault <id>".to_string())
 }
 
+async fn ensure_running(client: &CarbideClient) -> Result<(), String> {
+    if client.health().await.is_ok() {
+        return Ok(());
+    }
+
+    eprintln!("Carbide is not running. Attempting to launch...");
+    launch_app()?;
+
+    let poll_interval = std::time::Duration::from_millis(500);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+
+    while std::time::Instant::now() < deadline {
+        tokio::time::sleep(poll_interval).await;
+        if client.health().await.is_ok() {
+            eprintln!("Carbide is ready.");
+            return Ok(());
+        }
+    }
+
+    Err("timed out waiting for Carbide to start (10s). Launch it manually and retry.".into())
+}
+
+fn launch_app() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-a")
+            .arg("Carbide")
+            .spawn()
+            .map_err(|e| format!("failed to launch Carbide.app: {e}"))?;
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("carbide")
+            .spawn()
+            .map_err(|e| format!("failed to launch carbide: {e}"))?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", "Carbide.exe"])
+            .spawn()
+            .map_err(|e| format!("failed to launch Carbide.exe: {e}"))?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        Err("auto-launch not supported on this platform. Start Carbide manually.".into())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -73,9 +179,8 @@ async fn main() {
         }
     };
 
-    if let Err(e) = client.health().await {
+    if let Err(e) = ensure_running(&client).await {
         eprintln!("error: {}", e);
-        eprintln!("Is Carbide running?");
         std::process::exit(1);
     }
 
@@ -100,6 +205,7 @@ async fn main() {
                 Err(e) => Err(e),
             }
         }
+        Command::Vaults => commands::vault::vaults(&client, cli.json).await,
         command => {
             let vault_id = match resolve_vault(&client, cli.vault.as_deref()).await {
                 Ok(v) => v,
@@ -126,6 +232,30 @@ async fn run_command(
 ) -> Result<(), String> {
     match command {
         Command::Read { path } => commands::notes::read(client, vault_id, &path, json).await,
+        Command::Create {
+            path,
+            content,
+            overwrite,
+        } => {
+            commands::notes::create(client, vault_id, &path, content.as_deref(), overwrite, json)
+                .await
+        }
+        Command::Write { path, content } => {
+            commands::notes::write(client, vault_id, &path, &content, json).await
+        }
+        Command::Append { path, content } => {
+            commands::notes::append(client, vault_id, &path, &content, json).await
+        }
+        Command::Prepend { path, content } => {
+            commands::notes::prepend(client, vault_id, &path, &content, json).await
+        }
+        Command::Rename { path, new_path } => {
+            commands::notes::rename(client, vault_id, &path, &new_path, json).await
+        }
+        Command::Move { path, to } => {
+            commands::notes::move_note(client, vault_id, &path, &to, json).await
+        }
+        Command::Delete { path } => commands::notes::delete(client, vault_id, &path, json).await,
         Command::Search { query, limit } => {
             commands::search::search(client, vault_id, &query, limit, json).await
         }
@@ -136,6 +266,7 @@ async fn run_command(
         Command::Outline { path } => {
             commands::search::outline(client, vault_id, &path, json).await
         }
-        Command::Status => unreachable!(),
+        Command::Vault => commands::vault::vault(client, vault_id, json).await,
+        Command::Status | Command::Vaults => unreachable!(),
     }
 }
