@@ -8,16 +8,27 @@ import type {
   McpToolResult,
 } from "../ports";
 
+type HttpServerInfo = { port: number; running: boolean };
+
+function http_info_to_status(info: HttpServerInfo): McpStatusInfo {
+  return {
+    status: info.running ? "running" : "stopped",
+    transport: info.running ? "http" : null,
+  };
+}
+
 export function create_mcp_tauri_adapter(): McpPort {
   return {
     async start() {
-      return tauri_invoke<McpStatusInfo>("mcp_start");
+      const info = await tauri_invoke<HttpServerInfo>("http_server_start");
+      return http_info_to_status(info);
     },
     async stop() {
-      await tauri_invoke<void>("mcp_stop");
+      await tauri_invoke<void>("http_server_stop");
     },
     async get_status() {
-      return tauri_invoke<McpStatusInfo>("mcp_status");
+      const info = await tauri_invoke<HttpServerInfo>("http_server_status");
+      return http_info_to_status(info);
     },
     async setup_claude_desktop() {
       return tauri_invoke<McpSetupResult>("mcp_setup_claude_desktop");
