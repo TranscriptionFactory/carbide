@@ -44,7 +44,7 @@ export function register_terminal_actions(
         ui_store.bottom_panel_open &&
         ui_store.bottom_panel_tab === "terminal"
       ) {
-        terminal_service.close_all_sessions();
+        terminal_store.hide();
         ui_store.bottom_panel_open = false;
         return;
       }
@@ -59,7 +59,7 @@ export function register_terminal_actions(
     id: ACTION_IDS.terminal_close,
     label: "Close Terminal",
     execute: () => {
-      terminal_service.close_all_sessions();
+      terminal_store.hide();
       if (ui_store.bottom_panel_tab === "terminal") {
         ui_store.bottom_panel_open = false;
       }
@@ -90,7 +90,7 @@ export function register_terminal_actions(
     execute: (session_id: unknown) => {
       terminal_service.close_session(session_id as string);
       if (terminal_store.session_ids.length === 0) {
-        terminal_store.close();
+        terminal_store.hide();
         if (ui_store.bottom_panel_tab === "terminal") {
           ui_store.bottom_panel_open = false;
         }

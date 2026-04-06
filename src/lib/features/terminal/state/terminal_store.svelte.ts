@@ -25,6 +25,11 @@ export class TerminalStore {
     this.panel_open = true;
   }
 
+  hide() {
+    this.panel_open = false;
+    this.focused = false;
+  }
+
   close() {
     this.panel_open = false;
     this.focused = false;
