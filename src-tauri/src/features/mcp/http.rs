@@ -1,6 +1,7 @@
+use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use specta::Type;
@@ -12,6 +13,8 @@ use tokio::sync::watch;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::features::mcp::auth;
+use crate::features::mcp::router::McpRouter;
+use crate::features::mcp::types::{JsonRpcRequest, JsonRpcResponse, JsonRpcError, PARSE_ERROR};
 
 pub const DEFAULT_PORT: u16 = 3457;
 
@@ -66,6 +69,7 @@ fn cors_layer() -> CorsLayer {
 pub fn build_router(state: HttpAppState) -> Router {
     Router::new()
         .route("/health", get(health_handler))
+        .route("/mcp", post(mcp_handler))
         .layer(cors_layer())
         .with_state(Arc::new(state))
 }
@@ -81,6 +85,43 @@ async fn health_handler() -> impl IntoResponse {
         status: "ok",
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+async fn mcp_handler(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> impl IntoResponse {
+    if let Err(status) = check_auth(&headers, &state.token) {
+        return (status, Json(JsonRpcResponse::error(
+            None,
+            JsonRpcError {
+                code: -32000,
+                message: "Unauthorized".into(),
+                data: None,
+            },
+        ))).into_response();
+    }
+
+    let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
+        Ok(req) => req,
+        Err(e) => {
+            return (StatusCode::OK, Json(JsonRpcResponse::error(
+                None,
+                JsonRpcError {
+                    code: PARSE_ERROR,
+                    message: format!("Parse error: {}", e),
+                    data: None,
+                },
+            ))).into_response();
+        }
+    };
+
+    let mut router = McpRouter::with_app(state.app().clone());
+    match router.handle_request(&request) {
+        Some(response) => (StatusCode::OK, Json(response)).into_response(),
+        None => StatusCode::NO_CONTENT.into_response(),
+    }
 }
 
 pub fn extract_bearer_token(headers: &HeaderMap) -> Option<&str> {
@@ -238,6 +279,152 @@ pub async fn http_server_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    fn test_mcp_router(token: &str) -> Router {
+        Router::new()
+            .route("/mcp", post(mcp_handler_no_app))
+            .with_state(Arc::new(token.to_string()))
+    }
+
+    async fn mcp_handler_no_app(
+        State(token): State<Arc<String>>,
+        headers: HeaderMap,
+        body: String,
+    ) -> impl IntoResponse {
+        if let Err(status) = check_auth(&headers, &token) {
+            return (status, Json(JsonRpcResponse::error(
+                None,
+                JsonRpcError {
+                    code: -32000,
+                    message: "Unauthorized".into(),
+                    data: None,
+                },
+            ))).into_response();
+        }
+
+        let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
+            Ok(req) => req,
+            Err(e) => {
+                return (StatusCode::OK, Json(JsonRpcResponse::error(
+                    None,
+                    JsonRpcError {
+                        code: PARSE_ERROR,
+                        message: format!("Parse error: {}", e),
+                        data: None,
+                    },
+                ))).into_response();
+            }
+        };
+
+        let mut router = McpRouter::new();
+        match router.handle_request(&request) {
+            Some(response) => (StatusCode::OK, Json(response)).into_response(),
+            None => StatusCode::NO_CONTENT.into_response(),
+        }
+    }
+
+    fn mcp_request(router: Router, token: &str, body: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", token))
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    async fn response_json(resp: axum::response::Response) -> serde_json::Value {
+        let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_auth_rejected_no_token() {
+        let router = test_mcp_router("secret");
+        let req = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("Content-Type", "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["error"]["message"], "Unauthorized");
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_auth_rejected_wrong_token() {
+        let router = test_mcp_router("secret");
+        let req = mcp_request(router.clone(), "wrong", r#"{"jsonrpc":"2.0","method":"ping","id":1}"#);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_malformed_json() {
+        let router = test_mcp_router("secret");
+        let req = mcp_request(router.clone(), "secret", "not json");
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["error"]["code"], PARSE_ERROR);
+        assert!(json["error"]["message"].as_str().unwrap().contains("Parse error"));
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_ping() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"ping","id":1}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["jsonrpc"], "2.0");
+        assert!(json["result"].is_object());
+        assert!(json["error"].is_null());
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_tools_list() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"tools/list","id":2}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["result"]["tools"].is_array());
+        assert!(json["result"]["tools"].as_array().unwrap().len() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_unknown_method() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"unknown/method","id":3}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["error"]["code"], -32601);
+    }
+
+    #[tokio::test]
+    async fn test_mcp_endpoint_notification_returns_no_content() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    }
 
     #[test]
     fn test_extract_bearer_token_valid() {
