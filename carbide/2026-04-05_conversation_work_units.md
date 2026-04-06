@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 18 / 46 units complete
+**Progress:** 19 / 46 units complete
 
 ---
 
@@ -192,8 +192,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Thin adapter — same tool dispatch as stdio. Test with curl. Small — can combine with 7.1.
   - _Completed 2026-04-05 `79382bab`. Added POST /mcp route to Axum HTTP server in http.rs. Bearer token auth, JSON-RPC 2.0 parsing, dispatches to McpRouter (same as stdio). Notifications return 204 No Content. Stateless — creates fresh McpRouter per request (HTTP has no session). 7 new tests using test-only handler (avoids AppHandle dependency): auth rejection (missing + wrong token), malformed JSON parse error, ping, tools/list, unknown method, notification. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.3** `/cli/*` REST routes — read operations — **Rust session**
+- [x] **7.3** `/cli/*` REST routes — read operations — **Rust session**
   - `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status`. Each ~5-10 lines.
+  - _Completed 2026-04-05 `757dbab0`. New `cli_routes.rs` module with 9 authenticated POST routes nested under `/cli`. Each route is a thin adapter: deserializes JSON params, delegates to existing service functions (notes_service::list_notes, search_db::search, search_db::list_all_tags, search_db::list_all_properties, search_db::get_note_headings, vault_service::list_vaults, vault_service::get_last_vault_id), returns JSON. Read uses direct disk IO (same as MCP tools, bypasses BufferManager). Files endpoint supports optional folder filter. Search caps limit at 200. Added token() accessor to HttpAppState. 8 tests (3 status endpoint with auth, 5 serialization). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **7.4** `/cli/*` REST routes — write operations — **Rust session**
   - `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete`. Can combine with 7.3 if thin enough.
