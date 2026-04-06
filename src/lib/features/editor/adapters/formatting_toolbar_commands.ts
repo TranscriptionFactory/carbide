@@ -1,5 +1,6 @@
 import type { EditorView } from "prosemirror-view";
-import { toggleMark, setBlockType } from "prosemirror-commands";
+import { toggleMark, setBlockType, wrapIn } from "prosemirror-commands";
+import { wrapInList } from "prosemirror-schema-list";
 import { undo, redo } from "prosemirror-history";
 import type { MarkType, NodeType } from "prosemirror-model";
 import { schema } from "./markdown_pipeline";
@@ -46,8 +47,6 @@ function execute_command(
   view: EditorView,
 ): boolean {
   const { state, dispatch } = view;
-  const { from, to, $from } = state.selection;
-  const is_selection = from !== to;
 
   switch (command) {
     case "undo":
@@ -71,20 +70,12 @@ function execute_command(
       const mark = get_mark_type("code_inline");
       return mark ? toggleMark(mark)(state, dispatch) : false;
     }
-    case "link": {
-      if (!is_selection) return false;
-      const mark = get_mark_type("link");
-      if (!mark) return false;
-      const url = prompt("Enter URL:");
-      if (!url) return false;
-      const tr = state.tr.addMark(
-        from,
-        to,
-        mark.create({ href: url, title: "" }),
-      );
-      dispatch(tr);
-      return true;
-    }
+    // TODO: async input UI needed
+    case "link":
+      return false;
+    // TODO: async input UI needed
+    case "image":
+      return false;
 
     case "heading1": {
       const node = get_node_type("heading");
@@ -104,39 +95,17 @@ function execute_command(
     case "blockquote": {
       const node = get_node_type("blockquote");
       if (!node) return false;
-      return setBlockType(node)(state, dispatch);
+      return wrapIn(node)(state, dispatch);
     }
     case "bullet_list": {
       const list_node = get_node_type("bullet_list");
-      const item_node = get_node_type("list_item");
-      if (!list_node || !item_node) return false;
-      if ($from.parent.type === item_node) {
-        return false;
-      }
-      const tr = state.tr;
-      const para = schema.nodes.paragraph.create(null, $from.parent.content);
-      const list_item = item_node.create(null, para);
-      const list = list_node.create(null, list_item);
-      const start = $from.before($from.depth);
-      const end = $from.after($from.depth);
-      dispatch(tr.replaceWith(start, end, list));
-      return true;
+      if (!list_node) return false;
+      return wrapInList(list_node)(state, dispatch);
     }
     case "ordered_list": {
       const list_node = get_node_type("ordered_list");
-      const item_node = get_node_type("list_item");
-      if (!list_node || !item_node) return false;
-      if ($from.parent.type === item_node) {
-        return false;
-      }
-      const tr = state.tr;
-      const para = schema.nodes.paragraph.create(null, $from.parent.content);
-      const list_item = item_node.create(null, para);
-      const list = list_node.create(null, list_item);
-      const start = $from.before($from.depth);
-      const end = $from.after($from.depth);
-      dispatch(tr.replaceWith(start, end, list));
-      return true;
+      if (!list_node) return false;
+      return wrapInList(list_node)(state, dispatch);
     }
     case "code_block": {
       const node = get_node_type("code_block");
@@ -169,17 +138,6 @@ function execute_command(
       dispatch(tr);
       return true;
     }
-    case "image": {
-      const node = get_node_type("image_block");
-      if (!node) return false;
-      const src = prompt("Enter image path or URL:");
-      if (!src) return false;
-      const tr = state.tr.replaceSelectionWith(
-        node.create({ src, alt: "", caption: "", width: "100%" }),
-      );
-      dispatch(tr);
-      return true;
-    }
 
     default:
       return false;
@@ -191,8 +149,6 @@ export function is_command_available(
   view: EditorView,
 ): boolean {
   const { state } = view;
-  const { from, to, $from } = state.selection;
-  const is_selection = from !== to;
 
   if (command === "undo") {
     try {
@@ -209,12 +165,25 @@ export function is_command_available(
     }
   }
 
-  if (command === "link" && !is_selection) return false;
-  if (command === "image" && !is_selection) return false;
+  // TODO: async input UI needed
+  if (command === "link" || command === "image") return false;
 
-  if (command === "bullet_list" || command === "ordered_list") {
-    const item_node = get_node_type("list_item");
-    if (item_node && $from.parent.type === item_node) return false;
+  if (command === "blockquote") {
+    const node = get_node_type("blockquote");
+    if (!node) return false;
+    return wrapIn(node)(state);
+  }
+
+  if (command === "bullet_list") {
+    const list_node = get_node_type("bullet_list");
+    if (!list_node) return false;
+    return wrapInList(list_node)(state);
+  }
+
+  if (command === "ordered_list") {
+    const list_node = get_node_type("ordered_list");
+    if (!list_node) return false;
+    return wrapInList(list_node)(state);
   }
 
   return true;

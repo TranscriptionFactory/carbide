@@ -14,12 +14,12 @@ The `mount_toolbar()` function passes the `view` parameter directly into the Sve
 
 ```ts
 function mount_toolbar(view: EditorView) {
-  if (svelte_app) return;  // early return if already mounted
+  if (svelte_app) return; // early return if already mounted
   svelte_app = mount(FormattingToolbar, {
     props: {
-      view,                              // captured at mount time
+      view, // captured at mount time
       on_command: (command) => {
-        toggle_format(command, view);     // same captured view
+        toggle_format(command, view); // same captured view
         view.focus();
       },
     },
@@ -31,7 +31,7 @@ function mount_toolbar(view: EditorView) {
 
 This causes two concrete bugs:
 
-1. **`on_command` dispatches to a potentially stale view.** If the view's internal state has been replaced (e.g., buffer switch via `view.updateState()`), the closure still holds the old `view` reference. `toggle_format(command, view)` reads `view.state` and calls `view.dispatch` — these will operate on whatever state the captured view object currently has, which *might* be fine if ProseMirror mutates in place, but creates a fragile coupling to ProseMirror's internal identity guarantees.
+1. **`on_command` dispatches to a potentially stale view.** If the view's internal state has been replaced (e.g., buffer switch via `view.updateState()`), the closure still holds the old `view` reference. `toggle_format(command, view)` reads `view.state` and calls `view.dispatch` — these will operate on whatever state the captured view object currently has, which _might_ be fine if ProseMirror mutates in place, but creates a fragile coupling to ProseMirror's internal identity guarantees.
 
 2. **`get_active_marks(view)` in the Svelte component reads stale state.** The `$derived` reactive block in `formatting_toolbar.svelte:100` calls `get_active_marks(view)` — but since `view` is a prop set once at mount, this derived value only recomputes when Svelte's reactivity system detects a prop change. **It won't detect ProseMirror state transitions** because ProseMirror mutates `view.state` in-place without creating a new `EditorView` object. The active marks shown will be stale until the component is unmounted and remounted.
 
@@ -50,21 +50,27 @@ Every `update()` call recreates the anchor and fires an async `compute_floating_
 ```ts
 if (anchor_el) {
   anchor_el.remove();
-  anchor_el = create_anchor(view);        // new anchor from current selection
+  anchor_el = create_anchor(view); // new anchor from current selection
   document.body.appendChild(anchor_el);
 }
 
-void compute_floating_position(anchor_el, toolbar_el, "top").then(({ x, y }) => {
-  if (!toolbar_el) return;
-  Object.assign(toolbar_el.style, { position: "absolute", left: `${x}px`, top: `${y}px` });
-});
+void compute_floating_position(anchor_el, toolbar_el, "top").then(
+  ({ x, y }) => {
+    if (!toolbar_el) return;
+    Object.assign(toolbar_el.style, {
+      position: "absolute",
+      left: `${x}px`,
+      top: `${y}px`,
+    });
+  },
+);
 ```
 
 **The problem:** `compute_floating_position` is async (uses `@floating-ui/dom`'s `computePosition` which measures layout). If the user drags their selection quickly, multiple `update()` calls fire before the first `.then()` resolves. Each call:
 
 1. Removes the old anchor
 2. Creates a new anchor at new position
-3. Fires positioning that reads `anchor_el` (which is now the *new* one)
+3. Fires positioning that reads `anchor_el` (which is now the _new_ one)
 
 The earlier `.then()` callbacks still fire and write to `toolbar_el.style`, but their computed positions were based on a now-removed anchor. The `if (!toolbar_el) return` guard prevents writes after toolbar removal, but does **not** prevent writes from stale computations while the toolbar is still visible.
 
@@ -138,6 +144,7 @@ case "image": {
 ```
 
 `window.prompt()` is synchronous and blocking. While the prompt dialog is open:
+
 - ProseMirror's update cycle is frozen
 - The toolbar's backdrop is still in the DOM but non-interactive
 - Selection state may change if the user interacts with the editor after dismissing
@@ -153,11 +160,14 @@ In a Tauri app, `prompt()` behavior depends on the webview — it may not even r
 **File:** `formatting_toolbar_plugin.ts:47-48, 124-125`
 
 Anchor element:
+
 ```ts
-anchor.style.cssText = "position:fixed;pointer-events:none;opacity:0;z-index:-1;";
+anchor.style.cssText =
+  "position:fixed;pointer-events:none;opacity:0;z-index:-1;";
 ```
 
 Toolbar positioning callback:
+
 ```ts
 Object.assign(toolbar_el.style, {
   position: "absolute",
@@ -192,15 +202,15 @@ This means the active mark indicators (bold/italic/etc. highlight state) are fro
 
 ## Summary
 
-| # | Issue | Severity | Category |
-|---|-------|----------|----------|
-| 1 | Stale `view` captured in Svelte mount closure | **High** | Synchronicity |
-| 2 | Async positioning races on rapid selection | **High** | Synchronicity |
-| 3 | `setBlockType` used for wrapping node (blockquote) | **Medium** | Correctness |
-| 4 | Manual list wrapping ignores multi-block selection | **Medium** | Correctness |
-| 5 | `prompt()` blocks event loop, broken in Tauri | **Medium** | UX / Platform |
-| 6 | Fixed vs absolute position mismatch | **Low** | Fragility |
-| 7 | `$derived` on non-reactive view object | **Low** | Reactivity |
+| #   | Issue                                              | Severity   | Category      |
+| --- | -------------------------------------------------- | ---------- | ------------- |
+| 1   | Stale `view` captured in Svelte mount closure      | **High**   | Synchronicity |
+| 2   | Async positioning races on rapid selection         | **High**   | Synchronicity |
+| 3   | `setBlockType` used for wrapping node (blockquote) | **Medium** | Correctness   |
+| 4   | Manual list wrapping ignores multi-block selection | **Medium** | Correctness   |
+| 5   | `prompt()` blocks event loop, broken in Tauri      | **Medium** | UX / Platform |
+| 6   | Fixed vs absolute position mismatch                | **Low**    | Fragility     |
+| 7   | `$derived` on non-reactive view object             | **Low**    | Reactivity    |
 
 Issues 1 and 2 are the synchronicity/state bugs you suspected. Issue 1 is the more dangerous one — it can cause commands to dispatch against stale state, potentially corrupting the document or losing user edits during buffer switches.
 
@@ -217,6 +227,7 @@ The `on_select` floating mode is the root cause of both high-severity issues and
 **Files:** `formatting_toolbar_plugin.ts`, `toolbar_extension.ts`
 
 Strip from the plugin:
+
 - `create_anchor()` function and `anchor_el` variable
 - `backdrop_el` and `create_backdrop()` usage
 - `compute_floating_position()` import and all async positioning
@@ -225,10 +236,12 @@ Strip from the plugin:
 - `Z_FORMATTING_TOOLBAR` import (no longer needed for floating z-index)
 
 Strip from the extension:
+
 - `show_toolbar()` / `hide_toolbar()` toggle lifecycle (the floating show/hide pair)
 - The `on_show` / `on_hide` callbacks passed to the plugin factory
 
 The plugin becomes a simple mode switch:
+
 ```ts
 update(view) {
   const mode = config.toolbar_visibility;
@@ -281,6 +294,7 @@ In the Svelte component, the `get_view` getter is called on each button click �
 **File:** `formatting_toolbar_commands.ts`
 
 Replace:
+
 ```ts
 case "blockquote": {
   const node = get_node_type("blockquote");
@@ -290,6 +304,7 @@ case "blockquote": {
 ```
 
 With:
+
 ```ts
 case "blockquote": {
   const node = get_node_type("blockquote");

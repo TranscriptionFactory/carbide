@@ -1,4 +1,5 @@
 # MCP Transport Extensions + Terminal Bug Fixes
+
 **Date:** 2026-04-06
 **Branch targets:** `feat/mcp-streamable-http`, then `feat/mcp-stdio-proxy`; terminal bugs on current branch
 **Companion:** `2026-04-05_conversation_work_units.md` — these are candidates for Steps 13–16 interleaving
@@ -25,6 +26,7 @@ Three terminal bugs were also found during this review and should ship first (sm
 **Problem:** Only the active session is rendered. Switching tabs destroys the xterm.js instance (`onDestroy` → `terminal.dispose()`), losing the entire scrollback buffer. Re-activating creates a blank terminal.
 
 **Current:**
+
 ```svelte
 {#each session_ids as session_id (session_id)}
   {#if session_id === active_session_id}
@@ -34,6 +36,7 @@ Three terminal bugs were also found during this review and should ship first (sm
 ```
 
 **Fix:** render all session views; control visibility through the `active` prop (which already drives CSS `display: none / block`):
+
 ```svelte
 {#each session_ids as session_id (session_id)}
   <TerminalSessionView {session_id} active={session_id === active_session_id} />
@@ -51,15 +54,17 @@ The `TerminalSessionView` CSS already handles this correctly. The `active` prop 
 **Problem:** When a session has `cwd_policy: "fixed"`, the `fixed_cwd` passed to `resolve_terminal_session_target` is always the current vault path, not the session's stored cwd. If the user opened a session at `/home/user/project` and later switches vaults, respawning uses the vault path.
 
 **Current:**
+
 ```ts
 const target = resolve_terminal_session_target({
   follow_active_vault: stores.ui.editor_settings.terminal_follow_active_vault,
   followed_cwd: stores.vault.vault?.path ?? undefined,
-  fixed_cwd: stores.vault.vault?.path ?? undefined,  // wrong for existing sessions
+  fixed_cwd: stores.vault.vault?.path ?? undefined, // wrong for existing sessions
 });
 ```
 
 **Fix:** read stored session cwd:
+
 ```ts
 const session = stores.terminal.get_session(session_id);
 const target = resolve_terminal_session_target({
@@ -101,6 +106,7 @@ reset(): void {
 ```
 
 **Update actions:**
+
 ```ts
 // terminal_toggle: only hide/show, never kill
 if (ui_store.bottom_panel_open && ui_store.bottom_panel_tab === "terminal") {
@@ -127,6 +133,7 @@ terminal_store.open();
 **Problem:** `reconcile_session` calls `respawn_session` unconditionally, which kills the process. For sessions with `respawn_policy: "manual"`, only metadata should update — not the running shell.
 
 **Fix:**
+
 ```ts
 async reconcile_session(session_id: string, input: TerminalSessionReconcileInput): Promise<string> {
   const session = this.terminal_store.get_session(session_id);
@@ -161,13 +168,13 @@ async reconcile_session(session_id: string, input: TerminalSessionReconcileInput
 
 ### What the spec requires (MVP scope)
 
-| Feature | In scope | Notes |
-|---------|----------|-------|
-| POST `/mcp` with `Content-Type: application/json` response | Already implemented | Keep as default |
-| POST `/mcp` with `Accept: text/event-stream` → SSE response | **Yes** | Main new behavior |
-| `Mcp-Session-Id` header on `initialize` | **Yes** | Clients expect this |
-| `Mcp-Session-Id` validation on subsequent requests | Soft (log, don't reject) | Stateless tools make hard validation unnecessary |
-| GET `/mcp` (server-initiated push) | Stub only | No server-push events yet; return empty SSE stream |
+| Feature                                                     | In scope                 | Notes                                              |
+| ----------------------------------------------------------- | ------------------------ | -------------------------------------------------- |
+| POST `/mcp` with `Content-Type: application/json` response  | Already implemented      | Keep as default                                    |
+| POST `/mcp` with `Accept: text/event-stream` → SSE response | **Yes**                  | Main new behavior                                  |
+| `Mcp-Session-Id` header on `initialize`                     | **Yes**                  | Clients expect this                                |
+| `Mcp-Session-Id` validation on subsequent requests          | Soft (log, don't reject) | Stateless tools make hard validation unnecessary   |
+| GET `/mcp` (server-initiated push)                          | Stub only                | No server-push events yet; return empty SSE stream |
 
 ### Unit: Streamable HTTP in `http.rs` — **Rust session**
 
@@ -178,6 +185,7 @@ Axum 0.8 has built-in SSE via `axum::response::sse`. No new dependencies needed.
 #### Changes
 
 **1. Session ID generation helper:**
+
 ```rust
 fn new_session_id() -> String {
     let mut bytes = [0u8; 16];
@@ -194,6 +202,7 @@ fn new_session_id() -> String {
 ```
 
 **3. POST handler — branch on `Accept` header:**
+
 ```rust
 async fn mcp_post_handler(
     State(state): State<Arc<HttpAppState>>,
@@ -246,6 +255,7 @@ async fn mcp_post_handler(
 ```
 
 **4. SSE response helper:**
+
 ```rust
 fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
     use axum::response::sse::{Event, KeepAlive, Sse};
@@ -259,6 +269,7 @@ fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
 ```
 
 **5. GET `/mcp` stub — empty SSE stream for spec compliance:**
+
 ```rust
 async fn mcp_get_handler(
     State(state): State<Arc<HttpAppState>>,
@@ -277,6 +288,7 @@ async fn mcp_get_handler(
 If `futures` isn't already in `Cargo.toml`, add it — or use `tokio_stream::once` which is already available via `tokio`.
 
 #### Tests (6 new)
+
 - POST with `Accept: text/event-stream` returns `Content-Type: text/event-stream`
 - POST without SSE accept returns `Content-Type: application/json` (existing behavior preserved)
 - POST initialize returns `Mcp-Session-Id` header
@@ -289,6 +301,7 @@ If `futures` isn't already in `Cargo.toml`, add it — or use `tokio_stream::onc
 **File:** `src-tauri/src/features/mcp/setup.rs`
 
 Add `"type": "http"` to the Desktop entry for consistency with Code entry:
+
 ```rust
 fn build_desktop_entry(token: &str) -> serde_json::Value {
     serde_json::json!({
@@ -313,6 +326,7 @@ Update 2 existing config tests to assert `"type": "http"` in the Desktop entry.
 ### What this enables
 
 Claude Desktop's traditional flow: it spawns `carbide mcp` as a child process, communicates over stdin/stdout. Config becomes:
+
 ```json
 {
   "mcpServers": {
@@ -323,11 +337,13 @@ Claude Desktop's traditional flow: it spawns `carbide mcp` as a child process, c
   }
 }
 ```
+
 The app must be running for this to work. `ensure_running()` already handles launching it.
 
 ### Unit: `carbide mcp` subcommand — **Rust session**
 
 **Files:**
+
 - `src-tauri/crates/carbide-cli/src/main.rs` (add `Mcp` variant)
 - `src-tauri/crates/carbide-cli/src/commands/mcp.rs` (new)
 - `src-tauri/crates/carbide-cli/src/client.rs` (add `post_mcp`)
@@ -481,6 +497,7 @@ pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
 ```
 
 Extend `SetupStatus` with `cli_installed: bool`:
+
 ```rust
 pub struct SetupStatus {
     pub claude_desktop_configured: bool,
@@ -498,6 +515,7 @@ Frontend `McpSetupStatus` type and settings UI get a new indicator: if `!cli_ins
 **Note:** The HTTP config is retained for Claude Code (`.mcp.json` with `type: "http"`). Desktop gets stdio; Code gets HTTP. This matches how each client actually works.
 
 #### Tests (3 new)
+
 - `post_mcp` extracts data from SSE response
 - `post_mcp` passes through plain JSON response
 - `run_stdio_proxy` skips empty lines (unit test with mock client)
@@ -597,14 +615,14 @@ Carbide is running
 
 ## Summary: Work units
 
-| Unit | Files | Session type | Effort |
-|------|-------|--------------|--------|
-| Terminal bugs 1–3 + design issue | 4 TS/Svelte + 2 test files | TypeScript/Svelte | Small |
-| Streamable HTTP POST + GET stub | `http.rs` | Rust | Small-medium |
-| Desktop config `type: "http"` | `setup.rs` | Rust | Trivial (fold into above) |
-| `carbide mcp` + `post_mcp` + timeout extraction | `main.rs`, `commands/mcp.rs`, `client.rs` | Rust | Small |
-| Desktop stdio config + `cli_installed` | `setup.rs` + frontend type | Rust + TS | Small |
-| `carbide setup` subcommand | `main.rs`, `commands/setup.rs`, `cli_routes.rs` | Rust | Trivial (fold into stdio session) |
-| MCP/CLI info in `carbide status` | `main.rs` | Rust | Trivial (fold into stdio session) |
+| Unit                                            | Files                                           | Session type      | Effort                            |
+| ----------------------------------------------- | ----------------------------------------------- | ----------------- | --------------------------------- |
+| Terminal bugs 1–3 + design issue                | 4 TS/Svelte + 2 test files                      | TypeScript/Svelte | Small                             |
+| Streamable HTTP POST + GET stub                 | `http.rs`                                       | Rust              | Small-medium                      |
+| Desktop config `type: "http"`                   | `setup.rs`                                      | Rust              | Trivial (fold into above)         |
+| `carbide mcp` + `post_mcp` + timeout extraction | `main.rs`, `commands/mcp.rs`, `client.rs`       | Rust              | Small                             |
+| Desktop stdio config + `cli_installed`          | `setup.rs` + frontend type                      | Rust + TS         | Small                             |
+| `carbide setup` subcommand                      | `main.rs`, `commands/setup.rs`, `cli_routes.rs` | Rust              | Trivial (fold into stdio session) |
+| MCP/CLI info in `carbide status`                | `main.rs`                                       | Rust              | Trivial (fold into stdio session) |
 
 All terminal fixes ship in one session. MCP work is two Rust sessions (Streamable HTTP, then stdio proxy + CLI additions).

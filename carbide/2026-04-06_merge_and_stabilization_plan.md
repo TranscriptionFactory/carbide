@@ -2,6 +2,7 @@
 
 **Date:** 2026-04-06
 **Inputs:**
+
 - `2026-04-06_branch_ancestry_and_merge_order.md` — branch topology
 - `2026-04-06_extended_tools_branch_audit.md` — audit of feat/extended-tools
 - `2026-04-06_mcp_transports_terminal_plan.md` — MCP transport improvements + terminal bugs
@@ -83,26 +84,26 @@ These fix real user-facing bugs. Ship before any refactoring.
 **Source:** `2026-04-06_mcp_transports_terminal_plan.md` → "Terminal Bug Fixes"
 **Branch:** `fix/terminal-session-lifecycle`
 
-| # | Bug | File | Fix |
-|---|-----|------|-----|
-| 1 | Tab switch destroys xterm instance, loses scrollback | `terminal_panel_content.svelte:155-159` | Remove `{#if}` guard — render all sessions, control visibility via `active` prop |
-| 2 | `fixed_cwd` ignores stored session cwd | `terminal_session_view.svelte:39-44` | Read `session?.cwd` instead of always using vault path |
-| 3 | Toggle/close kills all PTY processes | `terminal_actions.ts`, `terminal_store.svelte.ts` | Split `close()` into `hide()` (panel only) and `reset()` (destructive) |
-| 4 | `reconcile_session` respawns manual-policy sessions | `terminal_service.ts:202-216` | Check `respawn_policy` before killing process |
+| #   | Bug                                                  | File                                              | Fix                                                                              |
+| --- | ---------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1   | Tab switch destroys xterm instance, loses scrollback | `terminal_panel_content.svelte:155-159`           | Remove `{#if}` guard — render all sessions, control visibility via `active` prop |
+| 2   | `fixed_cwd` ignores stored session cwd               | `terminal_session_view.svelte:39-44`              | Read `session?.cwd` instead of always using vault path                           |
+| 3   | Toggle/close kills all PTY processes                 | `terminal_actions.ts`, `terminal_store.svelte.ts` | Split `close()` into `hide()` (panel only) and `reset()` (destructive)           |
+| 4   | `reconcile_session` respawns manual-policy sessions  | `terminal_service.ts:202-216`                     | Check `respawn_policy` before killing process                                    |
 
 ### 2b. Floating Toolbar Fixes — 1 session, ~4 files
 
 **Source:** `2026-04-06_floating_toolbar_review.md`
 **Branch:** `fix/formatting-toolbar`
 
-| # | Fix | Severity | Approach |
-|---|-----|----------|----------|
-| 1 | Strip `on_select` mode + all floating positioning code | High | Remove `create_anchor`, `backdrop_el`, `compute_floating_position`, the entire `on_select` branch |
-| 2 | Fix stale view capture in Svelte mount | High | Pass `() => toolbar_view` getter instead of `view` directly |
-| 3 | Use `wrapIn` for blockquote | Medium | Replace `setBlockType(blockquote)` with `wrapIn(blockquote)` |
-| 4 | Use `wrapInList` for bullet/ordered lists | Medium | Replace manual list construction with `wrapInList` from prosemirror-schema-list |
-| 5 | Replace `prompt()` with command event pattern | Medium | Gate link/image behind `is_command_available: false` until async input UI built |
-| 6 | Remove `on_select` from `ToolbarVisibility` type | Cleanup | Remove the enum value, update settings type |
+| #   | Fix                                                    | Severity | Approach                                                                                          |
+| --- | ------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------- |
+| 1   | Strip `on_select` mode + all floating positioning code | High     | Remove `create_anchor`, `backdrop_el`, `compute_floating_position`, the entire `on_select` branch |
+| 2   | Fix stale view capture in Svelte mount                 | High     | Pass `() => toolbar_view` getter instead of `view` directly                                       |
+| 3   | Use `wrapIn` for blockquote                            | Medium   | Replace `setBlockType(blockquote)` with `wrapIn(blockquote)`                                      |
+| 4   | Use `wrapInList` for bullet/ordered lists              | Medium   | Replace manual list construction with `wrapInList` from prosemirror-schema-list                   |
+| 5   | Replace `prompt()` with command event pattern          | Medium   | Gate link/image behind `is_command_available: false` until async input UI built                   |
+| 6   | Remove `on_select` from `ToolbarVisibility` type       | Cleanup  | Remove the enum value, update settings type                                                       |
 
 ---
 
@@ -117,12 +118,14 @@ Work in priority order. Each item is a separate branch.
 **Priority 1 from audit. Highest-leverage refactor.**
 
 Create `src-tauri/src/features/mcp/shared_ops.rs`:
+
 - Extract vault path resolution + service call patterns from both `cli_routes.rs` and `tools/*.rs`
 - Each shared op returns a structured result type
 - MCP tools format as `ToolResult` text
 - CLI routes return as JSON
 
 Simultaneously:
+
 - Add Axum auth middleware layer to the CLI router (kills 30+ copy-pasted `check_auth` calls)
 - Consolidate overlapping param structs between `cli_routes.rs` and `tools/*.rs`
 
@@ -131,6 +134,7 @@ Simultaneously:
 ### 3b. DRY fixes — `refactor/mcp-dry`
 
 Small, low-risk:
+
 - Extract `prop()` helper to `tools/mod.rs` (currently copy-pasted in 7 modules)
 - Extract `VaultArgs` to `tools/mod.rs` (duplicated in git.rs, graph.rs)
 - Remove unused `SmartLinkRule.config` field from Rust types + TS types
@@ -158,6 +162,7 @@ If in-process stdio is still desired (e.g., for a future non-Tauri binary), keep
 ### 4a. Streamable HTTP — `feat/mcp-streamable-http`
 
 Single Rust session. Adds SSE response support to existing `/mcp` POST handler:
+
 - Branch on `Accept: text/event-stream` header
 - `Mcp-Session-Id` header on initialize
 - GET `/mcp` stub (empty SSE stream for spec compliance)
@@ -166,6 +171,7 @@ Single Rust session. Adds SSE response support to existing `/mcp` POST handler:
 ### 4b. stdio via CLI proxy — `feat/mcp-stdio-proxy`
 
 Single Rust session. Adds `carbide mcp` subcommand:
+
 - Reads stdin line-by-line, POSTs to `/mcp`, writes response to stdout
 - `ensure_running_with_timeout` extraction (30s for cold launch)
 - Update Desktop setup to write stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`)
