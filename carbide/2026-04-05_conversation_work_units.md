@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 19 / 46 units complete
+**Progress:** 20 / 46 units complete
 
 ---
 
@@ -196,8 +196,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status`. Each ~5-10 lines.
   - _Completed 2026-04-05 `757dbab0`. New `cli_routes.rs` module with 9 authenticated POST routes nested under `/cli`. Each route is a thin adapter: deserializes JSON params, delegates to existing service functions (notes_service::list_notes, search_db::search, search_db::list_all_tags, search_db::list_all_properties, search_db::get_note_headings, vault_service::list_vaults, vault_service::get_last_vault_id), returns JSON. Read uses direct disk IO (same as MCP tools, bypasses BufferManager). Files endpoint supports optional folder filter. Search caps limit at 200. Added token() accessor to HttpAppState. 8 tests (3 status endpoint with auth, 5 serialization). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.4** `/cli/*` REST routes — write operations — **Rust session**
+- [x] **7.4** `/cli/*` REST routes — write operations — **Rust session**
   - `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete`. Can combine with 7.3 if thin enough.
+  - _Completed 2026-04-05 `5cf5a6dd`. Seven new authenticated POST routes in cli_routes.rs. Each is a thin adapter: create calls notes_service::create_note (with overwrite support via direct atomic_write), write/append/prepend use direct disk IO (bypass BufferManager — CLI has no editor session), rename calls notes_service::rename_note, move calls notes_service::move_items (single item), delete calls notes_service::delete_note. Prepend inserts after YAML frontmatter when present using find_frontmatter_end helper. Append ensures trailing newline before appending. 11 new tests (7 param deserialization + 4 frontmatter boundary detection). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **7.5** CLI crate scaffold + core read commands — **Rust session**
   - Files: `src-tauri/crates/carbide-cli/` — `main.rs`, `client.rs`, `auth.rs`, `vault.rs`, `format.rs`, `commands/notes.rs`, `commands/search.rs`
