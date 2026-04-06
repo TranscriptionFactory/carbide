@@ -1,17 +1,17 @@
 import type { SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
-import type {
-  LinksStore,
-  SuggestedLink,
-} from "$lib/features/links/state/links_store.svelte";
-import type { VaultId, NoteId, NotePath } from "$lib/shared/types/ids";
+import type { LinksStore } from "$lib/features/links/state/links_store.svelte";
+import type { VaultId } from "$lib/shared/types/ids";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import { extract_local_links } from "../domain/extract_local_links";
-import type { SmartLinkSuggestion } from "$lib/features/smart_links";
+import {
+  merge_suggestions,
+  path_to_note_meta,
+} from "../domain/merge_suggestions";
 
 const log = create_logger("links_service");
 
@@ -27,21 +27,6 @@ function uri_to_relative_path(uri: string, vault_path: string): string | null {
   let relative = decoded.slice(prefix.length);
   if (relative.startsWith("/")) relative = relative.slice(1);
   return relative;
-}
-
-function path_to_note_meta(path: string): NoteMeta {
-  const name = path.split("/").pop()?.replace(/\.md$/i, "") ?? path;
-  return {
-    id: path as NoteId,
-    path: path as NotePath,
-    name,
-    title: name,
-    blurb: "",
-    mtime_ms: 0,
-    ctime_ms: 0,
-    size_bytes: 0,
-    file_type: null,
-  };
 }
 
 export class LinksService {
@@ -212,47 +197,4 @@ export class LinksService {
     this.last_local_markdown = null;
     this.links_store.clear();
   }
-}
-
-function smart_suggestion_to_suggested_link(
-  s: SmartLinkSuggestion,
-): SuggestedLink {
-  return {
-    note: path_to_note_meta(s.targetPath),
-    similarity: s.score,
-    rules: s.rules,
-  };
-}
-
-function merge_suggestions(
-  semantic_hits: { note: NoteMeta; distance: number }[],
-  smart_suggestions: SmartLinkSuggestion[],
-  similarity_threshold: number,
-  limit: number,
-): SuggestedLink[] {
-  const by_path = new Map<string, SuggestedLink>();
-
-  for (const hit of semantic_hits) {
-    const similarity = 1 - hit.distance;
-    if (similarity <= similarity_threshold) continue;
-    by_path.set(hit.note.path, {
-      note: hit.note,
-      similarity,
-      rules: [{ ruleId: "semantic_similarity", rawScore: similarity }],
-    });
-  }
-
-  for (const s of smart_suggestions) {
-    const existing = by_path.get(s.targetPath);
-    if (existing) {
-      existing.similarity = Math.max(existing.similarity, s.score);
-      existing.rules = [...(existing.rules ?? []), ...s.rules];
-    } else {
-      by_path.set(s.targetPath, smart_suggestion_to_suggested_link(s));
-    }
-  }
-
-  return [...by_path.values()]
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit);
 }
