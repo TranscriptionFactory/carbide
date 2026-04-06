@@ -2008,6 +2008,22 @@
   color: color-mix(in oklch, var(--interactive) 70%, var(--muted-foreground));
 }
 
+.SlashMenu__badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  margin-top: 1px;
+  width: fit-content;
+}
+
+.SlashMenu__item--selected .SlashMenu__badge {
+  background: color-mix(in oklch, var(--interactive) 20%, transparent);
+  color: var(--interactive);
+}
+
 .SlashMenu__empty {
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);

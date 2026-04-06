@@ -127,4 +127,50 @@ describe("PluginStore", () => {
     store.reset_registries();
     expect(store.settings_tabs).toHaveLength(0);
   });
+
+  it("should register and unregister slash commands", () => {
+    const cmd = {
+      id: "test:cite",
+      name: "Cite",
+      description: "Insert citation",
+      plugin_id: "test",
+    };
+
+    store.register_slash_command(cmd);
+    expect(store.slash_commands).toHaveLength(1);
+    expect(store.slash_commands[0]?.id).toBe("test:cite");
+
+    store.unregister_slash_command("test:cite");
+    expect(store.slash_commands).toHaveLength(0);
+  });
+
+  it("should clear slash commands on reset", () => {
+    store.register_slash_command({
+      id: "test:cmd",
+      name: "Test",
+      description: "Test",
+      plugin_id: "test",
+    });
+
+    store.reset_registries();
+    expect(store.slash_commands).toHaveLength(0);
+  });
+
+  it("should overwrite slash command with same id", () => {
+    store.register_slash_command({
+      id: "test:cmd",
+      name: "V1",
+      description: "First",
+      plugin_id: "test",
+    });
+    store.register_slash_command({
+      id: "test:cmd",
+      name: "V2",
+      description: "Second",
+      plugin_id: "test",
+    });
+
+    expect(store.slash_commands).toHaveLength(1);
+    expect(store.slash_commands[0]?.name).toBe("V2");
+  });
 });

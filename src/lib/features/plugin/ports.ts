@@ -23,6 +23,15 @@ export interface PluginSettingSchema {
   max?: number;
 }
 
+export interface SlashCommandContribution {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  keywords?: string[];
+  permission?: string;
+}
+
 export interface PluginContributes {
   settings?: PluginSettingSchema[];
   ribbon_icons?: {
@@ -31,6 +40,7 @@ export interface PluginContributes {
     tooltip: string;
     command: string;
   }[];
+  slash_commands?: SlashCommandContribution[];
 }
 
 export interface PluginManifest {
