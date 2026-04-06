@@ -13,6 +13,7 @@ export type SettingsCategory =
   | "terminal"
   | "graph"
   | "semantic"
+  | "mcp"
   | "misc"
   | "toolchain"
   | "hotkeys";

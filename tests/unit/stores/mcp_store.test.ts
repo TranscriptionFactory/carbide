@@ -25,4 +25,21 @@ describe("McpStore", () => {
     expect(store.transport).toBeNull();
     expect(store.is_running).toBe(false);
   });
+
+  it("starts with null setup_status", () => {
+    const store = new McpStore();
+    expect(store.setup_status).toBeNull();
+  });
+
+  it("set_setup_status stores the status", () => {
+    const store = new McpStore();
+    const status = {
+      claudeDesktopConfigured: true,
+      claudeCodeConfigured: false,
+      httpPort: 3457,
+      tokenExists: true,
+    };
+    store.set_setup_status(status);
+    expect(store.setup_status).toEqual(status);
+  });
 });
