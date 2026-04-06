@@ -326,7 +326,7 @@ pub fn git_create_tag(vault_path: String, name: String, message: String) -> Resu
     Ok(())
 }
 
-fn collect_git_log(
+pub(crate) fn collect_git_log(
     vault_path: &str,
     file_path: Option<&str>,
     limit: usize,
