@@ -2,29 +2,25 @@
 
 **Date:** 2026-04-06
 **Inputs:**
-- `2026-04-06_branch_ancestry_and_merge_order.md` — branch topology (partially incorrect, corrected below)
+- `2026-04-06_branch_ancestry_and_merge_order.md` — branch topology
 - `2026-04-06_extended_tools_branch_audit.md` — audit of feat/extended-tools
 - `2026-04-06_mcp_transports_terminal_plan.md` — MCP transport improvements + terminal bugs
 - `2026-04-06_floating_toolbar_review.md` — formatting toolbar bugs
 
 ---
 
-## Corrected Branch Topology
-
-The ancestry doc states `feat/editor-drag-blocks` branched directly from `main`. This is wrong. It branched from `feat/extended-tools`:
+## Branch Topology
 
 ```
-main (39cab98d)  ←  1 commit ahead of extended-tools (agent automation docs)
-  ↑
-ff7fb7b1 (feat/extended-tools HEAD = merge base)
-  ↑
-feat/extended-tools  ←  72 commits above d6a4759 (original main)
-  └─ feat/editor-drag-blocks  ←  9 commits on top
+d6a47599 (v1.13.0, original main)
+  ├─ 39cab98d (current main HEAD, +1 doc commit)
+  ├─ feat/extended-tools  ←  72 commits (Steps 1-12, the full feature stack)
+  └─ feat/editor-drag-blocks  ←  9 commits (Step 13, independent)
 ```
 
-This means merging `feat/extended-tools` into main is NOT a fast-forward — main has diverged by 1 commit. It's a trivial merge commit (docs only), but not a fast-forward.
+Both feature branches diverged from `d6a47599`. They share no commits. `feat/editor-drag-blocks` is 15 files, +1,061 lines — all editor domain code with good test coverage (515 lines tests / 386 lines code). It does not touch any MCP, CLI, smart links, or plugin code.
 
-`feat/editor-drag-blocks` includes all `feat/extended-tools` commits plus its own 9. After `feat/extended-tools` is merged, `feat/editor-drag-blocks` becomes a simple 9-commit delta.
+Merging `feat/extended-tools` into main requires a merge commit (main diverged by 1 doc commit). `feat/editor-drag-blocks` is a separate 3-way merge — optional, see below.
 
 ---
 
@@ -46,10 +42,10 @@ git merge feat/extended-tools -m "Merge feat/extended-tools: MCP server, HTTP AP
 pnpm check && pnpm lint && pnpm test
 cd src-tauri && cargo check && cd ..
 
-# 4. Merge editor drag blocks
+# 4. (Optional) Merge editor drag blocks — see decision below
 git merge feat/editor-drag-blocks -m "Merge feat/editor-drag-blocks: block detection plugin + drag-and-drop (Step 13)"
 
-# 5. Verify again (check for conflicts in extensions/index.ts, editor.css)
+# 5. Verify again
 pnpm check && pnpm lint && pnpm test
 
 # 6. Cleanup stale branch
@@ -58,14 +54,23 @@ git branch -d feat/smart-linking-plan
 # 7. Cleanup merged stack branches (all contained in main now)
 git branch -d feat/mcp-stdio feat/metadata-headings-cmd feat/metadata-foundations \
   feat/metadata-enrichment feat/smart-linking feat/http-cli feat/metadata-file-cache \
-  feat/plugin-hardening feat/block-embeddings feat/extended-tools feat/editor-drag-blocks
+  feat/plugin-hardening feat/block-embeddings feat/extended-tools
+# Only if merged: git branch -d feat/editor-drag-blocks
 ```
 
 ### Expected Conflicts
 
 The `feat/extended-tools` merge may conflict on files modified by `39cab98d` (agent automation docs). Likely trivial — docs-only.
 
-The `feat/editor-drag-blocks` merge should be clean (it's a superset of `feat/extended-tools`), but watch `extensions/index.ts` for adjacent import conflicts.
+The `feat/editor-drag-blocks` merge (if done) will be a 3-way merge from the `d6a47599` base. Expect conflicts in `extensions/index.ts` (adjacent imports from both branches) and possibly `editor.css` (both add styles in different sections). The drag blocks code itself is clean — 15 files, all editor-focused, no overlap with MCP/CLI/smart-links/plugins.
+
+### Decision: `feat/editor-drag-blocks`
+
+This is **optional and independent**. The feature is self-contained (block detection plugin, drag handles, drop reordering) with good tests. It does not interact with any audit concerns.
+
+- **Merge now** if you want the feature and are comfortable with the implementation
+- **Defer** if you'd rather stabilize the stack first and review drag blocks separately
+- **Leave on branch** indefinitely — it won't conflict with any planned work since it touches only editor domain code
 
 ---
 
@@ -189,7 +194,7 @@ Expect ~10-15 conflicts concentrated in `create_app_context.ts`, `reactors/index
 ## Ordering Summary
 
 ```
-Phase 1: Merge stack + drag blocks into main          ← do first, unblocks everything
+Phase 1: Merge feat/extended-tools into main           ← do first, unblocks everything
   │
   ├─ Phase 2a: Terminal bug fixes                      ← high impact, independent
   ├─ Phase 2b: Floating toolbar fixes                  ← high impact, independent
@@ -201,7 +206,9 @@ Phase 1: Merge stack + drag blocks into main          ← do first, unblocks eve
   ├─ Phase 4a: Streamable HTTP                         ← independent of 3
   ├─ Phase 4b: stdio CLI proxy                         ← depends on 4a
   │
+  ├─ (Optional) Merge feat/editor-drag-blocks          ← independent, can merge anytime
+  │
   └─ Phase 5: carbide-lite rebase                      ← after main is stable
 ```
 
-Phases 2a, 2b, 3a, 3b can all run in parallel. Phase 4 can start as soon as Phase 1 is done. Phase 5 waits for everything else.
+Phases 2a, 2b, 3a, 3b can all run in parallel. Phase 4 can start as soon as Phase 1 is done. Phase 5 waits for everything else. `feat/editor-drag-blocks` is independent — merge whenever you're comfortable with it.
