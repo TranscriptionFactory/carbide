@@ -115,6 +115,27 @@ describe("TerminalStore", () => {
     expect(store.focused).toBe(false);
   });
 
+  it("hide closes the panel but preserves sessions", () => {
+    const store = new TerminalStore();
+    store.open();
+    store.ensure_session({
+      id: DEFAULT_TERMINAL_SESSION_ID,
+      shell_path: "/bin/zsh",
+      cwd: "/vault",
+      cwd_policy: "follow_active_vault",
+      respawn_policy: "on_context_change",
+    });
+    store.set_focused(true);
+
+    store.hide();
+
+    expect(store.panel_open).toBe(false);
+    expect(store.focused).toBe(false);
+    expect(store.active_session_id).toBe(DEFAULT_TERMINAL_SESSION_ID);
+    expect(store.session_ids).toEqual([DEFAULT_TERMINAL_SESSION_ID]);
+    expect(store.sessions.size).toBe(1);
+  });
+
   it("close resets the panel and session state", () => {
     const store = new TerminalStore();
     store.open();

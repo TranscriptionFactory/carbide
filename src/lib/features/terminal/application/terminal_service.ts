@@ -203,6 +203,20 @@ export class TerminalService {
     session_id: string,
     input: TerminalSessionReconcileInput,
   ): Promise<string> {
+    if (input.respawn_policy === "manual") {
+      this.terminal_store.ensure_session(
+        {
+          id: session_id,
+          shell_path: input.shell_path,
+          cwd: input.cwd ?? null,
+          cwd_policy: input.cwd_policy,
+          respawn_policy: input.respawn_policy,
+        },
+        { activate: false },
+      );
+      return session_id;
+    }
+
     const runtime = this.ensure_runtime(session_id);
 
     return this.respawn_session(session_id, {
