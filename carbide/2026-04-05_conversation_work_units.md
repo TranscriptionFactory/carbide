@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 17 / 46 units complete
+**Progress:** 18 / 46 units complete
 
 ---
 
@@ -188,8 +188,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Axum on port 3457. Bearer token from `~/.carbide/mcp-token`. `GET /health`. CORS localhost-only.
   - _Completed 2026-04-05 `5d150d0e`. New `auth.rs` (token read/create/verify with constant-time comparison via `subtle`) and `http.rs` (Axum server scaffold with health endpoint, CORS localhost-only, HttpServerState lifecycle with graceful shutdown, 3 Tauri commands). Token auto-generated as 32 random bytes hex-encoded at `~/.carbide/mcp-token` with 0o600 permissions. HttpAppState holds AppHandle + token for authenticated routes (7.2+). Dependencies: axum 0.8, tower 0.5, tower-http 0.6, subtle 2, rand 0.8, hex 0.4. 14 tests (5 auth + 9 http). Wired into app/mod.rs (managed state, shutdown, invoke handler). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.2** `/mcp` JSON-RPC route — **Rust session**
+- [x] **7.2** `/mcp` JSON-RPC route — **Rust session**
   - Thin adapter — same tool dispatch as stdio. Test with curl. Small — can combine with 7.1.
+  - _Completed 2026-04-05 `79382bab`. Added POST /mcp route to Axum HTTP server in http.rs. Bearer token auth, JSON-RPC 2.0 parsing, dispatches to McpRouter (same as stdio). Notifications return 204 No Content. Stateless — creates fresh McpRouter per request (HTTP has no session). 7 new tests using test-only handler (avoids AppHandle dependency): auth rejection (missing + wrong token), malformed JSON parse error, ping, tools/list, unknown method, notification. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **7.3** `/cli/*` REST routes — read operations — **Rust session**
   - `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status`. Each ~5-10 lines.
