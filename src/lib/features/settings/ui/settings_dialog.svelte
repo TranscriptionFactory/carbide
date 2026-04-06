@@ -20,6 +20,7 @@
   import WrenchIcon from "@lucide/svelte/icons/wrench";
   import { toast } from "svelte-sonner";
   import { HotkeysPanel } from "$lib/features/hotkey";
+  import { SmartLinksSettings } from "$lib/features/smart_links";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
   import type {
@@ -3419,6 +3420,12 @@
                 </button>
               </div>
             </div>
+          </div>
+
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Smart Link Rules</h3>
+          <div class="SettingsDialog__section-content">
+            <SmartLinksSettings />
           </div>
         {:else if active_category === "misc"}
           <h2 class="SettingsDialog__content-header">Misc</h2>
