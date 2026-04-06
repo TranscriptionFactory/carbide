@@ -125,6 +125,13 @@ export function create_app_context(input: {
     stores.plugin_settings,
   );
 
+  plugin_service.set_vault_file_lister(async () => {
+    const vault = stores.vault.vault;
+    if (!vault) return [];
+    const notes = await input.ports.notes.list_notes(vault.id);
+    return notes.map((n) => n.path);
+  });
+
   plugin_service.on_plugin_cleanup((plugin_id) => {
     stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
   });

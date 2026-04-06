@@ -4,8 +4,11 @@ import type { Component } from "svelte";
 
 export type ActivationEvent =
   | "on_startup"
+  | "on_startup_finished"
   | `on_command:${string}`
   | `on_file_open:${string}`
+  | `on_file_type:${string}`
+  | `vault_contains:${string}`
   | "on_settings_open";
 
 export interface PluginSettingSchema {

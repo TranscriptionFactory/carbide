@@ -728,4 +728,196 @@ describe("PluginService", () => {
 
     vi.useRealTimers();
   });
+
+  it("should_activate matches on_startup_finished for declared plugins", () => {
+    const { service, store } = create_harness();
+    store.plugins.set("deferred", {
+      manifest: make_manifest({
+        id: "deferred",
+        activation_events: ["on_startup_finished"],
+      }),
+      path: "/vault/.carbide/plugins/deferred",
+      enabled: true,
+      status: "idle",
+    });
+
+    expect(service.should_activate("deferred", "on_startup")).toBe(false);
+    expect(service.should_activate("deferred", "on_startup_finished")).toBe(
+      true,
+    );
+  });
+
+  it("should_activate matches on_file_type case-insensitively", () => {
+    const { service, store } = create_harness();
+    store.plugins.set("bib-plugin", {
+      manifest: make_manifest({
+        id: "bib-plugin",
+        activation_events: ["on_file_type:bib"],
+      }),
+      path: "/vault/.carbide/plugins/bib-plugin",
+      enabled: true,
+      status: "idle",
+    });
+
+    expect(service.should_activate("bib-plugin", "on_file_type:bib")).toBe(
+      true,
+    );
+    expect(service.should_activate("bib-plugin", "on_file_type:BIB")).toBe(
+      true,
+    );
+    expect(service.should_activate("bib-plugin", "on_file_type:csv")).toBe(
+      false,
+    );
+  });
+
+  it("activate_matching loads on_startup_finished plugins", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("deferred", {
+      manifest: make_manifest({
+        id: "deferred",
+        activation_events: ["on_startup_finished"],
+      }),
+      path: "/vault/.carbide/plugins/deferred",
+      enabled: true,
+      status: "idle",
+    });
+    store.plugins.set("startup", {
+      manifest: make_manifest({
+        id: "startup",
+        activation_events: ["on_startup"],
+      }),
+      path: "/vault/.carbide/plugins/startup",
+      enabled: true,
+      status: "active",
+    });
+
+    await service.activate_matching("on_startup_finished");
+
+    expect(host.load).toHaveBeenCalledWith("/test/vault", "deferred");
+    expect(host.load).toHaveBeenCalledTimes(1);
+    expect(store.plugins.get("deferred")?.status).toBe("active");
+  });
+
+  it("activate_for_file_type activates matching plugins", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("csv-tool", {
+      manifest: make_manifest({
+        id: "csv-tool",
+        activation_events: ["on_file_type:csv"],
+      }),
+      path: "/vault/.carbide/plugins/csv-tool",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.activate_for_file_type("data/report.csv");
+
+    expect(host.load).toHaveBeenCalledWith("/test/vault", "csv-tool");
+    expect(store.plugins.get("csv-tool")?.status).toBe("active");
+  });
+
+  it("activate_for_file_type skips files with no extension", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("csv-tool", {
+      manifest: make_manifest({
+        id: "csv-tool",
+        activation_events: ["on_file_type:csv"],
+      }),
+      path: "/vault/.carbide/plugins/csv-tool",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.activate_for_file_type("Makefile");
+
+    expect(host.load).not.toHaveBeenCalled();
+  });
+
+  it("activate_for_file_type skips already-active plugins", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("csv-tool", {
+      manifest: make_manifest({
+        id: "csv-tool",
+        activation_events: ["on_file_type:csv"],
+      }),
+      path: "/vault/.carbide/plugins/csv-tool",
+      enabled: true,
+      status: "active",
+    });
+
+    await service.activate_for_file_type("data.csv");
+
+    expect(host.load).not.toHaveBeenCalled();
+  });
+
+  it("initialize_active_vault activates vault_contains plugins when lister provided", async () => {
+    const { service, store, host } = create_harness();
+    service.set_vault_file_lister(async () => [
+      "notes/readme.md",
+      ".zotero-connector",
+    ]);
+
+    store.plugins.set("zotero", {
+      manifest: make_manifest({
+        id: "zotero",
+        activation_events: ["vault_contains:.zotero-connector"],
+      }),
+      path: "/vault/.carbide/plugins/zotero",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.initialize_active_vault();
+
+    expect(host.load).toHaveBeenCalledWith("/test/vault", "zotero");
+    expect(store.plugins.get("zotero")?.status).toBe("active");
+  });
+
+  it("initialize_active_vault skips vault_contains when no lister", async () => {
+    const { service, store, host } = create_harness();
+    store.plugins.set("zotero", {
+      manifest: make_manifest({
+        id: "zotero",
+        activation_events: ["vault_contains:.zotero-connector"],
+      }),
+      path: "/vault/.carbide/plugins/zotero",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.initialize_active_vault();
+
+    expect(store.plugins.get("zotero")?.status).toBe("idle");
+  });
+
+  it("initialize_active_vault fires on_startup_finished after vault_contains", async () => {
+    const { service, store, host } = create_harness();
+    const load_order: string[] = [];
+    vi.mocked(host.load).mockImplementation(async (_vault, id) => {
+      load_order.push(id);
+    });
+
+    store.plugins.set("startup-p", {
+      manifest: make_manifest({
+        id: "startup-p",
+        activation_events: ["on_startup"],
+      }),
+      path: "/vault/.carbide/plugins/startup-p",
+      enabled: true,
+      status: "idle",
+    });
+    store.plugins.set("deferred-p", {
+      manifest: make_manifest({
+        id: "deferred-p",
+        activation_events: ["on_startup_finished"],
+      }),
+      path: "/vault/.carbide/plugins/deferred-p",
+      enabled: true,
+      status: "idle",
+    });
+
+    await service.initialize_active_vault();
+
+    expect(load_order).toEqual(["startup-p", "deferred-p"]);
+  });
 });

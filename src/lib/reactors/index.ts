@@ -40,6 +40,7 @@ import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.
 import { create_reference_library_load_reactor } from "$lib/reactors/reference_library_load.reactor.svelte";
 import { create_linked_source_tree_reactor } from "$lib/reactors/linked_source_tree.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
+import { create_plugin_file_type_reactor } from "$lib/reactors/plugin_file_type.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -293,6 +294,10 @@ export function mount_reactors(context: ReactorContext): () => void {
     ),
     create_plugin_lifecycle_reactor(
       context.vault_store,
+      context.plugin_service,
+    ),
+    create_plugin_file_type_reactor(
+      context.editor_store,
       context.plugin_service,
     ),
     create_markdown_lsp_lifecycle_reactor(

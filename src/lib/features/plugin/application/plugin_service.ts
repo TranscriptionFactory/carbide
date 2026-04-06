@@ -24,6 +24,11 @@ import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
 import { create_logger } from "$lib/shared/utils/logger";
 import { merge_plugin_settings_schema } from "./plugin_settings_schema";
+import {
+  should_activate_for_events,
+  extract_file_extension,
+  file_matches_vault_contains,
+} from "../domain/match_activation_event";
 
 const log = create_logger("plugin_service");
 
@@ -40,6 +45,7 @@ export class PluginService {
     string,
     ReturnType<typeof setTimeout>
   >();
+  private list_vault_files: (() => Promise<string[]>) | null = null;
 
   constructor(
     private store: PluginStore,
@@ -52,6 +58,10 @@ export class PluginService {
     this.event_bus.set_event_listener((plugin_id, event) => {
       this.deliver_event(plugin_id, event);
     });
+  }
+
+  set_vault_file_lister(lister: () => Promise<string[]>) {
+    this.list_vault_files = lister;
   }
 
   initialize_rpc(context: PluginRpcContext) {
@@ -264,9 +274,7 @@ export class PluginService {
   should_activate(plugin_id: string, event: ActivationEvent): boolean {
     const plugin = this.store.plugins.get(plugin_id);
     if (!plugin) return false;
-    const events = plugin.manifest.activation_events;
-    if (!events || events.length === 0) return event === "on_startup";
-    return events.includes(event);
+    return should_activate_for_events(plugin.manifest.activation_events, event);
   }
 
   async activate_matching(event: ActivationEvent) {
@@ -288,7 +296,54 @@ export class PluginService {
     await this.settings_service?.load();
     await this.discover();
     await this.activate_matching("on_startup");
+    await this.activate_vault_contains_plugins();
+    await this.activate_matching("on_startup_finished");
     await this.start_hot_reload();
+  }
+
+  async activate_for_file_type(file_path: string) {
+    const ext = extract_file_extension(file_path);
+    if (!ext) return;
+    await this.activate_matching(`on_file_type:${ext}`);
+  }
+
+  private async activate_vault_contains_plugins() {
+    if (!this.list_vault_files) return;
+
+    const patterns = new Set<string>();
+    for (const plugin of this.store.plugins.values()) {
+      if (!plugin.enabled || plugin.status !== "idle") continue;
+      const events = plugin.manifest.activation_events;
+      if (!events) continue;
+      for (const event of events) {
+        if (event.startsWith("vault_contains:")) {
+          patterns.add(event.slice("vault_contains:".length));
+        }
+      }
+    }
+
+    if (patterns.size === 0) return;
+
+    let file_paths: string[];
+    try {
+      file_paths = await this.list_vault_files();
+    } catch (e) {
+      log.from_error("Failed to list vault files for vault_contains check", e);
+      return;
+    }
+
+    const matched_patterns = new Set<string>();
+    for (const file_path of file_paths) {
+      for (const pattern of patterns) {
+        if (matched_patterns.has(pattern)) continue;
+        if (file_matches_vault_contains(file_path, pattern)) {
+          matched_patterns.add(pattern);
+          await this.activate_matching(
+            `vault_contains:${file_path}` as ActivationEvent,
+          );
+        }
+      }
+    }
   }
 
   async load_plugin(id: string) {
