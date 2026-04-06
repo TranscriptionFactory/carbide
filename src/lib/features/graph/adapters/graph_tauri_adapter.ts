@@ -15,6 +15,7 @@ type TauriNoteMeta = {
   name: string;
   blurb: string;
   mtime_ms: number;
+  ctime_ms: number;
   size_bytes: number;
   file_type: string | null;
 };
@@ -38,6 +39,7 @@ function to_note_meta(note: TauriNoteMeta): NoteMeta {
     name: note.name,
     blurb: note.blurb,
     mtime_ms: note.mtime_ms,
+    ctime_ms: note.ctime_ms,
     size_bytes: note.size_bytes,
     file_type: note.file_type,
   };

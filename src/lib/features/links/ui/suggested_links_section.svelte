@@ -3,6 +3,11 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import {
+    rule_chip_label,
+    rule_chip_title,
+    type SmartLinkRuleMatch,
+  } from "$lib/features/smart_links";
 
   const { stores, action_registry } = use_app_context();
 
@@ -15,6 +20,10 @@
 
   function insert_link(title: string) {
     void action_registry.execute(ACTION_IDS.links_insert_suggested_link, title);
+  }
+
+  function has_rules(rules: SmartLinkRuleMatch[] | undefined): boolean {
+    return rules !== undefined && rules.length > 0;
   }
 </script>
 
@@ -37,6 +46,16 @@
           <span class="SuggestedLinksSection__item-badge">
             {similarity_label(suggestion.similarity)}
           </span>
+          {#if has_rules(suggestion.rules)}
+            {#each suggestion.rules as rule (rule.ruleId)}
+              <span
+                class="SuggestedLinksSection__rule-chip"
+                title={rule_chip_title(rule)}
+              >
+                {rule_chip_label(rule.ruleId)}
+              </span>
+            {/each}
+          {/if}
         </div>
         <button
           type="button"
@@ -79,6 +98,7 @@
     gap: var(--space-1);
     min-width: 0;
     flex: 1;
+    flex-wrap: wrap;
   }
 
   .SuggestedLinksSection__item-title {
@@ -95,6 +115,16 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 var(--space-1);
+  }
+
+  .SuggestedLinksSection__rule-chip {
+    flex-shrink: 0;
+    font-size: 10px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+    background-color: var(--muted);
     border-radius: var(--radius-sm);
     padding: 0 var(--space-1);
   }

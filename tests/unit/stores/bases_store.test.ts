@@ -11,6 +11,7 @@ function make_note_row(id: string): BaseNoteRow {
       title: id,
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },
@@ -32,7 +33,7 @@ function make_note_row(id: string): BaseNoteRow {
 }
 
 function make_property(name: string): PropertyInfo {
-  return { name, property_type: "text", count: 1 };
+  return { name, property_type: "text", count: 1, unique_values: null };
 }
 
 describe("BasesStore", () => {

@@ -22,6 +22,7 @@ import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 
 import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
+import type { McpPort } from "$lib/features/mcp";
 import type { SavedQueryPort } from "$lib/features/query";
 import type {
   ReferenceStoragePort,
@@ -64,4 +65,5 @@ export type Ports = {
   citation: CitationPort;
   doi_lookup: DoiLookupPort;
   linked_source: LinkedSourcePort;
+  mcp: McpPort;
 };

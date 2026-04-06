@@ -18,8 +18,11 @@
   import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
   import WrenchIcon from "@lucide/svelte/icons/wrench";
+  import CableIcon from "@lucide/svelte/icons/cable";
   import { toast } from "svelte-sonner";
   import { HotkeysPanel } from "$lib/features/hotkey";
+  import { SmartLinksSettings } from "$lib/features/smart_links";
+  import { McpSettings } from "$lib/features/mcp";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
   import type {
@@ -382,6 +385,7 @@
     { id: "terminal", label: "Terminal", icon: TerminalIcon },
     { id: "graph", label: "Graph", icon: NetworkIcon },
     { id: "semantic", label: "Semantic", icon: BrainIcon },
+    { id: "mcp", label: "MCP", icon: CableIcon },
     { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "toolchain", label: "Tools", icon: WrenchIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
@@ -3419,6 +3423,20 @@
                 </button>
               </div>
             </div>
+          </div>
+
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Smart Link Rules</h3>
+          <div class="SettingsDialog__section-content">
+            <SmartLinksSettings />
+          </div>
+        {:else if active_category === "mcp"}
+          <h2 class="SettingsDialog__content-header">MCP</h2>
+          <div class="SettingsDialog__section-content">
+            <McpSettings
+              mcp_enabled={editor_settings.mcp_enabled}
+              on_toggle_mcp={(v) => update("mcp_enabled", v)}
+            />
           </div>
         {:else if active_category === "misc"}
           <h2 class="SettingsDialog__content-header">Misc</h2>

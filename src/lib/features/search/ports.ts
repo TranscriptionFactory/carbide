@@ -13,6 +13,11 @@ import type {
 } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { ExternalLink } from "$lib/features/links";
+import type {
+  SmartLinkRuleGroup,
+  SmartLinkSuggestion,
+} from "$lib/features/smart_links";
+import type { FileCache } from "$lib/features/metadata";
 
 export type { IndexProgressEvent };
 
@@ -109,6 +114,17 @@ export interface SearchPort {
   get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
   rebuild_embeddings(vault_id: VaultId): Promise<void>;
   get_note_stats(vault_id: VaultId, note_path: string): Promise<NoteStats>;
+  get_file_cache(vault_id: VaultId, note_path: string): Promise<FileCache>;
+  load_smart_link_rules(vault_id: VaultId): Promise<SmartLinkRuleGroup[]>;
+  save_smart_link_rules(
+    vault_id: VaultId,
+    rules: SmartLinkRuleGroup[],
+  ): Promise<void>;
+  compute_smart_link_suggestions(
+    vault_id: VaultId,
+    note_path: string,
+    limit?: number,
+  ): Promise<SmartLinkSuggestion[]>;
 }
 
 export interface WorkspaceIndexPort {

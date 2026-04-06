@@ -230,5 +230,24 @@ export function create_test_ports(): Ports {
       update_linked_metadata: () => Promise.resolve(false),
       resolve_home_dir: () => Promise.resolve("/Users/test"),
     },
+    mcp: {
+      start: () =>
+        Promise.resolve({ status: "running" as const, transport: "stdio" }),
+      stop: () => Promise.resolve(),
+      get_status: () =>
+        Promise.resolve({ status: "stopped" as const, transport: null }),
+      setup_claude_desktop: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
+      setup_claude_code: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
+      regenerate_token: () => Promise.resolve("mock_token"),
+      get_setup_status: () =>
+        Promise.resolve({
+          claudeDesktopConfigured: false,
+          claudeCodeConfigured: false,
+          httpPort: 3457,
+          tokenExists: false,
+        }),
+    },
   };
 }

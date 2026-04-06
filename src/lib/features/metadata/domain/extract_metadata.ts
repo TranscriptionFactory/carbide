@@ -2,6 +2,7 @@ import { parse_to_mdast } from "$lib/features/editor";
 import { visit } from "unist-util-visit";
 import { parse as parse_yaml } from "yaml";
 import type { NoteMetadata, NoteProperty, NoteTag } from "../types";
+import { infer_property_type } from "./infer_property_type";
 
 const INLINE_TAG_RE = /(?:^|\s)#([a-zA-Z][\w/-]*)/g;
 
@@ -32,10 +33,11 @@ export function extract_metadata(markdown: string): NoteMetadata {
           }
         }
       } else {
+        const type = infer_property_type(value);
         properties.push({
           key,
           value: typeof value === "string" ? value : JSON.stringify(value),
-          type: Array.isArray(value) ? "array" : typeof value,
+          type,
         });
       }
     }

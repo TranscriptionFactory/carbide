@@ -1,5 +1,5 @@
-import type { NoteMetadata } from "./types";
+import type { FileCache } from "./types";
 
 export interface MetadataPort {
-  get_note_metadata(vault_id: string, path: string): Promise<NoteMetadata>;
+  get_file_cache(vault_id: string, path: string): Promise<FileCache>;
 }

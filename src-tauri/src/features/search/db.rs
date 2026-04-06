@@ -154,13 +154,14 @@ pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNo
             .unwrap_or_default()
             .to_string()
     };
-    let (mtime_ms, size_bytes) = notes_service::file_meta(abs)?;
+    let (mtime_ms, ctime_ms, size_bytes) = notes_service::file_meta(abs)?;
     Ok(IndexNoteMeta {
         id: rel.clone(),
         path: rel,
         title: name.clone(),
         name,
         mtime_ms,
+        ctime_ms,
         size_bytes,
         file_type: None,
         source: None,
@@ -306,6 +307,14 @@ struct ExtractedSection {
     start_line: i64,
     end_line: i64,
     word_count: i64,
+}
+
+struct ExtractedLink {
+    target: String,
+    display_text: String,
+    link_type: &'static str,
+    anchor: Option<String>,
+    section_heading: Option<String>,
 }
 
 fn extract_markdown_structure(
@@ -558,6 +567,97 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
     tags
 }
 
+fn extract_links(markdown: &str, headings: &[ExtractedHeading]) -> Vec<ExtractedLink> {
+    use regex::Regex;
+    use std::sync::LazyLock;
+
+    static WIKI_LINK_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(!?)\[\[([^\]\n]+?)]]").unwrap());
+
+    let mut links = Vec::new();
+    let mut in_frontmatter = false;
+    let mut in_code_block = false;
+
+    let lines: Vec<&str> = markdown.lines().collect();
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+
+        if line_idx == 0 && trimmed == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if trimmed == "---" {
+                in_frontmatter = false;
+            }
+            continue;
+        }
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+
+        let section_heading = headings
+            .iter()
+            .rev()
+            .find(|h| h.line <= line_idx as i64)
+            .map(|h| h.text.clone());
+
+        for caps in WIKI_LINK_RE.captures_iter(line) {
+            let is_embed = &caps[1] == "!";
+            let inner = &caps[2];
+
+            let (target_part, display) = match inner.split_once('|') {
+                Some((t, d)) => (t.trim(), d.trim().to_string()),
+                None => (inner.trim(), inner.trim().to_string()),
+            };
+
+            let (target, anchor) = match target_part.split_once('#') {
+                Some((t, a)) => (t, Some(a.to_string())),
+                None => (target_part, None),
+            };
+
+            let target_str = if target.is_empty() && anchor.is_some() {
+                String::new()
+            } else {
+                target.to_string()
+            };
+
+            links.push(ExtractedLink {
+                target: target_str,
+                display_text: display,
+                link_type: if is_embed { "embed" } else { "wikilink" },
+                anchor,
+                section_heading: section_heading.clone(),
+            });
+        }
+    }
+
+    links
+}
+
+fn sync_links(conn: &Connection, path: &str, links: &[ExtractedLink]) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM note_links WHERE source_path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for link in links {
+        conn.execute(
+            "INSERT INTO note_links (source_path, target_path, link_text, link_type, section_heading, target_anchor) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![path, link.target, link.display_text, link.link_type, link.section_heading, link.anchor],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn sync_tags(conn: &Connection, path: &str, tags: &[ExtractedTag]) -> Result<(), String> {
     conn.execute(
         "DELETE FROM note_inline_tags WHERE path = ?1",
@@ -785,6 +885,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         "file_type TEXT DEFAULT 'markdown'",
         "page_offsets TEXT DEFAULT NULL",
         "source TEXT DEFAULT 'vault'",
+        "ctime_ms INTEGER DEFAULT 0",
         // Linked-source metadata columns (unified note model)
         "citekey TEXT",
         "authors TEXT",
@@ -842,7 +943,7 @@ pub fn upsert_note_simple(
     conn: &Connection,
     meta: &IndexNoteMeta,
     raw_markdown: &str,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -857,8 +958,8 @@ pub fn upsert_note_simple(
     let reading_time_secs = word_count * 60 / 200;
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
+        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
     )
     .map_err(|e| e.to_string())?;
 
@@ -877,7 +978,16 @@ pub fn upsert_note_simple(
     sync_code_blocks(conn, &meta.path, &code_blocks)?;
     sync_sections(conn, &meta.path, &sections)?;
 
-    Ok(())
+    let links = extract_links(raw_markdown, &headings);
+    sync_links(conn, &meta.path, &links)?;
+
+    let targets: Vec<String> = links
+        .iter()
+        .filter(|l| l.link_type == "wikilink" && !l.target.is_empty())
+        .map(|l| l.target.clone())
+        .collect();
+
+    Ok(targets)
 }
 
 pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
@@ -885,7 +995,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
         .map_err(|e| e.to_string())?;
     let result = upsert_note_simple(conn, meta, body);
     match result {
-        Ok(()) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
+        Ok(_targets) => conn.execute_batch("COMMIT").map_err(|e| e.to_string()),
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
             Err(e)
@@ -893,7 +1003,7 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
     }
 }
 
-fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
+fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<Vec<String>, String> {
     upsert_note_simple(conn, meta, body)
 }
 
@@ -919,8 +1029,8 @@ fn upsert_plain_content(
     };
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7, ?8, ?9, ?10)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
+        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, ?11)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
     )
     .map_err(|e| e.to_string())?;
 
@@ -956,6 +1066,7 @@ pub fn upsert_linked_content(
         title: title.to_string(),
         name,
         mtime_ms: modified_at as i64,
+        ctime_ms: modified_at as i64,
         size_bytes: body.len() as i64,
         file_type: Some(file_type.to_string()),
         source: Some("linked".to_string()),
@@ -1487,7 +1598,7 @@ pub fn compute_sync_plan(
         match manifest.get(&rel) {
             None => added.push(abs.clone()),
             Some(&(db_mtime, db_size)) => match notes_service::file_meta(abs) {
-                Ok((disk_mtime, disk_size)) => {
+                Ok((disk_mtime, _, disk_size)) => {
                     if disk_mtime != db_mtime || disk_size != db_size {
                         modified.push(abs.clone());
                     } else {
@@ -1662,8 +1773,8 @@ fn index_single_file_text(
         pending_links.push((meta.path.clone(), targets));
     } else if abs.extension().and_then(|x| x.to_str()) == Some("md") {
         meta.title = extract_title_from_markdown(raw).unwrap_or_else(|| meta.name.clone());
-        upsert_note_inner(conn, meta, raw)?;
-        pending_links.push((meta.path.clone(), vec![]));
+        let targets = upsert_note_inner(conn, meta, raw)?;
+        pending_links.push((meta.path.clone(), targets));
         let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
         crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
         let props = extract_frontmatter_properties(raw);
@@ -2042,6 +2153,7 @@ fn note_meta_from_row_cols(
         title,
         name,
         mtime_ms: row.get(2)?,
+        ctime_ms: 0,
         size_bytes: row.get(3)?,
         file_type,
         source: None,
@@ -2060,21 +2172,22 @@ fn note_meta_with_stats_from_row(
         title,
         name,
         mtime_ms: row.get(2)?,
-        size_bytes: row.get(3)?,
-        file_type: row.get(10).ok(),
+        ctime_ms: row.get::<_, i64>(3).unwrap_or(0),
+        size_bytes: row.get(4)?,
+        file_type: row.get(11).ok(),
         source: None,
     };
     let stats = crate::features::search::model::NoteStats {
-        word_count: row.get(4).unwrap_or(0),
-        char_count: row.get(5).unwrap_or(0),
-        heading_count: row.get(6).unwrap_or(0),
-        outlink_count: row.get(7).unwrap_or(0),
-        reading_time_secs: row.get(8).unwrap_or(0),
-        task_count: row.get(11).unwrap_or(0),
-        tasks_done: row.get(12).unwrap_or(0),
-        tasks_todo: row.get(13).unwrap_or(0),
-        next_due_date: row.get(14).ok().flatten(),
-        last_indexed_at: row.get(9).unwrap_or(0),
+        word_count: row.get(5).unwrap_or(0),
+        char_count: row.get(6).unwrap_or(0),
+        heading_count: row.get(7).unwrap_or(0),
+        outlink_count: row.get(8).unwrap_or(0),
+        reading_time_secs: row.get(9).unwrap_or(0),
+        task_count: row.get(12).unwrap_or(0),
+        tasks_done: row.get(13).unwrap_or(0),
+        tasks_todo: row.get(14).unwrap_or(0),
+        next_due_date: row.get(15).ok().flatten(),
+        last_indexed_at: row.get(10).unwrap_or(0),
     };
     Ok((meta, stats))
 }
@@ -2227,6 +2340,7 @@ pub fn fuzzy_suggest(
                     title,
                     name,
                     mtime_ms,
+                    ctime_ms: 0,
                     size_bytes,
                     file_type,
                     source: None,
@@ -2332,6 +2446,83 @@ pub fn get_note_stats(
     .map_err(|e| e.to_string())
 }
 
+pub fn get_note_headings(
+    conn: &Connection,
+    path: &str,
+) -> Result<Vec<crate::features::search::model::NoteHeading>, String> {
+    let mut stmt = conn
+        .prepare("SELECT level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path], |row| {
+            Ok(crate::features::search::model::NoteHeading {
+                level: row.get(0)?,
+                text: row.get(1)?,
+                line: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+pub fn get_note_links(
+    conn: &Connection,
+    path: &str,
+) -> Result<Vec<crate::features::search::model::NoteLink>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT target_path, link_text, link_type, section_heading, target_anchor FROM note_links WHERE source_path = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path], |row| {
+            Ok(crate::features::search::model::NoteLink {
+                target_path: row.get(0)?,
+                link_text: row.get(1)?,
+                link_type: row.get(2)?,
+                section_heading: row.get(3)?,
+                target_anchor: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+pub fn get_file_cache(
+    conn: &Connection,
+    path: &str,
+) -> Result<crate::features::search::model::FileCache, String> {
+    let (mtime_ms, ctime_ms, size_bytes) = conn
+        .query_row(
+            "SELECT mtime_ms, ctime_ms, size_bytes FROM notes WHERE path = ?1",
+            params![path],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+        )
+        .map_err(|e| format!("Note not found: {e}"))?;
+
+    let stats = get_note_stats(conn, path)?;
+    let frontmatter = get_note_properties(conn, path)?;
+    let tags = get_note_tags(conn, path)?;
+    let headings = get_note_headings(conn, path)?;
+    let all_links = get_note_links(conn, path)?;
+
+    let (embeds, links): (Vec<_>, Vec<_>) = all_links
+        .into_iter()
+        .partition(|l| l.link_type == "embed");
+
+    Ok(crate::features::search::model::FileCache {
+        frontmatter,
+        tags,
+        headings,
+        links,
+        embeds,
+        stats,
+        ctime_ms,
+        mtime_ms,
+        size_bytes,
+    })
+}
+
 #[allow(dead_code)]
 pub fn get_index_meta(conn: &Connection, key: &str) -> Option<String> {
     conn.query_row(
@@ -2397,6 +2588,7 @@ mod tests {
             title: title.to_string(),
             name: file_stem_string(Path::new(path)),
             mtime_ms: 100,
+            ctime_ms: 50,
             size_bytes: 10,
             file_type: None,
             source: None,
@@ -2640,6 +2832,60 @@ mod tests {
             .expect("priority key");
         assert_eq!(priority.property_type, "number");
         assert_eq!(priority.count, 1);
+    }
+
+    #[test]
+    fn list_all_properties_returns_unique_values_when_low_cardinality() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("uv/a.md", "A"), "body").expect("upsert");
+        upsert_note(&conn, &note("uv/b.md", "B"), "body").expect("upsert");
+        upsert_note(&conn, &note("uv/c.md", "C"), "body").expect("upsert");
+        insert_prop(&conn, "uv/a.md", "status", "active", "string");
+        insert_prop(&conn, "uv/b.md", "status", "done", "string");
+        insert_prop(&conn, "uv/c.md", "status", "active", "string");
+        insert_prop(&conn, "uv/a.md", "priority", "1", "number");
+
+        let props = list_all_properties(&conn).expect("list");
+        let status = props.iter().find(|p| p.name == "status").unwrap();
+        let uv = status.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv.len(), 2);
+        assert!(uv.contains(&"active".to_string()));
+        assert!(uv.contains(&"done".to_string()));
+
+        let priority = props.iter().find(|p| p.name == "priority").unwrap();
+        let uv = priority.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv, &vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn list_all_properties_skips_unique_values_when_high_cardinality() {
+        let conn = open_mem_db();
+        for i in 0..101 {
+            let path = format!("hc/{}.md", i);
+            upsert_note(&conn, &note(&path, &format!("N{}", i)), "body").expect("upsert");
+            insert_prop(&conn, &path, "id", &format!("id-{}", i), "string");
+        }
+
+        let props = list_all_properties(&conn).expect("list");
+        let id_prop = props.iter().find(|p| p.name == "id").unwrap();
+        assert!(id_prop.unique_values.is_none());
+    }
+
+    #[test]
+    fn list_all_properties_unique_values_sorted_and_capped_at_20() {
+        let conn = open_mem_db();
+        for i in 0..25 {
+            let path = format!("cap/{}.md", i);
+            upsert_note(&conn, &note(&path, &format!("N{}", i)), "body").expect("upsert");
+            insert_prop(&conn, &path, "color", &format!("color-{:02}", i), "string");
+        }
+
+        let props = list_all_properties(&conn).expect("list");
+        let color = props.iter().find(|p| p.name == "color").unwrap();
+        let uv = color.unique_values.as_ref().expect("should have unique_values");
+        assert_eq!(uv.len(), 20);
+        assert_eq!(uv[0], "color-00");
+        assert_eq!(uv[19], "color-19");
     }
 
     #[test]
@@ -3250,6 +3496,122 @@ mod tests {
     }
 
     #[test]
+    fn get_note_headings_returns_ordered_results() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("gh.md", "GH");
+        let body = "# Alpha\n\nText.\n\n## Beta\n\nMore.\n\n### Gamma";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let headings = get_note_headings(&conn, "gh.md").expect("query");
+        assert_eq!(headings.len(), 3);
+        assert_eq!(headings[0].level, 1);
+        assert_eq!(headings[0].text, "Alpha");
+        assert_eq!(headings[0].line, 0);
+        assert_eq!(headings[1].level, 2);
+        assert_eq!(headings[1].text, "Beta");
+        assert_eq!(headings[2].level, 3);
+        assert_eq!(headings[2].text, "Gamma");
+    }
+
+    #[test]
+    fn get_note_headings_returns_empty_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let headings = get_note_headings(&conn, "nonexistent.md").expect("query");
+        assert!(headings.is_empty());
+    }
+
+    #[test]
+    fn upsert_note_populates_note_links_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("links.md", "Links");
+        let body = "# Section A\n\nSee [[other-note]] and [[folder/deep|Deep Note]].\n\n## Section B\n\nEmbed: ![[image.png]]";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let links = get_note_links(&conn, "links.md").expect("query");
+        assert_eq!(links.len(), 3);
+
+        assert_eq!(links[0].target_path, "other-note");
+        assert_eq!(links[0].link_text, "other-note");
+        assert_eq!(links[0].link_type, "wikilink");
+        assert_eq!(links[0].section_heading.as_deref(), Some("Section A"));
+        assert!(links[0].target_anchor.is_none());
+
+        assert_eq!(links[1].target_path, "folder/deep");
+        assert_eq!(links[1].link_text, "Deep Note");
+        assert_eq!(links[1].link_type, "wikilink");
+
+        assert_eq!(links[2].target_path, "image.png");
+        assert_eq!(links[2].link_type, "embed");
+        assert_eq!(links[2].section_heading.as_deref(), Some("Section B"));
+    }
+
+    #[test]
+    fn extract_links_with_anchors() {
+        let headings = vec![];
+        let links = extract_links("Check [[note#heading]] here", &headings);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "note");
+        assert_eq!(links[0].anchor.as_deref(), Some("heading"));
+        assert_eq!(links[0].display_text, "note#heading");
+    }
+
+    #[test]
+    fn extract_links_skips_code_blocks() {
+        let headings = vec![];
+        let md = "[[visible]]\n```\n[[hidden]]\n```\n[[also-visible]]";
+        let links = extract_links(md, &headings);
+        let targets: Vec<&str> = links.iter().map(|l| l.target.as_str()).collect();
+        assert_eq!(targets, vec!["visible", "also-visible"]);
+    }
+
+    #[test]
+    fn extract_links_skips_frontmatter() {
+        let headings = vec![];
+        let md = "---\naliases: [[hidden]]\n---\n[[visible]]";
+        let links = extract_links(md, &headings);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "visible");
+    }
+
+    #[test]
+    fn extract_links_multiple_per_line() {
+        let headings = vec![];
+        let md = "See [[alpha]] and [[beta]] and ![[gamma]]";
+        let links = extract_links(md, &headings);
+        assert_eq!(links.len(), 3);
+        assert_eq!(links[0].target, "alpha");
+        assert_eq!(links[1].target, "beta");
+        assert_eq!(links[2].target, "gamma");
+        assert_eq!(links[2].link_type, "embed");
+    }
+
+    #[test]
+    fn upsert_note_simple_returns_wikilink_targets() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("src.md", "Src");
+        let body = "Link to [[target-a]] and ![[embed.png]] and [[target-b]]";
+        let targets = upsert_note_simple(&conn, &meta, body).expect("upsert");
+        assert_eq!(targets, vec!["target-a", "target-b"]);
+    }
+
+    #[test]
+    fn get_note_links_returns_empty_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let links = get_note_links(&conn, "nonexistent.md").expect("query");
+        assert!(links.is_empty());
+    }
+
+    #[test]
     fn upsert_note_populates_sections_table() {
         let conn = Connection::open_in_memory().expect("in-memory db");
         init_schema(&conn).expect("schema");
@@ -3322,6 +3684,61 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn get_file_cache_assembles_all_tables() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("cache.md", "Cache Test");
+        let body = "---\ntitle: Cache Test\ntags: [rust, test]\n---\n# Heading\n\nSome content with [[target]] and ![[embed.png]].\n\n## Sub heading";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let props = extract_frontmatter_properties(body);
+        save_properties(&conn, "cache.md", &props).expect("properties");
+
+        let cache = get_file_cache(&conn, "cache.md").expect("file cache");
+
+        assert_eq!(cache.mtime_ms, 100);
+        assert_eq!(cache.ctime_ms, 50);
+        assert_eq!(cache.size_bytes, 10);
+        assert!(cache.stats.word_count > 0);
+        assert_eq!(cache.headings.len(), 2);
+        assert_eq!(cache.headings[0].text, "Heading");
+        assert_eq!(cache.headings[1].text, "Sub heading");
+        assert!(cache.frontmatter.contains_key("title"));
+        assert_eq!(cache.frontmatter["title"].0, "Cache Test");
+    }
+
+    #[test]
+    fn get_file_cache_separates_links_and_embeds() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("linky.md", "Linky");
+        let body = "Hello [[note-a]] and ![[embed.png]] plus [[note-b]].";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let cache = get_file_cache(&conn, "linky.md").expect("file cache");
+
+        let link_targets: Vec<&str> = cache.links.iter().map(|l| l.target_path.as_str()).collect();
+        let embed_targets: Vec<&str> = cache.embeds.iter().map(|l| l.target_path.as_str()).collect();
+
+        assert!(link_targets.contains(&"note-a"));
+        assert!(link_targets.contains(&"note-b"));
+        assert!(embed_targets.contains(&"embed.png"));
+        assert!(!link_targets.contains(&"embed.png"));
+    }
+
+    #[test]
+    fn get_file_cache_returns_error_for_missing_note() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let result = get_file_cache(&conn, "nonexistent.md");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Note not found"));
     }
 }
 
@@ -3715,12 +4132,44 @@ pub fn list_all_properties(
                 name: row.get(0)?,
                 property_type: row.get(1)?,
                 count: row.get(2)?,
+                unique_values: None,
             })
         })
         .map_err(|e| e.to_string())?;
 
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())
+    let mut props: Vec<_> = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut uv_stmt = conn
+        .prepare(
+            "SELECT value FROM (
+                 SELECT value, ROW_NUMBER() OVER (ORDER BY value) AS rn
+                 FROM (SELECT DISTINCT value FROM note_properties WHERE key = ?1)
+             ) WHERE rn <= 20",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut count_stmt = conn
+        .prepare("SELECT COUNT(DISTINCT value) FROM note_properties WHERE key = ?1")
+        .map_err(|e| e.to_string())?;
+
+    for prop in props.iter_mut() {
+        let distinct_count: u32 = count_stmt
+            .query_row(params![prop.name], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+
+        if distinct_count <= 100 {
+            let values: Vec<String> = uv_stmt
+                .query_map(params![prop.name], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            prop.unique_values = Some(values);
+        }
+    }
+
+    Ok(props)
 }
 
 pub fn query_bases(
@@ -3734,7 +4183,7 @@ pub fn query_bases(
         "outlink_count",
         "reading_time_secs",
     ];
-    let direct_columns = ["path", "title", "mtime_ms", "size_bytes"];
+    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes"];
     let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
 
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
@@ -3865,7 +4314,7 @@ pub fn query_bases(
     }
 
     let sql = format!(
-        "SELECT notes.path, title, mtime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
+        "SELECT notes.path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
          COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date \
          FROM notes \
          LEFT JOIN ( \

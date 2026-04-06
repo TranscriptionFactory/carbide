@@ -5,6 +5,11 @@ import type {
   RewriteResult,
   SearchPort,
 } from "$lib/features/search/ports";
+import type { FileCache } from "$lib/features/metadata";
+import type {
+  SmartLinkRuleGroup,
+  SmartLinkSuggestion,
+} from "$lib/features/smart_links";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
 import type {
   NoteSearchHit,
@@ -25,6 +30,7 @@ type TauriNoteMeta = {
   name: string;
   blurb: string;
   mtime_ms: number;
+  ctime_ms: number;
   size_bytes: number;
   file_type: string | null;
 };
@@ -95,6 +101,7 @@ function to_note_meta(hit: TauriNoteMeta) {
     name: hit.name,
     blurb: hit.blurb,
     mtime_ms: hit.mtime_ms,
+    ctime_ms: hit.ctime_ms,
     size_bytes: hit.size_bytes,
     file_type: hit.file_type,
   };
@@ -359,6 +366,49 @@ export function create_search_tauri_adapter(): SearchPort {
         vaultId: vault_id,
         notePath: note_path,
       });
+    },
+
+    async get_file_cache(
+      vault_id: VaultId,
+      note_path: string,
+    ): Promise<FileCache> {
+      return invoke_search<FileCache>("note_get_file_cache", {
+        vaultId: vault_id,
+        notePath: note_path,
+      });
+    },
+
+    async load_smart_link_rules(
+      vault_id: VaultId,
+    ): Promise<SmartLinkRuleGroup[]> {
+      return invoke_search<SmartLinkRuleGroup[]>("smart_links_load_rules", {
+        vaultId: vault_id,
+      });
+    },
+
+    async save_smart_link_rules(
+      vault_id: VaultId,
+      rules: SmartLinkRuleGroup[],
+    ): Promise<void> {
+      await invoke_search<undefined>("smart_links_save_rules", {
+        vaultId: vault_id,
+        rules,
+      });
+    },
+
+    async compute_smart_link_suggestions(
+      vault_id: VaultId,
+      note_path: string,
+      limit = 20,
+    ): Promise<SmartLinkSuggestion[]> {
+      return invoke_search<SmartLinkSuggestion[]>(
+        "smart_links_compute_suggestions",
+        {
+          vaultId: vault_id,
+          notePath: note_path,
+          limit,
+        },
+      );
     },
   };
 }

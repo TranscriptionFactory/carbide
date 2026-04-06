@@ -8,3 +8,4 @@ export type { SuggestedLink } from "$lib/features/links/state/links_store.svelte
 export { default as ContextRail } from "$lib/features/links/ui/context_rail.svelte";
 export type { ExternalLink } from "$lib/features/links/types/link";
 export { extract_local_links } from "$lib/features/links/domain/extract_local_links";
+export { merge_suggestions } from "$lib/features/links/domain/merge_suggestions";

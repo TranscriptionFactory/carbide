@@ -137,5 +137,31 @@ export function create_test_search_adapter(): SearchPort {
         next_due_date: null,
         last_indexed_at: 0,
       }),
+    get_file_cache: (_vault_id: VaultId, _note_path: string) =>
+      Promise.resolve({
+        frontmatter: {},
+        tags: [],
+        headings: [],
+        links: [],
+        embeds: [],
+        stats: {
+          word_count: 0,
+          char_count: 0,
+          heading_count: 0,
+          outlink_count: 0,
+          reading_time_secs: 0,
+          task_count: 0,
+          tasks_done: 0,
+          tasks_todo: 0,
+          next_due_date: null,
+          last_indexed_at: 0,
+        },
+        ctime_ms: 0,
+        mtime_ms: 0,
+        size_bytes: 0,
+      }),
+    load_smart_link_rules: () => Promise.resolve([]),
+    save_smart_link_rules: () => Promise.resolve(),
+    compute_smart_link_suggestions: () => Promise.resolve([]),
   };
 }

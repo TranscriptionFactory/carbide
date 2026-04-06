@@ -65,6 +65,7 @@ describe("VaultService", () => {
               name: "alpha",
               title: "alpha",
               mtime_ms: 0,
+              ctime_ms: 0,
               size_bytes: 0,
               file_type: null,
             },

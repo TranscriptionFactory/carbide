@@ -148,7 +148,7 @@ Many commands accept file and path parameters to target a specific file. If neit
 - path=<path> requires the exact path from the vault root, e.g. folder/note.md .
 
 ```
-# These are equivalent if "Recipe.md" is the only file with that 
+# These are equivalent if "Recipe.md" is the only file with that
 name
 obsidian read file=Recipe
 obsidian read path="Templates/Recipe.md"
@@ -170,7 +170,7 @@ search query="TODO" --copy
 Show list of all available commands.
 
 | Parameter  | Description                       |
-|------------|-----------------------------------|
+| ---------- | --------------------------------- |
 | <command/> | Show help for a specific command. |
 
 ### version
@@ -202,7 +202,7 @@ List views in the current base file.
 Create a new item in a base. Defaults to the active base view if no file is specified.
 
 | path= <path></path>    | # base file path           |
-|------------------------|----------------------------|
+| ---------------------- | -------------------------- |
 | view= <name></name>    | # view name                |
 | name= <name></name>    | # new file name            |
 | content= <text></text> | # initial content          |
@@ -214,7 +214,7 @@ Create a new item in a base. Defaults to the active base view if no file is spec
 Query a base and return results.
 
 | file= <name></name>          | # base file name                |
-|------------------------------|---------------------------------|
+| ---------------------------- | ------------------------------- |
 | path= <path></path>          | # base file path                |
 | view= <name></name>          | # view name to query            |
 | format=json csv tsv md paths | # output format (default: json) |
@@ -228,7 +228,7 @@ Commands for Bookmarks.
 List bookmarks.
 
 | total               | # return bookmark count        |
-|---------------------|--------------------------------|
+| ------------------- | ------------------------------ |
 | verbose             | # include bookmark types       |
 | format=json tsv csv | # output format (default: tsv) |
 
@@ -237,7 +237,7 @@ List bookmarks.
 Add a bookmark.
 
 | subpath= <subpath><br/>folder=<path></path></subpath>                                                         | # subpath (heading or block) within file<br># folder to bookmark |
-|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | search= <query></query>                                                                                       | # search query to bookmark                                       |
 | url= <url></url>                                                                                              | # URL to bookmark                                                |
 | title= <title>&lt;/th&gt;&lt;td&gt;# bookmark title&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;</title> |                                                                  |
@@ -265,7 +265,7 @@ id=<command-id> # (required) command ID to execute
 List hotkeys for all commands.
 
 | total               | # return hotkey count          |
-|---------------------|--------------------------------|
+| ------------------- | ------------------------------ |
 | verbose             | # show if hotkey is custom     |
 | format=json tsv csv | # output format (default: tsv) |
 
@@ -274,7 +274,7 @@ hotkey
 Get hotkey for a command.
 
 | id= <command-id></command-id> | # (required) command ID     |
-|-------------------------------|-----------------------------|
+| ----------------------------- | --------------------------- |
 | verbose                       | # show if custom or default |
 
 # Daily notes
@@ -312,10 +312,10 @@ open # open file after adding
 
 Prepend content to daily note.
 
-| paneType=tab split window | # pane type to open in    |  |
-|---------------------------|---------------------------|--|
-| inline                    | # prepend without newline |  |
-| open                      | # open file after adding  |  |
+| paneType=tab split window | # pane type to open in    |     |
+| ------------------------- | ------------------------- | --- |
+| inline                    | # prepend without newline |     |
+| open                      | # open file after adding  |     |
 
 # File history
 
@@ -350,9 +350,9 @@ diff filter=sync
 
 List versions from File recovery only. See sync:history for the equivalent Sync command.
 
-| file= <name></name> | # file name |  |
-|---------------------|-------------|--|
-| path= <path></path> | # file path |  |
+| file= <name></name> | # file name |     |
+| ------------------- | ----------- | --- |
+| path= <path></path> | # file path |     |
 
 # history:list
 
@@ -363,7 +363,7 @@ List all files with local history.
 Read a local history version.
 
 | file= <name></name> | # file name                   |
-|---------------------|-------------------------------|
+| ------------------- | ----------------------------- |
 | path= <path></path> | # file path                   |
 | version= <n></n>    | # version number (default: 1) |
 
@@ -371,16 +371,16 @@ Read a local history version.
 
 #### Restore a local history version.
 
-| file= <name><br/>path=<path></path></name> | # file name<br># file path  |  |  |
-|--------------------------------------------|-----------------------------|--|--|
-| version= <n></n>                           | # (required) version number |  |  |
+| file= <name><br/>path=<path></path></name> | # file name<br># file path  |     |     |
+| ------------------------------------------ | --------------------------- | --- | --- |
+| version= <n></n>                           | # (required) version number |     |     |
 
 # history:open
 
 #### Open file recovery.
 
 | file= <name></name> | # file name |
-|---------------------|-------------|
+| ------------------- | ----------- |
 | path= <path></path> | # file path |
 
 # Files and folders
@@ -389,23 +389,23 @@ Read a local history version.
 
 Show file info (default: active file).
 
-| file= <name></name> | # file name |  |
-|---------------------|-------------|--|
-| path= <path></path> | # file path |  |
+| file= <name></name> | # file name |     |
+| ------------------- | ----------- | --- |
+| path= <path></path> | # file path |     |
 
 #### Example:
 
-| extension<br>md                          |  |
-|------------------------------------------|--|
-| size<br>1024<br>created<br>1700000000000 |  |
-| modified<br>1700001000000                |  |
+| extension<br>md                          |     |
+| ---------------------------------------- | --- |
+| size<br>1024<br>created<br>1700000000000 |     |
+| modified<br>1700001000000                |     |
 
 # files
 
 #### List files in the vault.
 
 | folder= <path></path>        | # filter by folder    |
-|------------------------------|-----------------------|
+| ---------------------------- | --------------------- |
 | ext= <extension></extension> | # filter by extension |
 | total                        | # return file count   |
 
@@ -413,16 +413,16 @@ Show file info (default: active file).
 
 #### Show folder info.
 
-| path= <path></path>     | # (required) folder path    |  |
-|-------------------------|-----------------------------|--|
-| info=files folders size | # return specific info only |  |
+| path= <path></path>     | # (required) folder path    |     |
+| ----------------------- | --------------------------- | --- |
+| info=files folders size | # return specific info only |     |
 
 ### folders
 
 List folders in the vault.
 
 | folder= <path></path> | # filter by parent folder |
-|-----------------------|---------------------------|
+| --------------------- | ------------------------- |
 | total                 | # return folder count     |
 
 #### open
@@ -430,7 +430,7 @@ List folders in the vault.
 #### Open a file.
 
 | file= <name></name> | # file name       |
-|---------------------|-------------------|
+| ------------------- | ----------------- |
 | path= <path></path> | # file path       |
 | newtab              | # open in new tab |
 
@@ -439,7 +439,7 @@ List folders in the vault.
 Create or overwrite a file.
 
 | name= <name></name>     | # file name                |
-|-------------------------|----------------------------|
+| ----------------------- | -------------------------- |
 | path= <path></path>     | # file path                |
 | content= <text></text>  | # initial content          |
 | template= <name></name> | # template to use          |
@@ -453,16 +453,16 @@ Create or overwrite a file.
 
 Read file contents (default: active file).
 
-| file= <name></name> | # file name |  |
-|---------------------|-------------|--|
-| path= <path></path> | # file path |  |
+| file= <name></name> | # file name |     |
+| ------------------- | ----------- | --- |
+| path= <path></path> | # file path |     |
 
 # append
 
 Append content to a file (default: active file).
 
 | file= <name></name>    | # file name                    |
-|------------------------|--------------------------------|
+| ---------------------- | ------------------------------ |
 | path= <path></path>    | # file path                    |
 | content= <text></text> | # (required) content to append |
 |                        |                                |
@@ -473,7 +473,7 @@ Append content to a file (default: active file).
 Prepend content after frontmatter (default: active file).
 
 | file= <name></name>    | # file name                     |
-|------------------------|---------------------------------|
+| ---------------------- | ------------------------------- |
 | path= <path></path>    | # file path                     |
 | content= <text></text> | # (required) content to prepend |
 | inline                 | # prepend without newline       |
@@ -482,28 +482,28 @@ Prepend content after frontmatter (default: active file).
 
 Move or rename a file (default: active file). This will automatically update internal links if turned on in your vault settings.
 
-| file= <name><br/>path=<path></path></name> | # file name<br># file path |                                         |  |  |
-|--------------------------------------------|----------------------------|-----------------------------------------|--|--|
-| to= <path></path>                          |                            | # (required) destination folder or path |  |  |
+| file= <name><br/>path=<path></path></name> | # file name<br># file path |                                         |     |     |
+| ------------------------------------------ | -------------------------- | --------------------------------------- | --- | --- |
+| to= <path></path>                          |                            | # (required) destination folder or path |     |     |
 
 #### rename
 
 Rename a file (default: active file). The file extension is preserved automatically if omitted from the new name. Use move to rename and move a file at the same time. This will automatically update internal links if turned on in your vault settings.
 
-| file= <name></name> | # file name |                            |  |  |
-|---------------------|-------------|----------------------------|--|--|
-| path= <path></path> | # file path |                            |  |  |
-| name= <name></name> |             | # (required) new file name |  |  |
+| file= <name></name> | # file name |                            |     |     |
+| ------------------- | ----------- | -------------------------- | --- | --- |
+| path= <path></path> | # file path |                            |     |     |
+| name= <name></name> |             | # (required) new file name |     |     |
 
 ### delete
 
 Delete a file (default: active file, trash by default).
 
-| file= <name></name> | # file name                      |  |
-|---------------------|----------------------------------|--|
-| path= <path></path> | # file path                      |  |
-|                     |                                  |  |
-| permanent           | # skip trash, delete permanently |  |
+| file= <name></name> | # file name                      |     |
+| ------------------- | -------------------------------- | --- |
+| path= <path></path> | # file path                      |     |
+|                     |                                  |     |
+| permanent           | # skip trash, delete permanently |     |
 
 # Links
 
@@ -526,7 +526,7 @@ format=json|tsv|csv # output format (default: tsv)
 List outgoing links from a file (default: active file).
 
 | path= <path></path> | # file path         |
-|---------------------|---------------------|
+| ------------------- | ------------------- |
 | total               | # return link count |
 
 # unresolved
@@ -534,7 +534,7 @@ List outgoing links from a file (default: active file).
 List unresolved links in vault.
 
 | total               | # return unresolved link count |
-|---------------------|--------------------------------|
+| ------------------- | ------------------------------ |
 | counts              | # include link counts          |
 | verbose             | # include source files         |
 | format=json tsv csv | # output format (default: tsv) |
@@ -586,16 +586,16 @@ List enabled plugins.
 
 filter=core|community # filter by plugin type
 
-| versions            |  | # include version numbers      |  |
-|---------------------|--|--------------------------------|--|
-| format=json tsv csv |  | # output format (default: tsv) |  |
+| versions            |     | # include version numbers      |     |
+| ------------------- | --- | ------------------------------ | --- |
+| format=json tsv csv |     | # output format (default: tsv) |     |
 
 ### plugins:restrict
 
 Toggle or check restricted mode.
 
 | on  | # enable restricted mode  |
-|-----|---------------------------|
+| --- | ------------------------- |
 | off | # disable restricted mode |
 
 # plugin
@@ -609,7 +609,7 @@ Toggle or check restricted mode.
 #### Enable a plugin.
 
 | id= <id></id>         | # (required) plugin ID |
-|-----------------------|------------------------|
+| --------------------- | ---------------------- |
 | filter=core community | # plugin type          |
 
 # plugin:disable
@@ -623,22 +623,22 @@ id=<id> # (required) plugin ID filter=core|community # plugin type
 #### Install a community plugin.
 
 | id= <id></id> | # (required) plugin ID |
-|---------------|------------------------|
+| ------------- | ---------------------- |
 | enable        | # enable after install |
 
 # plugin:uninstall
 
 Uninstall a community plugin.
 
-|  | plugin:reload |
-|--|---------------|
-|  |               |
+|     | plugin:reload |
+| --- | ------------- |
+|     |               |
 
 Reload a plugin (for developers).
 
-| id= <id></id> | # (required) plugin ID |  |
-|---------------|------------------------|--|
-|---------------|------------------------|--|
+| id= <id></id>   | # (required) plugin ID   |     |
+| --------------- | ------------------------ | --- |
+| --------------- | ------------------------ | --  |
 
 # Properties
 
@@ -651,7 +651,7 @@ List aliases in the vault. Use active or file / path to show aliases for a speci
 file=<name> # file name path=<path> # file path
 
 | total   | # return alias count |                                |
-|---------|----------------------|--------------------------------|
+| ------- | -------------------- | ------------------------------ |
 | verbose | # include file paths |                                |
 | active  |                      | # show aliases for active file |
 
@@ -660,7 +660,7 @@ file=<name> # file name path=<path> # file path
 List properties in the vault. Use active or file / path to show properties for a specific file.
 
 | file= <name></name>  | # show properties for file        |
-|----------------------|-----------------------------------|
+| -------------------- | --------------------------------- |
 | path= <path></path>  | # show properties for path        |
 | name= <name></name>  | # get specific property count     |
 | sort=count           | # sort by count (default: name)   |
@@ -675,7 +675,7 @@ List properties in the vault. Use active or file / path to show properties for a
 Set a property on a file (default: active file).
 
 | name<br>value= <value></value>                        | # (required) property |
-|-------------------------------------------------------|-----------------------|
+| ----------------------------------------------------- | --------------------- |
 | value<br>type=text list number checkbox date datetime | # property type       |
 | file= <name></name>                                   | # file name           |
 | path= <path></path>                                   | # file path           |
@@ -684,19 +684,19 @@ Set a property on a file (default: active file).
 
 Remove a property from a file (default: active file).
 
-| name= <name></name> |             | # (required) property name |  |
-|---------------------|-------------|----------------------------|--|
-| file= <name></name> | # file name |                            |  |
-| path= <path></path> | # file path |                            |  |
+| name= <name></name> |             | # (required) property name |     |
+| ------------------- | ----------- | -------------------------- | --- |
+| file= <name></name> | # file name |                            |     |
+| path= <path></path> | # file path |                            |     |
 
 #### property:read
 
 Read a property value from a file (default: active file).
 
-| name= <name></name> | # (required) property name |  |
-|---------------------|----------------------------|--|
-| file= <name></name> | # file name                |  |
-| path= <path></path> | # file path                |  |
+| name= <name></name> | # (required) property name |     |
+| ------------------- | -------------------------- | --- |
+| file= <name></name> | # file name                |     |
+| path= <path></path> | # file path                |     |
 
 # Publish
 
@@ -717,7 +717,7 @@ total # return published file count
 #### List publish changes.
 
 | total<br>new | # return change count<br># show new files only |
-|--------------|------------------------------------------------|
+| ------------ | ---------------------------------------------- |
 | changed      | # show changed files only                      |
 | deleted      | # show deleted files only                      |
 
@@ -726,7 +726,7 @@ total # return published file count
 Publish a file or all changed files (default: active file).
 
 | file= <name></name> | # file name                 |
-|---------------------|-----------------------------|
+| ------------------- | --------------------------- |
 | path= <path></path> | # file path                 |
 | changed             | # publish all changed files |
 
@@ -734,17 +734,17 @@ Publish a file or all changed files (default: active file).
 
 Unpublish a file (default: active file).
 
-| file= <name></name> | # file name |  |
-|---------------------|-------------|--|
-| path= <path></path> | # file path |  |
+| file= <name></name> | # file name |     |
+| ------------------- | ----------- | --- |
+| path= <path></path> | # file path |     |
 
 # publish:open
 
 Open file on published site (default: active file).
 
-|  | file= <name><br/>path=<path></path></name> |  | # file name<br># file path |  |
-|--|--------------------------------------------|--|----------------------------|--|
-|--|--------------------------------------------|--|----------------------------|--|
+|     | file= <name><br/>path=<path></path></name>   |     | # file name<br># file path   |     |
+| --- | -------------------------------------------- | --- | ---------------------------- | --- |
+| --  | -------------------------------------------- | --  | ---------------------------- | --  |
 
 # Random notes
 
@@ -755,7 +755,7 @@ Commands for Random note.
 Open a random note.
 
 | folder= <path></path> | # limit to folder |
-|-----------------------|-------------------|
+| --------------------- | ----------------- |
 | newtab                | # open in new tab |
 
 ### random:read
@@ -786,7 +786,7 @@ total # return match count case # case sensitive
 Search with matching line context. Returns grep-style path:line: text output.
 
 | query= <text><br/>path=<folder></folder></text> | # (required) search query<br># limit to folder |
-|-------------------------------------------------|------------------------------------------------|
+| ----------------------------------------------- | ---------------------------------------------- |
 | limit= <n></n>                                  | # max files                                    |
 | format=text json                                | # output format (default: text)                |
 | case                                            | # case sensitive                               |
@@ -807,9 +807,9 @@ These commands control Sync within the running Obsidian app. To sync vaults from
 
 #### Pause or resume sync.
 
-| on  | # resume sync |  |
-|-----|---------------|--|
-| off | # pause sync  |  |
+| on  | # resume sync |     |
+| --- | ------------- | --- |
+| off | # pause sync  |     |
 
 ### sync:status
 
@@ -820,7 +820,7 @@ Show sync status and usage.
 List sync version history for a file (default: active file).
 
 | file= <name></name> | # file name            |
-|---------------------|------------------------|
+| ------------------- | ---------------------- |
 | path= <path></path> | # file path            |
 |                     |                        |
 | total               | # return version count |
@@ -830,7 +830,7 @@ List sync version history for a file (default: active file).
 Read a sync version (default: active file).
 
 | file= <name><br/>path=<path></path></name> | # file name<br># file path  |
-|--------------------------------------------|-----------------------------|
+| ------------------------------------------ | --------------------------- |
 | version= <n></n>                           | # (required) version number |
 
 ### sync:restore
@@ -839,25 +839,25 @@ Restore a sync version (default: active file).
 
 file=<name> # file name
 
-| path= <path></path> | # file path                 |  |
-|---------------------|-----------------------------|--|
-| version= <n></n>    | # (required) version number |  |
+| path= <path></path> | # file path                 |     |
+| ------------------- | --------------------------- | --- |
+| version= <n></n>    | # (required) version number |     |
 
 #### sync:open
 
 Open sync history (default: active file).
 
-| file= <name></name> | # file name |  |
-|---------------------|-------------|--|
-| path= <path></path> | # file path |  |
+| file= <name></name> | # file name |     |
+| ------------------- | ----------- | --- |
+| path= <path></path> | # file path |     |
 
 ### sync:deleted
 
 #### List deleted files in sync.
 
-| # return deleted file count | total |  |  |  |  |  |  |  |
-|-----------------------------|-------|--|--|--|--|--|--|--|
-|-----------------------------|-------|--|--|--|--|--|--|--|
+| # return deleted file count   | total   |     |     |     |     |     |     |     |
+| ----------------------------- | ------- | --- | --- | --- | --- | --- | --- | --- |
+| ----------------------------- | ------- | --  | --  | --  | --  | --  | --  | --  |
 
 # Tags
 
@@ -868,7 +868,7 @@ Open sync history (default: active file).
 List tags in the vault. Use active or file / path to show tags for a specific file.
 
 | file= <name></name> | # file name                     |
-|---------------------|---------------------------------|
+| ------------------- | ------------------------------- |
 | path= <path></path> | # file path                     |
 | sort=count          | # sort by count (default: name) |
 |                     |                                 |
@@ -881,7 +881,7 @@ List tags in the vault. Use active or file / path to show tags for a specific fi
 Get tag info.
 
 | name= <tag></tag> | # (required) tag name         |
-|-------------------|-------------------------------|
+| ----------------- | ----------------------------- |
 | total             | # return occurrence count     |
 | verbose           | # include file list and count |
 
@@ -939,9 +939,9 @@ toggle # toggle task status
 daily # daily note
 ```
 
-| done | # mark as done |  |
-|------|----------------|--|
-| todo | # mark as todo |  |
+| done | # mark as done |     |
+| ---- | -------------- | --- |
+| todo | # mark as todo |     |
 
 #### Examples:
 
@@ -975,7 +975,7 @@ total # return template count
 #### Read template content.
 
 | name= <template></template>                                                                                                                                                                                                                                                                   | # (required) template name |
-|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | title= <title>&lt;/td&gt;&lt;td&gt;# title for variable resolution&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;resolve&lt;/td&gt;&lt;td&gt;# resolve template variables&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;</title> |                            |
 
 ### template:insert
@@ -1003,24 +1003,24 @@ versions # include version numbers
 
 #### Show active theme or get info.
 
-| name= <name></name> |  |  | # theme name for details |
-|---------------------|--|--|--------------------------|
-|                     |  |  |                          |
+| name= <name></name> |     |     | # theme name for details |
+| ------------------- | --- | --- | ------------------------ |
+|                     |     |     |                          |
 
 theme:set
 
 Set active theme.
 
-| name= <name></name> | # (required) theme name (empty for default) |  |  |  |
-|---------------------|---------------------------------------------|--|--|--|
-|                     |                                             |  |  |  |
+| name= <name></name> | # (required) theme name (empty for default) |     |     |     |
+| ------------------- | ------------------------------------------- | --- | --- | --- |
+|                     |                                             |     |     |     |
 
 theme:install
 
 #### Install a community theme.
 
 | name= <name></name> | # (required) theme name  |
-|---------------------|--------------------------|
+| ------------------- | ------------------------ |
 | enable              | # activate after install |
 
 # theme:uninstall
@@ -1043,17 +1043,17 @@ List enabled CSS snippets.
 
 Enable a CSS snippet.
 
-| name= <name></name> | # (required) snippet name |  |
-|---------------------|---------------------------|--|
-|---------------------|---------------------------|--|
+| name= <name></name>   | # (required) snippet name   |     |
+| --------------------- | --------------------------- | --- |
+| --------------------- | --------------------------- | --  |
 
 # snippet:disable
 
 Disable a CSS snippet.
 
-| name= <name></name> | # (required) snippet name |  |  |
-|---------------------|---------------------------|--|--|
-|                     |                           |  |  |
+| name= <name></name> | # (required) snippet name |     |     |
+| ------------------- | ------------------------- | --- | --- |
+|                     |                           |     |     |
 
 # Unique notes
 
@@ -1077,9 +1077,9 @@ info=name|path|files|folders|size # return specific info only
 
 List known vaults.
 
-| total   | # return vault count  |  |
-|---------|-----------------------|--|
-| verbose | # include vault paths |  |
+| total   | # return vault count  |     |
+| ------- | --------------------- | --- |
+| verbose | # include vault paths |     |
 
 ### vault:open
 
@@ -1096,7 +1096,7 @@ Commands for Web viewer.
 #### Open URL in web viewer.
 
 | url= <url></url> | # (required) URL to open |
-|------------------|--------------------------|
+| ---------------- | ------------------------ |
 | newtab           | # open in new tab        |
 
 # Wordcount
@@ -1149,9 +1149,9 @@ ids # include tab IDs
 
 #### Open a new tab.
 
-| group= <id></id>    |  | # tab group ID |  |
-|---------------------|--|----------------|--|
-| file= <path></path> |  | # file to open |  |
+| group= <id></id>    |     | # tab group ID |     |
+| ------------------- | --- | -------------- | --- |
+| file= <path></path> |     | # file to open |     |
 
 view=<type> # view type to open
 
@@ -1173,9 +1173,9 @@ Toggle Electron dev tools.
 
 Attach/detach Chrome DevTools Protocol debugger.
 
-| on  |  | # attach debugger |
-|-----|--|-------------------|
-| off |  | # detach debugger |
+| on  |     | # attach debugger |
+| --- | --- | ----------------- |
+| off |     | # detach debugger |
 
 ### dev:cdp
 
@@ -1214,16 +1214,16 @@ clear # clear the console buffer
 
 Inspect CSS with source locations.
 
-| selector= <css></css> | # (required) CSS selector |  |  |
-|-----------------------|---------------------------|--|--|
-| prop= <name></name>   | # filter by property name |  |  |
+| selector= <css></css> | # (required) CSS selector |     |     |
+| --------------------- | ------------------------- | --- | --- |
+| prop= <name></name>   | # filter by property name |     |     |
 
 ### dev:dom
 
 Query DOM elements.
 
 | selector= <css><br/>attr=<name></name></css> | # (required) CSS selector<br># get attribute value |
-|----------------------------------------------|----------------------------------------------------|
+| -------------------------------------------- | -------------------------------------------------- |
 | css= <prop></prop>                           | # get CSS property value                           |
 |                                              |                                                    |
 | total                                        | # return element count                             |
@@ -1236,9 +1236,9 @@ Query DOM elements.
 
 #### Toggle mobile emulation.
 
-| on  | # enable mobile emulation  |  |
-|-----|----------------------------|--|
-| off | # disable mobile emulation |  |
+| on  | # enable mobile emulation  |     |
+| --- | -------------------------- | --- |
+| off | # disable mobile emulation |     |
 
 ### eval
 
@@ -1255,11 +1255,11 @@ These shortcuts are available in the TUI.
 # Navigation
 
 | Action           | Shortcut   |
-|------------------|------------|
+| ---------------- | ---------- |
 | Move cursor left | ← / Ctrl+B |
 
 | Move cursor right (accepts suggestion at end of line) | → / Ctrl+F |
-|-------------------------------------------------------|------------|
+| ----------------------------------------------------- | ---------- |
 | Jump to start of line                                 | Ctrl+A     |
 | Jump to end of line                                   | Ctrl+E     |
 | Move back one word                                    | Alt+B      |
@@ -1268,14 +1268,14 @@ These shortcuts are available in the TUI.
 # Editing
 
 | Action<br>Delete to start of line | Shortcut<br>Ctrl+U     |
-|-----------------------------------|------------------------|
+| --------------------------------- | ---------------------- |
 | Delete to end of line             | Ctrl+K                 |
 | Delete previous word              | Ctrl+W / Alt+Backspace |
 
 # Autocomplete
 
 | Action                                             | Shortcut  |
-|----------------------------------------------------|-----------|
+| -------------------------------------------------- | --------- |
 | Enter suggestion mode / accept selected suggestion | Tab       |
 | Exit suggestion mode                               | Shift+Tab |
 | Enter suggestion mode (from fresh input)           | ↓         |
@@ -1284,7 +1284,7 @@ These shortcuts are available in the TUI.
 # History
 
 | Action                                                   | Shortcut   |
-|----------------------------------------------------------|------------|
+| -------------------------------------------------------- | ---------- |
 | Previous history entry / navigate suggestions up         | ↑ / Ctrl+P |
 | Next history entry / navigate suggestions down           | ↓ / Ctrl+N |
 | Reverse history search (type to filter, Ctrl+R to cycle) | Ctrl+R     |
@@ -1292,7 +1292,7 @@ These shortcuts are available in the TUI.
 # Other
 
 | Action                                                                                         | Shortcut        |
-|------------------------------------------------------------------------------------------------|-----------------|
+| ---------------------------------------------------------------------------------------------- | --------------- |
 | Execute command or accept suggestion<br>Undo autocomplete / exit suggestion mode / clear input | Enter<br>Escape |
 | Clear screen                                                                                   | Ctrl+L          |
 | Exit                                                                                           | Ctrl+C / Ctrl+D |
@@ -1323,8 +1323,8 @@ export PATH="\$PATH:/Applications/Obsidian.app/Contents/MacOS"
 
 The CLI registration only modifies ~/.zprofile , which is used by zsh (the default macOS shell). If you use a different shell, add the Obsidian binary directory to your shell's configuration file manually:
 
-- Bash: add export PATH="\$PATH:/Applications/Obsidian.app/Contents/MacOS" to ~/.bash\_profile
-- Fish: run fish\_add\_path /Applications/Obsidian.app/Contents/MacOS
+- Bash: add export PATH="\$PATH:/Applications/Obsidian.app/Contents/MacOS" to ~/.bash_profile
+- Fish: run fish_add_path /Applications/Obsidian.app/Contents/MacOS
 
 # Linux
 
@@ -1354,9 +1354,9 @@ If the symlink breaks after moving or renaming the .AppImage file, re-register t
 
 ### Snap
 
-The Snap package stores insider build data in its own user data directory. If the CLI doesn't detect the insider .asar , set XDG\_CONFIG\_HOME to point to the Snap config path:
+The Snap package stores insider build data in its own user data directory. If the CLI doesn't detect the insider .asar , set XDG_CONFIG_HOME to point to the Snap config path:
 
-export XDG\_CONFIG\_HOME="\$HOME/snap/obsidian/current/.config"
+export XDG_CONFIG_HOME="\$HOME/snap/obsidian/current/.config"
 
 Add this to your ~/.bashrc or ~/.zshrc to make it persistent.
 
@@ -1365,14 +1365,14 @@ Add this to your ~/.bashrc or ~/.zshrc to make it persistent.
 Obsidian tries to do this automatically, but below are the manual instructions. If it is a system install:
 
 ```
-ln -s /var/lib/flatpak/exports/bin/md.obsidian.Obsidian 
+ln -s /var/lib/flatpak/exports/bin/md.obsidian.Obsidian
 ~/.local/bin/obsidian
 ```
 
 If it is a user install:
 
 ```
-ln -s ~/.local/share/flatpak/exports/bin/md.obsidian.Obsidian 
+ln -s ~/.local/share/flatpak/exports/bin/md.obsidian.Obsidian
 ~/.local/bin/obsidian
 ```
 

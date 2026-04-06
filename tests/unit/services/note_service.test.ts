@@ -44,6 +44,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -108,6 +109,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -165,6 +167,7 @@ describe("NoteService", () => {
       title: "missing",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -219,6 +222,7 @@ describe("NoteService", () => {
       title: "stale",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -288,6 +292,7 @@ describe("NoteService", () => {
       title: "missing",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -345,6 +350,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -361,6 +367,7 @@ describe("NoteService", () => {
       title: "other",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     });
@@ -409,6 +416,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -475,6 +483,7 @@ describe("NoteService", () => {
       title: "remove-me",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -526,6 +535,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -584,6 +594,7 @@ describe("NoteService", () => {
       title: "old",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -646,6 +657,7 @@ describe("NoteService", () => {
       title: "has spaces",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -723,6 +735,7 @@ describe("NoteService", () => {
       title: "already-there",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -785,6 +798,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 1_700_000_000_000,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -843,6 +857,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 1_700_000_000_000,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -899,6 +914,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 1_700_000_000_000,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -970,6 +986,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 1_700_000_000_000,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -1044,6 +1061,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         blurb: "",
         mtime_ms: 0,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -1180,6 +1198,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 0,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -1248,6 +1267,7 @@ describe("NoteService", () => {
         title: "alpha",
         blurb: "",
         mtime_ms: 100,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -1339,6 +1359,7 @@ describe("NoteService", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -1396,6 +1417,7 @@ describe("NoteService", () => {
         title: "Untitled-1",
         blurb: "",
         mtime_ms: 0,
+        ctime_ms: 0,
         size_bytes: 0,
         file_type: null,
       },
@@ -1453,6 +1475,7 @@ describe("NoteService", () => {
       title: "new-from-link",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -1555,6 +1578,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -1613,6 +1637,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "alpha",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
@@ -1624,6 +1649,7 @@ describe("NoteService rename case-insensitive handling", () => {
       title: "beta",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };
