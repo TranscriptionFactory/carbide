@@ -177,7 +177,7 @@ mod tests {
         let output = run_with_input(&format!("{}\n", input)).await;
         let resp = parse_response(output.trim());
         let tools = resp["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 8);
+        assert_eq!(tools.len(), 14);
     }
 
     #[tokio::test]
