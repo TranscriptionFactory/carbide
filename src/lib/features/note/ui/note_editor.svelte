@@ -86,6 +86,10 @@
                 .source_editor_line_numbers}
               class:show-heading-markers={stores.ui.editor_settings
                 .editor_heading_markers}
+              class:show-block-drag-handle={stores.ui.editor_settings
+                .editor_block_drag_handle}
+              class:block-drag-handle-always={stores.ui.editor_settings
+                .editor_block_drag_handle_visibility === "always_show"}
             ></div>
           </EditorContextMenu>
         </div>
