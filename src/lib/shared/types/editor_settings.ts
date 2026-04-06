@@ -50,7 +50,7 @@ export type TerminalFontWeight =
 export type TerminalCursorStyle = "block" | "underline" | "bar";
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
-export type ToolbarVisibility = "on_select" | "always_show" | "always_hide";
+export type ToolbarVisibility = "always_show" | "always_hide";
 export type FileTreeStyle =
   | "default"
   | "airy_minimal"
@@ -208,7 +208,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
-  editor_toolbar_visibility: "on_select",
+  editor_toolbar_visibility: "always_show",
   file_tree_style: "airy_minimal",
   file_tree_show_blurb: false,
   file_tree_blurb_position: "caption",
@@ -279,7 +279,6 @@ export const EDITOR_TOOLBAR_VISIBILITY_OPTIONS: {
   value: ToolbarVisibility;
   label: string;
 }[] = [
-  { value: "on_select", label: "On Selection" },
   { value: "always_show", label: "Always Show" },
   { value: "always_hide", label: "Always Hide" },
 ];

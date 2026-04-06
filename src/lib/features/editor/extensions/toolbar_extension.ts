@@ -14,11 +14,20 @@ import {
 import type { EditorExtension } from "./types";
 
 export function create_toolbar_extension(
-  config: ToolbarConfig = { toolbar_visibility: "on_select" },
+  config: ToolbarConfig = { toolbar_visibility: "always_show" },
 ): EditorExtension {
   let toolbar_container: HTMLElement | null = null;
   let toolbar_view: EditorView | null = null;
   let svelte_app: Record<string, unknown> | undefined;
+  let state_version = 0;
+
+  function get_view(): EditorView | null {
+    return toolbar_view;
+  }
+
+  function get_state_version(): number {
+    return state_version;
+  }
 
   function ensure_container(): HTMLElement {
     if (!toolbar_container) {
@@ -29,15 +38,18 @@ export function create_toolbar_extension(
     return toolbar_container;
   }
 
-  function mount_toolbar(view: EditorView) {
+  function mount_toolbar() {
     if (svelte_app) return;
     const container = ensure_container();
     container.style.display = "";
     svelte_app = mount(FormattingToolbar, {
       target: container,
       props: {
-        view,
+        get_view,
+        get_state_version,
         on_command: (command: FormattingCommand) => {
+          const view = get_view();
+          if (!view) return;
           toggle_format(command, view);
           view.focus();
         },
@@ -56,22 +68,16 @@ export function create_toolbar_extension(
     toolbar_view = null;
   }
 
-  function show_toolbar(view: EditorView) {
-    toolbar_view = view;
-    mount_toolbar(view);
-  }
-
   function mount_sticky(view: EditorView) {
     const container = ensure_container();
     container.classList.add("formatting-toolbar-mount--sticky");
-    container.classList.remove("formatting-toolbar-mount--floating");
     container.style.position = "sticky";
     container.style.top = "0";
     container.style.zIndex = "10";
     container.style.display = "";
     const parent = view.dom.parentElement;
     if (parent) parent.insertBefore(container, parent.firstChild);
-    mount_toolbar(view);
+    mount_toolbar();
   }
 
   function unmount_sticky() {
@@ -85,12 +91,7 @@ export function create_toolbar_extension(
   }
 
   const plugin = create_formatting_toolbar_prose_plugin(
-    ensure_container(),
     config,
-    () => {
-      if (toolbar_view) show_toolbar(toolbar_view);
-    },
-    () => hide_toolbar(),
     (view) => mount_sticky(view),
     () => unmount_sticky(),
   );
@@ -105,6 +106,7 @@ export function create_toolbar_extension(
     return {
       update(view: EditorView, prev_state: EditorState) {
         toolbar_view = view;
+        state_version++;
         original_update?.(view, prev_state);
       },
       destroy() {

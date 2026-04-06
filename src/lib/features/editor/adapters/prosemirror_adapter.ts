@@ -244,7 +244,7 @@ export function create_prosemirror_editor_port(args?: {
 
       // --- Assemble plugins via extensions ---
 
-      const toolbar_config: ToolbarConfig = { toolbar_visibility: "on_select" };
+      const toolbar_config: ToolbarConfig = { toolbar_visibility: "always_hide" };
 
       const assembled = assemble_extensions(
         {
