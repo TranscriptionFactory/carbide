@@ -43,6 +43,9 @@ async fn shutdown_managed_processes(app: &tauri::AppHandle) {
     app.state::<features::mcp::server::McpState>()
         .shutdown()
         .await;
+    app.state::<features::mcp::http::HttpServerState>()
+        .shutdown()
+        .await;
     app.state::<features::markdown_lsp::MarkdownLspState>()
         .shutdown()
         .await;
@@ -98,6 +101,7 @@ pub fn run() {
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(features::mcp::server::McpState::default())
+        .manage(features::mcp::http::HttpServerState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -324,6 +328,9 @@ pub fn run() {
             features::mcp::server::mcp_start,
             features::mcp::server::mcp_stop,
             features::mcp::server::mcp_status,
+            features::mcp::http::http_server_start,
+            features::mcp::http::http_server_stop,
+            features::mcp::http::http_server_status,
             features::smart_links::smart_links_load_rules,
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,
