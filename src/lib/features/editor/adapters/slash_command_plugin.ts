@@ -25,7 +25,7 @@ type SlashState = {
   filtered: SlashCommand[];
 };
 
-type SlashCommand = {
+export type SlashCommand = {
   id: string;
   label: string;
   description: string;
@@ -33,6 +33,12 @@ type SlashCommand = {
   keywords: string[];
   insert: (view: EditorView, slash_from: number) => void;
   is_available?: (state: EditorState) => boolean;
+  source?: "builtin" | "plugin";
+  plugin_name?: string;
+};
+
+export type SlashCommandConfig = {
+  get_plugin_commands?: () => SlashCommand[];
 };
 
 const EMPTY_STATE: SlashState = {
@@ -496,6 +502,13 @@ function render_items(
     desc_el.textContent = cmd.description;
     text_el.appendChild(desc_el);
 
+    if (cmd.source === "plugin" && cmd.plugin_name) {
+      const badge_el = document.createElement("span");
+      badge_el.className = "SlashMenu__badge";
+      badge_el.textContent = cmd.plugin_name;
+      text_el.appendChild(badge_el);
+    }
+
     row.appendChild(text_el);
 
     row.addEventListener("mousedown", (e) => {
@@ -507,8 +520,10 @@ function render_items(
   }
 }
 
-export function create_slash_command_prose_plugin(): Plugin {
-  const all_commands = create_commands();
+export function create_slash_command_prose_plugin(
+  config?: SlashCommandConfig,
+): Plugin {
+  const builtin_commands = create_commands();
 
   let slash_state: SlashState = EMPTY_STATE;
   let menu: HTMLElement | null = null;
@@ -548,6 +563,8 @@ export function create_slash_command_prose_plugin(): Plugin {
           }
 
           const query = result.query.trim();
+          const plugin_commands = config?.get_plugin_commands?.() ?? [];
+          const all_commands = [...builtin_commands, ...plugin_commands];
           const available = all_commands.filter(
             (cmd) => !cmd.is_available || cmd.is_available(view.state),
           );

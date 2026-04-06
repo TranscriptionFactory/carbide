@@ -1,5 +1,8 @@
 import type { Plugin } from "prosemirror-state";
-import { create_slash_command_prose_plugin } from "../adapters/slash_command_plugin";
+import {
+  create_slash_command_prose_plugin,
+  type SlashCommandConfig,
+} from "../adapters/slash_command_plugin";
 import { create_date_suggest_prose_plugin } from "../adapters/date_suggest_plugin";
 import {
   set_tag_suggestions,
@@ -18,11 +21,20 @@ import {
 } from "../adapters/image_suggest_plugin";
 import type { EditorExtension, PluginContext } from "./types";
 
-export function create_suggest_extension(ctx: PluginContext): EditorExtension {
+export function create_suggest_extension(
+  ctx: PluginContext,
+  slash_config?: SlashCommandConfig,
+): EditorExtension {
   const plugins: Plugin[] = [];
   let image_suggest_config: ImageSuggestPluginConfig | null = null;
 
-  plugins.push((create_slash_command_prose_plugin as () => Plugin)());
+  plugins.push(
+    (
+      create_slash_command_prose_plugin as (
+        config?: SlashCommandConfig,
+      ) => Plugin
+    )(slash_config),
+  );
   plugins.push((create_date_suggest_prose_plugin as () => Plugin)());
 
   if (ctx.events.on_image_suggest_query) {
