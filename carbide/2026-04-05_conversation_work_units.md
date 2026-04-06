@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 20 / 46 units complete
+**Progress:** 21 / 46 units complete
 
 ---
 
@@ -200,9 +200,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete`. Can combine with 7.3 if thin enough.
   - _Completed 2026-04-05 `5cf5a6dd`. Seven new authenticated POST routes in cli_routes.rs. Each is a thin adapter: create calls notes_service::create_note (with overwrite support via direct atomic_write), write/append/prepend use direct disk IO (bypass BufferManager — CLI has no editor session), rename calls notes_service::rename_note, move calls notes_service::move_items (single item), delete calls notes_service::delete_note. Prepend inserts after YAML frontmatter when present using find_frontmatter_end helper. Append ensures trailing newline before appending. 11 new tests (7 param deserialization + 4 frontmatter boundary detection). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.5** CLI crate scaffold + core read commands — **Rust session**
+- [x] **7.5** CLI crate scaffold + core read commands — **Rust session**
   - Files: `src-tauri/crates/carbide-cli/` — `main.rs`, `client.rs`, `auth.rs`, `vault.rs`, `format.rs`, `commands/notes.rs`, `commands/search.rs`
   - Clap derive API. `carbide read`, `carbide search`, `carbide files`, `carbide tags`, `carbide outline`. Plain text + `--json`.
+  - _Completed 2026-04-05 `0fde0813`. New `carbide-cli` crate in `src-tauri/crates/` as workspace member. Clap derive API with 6 subcommands: read, search, files, tags, outline, status. CarbideClient (reqwest) reads bearer token from `~/.carbide/mcp-token`, checks /health, posts JSON to /cli/* routes. Auto-resolves active vault via /cli/status when --vault not given. Plain text formatting (path lists, search snippets with scores, tag counts, indented heading outlines) + --json flag for raw JSON. Dependencies: clap 4, reqwest 0.12, serde/serde_json, tokio, dirs 6. Decision: used standard clap --flag style instead of Obsidian-style key=value positional args — more robust, auto-generates help, and idiomatic Rust. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **7.6** CLI write + vault + general commands — **Rust session**
   - `carbide create/write/append/rename/move/delete`, `carbide vault/vaults/vault:open`, `carbide help/version/status`. App launch detection (check `/health`, launch if down, poll 10s).
