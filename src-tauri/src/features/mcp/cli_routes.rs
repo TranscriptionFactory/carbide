@@ -7,12 +7,15 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::features::mcp::http::{check_auth, HttpAppState};
-use crate::features::notes::service::{self as notes_service, safe_vault_abs};
+use crate::features::notes::service::{
+    self as notes_service, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs,
+    NoteDeleteArgs, NoteRenameArgs,
+};
 use crate::features::search::db as search_db;
 use crate::features::search::model::SearchScope;
 use crate::features::search::service::with_read_conn;
 use crate::features::vault::service as vault_service;
-use crate::shared::storage;
+use crate::shared::{io_utils, storage};
 
 #[derive(Deserialize)]
 struct ReadParams {
@@ -75,6 +78,63 @@ fn internal_err(msg: String) -> axum::response::Response {
     json_err(StatusCode::INTERNAL_SERVER_ERROR, msg)
 }
 
+#[derive(Deserialize)]
+struct CreateParams {
+    vault_id: String,
+    path: String,
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    overwrite: bool,
+}
+
+#[derive(Deserialize)]
+struct WriteParams {
+    vault_id: String,
+    path: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct AppendParams {
+    vault_id: String,
+    path: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct PrependParams {
+    vault_id: String,
+    path: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct RenameParams {
+    vault_id: String,
+    path: String,
+    new_path: String,
+}
+
+#[derive(Deserialize)]
+struct MoveParams {
+    vault_id: String,
+    path: String,
+    to: String,
+}
+
+#[derive(Deserialize)]
+struct DeleteParams {
+    vault_id: String,
+    path: String,
+}
+
+#[derive(Serialize)]
+struct MutationResponse {
+    ok: bool,
+    path: String,
+}
+
 pub fn cli_router() -> Router<Arc<HttpAppState>> {
     Router::new()
         .route("/read", post(cli_read))
@@ -86,6 +146,13 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/vault", post(cli_vault))
         .route("/vaults", post(cli_vaults))
         .route("/status", post(cli_status))
+        .route("/create", post(cli_create))
+        .route("/write", post(cli_write))
+        .route("/append", post(cli_append))
+        .route("/prepend", post(cli_prepend))
+        .route("/rename", post(cli_rename))
+        .route("/move", post(cli_move))
+        .route("/delete", post(cli_delete))
 }
 
 async fn cli_read(
@@ -262,6 +329,292 @@ async fn cli_status(
     })).into_response()
 }
 
+fn find_frontmatter_end(content: &str) -> Option<usize> {
+    if !content.starts_with("---") {
+        return None;
+    }
+    let after_open = &content[3..];
+    let newline_pos = after_open.find('\n')?;
+    let search_start = 3 + newline_pos + 1;
+    let rest = &content[search_start..];
+    for (i, line) in rest.lines().enumerate() {
+        if line.trim() == "---" {
+            let offset = if i == 0 {
+                0
+            } else {
+                rest.match_indices('\n')
+                    .nth(i - 1)
+                    .map(|(pos, _)| pos + 1)
+                    .unwrap_or(0)
+            };
+            return Some(search_start + offset + line.len() + 1);
+        }
+    }
+    None
+}
+
+async fn cli_create(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<CreateParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let abs = match safe_vault_abs_for_write(&root, &params.path) {
+        Ok(a) => a,
+        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
+    };
+
+    if abs.exists() && !params.overwrite {
+        return json_err(StatusCode::CONFLICT, "note already exists");
+    }
+
+    if params.overwrite && abs.exists() {
+        if let Err(e) = io_utils::atomic_write(&abs, params.content.as_bytes()) {
+            return internal_err(e);
+        }
+        return (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.path,
+        })).into_response();
+    }
+
+    match notes_service::create_note(
+        NoteCreateArgs {
+            vault_id: params.vault_id,
+            note_path: params.path.clone(),
+            initial_markdown: params.content,
+        },
+        state.app().clone(),
+    ) {
+        Ok(meta) => (StatusCode::CREATED, Json(meta)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_write(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<WriteParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let abs = match safe_vault_abs_for_write(&root, &params.path) {
+        Ok(a) => a,
+        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
+    };
+
+    if !abs.exists() {
+        return json_err(StatusCode::NOT_FOUND, "note not found");
+    }
+
+    match io_utils::atomic_write(&abs, params.content.as_bytes()) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.path,
+        })).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_append(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<AppendParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let abs = match safe_vault_abs(&root, &params.path) {
+        Ok(a) => a,
+        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
+    };
+
+    let existing = match std::fs::read_to_string(&abs) {
+        Ok(c) => c,
+        Err(e) => return json_err(StatusCode::NOT_FOUND, format!("Failed to read note: {}", e)),
+    };
+
+    let mut new_content = existing;
+    if !new_content.ends_with('\n') && !new_content.is_empty() {
+        new_content.push('\n');
+    }
+    new_content.push_str(&params.content);
+
+    match io_utils::atomic_write(&abs, new_content.as_bytes()) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.path,
+        })).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_prepend(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<PrependParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let abs = match safe_vault_abs(&root, &params.path) {
+        Ok(a) => a,
+        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
+    };
+
+    let existing = match std::fs::read_to_string(&abs) {
+        Ok(c) => c,
+        Err(e) => return json_err(StatusCode::NOT_FOUND, format!("Failed to read note: {}", e)),
+    };
+
+    let new_content = match find_frontmatter_end(&existing) {
+        Some(pos) => {
+            let mut result = String::with_capacity(existing.len() + params.content.len() + 1);
+            result.push_str(&existing[..pos]);
+            result.push_str(&params.content);
+            if !params.content.ends_with('\n') {
+                result.push('\n');
+            }
+            result.push_str(&existing[pos..]);
+            result
+        }
+        None => {
+            let mut result = String::with_capacity(existing.len() + params.content.len() + 1);
+            result.push_str(&params.content);
+            if !params.content.ends_with('\n') {
+                result.push('\n');
+            }
+            result.push_str(&existing);
+            result
+        }
+    };
+
+    match io_utils::atomic_write(&abs, new_content.as_bytes()) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.path,
+        })).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_rename(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<RenameParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match notes_service::rename_note(
+        NoteRenameArgs {
+            vault_id: params.vault_id,
+            from: params.path,
+            to: params.new_path.clone(),
+        },
+        state.app().clone(),
+    ) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.new_path,
+        })).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_move(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<MoveParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    use crate::features::notes::service::{MoveItem, MoveItemsArgs};
+
+    match notes_service::move_items(
+        MoveItemsArgs {
+            vault_id: params.vault_id,
+            items: vec![MoveItem {
+                path: params.path,
+                is_folder: false,
+            }],
+            target_folder: params.to.clone(),
+            overwrite: false,
+        },
+        state.app().clone(),
+    ) {
+        Ok(results) => {
+            let first = results.into_iter().next();
+            match first {
+                Some(r) if r.success => (StatusCode::OK, Json(MutationResponse {
+                    ok: true,
+                    path: r.new_path,
+                })).into_response(),
+                Some(r) => json_err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    r.error.unwrap_or_else(|| "move failed".into()),
+                ),
+                None => internal_err("no move result".into()),
+            }
+        }
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_delete(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<DeleteParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match notes_service::delete_note(
+        NoteDeleteArgs {
+            vault_id: params.vault_id,
+            note_id: params.path.clone(),
+        },
+        state.app().clone(),
+    ) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse {
+            ok: true,
+            path: params.path,
+        })).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -384,5 +737,89 @@ mod tests {
     #[test]
     fn test_default_search_limit() {
         assert_eq!(default_search_limit(), 50);
+    }
+
+    #[test]
+    fn test_create_params_deserialization() {
+        let json = r##"{"vault_id":"v1","path":"new.md","content":"# Hello","overwrite":false}"##;
+        let params: CreateParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.vault_id, "v1");
+        assert_eq!(params.path, "new.md");
+        assert_eq!(params.content, "# Hello");
+        assert!(!params.overwrite);
+    }
+
+    #[test]
+    fn test_create_params_defaults() {
+        let json = r#"{"vault_id":"v1","path":"new.md"}"#;
+        let params: CreateParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.content, "");
+        assert!(!params.overwrite);
+    }
+
+    #[test]
+    fn test_write_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"note.md","content":"updated"}"#;
+        let params: WriteParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "note.md");
+        assert_eq!(params.content, "updated");
+    }
+
+    #[test]
+    fn test_rename_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"old.md","new_path":"new.md"}"#;
+        let params: RenameParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "old.md");
+        assert_eq!(params.new_path, "new.md");
+    }
+
+    #[test]
+    fn test_move_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"note.md","to":"archive/"}"#;
+        let params: MoveParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "note.md");
+        assert_eq!(params.to, "archive/");
+    }
+
+    #[test]
+    fn test_delete_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"trash.md"}"#;
+        let params: DeleteParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "trash.md");
+    }
+
+    #[test]
+    fn test_mutation_response_serialization() {
+        let resp = MutationResponse { ok: true, path: "note.md".into() };
+        let json = serde_json::to_value(resp).unwrap();
+        assert_eq!(json["ok"], true);
+        assert_eq!(json["path"], "note.md");
+    }
+
+    #[test]
+    fn test_find_frontmatter_end_with_frontmatter() {
+        let content = "---\ntitle: Hello\n---\n# Body";
+        let pos = find_frontmatter_end(content).unwrap();
+        assert_eq!(&content[pos..], "# Body");
+    }
+
+    #[test]
+    fn test_find_frontmatter_end_no_frontmatter() {
+        let content = "# Just a heading\nSome text";
+        assert_eq!(find_frontmatter_end(content), None);
+    }
+
+    #[test]
+    fn test_find_frontmatter_end_empty_frontmatter() {
+        let content = "---\n---\nBody text";
+        let pos = find_frontmatter_end(content).unwrap();
+        assert_eq!(&content[pos..], "Body text");
+    }
+
+    #[test]
+    fn test_find_frontmatter_end_multiline() {
+        let content = "---\ntitle: Test\ndate: 2026-01-01\ntags: [a, b]\n---\nContent here";
+        let pos = find_frontmatter_end(content).unwrap();
+        assert_eq!(&content[pos..], "Content here");
     }
 }
