@@ -1,6 +1,6 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
-use crate::features::search::embeddings::EmbeddingServiceState;
+use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::model::{
     BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope,
     SemanticSearchHit,
@@ -1075,6 +1075,8 @@ fn handle_embed_batch(
         );
     }
 
+    handle_block_embed_batch(conn, cancel, &model, vault_id);
+
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let _ = app_handle.emit(
         "embedding_progress",
@@ -1084,6 +1086,106 @@ fn handle_embed_batch(
             elapsed_ms,
         },
     );
+}
+
+const BLOCK_EMBED_MIN_WORDS: i64 = 20;
+const BLOCK_EMBED_MIN_LINES: i64 = 10;
+
+fn handle_block_embed_batch(
+    conn: &Connection,
+    cancel: &Arc<AtomicBool>,
+    model: &EmbeddingService,
+    vault_id: &str,
+) {
+    let sections = match search_db::get_embeddable_sections(
+        conn,
+        BLOCK_EMBED_MIN_WORDS,
+        BLOCK_EMBED_MIN_LINES,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("block_embed: failed to get sections for {vault_id}: {e}");
+            return;
+        }
+    };
+
+    let already_embedded = vector_db::get_block_embedded_keys(conn);
+    let needing: Vec<&(String, String, i64, i64)> = sections
+        .iter()
+        .filter(|(path, heading_id, _, _)| {
+            let key = format!("{path}\0{heading_id}");
+            !already_embedded.contains(&key)
+        })
+        .collect();
+
+    if needing.is_empty() {
+        return;
+    }
+
+    log::info!(
+        "block_embed: {} sections to embed for {vault_id}",
+        needing.len()
+    );
+
+    let batch_size = 50;
+    let mut block_embedded = 0usize;
+
+    for chunk in needing.chunks(batch_size) {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let mut texts = Vec::with_capacity(chunk.len());
+        let mut keys = Vec::with_capacity(chunk.len());
+
+        for (path, heading_id, start_line, end_line) in chunk.iter().copied() {
+            let body = match search_db::get_fts_body(conn, path) {
+                Some(b) => b,
+                None => continue,
+            };
+            let lines: Vec<&str> = body.lines().collect();
+            let start = *start_line as usize;
+            let end = (*end_line as usize).min(lines.len());
+            if start >= lines.len() {
+                continue;
+            }
+            let section_text = lines[start..end].join("\n");
+            if section_text.trim().is_empty() {
+                continue;
+            }
+            keys.push((path.as_str(), heading_id.as_str()));
+            texts.push(section_text);
+        }
+
+        if texts.is_empty() {
+            continue;
+        }
+
+        let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+        match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
+            Ok(embeddings) => {
+                for ((path, heading_id), embedding) in keys.iter().zip(embeddings.iter()) {
+                    if let Err(e) =
+                        vector_db::upsert_block_embedding(conn, path, heading_id, embedding)
+                    {
+                        log::warn!("block_embed: upsert failed for {path}#{heading_id}: {e}");
+                    }
+                }
+                block_embedded += embeddings.len();
+            }
+            Err(e) if e.contains("cancelled") => {
+                log::info!("block_embed: cancelled");
+                break;
+            }
+            Err(e) => {
+                log::warn!("block_embed: batch embedding failed: {e}");
+            }
+        }
+    }
+
+    if block_embedded > 0 {
+        log::info!("block_embed: embedded {block_embedded} sections for {vault_id}");
+    }
 }
 
 fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {

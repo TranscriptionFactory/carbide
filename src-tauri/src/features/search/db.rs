@@ -1441,6 +1441,9 @@ pub fn remove_note(conn: &Connection, path: &str) -> Result<(), String> {
     if let Err(e) = vector_db::remove_embedding(conn, path) {
         log::debug!("vector_db::remove_embedding skipped: {e}");
     }
+    if let Err(e) = vector_db::remove_block_embeddings(conn, path) {
+        log::debug!("vector_db::remove_block_embeddings skipped: {e}");
+    }
     Ok(())
 }
 
@@ -1530,6 +1533,9 @@ pub fn remove_notes_by_prefix(conn: &Connection, prefix: &str) -> Result<(), Str
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
             if let Err(e) = vector_db::remove_embeddings_by_prefix(conn, prefix) {
                 log::debug!("vector_db::remove_embeddings_by_prefix skipped: {e}");
+            }
+            if let Err(e) = vector_db::remove_block_embeddings_by_prefix(conn, prefix) {
+                log::debug!("vector_db::remove_block_embeddings_by_prefix skipped: {e}");
             }
             Ok(())
         }
@@ -2510,6 +2516,27 @@ pub fn get_note_headings(
                 text: row.get(1)?,
                 line: row.get(2)?,
             })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_embeddable_sections(
+    conn: &Connection,
+    min_words: i64,
+    min_lines: i64,
+) -> Result<Vec<(String, String, i64, i64)>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT path, heading_id, start_line, end_line FROM note_sections
+             WHERE word_count >= ?1 OR (end_line - start_line) >= ?2
+             ORDER BY path, start_line",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![min_words, min_lines], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
         })
         .map_err(|e| e.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
@@ -3870,6 +3897,38 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Note not found"));
     }
+
+    #[test]
+    fn get_embeddable_sections_filters_by_threshold() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("e.md", "Embed");
+        let body = "# Short\n\nTwo words.\n\n## Long Section\n\nOne two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty-one words here.";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let sections = get_embeddable_sections(&conn, 20, 10).expect("query");
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].0, "e.md");
+        assert_eq!(sections[0].1, "h-2-long-section-0");
+    }
+
+    #[test]
+    fn get_embeddable_sections_line_count_gate() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("lines.md", "Lines");
+        let mut lines = vec!["# Code Heavy"];
+        for i in 0..12 {
+            lines.push(if i == 0 { "```" } else if i == 11 { "```" } else { "x" });
+        }
+        let body = lines.join("\n");
+        upsert_note(&conn, &meta, &body).expect("upsert");
+
+        let sections = get_embeddable_sections(&conn, 20, 10).expect("query");
+        assert_eq!(sections.len(), 1, "section with >10 lines should qualify via line gate");
+    }
 }
 
 pub fn get_orphan_outlinks(conn: &Connection, path: &str) -> Result<Vec<OrphanLink>, String> {
@@ -3994,6 +4053,11 @@ pub fn rename_folder_paths(
             if let Err(e) = vector_db::rename_embeddings_by_prefix(conn, old_prefix, new_prefix) {
                 log::debug!("vector_db::rename_embeddings_by_prefix skipped: {e}");
             }
+            if let Err(e) =
+                vector_db::rename_block_embeddings_by_prefix(conn, old_prefix, new_prefix)
+            {
+                log::debug!("vector_db::rename_block_embeddings_by_prefix skipped: {e}");
+            }
             Ok(count)
         }
         Err(e) => {
@@ -4068,6 +4132,9 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
             if let Err(e) = vector_db::rename_embedding_path(conn, old_path, new_path) {
                 log::debug!("vector_db::rename_embedding_path skipped: {e}");
+            }
+            if let Err(e) = vector_db::rename_block_embedding_path(conn, old_path, new_path) {
+                log::debug!("vector_db::rename_block_embedding_path skipped: {e}");
             }
             Ok(())
         }
