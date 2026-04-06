@@ -26,11 +26,12 @@
   } from "../adapters/formatting_toolbar_commands";
 
   interface Props {
-    view: EditorView | null;
+    get_view: () => EditorView | null;
+    get_state_version: () => number;
     on_command: (command: FormattingCommand) => void;
   }
 
-  let { view, on_command }: Props = $props();
+  let { get_view, get_state_version, on_command }: Props = $props();
 
   type ToolbarButton = {
     id: FormattingCommand;
@@ -102,11 +103,14 @@
     "insert",
   ] as const);
 
-  const active_marks = $derived(
-    view ? get_active_marks(view) : new Set<string>(),
-  );
+  const active_marks = $derived.by(() => {
+    get_state_version();
+    const view = get_view();
+    return view ? get_active_marks(view) : new Set<string>();
+  });
 
   function handle_click(command: FormattingCommand) {
+    const view = get_view();
     if (!view) return;
     view.focus();
     on_command(command);
@@ -122,7 +126,9 @@
       {@const is_active = button.mark_name
         ? active_marks.has(button.mark_name)
         : false}
-      {@const available = view ? is_command_available(button.id, view) : false}
+      {@const current_view = get_view()}
+      {@const _version = get_state_version()}
+      {@const available = current_view ? is_command_available(button.id, current_view) : false}
       <button
         type="button"
         class="FormattingToolbar__button"
