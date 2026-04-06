@@ -1,10 +1,12 @@
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { OrphanLink } from "$lib/shared/types/search";
 import type { ExternalLink } from "$lib/features/links/types/link";
+import type { SmartLinkRuleMatch } from "$lib/features/smart_links";
 
 export type SuggestedLink = {
   note: NoteMeta;
   similarity: number;
+  rules?: SmartLinkRuleMatch[];
 };
 
 type LinksSnapshot = {

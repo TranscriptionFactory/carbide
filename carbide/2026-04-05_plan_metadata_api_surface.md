@@ -10,51 +10,51 @@ Last audited: 2026-04-05
 
 **Backend (Rust SQLite — integrated into search index)**
 
-| Layer                    | What                                                                                                         | Location                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `note_properties` table  | YAML frontmatter indexed per-note, type inference (string, number, boolean, date)                            | `src-tauri/src/features/search/db.rs`       |
-| `note_inline_tags` table | Inline `#tag` extraction                                                                                     | same                                        |
-| `NoteStats` struct       | word_count, char_count, heading_count, outlink_count, reading_time_secs, task_count/done/todo, next_due_date | `src-tauri/src/features/search/model.rs:91` |
-| `IndexNoteMeta` struct   | path, title, name, `mtime_ms`, `size_bytes`, file_type, source                                               | `model.rs:45`                               |
-| `query_bases()`          | Full filter/sort/pagination over properties, tags, stats, meta                                               | `db.rs:2714`                                |
-| `get_note_properties()`  | BTreeMap of all properties for a path                                                                        | `db.rs:2633`                                |
-| `get_note_tags()`        | Sorted Vec of tags for a note                                                                                | `db.rs:2652`                                |
-| `list_all_properties()`  | PropertyInfo[] across vault (key, type, count)                                                               | `db.rs:2688`                                |
-| `list_all_tags()`        | TagInfo[] across vault (tag, count)                                                                          | `db.rs:2663`                                |
-| `get_note_stats()`       | NoteStats for a note                                                                                         | `db.rs:2312`                                |
-| `note_headings` table    | Structured headings (level, text, line) per note, populated during indexing                                  | `db.rs:751` (schema), `db.rs:424` (insert)  |
-| `note_links` table       | Schema exists (source_path, target_path, link_text, link_type, section_heading, target_anchor) — **not populated** | `db.rs:760` (schema), `db.rs:809` (migration) |
-| `outlinks` table         | (source_path, target_path) pairs — the actual link storage used during indexing                              | `db.rs` (used for backlinks, orphan detection) |
-| `resolve_note_link`      | Path-arithmetic resolution of `[[path/to/note]]` relative links                                             | `service.rs:1798`                           |
-| `resolve_wiki_link`      | Path-arithmetic resolution of `[[WikiLink]]` style links                                                    | `service.rs:1820`                           |
-| `get_orphan_outlinks`    | Identifies unresolved outlinks via LEFT JOIN against `notes` table                                          | `db.rs:3328`                                |
+| Layer                    | What                                                                                                               | Location                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `note_properties` table  | YAML frontmatter indexed per-note, type inference (string, number, boolean, date)                                  | `src-tauri/src/features/search/db.rs`          |
+| `note_inline_tags` table | Inline `#tag` extraction                                                                                           | same                                           |
+| `NoteStats` struct       | word_count, char_count, heading_count, outlink_count, reading_time_secs, task_count/done/todo, next_due_date       | `src-tauri/src/features/search/model.rs:91`    |
+| `IndexNoteMeta` struct   | path, title, name, `mtime_ms`, `size_bytes`, file_type, source                                                     | `model.rs:45`                                  |
+| `query_bases()`          | Full filter/sort/pagination over properties, tags, stats, meta                                                     | `db.rs:2714`                                   |
+| `get_note_properties()`  | BTreeMap of all properties for a path                                                                              | `db.rs:2633`                                   |
+| `get_note_tags()`        | Sorted Vec of tags for a note                                                                                      | `db.rs:2652`                                   |
+| `list_all_properties()`  | PropertyInfo[] across vault (key, type, count)                                                                     | `db.rs:2688`                                   |
+| `list_all_tags()`        | TagInfo[] across vault (tag, count)                                                                                | `db.rs:2663`                                   |
+| `get_note_stats()`       | NoteStats for a note                                                                                               | `db.rs:2312`                                   |
+| `note_headings` table    | Structured headings (level, text, line) per note, populated during indexing                                        | `db.rs:751` (schema), `db.rs:424` (insert)     |
+| `note_links` table       | Schema exists (source_path, target_path, link_text, link_type, section_heading, target_anchor) — **not populated** | `db.rs:760` (schema), `db.rs:809` (migration)  |
+| `outlinks` table         | (source_path, target_path) pairs — the actual link storage used during indexing                                    | `db.rs` (used for backlinks, orphan detection) |
+| `resolve_note_link`      | Path-arithmetic resolution of `[[path/to/note]]` relative links                                                    | `service.rs:1798`                              |
+| `resolve_wiki_link`      | Path-arithmetic resolution of `[[WikiLink]]` style links                                                           | `service.rs:1820`                              |
+| `get_orphan_outlinks`    | Identifies unresolved outlinks via LEFT JOIN against `notes` table                                                 | `db.rs:3328`                                   |
 
 **Plugin RPC namespace (`metadata.*`)**
 
-| Method                           | What                        | Permission      |
-| -------------------------------- | --------------------------- | --------------- |
-| `metadata.query(query)`          | Bases query engine          | `metadata:read` |
-| `metadata.list_properties()`     | Vault-wide property listing | `metadata:read` |
-| `metadata.get_backlinks(path)`   | Incoming links              | `metadata:read` |
-| `metadata.get_stats(path)`       | Note statistics             | `metadata:read` |
+| Method                         | What                        | Permission      |
+| ------------------------------ | --------------------------- | --------------- |
+| `metadata.query(query)`        | Bases query engine          | `metadata:read` |
+| `metadata.list_properties()`   | Vault-wide property listing | `metadata:read` |
+| `metadata.get_backlinks(path)` | Incoming links              | `metadata:read` |
+| `metadata.get_stats(path)`     | Note statistics             | `metadata:read` |
 
 Dispatched via `plugin_rpc_handler.ts:770-801`.
 
 **Plugin RPC namespace (`search.*`) — metadata-adjacent**
 
-| Method            | What                        | Permission      |
-| ----------------- | --------------------------- | --------------- |
-| `search.tags()`   | Vault-wide tag listing      | `search:read`   |
+| Method          | What                   | Permission    |
+| --------------- | ---------------------- | ------------- |
+| `search.tags()` | Vault-wide tag listing | `search:read` |
 
 Backed by `tags_list_all` Tauri command (`service.rs:210`).
 
 **Tauri commands (tag-related)**
 
-| Command                          | What                                  | Location        |
-| -------------------------------- | ------------------------------------- | --------------- |
-| `tags_list_all`                  | All tags with counts                  | `service.rs:210` |
-| `tags_get_notes_for_tag`         | Notes for exact tag match             | `service.rs:219` |
-| `tags_get_notes_for_tag_prefix`  | Notes for tag prefix match            | `service.rs:231` |
+| Command                         | What                       | Location         |
+| ------------------------------- | -------------------------- | ---------------- |
+| `tags_list_all`                 | All tags with counts       | `service.rs:210` |
+| `tags_get_notes_for_tag`        | Notes for exact tag match  | `service.rs:219` |
+| `tags_get_notes_for_tag_prefix` | Notes for tag prefix match | `service.rs:231` |
 
 **Frontend features**
 
@@ -63,16 +63,16 @@ Backed by `tags_list_all` Tauri command (`service.rs:210`).
 
 ### What's NOT exposed
 
-| Gap                                    | Detail                                                                                                          | Obsidian equivalent                              | Status       |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------ |
-| No `ctime_ms` / creation date          | Only `mtime_ms` in `IndexNoteMeta`                                                                              | `TFile.stat.ctime`                               | MISSING      |
-| No composite `getFileCache(path)`      | Need separate `query` + `getStats` + `getBacklinks` calls to assemble full picture                              | `metadataCache.getFileCache(path)`               | MISSING      |
-| No live cache events                   | No event subscription for metadata index updates                                                                | `metadataCache.on("changed", cb)`                | MISSING      |
-| Structured headings: no public API     | `note_headings` table is populated, but no Tauri command exposes it; query only used in tests (`db.rs:3237`)    | `fileCache.headings[]`                           | DB DONE, API MISSING |
-| Structured links: table not populated  | `note_links` schema + migration exist but no INSERT during indexing; `outlinks` table used instead (path pairs only) | `fileCache.links[]`, `fileCache.embeds[]`   | SCHEMA ONLY  |
-| No resolved/unresolved link map        | `get_orphan_outlinks` does post-hoc LEFT JOIN but no stored resolution status                                   | `metadataCache.resolvedLinks`, `unresolvedLinks` | MISSING      |
-| No `getFirstLinkpathDest()` with index | `resolve_note_link` / `resolve_wiki_link` exist but are path arithmetic only — no vault index lookup            | `metadataCache.getFirstLinkpathDest()`           | PARTIAL      |
-| Tags not in `metadata` namespace       | Available as `search.tags()`, not `metadata.listTags()`                                                         | `metadataCache.getTags()`                        | DONE (different namespace) |
+| Gap                                    | Detail                                                                                                               | Obsidian equivalent                              | Status                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------- |
+| No `ctime_ms` / creation date          | Only `mtime_ms` in `IndexNoteMeta`                                                                                   | `TFile.stat.ctime`                               | MISSING                    |
+| No composite `getFileCache(path)`      | Need separate `query` + `getStats` + `getBacklinks` calls to assemble full picture                                   | `metadataCache.getFileCache(path)`               | MISSING                    |
+| No live cache events                   | No event subscription for metadata index updates                                                                     | `metadataCache.on("changed", cb)`                | MISSING                    |
+| Structured headings: no public API     | `note_headings` table is populated, but no Tauri command exposes it; query only used in tests (`db.rs:3237`)         | `fileCache.headings[]`                           | DB DONE, API MISSING       |
+| Structured links: table not populated  | `note_links` schema + migration exist but no INSERT during indexing; `outlinks` table used instead (path pairs only) | `fileCache.links[]`, `fileCache.embeds[]`        | SCHEMA ONLY                |
+| No resolved/unresolved link map        | `get_orphan_outlinks` does post-hoc LEFT JOIN but no stored resolution status                                        | `metadataCache.resolvedLinks`, `unresolvedLinks` | MISSING                    |
+| No `getFirstLinkpathDest()` with index | `resolve_note_link` / `resolve_wiki_link` exist but are path arithmetic only — no vault index lookup                 | `metadataCache.getFirstLinkpathDest()`           | PARTIAL                    |
+| Tags not in `metadata` namespace       | Available as `search.tags()`, not `metadata.listTags()`                                                              | `metadataCache.getTags()`                        | DONE (different namespace) |
 
 ---
 
@@ -114,7 +114,7 @@ Missing pieces (revised):
 - Add column to search DB schema (`notes` table)
 - Propagate to `NoteMeta` on frontend
 
-**A2. Expose structured headings via Tauri command** *(reduced scope — DB already done)*
+**A2. Expose structured headings via Tauri command** _(reduced scope — DB already done)_
 
 - ~~New table: `note_headings`~~ Table exists and is populated (`db.rs:751`, `db.rs:424`)
 - ~~Extract during content parsing~~ Already happens during `upsert_note`
@@ -155,7 +155,7 @@ Missing pieces (revised):
 - Plugin bridge subscribes and forwards to iframe
 - `events.on("metadata-changed", cb)` in plugin SDK
 
-**C2. Vault-wide tag listing via `metadata` namespace** *(reduced scope — already available elsewhere)*
+**C2. Vault-wide tag listing via `metadata` namespace** _(reduced scope — already available elsewhere)_
 
 - ~~Wire existing `list_all_tags()` to `metadata.listTags()` RPC method~~ Already wired as `search.tags()` (`plugin_rpc_handler.ts:758`, backed by `tags_list_all`)
 - Optional: alias as `metadata.listTags()` for Obsidian API parity. Low priority since functionality exists

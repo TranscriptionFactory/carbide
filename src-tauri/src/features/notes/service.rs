@@ -24,6 +24,7 @@ pub struct NoteMeta {
     pub title: String,
     pub blurb: String,
     pub mtime_ms: i64,
+    pub ctime_ms: i64,
     pub size_bytes: i64,
 }
 
@@ -397,7 +398,7 @@ fn truncate_blurb(text: &str) -> String {
     }
 }
 
-pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64), String> {
+pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64, i64), String> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let size = meta.len() as i64;
     let mtime = meta
@@ -406,10 +407,16 @@ pub(crate) fn file_meta(path: &Path) -> Result<(i64, i64), String> {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0);
-    Ok((mtime, size))
+    let ctime = meta
+        .created()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(mtime);
+    Ok((mtime, ctime, size))
 }
 
-fn build_note_meta(
+pub(crate) fn build_note_meta(
     root: &Path,
     rel_path: &str,
     cached_titles: Option<&std::collections::HashMap<String, String>>,
@@ -419,7 +426,7 @@ fn build_note_meta(
         .and_then(|m| m.get(rel_path).cloned())
         .unwrap_or_else(|| extract_title(&abs));
     let blurb = extract_blurb(&abs);
-    let (mtime_ms, size_bytes) = file_meta(&abs)?;
+    let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
         id: rel_path.to_string(),
@@ -428,6 +435,7 @@ fn build_note_meta(
         title,
         blurb,
         mtime_ms,
+        ctime_ms,
         size_bytes,
     })
 }
@@ -511,7 +519,7 @@ pub fn write_note(
 
     if let Some(expected) = args.expected_mtime_ms {
         match file_meta(&abs) {
-            Ok((disk_mtime, _)) if disk_mtime != expected => {
+            Ok((disk_mtime, _, _)) if disk_mtime != expected => {
                 return Err("conflict:mtime_mismatch".to_string());
             }
             Err(_) => {
@@ -539,7 +547,7 @@ pub fn write_note(
     // Persist buffer to disk
     buffer_manager.save_buffer(buffer_id)?;
 
-    let (new_mtime, _) = file_meta(&abs)?;
+    let (new_mtime, _, _) = file_meta(&abs)?;
     Ok(new_mtime)
 }
 
@@ -566,7 +574,7 @@ pub fn write_and_index_note(
 
     if let Some(expected) = args.expected_mtime_ms {
         match file_meta(&abs) {
-            Ok((disk_mtime, _)) if disk_mtime != expected => {
+            Ok((disk_mtime, _, _)) if disk_mtime != expected => {
                 return Err("conflict:mtime_mismatch".to_string());
             }
             Err(_) => {
@@ -591,7 +599,7 @@ pub fn write_and_index_note(
 
     buffer_manager.save_buffer(buffer_id)?;
 
-    let (new_mtime, _) = file_meta(&abs)?;
+    let (new_mtime, _, _) = file_meta(&abs)?;
     let blurb = extract_blurb_from_content(&args.markdown);
 
     crate::features::search::service::index_upsert_note_with_content(
@@ -1498,7 +1506,7 @@ pub fn list_folder_contents(
             notes.push(build_note_meta(&root, &rel, cached_titles.as_ref())?);
         } else {
             let abs = root.join(&rel);
-            let (mtime_ms, size_bytes) = file_meta(&abs)?;
+            let (mtime_ms, _, size_bytes) = file_meta(&abs)?;
             let ext = std::path::Path::new(&entry.name)
                 .extension()
                 .and_then(|e| e.to_str())

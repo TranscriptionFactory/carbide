@@ -13,6 +13,7 @@ function make_editor_store(path: string | null, dirty = false) {
             name: path.split("/").pop()!,
             title: path.split("/").pop()!.replace(".md", ""),
             mtime_ms: 0,
+            ctime_ms: 0,
             size_bytes: 0,
             file_type: null,
           },

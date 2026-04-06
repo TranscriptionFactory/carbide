@@ -41,6 +41,7 @@ export interface PropertyInfo {
   name: string;
   property_type: string;
   count: number;
+  unique_values: string[] | null;
 }
 
 export interface BaseViewDefinition {

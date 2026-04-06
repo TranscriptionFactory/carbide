@@ -25,6 +25,7 @@ const SOURCE_NOTE = {
   title: "source",
   blurb: "",
   mtime_ms: 0,
+  ctime_ms: 0,
   size_bytes: 0,
   file_type: null,
 };
@@ -257,6 +258,7 @@ describe("LinkRepairService", () => {
       title: "noteA",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     };

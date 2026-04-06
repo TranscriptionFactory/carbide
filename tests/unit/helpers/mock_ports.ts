@@ -170,6 +170,7 @@ export function create_mock_notes_port(): NotesPort & {
           title: "",
           blurb: "",
           mtime_ms: 0,
+          ctime_ms: 0,
           size_bytes: 0,
           file_type: null,
         },
@@ -230,6 +231,7 @@ export function create_mock_notes_port(): NotesPort & {
         title: note_path.replace(".md", ""),
         blurb: "",
         mtime_ms: Date.now(),
+        ctime_ms: 0,
         size_bytes: markdown.length,
         file_type: null,
       };

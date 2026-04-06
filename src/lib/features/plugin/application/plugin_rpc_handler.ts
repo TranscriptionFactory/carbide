@@ -97,6 +97,7 @@ type PluginRpcMetadataBackend = {
   list_properties(): Promise<unknown>;
   get_backlinks(note_path: string): Promise<{ path: string }[]>;
   get_stats(note_path: string): Promise<unknown>;
+  get_file_cache(note_path: string): Promise<unknown>;
 };
 
 export type PluginRpcContext = {
@@ -795,6 +796,10 @@ export class PluginRpcHandler {
       case "get_stats": {
         const note_path = read_param_string(params, 0, "note path");
         return this.context.metadata.get_stats(note_path);
+      }
+      case "getFileCache": {
+        const note_path = read_param_string(params, 0, "note path");
+        return this.context.metadata.get_file_cache(note_path);
       }
       default:
         throw new Error(`Unknown metadata action: ${action}`);

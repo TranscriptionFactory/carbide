@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 0 / 46 units complete
+**Progress:** 25 / 46 units complete
 
 ---
 
@@ -26,16 +26,16 @@ Run repeatedly. Each invocation completes one unit, updates checkboxes, and the 
 
 Review between batches — check the branch, run the app, read commits. Each batch is a natural ship point.
 
-| Batch | Steps | Units | Runs | Review gate |
-|-------|-------|-------|------|-------------|
-| **A** | 1–2 | 1.1–1.5, 2.1 | 6 | MCP stdio works in Claude Desktop; headings command callable |
-| **B** | 3–4 | 3.1–3.3, 4.1–4.2 | 5 | Type inference in bases; frontmatter edits round-trip; `ctime_ms` + `note_links` populated |
-| **C** | 5–6 | 5.1–5.3, 6.1–6.2 | 5 | Suggested Links panel shows metadata + semantic rules with provenance |
-| **D** | 7–8 | 7.1–7.6, 8.1–8.2 | 8 | `carbide read/search` works from terminal; Claude Desktop + Code auto-configured |
-| **E** | 9–10 | 9.1, 10.1–10.3 | 4 | `getFileCache` composite endpoint; plugins lazy-load with timeouts |
-| **F** | 11–12 | 11.1–11.2, 12.1–12.5 | 7 | Block-level suggestions; full MCP + CLI surface |
-| **G** | 13–15 | 13.1–13.2, 14.1–14.2, 15.1–15.2 | 6 | Drag blocks; live metadata events; graph shows smart link edges |
-| **H** | 16 | 16.1–16.5 | 5 | Bulk property ops; nested props; plugin SDK; CLI TUI |
+| Batch | Steps | Units                           | Runs | Review gate                                                                                |
+| ----- | ----- | ------------------------------- | ---- | ------------------------------------------------------------------------------------------ |
+| **A** | 1–2   | 1.1–1.5, 2.1                    | 6    | MCP stdio works in Claude Desktop; headings command callable                               |
+| **B** | 3–4   | 3.1–3.3, 4.1–4.2                | 5    | Type inference in bases; frontmatter edits round-trip; `ctime_ms` + `note_links` populated |
+| **C** | 5–6   | 5.1–5.3, 6.1–6.2                | 5    | Suggested Links panel shows metadata + semantic rules with provenance                      |
+| **D** | 7–8   | 7.1–7.6, 8.1–8.2                | 8    | `carbide read/search` works from terminal; Claude Desktop + Code auto-configured           |
+| **E** | 9–10  | 9.1, 10.1–10.3                  | 4    | `getFileCache` composite endpoint; plugins lazy-load with timeouts                         |
+| **F** | 11–12 | 11.1–11.2, 12.1–12.5            | 7    | Block-level suggestions; full MCP + CLI surface                                            |
+| **G** | 13–15 | 13.1–13.2, 14.1–14.2, 15.1–15.2 | 6    | Drag blocks; live metadata events; graph shows smart link edges                            |
+| **H** | 16    | 16.1–16.5                       | 5    | Bulk property ops; nested props; plugin SDK; CLI TUI                                       |
 
 ---
 
@@ -57,25 +57,30 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/mcp_native_gaps_plan.md` → "Phase 1: Core MCP Server"
 **Depends on:** nothing
 
-- [ ] **1.1** Module scaffold + MCP types + JSON-RPC 2.0 message parsing
+- [x] **1.1** Module scaffold + MCP types + JSON-RPC 2.0 message parsing
   - Files: `src-tauri/src/features/mcp/mod.rs`, `types.rs`, `router.rs` + tests
   - Define `McpRequest`, `McpResponse`, `ToolDefinition`, `McpError`. JSON-RPC 2.0 parse/serialize. No transport yet — pure types + router dispatch skeleton.
+  - _Completed 2026-04-05 `fc6decde`. Built full JSON-RPC 2.0 types (request/response/error with serde), MCP protocol types (InitializeResult, ToolDefinition, ToolCallParams, ToolResult with ContentBlock tagged enum, ResourceDefinition), and McpRouter with dispatch for initialize/ping/tools-list/tools-call/resources-list/resources-read. 25 tests. Tool definitions and dispatch are empty stubs — unit 1.3 populates them. Pre-existing lint failures in `build_command_context.ts` and 1 pre-existing test failure in document store — not related to MCP._
 
-- [ ] **1.2** Stdio transport + server lifecycle
+- [x] **1.2** Stdio transport + server lifecycle
   - Files: `mcp/server.rs`, `mcp/transport.rs`, Tauri command wiring
   - Stdin/stdout line-delimited JSON-RPC. `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. `McpState` managed state.
+  - _Completed 2026-04-05 `b3926bcc`. Built generic async JSON-RPC stream transport over AsyncBufRead/AsyncWrite with tokio::select shutdown. McpState manages lifecycle (start_stdio/stop/get_status/shutdown). Three Tauri commands with specta annotations wired into app builder + shutdown hook. Added tokio `io-std` and `io-util` features. 10 transport tests. Pre-existing lint (build_command_context.ts layering) and test (document_service) failures unchanged. MCP types use snake_case serde — will need `rename_all = "camelCase"` before real MCP client integration (noted for future unit)._
 
-- [ ] **1.3** Tier 1 tools — notes CRUD
+- [x] **1.3** Tier 1 tools — notes CRUD
   - Files: `mcp/tools/mod.rs`, `mcp/tools/notes.rs`
   - `list_notes`, `read_note`, `create_note`, `update_note`, `delete_note`. Each calls existing service functions.
+  - _Completed 2026-04-05 `0d3d8717`. Five MCP tool definitions with camelCase JSON schemas + dispatch handlers. Router uses `Option<AppHandle>` — `with_app()` for production, `new()` for tests. read_note/update_note bypass BufferManager for direct disk IO (MCP doesn't need editor buffer state). Made `build_note_meta` pub(crate). Added `#[serde(rename_all = "camelCase")]` on ToolDefinition for MCP protocol compliance. 8 new tool-specific tests + updated 2 existing tests. Pre-existing lint/test failures unchanged._
 
-- [ ] **1.4** Tier 1 tools — search + metadata + vault
+- [x] **1.4** Tier 1 tools — search + metadata + vault
   - Files: `mcp/tools/search.rs`, `mcp/tools/metadata.rs`, `mcp/tools/vault.rs`
   - `search_notes` (wraps OmniFind), `get_note_metadata`, `list_vaults`. Resource definitions.
+  - _Completed 2026-04-05 `088ead37`. Three new tool modules: search_notes wraps index_search with configurable limit (default 20, max 100); get_note_metadata combines build_note_meta + get_note_stats + tags/properties from search DB into text output; list_vaults exposes vault registry. Router extended to 8 total tools. Made parse_args pub(crate) for cross-module reuse. 12 new tests + updated 2 existing tests for new tool count. Pre-existing lint/test failures unchanged._
 
-- [ ] **1.5** Frontend MCP feature + settings toggle
+- [x] **1.5** Frontend MCP feature + settings toggle
   - Files: `src/lib/features/mcp/` scaffold, settings UI
   - `McpStore` (status/config), settings panel toggle, autostart reactor. Thin — backend does the work.
+  - _Completed 2026-04-05 `23335416`. Built full frontend MCP feature module: McpStore ($state status/transport), McpPort interface + TauriAdapter (start/stop/get_status), McpService (start/stop/refresh_status with error resilience), mcp_autostart reactor (starts MCP on vault open when mcp_enabled=true). Added mcp_enabled to EditorSettings (default true, global-only). Full DI wiring across app_ports, create_app_stores, create_app_context, create_prod_ports, reactors/index. 9 tests (6 service + 3 store). Settings dialog toggle UI deferred — can be added alongside Step 8 auto-setup panel. Pre-existing lint (build_command_context.ts layering) and test (document_service) failures unchanged._
 
 ---
 
@@ -85,9 +90,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/metadata_api_surface.md` → Phase A2
 **Depends on:** nothing
 
-- [ ] **2.1** Add `get_note_headings` Tauri command
+- [x] **2.1** Add `get_note_headings` Tauri command
   - Files: `service.rs`, `db.rs` (expose existing query at `db.rs:3237`)
   - Wrap existing query. Add specta annotation. Wire in Tauri app builder. Test.
+  - _Completed 2026-04-05 `87c9c9d1`. Added NoteHeading model type (level/text/line) to model.rs, get_note_headings query function to db.rs, specta-annotated Tauri command to service.rs, wired in app/mod.rs. 2 new tests (ordered results + empty for missing note). Pre-existing lint/test failures unchanged._
 
 ---
 
@@ -97,17 +103,20 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/mcp_native_gaps_plan.md` → "Gap 3: Metadata System" (3a, 3b, 3c)
 **Depends on:** nothing (benefits Step 1 but not blocked)
 
-- [ ] **3.1** Property type inference — **TypeScript session**
+- [x] **3.1** Property type inference — **TypeScript session**
   - Files: `infer_property_type.ts` (new), test file, update `extract_metadata.ts` call site
   - Pure function + exhaustive unit tests (dates, booleans, numbers, arrays, tags, edge cases). Update SQLite `property_type` semantics.
+  - _Completed 2026-04-05 `f3203b48`. Created `infer_property_type.ts` with 6-type system (string/number/boolean/date/array/tags). Uses ISO date regex, boolean string detection, Number.isFinite for numeric strings, short-string heuristic for tags vs array. Added `PropertyType` union type narrowing `NoteProperty.type`. Updated `extract_metadata.ts` to call inference. 38 new tests covering all types + edge cases (NaN, Infinity, null, objects, nested arrays). Updated 4 existing test files for new type expectations. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged. SQLite `property_type` column semantics now receive inferred types from frontend — backend schema unchanged (still string column)._
 
-- [ ] **3.2** Frontmatter writer — **TypeScript session**
+- [x] **3.2** Frontmatter writer — **TypeScript session**
   - Files: `frontmatter_writer.ts` (new), test file
   - `update/add/remove_frontmatter_property()`, `ensure_frontmatter()`. Heavy on edge-case tests (comments, indentation, quoting, array formatting, empty frontmatter). Trickiest unit in Step 3.
+  - _Completed 2026-04-05 `b8db31b7`. Created `frontmatter_writer.ts` in `metadata/domain/` with 4 exported functions operating on raw markdown strings. Format-preserving: finds YAML block boundaries via regex, modifies only within delimiters. Quoting heuristic for special YAML chars (`:`, `#`, `{}`, `[]`, booleans, null). Arrays inline for ≤3 items, multi-line with `- ` prefix otherwise. Multi-line array values consumed correctly during update/remove. 53 tests covering: add/update/remove for all types, empty frontmatter, no frontmatter, sequential operations, round-trips, special chars, partial key matching, escaping. Exported via metadata feature index.ts. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **3.3** Property enumeration with types + unique values — **Rust + TS session**
+- [x] **3.3** Property enumeration with types + unique values — **Rust + TS session**
   - Files: `db.rs` (extend `list_all_properties`), `model.rs` (update `PropertyInfo`), frontend type updates
   - SQL extension to return top-N unique values. Update frontend `BasesPort`/adapter.
+  - _Completed 2026-04-05 `1c6ba082`. Added `unique_values: Option<Vec<String>>` to PropertyInfo in Rust model + TS interface. Extended `list_all_properties` with two additional prepared statements: count distinct values per key, fetch top-20 sorted values for properties with ≤100 distinct values (None for high-cardinality). Updated bases_panel built-in properties, BasesStore/BasesService/plugin_rpc_handler tests. 3 new Rust tests (low cardinality, high cardinality skip, cap at 20). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -117,13 +126,15 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/metadata_api_surface.md` → Phases A1, A3
 **Depends on:** nothing (parallel-safe with Step 3)
 
-- [ ] **4.1** `ctime_ms` capture — **Rust session**
+- [x] **4.1** `ctime_ms` capture — **Rust session**
   - Files: `model.rs`, `db.rs` (schema + indexing), frontend `NoteMeta` propagation
   - Add column, populate from `fs::metadata().created()`, fallback to `mtime_ms` on Linux.
+  - _Completed 2026-04-05 `917c541e`. Added `ctime_ms` field to `IndexNoteMeta` (Rust) and `NoteMeta` (TS). Extended `file_meta()` to return 3-tuple (mtime, ctime, size) using `fs::metadata().created()` with fallback to mtime when birth time unavailable (Linux). Added `ctime_ms INTEGER DEFAULT 0` column via schema migration. Updated all INSERT/SELECT statements in db.rs (upsert_note_simple, upsert_plain_content, query_bases, note_meta_with_stats_from_row). Propagated through 3 Tauri adapters, 6 source files, 55 test files. 2 new Rust tests (persistence round-trip + default-zero for legacy). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **4.2** Populate `note_links` table — **Rust session**
+- [x] **4.2** Populate `note_links` table — **Rust session**
   - Files: `db.rs` (INSERT in `upsert_note`), `service.rs` (new `get_note_links` command)
   - Extend outlink extraction to capture link_text, link_type, section_heading, target_anchor. Resolve `outlinks` vs `note_links` dual-table question. Decision-heavy — keep focused.
+  - _Completed 2026-04-05 `92d11f26`. Added wiki link extraction (wikilinks + embeds) in `extract_links()` during `upsert_note_simple`. Populates `note_links` table with target_path, link_text, link_type (wikilink/embed), section_heading (nearest heading above link), target_anchor. Also feeds extracted wikilink targets into outlinks table (previously empty for .md files). Added `NoteLink` model, `get_note_links` db query + specta Tauri command. Decision: kept `outlinks` as fast path for backlink/orphan queries — `note_links` is the rich version with metadata. 7 new tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -133,17 +144,20 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → "Feature 1: Smart Linking", Phase 1
 **Depends on:** Steps 3-4 make rules richer but existing tables suffice for MVP
 
-- [ ] **5.1** Rust backend — rule types + config persistence + SQL rule execution — **Rust session**
+- [x] **5.1** Rust backend — rule types + config persistence + SQL rule execution — **Rust session**
   - Files: `src-tauri/src/features/smart_links/` (new module)
   - Tauri commands: `smart_links_load_rules`, `smart_links_save_rules`, `smart_links_compute_suggestions`. SQL queries for `same_day`, `shared_tag`, `shared_property`. Config as JSON in `.carbide/smart-links/rules.json`.
+  - _Completed 2026-04-05 `e7d91629`. New `smart_links` feature module with 3 files: `mod.rs` (types + Tauri commands), `config.rs` (JSON persistence with default-on-first-access), `rules.rs` (SQL execution engine). Types: SmartLinkRule, SmartLinkRuleGroup, SmartLinkRuleMatch, SmartLinkSuggestion — all with camelCase serde + specta. Rule config uses `HashMap<String, String>` (not serde_json::Value) for specta compatibility. Three SQL rules: `same_day` (mtime date match via SQLite date()), `shared_tag` (Jaccard overlap against note_inline_tags), `shared_property` (key-value pair match against note_properties). Weighted score aggregation with dedup by target path. Default rules: same_day(0.3), shared_tag(0.5), shared_property(0.4). 11 tests (8 rule + 3 config). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **5.2** TypeScript frontend — store + service + port extension + LinksService integration — **TypeScript session**
+- [x] **5.2** TypeScript frontend — store + service + port extension + LinksService integration — **TypeScript session**
   - Files: `src/lib/features/smart_links/` (new), extend `SearchPort`, update `LinksService`
   - `SmartLinksStore`, `SmartLinksService`, extend `SuggestedLink` type with provenance. Wire `load_suggested_links()` to union explicit + smart suggestions.
+  - _Completed 2026-04-05 `53e2c8fe`. New `smart_links` feature module with SmartLinksStore (rule groups state + mutations), SmartLinksService (load/save/toggle rules via SearchPort), 4 TS types matching Rust types (SmartLinkRule, SmartLinkRuleGroup, SmartLinkRuleMatch, SmartLinkSuggestion). Extended SearchPort with 3 methods (load_smart_link_rules, save_smart_link_rules, compute_smart_link_suggestions) + Tauri adapter implementation. Extended SuggestedLink with optional `rules` provenance array. LinksService.load_suggested_links now fires semantic + smart link queries in parallel via Promise.allSettled, merges by target path (dedup with combined provenance, max score), sorts by score. Graceful degradation: either source can fail independently. DI wired in create_app_stores + create_app_context. 28 new tests (8 store, 6 service, 14 links_service including merge/dedup/partial-failure). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **5.3** UI — rule configuration + provenance display — **Svelte/UI session**
+- [x] **5.3** UI — rule configuration + provenance display — **Svelte/UI session**
   - Files: Settings UI for rule toggles/weights, provenance chips in Suggested Links panel
   - Reuse shadcn toggle/slider components. Show which rules triggered each suggestion.
+  - _Completed 2026-04-05 `6a917bbe`. Added SmartLinksSettings component embedded in Semantic settings section with per-group toggles and per-rule enabled/weight controls (Switch + Slider). Rules auto-load on first settings visit. Provenance chips in SuggestedLinksSection show abbreviated rule labels (day/tag/prop/semantic/title/links) with hover tooltip showing raw score. Extracted format_rule.ts domain module with rule_chip_label, format_rule_name, rule_chip_title. 8 new tests. Component accesses services through context (matching citation_picker/task_list_item pattern). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -153,11 +167,13 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 2
 **Depends on:** Step 5
 
-- [ ] **6.1** Semantic rule wiring + scoring engine — **Rust session**
+- [x] **6.1** Semantic rule wiring + scoring engine — **Rust session**
   - Rust: `semantic_similarity` rule (call `find_similar_notes` directly — never hybrid search), `title_overlap`, `shared_outlinks` queries. Weighted aggregation, dedup, sort.
+  - _Completed 2026-04-05 `4ba5ba3f`. Three new rules in rules.rs: semantic_similarity calls vector_db::knn_search directly (converts distance to similarity, filters ≤0), title_overlap tokenizes titles and computes Jaccard similarity (0.15 threshold), shared_outlinks queries outlinks table for shared targets (Jaccard on outlink sets). Added "semantic" rule group to default_rules() with semantic_similarity enabled by default, title_overlap and shared_outlinks disabled. 8 new tests + 2 updated config/default_rules tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **6.2** Frontend scoring integration + tests — **TypeScript session**
+- [x] **6.2** Frontend scoring integration + tests — **TypeScript session**
   - TS: update service to handle multi-rule results. Integration tests for weighted merge, dedup, ranking.
+  - _Completed 2026-04-05 `9b53fecd`. Extracted merge_suggestions from links_service.ts into links/domain/merge_suggestions.ts as a pure domain function. Added rule deduplication by ruleId (keeps higher rawScore) to handle semantic_similarity appearing from both find_similar_notes and the backend rules engine. 18 new tests in tests/unit/domain/merge_suggestions.test.ts covering: multi-rule results, path dedup, rule dedup, weighted ranking, threshold filtering, limit enforcement, mixed sources. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -167,25 +183,31 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 3 + `carbide/cli_design.md`
 **Depends on:** Step 1 (MCP server exists), Step 3 (enriched metadata)
 
-- [ ] **7.1** Axum server scaffold + auth middleware + health endpoint — **Rust session**
+- [x] **7.1** Axum server scaffold + auth middleware + health endpoint — **Rust session**
   - Files: `mcp/transport.rs` (extend) or new `http/` module, `auth.rs`
   - Axum on port 3457. Bearer token from `~/.carbide/mcp-token`. `GET /health`. CORS localhost-only.
+  - _Completed 2026-04-05 `5d150d0e`. New `auth.rs` (token read/create/verify with constant-time comparison via `subtle`) and `http.rs` (Axum server scaffold with health endpoint, CORS localhost-only, HttpServerState lifecycle with graceful shutdown, 3 Tauri commands). Token auto-generated as 32 random bytes hex-encoded at `~/.carbide/mcp-token` with 0o600 permissions. HttpAppState holds AppHandle + token for authenticated routes (7.2+). Dependencies: axum 0.8, tower 0.5, tower-http 0.6, subtle 2, rand 0.8, hex 0.4. 14 tests (5 auth + 9 http). Wired into app/mod.rs (managed state, shutdown, invoke handler). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.2** `/mcp` JSON-RPC route — **Rust session**
+- [x] **7.2** `/mcp` JSON-RPC route — **Rust session**
   - Thin adapter — same tool dispatch as stdio. Test with curl. Small — can combine with 7.1.
+  - _Completed 2026-04-05 `79382bab`. Added POST /mcp route to Axum HTTP server in http.rs. Bearer token auth, JSON-RPC 2.0 parsing, dispatches to McpRouter (same as stdio). Notifications return 204 No Content. Stateless — creates fresh McpRouter per request (HTTP has no session). 7 new tests using test-only handler (avoids AppHandle dependency): auth rejection (missing + wrong token), malformed JSON parse error, ping, tools/list, unknown method, notification. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.3** `/cli/*` REST routes — read operations — **Rust session**
+- [x] **7.3** `/cli/*` REST routes — read operations — **Rust session**
   - `POST /cli/read`, `/cli/search`, `/cli/files`, `/cli/tags`, `/cli/properties`, `/cli/outline`, `/cli/vault`, `/cli/vaults`, `/cli/status`. Each ~5-10 lines.
+  - _Completed 2026-04-05 `757dbab0`. New `cli_routes.rs` module with 9 authenticated POST routes nested under `/cli`. Each route is a thin adapter: deserializes JSON params, delegates to existing service functions (notes_service::list_notes, search_db::search, search_db::list_all_tags, search_db::list_all_properties, search_db::get_note_headings, vault_service::list_vaults, vault_service::get_last_vault_id), returns JSON. Read uses direct disk IO (same as MCP tools, bypasses BufferManager). Files endpoint supports optional folder filter. Search caps limit at 200. Added token() accessor to HttpAppState. 8 tests (3 status endpoint with auth, 5 serialization). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.4** `/cli/*` REST routes — write operations — **Rust session**
+- [x] **7.4** `/cli/*` REST routes — write operations — **Rust session**
   - `POST /cli/create`, `/cli/write`, `/cli/append`, `/cli/prepend`, `/cli/rename`, `/cli/move`, `/cli/delete`. Can combine with 7.3 if thin enough.
+  - _Completed 2026-04-05 `5cf5a6dd`. Seven new authenticated POST routes in cli_routes.rs. Each is a thin adapter: create calls notes_service::create_note (with overwrite support via direct atomic_write), write/append/prepend use direct disk IO (bypass BufferManager — CLI has no editor session), rename calls notes_service::rename_note, move calls notes_service::move_items (single item), delete calls notes_service::delete_note. Prepend inserts after YAML frontmatter when present using find_frontmatter_end helper. Append ensures trailing newline before appending. 11 new tests (7 param deserialization + 4 frontmatter boundary detection). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.5** CLI crate scaffold + core read commands — **Rust session**
+- [x] **7.5** CLI crate scaffold + core read commands — **Rust session**
   - Files: `src-tauri/crates/carbide-cli/` — `main.rs`, `client.rs`, `auth.rs`, `vault.rs`, `format.rs`, `commands/notes.rs`, `commands/search.rs`
   - Clap derive API. `carbide read`, `carbide search`, `carbide files`, `carbide tags`, `carbide outline`. Plain text + `--json`.
+  - _Completed 2026-04-05 `0fde0813`. New `carbide-cli` crate in `src-tauri/crates/` as workspace member. Clap derive API with 6 subcommands: read, search, files, tags, outline, status. CarbideClient (reqwest) reads bearer token from `~/.carbide/mcp-token`, checks /health, posts JSON to /cli/\* routes. Auto-resolves active vault via /cli/status when --vault not given. Plain text formatting (path lists, search snippets with scores, tag counts, indented heading outlines) + --json flag for raw JSON. Dependencies: clap 4, reqwest 0.12, serde/serde_json, tokio, dirs 6. Decision: used standard clap --flag style instead of Obsidian-style key=value positional args — more robust, auto-generates help, and idiomatic Rust. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **7.6** CLI write + vault + general commands — **Rust session**
+- [x] **7.6** CLI write + vault + general commands — **Rust session**
   - `carbide create/write/append/rename/move/delete`, `carbide vault/vaults/vault:open`, `carbide help/version/status`. App launch detection (check `/health`, launch if down, poll 10s).
+  - _Completed 2026-04-05 `efdef9e2`. Added 7 write subcommands (create/write/append/prepend/rename/move/delete) to commands/notes.rs, 2 vault subcommands (vault/vaults) in new commands/vault.rs, clap `version` attribute for `--version` flag. App launch detection: ensure_running() checks /health, calls platform-specific launch_app() (open -a on macOS, carbide on Linux, cmd /C start on Windows), polls every 500ms for 10s. Vaults command handled before vault resolution (doesn't need active vault). vault:open deferred — requires backend route not yet implemented. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -195,11 +217,13 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 4
 **Depends on:** Step 7
 
-- [ ] **8.1** Claude Desktop/Code auto-config + settings UI — **Rust + Svelte session**
+- [x] **8.1** Claude Desktop/Code auto-config + settings UI — **Rust + Svelte session**
   - `mcp/setup.rs`, `.mcp.json` generation, settings panel updates. Write/merge `claude_desktop_config.json`. Auto-setup button, token regen, connection status.
+  - _Completed 2026-04-05 `622ce574`. Rust setup.rs with 4 Tauri commands: mcp_setup_claude_desktop (writes/merges claude_desktop_config.json), mcp_setup_claude_code (writes .mcp.json to vault dir with type:http), mcp_regenerate_token, mcp_get_setup_status. Config merge preserves existing mcpServers entries. Frontend: McpSetupStatus/McpSetupResult types, port/adapter/service/store wiring, MCP settings panel (enable toggle, server status badge, configure buttons for Desktop/Code with status icons, token regeneration). Settings nav gets new "MCP" category with CableIcon. Decision: used env var HOME/USERPROFILE for home dir instead of adding `dirs` crate dependency. 7 new tests (5 service + 2 store). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **8.2** CLI PATH registration + shell completions — **Rust session**
+- [x] **8.2** CLI PATH registration + shell completions — **Rust session**
   - Symlink logic, clap completions (bash/zsh/fish), `--install-cli` command.
+  - _Completed 2026-04-05 `322c365a`. Added `install.rs` module with symlink-based PATH registration (`--install-cli` creates `/usr/local/bin/carbide` -> current exe, `--uninstall-cli` removes it with safety check that target is a carbide binary). Shell completions via `clap_complete` crate (`--completions bash|zsh|fish` outputs to stdout). Made `command` field `Option<Command>` so flags work without subcommands; prints help when no subcommand given. On Windows, `create_symlink` falls back to file copy. 3 tests (symlink path, binary name detection, current exe resolution). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -209,9 +233,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/metadata_api_surface.md` → Phases B1, B2
 **Depends on:** Steps 2, 3, 4
 
-- [ ] **9.1** `note_get_file_cache` Tauri command + plugin RPC wiring — **Rust + TS session**
+- [x] **9.1** `note_get_file_cache` Tauri command + plugin RPC wiring — **Rust + TS session**
   - Files: `service.rs`, `db.rs` (composite query), `plugin_rpc_handler.ts`
   - Assembly from existing tables. Wire as `metadata.getFileCache(path)`. Clean up dead `note_get_metadata` reference.
+  - _Completed 2026-04-05 `ce1461da`. Added FileCache struct (model.rs) assembling frontmatter (BTreeMap<String, (value, type)>), tags, headings, links, embeds (partitioned by link_type), stats, ctime_ms/mtime_ms/size_bytes. Composite get_file_cache query in db.rs calls existing get_note_stats/get_note_properties/get_note_tags/get_note_headings/get_note_links and partitions links from embeds. note_get_file_cache Tauri command + specta annotation in service.rs. TS FileCache/CachedHeading/CachedLink types in metadata/types.ts. Replaced dead note_get_metadata with get_file_cache in MetadataPort + MetadataTauriAdapter. Extended SearchPort + search_tauri_adapter. Plugin RPC: metadata.getFileCache case + PluginRpcMetadataBackend.get_file_cache + wired in create_app_context.ts. 3 Rust tests (assembly, link/embed partition, missing note error). 2 new TS tests (plugin RPC success + permission check). Updated 5 test files for SearchPort mock. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
@@ -337,22 +362,22 @@ Review between batches — check the branch, run the app, read commits. Each bat
 
 ## Summary
 
-| Step | Units | Sessions |
-|------|-------|----------|
-| 1. MCP Stdio | 5 | 5 |
-| 2. Headings Cmd | 1 | 1 |
-| 3. Metadata Foundations | 3 | 3 |
-| 4. Backend Enrichment | 2 | 2 |
-| 5. Smart Linking P1 | 3 | 3 |
-| 6. Smart Linking P2 | 2 | 2 |
-| 7. HTTP + CLI | 6 | 5-6 |
-| 8. Auto-Setup | 2 | 2 |
-| 9. getFileCache | 1 | 1 |
-| 10. Plugin Hardening | 3 | 2-3 |
-| 11. Block Embeddings | 2 | 2 |
-| 12. Extended Tools | 5 | 4-5 |
-| 13. Editor Drag | 2 | 2 |
-| 14. Metadata Events | 2 | 2 |
-| 15. Graph Viz | 2 | 2 |
-| 16. Power Features | 5 | 5 |
-| **Total** | **46** | **~43-46** |
+| Step                    | Units  | Sessions   |
+| ----------------------- | ------ | ---------- |
+| 1. MCP Stdio            | 5      | 5          |
+| 2. Headings Cmd         | 1      | 1          |
+| 3. Metadata Foundations | 3      | 3          |
+| 4. Backend Enrichment   | 2      | 2          |
+| 5. Smart Linking P1     | 3      | 3          |
+| 6. Smart Linking P2     | 2      | 2          |
+| 7. HTTP + CLI           | 6      | 5-6        |
+| 8. Auto-Setup           | 2      | 2          |
+| 9. getFileCache         | 1      | 1          |
+| 10. Plugin Hardening    | 3      | 2-3        |
+| 11. Block Embeddings    | 2      | 2          |
+| 12. Extended Tools      | 5      | 4-5        |
+| 13. Editor Drag         | 2      | 2          |
+| 14. Metadata Events     | 2      | 2          |
+| 15. Graph Viz           | 2      | 2          |
+| 16. Power Features      | 5      | 5          |
+| **Total**               | **46** | **~43-46** |

@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-A CLI that lets users (and AI agents) interact with Carbide from the terminal. Unlike Obsidian CLI which is the *only* programmatic interface, Carbide's CLI is a **thin client** over the same HTTP endpoint that the MCP server exposes. This means:
+A CLI that lets users (and AI agents) interact with Carbide from the terminal. Unlike Obsidian CLI which is the _only_ programmatic interface, Carbide's CLI is a **thin client** over the same HTTP endpoint that the MCP server exposes. This means:
 
 1. One transport layer serves both MCP clients (Claude, Cursor) and human CLI users
 2. CLI is a Rust binary that ships with the app — no Node.js, no Python
@@ -51,11 +51,11 @@ Stdio MCP requires spawning a sidecar process that communicates via JSON-RPC ove
 
 ### Binary location
 
-| Platform | Path | Registration |
-|----------|------|-------------|
-| macOS | `Carbide.app/Contents/MacOS/carbide-cli` | Symlink to `/usr/local/bin/carbide` or PATH export in `~/.zprofile` |
-| Linux | Alongside AppImage or `/usr/local/bin/carbide` | Symlink |
-| Windows | `carbide-cli.exe` next to `Carbide.exe` | Added to PATH during install |
+| Platform | Path                                           | Registration                                                        |
+| -------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| macOS    | `Carbide.app/Contents/MacOS/carbide-cli`       | Symlink to `/usr/local/bin/carbide` or PATH export in `~/.zprofile` |
+| Linux    | Alongside AppImage or `/usr/local/bin/carbide` | Symlink                                                             |
+| Windows  | `carbide-cli.exe` next to `Carbide.exe`        | Added to PATH during install                                        |
 
 The CLI binary is a separate Rust crate in the workspace (`src-tauri/crates/carbide-cli/`), compiled alongside the main app. It's ~2MB — just `clap` + `reqwest` + `serde_json` + a formatter.
 
@@ -63,15 +63,15 @@ The CLI binary is a separate Rust crate in the workspace (`src-tauri/crates/carb
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Argument style** | `carbide <command> [key=value] [flags]` | Matches Obsidian CLI. Familiar to Obsidian users migrating. No dashes for params |
-| **Output format** | Plain text default, `--json` flag for structured | Humans get readable output; scripts/agents get JSON |
-| **Vault targeting** | CWD detection first, then `vault=<name\|id>` param | Same as Obsidian. Carbide's `VaultRegistry` already maps paths to vault IDs |
-| **File targeting** | `file=<name>` (wiki-link resolution) + `path=<exact>` | Same as Obsidian. Carbide's search index handles name resolution |
-| **Auth** | Bearer token from `~/.carbide/mcp-token` | Shared with MCP server. Single auth mechanism |
-| **TUI** | Deferred | Obsidian's TUI (autocomplete, history) is nice but not MVP. Plain commands first |
-| **App must be running** | Yes, first command launches app if needed | `carbide` checks HTTP health endpoint; if down, launches `Carbide.app` and waits |
+| Decision                | Choice                                                | Rationale                                                                        |
+| ----------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Argument style**      | `carbide <command> [key=value] [flags]`               | Matches Obsidian CLI. Familiar to Obsidian users migrating. No dashes for params |
+| **Output format**       | Plain text default, `--json` flag for structured      | Humans get readable output; scripts/agents get JSON                              |
+| **Vault targeting**     | CWD detection first, then `vault=<name\|id>` param    | Same as Obsidian. Carbide's `VaultRegistry` already maps paths to vault IDs      |
+| **File targeting**      | `file=<name>` (wiki-link resolution) + `path=<exact>` | Same as Obsidian. Carbide's search index handles name resolution                 |
+| **Auth**                | Bearer token from `~/.carbide/mcp-token`              | Shared with MCP server. Single auth mechanism                                    |
+| **TUI**                 | Deferred                                              | Obsidian's TUI (autocomplete, history) is nice but not MVP. Plain commands first |
+| **App must be running** | Yes, first command launches app if needed             | `carbide` checks HTTP health endpoint; if down, launches `Carbide.app` and waits |
 
 ---
 
@@ -80,6 +80,7 @@ The CLI binary is a separate Rust crate in the workspace (`src-tauri/crates/carb
 ### General
 
 #### `help`
+
 Show list of all available commands.
 
 ```
@@ -88,6 +89,7 @@ carbide help <command>
 ```
 
 #### `version`
+
 Show Carbide version.
 
 ```
@@ -95,6 +97,7 @@ carbide version
 ```
 
 #### `status`
+
 Show app status: running vault, active file, MCP server status.
 
 ```
@@ -106,6 +109,7 @@ carbide status
 ### Vault
 
 #### `vault`
+
 Show active vault info.
 
 ```
@@ -114,6 +118,7 @@ carbide vault info=name|path|files|folders|size
 ```
 
 #### `vaults`
+
 List known vaults.
 
 ```
@@ -123,6 +128,7 @@ carbide vaults total      # count only
 ```
 
 #### `vault:open`
+
 Switch to a different vault.
 
 ```
@@ -135,6 +141,7 @@ carbide vault:open id=<vault_id>
 ### Notes
 
 #### `read`
+
 Read note contents (default: active file).
 
 ```
@@ -144,6 +151,7 @@ carbide read path="Projects/carbide.md"
 ```
 
 #### `create`
+
 Create a new note.
 
 ```
@@ -152,15 +160,16 @@ carbide create name=Note content="# Title\n\nBody" open
 carbide create path="Projects/plan.md" content="..." overwrite
 ```
 
-| Parameter | Description |
-|-----------|-------------|
-| `name=<name>` | Note name |
-| `path=<path>` | Exact path from vault root |
-| `content=<text>` | Initial content |
-| `overwrite` | Overwrite if exists |
-| `open` | Open in Carbide after creating |
+| Parameter        | Description                    |
+| ---------------- | ------------------------------ |
+| `name=<name>`    | Note name                      |
+| `path=<path>`    | Exact path from vault root     |
+| `content=<text>` | Initial content                |
+| `overwrite`      | Overwrite if exists            |
+| `open`           | Open in Carbide after creating |
 
 #### `write`
+
 Write/update note contents.
 
 ```
@@ -169,6 +178,7 @@ carbide write file=Recipe content="updated recipe"
 ```
 
 #### `append`
+
 Append content to a note (default: active file).
 
 ```
@@ -177,6 +187,7 @@ carbide append file=TODO content="\n## New Section"
 ```
 
 #### `prepend`
+
 Prepend content after frontmatter.
 
 ```
@@ -185,6 +196,7 @@ carbide prepend file=README content="..."
 ```
 
 #### `rename`
+
 Rename a note. Updates internal links automatically.
 
 ```
@@ -193,6 +205,7 @@ carbide rename path="notes/old.md" name="new"
 ```
 
 #### `move`
+
 Move a note to a different folder. Updates links.
 
 ```
@@ -201,6 +214,7 @@ carbide move path="inbox/note.md" to="projects/"
 ```
 
 #### `delete`
+
 Delete a note (default: active file, moves to trash).
 
 ```
@@ -209,6 +223,7 @@ carbide delete path="scratch.md" permanent
 ```
 
 #### `open`
+
 Open a file in Carbide.
 
 ```
@@ -221,6 +236,7 @@ carbide open path="Projects/plan.md" newtab
 ### Files & Folders
 
 #### `files`
+
 List files in the vault.
 
 ```
@@ -231,6 +247,7 @@ carbide files total
 ```
 
 #### `folders`
+
 List folders in the vault.
 
 ```
@@ -240,6 +257,7 @@ carbide folders total
 ```
 
 #### `folder`
+
 Show folder info.
 
 ```
@@ -248,6 +266,7 @@ carbide folder path=Projects info=files|size
 ```
 
 #### `folder:create`
+
 Create a new folder.
 
 ```
@@ -259,6 +278,7 @@ carbide folder:create path="Projects/New Project"
 ### Search
 
 #### `search`
+
 Full-text search across the vault. Returns matching file paths with snippets.
 
 ```
@@ -267,13 +287,14 @@ carbide search query="TODO" limit=10
 carbide search query="rust async" --json
 ```
 
-| Parameter | Description |
-|-----------|-------------|
+| Parameter      | Description                 |
+| -------------- | --------------------------- |
 | `query=<text>` | **(required)** Search query |
-| `limit=<n>` | Max results |
-| `--json` | Structured output |
+| `limit=<n>`    | Max results                 |
+| `--json`       | Structured output           |
 
 #### `search:context`
+
 Search with matching line context (grep-style output).
 
 ```
@@ -285,6 +306,7 @@ carbide search:context query="fn main"
 ### Tags
 
 #### `tags`
+
 List tags in the vault.
 
 ```
@@ -297,6 +319,7 @@ carbide tags format=json
 ```
 
 #### `tag`
+
 Get info about a specific tag.
 
 ```
@@ -310,6 +333,7 @@ carbide tag name=project total     # occurrence count
 ### Metadata / Properties
 
 #### `properties`
+
 List properties in the vault or for a specific note.
 
 ```
@@ -321,6 +345,7 @@ carbide properties format=yaml|json
 ```
 
 #### `property:read`
+
 Read a property value from a note.
 
 ```
@@ -328,6 +353,7 @@ carbide property:read name=status file=Recipe
 ```
 
 #### `property:set`
+
 Set a property on a note (default: active file).
 
 ```
@@ -337,6 +363,7 @@ carbide property:set name=tags value="[project, active]" type=list
 ```
 
 #### `property:remove`
+
 Remove a property from a note.
 
 ```
@@ -348,6 +375,7 @@ carbide property:remove name=draft file=Recipe
 ### Outline
 
 #### `outline`
+
 Show headings for a note.
 
 ```
@@ -362,6 +390,7 @@ carbide outline total
 ### Links
 
 #### `backlinks`
+
 List notes linking to a file.
 
 ```
@@ -372,6 +401,7 @@ carbide backlinks total
 ```
 
 #### `links`
+
 List outgoing links from a file.
 
 ```
@@ -387,6 +417,7 @@ carbide links total
 Carbide has built-in git — no need to shell out to `git` separately.
 
 #### `git:status`
+
 Show working tree status for the vault.
 
 ```
@@ -394,6 +425,7 @@ carbide git:status
 ```
 
 #### `git:commit`
+
 Stage all changes and commit.
 
 ```
@@ -401,6 +433,7 @@ carbide git:commit message="daily checkpoint"
 ```
 
 #### `git:log`
+
 Show commit history.
 
 ```
@@ -410,6 +443,7 @@ carbide git:log --json
 ```
 
 #### `git:diff`
+
 Show diff of uncommitted changes.
 
 ```
@@ -418,6 +452,7 @@ carbide git:diff path="notes/recipe.md"
 ```
 
 #### `git:push`
+
 Push to remote.
 
 ```
@@ -425,6 +460,7 @@ carbide git:push
 ```
 
 #### `git:pull`
+
 Pull from remote.
 
 ```
@@ -433,6 +469,7 @@ carbide git:pull strategy=rebase
 ```
 
 #### `git:restore`
+
 Restore a file to a previous commit.
 
 ```
@@ -440,6 +477,7 @@ carbide git:restore path="notes/recipe.md" commit=abc123
 ```
 
 #### `git:init`
+
 Initialize git in the vault.
 
 ```
@@ -453,6 +491,7 @@ carbide git:init
 Carbide-unique. No equivalent in Obsidian CLI.
 
 #### `references`
+
 List citation library entries.
 
 ```
@@ -462,6 +501,7 @@ carbide references total
 ```
 
 #### `reference`
+
 Get a specific citation entry.
 
 ```
@@ -469,6 +509,7 @@ carbide reference id=smith2024
 ```
 
 #### `reference:add`
+
 Add a citation by DOI lookup.
 
 ```
@@ -476,6 +517,7 @@ carbide reference:add doi="10.1038/nature12373"
 ```
 
 #### `reference:search`
+
 Search the citation library.
 
 ```
@@ -483,6 +525,7 @@ carbide reference:search query="machine learning"
 ```
 
 #### `reference:bbt`
+
 Interact with Zotero Better BibTeX.
 
 ```
@@ -498,6 +541,7 @@ carbide reference:bbt bibliography keys="smith2024,jones2025"
 Carbide-unique. Query notes as structured data.
 
 #### `bases:query`
+
 Query notes with filters and sorting.
 
 ```
@@ -507,6 +551,7 @@ carbide bases:query filter="tags contains project" format=json
 ```
 
 #### `bases:properties`
+
 List all queryable properties with types.
 
 ```
@@ -514,6 +559,7 @@ carbide bases:properties
 ```
 
 #### `bases:views`
+
 List saved bases views.
 
 ```
@@ -525,6 +571,7 @@ carbide bases:views
 ### Tasks
 
 #### `tasks`
+
 List tasks (checkboxes) in the vault.
 
 ```
@@ -538,6 +585,7 @@ carbide tasks total
 ```
 
 #### `task`
+
 Show or toggle a task.
 
 ```
@@ -554,6 +602,7 @@ carbide task file=Recipe line=8 todo
 Carbide-unique. Manage PDFs and other linked reference documents.
 
 #### `sources`
+
 List indexed linked source files.
 
 ```
@@ -562,6 +611,7 @@ carbide sources --json
 ```
 
 #### `source:scan`
+
 Scan a folder for reference source files.
 
 ```
@@ -569,6 +619,7 @@ carbide source:scan folder="~/Papers"
 ```
 
 #### `source:extract`
+
 Extract text/metadata from a source file.
 
 ```
@@ -580,6 +631,7 @@ carbide source:extract file="~/Papers/smith2024.pdf"
 ### AI
 
 #### `ai`
+
 Run an AI prompt against the vault context. Delegates to the configured AI CLI tool.
 
 ```
@@ -592,6 +644,7 @@ carbide ai prompt="What are my open tasks?" context=vault
 ### Plugins
 
 #### `plugins`
+
 List installed plugins.
 
 ```
@@ -600,6 +653,7 @@ carbide plugins enabled
 ```
 
 #### `plugin:enable`
+
 Enable a plugin.
 
 ```
@@ -607,6 +661,7 @@ carbide plugin:enable id=my-plugin
 ```
 
 #### `plugin:disable`
+
 Disable a plugin.
 
 ```
@@ -614,6 +669,7 @@ carbide plugin:disable id=my-plugin
 ```
 
 #### `plugin:reload`
+
 Reload a plugin (for developers).
 
 ```
@@ -625,6 +681,7 @@ carbide plugin:reload id=my-plugin
 ### Developer Commands
 
 #### `eval`
+
 Execute JavaScript in the app context and return result.
 
 ```
@@ -632,6 +689,7 @@ carbide eval code="app.vault.getFiles().length"
 ```
 
 #### `dev:screenshot`
+
 Take a screenshot of the app window.
 
 ```
@@ -639,6 +697,7 @@ carbide dev:screenshot path=screenshot.png
 ```
 
 #### `dev:lint`
+
 Run markdown linting on the vault.
 
 ```
@@ -648,6 +707,7 @@ carbide dev:lint fix    # auto-fix
 ```
 
 #### `dev:format`
+
 Format markdown files.
 
 ```
@@ -656,6 +716,7 @@ carbide dev:format path="notes/recipe.md"
 ```
 
 #### `dev:index`
+
 Manage the search index.
 
 ```
@@ -670,11 +731,11 @@ carbide dev:index status
 
 These flags work with any command:
 
-| Flag | Description |
-|------|-------------|
-| `--json` | Output as JSON |
-| `--copy` | Copy output to clipboard |
-| `--quiet` | Suppress non-essential output |
+| Flag             | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `--json`         | Output as JSON                                               |
+| `--copy`         | Copy output to clipboard                                     |
+| `--quiet`        | Suppress non-essential output                                |
 | `--vault=<name>` | Target a specific vault (alternative to positional `vault=`) |
 
 ---
@@ -779,6 +840,7 @@ fn cli_router() -> Router {
 ```
 
 Each CLI route handler:
+
 1. Deserializes params from the request body
 2. Calls the **same Rust function** that the Tauri command calls (service layer)
 3. Returns JSON response
@@ -790,21 +852,21 @@ No logic duplication — CLI routes are 5-10 line adapter functions.
 
 ## Differences from Obsidian CLI
 
-| Aspect | Obsidian CLI | Carbide CLI |
-|--------|-------------|-------------|
-| **Git** | Not available | First-class (`git:*` commands) |
-| **References** | Not available | Citations, DOI lookup, Zotero integration |
-| **Bases** | Not available (Bases are new in Obsidian too) | Structured queries with filters |
-| **Linked sources** | Not available | PDF/document management |
-| **AI** | Not available | AI prompt execution |
-| **MCP** | Separate concern | Same HTTP server serves both CLI and MCP |
-| **Transport** | Custom IPC (Electron ↔ CLI) | HTTP (standard, debuggable with curl) |
-| **TUI** | Ships with interactive mode | Deferred — single commands first |
-| **Binary** | Ships with Electron app | Standalone Rust binary (~2MB) |
-| **Sync** | Obsidian Sync commands | Git push/pull (Carbide uses git, not proprietary sync) |
-| **Publish** | Obsidian Publish commands | Not applicable (no hosted publishing) |
-| **Daily notes** | `daily`, `daily:read`, `daily:append` | Convention-based — use `read`/`append` with path to daily note. Add `daily` alias if convention is configured |
-| **Bookmarks** | Built-in | Not implemented in Carbide (use tags/properties instead) |
+| Aspect             | Obsidian CLI                                  | Carbide CLI                                                                                                   |
+| ------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Git**            | Not available                                 | First-class (`git:*` commands)                                                                                |
+| **References**     | Not available                                 | Citations, DOI lookup, Zotero integration                                                                     |
+| **Bases**          | Not available (Bases are new in Obsidian too) | Structured queries with filters                                                                               |
+| **Linked sources** | Not available                                 | PDF/document management                                                                                       |
+| **AI**             | Not available                                 | AI prompt execution                                                                                           |
+| **MCP**            | Separate concern                              | Same HTTP server serves both CLI and MCP                                                                      |
+| **Transport**      | Custom IPC (Electron ↔ CLI)                   | HTTP (standard, debuggable with curl)                                                                         |
+| **TUI**            | Ships with interactive mode                   | Deferred — single commands first                                                                              |
+| **Binary**         | Ships with Electron app                       | Standalone Rust binary (~2MB)                                                                                 |
+| **Sync**           | Obsidian Sync commands                        | Git push/pull (Carbide uses git, not proprietary sync)                                                        |
+| **Publish**        | Obsidian Publish commands                     | Not applicable (no hosted publishing)                                                                         |
+| **Daily notes**    | `daily`, `daily:read`, `daily:append`         | Convention-based — use `read`/`append` with path to daily note. Add `daily` alias if convention is configured |
+| **Bookmarks**      | Built-in                                      | Not implemented in Carbide (use tags/properties instead)                                                      |
 
 ---
 
@@ -899,17 +961,18 @@ done
 
 The CLI and MCP server are **complementary interfaces to the same backend**:
 
-| | CLI | MCP |
-|---|---|---|
-| **Consumer** | Humans, shell scripts | AI assistants (Claude, Cursor) |
-| **Protocol** | HTTP REST-ish | JSON-RPC 2.0 |
-| **Auth** | Same bearer token | Same bearer token |
-| **Transport** | HTTP only | Stdio + HTTP |
-| **Output** | Formatted text or JSON | Always JSON (MCP spec) |
-| **Server** | Same axum instance | Same axum instance |
-| **Tool overlap** | ~80% overlap | ~80% overlap |
+|                  | CLI                    | MCP                            |
+| ---------------- | ---------------------- | ------------------------------ |
+| **Consumer**     | Humans, shell scripts  | AI assistants (Claude, Cursor) |
+| **Protocol**     | HTTP REST-ish          | JSON-RPC 2.0                   |
+| **Auth**         | Same bearer token      | Same bearer token              |
+| **Transport**    | HTTP only              | Stdio + HTTP                   |
+| **Output**       | Formatted text or JSON | Always JSON (MCP spec)         |
+| **Server**       | Same axum instance     | Same axum instance             |
+| **Tool overlap** | ~80% overlap           | ~80% overlap                   |
 
 The 20% non-overlap:
+
 - CLI has `git:*`, `dev:*`, `plugin:*` which are less relevant for MCP tools
 - MCP has `resources` (vault structure, config) which aren't useful as CLI commands
 

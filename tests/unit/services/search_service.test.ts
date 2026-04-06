@@ -36,6 +36,7 @@ function existing(path: string, score = 1): WikiSuggestion {
       title: path.split("/").at(-1)?.replace(".md", "") ?? "",
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },
@@ -64,6 +65,7 @@ describe("SearchService", () => {
             title: "a",
             blurb: "",
             mtime_ms: 0,
+            ctime_ms: 0,
             size_bytes: 0,
             file_type: null,
           },
@@ -98,6 +100,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -154,6 +160,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -209,6 +219,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const service = new SearchService(
@@ -261,6 +275,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const service = new SearchService(
@@ -320,6 +338,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -387,6 +409,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -455,6 +481,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const service = new SearchService(
@@ -507,6 +537,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -571,6 +605,10 @@ describe("SearchService", () => {
       semantic_search_batch: vi.fn().mockResolvedValue([]),
       rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
       get_note_stats: vi.fn().mockResolvedValue({}),
+      get_file_cache: vi.fn().mockResolvedValue({}),
+      load_smart_link_rules: vi.fn().mockResolvedValue([]),
+      save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+      compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     };
 
     const vault_store = new VaultStore();
@@ -617,6 +655,7 @@ describe("SearchService", () => {
           title: path.split("/").at(-1)?.replace(".md", "") ?? "",
           blurb: "",
           mtime_ms: 0,
+          ctime_ms: 0,
           size_bytes: 0,
           file_type: null,
         },
@@ -664,6 +703,10 @@ describe("SearchService", () => {
         semantic_search_batch: vi.fn().mockResolvedValue([]),
         rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
         get_note_stats: vi.fn().mockResolvedValue({}),
+        get_file_cache: vi.fn().mockResolvedValue({}),
+        load_smart_link_rules: vi.fn().mockResolvedValue([]),
+        save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+        compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
       };
     }
 
@@ -725,6 +768,7 @@ describe("SearchService", () => {
           title: path.replace(".md", ""),
           blurb: "",
           mtime_ms: 0,
+          ctime_ms: 0,
           size_bytes: 0,
           file_type: null,
         },
@@ -761,6 +805,7 @@ describe("SearchService", () => {
             title: "a",
             blurb: "",
             mtime_ms: 0,
+            ctime_ms: 0,
             size_bytes: 0,
             file_type: null,
           },
@@ -776,6 +821,7 @@ describe("SearchService", () => {
             title: "a",
             blurb: "",
             mtime_ms: 0,
+            ctime_ms: 0,
             size_bytes: 0,
             file_type: null,
           },
@@ -819,6 +865,7 @@ describe("SearchService", () => {
             title: "a",
             blurb: "",
             mtime_ms: 0,
+            ctime_ms: 0,
             size_bytes: 0,
             file_type: null,
           },

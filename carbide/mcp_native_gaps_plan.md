@@ -76,16 +76,16 @@ The CLI is a **separate Rust binary** (`src-tauri/crates/carbide-cli/`) that shi
 
 ### Design Decisions (CLI-specific)
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Argument style** | `carbide <command> [key=value] [flags]` | Matches Obsidian CLI. Familiar syntax. No dashes for params |
-| **Output format** | Plain text default, `--json` for structured | Humans get readable output; scripts/agents get JSON |
-| **Vault targeting** | CWD detection → `vault=<name\|id>` param → last-opened vault | Same as Obsidian. Uses existing `VaultRegistry` + `resolve_file_to_vault` |
-| **File targeting** | `file=<name>` (wiki-link resolution) + `path=<exact>` | Same as Obsidian. Carbide's search index handles name resolution |
-| **Auth** | Same bearer token as MCP (`~/.carbide/mcp-token`) | Single auth mechanism for both interfaces |
-| **App must be running** | Yes. First command launches app if needed | CLI checks `/health`; if down, launches `Carbide.app` and polls up to 10s |
-| **TUI** | Deferred (Phase 7+) | Single-command interface covers 90% of use cases. AI agents don't need a TUI |
-| **Binary** | Standalone Rust crate in workspace | `clap` + `reqwest` + `serde_json` + `colored` + `tabled`. ~2MB |
+| Decision                | Choice                                                       | Rationale                                                                    |
+| ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Argument style**      | `carbide <command> [key=value] [flags]`                      | Matches Obsidian CLI. Familiar syntax. No dashes for params                  |
+| **Output format**       | Plain text default, `--json` for structured                  | Humans get readable output; scripts/agents get JSON                          |
+| **Vault targeting**     | CWD detection → `vault=<name\|id>` param → last-opened vault | Same as Obsidian. Uses existing `VaultRegistry` + `resolve_file_to_vault`    |
+| **File targeting**      | `file=<name>` (wiki-link resolution) + `path=<exact>`        | Same as Obsidian. Carbide's search index handles name resolution             |
+| **Auth**                | Same bearer token as MCP (`~/.carbide/mcp-token`)            | Single auth mechanism for both interfaces                                    |
+| **App must be running** | Yes. First command launches app if needed                    | CLI checks `/health`; if down, launches `Carbide.app` and polls up to 10s    |
+| **TUI**                 | Deferred (Phase 7+)                                          | Single-command interface covers 90% of use cases. AI agents don't need a TUI |
+| **Binary**              | Standalone Rust crate in workspace                           | `clap` + `reqwest` + `serde_json` + `colored` + `tabled`. ~2MB               |
 
 ### CLI Command Surface
 
@@ -93,117 +93,117 @@ The CLI exposes Carbide's full feature set. Commands grouped by area:
 
 **Core (notes + search):**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `read` | Read note (default: active file). `file=` or `path=` | `read_note` |
-| `create` | Create note. `name=`, `path=`, `content=`, `overwrite`, `open` | `create_note` |
-| `write` | Update note content. `path=`, `content=` | `write_and_index_note` |
-| `append` | Append to note. `content=` (required), `file=`, `path=`, `inline` | New thin wrapper |
-| `prepend` | Prepend after frontmatter. `content=` (required), `file=`, `path=` | New thin wrapper |
-| `rename` | Rename note. `file=`/`path=`, `name=` (required) | `rename_note` |
-| `move` | Move note. `file=`/`path=`, `to=` (required) | `rename_note` (path change) |
-| `delete` | Delete note. `file=`/`path=`, `permanent` | `delete_note` |
-| `open` | Open file in Carbide. `file=`/`path=`, `newtab` | Frontend action via event |
-| `search` | Full-text search. `query=` (required), `limit=` | `index_search` |
-| `search:context` | Search with line context (grep-style) | `index_search` + context |
+| Command          | Description                                                        | Maps to                     |
+| ---------------- | ------------------------------------------------------------------ | --------------------------- |
+| `read`           | Read note (default: active file). `file=` or `path=`               | `read_note`                 |
+| `create`         | Create note. `name=`, `path=`, `content=`, `overwrite`, `open`     | `create_note`               |
+| `write`          | Update note content. `path=`, `content=`                           | `write_and_index_note`      |
+| `append`         | Append to note. `content=` (required), `file=`, `path=`, `inline`  | New thin wrapper            |
+| `prepend`        | Prepend after frontmatter. `content=` (required), `file=`, `path=` | New thin wrapper            |
+| `rename`         | Rename note. `file=`/`path=`, `name=` (required)                   | `rename_note`               |
+| `move`           | Move note. `file=`/`path=`, `to=` (required)                       | `rename_note` (path change) |
+| `delete`         | Delete note. `file=`/`path=`, `permanent`                          | `delete_note`               |
+| `open`           | Open file in Carbide. `file=`/`path=`, `newtab`                    | Frontend action via event   |
+| `search`         | Full-text search. `query=` (required), `limit=`                    | `index_search`              |
+| `search:context` | Search with line context (grep-style)                              | `index_search` + context    |
 
 **Vault + files:**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `vault` | Show active vault info. `info=name\|path\|files\|size` | `VaultRegistry` state |
-| `vaults` | List known vaults. `verbose`, `total` | `list_vaults` |
-| `vault:open` | Switch vault. `name=`/`id=` | `open_vault_by_id` |
-| `files` | List files. `folder=`, `ext=`, `total` | `list_notes` / `list_vault_files_by_extension` |
-| `folders` | List folders. `folder=`, `total` | `list_folders` |
-| `folder` | Folder info. `path=`, `info=files\|size` | `get_folder_stats` |
-| `folder:create` | Create folder. `path=` | `create_folder` |
+| Command         | Description                                            | Maps to                                        |
+| --------------- | ------------------------------------------------------ | ---------------------------------------------- |
+| `vault`         | Show active vault info. `info=name\|path\|files\|size` | `VaultRegistry` state                          |
+| `vaults`        | List known vaults. `verbose`, `total`                  | `list_vaults`                                  |
+| `vault:open`    | Switch vault. `name=`/`id=`                            | `open_vault_by_id`                             |
+| `files`         | List files. `folder=`, `ext=`, `total`                 | `list_notes` / `list_vault_files_by_extension` |
+| `folders`       | List folders. `folder=`, `total`                       | `list_folders`                                 |
+| `folder`        | Folder info. `path=`, `info=files\|size`               | `get_folder_stats`                             |
+| `folder:create` | Create folder. `path=`                                 | `create_folder`                                |
 
 **Tags + metadata:**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `tags` | List tags. `counts`, `sort=count`, `file=`, `total`, `format=` | `tags_list_all` |
-| `tag` | Tag info. `name=` (required), `verbose`, `total` | `tags_get_notes_for_tag` |
-| `properties` | List properties. `file=`, `counts`, `sort=count`, `format=` | `bases_list_properties` |
-| `property:read` | Read property. `name=` (required), `file=`/`path=` | Metadata extraction |
-| `property:set` | Set property. `name=`, `value=`, `type=`, `file=`/`path=` | Frontmatter writer (Gap 3b) |
-| `property:remove` | Remove property. `name=`, `file=`/`path=` | Frontmatter writer (Gap 3b) |
-| `outline` | Show headings. `file=`/`path=`, `format=tree\|md\|json`, `total` | `markdown_lsp_document_symbols` |
-| `backlinks` | Backlinks to file. `file=`/`path=`, `counts`, `total` | `markdown_lsp_references` |
-| `links` | Outgoing links. `file=`/`path=`, `total` | Markdown AST scan |
+| Command           | Description                                                      | Maps to                         |
+| ----------------- | ---------------------------------------------------------------- | ------------------------------- |
+| `tags`            | List tags. `counts`, `sort=count`, `file=`, `total`, `format=`   | `tags_list_all`                 |
+| `tag`             | Tag info. `name=` (required), `verbose`, `total`                 | `tags_get_notes_for_tag`        |
+| `properties`      | List properties. `file=`, `counts`, `sort=count`, `format=`      | `bases_list_properties`         |
+| `property:read`   | Read property. `name=` (required), `file=`/`path=`               | Metadata extraction             |
+| `property:set`    | Set property. `name=`, `value=`, `type=`, `file=`/`path=`        | Frontmatter writer (Gap 3b)     |
+| `property:remove` | Remove property. `name=`, `file=`/`path=`                        | Frontmatter writer (Gap 3b)     |
+| `outline`         | Show headings. `file=`/`path=`, `format=tree\|md\|json`, `total` | `markdown_lsp_document_symbols` |
+| `backlinks`       | Backlinks to file. `file=`/`path=`, `counts`, `total`            | `markdown_lsp_references`       |
+| `links`           | Outgoing links. `file=`/`path=`, `total`                         | Markdown AST scan               |
 
 **Git (Carbide-unique — Obsidian CLI has no git):**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `git:status` | Working tree status | `git_status` |
-| `git:commit` | Stage all + commit. `message=` (required) | `git_stage_and_commit` |
-| `git:log` | Commit history. `limit=` | `git_log` |
-| `git:diff` | Uncommitted changes. `path=` | `git_diff` |
-| `git:push` | Push to remote | `git_push` |
-| `git:pull` | Pull from remote. `strategy=rebase\|merge` | `git_pull` |
-| `git:restore` | Restore file. `path=`, `commit=` | `git_restore_file` |
-| `git:init` | Initialize git in vault | `git_init_repo` |
+| Command       | Description                                | Maps to                |
+| ------------- | ------------------------------------------ | ---------------------- |
+| `git:status`  | Working tree status                        | `git_status`           |
+| `git:commit`  | Stage all + commit. `message=` (required)  | `git_stage_and_commit` |
+| `git:log`     | Commit history. `limit=`                   | `git_log`              |
+| `git:diff`    | Uncommitted changes. `path=`               | `git_diff`             |
+| `git:push`    | Push to remote                             | `git_push`             |
+| `git:pull`    | Pull from remote. `strategy=rebase\|merge` | `git_pull`             |
+| `git:restore` | Restore file. `path=`, `commit=`           | `git_restore_file`     |
+| `git:init`    | Initialize git in vault                    | `git_init_repo`        |
 
 **References (Carbide-unique):**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `references` | List citations. `total`, `--json` | `reference_load_library` |
-| `reference:add` | Add by DOI. `doi=` | `reference_doi_lookup` + `reference_add_item` |
-| `reference:search` | Search library. `query=` | Library search |
-| `reference:bbt` | Zotero BBT ops. `search=`/`collections`/`bibliography` | `reference_bbt_*` commands |
+| Command            | Description                                            | Maps to                                       |
+| ------------------ | ------------------------------------------------------ | --------------------------------------------- |
+| `references`       | List citations. `total`, `--json`                      | `reference_load_library`                      |
+| `reference:add`    | Add by DOI. `doi=`                                     | `reference_doi_lookup` + `reference_add_item` |
+| `reference:search` | Search library. `query=`                               | Library search                                |
+| `reference:bbt`    | Zotero BBT ops. `search=`/`collections`/`bibliography` | `reference_bbt_*` commands                    |
 
 **Bases (Carbide-unique):**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `bases:query` | Structured query. `filter=`, `sort=`, `format=` | `bases_query` |
-| `bases:properties` | List queryable properties with types | `bases_list_properties` |
-| `bases:views` | List saved views | `bases_list_views` |
+| Command            | Description                                     | Maps to                 |
+| ------------------ | ----------------------------------------------- | ----------------------- |
+| `bases:query`      | Structured query. `filter=`, `sort=`, `format=` | `bases_query`           |
+| `bases:properties` | List queryable properties with types            | `bases_list_properties` |
+| `bases:views`      | List saved views                                | `bases_list_views`      |
 
 **Tasks:**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `tasks` | List tasks. `todo`/`done`, `file=`, `verbose`, `total` | Task extraction from notes |
-| `task` | Show/toggle task. `file=`, `line=`, `toggle`/`done`/`todo` | File line manipulation |
+| Command | Description                                                | Maps to                    |
+| ------- | ---------------------------------------------------------- | -------------------------- |
+| `tasks` | List tasks. `todo`/`done`, `file=`, `verbose`, `total`     | Task extraction from notes |
+| `task`  | Show/toggle task. `file=`, `line=`, `toggle`/`done`/`todo` | File line manipulation     |
 
 **Plugins:**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `plugins` | List plugins. `enabled` | Plugin store |
-| `plugin:enable` | Enable. `id=` | Plugin service |
-| `plugin:disable` | Disable. `id=` | Plugin service |
-| `plugin:reload` | Reload (dev). `id=` | Plugin service |
+| Command          | Description             | Maps to        |
+| ---------------- | ----------------------- | -------------- |
+| `plugins`        | List plugins. `enabled` | Plugin store   |
+| `plugin:enable`  | Enable. `id=`           | Plugin service |
+| `plugin:disable` | Disable. `id=`          | Plugin service |
+| `plugin:reload`  | Reload (dev). `id=`     | Plugin service |
 
 **Developer:**
 
-| Command | Description | Maps to |
-|---------|-------------|---------|
-| `eval` | Run JS in app. `code=` | Frontend eval bridge |
-| `dev:screenshot` | Screenshot. `path=` | Window capture |
-| `dev:lint` | Lint vault. `path=`, `fix` | `lint_check_vault` / `lint_fix_all` |
-| `dev:format` | Format markdown. `path=` | `lint_format_vault` |
-| `dev:index` | Index ops. `build`/`rebuild`/`status` | `index_build` / `index_rebuild` |
+| Command          | Description                           | Maps to                             |
+| ---------------- | ------------------------------------- | ----------------------------------- |
+| `eval`           | Run JS in app. `code=`                | Frontend eval bridge                |
+| `dev:screenshot` | Screenshot. `path=`                   | Window capture                      |
+| `dev:lint`       | Lint vault. `path=`, `fix`            | `lint_check_vault` / `lint_fix_all` |
+| `dev:format`     | Format markdown. `path=`              | `lint_format_vault`                 |
+| `dev:index`      | Index ops. `build`/`rebuild`/`status` | `index_build` / `index_rebuild`     |
 
 **General:**
 
-| Command | Description |
-|---------|-------------|
-| `help` / `help <command>` | Show help |
-| `version` | Show version |
-| `status` | App status: running vault, active file, MCP/CLI server status |
+| Command                   | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `help` / `help <command>` | Show help                                                     |
+| `version`                 | Show version                                                  |
+| `status`                  | App status: running vault, active file, MCP/CLI server status |
 
 **Global flags (work with any command):**
 
-| Flag | Description |
-|------|-------------|
-| `--json` | Output as JSON |
-| `--copy` | Copy output to clipboard |
-| `--quiet` | Suppress non-essential output |
+| Flag               | Description                                           |
+| ------------------ | ----------------------------------------------------- |
+| `--json`           | Output as JSON                                        |
+| `--copy`           | Copy output to clipboard                              |
+| `--quiet`          | Suppress non-essential output                         |
 | `vault=<name\|id>` | Target a specific vault (first param, before command) |
 
 ### Vault Resolution Chain
@@ -247,20 +247,20 @@ carbide-cli/
 
 ### Differences from Obsidian CLI
 
-| Aspect | Obsidian CLI | Carbide CLI |
-|--------|-------------|-------------|
-| **Git** | Not available | First-class (`git:*` commands) |
-| **References** | Not available | Citations, DOI lookup, Zotero |
-| **Bases/queries** | Not available | Structured queries with filters |
-| **Linked sources** | Not available | PDF/document management |
-| **Transport** | Custom IPC (Electron ↔ CLI) | HTTP (standard, debuggable with curl) |
-| **MCP** | Separate concern | Same server serves both CLI and MCP |
-| **Binary** | Ships with Electron | Standalone Rust (~2MB) |
-| **Sync** | Obsidian Sync commands | Git push/pull (no proprietary sync) |
-| **Publish** | Obsidian Publish | Not applicable |
-| **Daily notes** | Dedicated `daily` commands | Use `read`/`append` with path convention |
-| **Bookmarks** | Built-in | Not implemented (use tags/properties) |
-| **TUI** | Ships with interactive mode | Deferred |
+| Aspect             | Obsidian CLI                | Carbide CLI                              |
+| ------------------ | --------------------------- | ---------------------------------------- |
+| **Git**            | Not available               | First-class (`git:*` commands)           |
+| **References**     | Not available               | Citations, DOI lookup, Zotero            |
+| **Bases/queries**  | Not available               | Structured queries with filters          |
+| **Linked sources** | Not available               | PDF/document management                  |
+| **Transport**      | Custom IPC (Electron ↔ CLI) | HTTP (standard, debuggable with curl)    |
+| **MCP**            | Separate concern            | Same server serves both CLI and MCP      |
+| **Binary**         | Ships with Electron         | Standalone Rust (~2MB)                   |
+| **Sync**           | Obsidian Sync commands      | Git push/pull (no proprietary sync)      |
+| **Publish**        | Obsidian Publish            | Not applicable                           |
+| **Daily notes**    | Dedicated `daily` commands  | Use `read`/`append` with path convention |
+| **Bookmarks**      | Built-in                    | Not implemented (use tags/properties)    |
+| **TUI**            | Ships with interactive mode | Deferred                                 |
 
 ### Phase 1: Core MCP Server (Rust)
 
@@ -446,11 +446,11 @@ async fn cli_read_note(
 
 Build the standalone binary as described in Gap 1b. Ships alongside the app:
 
-| Platform | Binary location | Symlink / PATH |
-|----------|----------------|----------------|
-| macOS | `Carbide.app/Contents/MacOS/carbide-cli` | `/usr/local/bin/carbide` or `~/.zprofile` PATH export |
-| Linux | Next to AppImage | `/usr/local/bin/carbide` symlink |
-| Windows | Next to `Carbide.exe` | Added to PATH during install |
+| Platform | Binary location                          | Symlink / PATH                                        |
+| -------- | ---------------------------------------- | ----------------------------------------------------- |
+| macOS    | `Carbide.app/Contents/MacOS/carbide-cli` | `/usr/local/bin/carbide` or `~/.zprofile` PATH export |
+| Linux    | Next to AppImage                         | `/usr/local/bin/carbide` symlink                      |
+| Windows  | Next to `Carbide.exe`                    | Added to PATH during install                          |
 
 #### 3d. App Launch Detection
 
@@ -965,8 +965,8 @@ Phase 7: Power Features                              ← After core stabilizes
 
 ### Rust Crates (CLI binary — `src-tauri/crates/carbide-cli/`)
 
-| Crate        | Purpose                        | Notes                                       |
-| ------------ | ------------------------------ | ------------------------------------------- |
+| Crate        | Purpose                        | Notes                                        |
+| ------------ | ------------------------------ | -------------------------------------------- |
 | `clap`       | Argument parsing + completions | Derive API. Generates shell completions free |
 | `reqwest`    | HTTP client (blocking)         | Blocking client for CLI simplicity           |
 | `serde_json` | JSON serialization             | Already in workspace                         |
@@ -992,7 +992,7 @@ Phase 7: Power Features                              ← After core stabilizes
 | specta for type generation         | All Tauri commands annotated with `#[specta::specta]`         |
 | Layering enforced                  | `pnpm lint:layering` validates all imports                    |
 | CLI is a separate binary           | `carbide-cli` crate has no dependency on Tauri; only HTTP     |
-| No logic duplication               | CLI routes and MCP tools both call shared service functions    |
+| No logic duplication               | CLI routes and MCP tools both call shared service functions   |
 
 ---
 

@@ -139,6 +139,7 @@ export function linked_note_to_meta(info: LinkedNoteInfo): NoteMeta {
     title: info.title,
     blurb: "",
     mtime_ms: info.mtime_ms,
+    ctime_ms: info.mtime_ms,
     size_bytes: 0,
     file_type: null,
     source: "linked",

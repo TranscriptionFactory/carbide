@@ -60,6 +60,7 @@ function note(path: string): NoteMeta {
     title: path.split("/").pop()?.replace(".md", "") ?? "",
     blurb: "",
     mtime_ms: 0,
+    ctime_ms: 0,
     size_bytes: 0,
     file_type: null,
   };
@@ -340,7 +341,7 @@ describe("LinksService", () => {
 });
 
 function make_search_port(
-  overrides: Partial<{ find_similar_notes: ReturnType<typeof vi.fn> }> = {},
+  overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {},
 ) {
   return {
     search_notes: vi.fn().mockResolvedValue([]),
@@ -371,12 +372,16 @@ function make_search_port(
     semantic_search_batch: vi.fn().mockResolvedValue([]),
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     get_note_stats: vi.fn().mockResolvedValue({}),
+    get_file_cache: vi.fn().mockResolvedValue({}),
+    load_smart_link_rules: vi.fn().mockResolvedValue([]),
+    save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+    compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
 
 describe("LinksService.load_suggested_links", () => {
-  it("maps hits to suggested links with similarity = 1 - distance", async () => {
+  it("maps semantic hits to suggested links with provenance", async () => {
     const hits: SemanticSearchHit[] = [
       { note: note("a.md"), distance: 0.2 },
       { note: note("b.md"), distance: 0.4 },
@@ -407,12 +412,14 @@ describe("LinksService.load_suggested_links", () => {
     expect(links_store.suggested_links).toHaveLength(2);
     expect(links_store.suggested_links[0]?.note).toEqual(note("a.md"));
     expect(links_store.suggested_links[0]?.similarity).toBeCloseTo(0.8, 5);
-    expect(links_store.suggested_links[1]?.note).toEqual(note("b.md"));
+    expect(links_store.suggested_links[0]?.rules).toEqual([
+      { ruleId: "semantic_similarity", rawScore: expect.closeTo(0.8, 5) },
+    ]);
     expect(links_store.suggested_links[1]?.similarity).toBeCloseTo(0.6, 5);
     expect(links_store.suggested_links_loading).toBe(false);
   });
 
-  it("filters out hits with similarity <= 0.5", async () => {
+  it("filters out semantic hits with similarity <= threshold", async () => {
     const hits: SemanticSearchHit[] = [
       { note: note("close.md"), distance: 0.3 },
       { note: note("border.md"), distance: 0.5 },
@@ -439,6 +446,89 @@ describe("LinksService.load_suggested_links", () => {
     expect(links_store.suggested_links[0]?.note.path).toBe("close.md");
   });
 
+  it("merges smart link suggestions with semantic hits", async () => {
+    const semantic_hits: SemanticSearchHit[] = [
+      { note: note("shared.md"), distance: 0.3 },
+    ];
+    const smart_suggestions = [
+      {
+        targetPath: "shared.md",
+        targetTitle: "Shared",
+        score: 0.5,
+        rules: [{ ruleId: "shared_tag", rawScore: 0.5 }],
+      },
+      {
+        targetPath: "smart-only.md",
+        targetTitle: "Smart Only",
+        score: 0.4,
+        rules: [{ ruleId: "same_day", rawScore: 0.4 }],
+      },
+    ];
+    const search_port = make_search_port({
+      find_similar_notes: vi.fn().mockResolvedValue(semantic_hits),
+      compute_smart_link_suggestions: vi
+        .fn()
+        .mockResolvedValue(smart_suggestions),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+    );
+
+    await service.load_suggested_links("note.md");
+
+    expect(links_store.suggested_links).toHaveLength(2);
+    const shared = links_store.suggested_links.find(
+      (s) => s.note.path === "shared.md",
+    );
+    expect(shared?.similarity).toBeCloseTo(0.7, 5);
+    expect(shared?.rules).toHaveLength(2);
+    const smart_only = links_store.suggested_links.find(
+      (s) => s.note.path === "smart-only.md",
+    );
+    expect(smart_only?.rules).toEqual([{ ruleId: "same_day", rawScore: 0.4 }]);
+  });
+
+  it("returns smart-only results when semantic fails", async () => {
+    const smart_suggestions = [
+      {
+        targetPath: "tagged.md",
+        targetTitle: "Tagged",
+        score: 0.6,
+        rules: [{ ruleId: "shared_tag", rawScore: 0.6 }],
+      },
+    ];
+    const search_port = make_search_port({
+      find_similar_notes: vi.fn().mockRejectedValue(new Error("no embeddings")),
+      compute_smart_link_suggestions: vi
+        .fn()
+        .mockResolvedValue(smart_suggestions),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+    );
+
+    await service.load_suggested_links("note.md");
+
+    expect(links_store.suggested_links).toHaveLength(1);
+    expect(links_store.suggested_links[0]?.note.path).toBe("tagged.md");
+  });
+
   it("clears suggested links when no vault is selected", async () => {
     const search_port = make_search_port();
     const vault_store = new VaultStore();
@@ -458,9 +548,12 @@ describe("LinksService.load_suggested_links", () => {
     expect(links_store.suggested_links_loading).toBe(false);
   });
 
-  it("clears suggested links and ignores error when port throws", async () => {
+  it("returns empty when both sources fail", async () => {
     const search_port = make_search_port({
       find_similar_notes: vi.fn().mockRejectedValue(new Error("unavailable")),
+      compute_smart_link_suggestions: vi
+        .fn()
+        .mockRejectedValue(new Error("unavailable")),
     });
 
     const vault_store = new VaultStore();
@@ -478,18 +571,19 @@ describe("LinksService.load_suggested_links", () => {
 
     expect(links_store.suggested_links).toEqual([]);
     expect(links_store.suggested_links_loading).toBe(false);
-    expect(links_store.suggested_links_note_path).toBeNull();
   });
 
   it("ignores stale response when note changes mid-flight", async () => {
-    const first = create_deferred<SemanticSearchHit[]>();
-    const second = create_deferred<SemanticSearchHit[]>();
+    const first_semantic = create_deferred<SemanticSearchHit[]>();
+    const second_semantic = create_deferred<SemanticSearchHit[]>();
     let call_count = 0;
 
     const search_port = make_search_port({
       find_similar_notes: vi.fn().mockImplementation(() => {
         call_count += 1;
-        return call_count === 1 ? first.promise : second.promise;
+        return call_count === 1
+          ? first_semantic.promise
+          : second_semantic.promise;
       }),
     });
 
@@ -507,10 +601,10 @@ describe("LinksService.load_suggested_links", () => {
     const first_load = service.load_suggested_links("a.md");
     const second_load = service.load_suggested_links("b.md");
 
-    second.resolve([{ note: note("b-similar.md"), distance: 0.1 }]);
+    second_semantic.resolve([{ note: note("b-similar.md"), distance: 0.1 }]);
     await second_load;
 
-    first.resolve([{ note: note("a-similar.md"), distance: 0.1 }]);
+    first_semantic.resolve([{ note: note("a-similar.md"), distance: 0.1 }]);
     await first_load;
 
     expect(links_store.suggested_links_note_path).toBe("b.md");

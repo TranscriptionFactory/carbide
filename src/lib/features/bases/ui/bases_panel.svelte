@@ -26,10 +26,10 @@
   ];
 
   const BUILT_IN_PROPERTIES = [
-    { name: "content", property_type: "fts", count: 0 },
-    { name: "title", property_type: "string", count: 0 },
-    { name: "path", property_type: "string", count: 0 },
-    { name: "tag", property_type: "string", count: 0 },
+    { name: "content", property_type: "fts", count: 0, unique_values: null },
+    { name: "title", property_type: "string", count: 0, unique_values: null },
+    { name: "path", property_type: "string", count: 0, unique_values: null },
+    { name: "tag", property_type: "string", count: 0, unique_values: null },
   ];
 
   const { stores, services, action_registry } = use_app_context();

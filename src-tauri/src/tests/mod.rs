@@ -10,6 +10,24 @@ mod search_db_behavior;
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
 
+#[path = "../../tests/mcp_types.rs"]
+mod mcp_types;
+
+#[path = "../../tests/mcp_router.rs"]
+mod mcp_router;
+
+#[path = "../../tests/mcp_tools_notes.rs"]
+mod mcp_tools_notes;
+
+#[path = "../../tests/mcp_tools_search_metadata_vault.rs"]
+mod mcp_tools_search_metadata_vault;
+
+#[path = "../../tests/smart_links_rules.rs"]
+mod smart_links_rules;
+
+#[path = "../../tests/smart_links_config.rs"]
+mod smart_links_config;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
@@ -154,6 +172,10 @@ mod specta_export {
                 crate::features::code_lsp::code_lsp_stop_vault,
                 crate::features::code_lsp::code_lsp_available_languages,
                 crate::features::code_lsp::code_lsp_get_status,
+                // Smart Links commands (3)
+                crate::features::smart_links::smart_links_load_rules,
+                crate::features::smart_links::smart_links_save_rules,
+                crate::features::smart_links::smart_links_compute_suggestions,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

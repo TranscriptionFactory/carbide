@@ -15,6 +15,7 @@ export function create_test_graph_adapter(): GraphPort {
           name: "test",
           blurb: "",
           mtime_ms: 0,
+          ctime_ms: 0,
           size_bytes: 0,
           file_type: null,
         },

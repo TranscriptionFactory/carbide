@@ -42,6 +42,7 @@ You are running headless with no human in the loop. Complete exactly ONE unit fr
 
 14. Stage only the files you changed (no `git add -A`).
 15. Commit:
+
     ```
     feat(<scope>): <what changed>
 
@@ -49,6 +50,7 @@ You are running headless with no human in the loop. Complete exactly ONE unit fr
 
     Next: <next unit ID and title, or blocker>
     ```
+
 16. Do NOT push, merge, or amend.
 
 ## Phase 5: Update progress

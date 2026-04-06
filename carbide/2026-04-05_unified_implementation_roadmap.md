@@ -18,13 +18,13 @@ Three plans were developed independently — MCP/CLI, metadata API surface, and 
 
 These plans share significant work that must not be done twice:
 
-| Work Item | Appears In | Resolution |
-|-----------|-----------|------------|
-| Property type inference | MCP Phase 2 (Gap 3a) + Metadata API (implicit) | Do once at Step 3 |
-| Frontmatter write-back | MCP Phase 2 (Gap 3b) + Metadata API (implicit) | Do once at Step 3 |
-| Property enumeration with types | MCP Phase 2 (Gap 3c) + Metadata API (Phase A) | Do once at Step 3 |
-| Populate `note_links` table | Metadata API (A3) + Smart Linking (`shared_outlinks` rule) | Do once at Step 4 |
-| Headings Tauri command | Metadata API (A2) + getFileCache prerequisite | Do once at Step 2 |
+| Work Item                       | Appears In                                                 | Resolution        |
+| ------------------------------- | ---------------------------------------------------------- | ----------------- |
+| Property type inference         | MCP Phase 2 (Gap 3a) + Metadata API (implicit)             | Do once at Step 3 |
+| Frontmatter write-back          | MCP Phase 2 (Gap 3b) + Metadata API (implicit)             | Do once at Step 3 |
+| Property enumeration with types | MCP Phase 2 (Gap 3c) + Metadata API (Phase A)              | Do once at Step 3 |
+| Populate `note_links` table     | Metadata API (A3) + Smart Linking (`shared_outlinks` rule) | Do once at Step 4 |
+| Headings Tauri command          | Metadata API (A2) + getFileCache prerequisite              | Do once at Step 2 |
 
 ---
 
@@ -337,37 +337,37 @@ Step 16 (power features) ◄──── all prior
 
 Steps that can run concurrently if multiple contributors are available:
 
-| Track A (Infrastructure) | Track B (Features) |
-|--------------------------|--------------------|
-| Step 1 (MCP stdio) | — |
+| Track A (Infrastructure)      | Track B (Features)          |
+| ----------------------------- | --------------------------- |
+| Step 1 (MCP stdio)            | —                           |
 | Step 3 (metadata foundations) | Step 4 (ctime + note_links) |
-| Step 7 (HTTP + CLI) | Steps 5-6 (smart linking) |
-| Step 8 (auto-setup) | Step 9 (getFileCache) |
-| Step 12 (extended tools) | Step 11 (block embeddings) |
-| — | Step 13 (editor drag) |
+| Step 7 (HTTP + CLI)           | Steps 5-6 (smart linking)   |
+| Step 8 (auto-setup)           | Step 9 (getFileCache)       |
+| Step 12 (extended tools)      | Step 11 (block embeddings)  |
+| —                             | Step 13 (editor drag)       |
 
 ---
 
 ## Cross-Reference to Source Documents
 
-| Step | Source Document | Source Section |
-|------|----------------|---------------|
-| 1 | `mcp_native_gaps_plan.md` | Phase 1 (1a-1d) |
-| 2 | `metadata_api_surface.md` | Phase A2 |
-| 3 | `mcp_native_gaps_plan.md` | Phase 2 (Gaps 3a, 3b, 3c) |
-| 4 | `metadata_api_surface.md` | Phases A1, A3 |
-| 5 | `2026-04-02_smart_linking_and_block_notes.md` | Phase 1 |
-| 6 | `2026-04-02_smart_linking_and_block_notes.md` | Phase 2 |
-| 7 | `mcp_native_gaps_plan.md` | Phase 3 + `cli_design.md` |
-| 8 | `mcp_native_gaps_plan.md` | Phase 4 |
-| 9 | `metadata_api_surface.md` | Phases B1, B2 |
-| 10 | `mcp_native_gaps_plan.md` | Phase 5 (Gaps 2a-2e) |
-| 11 | `2026-04-02_smart_linking_and_block_notes.md` | Phase 3 |
-| 12 | `mcp_native_gaps_plan.md` | Phase 6 |
-| 13 | `2026-04-02_smart_linking_and_block_notes.md` | Phase 4 |
-| 14 | `metadata_api_surface.md` | Phases C1, A4, D1 |
-| 15 | `2026-04-02_smart_linking_and_block_notes.md` | Phase 5 |
-| 16 | `mcp_native_gaps_plan.md` Phase 7 + `metadata_api_surface.md` 3d-3e |
+| Step | Source Document                                                     | Source Section            |
+| ---- | ------------------------------------------------------------------- | ------------------------- |
+| 1    | `mcp_native_gaps_plan.md`                                           | Phase 1 (1a-1d)           |
+| 2    | `metadata_api_surface.md`                                           | Phase A2                  |
+| 3    | `mcp_native_gaps_plan.md`                                           | Phase 2 (Gaps 3a, 3b, 3c) |
+| 4    | `metadata_api_surface.md`                                           | Phases A1, A3             |
+| 5    | `2026-04-02_smart_linking_and_block_notes.md`                       | Phase 1                   |
+| 6    | `2026-04-02_smart_linking_and_block_notes.md`                       | Phase 2                   |
+| 7    | `mcp_native_gaps_plan.md`                                           | Phase 3 + `cli_design.md` |
+| 8    | `mcp_native_gaps_plan.md`                                           | Phase 4                   |
+| 9    | `metadata_api_surface.md`                                           | Phases B1, B2             |
+| 10   | `mcp_native_gaps_plan.md`                                           | Phase 5 (Gaps 2a-2e)      |
+| 11   | `2026-04-02_smart_linking_and_block_notes.md`                       | Phase 3                   |
+| 12   | `mcp_native_gaps_plan.md`                                           | Phase 6                   |
+| 13   | `2026-04-02_smart_linking_and_block_notes.md`                       | Phase 4                   |
+| 14   | `metadata_api_surface.md`                                           | Phases C1, A4, D1         |
+| 15   | `2026-04-02_smart_linking_and_block_notes.md`                       | Phase 5                   |
+| 16   | `mcp_native_gaps_plan.md` Phase 7 + `metadata_api_surface.md` 3d-3e |
 
 ---
 
@@ -380,6 +380,7 @@ Drawn from all three source documents. Checked per step, not repeated here — s
 - `2026-04-02_smart_linking_and_block_notes.md` → Testing strategy, phase exit criteria
 
 **Global invariants (every step):**
+
 - `pnpm check`, `pnpm lint`, `pnpm test`, `cargo check` pass
 - No new frontend dependencies unless justified
 - Architecture decision tree in `docs/architecture.md` followed

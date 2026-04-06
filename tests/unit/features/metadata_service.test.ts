@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MetadataService } from "$lib/features/metadata/application/metadata_service";
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
 import type { EditorStore } from "$lib/features/editor";
+import type { NoteProperty } from "$lib/features/metadata/types";
 
 function create_mock_editor_store(
   note_path: string | null,
@@ -68,7 +69,7 @@ describe("MetadataService", () => {
     const store = new MetadataStore();
     store.set_metadata(
       "notes/test.md",
-      [{ key: "k", value: "v", type: "string" }],
+      [{ key: "k", value: "v", type: "string" } as NoteProperty],
       [],
     );
     const editor_store = create_mock_editor_store("notes/other.md", "# Other");

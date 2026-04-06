@@ -48,6 +48,7 @@ function make_open_note(path: string) {
       name: path.replace(/\.md$/, ""),
       title: path.replace(/\.md$/, ""),
       mtime_ms: 0,
+      ctime_ms: 0,
       blurb: null,
       size_bytes: 0,
       file_type: null,

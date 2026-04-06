@@ -20,10 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/iwes",
-      "binaries/rumdl"
-    ],
+    "externalBin": ["binaries/iwes", "binaries/rumdl"],
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
@@ -35,39 +32,25 @@
     },
     "fileAssociations": [
       {
-        "ext": [
-          "md",
-          "markdown",
-          "mdown",
-          "mkd",
-          "mkdn",
-          "mdwn",
-          "mdx"
-        ],
+        "ext": ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "mdx"],
         "name": "Markdown Document",
         "mimeType": "text/markdown",
         "role": "Editor"
       },
       {
-        "ext": [
-          "txt"
-        ],
+        "ext": ["txt"],
         "name": "Text Document",
         "mimeType": "text/plain",
         "role": "Editor"
       },
       {
-        "ext": [
-          "canvas"
-        ],
+        "ext": ["canvas"],
         "name": "JSON Canvas",
         "mimeType": "application/json",
         "role": "Editor"
       },
       {
-        "ext": [
-          "excalidraw"
-        ],
+        "ext": ["excalidraw"],
         "name": "Excalidraw Drawing",
         "mimeType": "application/json",
         "role": "Editor"

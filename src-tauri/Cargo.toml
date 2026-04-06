@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "crates/carbide-cli"]
+
 [package]
 name = "carbide"
 version = "1.13.0"
@@ -34,7 +37,7 @@ tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
-tokio = { version = "1.43.0", features = ["fs", "macros", "process", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.43.0", features = ["fs", "io-std", "io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }
 openssl = { version = "0.10", features = ["vendored"] }
 git2 = "0.19"
 walkdir = "2.5.0"
@@ -66,6 +69,12 @@ url = "2.5.8"
 pdf-extract = "0.10.0"
 lopdf = "0.34"
 rayon = "1.10"
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+subtle = "2"
+rand = "0.8"
+hex = "0.4"
 
 [dev-dependencies]
 filetime = "0.2"

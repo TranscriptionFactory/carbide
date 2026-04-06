@@ -17,6 +17,7 @@ function mock_open_note(path: string, is_dirty = false): OpenNoteState {
       title: path.replace(".md", ""),
       blurb: "",
       mtime_ms: 0,
+      ctime_ms: 0,
       size_bytes: 0,
       file_type: null,
     },

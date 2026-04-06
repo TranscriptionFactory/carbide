@@ -48,6 +48,7 @@ pub struct IndexNoteMeta {
     pub title: String,
     pub name: String,
     pub mtime_ms: i64,
+    pub ctime_ms: i64,
     pub size_bytes: i64,
     #[serde(default)]
     pub file_type: Option<String>,
@@ -179,10 +180,40 @@ pub struct PropertyInfo {
     pub name: String,
     pub property_type: String,
     pub count: usize,
+    pub unique_values: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct TagInfo {
     pub tag: String,
     pub count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct NoteHeading {
+    pub level: i32,
+    pub text: String,
+    pub line: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct NoteLink {
+    pub target_path: String,
+    pub link_text: String,
+    pub link_type: String,
+    pub section_heading: Option<String>,
+    pub target_anchor: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct FileCache {
+    pub frontmatter: BTreeMap<String, (String, String)>,
+    pub tags: Vec<String>,
+    pub headings: Vec<NoteHeading>,
+    pub links: Vec<NoteLink>,
+    pub embeds: Vec<NoteLink>,
+    pub stats: NoteStats,
+    pub ctime_ms: i64,
+    pub mtime_ms: i64,
+    pub size_bytes: i64,
 }

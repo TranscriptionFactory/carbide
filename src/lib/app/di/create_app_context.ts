@@ -72,6 +72,8 @@ import {
   register_reference_actions,
   CitationPicker,
 } from "$lib/features/reference";
+import { McpService } from "$lib/features/mcp";
+import { SmartLinksService } from "$lib/features/smart_links";
 import {
   ZoteroBbtExtension,
   create_zotero_bbt_adapter,
@@ -372,6 +374,14 @@ export function create_app_context(input: {
 
   const watcher_service = new WatcherService(input.ports.watcher);
 
+  const mcp_service = new McpService(input.ports.mcp, stores.mcp);
+
+  const smart_links_service = new SmartLinksService(
+    input.ports.search,
+    stores.vault,
+    stores.smart_links,
+  );
+
   const link_repair_service = new LinkRepairService(
     input.ports.notes,
     input.ports.search,
@@ -626,6 +636,8 @@ export function create_app_context(input: {
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
       reference: reference_service,
+      smart_links: smart_links_service,
+      mcp: mcp_service,
     },
     default_mount_config: input.default_mount_config,
   };
@@ -725,6 +737,9 @@ export function create_app_context(input: {
       },
       async get_stats(note_path) {
         return input.ports.search.get_note_stats(require_vault().id, note_path);
+      },
+      async get_file_cache(note_path) {
+        return input.ports.search.get_file_cache(require_vault().id, note_path);
       },
     },
   });
@@ -940,6 +955,7 @@ export function create_app_context(input: {
     theme_service,
     reference_service,
     reference_store: stores.reference,
+    mcp_service,
   });
 
   return {
@@ -960,6 +976,7 @@ export function create_app_context(input: {
       void markdown_lsp_service.stop();
       code_lsp_service.stop();
       toolchain_service.dispose();
+      void mcp_service.stop();
     },
   };
 }

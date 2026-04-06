@@ -444,13 +444,13 @@ graph_viz   ──depends_on──> block_notes (section-level edges)
 
 ## Implementation Summary
 
-| Phase | Scope | Effort |
-|-------|-------|--------|
+| Phase | Scope                                                                                                            | Effort  |
+| ----- | ---------------------------------------------------------------------------------------------------------------- | ------- |
 | **1** | Metadata rules (SQL queries) + rule config persistence + `LinksService` integration + `SuggestedLink` provenance | ~3 days |
-| **2** | Wire `semantic_similarity` to existing `find_similar_notes()` + scoring/merge | ~2 days |
-| **3** | `block_embeddings` table + embedding pipeline extension + `block_knn_search()` | ~5 days |
-| **4** | Editor drag handles (ProseMirror plugin) | ~4 days |
-| **5** | Graph visualization layer (new edge type, rendering — separate workstream) | ~4 days |
+| **2** | Wire `semantic_similarity` to existing `find_similar_notes()` + scoring/merge                                    | ~2 days |
+| **3** | `block_embeddings` table + embedding pipeline extension + `block_knn_search()`                                   | ~5 days |
+| **4** | Editor drag handles (ProseMirror plugin)                                                                         | ~4 days |
+| **5** | Graph visualization layer (new edge type, rendering — separate workstream)                                       | ~4 days |
 
 ---
 

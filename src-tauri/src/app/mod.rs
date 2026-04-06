@@ -40,6 +40,12 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
 }
 
 async fn shutdown_managed_processes(app: &tauri::AppHandle) {
+    app.state::<features::mcp::server::McpState>()
+        .shutdown()
+        .await;
+    app.state::<features::mcp::http::HttpServerState>()
+        .shutdown()
+        .await;
     app.state::<features::markdown_lsp::MarkdownLspState>()
         .shutdown()
         .await;
@@ -94,6 +100,8 @@ pub fn run() {
         .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
+        .manage(features::mcp::server::McpState::default())
+        .manage(features::mcp::http::HttpServerState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -175,6 +183,9 @@ pub fn run() {
             features::search::service::embed_sync,
             features::search::service::shutdown_search_worker,
             features::search::service::get_note_stats,
+            features::search::service::get_note_headings,
+            features::search::service::get_note_links,
+            features::search::service::note_get_file_cache,
             features::search::service::resolve_note_link,
             features::search::service::resolve_wiki_link,
             features::bases::service::bases_list_properties,
@@ -315,6 +326,19 @@ pub fn run() {
             features::reference::service::reference_bbt_annotations,
             features::reference::service::reference_save_annotation_note,
             features::reference::service::reference_read_annotation_note,
+            features::mcp::server::mcp_start,
+            features::mcp::server::mcp_stop,
+            features::mcp::server::mcp_status,
+            features::mcp::http::http_server_start,
+            features::mcp::http::http_server_stop,
+            features::mcp::http::http_server_status,
+            features::mcp::setup::mcp_setup_claude_desktop,
+            features::mcp::setup::mcp_setup_claude_code,
+            features::mcp::setup::mcp_regenerate_token,
+            features::mcp::setup::mcp_get_setup_status,
+            features::smart_links::smart_links_load_rules,
+            features::smart_links::smart_links_save_rules,
+            features::smart_links::smart_links_compute_suggestions,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();

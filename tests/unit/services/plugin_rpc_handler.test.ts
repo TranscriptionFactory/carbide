@@ -680,11 +680,14 @@ describe("PluginRpcHandler", () => {
     function make_metadata_backend() {
       return {
         query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
-        list_properties: vi
-          .fn()
-          .mockResolvedValue([
-            { name: "status", property_type: "string", count: 5 },
-          ]),
+        list_properties: vi.fn().mockResolvedValue([
+          {
+            name: "status",
+            property_type: "string",
+            count: 5,
+            unique_values: null,
+          },
+        ]),
         get_backlinks: vi
           .fn()
           .mockResolvedValue([{ path: "notes/linking.md" }]),
@@ -695,6 +698,36 @@ describe("PluginRpcHandler", () => {
           outlink_count: 2,
           reading_time_secs: 48,
           last_indexed_at: 1700000000,
+        }),
+        get_file_cache: vi.fn().mockResolvedValue({
+          frontmatter: { title: ["Cache Test", "string"] },
+          tags: ["rust"],
+          headings: [{ level: 1, text: "Heading", line: 5 }],
+          links: [
+            {
+              target_path: "note-a",
+              link_text: "note-a",
+              link_type: "wikilink",
+              section_heading: null,
+              target_anchor: null,
+            },
+          ],
+          embeds: [],
+          stats: {
+            word_count: 120,
+            char_count: 800,
+            heading_count: 1,
+            outlink_count: 1,
+            reading_time_secs: 48,
+            task_count: 0,
+            tasks_done: 0,
+            tasks_todo: 0,
+            next_due_date: null,
+            last_indexed_at: 1700000000,
+          },
+          ctime_ms: 50,
+          mtime_ms: 100,
+          size_bytes: 256,
         }),
       };
     }
@@ -731,7 +764,12 @@ describe("PluginRpcHandler", () => {
 
       expect(response.error).toBeUndefined();
       expect(response.result).toEqual([
-        { name: "status", property_type: "string", count: 5 },
+        {
+          name: "status",
+          property_type: "string",
+          count: 5,
+          unique_values: null,
+        },
       ]);
       expect(metadata.list_properties).toHaveBeenCalled();
     });
@@ -827,6 +865,41 @@ describe("PluginRpcHandler", () => {
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "m5d",
         method: "metadata.get_stats",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toMatch(/Missing metadata:read permission/);
+    });
+
+    it("metadata.getFileCache returns composite cache when metadata:read is granted", async () => {
+      grant_permissions("metadata:read");
+      const metadata = make_metadata_backend();
+      ctx.context.metadata = metadata;
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m-fc1",
+        method: "metadata.getFileCache",
+        params: ["notes/target.md"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toBeDefined();
+      const cache = response.result as Record<string, unknown>;
+      expect(cache.ctime_ms).toBe(50);
+      expect(cache.mtime_ms).toBe(100);
+      expect((cache.headings as unknown[]).length).toBe(1);
+      expect(metadata.get_file_cache).toHaveBeenCalledWith("notes/target.md");
+    });
+
+    it("metadata.getFileCache blocks when metadata:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.metadata = make_metadata_backend();
+
+      const manifest = make_manifest(["metadata:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m-fc2",
+        method: "metadata.getFileCache",
         params: ["notes/target.md"],
       });
 
