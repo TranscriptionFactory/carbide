@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 34 / 46 units complete
+**Progress:** 35 / 46 units complete
 
 ---
 
@@ -299,8 +299,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Remaining CLI surface.
   - _Completed 2026-04-06 `48f0017c`. Six new backend routes: /cli/bases/query (structured filter+sort), /cli/bases/properties, /cli/tasks (query with status/path filters), /cli/tasks/update (toggle task state in file + re-index), /cli/dev/index/build, /cli/dev/index/rebuild. Three new CLI command modules: bases.rs (bases:query with filter expression parsing e.g. status=draft, sort with -prefix for descending; bases:properties), tasks.rs (tasks list with --status/--path filters; task:update), dev.rs (dev index:build/index:rebuild). Bases filter parser handles 6 operators (= != > < >= <=). Task update writes to file then re-indexes tasks in search DB via open_search_db. Plugin commands (plugins, plugin:enable/disable/reload) skipped — plugin state is frontend-only with no Rust Tauri commands to proxy. eval/screenshot/lint/format skipped — require frontend eval bridge not yet built. 7 new backend tests + 6 new CLI tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **12.5** Slash command contribution point — **TS + Svelte session**
+- [x] **12.5** Slash command contribution point — **TS + Svelte session**
   - Plugin manifest `contributes.slash_commands`. ProseMirror `/` menu hook. Most complex unit in Step 12.
+  - _Completed 2026-04-06 `6bc50243`. Added SlashCommandContribution type to PluginContributes. PluginStore gets _slash_commands registry (SvelteMap). PluginService registers/unregisters/executes slash commands. RPC handler adds commands.register_slash and commands.remove_slash actions. Refactored ProseMirror slash_command_plugin to accept dynamic SlashCommandConfig with get_plugin_commands getter — built-in and plugin commands merged on each update tick. Plugin commands show with badge in dropdown. SlashCommandProvider pattern: mutable provider created in create_prod_ports, getter set in +page.svelte after context creation. Domain module to_editor_slash_commands converts plugin contributions to ProseMirror format with async insert (deletes slash text, RPC calls plugin, inserts returned text). 20 files touched (15 source + 5 test) — over 8-file guideline but many are single-line wiring/export changes. 7 new domain tests, 5 new RPC tests, 3 new store tests + 2 mock fixture updates. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
