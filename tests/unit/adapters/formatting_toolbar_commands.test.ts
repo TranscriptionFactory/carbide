@@ -93,27 +93,49 @@ describe("is_command_available", () => {
     view.destroy();
   });
 
-  it("returns false for link without selection", () => {
+  it("returns false for link always", () => {
     const view = create_test_view("hello");
     expect(is_command_available("link", view)).toBe(false);
     view.destroy();
   });
 
-  it("returns false for image without selection", () => {
+  it("returns false for image always", () => {
     const view = create_test_view("hello");
     expect(is_command_available("image", view)).toBe(false);
     view.destroy();
   });
 
-  it("returns true for bullet_list when not in list item", () => {
+  it("returns true for link with selection (still disabled pending async UI)", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("hello world")),
+    ]);
+    const state = EditorState.create({
+      doc,
+      plugins: [],
+      selection: TextSelection.create(doc, 1, 6),
+    });
+    const view = new EditorView(container, { state });
+    expect(is_command_available("link", view)).toBe(false);
+    view.destroy();
+  });
+
+  it("returns true for bullet_list via wrapInList check", () => {
     const view = create_test_view("hello");
     expect(is_command_available("bullet_list", view)).toBe(true);
     view.destroy();
   });
 
-  it("returns true for ordered_list when not in list item", () => {
+  it("returns true for ordered_list via wrapInList check", () => {
     const view = create_test_view("hello");
     expect(is_command_available("ordered_list", view)).toBe(true);
+    view.destroy();
+  });
+
+  it("returns true for blockquote via wrapIn check", () => {
+    const view = create_test_view("hello");
+    expect(is_command_available("blockquote", view)).toBe(true);
     view.destroy();
   });
 
@@ -122,12 +144,6 @@ describe("is_command_available", () => {
     expect(is_command_available("heading1", view)).toBe(true);
     expect(is_command_available("heading2", view)).toBe(true);
     expect(is_command_available("heading3", view)).toBe(true);
-    view.destroy();
-  });
-
-  it("returns true for blockquote", () => {
-    const view = create_test_view("hello");
-    expect(is_command_available("blockquote", view)).toBe(true);
     view.destroy();
   });
 
