@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 15 / 46 units complete
+**Progress:** 16 / 46 units complete
 
 ---
 
@@ -171,8 +171,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
   - Rust: `semantic_similarity` rule (call `find_similar_notes` directly — never hybrid search), `title_overlap`, `shared_outlinks` queries. Weighted aggregation, dedup, sort.
   - _Completed 2026-04-05 `4ba5ba3f`. Three new rules in rules.rs: semantic_similarity calls vector_db::knn_search directly (converts distance to similarity, filters ≤0), title_overlap tokenizes titles and computes Jaccard similarity (0.15 threshold), shared_outlinks queries outlinks table for shared targets (Jaccard on outlink sets). Added "semantic" rule group to default_rules() with semantic_similarity enabled by default, title_overlap and shared_outlinks disabled. 8 new tests + 2 updated config/default_rules tests. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
-- [ ] **6.2** Frontend scoring integration + tests — **TypeScript session**
+- [x] **6.2** Frontend scoring integration + tests — **TypeScript session**
   - TS: update service to handle multi-rule results. Integration tests for weighted merge, dedup, ranking.
+  - _Completed 2026-04-05 `9b53fecd`. Extracted merge_suggestions from links_service.ts into links/domain/merge_suggestions.ts as a pure domain function. Added rule deduplication by ruleId (keeps higher rawScore) to handle semantic_similarity appearing from both find_similar_notes and the backend rules engine. 18 new tests in tests/unit/domain/merge_suggestions.test.ts covering: multi-rule results, path dedup, rule dedup, weighted ranking, threshold filtering, limit enforcement, mixed sources. Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 ---
 
