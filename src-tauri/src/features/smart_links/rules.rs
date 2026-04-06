@@ -32,6 +32,7 @@ pub fn execute_rules(
                 "semantic_similarity" => query_semantic_similarity(conn, note_path)?,
                 "title_overlap" => query_title_overlap(conn, note_path)?,
                 "shared_outlinks" => query_shared_outlinks(conn, note_path)?,
+                "block_semantic_similarity" => query_block_semantic_similarity(conn, note_path)?,
                 _ => continue,
             };
 
@@ -262,4 +263,53 @@ fn query_shared_outlinks(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+fn query_block_semantic_similarity(
+    conn: &Connection,
+    note_path: &str,
+) -> Result<Vec<RuleHit>, String> {
+    let source_blocks = vector_db::get_block_embeddings_for_note(conn, note_path);
+    if source_blocks.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut best_by_path: HashMap<String, f64> = HashMap::new();
+
+    for (_heading_id, query_vec) in &source_blocks {
+        let results = vector_db::block_knn_search(conn, query_vec, 21)?;
+        for (path, _target_heading, distance) in results {
+            if path == note_path {
+                continue;
+            }
+            let similarity = (1.0 - distance) as f64;
+            if similarity <= 0.0 {
+                continue;
+            }
+            let entry = best_by_path.entry(path).or_insert(0.0);
+            if similarity > *entry {
+                *entry = similarity;
+            }
+        }
+    }
+
+    let mut hits: Vec<RuleHit> = best_by_path
+        .into_iter()
+        .map(|(path, score)| {
+            let title: String = conn
+                .query_row("SELECT title FROM notes WHERE path = ?1", [&path], |row| {
+                    row.get(0)
+                })
+                .unwrap_or_default();
+            RuleHit {
+                target_path: path,
+                target_title: title,
+                raw_score: score,
+            }
+        })
+        .collect();
+
+    hits.sort_by(|a, b| b.raw_score.partial_cmp(&a.raw_score).unwrap_or(std::cmp::Ordering::Equal));
+    hits.truncate(50);
+    Ok(hits)
 }

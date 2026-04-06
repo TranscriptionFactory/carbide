@@ -2,8 +2,8 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::model::{
-    BatchSemanticEdge, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope,
-    SemanticSearchHit,
+    BatchSemanticEdge, BlockSearchHit, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit,
+    SearchScope, SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
 use crate::shared::storage::{self, VaultMode};
@@ -1726,6 +1726,39 @@ pub fn find_similar_notes(
                 }
             }
         }
+        Ok(results)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn find_similar_blocks(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    heading_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<BlockSearchHit>, String> {
+    let limit = limit.unwrap_or(10).min(50);
+
+    with_read_conn(&app, &vault_id, |conn| {
+        let blocks = vector_db::get_block_embeddings_for_note(conn, &note_path);
+        let query_vec = match blocks.iter().find(|(hid, _)| *hid == heading_id) {
+            Some((_, vec)) => vec,
+            None => return Ok(vec![]),
+        };
+
+        let raw = vector_db::block_knn_search(conn, query_vec, limit + 1)?;
+        let results: Vec<BlockSearchHit> = raw
+            .into_iter()
+            .filter(|(p, hid, _)| !(p == &note_path && hid == &heading_id))
+            .take(limit)
+            .map(|(path, hid, distance)| BlockSearchHit {
+                path,
+                heading_id: hid,
+                distance,
+            })
+            .collect();
         Ok(results)
     })
 }

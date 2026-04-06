@@ -281,11 +281,16 @@ fn default_rules_structure() {
     let meta_ids: Vec<&str> = groups[0].rules.iter().map(|r| r.id.as_str()).collect();
     assert_eq!(meta_ids, vec!["same_day", "shared_tag", "shared_property"]);
     assert_eq!(groups[1].id, "semantic");
-    assert_eq!(groups[1].rules.len(), 3);
+    assert_eq!(groups[1].rules.len(), 4);
     let sem_ids: Vec<&str> = groups[1].rules.iter().map(|r| r.id.as_str()).collect();
     assert_eq!(
         sem_ids,
-        vec!["semantic_similarity", "title_overlap", "shared_outlinks"]
+        vec![
+            "semantic_similarity",
+            "title_overlap",
+            "shared_outlinks",
+            "block_semantic_similarity"
+        ]
     );
 }
 
@@ -439,4 +444,62 @@ fn cross_group_aggregation_metadata_plus_semantic() {
     assert!(rule_ids.contains(&"shared_tag"));
     assert!(rule_ids.contains(&"semantic_similarity"));
     assert!(results[0].score > 0.5);
+}
+
+#[test]
+fn block_semantic_similarity_finds_similar_blocks_across_notes() {
+    let (_tmp, conn) = setup_db_with_vectors();
+    let ts = 1_700_000_000_000i64;
+    insert_note(&conn, "a.md", "Note A", ts);
+    insert_note(&conn, "b.md", "Note B", ts);
+    insert_note(&conn, "c.md", "Note C", ts);
+
+    let vec_a = vec![1.0f32, 0.0, 0.0];
+    let vec_b_similar = vec![0.95, 0.05, 0.0];
+    let vec_c_different = vec![0.0, 0.0, 1.0];
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a).unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b_similar).unwrap();
+    vector_db::upsert_block_embedding(&conn, "c.md", "h-1-other-0", &vec_c_different).unwrap();
+
+    let groups = make_rule_group("block_semantic_similarity", 1.0);
+    let results = compute(&conn, "a.md", &groups);
+    assert!(!results.is_empty());
+    assert_eq!(results[0].target_path, "b.md");
+    assert_eq!(results[0].rules[0].rule_id, "block_semantic_similarity");
+    assert!(results[0].rules[0].raw_score > 0.5);
+}
+
+#[test]
+fn block_semantic_similarity_empty_without_embeddings() {
+    let (_tmp, conn) = setup_db_with_vectors();
+    let ts = 1_700_000_000_000i64;
+    insert_note(&conn, "a.md", "Note A", ts);
+    insert_note(&conn, "b.md", "Note B", ts);
+
+    let groups = make_rule_group("block_semantic_similarity", 1.0);
+    let results = compute(&conn, "a.md", &groups);
+    assert!(results.is_empty());
+}
+
+#[test]
+fn block_semantic_similarity_aggregates_best_score_per_note() {
+    let (_tmp, conn) = setup_db_with_vectors();
+    let ts = 1_700_000_000_000i64;
+    insert_note(&conn, "a.md", "Note A", ts);
+    insert_note(&conn, "b.md", "Note B", ts);
+
+    let vec_a1 = vec![1.0f32, 0.0, 0.0];
+    let vec_a2 = vec![0.0, 1.0, 0.0];
+    let vec_b1 = vec![0.95, 0.05, 0.0];
+    let vec_b2 = vec![0.05, 0.95, 0.0];
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a1).unwrap();
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-2-details-0", &vec_a2).unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b1).unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-2-methods-0", &vec_b2).unwrap();
+
+    let groups = make_rule_group("block_semantic_similarity", 1.0);
+    let results = compute(&conn, "a.md", &groups);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].target_path, "b.md");
+    assert!(results[0].score > 0.8);
 }
