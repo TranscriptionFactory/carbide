@@ -74,14 +74,14 @@ fn initialize_without_params_returns_error() {
 }
 
 #[test]
-fn tools_list_returns_note_tools() {
+fn tools_list_returns_all_tools() {
     let mut router = McpRouter::new();
     let req = make_request("tools/list", None, 1);
     let resp = router.handle_request(&req).unwrap();
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();
     let tools = result["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 8);
+    assert_eq!(tools.len(), 14);
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"list_notes"));
     assert!(names.contains(&"read_note"));
@@ -91,6 +91,12 @@ fn tools_list_returns_note_tools() {
     assert!(names.contains(&"search_notes"));
     assert!(names.contains(&"get_note_metadata"));
     assert!(names.contains(&"list_vaults"));
+    assert!(names.contains(&"get_backlinks"));
+    assert!(names.contains(&"get_outgoing_links"));
+    assert!(names.contains(&"list_properties"));
+    assert!(names.contains(&"query_notes_by_property"));
+    assert!(names.contains(&"list_references"));
+    assert!(names.contains(&"search_references"));
 }
 
 #[test]

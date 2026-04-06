@@ -164,6 +164,8 @@ impl McpRouter {
         defs.extend(tools::search::tool_definitions());
         defs.extend(tools::metadata::tool_definitions());
         defs.extend(tools::vault::tool_definitions());
+        defs.extend(tools::graph::tool_definitions());
+        defs.extend(tools::references::tool_definitions());
         defs
     }
 
@@ -183,6 +185,12 @@ impl McpRouter {
             return result;
         }
         if let Some(result) = tools::vault::dispatch(app, name, arguments) {
+            return result;
+        }
+        if let Some(result) = tools::graph::dispatch(app, name, arguments) {
+            return result;
+        }
+        if let Some(result) = tools::references::dispatch(app, name, arguments) {
             return result;
         }
 
