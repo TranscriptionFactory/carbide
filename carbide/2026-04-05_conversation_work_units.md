@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 16 / 46 units complete
+**Progress:** 17 / 46 units complete
 
 ---
 
@@ -183,9 +183,10 @@ Review between batches — check the branch, run the app, read commits. Each bat
 **Design ref:** `carbide/mcp_native_gaps_plan.md` → Phase 3 + `carbide/cli_design.md`
 **Depends on:** Step 1 (MCP server exists), Step 3 (enriched metadata)
 
-- [ ] **7.1** Axum server scaffold + auth middleware + health endpoint — **Rust session**
+- [x] **7.1** Axum server scaffold + auth middleware + health endpoint — **Rust session**
   - Files: `mcp/transport.rs` (extend) or new `http/` module, `auth.rs`
   - Axum on port 3457. Bearer token from `~/.carbide/mcp-token`. `GET /health`. CORS localhost-only.
+  - _Completed 2026-04-05 `5d150d0e`. New `auth.rs` (token read/create/verify with constant-time comparison via `subtle`) and `http.rs` (Axum server scaffold with health endpoint, CORS localhost-only, HttpServerState lifecycle with graceful shutdown, 3 Tauri commands). Token auto-generated as 32 random bytes hex-encoded at `~/.carbide/mcp-token` with 0o600 permissions. HttpAppState holds AppHandle + token for authenticated routes (7.2+). Dependencies: axum 0.8, tower 0.5, tower-http 0.6, subtle 2, rand 0.8, hex 0.4. 14 tests (5 auth + 9 http). Wired into app/mod.rs (managed state, shutdown, invoke handler). Pre-existing lint (build_command_context.ts layering) and test (document_service eviction) failures unchanged._
 
 - [ ] **7.2** `/mcp` JSON-RPC route — **Rust session**
   - Thin adapter — same tool dispatch as stdio. Test with curl. Small — can combine with 7.1.
