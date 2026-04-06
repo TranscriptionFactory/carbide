@@ -86,17 +86,26 @@ describe("register_terminal_actions", () => {
     expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
   });
 
-  it("closes all sessions on toggle when already open on terminal tab", async () => {
+  it("hides the panel on toggle when already open on terminal tab (sessions preserved)", async () => {
     const { registry, terminal_store, terminal_service, ui_store } =
       create_harness();
     ui_store.bottom_panel_open = true;
     ui_store.bottom_panel_tab = "terminal";
     terminal_store.open();
+    terminal_store.ensure_session({
+      id: "terminal:session:1",
+      shell_path: "/bin/zsh",
+      cwd: null,
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+    });
 
     await registry.execute(ACTION_IDS.terminal_toggle);
 
-    expect(terminal_service.close_all_sessions).toHaveBeenCalledTimes(1);
+    expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
     expect(ui_store.bottom_panel_open).toBe(false);
+    expect(terminal_store.panel_open).toBe(false);
+    expect(terminal_store.session_ids).toEqual(["terminal:session:1"]);
   });
 
   it("switches to terminal tab when panel open on different tab", async () => {
@@ -113,15 +122,26 @@ describe("register_terminal_actions", () => {
     expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
   });
 
-  it("closes the terminal explicitly", async () => {
-    const { registry, terminal_service, ui_store } = create_harness();
+  it("hides the terminal explicitly without killing sessions", async () => {
+    const { registry, terminal_store, terminal_service, ui_store } =
+      create_harness();
     ui_store.bottom_panel_open = true;
     ui_store.bottom_panel_tab = "terminal";
+    terminal_store.open();
+    terminal_store.ensure_session({
+      id: "terminal:session:1",
+      shell_path: "/bin/zsh",
+      cwd: null,
+      cwd_policy: "fixed",
+      respawn_policy: "manual",
+    });
 
     await registry.execute(ACTION_IDS.terminal_close);
 
-    expect(terminal_service.close_all_sessions).toHaveBeenCalledTimes(1);
+    expect(terminal_service.close_all_sessions).not.toHaveBeenCalled();
     expect(ui_store.bottom_panel_open).toBe(false);
+    expect(terminal_store.panel_open).toBe(false);
+    expect(terminal_store.session_ids).toEqual(["terminal:session:1"]);
   });
 
   it("creates a new terminal session from an action payload", async () => {
