@@ -19,6 +19,7 @@ import { create_lsp_extension } from "./lsp_extension";
 import { create_toolbar_extension } from "./toolbar_extension";
 import type { ToolbarConfig } from "./toolbar_extension";
 import { create_image_context_menu_extension } from "./image_context_menu_extension";
+import { create_block_drag_handle_extension } from "./block_drag_handle_extension";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -48,6 +49,7 @@ export function assemble_extensions(
     create_lsp_extension(ctx),
     create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
+    create_block_drag_handle_extension(),
   ];
 
   const plugins: Plugin[] = [];
@@ -97,3 +99,4 @@ export {
   file_embed_plugin_key,
 } from "./embed_extension";
 export type { ToolbarConfig } from "./toolbar_extension";
+export { block_drag_handle_plugin_key } from "../adapters/block_drag_handle_plugin";
