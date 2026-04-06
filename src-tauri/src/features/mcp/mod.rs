@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod cli_routes;
 pub mod http;
 pub mod router;
 pub mod server;

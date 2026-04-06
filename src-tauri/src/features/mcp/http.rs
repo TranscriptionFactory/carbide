@@ -13,6 +13,7 @@ use tokio::sync::watch;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::features::mcp::auth;
+use crate::features::mcp::cli_routes;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{JsonRpcRequest, JsonRpcResponse, JsonRpcError, PARSE_ERROR};
 
@@ -39,6 +40,10 @@ impl HttpAppState {
 
     pub fn app(&self) -> &AppHandle {
         &self.app
+    }
+
+    pub(crate) fn token(&self) -> &str {
+        &self.token
     }
 }
 
@@ -70,6 +75,7 @@ pub fn build_router(state: HttpAppState) -> Router {
     Router::new()
         .route("/health", get(health_handler))
         .route("/mcp", post(mcp_handler))
+        .nest("/cli", cli_routes::cli_router())
         .layer(cors_layer())
         .with_state(Arc::new(state))
 }
@@ -92,7 +98,7 @@ async fn mcp_handler(
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
-    if let Err(status) = check_auth(&headers, &state.token) {
+    if let Err(status) = check_auth(&headers, state.token()) {
         return (status, Json(JsonRpcResponse::error(
             None,
             JsonRpcError {
