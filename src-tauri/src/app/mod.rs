@@ -330,6 +330,8 @@ pub fn run() {
             features::mcp::server::mcp_start,
             features::mcp::server::mcp_stop,
             features::mcp::server::mcp_status,
+            features::mcp::server::mcp_list_tool_definitions,
+            features::mcp::server::mcp_call_tool,
             features::mcp::http::http_server_start,
             features::mcp::http::http_server_stop,
             features::mcp::http::http_server_status,

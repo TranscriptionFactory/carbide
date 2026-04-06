@@ -1,4 +1,5 @@
 use serde::Serialize;
+use serde_json::Value;
 use specta::Type;
 use std::sync::Arc;
 use tauri::AppHandle;
@@ -128,4 +129,22 @@ pub async fn mcp_stop(state: tauri::State<'_, McpState>) -> Result<(), String> {
 #[specta::specta]
 pub async fn mcp_status(state: tauri::State<'_, McpState>) -> Result<McpStatusInfo, String> {
     Ok(state.get_status().await)
+}
+
+#[tauri::command]
+pub fn mcp_list_tool_definitions() -> Result<Value, String> {
+    let router = McpRouter::new();
+    let defs = router.tool_definitions_public();
+    serde_json::to_value(defs).map_err(|e| format!("Serialization error: {}", e))
+}
+
+#[tauri::command]
+pub fn mcp_call_tool(
+    app: AppHandle,
+    tool_name: String,
+    arguments: Option<Value>,
+) -> Result<Value, String> {
+    let router = McpRouter::with_app(app);
+    let result = router.dispatch_tool_public(&tool_name, arguments.as_ref());
+    serde_json::to_value(result).map_err(|e| format!("Serialization error: {}", e))
 }

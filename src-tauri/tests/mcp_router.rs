@@ -81,7 +81,7 @@ fn tools_list_returns_all_tools() {
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();
     let tools = result["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 14);
+    assert_eq!(tools.len(), 17);
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"list_notes"));
     assert!(names.contains(&"read_note"));
@@ -97,6 +97,9 @@ fn tools_list_returns_all_tools() {
     assert!(names.contains(&"query_notes_by_property"));
     assert!(names.contains(&"list_references"));
     assert!(names.contains(&"search_references"));
+    assert!(names.contains(&"git_status"));
+    assert!(names.contains(&"git_log"));
+    assert!(names.contains(&"rename_note"));
 }
 
 #[test]

@@ -31,6 +31,9 @@ mod smart_links_config;
 #[path = "../../tests/mcp_tools_graph_references.rs"]
 mod mcp_tools_graph_references;
 
+#[path = "../../tests/mcp_tools_git.rs"]
+mod mcp_tools_git;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};

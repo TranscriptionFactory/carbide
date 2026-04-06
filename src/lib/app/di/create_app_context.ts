@@ -749,6 +749,14 @@ export function create_app_context(input: {
         return input.ports.search.get_file_cache(require_vault().id, note_path);
       },
     },
+    mcp: {
+      async list_tool_definitions() {
+        return input.ports.mcp.list_tool_definitions();
+      },
+      async call_tool(tool_name, tool_arguments) {
+        return input.ports.mcp.call_tool(tool_name, tool_arguments);
+      },
+    },
   });
 
   register_plugin_actions(base_action_input, plugin_service);

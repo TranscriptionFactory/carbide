@@ -100,6 +100,30 @@ type PluginRpcMetadataBackend = {
   get_file_cache(note_path: string): Promise<unknown>;
 };
 
+type McpToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+};
+
+type McpToolResult = {
+  content: Array<{ type: string; text: string }>;
+  isError: boolean;
+};
+
+type PluginRegisteredTool = {
+  plugin_id: string;
+  definition: McpToolDefinition;
+};
+
+type PluginRpcMcpBackend = {
+  list_tool_definitions(): Promise<McpToolDefinition[]>;
+  call_tool(
+    tool_name: string,
+    tool_arguments?: Record<string, unknown>,
+  ): Promise<McpToolResult>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -125,6 +149,7 @@ export type PluginRpcContext = {
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
   metadata?: PluginRpcMetadataBackend;
+  mcp?: PluginRpcMcpBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -385,8 +410,13 @@ function resolve_sidebar_icon(icon_name: string | undefined): typeof Blocks {
 export class PluginRpcHandler {
   private event_bus: PluginEventBus | null = null;
   private settings_service: PluginSettingsService | null = null;
+  private registered_tools: Map<string, PluginRegisteredTool> = new Map();
 
   constructor(private readonly context: PluginRpcContext) {}
+
+  get_registered_tools(): PluginRegisteredTool[] {
+    return [...this.registered_tools.values()];
+  }
 
   set_event_bus(event_bus: PluginEventBus) {
     this.event_bus = event_bus;
@@ -477,6 +507,8 @@ export class PluginRpcHandler {
         return this.handle_diagnostics(plugin_id, action, params);
       case "metadata":
         return this.handle_metadata(plugin_id, action, params);
+      case "mcp":
+        return this.handle_mcp(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -839,6 +871,66 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown diagnostics action: ${action}`);
+    }
+  }
+
+  private async handle_mcp(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ): Promise<unknown> {
+    this.require_permission(plugin_id, "mcp:access");
+
+    if (!this.context.mcp) {
+      throw new Error("MCP backend not initialized");
+    }
+
+    switch (action) {
+      case "list_tools": {
+        const native_tools = await this.context.mcp.list_tool_definitions();
+        const plugin_tools = this.get_registered_tools().map(
+          (t) => t.definition,
+        );
+        return [...native_tools, ...plugin_tools];
+      }
+      case "call_tool": {
+        const tool_name = read_param_string(params, 0, "tool name");
+        const args =
+          params[1] !== undefined
+            ? (read_record(params[1], "tool arguments") as Record<
+                string,
+                unknown
+              >)
+            : undefined;
+        return this.context.mcp.call_tool(tool_name, args);
+      }
+      case "register_tool": {
+        this.require_permission(plugin_id, "mcp:register");
+        const raw_def = read_record(params[0], "tool definition");
+        const name = read_string(raw_def.name, "tool name");
+        const description = read_string(
+          raw_def.description,
+          "tool description",
+        );
+        const namespaced_name = `${plugin_id}:${name}`;
+        const definition: McpToolDefinition = {
+          name: namespaced_name,
+          description,
+          inputSchema: raw_def.inputSchema ??
+            raw_def.input_schema ?? {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+        };
+        this.registered_tools.set(namespaced_name, {
+          plugin_id,
+          definition,
+        });
+        return { success: true, name: namespaced_name };
+      }
+      default:
+        throw new Error(`Unknown mcp action: ${action}`);
     }
   }
 }

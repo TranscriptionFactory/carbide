@@ -8,4 +8,6 @@ export type {
   McpStatusInfo,
   McpSetupStatus,
   McpSetupResult,
+  McpToolDefinition,
+  McpToolResult,
 } from "./ports";

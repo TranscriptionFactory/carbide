@@ -248,6 +248,12 @@ export function create_test_ports(): Ports {
           httpPort: 3457,
           tokenExists: false,
         }),
+      list_tool_definitions: () => Promise.resolve([]),
+      call_tool: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "" }],
+          isError: false,
+        }),
     },
   };
 }

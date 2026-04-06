@@ -27,6 +27,11 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       httpPort: 3457,
       tokenExists: true,
     }),
+    list_tool_definitions: vi.fn().mockResolvedValue([]),
+    call_tool: vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "" }],
+      isError: false,
+    }),
     ...overrides,
   };
 }
