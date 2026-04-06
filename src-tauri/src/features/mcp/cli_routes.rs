@@ -13,9 +13,11 @@ use crate::features::notes::service::{
     NoteDeleteArgs, NoteRenameArgs,
 };
 use crate::features::reference::service as reference_service;
-use crate::features::search::db as search_db;
-use crate::features::search::model::SearchScope;
-use crate::features::search::service::with_read_conn;
+use crate::features::search::db::{self as search_db, open_search_db};
+use crate::features::search::model::{BaseFilter, BaseQuery, BaseSort, SearchScope};
+use crate::features::search::service::{self as search_service, with_read_conn};
+use crate::features::tasks::service as tasks_service;
+use crate::features::tasks::types::{TaskFilter, TaskQuery, TaskSort, TaskStatus};
 use crate::features::vault::service as vault_service;
 use crate::shared::{io_utils, storage};
 
@@ -167,6 +169,12 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/references/search", post(cli_references_search))
         .route("/references/add", post(cli_references_add))
         .route("/references/bbt/search", post(cli_references_bbt_search))
+        .route("/bases/query", post(cli_bases_query))
+        .route("/bases/properties", post(cli_bases_properties))
+        .route("/tasks", post(cli_tasks))
+        .route("/tasks/update", post(cli_tasks_update))
+        .route("/dev/index/build", post(cli_dev_index_build))
+        .route("/dev/index/rebuild", post(cli_dev_index_rebuild))
 }
 
 async fn cli_read(
@@ -952,6 +960,199 @@ async fn cli_references_bbt_search(
     }
 }
 
+// --- Bases routes ---
+
+#[derive(Deserialize)]
+struct BasesQueryParams {
+    vault_id: String,
+    #[serde(default)]
+    filters: Vec<BaseFilter>,
+    #[serde(default)]
+    sort: Vec<BaseSort>,
+    #[serde(default = "default_bases_limit")]
+    limit: usize,
+    #[serde(default)]
+    offset: usize,
+}
+
+fn default_bases_limit() -> usize {
+    100
+}
+
+async fn cli_bases_query(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<BasesQueryParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let limit = params.limit.min(500);
+    let query = BaseQuery {
+        filters: params.filters,
+        sort: params.sort,
+        limit,
+        offset: params.offset,
+    };
+
+    match with_read_conn(state.app(), &params.vault_id, |conn| {
+        search_db::query_bases(conn, query)
+    }) {
+        Ok(results) => (StatusCode::OK, Json(results)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_bases_properties(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match with_read_conn(state.app(), &params.vault_id, |conn| {
+        search_db::list_all_properties(conn)
+    }) {
+        Ok(props) => (StatusCode::OK, Json(props)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+// --- Tasks routes ---
+
+#[derive(Deserialize)]
+struct TasksQueryParams {
+    vault_id: String,
+    #[serde(default)]
+    filters: Vec<TaskFilter>,
+    #[serde(default)]
+    sort: Vec<TaskSort>,
+    #[serde(default = "default_tasks_limit")]
+    limit: usize,
+    #[serde(default)]
+    offset: usize,
+}
+
+fn default_tasks_limit() -> usize {
+    100
+}
+
+#[derive(Deserialize)]
+struct TaskUpdateParams {
+    vault_id: String,
+    path: String,
+    line_number: usize,
+    status: TaskStatus,
+}
+
+async fn cli_tasks(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<TasksQueryParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let limit = params.limit.min(500);
+    let query = TaskQuery {
+        filters: params.filters,
+        sort: params.sort,
+        limit,
+        offset: params.offset,
+    };
+
+    match with_read_conn(state.app(), &params.vault_id, |conn| {
+        tasks_service::query_tasks(conn, query)
+    }) {
+        Ok(tasks) => (StatusCode::OK, Json(tasks)).into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_tasks_update(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<TaskUpdateParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    let root = match storage::vault_path(state.app(), &params.vault_id) {
+        Ok(r) => r,
+        Err(e) => return internal_err(e),
+    };
+
+    let abs_path = match notes_service::safe_vault_abs(&root, &params.path) {
+        Ok(a) => a,
+        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
+    };
+
+    if let Err(e) =
+        tasks_service::update_task_state_in_file(&abs_path, params.line_number, params.status)
+    {
+        return internal_err(e);
+    }
+
+    let content = match io_utils::read_file_to_string(&abs_path) {
+        Ok(c) => c,
+        Err(e) => return internal_err(e),
+    };
+    let tasks = tasks_service::extract_tasks(&params.path, &content);
+    let conn = match open_search_db(state.app(), &params.vault_id) {
+        Ok(c) => c,
+        Err(e) => return internal_err(e),
+    };
+    match tasks_service::save_tasks(&conn, &params.path, &tasks) {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "ok": true, "path": params.path })),
+        )
+            .into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+// --- Dev routes ---
+
+async fn cli_dev_index_build(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match search_service::index_build(state.app().clone(), params.vault_id) {
+        Ok(()) => {
+            (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response()
+        }
+        Err(e) => internal_err(e),
+    }
+}
+
+async fn cli_dev_index_rebuild(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    Json(params): Json<VaultIdParams>,
+) -> axum::response::Response {
+    if let Err(status) = check_auth(&headers, state.token()) {
+        return json_err(status, "Unauthorized");
+    }
+
+    match search_service::index_rebuild(state.app().clone(), params.vault_id) {
+        Ok(()) => {
+            (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response()
+        }
+        Err(e) => internal_err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1225,5 +1426,64 @@ mod tests {
     #[test]
     fn test_default_git_log_limit() {
         assert_eq!(default_git_log_limit(), 20);
+    }
+
+    #[test]
+    fn test_bases_query_params_defaults() {
+        let json = r#"{"vault_id":"v1"}"#;
+        let params: BasesQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.vault_id, "v1");
+        assert!(params.filters.is_empty());
+        assert!(params.sort.is_empty());
+        assert_eq!(params.limit, 100);
+        assert_eq!(params.offset, 0);
+    }
+
+    #[test]
+    fn test_bases_query_params_with_filters() {
+        let json = r#"{"vault_id":"v1","filters":[{"property":"status","operator":"eq","value":"draft"}],"sort":[{"property":"mtime_ms","descending":true}],"limit":50}"#;
+        let params: BasesQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.filters.len(), 1);
+        assert_eq!(params.filters[0].property, "status");
+        assert_eq!(params.sort.len(), 1);
+        assert!(params.sort[0].descending);
+        assert_eq!(params.limit, 50);
+    }
+
+    #[test]
+    fn test_tasks_query_params_defaults() {
+        let json = r#"{"vault_id":"v1"}"#;
+        let params: TasksQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.vault_id, "v1");
+        assert!(params.filters.is_empty());
+        assert_eq!(params.limit, 100);
+    }
+
+    #[test]
+    fn test_tasks_query_params_with_filters() {
+        let json = r#"{"vault_id":"v1","filters":[{"property":"status","operator":"eq","value":"todo"}],"limit":20}"#;
+        let params: TasksQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.filters.len(), 1);
+        assert_eq!(params.filters[0].value, "todo");
+        assert_eq!(params.limit, 20);
+    }
+
+    #[test]
+    fn test_task_update_params_deserialization() {
+        let json = r#"{"vault_id":"v1","path":"todo.md","line_number":5,"status":"done"}"#;
+        let params: TaskUpdateParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.path, "todo.md");
+        assert_eq!(params.line_number, 5);
+        assert!(matches!(params.status, TaskStatus::Done));
+    }
+
+    #[test]
+    fn test_default_bases_limit() {
+        assert_eq!(default_bases_limit(), 100);
+    }
+
+    #[test]
+    fn test_default_tasks_limit() {
+        assert_eq!(default_tasks_limit(), 100);
     }
 }
