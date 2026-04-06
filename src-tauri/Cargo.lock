@@ -849,6 +849,7 @@ name = "carbide-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "clap_complete",
  "dirs",
  "reqwest 0.12.28",
  "serde",
@@ -1033,6 +1034,15 @@ dependencies = [
  "clap_lex",
  "strsim",
  "terminal_size",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19c9f1dde76b736e3681f28cec9d5a61299cbaae0fce80a68e43724ad56031eb"
+dependencies = [
+ "clap",
 ]
 
 [[package]]
