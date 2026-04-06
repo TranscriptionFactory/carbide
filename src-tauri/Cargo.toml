@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "crates/carbide-cli"]
+
 [package]
 name = "carbide"
 version = "1.13.0"
