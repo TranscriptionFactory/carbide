@@ -11,6 +11,13 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
             embedding BLOB NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS block_embeddings (
+            path TEXT NOT NULL,
+            heading_id TEXT NOT NULL,
+            embedding BLOB NOT NULL,
+            PRIMARY KEY (path, heading_id)
+        );
+
         CREATE TABLE IF NOT EXISTS embedding_meta (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -193,6 +200,143 @@ pub fn knn_search_batch(
     Ok(edges)
 }
 
+// --- Block embeddings (section-level) ---
+
+pub fn upsert_block_embedding(
+    conn: &Connection,
+    path: &str,
+    heading_id: &str,
+    embedding: &[f32],
+) -> Result<(), String> {
+    let bytes = floats_to_bytes(embedding);
+    conn.execute(
+        "INSERT OR REPLACE INTO block_embeddings (path, heading_id, embedding) VALUES (?1, ?2, ?3)",
+        params![path, heading_id, bytes],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn remove_block_embeddings(conn: &Connection, path: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM block_embeddings WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn remove_block_embeddings_by_prefix(conn: &Connection, prefix: &str) -> Result<(), String> {
+    let escaped = prefix
+        .replace('\\', r"\\")
+        .replace('%', r"\%")
+        .replace('_', r"\_");
+    let pattern = format!("{escaped}%");
+    conn.execute(
+        "DELETE FROM block_embeddings WHERE path LIKE ?1 ESCAPE '\\'",
+        params![pattern],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn rename_block_embedding_path(
+    conn: &Connection,
+    old_path: &str,
+    new_path: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE block_embeddings SET path = ?1 WHERE path = ?2",
+        params![new_path, old_path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn rename_block_embeddings_by_prefix(
+    conn: &Connection,
+    old_prefix: &str,
+    new_prefix: &str,
+) -> Result<(), String> {
+    let escaped = old_prefix
+        .replace('\\', r"\\")
+        .replace('%', r"\%")
+        .replace('_', r"\_");
+    let pattern = format!("{escaped}%");
+    let old_len = old_prefix.len() as i64;
+    conn.execute(
+        "UPDATE block_embeddings SET path = ?1 || substr(path, ?2 + 1) WHERE path LIKE ?3 ESCAPE '\\'",
+        params![new_prefix, old_len, pattern],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn block_knn_search(
+    conn: &Connection,
+    query_vec: &[f32],
+    limit: usize,
+) -> Result<Vec<(String, String, f32)>, String> {
+    let mut stmt = conn
+        .prepare("SELECT path, heading_id, embedding FROM block_embeddings")
+        .map_err(|e| e.to_string())?;
+
+    let mut scored: Vec<(String, String, f32)> = stmt
+        .query_map([], |row| {
+            let path: String = row.get(0)?;
+            let heading_id: String = row.get(1)?;
+            let blob: Vec<u8> = row.get(2)?;
+            Ok((path, heading_id, blob))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .map(|(path, heading_id, blob)| {
+            let vec = bytes_to_floats(&blob);
+            let dist = dot_distance(query_vec, &vec);
+            (path, heading_id, dist)
+        })
+        .collect();
+
+    scored.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(limit);
+    Ok(scored)
+}
+
+pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {
+    let mut stmt = match conn.prepare("SELECT path, heading_id FROM block_embeddings") {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("get_block_embedded_keys: prepare failed: {e}");
+            return HashSet::new();
+        }
+    };
+    let rows = match stmt.query_map([], |row| {
+        let path: String = row.get(0)?;
+        let heading_id: String = row.get(1)?;
+        Ok(format!("{path}\0{heading_id}"))
+    }) {
+        Ok(r) => r,
+        Err(e) => {
+            log::warn!("get_block_embedded_keys: query failed: {e}");
+            return HashSet::new();
+        }
+    };
+    rows.filter_map(|r| r.ok()).collect()
+}
+
+pub fn get_block_embedding_count(conn: &Connection) -> usize {
+    conn.query_row("SELECT COUNT(*) FROM block_embeddings", [], |row| {
+        row.get::<_, i64>(0)
+    })
+    .unwrap_or(0) as usize
+}
+
+pub fn clear_all_block_embeddings(conn: &Connection) -> Result<(), String> {
+    conn.execute("DELETE FROM block_embeddings", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
     let bytes: Vec<u8> = conn
         .query_row(
@@ -255,6 +399,8 @@ pub fn get_model_version(conn: &Connection) -> Option<String> {
 pub fn clear_all_embeddings(conn: &Connection) -> Result<(), String> {
     conn.execute("DELETE FROM note_embeddings", [])
         .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM block_embeddings", [])
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -288,4 +434,107 @@ fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
         .chunks_exact(4)
         .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn setup() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_vector_schema(&conn).expect("schema");
+        conn
+    }
+
+    fn fake_embedding(seed: f32) -> Vec<f32> {
+        let mut v: Vec<f32> = (0..384).map(|i| (i as f32 * seed) % 1.0).collect();
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            v.iter_mut().for_each(|x| *x /= norm);
+        }
+        v
+    }
+
+    #[test]
+    fn block_embeddings_table_created() {
+        let conn = setup();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='block_embeddings'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn upsert_and_count_block_embeddings() {
+        let conn = setup();
+        let emb = fake_embedding(0.1);
+        upsert_block_embedding(&conn, "note.md", "h-1-intro-0", &emb).unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-2-details-0", &emb).unwrap();
+        assert_eq!(get_block_embedding_count(&conn), 2);
+    }
+
+    #[test]
+    fn remove_block_embeddings_by_path() {
+        let conn = setup();
+        let emb = fake_embedding(0.2);
+        upsert_block_embedding(&conn, "a.md", "h-1-a-0", &emb).unwrap();
+        upsert_block_embedding(&conn, "a.md", "h-2-b-0", &emb).unwrap();
+        upsert_block_embedding(&conn, "b.md", "h-1-c-0", &emb).unwrap();
+        remove_block_embeddings(&conn, "a.md").unwrap();
+        assert_eq!(get_block_embedding_count(&conn), 1);
+    }
+
+    #[test]
+    fn rename_block_embedding_path_works() {
+        let conn = setup();
+        let emb = fake_embedding(0.3);
+        upsert_block_embedding(&conn, "old.md", "h-1-x-0", &emb).unwrap();
+        rename_block_embedding_path(&conn, "old.md", "new.md").unwrap();
+        let keys = get_block_embedded_keys(&conn);
+        assert!(keys.contains("new.md\0h-1-x-0"));
+        assert!(!keys.contains("old.md\0h-1-x-0"));
+    }
+
+    #[test]
+    fn block_knn_search_returns_nearest() {
+        let conn = setup();
+        let emb_a = fake_embedding(0.1);
+        let emb_b = fake_embedding(0.9);
+        upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "b.md", "h-1-other-0", &emb_b).unwrap();
+
+        let results = block_knn_search(&conn, &emb_a, 2).unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].0, "a.md");
+        assert_eq!(results[0].1, "h-1-intro-0");
+        assert!(results[0].2 < results[1].2);
+    }
+
+    #[test]
+    fn clear_all_embeddings_clears_blocks_too() {
+        let conn = setup();
+        let emb = fake_embedding(0.5);
+        upsert_embedding(&conn, "note.md", &emb).unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-1-x-0", &emb).unwrap();
+        clear_all_embeddings(&conn).unwrap();
+        assert_eq!(get_embedding_count(&conn), 0);
+        assert_eq!(get_block_embedding_count(&conn), 0);
+    }
+
+    #[test]
+    fn get_block_embedded_keys_returns_composite_keys() {
+        let conn = setup();
+        let emb = fake_embedding(0.4);
+        upsert_block_embedding(&conn, "x.md", "h-1-a-0", &emb).unwrap();
+        upsert_block_embedding(&conn, "y.md", "h-2-b-0", &emb).unwrap();
+        let keys = get_block_embedded_keys(&conn);
+        assert_eq!(keys.len(), 2);
+        assert!(keys.contains("x.md\0h-1-a-0"));
+        assert!(keys.contains("y.md\0h-2-b-0"));
+    }
 }
