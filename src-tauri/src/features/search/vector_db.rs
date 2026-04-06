@@ -272,6 +272,30 @@ pub fn rename_block_embeddings_by_prefix(
     Ok(())
 }
 
+pub fn get_block_embeddings_for_note(
+    conn: &Connection,
+    path: &str,
+) -> Vec<(String, Vec<f32>)> {
+    let mut stmt = match conn.prepare(
+        "SELECT heading_id, embedding FROM block_embeddings WHERE path = ?1",
+    ) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+    let rows = match stmt.query_map(params![path], |row| {
+        let heading_id: String = row.get(0)?;
+        let blob: Vec<u8> = row.get(1)?;
+        Ok((heading_id, blob))
+    }) {
+        Ok(r) => r,
+        Err(_) => return vec![],
+    };
+    rows.filter_map(|r| r.ok())
+        .map(|(heading_id, blob)| (heading_id, bytes_to_floats(&blob)))
+        .filter(|(_, vec)| !vec.is_empty())
+        .collect()
+}
+
 pub fn block_knn_search(
     conn: &Connection,
     query_vec: &[f32],
@@ -524,6 +548,29 @@ mod tests {
         clear_all_embeddings(&conn).unwrap();
         assert_eq!(get_embedding_count(&conn), 0);
         assert_eq!(get_block_embedding_count(&conn), 0);
+    }
+
+    #[test]
+    fn get_block_embeddings_for_note_returns_matching_blocks() {
+        let conn = setup();
+        let emb_a = fake_embedding(0.1);
+        let emb_b = fake_embedding(0.2);
+        upsert_block_embedding(&conn, "note.md", "h-1-intro-0", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-2-details-0", &emb_b).unwrap();
+        upsert_block_embedding(&conn, "other.md", "h-1-x-0", &emb_a).unwrap();
+
+        let blocks = get_block_embeddings_for_note(&conn, "note.md");
+        assert_eq!(blocks.len(), 2);
+        let ids: Vec<&str> = blocks.iter().map(|(id, _)| id.as_str()).collect();
+        assert!(ids.contains(&"h-1-intro-0"));
+        assert!(ids.contains(&"h-2-details-0"));
+    }
+
+    #[test]
+    fn get_block_embeddings_for_note_returns_empty_for_missing() {
+        let conn = setup();
+        let blocks = get_block_embeddings_for_note(&conn, "nonexistent.md");
+        assert!(blocks.is_empty());
     }
 
     #[test]
