@@ -133,6 +133,50 @@ enum Command {
         #[arg(long, help = "BBT JSON-RPC URL")]
         bbt_url: Option<String>,
     },
+    #[command(name = "bases:query", about = "Query notes using bases filters")]
+    BasesQuery {
+        #[arg(long, short, help = "Filter expression (e.g. status=draft, priority>3)")]
+        filter: Vec<String>,
+        #[arg(long, short, help = "Sort field (prefix with - for descending, e.g. -mtime_ms)")]
+        sort: Vec<String>,
+        #[arg(long, default_value = "100", help = "Max results")]
+        limit: usize,
+        #[arg(long, default_value = "0", help = "Offset for pagination")]
+        offset: usize,
+    },
+    #[command(name = "bases:properties", about = "List queryable properties with types")]
+    BasesProperties,
+    #[command(about = "List tasks across vault")]
+    Tasks {
+        #[arg(long, help = "Filter by status (todo, doing, done)")]
+        status: Option<String>,
+        #[arg(long, help = "Filter by note path")]
+        path: Option<String>,
+        #[arg(long, default_value = "100", help = "Max results")]
+        limit: usize,
+    },
+    #[command(name = "task:update", about = "Update task status")]
+    TaskUpdate {
+        #[arg(help = "Note path containing the task")]
+        path: String,
+        #[arg(help = "Line number of the task")]
+        line_number: usize,
+        #[arg(help = "New status (todo, doing, done)")]
+        status: String,
+    },
+    #[command(about = "Developer tools")]
+    Dev {
+        #[command(subcommand)]
+        action: DevAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum DevAction {
+    #[command(name = "index:build", about = "Build search index")]
+    IndexBuild,
+    #[command(name = "index:rebuild", about = "Rebuild search index from scratch")]
+    IndexRebuild,
 }
 
 async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result<String, String> {
@@ -351,6 +395,37 @@ async fn run_command(
         } => {
             commands::references::bbt_search(client, query, limit, bbt_url.as_deref(), json).await
         }
+        Command::BasesQuery {
+            ref filter,
+            ref sort,
+            limit,
+            offset,
+        } => commands::bases::query(client, vault_id, filter, sort, limit, offset, json).await,
+        Command::BasesProperties => commands::bases::properties(client, vault_id, json).await,
+        Command::Tasks {
+            ref status,
+            ref path,
+            limit,
+        } => {
+            commands::tasks::list(
+                client,
+                vault_id,
+                status.as_deref(),
+                path.as_deref(),
+                limit,
+                json,
+            )
+            .await
+        }
+        Command::TaskUpdate {
+            ref path,
+            line_number,
+            ref status,
+        } => commands::tasks::update(client, vault_id, path, line_number, status, json).await,
+        Command::Dev { ref action } => match action {
+            DevAction::IndexBuild => commands::dev::index_build(client, vault_id, json).await,
+            DevAction::IndexRebuild => commands::dev::index_rebuild(client, vault_id, json).await,
+        },
         Command::Status | Command::Vaults => unreachable!(),
     }
 }
