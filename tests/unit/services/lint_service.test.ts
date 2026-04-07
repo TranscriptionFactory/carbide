@@ -183,4 +183,69 @@ describe("LintService", () => {
       expect(port.start).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe("double close", () => {
+    it("double close does not error", async () => {
+      const port = create_mock_lint_port();
+      const stores = create_mock_stores();
+      stores.lint_store = {
+        ...stores.lint_store,
+        is_running: true,
+      } as unknown as LintStore;
+      stores.vault_store = {
+        vault: { id: VAULT_ID, path: VAULT_PATH },
+      } as unknown as VaultStore;
+
+      const service = new LintService(
+        port,
+        stores.lint_store,
+        stores.vault_store,
+        stores.editor_store,
+        stores.op_store,
+      );
+
+      await service.notify_file_closed("docs/a.md");
+      await service.notify_file_closed("docs/a.md");
+      expect(port.close_file).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("close after stop then start", () => {
+    it("close after stop then start does not carry stale version", async () => {
+      const port = create_mock_lint_port();
+      const stores = create_mock_stores();
+      stores.lint_store = {
+        ...stores.lint_store,
+        is_running: true,
+      } as unknown as LintStore;
+      stores.vault_store = {
+        vault: { id: VAULT_ID, path: VAULT_PATH },
+      } as unknown as VaultStore;
+
+      const service = new LintService(
+        port,
+        stores.lint_store,
+        stores.vault_store,
+        stores.editor_store,
+        stores.op_store,
+      );
+
+      await service.notify_file_opened("docs/a.md", "hello");
+      await service.notify_file_changed("docs/a.md", "hello world");
+      await service.stop();
+
+      const service2 = new LintService(
+        port,
+        stores.lint_store,
+        stores.vault_store,
+        stores.editor_store,
+        stores.op_store,
+      );
+
+      await service2.notify_file_opened("docs/a.md", "fresh");
+      const open_calls = vi.mocked(port.open_file).mock.calls;
+      const last_open = open_calls[open_calls.length - 1]!;
+      expect(last_open[3]).toBe(1);
+    });
+  });
 });

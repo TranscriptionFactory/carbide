@@ -400,4 +400,235 @@ describe("MarkdownLspService", () => {
     expect(port.stop).not.toHaveBeenCalled();
     expect(port.start).not.toHaveBeenCalled();
   });
+
+  describe("diagnostics forwarding", () => {
+    it("forwards diagnostics to diagnostics store with correct source and positions", async () => {
+      const harness = create_mock_port();
+      const store = new MarkdownLspStore();
+      const diagnostics_store = new DiagnosticsStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({
+          id: "vault-a" as any,
+          path: "/vaults/test" as any,
+        }),
+      );
+
+      const service = new MarkdownLspService(
+        harness.port,
+        store,
+        vault_store,
+        diagnostics_store,
+      );
+      await service.start("marksman");
+
+      harness.emit_diagnostics({
+        type: "diagnostics_updated",
+        vault_id: "vault-a",
+        uri: "file:///vaults/test/notes/hello.md",
+        diagnostics: [
+          {
+            line: 0,
+            character: 5,
+            end_line: 0,
+            end_character: 10,
+            severity: "warning",
+            message: "bad link",
+          },
+        ],
+      });
+
+      diagnostics_store.set_active_file("notes/hello.md");
+      const file_diags = diagnostics_store.active_diagnostics;
+      expect(file_diags).toHaveLength(1);
+      const d = file_diags[0]!;
+      expect(d.source).toBe("markdown_lsp");
+      expect(d.line).toBe(1);
+      expect(d.column).toBe(6);
+      expect(d.message).toBe("bad link");
+    });
+
+    it("ignores diagnostics from wrong vault", async () => {
+      const harness = create_mock_port();
+      const store = new MarkdownLspStore();
+      const diagnostics_store = new DiagnosticsStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({
+          id: "vault-a" as any,
+          path: "/vaults/test" as any,
+        }),
+      );
+
+      const service = new MarkdownLspService(
+        harness.port,
+        store,
+        vault_store,
+        diagnostics_store,
+      );
+      await service.start("marksman");
+
+      harness.emit_diagnostics({
+        type: "diagnostics_updated",
+        vault_id: "vault-b",
+        uri: "file:///vaults/other/notes/hello.md",
+        diagnostics: [
+          {
+            line: 0,
+            character: 0,
+            end_line: 0,
+            end_character: 5,
+            severity: "error",
+            message: "wrong vault",
+          },
+        ],
+      });
+
+      diagnostics_store.set_active_file("notes/hello.md");
+      expect(diagnostics_store.active_diagnostics).toHaveLength(0);
+    });
+  });
+
+  describe("channel closed handling", () => {
+    it("sets failed status when channel closed during running", async () => {
+      const harness = create_mock_port();
+      vi.mocked(harness.port.hover).mockRejectedValue(
+        new Error("channel closed"),
+      );
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(harness.port, store, vault_store);
+      await service.start("marksman");
+      expect(store.status).toBe("running");
+
+      await service.hover("note.md", 0, 0);
+      expect(store.status).toEqual({
+        failed: { message: "Markdown LSP process crashed — restarting..." },
+      });
+    });
+
+    it("silently ignores channel closed when already stopped", async () => {
+      const harness = create_mock_port();
+      vi.mocked(harness.port.hover).mockRejectedValue(
+        new Error("channel closed"),
+      );
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(harness.port, store, vault_store);
+      await service.hover("note.md", 0, 0);
+      expect(store.status).toBe("stopped");
+      expect(harness.port.hover).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("query methods guard by status", () => {
+    it("hover is no-op when not running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+
+      await service.hover("note.md", 0, 0);
+      expect(port.hover).not.toHaveBeenCalled();
+    });
+
+    it("code_actions is no-op when not running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+
+      await service.code_actions("note.md", 0, 0, 1, 0);
+      expect(port.code_actions).not.toHaveBeenCalled();
+    });
+
+    it("completion is no-op when not running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+
+      await service.completion("note.md", 0, 0);
+      expect(port.completion).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("restart behavior", () => {
+    it("restart calls stop then start with last provider", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.restart();
+      expect(port.stop).toHaveBeenCalled();
+      expect(port.start).toHaveBeenCalledTimes(2);
+    });
+
+    it("ensure_started is no-op when already running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.ensure_started("marksman");
+      expect(port.start).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("version tracking lifecycle", () => {
+    it("did_change increments version for same file", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.did_open("note.md", "v1");
+      await service.did_change("note.md", "v2");
+      await service.did_change("note.md", "v3");
+
+      const change_calls = vi.mocked(port.did_change).mock.calls;
+      expect(change_calls[0]![2]).toBe(2);
+      expect(change_calls[1]![2]).toBe(3);
+    });
+
+    it("did_open after close resets version to 1", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.did_open("note.md", "v1");
+      await service.did_change("note.md", "v2");
+      await service.did_close("note.md");
+      await service.did_open("note.md", "fresh");
+      await service.did_change("note.md", "change");
+
+      const change_calls = vi.mocked(port.did_change).mock.calls;
+      expect(change_calls[0]![2]).toBe(2);
+      expect(change_calls[1]![2]).toBe(2);
+    });
+  });
 });

@@ -37,6 +37,15 @@ mod iwes_registry;
 #[path = "../../tests/vault_path_risk.rs"]
 mod vault_path_risk;
 
+#[path = "../../tests/markdown_lsp_provider_types.rs"]
+mod markdown_lsp_provider_types;
+
+#[path = "../../tests/markdown_lsp_status_serde.rs"]
+mod markdown_lsp_status_serde;
+
+#[path = "../../tests/toolchain_registry_specs.rs"]
+mod toolchain_registry_specs;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};

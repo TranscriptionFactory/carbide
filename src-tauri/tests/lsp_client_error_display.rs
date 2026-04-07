@@ -85,3 +85,61 @@ fn not_retryable_request_timeout() {
 fn not_retryable_channel_closed() {
     assert!(!is_retryable(&LspClientError::ChannelClosed));
 }
+
+#[test]
+fn display_process_spawn_failed() {
+    let err = LspClientError::ProcessSpawnFailed("ENOENT: no such file".to_string());
+    let msg = err.to_string();
+    assert_eq!(msg, "LSP process spawn failed: ENOENT: no such file");
+}
+
+#[test]
+fn display_process_exited() {
+    let err = LspClientError::ProcessExited;
+    assert_eq!(err.to_string(), "LSP process exited unexpectedly");
+}
+
+#[test]
+fn display_request_timeout() {
+    let err = LspClientError::RequestTimeout;
+    assert_eq!(err.to_string(), "LSP request timed out");
+}
+
+#[test]
+fn display_shutdown_failed() {
+    let err = LspClientError::ShutdownFailed("transport error".to_string());
+    assert_eq!(err.to_string(), "LSP shutdown failed: transport error");
+}
+
+#[test]
+fn display_channel_closed() {
+    let err = LspClientError::ChannelClosed;
+    assert_eq!(err.to_string(), "LSP client channel closed");
+}
+
+#[test]
+fn display_invalid_response() {
+    let err = LspClientError::InvalidResponse("missing id field".to_string());
+    assert_eq!(err.to_string(), "LSP invalid response: missing id field");
+}
+
+#[test]
+fn display_init_eof_empty_stderr() {
+    let err = LspClientError::InitEof {
+        stderr_excerpt: String::new(),
+    };
+    let msg = err.to_string();
+    assert_eq!(msg, "LSP process exited during init");
+    assert!(!msg.contains("stderr"));
+}
+
+#[test]
+fn display_init_failed_empty_stderr() {
+    let err = LspClientError::InitFailed {
+        message: "rejected".to_string(),
+        stderr_excerpt: String::new(),
+    };
+    let msg = err.to_string();
+    assert_eq!(msg, "LSP init failed: rejected");
+    assert!(!msg.contains("stderr"));
+}
