@@ -36,8 +36,22 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
+#[cfg(target_os = "windows")]
+fn local_app_data_dir() -> PathBuf {
+    std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home_dir().join("AppData/Local"))
+}
+
 fn carbide_cli_path() -> PathBuf {
-    home_dir().join(".local/bin/carbide")
+    #[cfg(target_os = "windows")]
+    {
+        local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        home_dir().join(".local/bin/carbide")
+    }
 }
 
 fn claude_desktop_config_path() -> PathBuf {

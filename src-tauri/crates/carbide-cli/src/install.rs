@@ -9,12 +9,33 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
+#[cfg(target_os = "windows")]
+fn local_app_data_dir() -> PathBuf {
+    std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home_dir().join("AppData/Local"))
+}
+
 fn install_dir() -> PathBuf {
-    home_dir().join(".local/bin")
+    #[cfg(target_os = "windows")]
+    {
+        local_app_data_dir().join("Programs/Carbide/bin")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        home_dir().join(".local/bin")
+    }
 }
 
 fn install_path() -> PathBuf {
-    install_dir().join(INSTALL_NAME)
+    #[cfg(target_os = "windows")]
+    {
+        install_dir().join("carbide.exe")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        install_dir().join(INSTALL_NAME)
+    }
 }
 
 fn current_exe_path() -> Result<PathBuf, String> {
@@ -106,6 +127,13 @@ mod tests {
 
     #[test]
     fn install_path_matches_platform_default() {
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            install_path(),
+            local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
+        );
+
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(install_path(), home_dir().join(".local/bin/carbide"));
     }
 
@@ -113,6 +141,7 @@ mod tests {
     fn is_carbide_binary_matches() {
         assert!(is_carbide_binary(Path::new("/path/to/carbide-cli")));
         assert!(is_carbide_binary(Path::new("carbide")));
+        assert!(is_carbide_binary(Path::new("carbide.exe")));
         assert!(!is_carbide_binary(Path::new("/usr/bin/python3")));
         assert!(!is_carbide_binary(Path::new("")));
     }

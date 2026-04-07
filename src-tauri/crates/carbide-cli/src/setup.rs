@@ -9,8 +9,22 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
+#[cfg(target_os = "windows")]
+fn local_app_data_dir() -> PathBuf {
+    std::env::var("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home_dir().join("AppData/Local"))
+}
+
 fn carbide_cli_path() -> PathBuf {
-    home_dir().join(".local/bin/carbide")
+    #[cfg(target_os = "windows")]
+    {
+        local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        home_dir().join(".local/bin/carbide")
+    }
 }
 
 fn claude_desktop_config_path() -> PathBuf {
@@ -140,6 +154,13 @@ mod tests {
 
     #[test]
     fn carbide_cli_path_matches_platform_default() {
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            carbide_cli_path(),
+            local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
+        );
+
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(carbide_cli_path(), home_dir().join(".local/bin/carbide"));
     }
 

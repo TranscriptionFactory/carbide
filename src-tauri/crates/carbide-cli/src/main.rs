@@ -22,9 +22,15 @@ struct Cli {
     vault: Option<String>,
     #[arg(long, global = true, help = "Output as JSON")]
     json: bool,
-    #[arg(long, help = "Install CLI at ~/.local/bin/carbide")]
+    #[arg(
+        long,
+        help = r"Install CLI at ~/.local/bin/carbide (macOS/Linux) or %LOCALAPPDATA%\Programs\Carbide\bin\carbide.exe (Windows)"
+    )]
     install_cli: bool,
-    #[arg(long, help = "Remove CLI from ~/.local/bin/carbide")]
+    #[arg(
+        long,
+        help = r"Remove CLI from ~/.local/bin/carbide (macOS/Linux) or %LOCALAPPDATA%\Programs\Carbide\bin\carbide.exe (Windows)"
+    )]
     uninstall_cli: bool,
     #[arg(long, help = "Generate shell completions", value_name = "SHELL")]
     completions: Option<Shell>,
