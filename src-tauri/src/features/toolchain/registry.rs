@@ -2,7 +2,7 @@ use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 
 const RUMDL_VERSION: &str = "0.1.59";
 const MARKSMAN_VERSION: &str = "2026-02-08";
-const IWES_VERSION: &str = "0.0.65";
+const IWES_VERSION: &str = "0.0.67";
 
 static RUMDL_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
@@ -50,6 +50,29 @@ static MARKSMAN_BINARIES: &[PlatformBinary] = &[
     },
 ];
 
+static IWES_BINARIES: &[PlatformBinary] = &[
+    PlatformBinary {
+        triple: "aarch64-apple-darwin",
+        asset_template: "iwe-v{version}-aarch64-apple-darwin.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-apple-darwin",
+        asset_template: "iwe-v{version}-x86_64-apple-darwin.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-unknown-linux-gnu",
+        asset_template: "iwe-v{version}-x86_64-unknown-linux-gnu.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-pc-windows-msvc",
+        asset_template: "iwe-v{version}-x86_64-pc-windows-msvc.tar.gz",
+        sha256: "TODO",
+    },
+];
+
 pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "rumdl",
@@ -73,10 +96,10 @@ pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "iwes",
         display_name: "IWE",
-        github_repo: "TranscriptionFactory/iwe",
+        github_repo: "iwe-org/iwe",
         version: IWES_VERSION,
-        release_tag_template: "v{version}",
-        platform_binaries: &[],
+        release_tag_template: "iwe-v{version}",
+        platform_binaries: IWES_BINARIES,
         binary_name: "iwes",
         default_args: &[],
         capabilities: &[
