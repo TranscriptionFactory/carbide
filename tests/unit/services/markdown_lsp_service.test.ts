@@ -187,6 +187,75 @@ describe("MarkdownLspService", () => {
     );
   });
 
+  it("propagates restarting status with attempt number to the store", async () => {
+    const harness = create_mock_port();
+    const store = new MarkdownLspStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new MarkdownLspService(
+      harness.port,
+      store,
+      vault_store,
+    );
+
+    await service.start("marksman");
+    expect(store.status).toBe("running");
+
+    harness.emit_status({
+      type: "status_changed",
+      vault_id: vault_store.vault!.id,
+      status: { restarting: { attempt: 2 } },
+    });
+    expect(store.status).toEqual({ restarting: { attempt: 2 } });
+
+    harness.emit_status({
+      type: "status_changed",
+      vault_id: vault_store.vault!.id,
+      status: "running",
+    });
+    expect(store.status).toBe("running");
+  });
+
+  it("sets failed status with message on start failure", async () => {
+    const harness = create_mock_port();
+    vi.mocked(harness.port.start).mockRejectedValue(
+      new Error("spawn failed"),
+    );
+
+    const store = new MarkdownLspStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new MarkdownLspService(
+      harness.port,
+      store,
+      vault_store,
+    );
+
+    await service.start("marksman");
+    expect(store.status).toEqual({ failed: { message: "spawn failed" } });
+  });
+
+  it("resets store to stopped on stop", async () => {
+    const harness = create_mock_port();
+    const store = new MarkdownLspStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new MarkdownLspService(
+      harness.port,
+      store,
+      vault_store,
+    );
+
+    await service.start("marksman");
+    expect(store.status).toBe("running");
+
+    await service.stop();
+    expect(store.status).toBe("stopped");
+  });
+
   it("does not restart after rewriting config when the LSP is idle", async () => {
     const { port } = create_mock_port();
     const store = new MarkdownLspStore();

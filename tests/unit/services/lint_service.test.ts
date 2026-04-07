@@ -45,6 +45,49 @@ const VAULT_ID = "v1" as VaultId;
 const VAULT_PATH = "/vaults/test" as VaultPath;
 
 describe("LintService", () => {
+  describe("notify_file_closed", () => {
+    it("does not call port when lint is not running", async () => {
+      const port = create_mock_lint_port();
+      const stores = create_mock_stores();
+      stores.vault_store = {
+        vault: { id: VAULT_ID, path: VAULT_PATH },
+      } as unknown as VaultStore;
+      const service = new LintService(
+        port,
+        stores.lint_store,
+        stores.vault_store,
+        stores.editor_store,
+        stores.op_store,
+      );
+
+      await service.notify_file_closed("docs/a.md");
+      expect(port.close_file).not.toHaveBeenCalled();
+    });
+
+    it("calls port and clears version when lint is running", async () => {
+      const port = create_mock_lint_port();
+      const stores = create_mock_stores();
+      stores.lint_store = {
+        ...stores.lint_store,
+        is_running: true,
+      } as unknown as LintStore;
+      stores.vault_store = {
+        vault: { id: VAULT_ID, path: VAULT_PATH },
+      } as unknown as VaultStore;
+
+      const service = new LintService(
+        port,
+        stores.lint_store,
+        stores.vault_store,
+        stores.editor_store,
+        stores.op_store,
+      );
+
+      await service.notify_file_closed("docs/a.md");
+      expect(port.close_file).toHaveBeenCalledWith(VAULT_ID, "docs/a.md");
+    });
+  });
+
   describe("permanent failure guard", () => {
     it("suppresses retry with same config after start failure", async () => {
       const port = create_mock_lint_port({
