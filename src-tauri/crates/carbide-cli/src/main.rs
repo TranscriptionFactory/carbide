@@ -117,6 +117,8 @@ enum Command {
     Vault,
     #[command(about = "List known vaults")]
     Vaults,
+    #[command(about = "Rebuild the search index")]
+    Reindex,
     #[command(about = "Show app status")]
     Status,
     #[command(
@@ -377,6 +379,7 @@ async fn run_command(
         Command::Tags => commands::search::tags(client, vault_id, json).await,
         Command::Outline { path } => commands::search::outline(client, vault_id, &path, json).await,
         Command::Vault => commands::vault::vault(client, vault_id, json).await,
+        Command::Reindex => commands::search::reindex(client, vault_id, json).await,
         Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {
             unreachable!()
         }
