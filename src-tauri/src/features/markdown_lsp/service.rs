@@ -639,6 +639,15 @@ pub async fn markdown_lsp_code_action_resolve(
 
     let parsed: serde_json::Value =
         serde_json::from_str(&code_action_json).map_err(|e| e.to_string())?;
+
+    // If the code action already contains an edit, apply it directly
+    // (server returned a fully-resolved action or doesn't support codeAction/resolve)
+    if let Some(edit) = parsed.get("edit") {
+        log::info!("code_action_resolve: action already has edit, applying directly");
+        let vault_path = storage::vault_path(&app, &vault_id)?;
+        return apply_workspace_edit(&vault_path, edit).await;
+    }
+
     let result = markdown_lsp_state(&app)
         .request(&vault_id, "codeAction/resolve", parsed)
         .await?;
@@ -1458,7 +1467,7 @@ fn build_command_toml(
         .join(", ");
 
     format!(
-        "[commands.{}]\nrun = \"{}\"\nargs = [{}]\ntimeout_seconds = 120\n",
+        "[commands.{}]\nrun = \"{}\"\nargs = [{}]\nshell = false\ntimeout_seconds = 120\n",
         transform.command_name, command, args_str
     )
 }
