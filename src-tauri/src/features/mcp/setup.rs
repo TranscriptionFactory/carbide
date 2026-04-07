@@ -37,14 +37,7 @@ fn home_dir() -> PathBuf {
 }
 
 fn carbide_cli_path() -> PathBuf {
-    #[cfg(target_os = "macos")]
-    {
-        PathBuf::from("/usr/local/bin/carbide")
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        home_dir().join(".local/bin/carbide")
-    }
+    home_dir().join(".local/bin/carbide")
 }
 
 fn claude_desktop_config_path() -> PathBuf {

@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 const INSTALL_NAME: &str = "carbide";
 
-#[cfg(not(target_os = "macos"))]
 fn home_dir() -> PathBuf {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
@@ -11,14 +10,7 @@ fn home_dir() -> PathBuf {
 }
 
 fn install_dir() -> PathBuf {
-    #[cfg(target_os = "macos")]
-    {
-        PathBuf::from("/usr/local/bin")
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        home_dir().join(".local/bin")
-    }
+    home_dir().join(".local/bin")
 }
 
 fn install_path() -> PathBuf {
@@ -114,10 +106,6 @@ mod tests {
 
     #[test]
     fn install_path_matches_platform_default() {
-        #[cfg(target_os = "macos")]
-        assert_eq!(install_path(), PathBuf::from("/usr/local/bin/carbide"));
-
-        #[cfg(not(target_os = "macos"))]
         assert_eq!(install_path(), home_dir().join(".local/bin/carbide"));
     }
 
