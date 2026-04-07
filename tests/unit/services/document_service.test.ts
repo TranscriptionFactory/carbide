@@ -14,6 +14,7 @@ describe("DocumentService", () => {
         return `asset://${relative_path}`;
       }),
       read_file: vi.fn().mockResolvedValue("file content here"),
+      write_file: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -42,7 +43,7 @@ describe("DocumentService", () => {
     );
   });
 
-  it("reads file content for html documents", async () => {
+  it("reads file content for all text-type documents (html, code collapsed to text)", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
     vault_store.vault = create_test_vault();
@@ -53,37 +54,23 @@ describe("DocumentService", () => {
       document_store,
     );
 
-    await service.open_document("tab-1", "docs/page.html", "html");
+    await service.open_document("tab-1", "docs/page.html", "text");
 
     expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "docs/page.html",
     );
-    expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
     expect(document_store.get_content_state("tab-1")?.content).toBe(
       "file content here",
     );
-  });
 
-  it("reads file content for code documents", async () => {
-    const document_store = new DocumentStore();
-    const vault_store = new VaultStore();
-    vault_store.vault = create_test_vault();
-    const document_port = create_document_port();
-    const service = new DocumentService(
-      document_port,
-      vault_store,
-      document_store,
-    );
-
-    await service.open_document("tab-1", "scripts/demo.py", "code");
+    await service.open_document("tab-2", "scripts/demo.py", "text");
 
     expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "scripts/demo.py",
     );
-    expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
-    expect(document_store.get_content_state("tab-1")?.content).toBe(
+    expect(document_store.get_content_state("tab-2")?.content).toBe(
       "file content here",
     );
   });
@@ -134,6 +121,30 @@ describe("DocumentService", () => {
     expect(document_store.get_content_state("tab-2")?.content).toBe(
       "file content here",
     );
+  });
+
+  it("does not evict dirty content states", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    let now = 0;
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+      () => ++now,
+      0,
+    );
+
+    await service.open_document("tab-1", "docs/one.txt", "text");
+    document_store.set_edited_content("tab-1", "unsaved edits");
+    await service.open_document("tab-2", "docs/two.txt", "text");
+
+    service.sync_open_tabs("tab-2", ["tab-1", "tab-2"]);
+
+    expect(document_store.get_content_state("tab-1")).toBeDefined();
+    expect(document_store.get_content_state("tab-1")?.is_dirty).toBe(true);
   });
 
   it("reuses cached ready content without re-reading", async () => {
@@ -224,6 +235,7 @@ describe("DocumentService", () => {
         if (call_count === 1) return first_promise;
         return Promise.resolve("second content");
       }),
+      write_file: vi.fn().mockResolvedValue(undefined),
     };
 
     const service = new DocumentService(
@@ -234,25 +246,89 @@ describe("DocumentService", () => {
       5,
     );
 
-    // Start first open (will block on unresolved read_file)
     const first_open = service.open_document("tab-1", "docs/first.txt", "text");
 
-    // Simulate tab being reassigned to a different file while first read is in flight
-    // Remove viewer state so open_document creates fresh state for second file
     document_store.remove_viewer_state("tab-1");
     document_store.clear_content_state("tab-1");
 
-    // Open second file (resolves immediately)
     await service.open_document("tab-1", "docs/second.txt", "text");
     expect(document_store.get_content_state("tab-1")?.content).toBe(
       "second content",
     );
 
-    // Now resolve the stale first read — should be discarded
     resolve_first("first content");
     await first_open;
 
     const content_state = document_store.get_content_state("tab-1");
     expect(content_state?.content).toBe("second content");
+  });
+
+  it("saves edited content and resets dirty state", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.txt", "text");
+    document_store.set_edited_content("tab-1", "updated content");
+
+    expect(document_store.get_content_state("tab-1")?.is_dirty).toBe(true);
+
+    await service.save("tab-1");
+
+    expect(document_port.write_file).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      "docs/demo.txt",
+      "updated content",
+    );
+    expect(document_store.get_content_state("tab-1")?.is_dirty).toBe(false);
+    expect(
+      document_store.get_content_state("tab-1")?.edited_content,
+    ).toBeNull();
+    expect(document_store.get_content_state("tab-1")?.content).toBe(
+      "updated content",
+    );
+  });
+
+  it("save is a no-op when content is not dirty", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.txt", "text");
+    await service.save("tab-1");
+
+    expect(document_port.write_file).not.toHaveBeenCalled();
+  });
+
+  it("current_content returns edited_content over loaded content", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-1", "docs/demo.txt", "text");
+    expect(document_store.get_current_content("tab-1")).toBe(
+      "file content here",
+    );
+
+    document_store.set_edited_content("tab-1", "edited version");
+    expect(document_store.get_current_content("tab-1")).toBe("edited version");
   });
 });

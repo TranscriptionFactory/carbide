@@ -95,7 +95,7 @@ describe("scan_entry_to_linked_meta", () => {
   });
 
   it("sets item_type to webpage for HTML files", () => {
-    const entry = make_entry({ file_type: "html" });
+    const entry = make_entry({ file_path: "/home/user/pages/index.html" });
     const meta = scan_entry_to_linked_meta(entry, "source-1");
     expect(meta.item_type).toBe("webpage");
   });

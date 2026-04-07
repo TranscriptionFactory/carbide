@@ -14,6 +14,17 @@ export function create_document_tauri_adapter(): DocumentPort {
         relativePath: relative_path,
       });
     },
+    async write_file(
+      vault_id: string,
+      relative_path: string,
+      content: string,
+    ): Promise<void> {
+      return invoke("write_vault_file", {
+        vaultId: vault_id,
+        relativePath: relative_path,
+        content,
+      });
+    },
     resolve_asset_url(vault_id: string, file_path: string): string {
       if (is_absolute_path(file_path)) {
         return carbide_file_asset_url(file_path);

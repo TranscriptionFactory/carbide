@@ -2,7 +2,7 @@ export type { DocumentFileType } from "$lib/features/document/types/document";
 
 import type { DocumentFileType } from "$lib/features/document/types/document";
 
-const DOCUMENT_TYPE_MAP: Record<string, DocumentFileType> = {
+const SPECIAL_TYPE_MAP: Record<string, DocumentFileType> = {
   ".pdf": "pdf",
   ".png": "image",
   ".jpg": "image",
@@ -10,31 +10,43 @@ const DOCUMENT_TYPE_MAP: Record<string, DocumentFileType> = {
   ".gif": "image",
   ".svg": "image",
   ".webp": "image",
-  ".csv": "csv",
-  ".tsv": "csv",
-  ".py": "code",
-  ".r": "code",
-  ".rs": "code",
-  ".ts": "code",
-  ".js": "code",
-  ".json": "code",
-  ".yaml": "code",
-  ".yml": "code",
-  ".toml": "code",
-  ".sh": "code",
-  ".bash": "code",
-  ".html": "html",
-  ".htm": "html",
-  ".txt": "text",
-  ".log": "text",
-  ".ini": "text",
   ".canvas": "canvas",
   ".excalidraw": "excalidraw",
 };
+
+const BINARY_DENYLIST: ReadonlySet<string> = new Set([
+  ".docx",
+  ".xlsx",
+  ".pptx",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".7z",
+  ".rar",
+  ".dmg",
+  ".app",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".wasm",
+  ".class",
+  ".o",
+  ".obj",
+]);
+
+const NOTE_EXTENSIONS: ReadonlySet<string> = new Set([".md"]);
 
 export function detect_file_type(filename: string): DocumentFileType | null {
   const dot_index = filename.lastIndexOf(".");
   if (dot_index === -1) return null;
   const ext = filename.slice(dot_index).toLowerCase();
-  return DOCUMENT_TYPE_MAP[ext] ?? null;
+
+  if (NOTE_EXTENSIONS.has(ext)) return null;
+  if (BINARY_DENYLIST.has(ext)) return null;
+
+  const special = SPECIAL_TYPE_MAP[ext];
+  if (special) return special;
+
+  return "text";
 }

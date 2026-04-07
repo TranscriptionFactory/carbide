@@ -252,6 +252,7 @@ export const ACTION_IDS = {
 
   document_open: "document.open",
   document_close: "document.close",
+  document_save: "document.save",
   document_export_pdf: "document.export_pdf",
 
   window_open_viewer: "window.open_viewer",

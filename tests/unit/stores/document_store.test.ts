@@ -26,6 +26,8 @@ function make_content_state(tab_id: string): DocumentContentState {
     status: "ready",
     error_message: null,
     content: null,
+    edited_content: null,
+    is_dirty: false,
     buffer_id: null,
     line_count: null,
     asset_url: `asset://${tab_id}`,

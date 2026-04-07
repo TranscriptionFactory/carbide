@@ -788,10 +788,16 @@ export function register_note_actions(input: ActionRegistrationInput) {
   function register_save_actions() {
     registry.register({
       id: ACTION_IDS.note_request_save,
-      label: "Save Note",
+      label: "Save",
       shortcut: "CmdOrCtrl+S",
       when: when_vault_open,
       execute: async (payload?: unknown) => {
+        const active_tab = stores.tab.active_tab;
+        if (active_tab?.kind === "document") {
+          await registry.execute(ACTION_IDS.document_save);
+          return;
+        }
+
         const open_note = stores.editor.open_note;
         if (!open_note) {
           return;

@@ -248,8 +248,7 @@
         extensions.push(dark_theme.oneDark);
       }
 
-      const target =
-        filename || (file_type === "code" ? "file.ts" : "file.txt");
+      const target = filename || "file.txt";
       const lang_desc = LanguageDescription.matchFilename(languages, target);
 
       if (lang_desc) {

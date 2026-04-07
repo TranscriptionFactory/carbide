@@ -27,6 +27,7 @@ import type { ParsedNoteCache } from "$lib/features/note";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { ReferenceStore } from "$lib/features/reference";
 import type { ReferenceService } from "$lib/features/reference";
+import type { DocumentService } from "$lib/features/document";
 
 export type ActionRegistrationInput = {
   registry: ActionRegistry;
@@ -61,6 +62,7 @@ export type ActionRegistrationInput = {
     hotkey: HotkeyService;
     theme: ThemeService;
     reference: ReferenceService;
+    document: DocumentService;
   };
   default_mount_config: AppMountConfig;
 };
