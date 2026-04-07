@@ -172,14 +172,22 @@ Simultaneously:
 **Source:** `2026-04-06_mcp_transports_terminal_plan.md` → Parts 1-3
 **Depends on:** Phase 1 (merge), Phase 3a nice-to-have but not blocking
 
-### 4a. Streamable HTTP — `feat/mcp-streamable-http`
+### 4a. Streamable HTTP — `feat/mcp-streamable-http` ✅ DONE
 
-Single Rust session. Adds SSE response support to existing `/mcp` POST handler:
+**Status:** Completed on `feat/mcp-streamable-http` (commit `70182fd0`)
 
-- Branch on `Accept: text/event-stream` header
-- `Mcp-Session-Id` header on initialize
-- GET `/mcp` stub (empty SSE stream for spec compliance)
-- Update Desktop config to include `"type": "http"`
+| #   | Item                                                          | Status | Notes                                                                                                    |
+| --- | ------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| 1   | POST `/mcp` branches on `Accept: text/event-stream` → SSE    | ✅     | `mcp_handler` split into `mcp_post_handler` (SSE-aware) + helpers `wants_sse()`, `sse_response()`.      |
+| 2   | `Mcp-Session-Id` header on initialize                         | ✅     | 16 random bytes → hex. Returned on both JSON and SSE responses to initialize.                            |
+| 3   | GET `/mcp` stub (empty SSE stream for spec compliance)        | ✅     | `mcp_get_handler` returns empty SSE stream with keep-alive. Auth-gated.                                  |
+| 4   | Desktop config includes `"type": "http"`                      | ✅     | `build_mcp_server_entry` now always includes `"type": "http"`. Simplified `write_claude_code_config`.    |
+| 5   | Added `futures-util` direct dependency                        | ✅     | Was transitive via axum; now explicit for `stream::once`/`stream::empty` in SSE helpers.                 |
+| 6   | 6 new tests                                                   | ✅     | SSE content-type, JSON content-type, session ID on init, no session ID on ping, GET SSE, GET auth 401.   |
+
+**Tests:** 318 Rust tests pass (was 312 — 6 new), 2890/2891 TS tests pass (1 pre-existing failure).
+
+**Finding:** `Mcp-Session-Id` validation is soft (logged, not rejected) per plan — our tools are stateless, so hard validation adds complexity for no benefit. The session ID is generated but not stored server-side.
 
 ### 4b. stdio via CLI proxy — `feat/mcp-stdio-proxy`
 
@@ -222,7 +230,7 @@ Phase 1: Merge feat/extended-tools into main           ← do first, unblocks ev
   ├─ Phase 3b: DRY fixes                               ← small, can parallelize
   ├─ Phase 3c: Stdio cleanup (remove dead code)        ✅ DONE
   │
-  ├─ Phase 4a: Streamable HTTP                         ← independent of 3
+  ├─ Phase 4a: Streamable HTTP                         ✅ DONE
   ├─ Phase 4b: stdio CLI proxy                         ← depends on 4a
   │
   ├─ (Optional) Merge feat/editor-drag-blocks          ← independent, can merge anytime
