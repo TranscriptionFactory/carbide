@@ -53,9 +53,10 @@ fn handle_list_vaults(app: &AppHandle) -> ToolResult {
             ToolResult::text(lines.join("\n"))
         }
         Err(e) => match e {
-            OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
-                ToolResult::error(m)
-            }
+            OpError::NotFound(m)
+            | OpError::BadRequest(m)
+            | OpError::Conflict(m)
+            | OpError::Internal(m) => ToolResult::error(m),
         },
     }
 }

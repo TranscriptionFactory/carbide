@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::shared_ops::{self, OpError, CreateResult};
+use crate::features::mcp::shared_ops::{self, CreateResult, OpError};
 use crate::features::mcp::tools::parse_args;
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::features::notes::service::file_meta;
@@ -62,7 +62,10 @@ fn read_note_def() -> ToolDefinition {
     properties.insert("vault_id".into(), prop("string", "Vault identifier"));
     properties.insert(
         "path".into(),
-        prop("string", "Vault-relative path to the note (e.g. folder/note.md)"),
+        prop(
+            "string",
+            "Vault-relative path to the note (e.g. folder/note.md)",
+        ),
     );
 
     ToolDefinition {
@@ -81,7 +84,10 @@ fn create_note_def() -> ToolDefinition {
     properties.insert("vault_id".into(), prop("string", "Vault identifier"));
     properties.insert(
         "path".into(),
-        prop("string", "Vault-relative path for the new note (must end in .md)"),
+        prop(
+            "string",
+            "Vault-relative path for the new note (must end in .md)",
+        ),
     );
     properties.insert("content".into(), prop("string", "Initial markdown content"));
 
@@ -140,9 +146,10 @@ fn delete_note_def() -> ToolDefinition {
 
 fn op_err_to_tool_result(e: OpError) -> ToolResult {
     match e {
-        OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
-            ToolResult::error(m)
-        }
+        OpError::NotFound(m)
+        | OpError::BadRequest(m)
+        | OpError::Conflict(m)
+        | OpError::Internal(m) => ToolResult::error(m),
     }
 }
 
@@ -200,9 +207,7 @@ fn handle_update_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
             let root = crate::shared::storage::vault_path(app, &args.vault_id);
             let mtime = root
                 .ok()
-                .and_then(|r| {
-                    crate::features::notes::service::safe_vault_abs(&r, &path).ok()
-                })
+                .and_then(|r| crate::features::notes::service::safe_vault_abs(&r, &path).ok())
                 .and_then(|abs| file_meta(&abs).ok())
                 .map(|(m, _, _)| m)
                 .unwrap_or(0);
