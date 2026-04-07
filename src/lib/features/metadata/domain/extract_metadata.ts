@@ -26,7 +26,7 @@ export function extract_metadata(markdown: string): NoteMetadata {
     )) {
       if (key === "tags" && Array.isArray(value)) {
         for (const tag of value) {
-          const t = String(tag);
+          const t = String(tag).replace(/^#/, "");
           if (!seen_tags.has(t)) {
             seen_tags.add(t);
             tags.push({ tag: t, source: "frontmatter" });
