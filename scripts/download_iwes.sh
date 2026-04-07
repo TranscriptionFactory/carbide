@@ -31,7 +31,8 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "${TMPDIR}"' EXIT
 
 echo "Downloading ${DOWNLOAD_URL}..."
-curl -sSL -o "${TMPDIR}/${ARCHIVE}" "${DOWNLOAD_URL}"
+curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 \
+    -o "${TMPDIR}/${ARCHIVE}" "${DOWNLOAD_URL}"
 
 echo "Extracting..."
 if [[ "${ARCHIVE}" == *.zip ]]; then
