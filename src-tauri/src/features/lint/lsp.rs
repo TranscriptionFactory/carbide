@@ -59,6 +59,7 @@ impl LintLspSession {
             }),
             working_dir: Some(vault_path.to_string_lossy().into_owned()),
             request_timeout_ms: 15_000,
+            init_timeout_ms: 30_000,
         };
 
         let mut client = RestartableLspClient::start(RestartableConfig::new(lsp_config))

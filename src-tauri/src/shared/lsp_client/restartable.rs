@@ -138,6 +138,15 @@ impl RestartableLspClient {
     }
 }
 
+pub fn is_retryable(err: &LspClientError) -> bool {
+    matches!(
+        err,
+        LspClientError::ProcessSpawnFailed(_)
+            | LspClientError::InitEof { .. }
+            | LspClientError::ProcessExited
+    )
+}
+
 fn emit_status(status_tx: &mpsc::Sender<LspSessionStatus>, status: LspSessionStatus) {
     let _ = status_tx.try_send(status);
 }
@@ -160,7 +169,7 @@ async fn run_loop(
             Ok(c) => c,
             Err(e) => {
                 log::error!("RestartableLspClient: spawn failed: {}", e);
-                if restart_count < config.max_restarts {
+                if is_retryable(&e) && restart_count < config.max_restarts {
                     let delay = backoff_delay(&config.backoff_ms, restart_count);
                     restart_count += 1;
                     emit_status(

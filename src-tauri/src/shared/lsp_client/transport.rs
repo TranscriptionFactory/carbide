@@ -1,10 +1,27 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::types::{LspClientConfig, LspClientError};
+
+const STDERR_BUF_LINES: usize = 20;
+const STDERR_EXCERPT_LINES: usize = 10;
+
+type StderrBuf = Arc<Mutex<VecDeque<String>>>;
+
+fn stderr_excerpt(buf: &VecDeque<String>) -> String {
+    buf.iter()
+        .rev()
+        .take(STDERR_EXCERPT_LINES)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 enum LspOutgoing {
     Request {
@@ -172,11 +189,19 @@ async fn lsp_run_loop(
     let stdin = Arc::new(Mutex::new(stdin));
     let mut stdout_reader = BufReader::new(stdout);
 
+    let stderr_buf: StderrBuf = Arc::new(Mutex::new(VecDeque::with_capacity(STDERR_BUF_LINES)));
+    let stderr_buf_clone = stderr_buf.clone();
     let stderr_handle = tokio::spawn(async move {
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
         while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-            log::warn!("[lsp stderr] {}", line.trim());
+            let trimmed = line.trim().to_string();
+            log::warn!("[lsp stderr] {}", trimmed);
+            let mut buf = stderr_buf_clone.lock().await;
+            if buf.len() >= STDERR_BUF_LINES {
+                buf.pop_front();
+            }
+            buf.push_back(trimmed);
             line.clear();
         }
     });
@@ -189,13 +214,15 @@ async fn lsp_run_loop(
         &mut next_id,
         &config.root_uri,
         config.capabilities.clone(),
+        config.init_timeout_ms,
+        &stderr_buf,
     )
     .await;
     let server_capabilities = match init_result {
         Ok(caps) => caps,
         Err(e) => {
             log::error!("LSP initialization failed: {}", e);
-            let _ = ready_tx.send(Err(LspClientError::ProcessSpawnFailed(e.to_string())));
+            let _ = ready_tx.send(Err(e));
             let _ = child.kill().await;
             return;
         }
@@ -289,8 +316,6 @@ async fn dispatch_message(
     let has_id = message.get("id").is_some();
 
     if has_id && has_method {
-        // Server→client request (e.g. workspace/inlayHint/refresh).
-        // LSP spec requires a response. Send null result to acknowledge.
         let id_value = message.get("id").cloned().unwrap();
         let method = message
             .get("method")
@@ -303,7 +328,6 @@ async fn dispatch_message(
             log::warn!("Failed to respond to server request {}: {}", method, e);
         }
 
-        // Also forward as notification so the frontend can react
         let params = message
             .get("params")
             .cloned()
@@ -315,7 +339,6 @@ async fn dispatch_message(
             })
             .await;
     } else if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
-        // Response to a client→server request
         let mut pending = pending.lock().await;
         if let Some(tx) = pending.remove(&id) {
             if let Some(error) = message.get("error") {
@@ -349,7 +372,6 @@ async fn dispatch_message(
             }
         }
     } else if let Some(method) = message.get("method").and_then(|m| m.as_str()) {
-        // Pure notification (no id)
         let params = message
             .get("params")
             .cloned()
@@ -369,7 +391,9 @@ async fn lsp_initialize(
     next_id: &mut i64,
     root_uri: &str,
     capabilities: serde_json::Value,
-) -> Result<serde_json::Value, anyhow::Error> {
+    init_timeout_ms: u64,
+    stderr_buf: &StderrBuf,
+) -> Result<serde_json::Value, LspClientError> {
     let id = *next_id;
     *next_id += 1;
 
@@ -379,14 +403,48 @@ async fn lsp_initialize(
         "capabilities": capabilities
     });
 
-    write_lsp_request(stdin, id, "initialize", params).await?;
-    let response = read_lsp_message(stdout)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("LSP closed during init"))?;
+    write_lsp_request(stdin, id, "initialize", params)
+        .await
+        .map_err(|e| LspClientError::InitFailed {
+            message: e.to_string(),
+            stderr_excerpt: String::new(),
+        })?;
 
-    if response.get("error").is_some() {
-        let err = response["error"]["message"].as_str().unwrap_or("unknown");
-        return Err(anyhow::anyhow!("LSP initialize error: {}", err));
+    let read_result = tokio::time::timeout(
+        std::time::Duration::from_millis(init_timeout_ms),
+        read_lsp_message(stdout),
+    )
+    .await;
+
+    let response = match read_result {
+        Err(_) => {
+            let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
+            return Err(LspClientError::InitTimeout { stderr_excerpt: excerpt });
+        }
+        Ok(Err(e)) => {
+            let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
+            return Err(LspClientError::InitFailed {
+                message: e.to_string(),
+                stderr_excerpt: excerpt,
+            });
+        }
+        Ok(Ok(None)) => {
+            let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
+            return Err(LspClientError::InitEof { stderr_excerpt: excerpt });
+        }
+        Ok(Ok(Some(msg))) => msg,
+    };
+
+    if let Some(error) = response.get("error") {
+        let msg = error
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("unknown");
+        let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
+        return Err(LspClientError::InitFailed {
+            message: msg.to_string(),
+            stderr_excerpt: excerpt,
+        });
     }
 
     let result = response
@@ -394,7 +452,12 @@ async fn lsp_initialize(
         .cloned()
         .unwrap_or(serde_json::Value::Null);
 
-    write_lsp_notification(stdin, "initialized", serde_json::json!({})).await?;
+    write_lsp_notification(stdin, "initialized", serde_json::json!({}))
+        .await
+        .map_err(|e| LspClientError::InitFailed {
+            message: e.to_string(),
+            stderr_excerpt: String::new(),
+        })?;
     Ok(result)
 }
 

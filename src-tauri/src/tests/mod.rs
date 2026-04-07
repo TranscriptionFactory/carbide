@@ -28,6 +28,9 @@ mod smart_links_rules;
 #[path = "../../tests/smart_links_config.rs"]
 mod smart_links_config;
 
+#[path = "../../tests/lsp_client_error_display.rs"]
+mod lsp_client_error_display;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};

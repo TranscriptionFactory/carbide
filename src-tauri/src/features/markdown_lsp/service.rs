@@ -290,6 +290,7 @@ pub async fn markdown_lsp_start(
                 .to_string(),
         ),
         request_timeout_ms: 30_000,
+        init_timeout_ms: 30_000,
     };
 
     // Stop existing client FIRST to avoid duplicate processes
