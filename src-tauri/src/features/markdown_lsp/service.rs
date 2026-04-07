@@ -1004,11 +1004,26 @@ fn parse_locations(v: &serde_json::Value) -> Result<Vec<MarkdownLspLocation>, St
 }
 
 fn uri_to_path(uri: &str) -> Result<std::path::PathBuf, String> {
-    let parsed =
-        url::Url::parse(uri).map_err(|e| format!("invalid URI '{}': {}", uri, e))?;
+    // IWE sometimes returns URIs with the workspace root prepended to an absolute file URI,
+    // e.g. "file:///vault/path/file:///vault/path/note.md". Detect and fix this.
+    let effective_uri = if let Some(idx) = uri.rfind("file:///") {
+        if idx > 0 {
+            log::warn!(
+                "uri_to_path: detected double-prefixed URI, extracting inner URI from: {}",
+                uri
+            );
+            &uri[idx..]
+        } else {
+            uri
+        }
+    } else {
+        uri
+    };
+    let parsed = url::Url::parse(effective_uri)
+        .map_err(|e| format!("invalid URI '{}': {}", effective_uri, e))?;
     parsed
         .to_file_path()
-        .map_err(|_| format!("non-file URI: {}", uri))
+        .map_err(|_| format!("non-file URI: {}", effective_uri))
 }
 
 fn percent_decode(s: &str) -> String {
