@@ -62,6 +62,32 @@ Lint is separate from markdown LSP, but it shares the restartable transport mode
 
 ## Key problems confirmed from code and logs
 
+### Relevant error messages
+
+These are the specific error messages this plan is addressing.
+
+### Markdown LSP / provider resolution
+
+- `Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed error=IWE not found — install via Settings > Tools or place on PATH`
+- `markdown_lsp_start: LSP process spawn failed: LSP closed during init`
+- `LSP initialization failed: LSP closed during init`
+- `LSP read error: early eof`
+
+### Marksman startup / vault scan
+
+- `Operation timed out : '/Users/aar126/Library/Mobile Documents/com~apple~CloudDocs/JishnuLab/1_NOTES/9999_ARCHIVE/archive/5_NOTES_pages_archives/pages/contents.md'`
+- `Marksman encountered a fatal error`
+- `Please, report the error at https://github.com/artempyanykh/marksman/issues`
+- `RestartableLspClient: spawn failed: LSP process spawn failed: LSP closed during init`
+- `RestartableLspClient: retrying in 1000ms (attempt 1)`
+- `RestartableLspClient: retrying in 2000ms (attempt 2)`
+
+### Lint lifecycle
+
+- `lint_close_file: No active lint session for vault 8a297a811f39bdf9b55460227d07f83266d1570b604d339e2fafd609667f9c9f`
+- `[lint_service] Failed to notify file closed tauri invoke failed: lint_close_file: No active lint session for vault ...`
+
+
 ### 1. Startup and fallback are operationally weak
 
 Observed:
