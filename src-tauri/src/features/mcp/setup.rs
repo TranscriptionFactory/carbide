@@ -154,7 +154,12 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
         serde_json::json!({})
     };
 
-    let entry = build_mcp_server_entry(token);
+    // Use stdio transport if CLI is installed, otherwise fall back to HTTP
+    let entry = if cli_installed() {
+        build_mcp_server_entry_stdio()
+    } else {
+        build_mcp_server_entry(token)
+    };
 
     let servers = config
         .as_object_mut()
@@ -173,10 +178,13 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
     std::fs::write(&mcp_json_path, output)
         .map_err(|e| format!("Failed to write .mcp.json: {}", e))?;
 
+    let transport = if cli_installed() { "stdio" } else { "http" };
     Ok(SetupResult {
         success: true,
         path: mcp_json_path.to_string_lossy().to_string(),
-        message: "Claude Code configured with Carbide MCP server".to_string(),
+        message: format!(
+            "Claude Code configured with Carbide MCP server ({transport} transport)"
+        ),
     })
 }
 
@@ -347,11 +355,21 @@ mod tests {
         let content = std::fs::read_to_string(&mcp_json).unwrap();
         let config: serde_json::Value = serde_json::from_str(&content).unwrap();
 
-        assert_eq!(config["mcpServers"]["carbide"]["type"], "http");
-        assert_eq!(
-            config["mcpServers"]["carbide"]["headers"]["Authorization"],
-            "Bearer test_token_456"
-        );
+        // Transport depends on whether CLI is installed; verify entry exists
+        assert!(config["mcpServers"]["carbide"].is_object());
+        if cli_installed() {
+            assert_eq!(
+                config["mcpServers"]["carbide"]["command"],
+                carbide_cli_path().to_string_lossy().to_string()
+            );
+            assert_eq!(config["mcpServers"]["carbide"]["args"][0], "mcp");
+        } else {
+            assert_eq!(config["mcpServers"]["carbide"]["type"], "http");
+            assert_eq!(
+                config["mcpServers"]["carbide"]["headers"]["Authorization"],
+                "Bearer test_token_456"
+            );
+        }
     }
 
     #[test]
