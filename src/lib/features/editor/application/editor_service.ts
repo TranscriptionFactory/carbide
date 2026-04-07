@@ -324,6 +324,16 @@ export class EditorService {
     this.session.set_markdown(markdown);
   }
 
+  sync_visual_from_markdown_undoable(markdown: string) {
+    if (!this.session?.replace_doc_undoable) {
+      this.sync_visual_from_markdown(markdown);
+      return;
+    }
+    const current = this.session.get_markdown();
+    if (current === markdown) return;
+    this.session.replace_doc_undoable(markdown);
+  }
+
   sync_visual_from_markdown_diff(markdown: string): boolean {
     if (!this.session?.apply_markdown_diff) return false;
     return this.session.apply_markdown_diff(markdown);

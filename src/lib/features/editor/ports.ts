@@ -22,6 +22,7 @@ export type EditorSession = {
   destroy: () => void;
   set_markdown: (markdown: string) => void;
   apply_markdown_diff?: (new_markdown: string) => boolean;
+  replace_doc_undoable?: (markdown: string) => void;
   get_markdown: () => string;
   insert_text_at_cursor: (text: string) => void;
   replace_selection?: (text: string) => void;
