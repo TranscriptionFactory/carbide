@@ -140,12 +140,12 @@ Simultaneously:
 
 **Status:** Completed on `refactor/mcp-dry` (commit `4f551960`)
 
-| #   | Item                                                    | Status | Notes                                                                                                    |
-| --- | ------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| 1   | Extract `prop()` helper to `tools/mod.rs`               | ✅     | Was 3 copies (notes.rs, search.rs, metadata.rs), not 7 — audit overestimated. Also extracted `op_err_to_tool_result()` (2 copies + 1 inline). |
-| 2   | Extract `VaultArgs` to `tools/mod.rs`                   | N/A    | Does not exist in current code. Likely cleaned up during Phase 3a shared_ops refactor.                   |
-| 3   | Remove unused `SmartLinkRule.config` field               | ✅     | Removed from Rust struct, TS type, generated bindings, and all test fixtures (6 Rust + 5 TS literals).   |
-| 4   | Consolidate `HttpServerState` three mutexes              | ✅     | Replaced 3× `Arc<Mutex<T>>` with single `Arc<Mutex<ServerInner>>`. Eliminates implicit lock ordering.   |
+| #   | Item                                        | Status | Notes                                                                                                                                         |
+| --- | ------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Extract `prop()` helper to `tools/mod.rs`   | ✅     | Was 3 copies (notes.rs, search.rs, metadata.rs), not 7 — audit overestimated. Also extracted `op_err_to_tool_result()` (2 copies + 1 inline). |
+| 2   | Extract `VaultArgs` to `tools/mod.rs`       | N/A    | Does not exist in current code. Likely cleaned up during Phase 3a shared_ops refactor.                                                        |
+| 3   | Remove unused `SmartLinkRule.config` field  | ✅     | Removed from Rust struct, TS type, generated bindings, and all test fixtures (6 Rust + 5 TS literals).                                        |
+| 4   | Consolidate `HttpServerState` three mutexes | ✅     | Replaced 3× `Arc<Mutex<T>>` with single `Arc<Mutex<ServerInner>>`. Eliminates implicit lock ordering.                                         |
 
 **Tests:** 322 Rust tests pass, 2890/2891 TS tests pass (1 pre-existing failure in `document_service.test.ts` eviction test — unrelated).
 
@@ -154,12 +154,12 @@ Simultaneously:
 **Status:** Completed on `refactor/stdio-cleanup` (commit `8680a491`)
 **Decision:** Option A — removed unreachable stdio code.
 
-| #   | Item                                                       | Status | Notes                                                                                                    |
-| --- | ---------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| 1   | Delete `server.rs` (McpState, mcp_start/stop/status cmds) | ✅     | 131 lines removed. McpState managed state, shutdown call, and 3 invoke_handler entries also removed.     |
-| 2   | Delete `transport.rs` (run_jsonrpc_stream + 9 tests)       | ✅     | 191 lines removed. Tests covered stdio line-protocol but transport was unreachable from Tauri.            |
-| 3   | Remove `pub mod server` / `pub mod transport` from mod.rs  | ✅     | 2 lines from `features/mcp/mod.rs`.                                                                      |
-| 4   | Rewire frontend adapter to HTTP server commands            | ✅     | `mcp_tauri_adapter.ts` now calls `http_server_start/stop/status` with a mapping to `McpStatusInfo`.      |
+| #   | Item                                                      | Status | Notes                                                                                                |
+| --- | --------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| 1   | Delete `server.rs` (McpState, mcp_start/stop/status cmds) | ✅     | 131 lines removed. McpState managed state, shutdown call, and 3 invoke_handler entries also removed. |
+| 2   | Delete `transport.rs` (run_jsonrpc_stream + 9 tests)      | ✅     | 191 lines removed. Tests covered stdio line-protocol but transport was unreachable from Tauri.       |
+| 3   | Remove `pub mod server` / `pub mod transport` from mod.rs | ✅     | 2 lines from `features/mcp/mod.rs`.                                                                  |
+| 4   | Rewire frontend adapter to HTTP server commands           | ✅     | `mcp_tauri_adapter.ts` now calls `http_server_start/stop/status` with a mapping to `McpStatusInfo`.  |
 
 **Total:** 334 lines deleted, 14 lines added (adapter mapping). 312 Rust tests pass, 2890/2891 TS tests pass (1 pre-existing failure in `document_service.test.ts` — unrelated).
 
@@ -176,32 +176,37 @@ Simultaneously:
 
 **Status:** Completed on `feat/mcp-streamable-http` (commit `70182fd0`)
 
-| #   | Item                                                          | Status | Notes                                                                                                    |
-| --- | ------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| 1   | POST `/mcp` branches on `Accept: text/event-stream` → SSE    | ✅     | `mcp_handler` split into `mcp_post_handler` (SSE-aware) + helpers `wants_sse()`, `sse_response()`.      |
-| 2   | `Mcp-Session-Id` header on initialize                         | ✅     | 16 random bytes → hex. Returned on both JSON and SSE responses to initialize.                            |
-| 3   | GET `/mcp` stub (empty SSE stream for spec compliance)        | ✅     | `mcp_get_handler` returns empty SSE stream with keep-alive. Auth-gated.                                  |
-| 4   | Desktop config includes `"type": "http"`                      | ✅     | `build_mcp_server_entry` now always includes `"type": "http"`. Simplified `write_claude_code_config`.    |
-| 5   | Added `futures-util` direct dependency                        | ✅     | Was transitive via axum; now explicit for `stream::once`/`stream::empty` in SSE helpers.                 |
-| 6   | 6 new tests                                                   | ✅     | SSE content-type, JSON content-type, session ID on init, no session ID on ping, GET SSE, GET auth 401.   |
+| #   | Item                                                      | Status | Notes                                                                                                  |
+| --- | --------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| 1   | POST `/mcp` branches on `Accept: text/event-stream` → SSE | ✅     | `mcp_handler` split into `mcp_post_handler` (SSE-aware) + helpers `wants_sse()`, `sse_response()`.     |
+| 2   | `Mcp-Session-Id` header on initialize                     | ✅     | 16 random bytes → hex. Returned on both JSON and SSE responses to initialize.                          |
+| 3   | GET `/mcp` stub (empty SSE stream for spec compliance)    | ✅     | `mcp_get_handler` returns empty SSE stream with keep-alive. Auth-gated.                                |
+| 4   | Desktop config includes `"type": "http"`                  | ✅     | `build_mcp_server_entry` now always includes `"type": "http"`. Simplified `write_claude_code_config`.  |
+| 5   | Added `futures-util` direct dependency                    | ✅     | Was transitive via axum; now explicit for `stream::once`/`stream::empty` in SSE helpers.               |
+| 6   | 6 new tests                                               | ✅     | SSE content-type, JSON content-type, session ID on init, no session ID on ping, GET SSE, GET auth 401. |
 
 **Tests:** 318 Rust tests pass (was 312 — 6 new), 2890/2891 TS tests pass (1 pre-existing failure).
 
 **Finding:** `Mcp-Session-Id` validation is soft (logged, not rejected) per plan — our tools are stateless, so hard validation adds complexity for no benefit. The session ID is generated but not stored server-side.
 
-### 4b. stdio via CLI proxy — `feat/mcp-stdio-proxy`
+### 4b. stdio via CLI proxy — `feat/mcp-stdio-proxy` ✅ DONE
 
-Single Rust session. Adds `carbide mcp` subcommand:
+**Status:** Completed on `feat/mcp-stdio-proxy` (commit `1b0c3d97`)
 
-- Reads stdin line-by-line, POSTs to `/mcp`, writes response to stdout
-- `ensure_running_with_timeout` extraction (30s for cold launch)
-- Update Desktop setup to write stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`)
-- Add `carbide setup desktop` / `carbide setup code` CLI commands
+| #   | Item                                                       | Status | Notes                                                                                                     |
+| --- | ---------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| 1   | `carbide mcp` stdio proxy subcommand                       | ✅     | New `mcp.rs`: reads stdin line-by-line, POSTs to `/mcp`, writes JSON responses to stdout, errors to stderr |
+| 2   | `post_mcp_raw` client method                               | ✅     | Raw body POST to `/mcp` with `Accept: application/json`. Returns `Option<String>` (None for 204).          |
+| 3   | `ensure_running_with_timeout` extraction                   | ✅     | 30s timeout for `carbide mcp` (cold launch), 10s default for other commands.                               |
+| 4   | `carbide setup desktop` CLI command                        | ✅     | Writes stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`) — no server needed.           |
+| 5   | `carbide setup code <vault-path>` CLI command              | ✅     | Writes HTTP config to `.mcp.json` in vault root — no server needed.                                       |
+| 6   | Desktop config uses stdio when CLI installed               | ✅     | `write_claude_desktop_config` (server-side) now uses `build_mcp_server_entry_stdio()` if CLI detected.     |
+| 7   | `SetupStatus.cli_installed` field                          | ✅     | Added to Rust struct + TS type. Checks `/usr/local/bin/carbide` symlink existence.                         |
+| 8   | `carbide status` shows MCP info                            | ✅     | Displays MCP endpoint URL and CLI install state.                                                           |
 
-### 4c. CLI polish (fold into 4a/4b sessions)
+**Tests:** 5 CLI tests pass (2 new: stdio entry format, cli_installed check), 11 server MCP setup tests pass (2 new: stdio entry format, cli_installed). 2890/2891 TS tests pass (1 pre-existing failure).
 
-- `carbide status` shows MCP server address + CLI install state
-- `SetupStatus.cli_installed` field
+**Note:** Phase 4c items (CLI polish) were folded into this phase as planned.
 
 ---
 
@@ -231,7 +236,7 @@ Phase 1: Merge feat/extended-tools into main           ← do first, unblocks ev
   ├─ Phase 3c: Stdio cleanup (remove dead code)        ✅ DONE
   │
   ├─ Phase 4a: Streamable HTTP                         ✅ DONE
-  ├─ Phase 4b: stdio CLI proxy                         ← depends on 4a
+  ├─ Phase 4b: stdio CLI proxy                         ✅ DONE
   │
   ├─ (Optional) Merge feat/editor-drag-blocks          ← independent, can merge anytime
   │
