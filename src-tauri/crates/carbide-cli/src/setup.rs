@@ -152,16 +152,21 @@ pub fn setup_code(vault_path: &str) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn carbide_cli_path_matches_platform_default() {
+    fn expected_carbide_cli_path() -> std::path::PathBuf {
         #[cfg(target_os = "windows")]
-        assert_eq!(
-            carbide_cli_path(),
-            local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
-        );
+        {
+            return local_app_data_dir().join("Programs/Carbide/bin/carbide.exe");
+        }
 
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(carbide_cli_path(), home_dir().join(".local/bin/carbide"));
+        {
+            home_dir().join(".local/bin/carbide")
+        }
+    }
+
+    #[test]
+    fn carbide_cli_path_matches_platform_default() {
+        assert_eq!(carbide_cli_path(), expected_carbide_cli_path());
     }
 
     #[test]
