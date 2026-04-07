@@ -3,7 +3,10 @@ use crate::features::toolchain::registry;
 #[test]
 fn iwes_spec_is_downloadable() {
     let spec = registry::get("iwes").expect("iwes spec exists");
-    assert!(spec.downloadable(), "IWES should be downloadable now that platform_binaries are populated");
+    assert!(
+        spec.downloadable(),
+        "IWES should be downloadable now that platform_binaries are populated"
+    );
 }
 
 #[test]
@@ -28,7 +31,9 @@ fn iwes_download_url_is_well_formed() {
             "https://github.com/{}/releases/download/{}/{}",
             spec.github_repo, tag, asset
         );
-        assert!(url.starts_with("https://github.com/iwe-org/iwe/releases/download/iwe-v0.0.67/iwe-v0.0.67-"));
+        assert!(url.starts_with(
+            "https://github.com/iwe-org/iwe/releases/download/iwe-v0.0.67/iwe-v0.0.67-"
+        ));
         assert!(url.contains(pb.triple));
     }
 }

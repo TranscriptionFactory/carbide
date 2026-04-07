@@ -14,9 +14,16 @@ pub struct LspClientConfig {
 #[derive(Debug)]
 pub enum LspClientError {
     ProcessSpawnFailed(String),
-    InitTimeout { stderr_excerpt: String },
-    InitEof { stderr_excerpt: String },
-    InitFailed { message: String, stderr_excerpt: String },
+    InitTimeout {
+        stderr_excerpt: String,
+    },
+    InitEof {
+        stderr_excerpt: String,
+    },
+    InitFailed {
+        message: String,
+        stderr_excerpt: String,
+    },
     ProcessExited,
     RequestTimeout,
     InvalidResponse(String),
@@ -42,7 +49,10 @@ impl fmt::Display for LspClientError {
                 }
                 Ok(())
             }
-            LspClientError::InitFailed { message, stderr_excerpt } => {
+            LspClientError::InitFailed {
+                message,
+                stderr_excerpt,
+            } => {
                 write!(f, "LSP init failed: {}", message)?;
                 if !stderr_excerpt.is_empty() {
                     write!(f, "\nstderr:\n{}", stderr_excerpt)?;

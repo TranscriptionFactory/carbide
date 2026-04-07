@@ -419,7 +419,9 @@ async fn lsp_initialize(
     let response = match read_result {
         Err(_) => {
             let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
-            return Err(LspClientError::InitTimeout { stderr_excerpt: excerpt });
+            return Err(LspClientError::InitTimeout {
+                stderr_excerpt: excerpt,
+            });
         }
         Ok(Err(e)) => {
             let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
@@ -430,7 +432,9 @@ async fn lsp_initialize(
         }
         Ok(Ok(None)) => {
             let excerpt = stderr_excerpt(&*stderr_buf.lock().await);
-            return Err(LspClientError::InitEof { stderr_excerpt: excerpt });
+            return Err(LspClientError::InitEof {
+                stderr_excerpt: excerpt,
+            });
         }
         Ok(Ok(Some(msg))) => msg,
     };
