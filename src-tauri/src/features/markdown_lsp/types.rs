@@ -16,6 +16,18 @@ impl MarkdownLspProvider {
         }
     }
 
+    pub fn supports_inlay_hints(self) -> bool {
+        matches!(self, Self::Iwes)
+    }
+
+    pub fn supports_formatting(self) -> bool {
+        matches!(self, Self::Iwes)
+    }
+
+    pub fn supports_transform_actions(self) -> bool {
+        matches!(self, Self::Iwes)
+    }
+
     pub fn completion_trigger_characters(self) -> Vec<String> {
         match self {
             Self::Iwes => vec!["+".to_string(), "[".to_string(), "(".to_string()],

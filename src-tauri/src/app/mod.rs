@@ -278,6 +278,7 @@ pub fn run() {
             features::markdown_lsp::service::markdown_lsp_did_open,
             features::markdown_lsp::service::markdown_lsp_did_change,
             features::markdown_lsp::service::markdown_lsp_did_save,
+            features::markdown_lsp::service::markdown_lsp_did_close,
             features::markdown_lsp::service::markdown_lsp_hover,
             features::markdown_lsp::service::markdown_lsp_references,
             features::markdown_lsp::service::markdown_lsp_definition,

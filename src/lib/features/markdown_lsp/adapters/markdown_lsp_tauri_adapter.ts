@@ -62,6 +62,12 @@ export function create_markdown_lsp_tauri_adapter(): MarkdownLspPort {
         content,
       }),
 
+    did_close: (vault_id, file_path) =>
+      tauri_invoke("markdown_lsp_did_close", {
+        vaultId: vault_id,
+        filePath: file_path,
+      }),
+
     hover: (vault_id, file_path, line, character) =>
       tauri_invoke<MarkdownLspHoverResult>("markdown_lsp_hover", {
         vaultId: vault_id,

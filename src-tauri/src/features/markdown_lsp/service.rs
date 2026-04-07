@@ -429,6 +429,26 @@ pub async fn markdown_lsp_did_save(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn markdown_lsp_did_close(
+    app: AppHandle,
+    vault_id: String,
+    file_path: String,
+) -> Result<(), String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let uri = file_uri(&vault_path, &file_path);
+    markdown_lsp_state(&app)
+        .notify(
+            &vault_id,
+            "textDocument/didClose",
+            serde_json::json!({
+                "textDocument": { "uri": uri }
+            }),
+        )
+        .await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn markdown_lsp_hover(
     app: AppHandle,
     vault_id: String,

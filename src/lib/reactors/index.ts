@@ -316,8 +316,10 @@ export function mount_reactors(context: ReactorContext): () => void {
           void context.markdown_lsp_service.did_change(path, content),
         on_save: (path, content) =>
           void context.markdown_lsp_service.did_save(path, content),
-        on_close: (path) =>
-          context.diagnostics_store.clear_file("markdown_lsp", path),
+        on_close: (path) => {
+          context.diagnostics_store.clear_file("markdown_lsp", path);
+          void context.markdown_lsp_service.did_close(path);
+        },
       },
       {
         is_ready: () => context.lint_store.is_running,

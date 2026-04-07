@@ -119,6 +119,7 @@ export function create_test_ports(): Ports {
       did_open: () => Promise.resolve(),
       did_change: () => Promise.resolve(),
       did_save: () => Promise.resolve(),
+      did_close: () => Promise.resolve(),
       hover: () => Promise.resolve({ contents: null }),
       references: () => Promise.resolve([]),
       definition: () => Promise.resolve([]),

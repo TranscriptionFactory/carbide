@@ -51,12 +51,11 @@ function make_structural_executor(deps: IweActionDeps) {
   return async function execute_iwe_action(action_id: string): Promise<void> {
     const {
       markdown_lsp_store,
-      ui_store,
       editor_store,
       markdown_lsp_service,
       workspace_edit_deps,
     } = deps;
-    if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
+    if (!markdown_lsp_store.capabilities?.transform_actions) return;
 
     const open_note = editor_store.open_note;
     const cursor = editor_store.cursor;
@@ -109,12 +108,11 @@ function make_transform_executor(deps: IweActionDeps) {
   return async function execute_transform(action_name: string): Promise<void> {
     const {
       markdown_lsp_store,
-      ui_store,
       editor_store,
       markdown_lsp_service,
       workspace_edit_deps,
     } = deps;
-    if (ui_store.editor_settings.markdown_lsp_provider !== "iwes") return;
+    if (!markdown_lsp_store.capabilities?.transform_actions) return;
 
     const open_note = editor_store.open_note;
     const cursor = editor_store.cursor;

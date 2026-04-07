@@ -269,7 +269,12 @@ export function create_app_context(input: {
     },
     on_markdown_lsp_inlay_hints: async (file_path) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
+      if (
+        !vault_id ||
+        stores.markdown_lsp.status !== "running" ||
+        !stores.markdown_lsp.capabilities?.inlay_hints
+      )
+        return [];
       try {
         return await input.ports.markdown_lsp.inlay_hints(vault_id, file_path);
       } catch {

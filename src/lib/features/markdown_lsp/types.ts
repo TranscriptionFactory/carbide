@@ -1,5 +1,26 @@
 export type MarkdownLspProvider = "iwes" | "marksman";
 
+export type MarkdownLspCapabilities = {
+  inlay_hints: boolean;
+  formatting: boolean;
+  transform_actions: boolean;
+};
+
+export function markdown_lsp_capabilities(
+  provider: MarkdownLspProvider,
+): MarkdownLspCapabilities {
+  switch (provider) {
+    case "iwes":
+      return { inlay_hints: true, formatting: true, transform_actions: true };
+    case "marksman":
+      return {
+        inlay_hints: false,
+        formatting: false,
+        transform_actions: false,
+      };
+  }
+}
+
 export type MarkdownLspStatus =
   | "starting"
   | "running"

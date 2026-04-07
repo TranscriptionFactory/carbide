@@ -26,6 +26,7 @@ function create_mock_port() {
     did_open: vi.fn().mockResolvedValue(undefined),
     did_change: vi.fn().mockResolvedValue(undefined),
     did_save: vi.fn().mockResolvedValue(undefined),
+    did_close: vi.fn().mockResolvedValue(undefined),
     hover: vi.fn().mockResolvedValue({ contents: null }),
     references: vi.fn().mockResolvedValue([]),
     definition: vi.fn().mockResolvedValue([]),
@@ -240,6 +241,143 @@ describe("MarkdownLspService", () => {
 
     await service.stop();
     expect(store.status).toBe("stopped");
+  });
+
+  describe("did_close", () => {
+    it("calls port and clears doc_versions when running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.did_open("note.md", "hello");
+      await service.did_close("note.md");
+
+      expect(port.did_close).toHaveBeenCalledWith(
+        vault_store.vault!.id,
+        "note.md",
+      );
+    });
+
+    it("is a no-op when not running", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+
+      await service.did_close("note.md");
+      expect(port.did_close).not.toHaveBeenCalled();
+    });
+
+    it("clears version tracking so re-open starts at version 1", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      await service.did_open("note.md", "v1");
+      await service.did_change("note.md", "v2");
+      await service.did_close("note.md");
+      await service.did_open("note.md", "fresh");
+
+      const open_calls = vi.mocked(port.did_open).mock.calls;
+      expect(open_calls).toHaveLength(2);
+    });
+  });
+
+  describe("provider capabilities", () => {
+    it("start sets effective_provider in store", async () => {
+      const { port } = create_mock_port();
+      vi.mocked(port.start).mockResolvedValue({
+        completion_trigger_characters: ["+"],
+        effective_provider: "iwes",
+      });
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("iwes");
+
+      expect(store.effective_provider).toBe("iwes");
+    });
+
+    it("stop clears effective_provider", async () => {
+      const { port } = create_mock_port();
+      vi.mocked(port.start).mockResolvedValue({
+        completion_trigger_characters: ["+"],
+        effective_provider: "iwes",
+      });
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("iwes");
+      expect(store.effective_provider).toBe("iwes");
+
+      await service.stop();
+      expect(store.effective_provider).toBeNull();
+    });
+
+    it("capabilities reflect iwes provider", async () => {
+      const { port } = create_mock_port();
+      vi.mocked(port.start).mockResolvedValue({
+        completion_trigger_characters: ["+"],
+        effective_provider: "iwes",
+      });
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("iwes");
+
+      expect(store.capabilities).toEqual({
+        inlay_hints: true,
+        formatting: true,
+        transform_actions: true,
+      });
+    });
+
+    it("capabilities reflect marksman provider", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      expect(store.capabilities).toEqual({
+        inlay_hints: false,
+        formatting: false,
+        transform_actions: false,
+      });
+    });
+
+    it("capabilities are null when no provider set", () => {
+      const store = new MarkdownLspStore();
+      expect(store.capabilities).toBeNull();
+    });
+
+    it("reset clears effective_provider", async () => {
+      const store = new MarkdownLspStore();
+      store.set_effective_provider("iwes");
+      expect(store.effective_provider).toBe("iwes");
+
+      store.reset();
+      expect(store.effective_provider).toBeNull();
+      expect(store.capabilities).toBeNull();
+    });
   });
 
   it("does not restart after rewriting config when the LSP is idle", async () => {

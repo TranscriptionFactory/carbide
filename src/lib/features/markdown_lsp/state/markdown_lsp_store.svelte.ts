@@ -1,14 +1,17 @@
 import type {
   IweActionInfo,
+  MarkdownLspCapabilities,
   MarkdownLspCodeAction,
   MarkdownLspCompletionItem,
   MarkdownLspDocumentSymbol,
   MarkdownLspHoverResult,
   MarkdownLspInlayHint,
   MarkdownLspLocation,
+  MarkdownLspProvider,
   MarkdownLspStatus,
   MarkdownLspSymbol,
 } from "$lib/features/markdown_lsp/types";
+import { markdown_lsp_capabilities } from "$lib/features/markdown_lsp/types";
 
 export class MarkdownLspStore {
   status = $state<MarkdownLspStatus>("stopped");
@@ -21,9 +24,15 @@ export class MarkdownLspStore {
   document_symbols = $state<MarkdownLspDocumentSymbol[]>([]);
   completion_trigger_characters = $state<string[]>([]);
   transform_actions = $state<IweActionInfo[]>([]);
+  effective_provider = $state<MarkdownLspProvider | null>(null);
   loading = $state(false);
 
   is_running = $derived(this.status === "running");
+  capabilities = $derived<MarkdownLspCapabilities | null>(
+    this.effective_provider
+      ? markdown_lsp_capabilities(this.effective_provider)
+      : null,
+  );
 
   set_status(status: MarkdownLspStatus) {
     this.status = status;
@@ -65,6 +74,10 @@ export class MarkdownLspStore {
     this.transform_actions = actions;
   }
 
+  set_effective_provider(provider: MarkdownLspProvider | null) {
+    this.effective_provider = provider;
+  }
+
   set_loading(loading: boolean) {
     this.loading = loading;
   }
@@ -80,6 +93,7 @@ export class MarkdownLspStore {
     this.inlay_hints = [];
     this.document_symbols = [];
     this.transform_actions = [];
+    this.effective_provider = null;
     this.loading = false;
   }
 }

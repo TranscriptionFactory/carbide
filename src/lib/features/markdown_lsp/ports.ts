@@ -35,6 +35,7 @@ export interface MarkdownLspPort {
     content: string,
   ): Promise<void>;
   did_save(vault_id: string, file_path: string, content: string): Promise<void>;
+  did_close(vault_id: string, file_path: string): Promise<void>;
 
   hover(
     vault_id: string,

@@ -107,6 +107,7 @@ export class MarkdownLspService {
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
+        this.store.set_effective_provider(result.effective_provider);
         this.active_vault_id = vault_id;
         this.store.set_status("running");
         log.info("Markdown LSP started", {
@@ -247,6 +248,18 @@ export class MarkdownLspService {
       await this.port.did_save(vault_id, file_path, content);
     } catch (e) {
       if (!this.handle_channel_closed(e)) log.from_error("did_save failed", e);
+    }
+  }
+
+  async did_close(file_path: string): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || this.store.status !== "running") return;
+
+    this.doc_versions.delete(file_path);
+    try {
+      await this.port.did_close(vault_id, file_path);
+    } catch (e) {
+      if (!this.handle_channel_closed(e)) log.from_error("did_close failed", e);
     }
   }
 
