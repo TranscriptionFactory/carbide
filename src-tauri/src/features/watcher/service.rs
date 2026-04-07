@@ -4,10 +4,10 @@ use crate::shared::vault_ignore;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use specta::Type;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 
@@ -283,11 +283,13 @@ pub fn watch_vault(
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";
 
-                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel.clone(), is_md, is_dir)
+                if let Some(vault_event) =
+                    classify_event(kind, &vault_id_clone, rel.clone(), is_md, is_dir)
                 {
                     let should_debounce = matches!(
                         vault_event,
-                        VaultFsEvent::AssetChanged { .. } | VaultFsEvent::NoteChangedExternally { .. }
+                        VaultFsEvent::AssetChanged { .. }
+                            | VaultFsEvent::NoteChangedExternally { .. }
                     );
                     if should_debounce {
                         let now = Instant::now();
@@ -304,7 +306,13 @@ pub fn watch_vault(
         }
     });
 
-    set_active_runtime(&state, WatcherRuntime { stop_tx, join_handle: Some(join_handle) })?;
+    set_active_runtime(
+        &state,
+        WatcherRuntime {
+            stop_tx,
+            join_handle: Some(join_handle),
+        },
+    )?;
     if let Ok(mut current) = state.current_vault_id.lock() {
         *current = Some(vault_id);
     }
@@ -335,7 +343,10 @@ mod tests {
             false,
             true,
         );
-        assert!(result.is_none(), "Modify on directory should be filtered out");
+        assert!(
+            result.is_none(),
+            "Modify on directory should be filtered out"
+        );
     }
 
     #[test]

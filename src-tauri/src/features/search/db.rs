@@ -219,19 +219,20 @@ pub(crate) fn extract_frontmatter_properties(markdown: &str) -> Vec<(String, Str
     let mut current_key: Option<String> = None;
     let mut array_values: Vec<String> = Vec::new();
 
-    let flush_array = |key: &str, arr: &mut Vec<String>, out: &mut Vec<(String, String, String)>| {
-        if !arr.is_empty() {
-            let json = format!(
-                "[{}]",
-                arr.iter()
-                    .map(|v| format!("\"{}\"", v.replace('\\', "\\\\").replace('"', "\\\"")))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            );
-            out.push((key.to_string(), json, "array".to_string()));
-            arr.clear();
-        }
-    };
+    let flush_array =
+        |key: &str, arr: &mut Vec<String>, out: &mut Vec<(String, String, String)>| {
+            if !arr.is_empty() {
+                let json = format!(
+                    "[{}]",
+                    arr.iter()
+                        .map(|v| format!("\"{}\"", v.replace('\\', "\\\\").replace('"', "\\\"")))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+                out.push((key.to_string(), json, "array".to_string()));
+                arr.clear();
+            }
+        };
 
     for line in lines {
         if line.trim() == "---" {
@@ -242,7 +243,10 @@ pub(crate) fn extract_frontmatter_properties(markdown: &str) -> Vec<(String, Str
         }
 
         if line.starts_with("  - ") || line.starts_with("\t- ") {
-            let item = line.trim_start_matches(|c: char| c == ' ' || c == '\t').trim_start_matches("- ").trim();
+            let item = line
+                .trim_start_matches(|c: char| c == ' ' || c == '\t')
+                .trim_start_matches("- ")
+                .trim();
             if current_key.is_some() {
                 array_values.push(item.to_string());
             }
@@ -319,7 +323,11 @@ struct ExtractedLink {
 
 fn extract_markdown_structure(
     markdown: &str,
-) -> (Vec<ExtractedHeading>, Vec<ExtractedCodeBlock>, Vec<ExtractedSection>) {
+) -> (
+    Vec<ExtractedHeading>,
+    Vec<ExtractedCodeBlock>,
+    Vec<ExtractedSection>,
+) {
     use regex::Regex;
     use std::collections::HashMap;
     use std::sync::LazyLock;
@@ -368,7 +376,11 @@ fn extract_markdown_structure(
                 code_block_start = line_idx as i64;
                 let fence_char = &trimmed[..1];
                 let after_fence = trimmed.trim_start_matches(|c: char| c.to_string() == fence_char);
-                let lang = after_fence.split_whitespace().next().unwrap_or("").to_string();
+                let lang = after_fence
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
                 code_block_lang = if lang.is_empty() { None } else { Some(lang) };
             }
             continue;
@@ -379,12 +391,20 @@ fn extract_markdown_structure(
 
         if let Some(caps) = HEADING_RE.captures(trimmed) {
             let level = caps[1].len() as i32;
-            let text = caps[2].trim_end_matches(|c: char| c == '#' || c == ' ').to_string();
+            let text = caps[2]
+                .trim_end_matches(|c: char| c == '#' || c == ' ')
+                .to_string();
             let base_slug = {
                 let s: String = text
                     .to_lowercase()
                     .chars()
-                    .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '-' })
+                    .map(|c| {
+                        if c.is_alphanumeric() || c == '_' {
+                            c
+                        } else {
+                            '-'
+                        }
+                    })
                     .collect();
                 let s = s.trim_matches('-').to_string();
                 format!("h-{level}-{s}")
@@ -429,9 +449,16 @@ fn extract_markdown_structure(
     (headings, code_blocks, sections)
 }
 
-fn sync_headings(conn: &Connection, path: &str, headings: &[ExtractedHeading]) -> Result<(), String> {
-    conn.execute("DELETE FROM note_headings WHERE note_path = ?1", params![path])
-        .map_err(|e| e.to_string())?;
+fn sync_headings(
+    conn: &Connection,
+    path: &str,
+    headings: &[ExtractedHeading],
+) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM note_headings WHERE note_path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
     for h in headings {
         conn.execute(
             "INSERT INTO note_headings (note_path, level, text, line) VALUES (?1, ?2, ?3, ?4)",
@@ -442,9 +469,16 @@ fn sync_headings(conn: &Connection, path: &str, headings: &[ExtractedHeading]) -
     Ok(())
 }
 
-fn sync_code_blocks(conn: &Connection, path: &str, blocks: &[ExtractedCodeBlock]) -> Result<(), String> {
-    conn.execute("DELETE FROM note_code_blocks WHERE path = ?1", params![path])
-        .map_err(|e| e.to_string())?;
+fn sync_code_blocks(
+    conn: &Connection,
+    path: &str,
+    blocks: &[ExtractedCodeBlock],
+) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM note_code_blocks WHERE path = ?1",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
     for b in blocks {
         conn.execute(
             "INSERT INTO note_code_blocks (path, line, language, length) VALUES (?1, ?2, ?3, ?4)",
@@ -455,7 +489,11 @@ fn sync_code_blocks(conn: &Connection, path: &str, blocks: &[ExtractedCodeBlock]
     Ok(())
 }
 
-fn sync_sections(conn: &Connection, path: &str, sections: &[ExtractedSection]) -> Result<(), String> {
+fn sync_sections(
+    conn: &Connection,
+    path: &str,
+    sections: &[ExtractedSection],
+) -> Result<(), String> {
     conn.execute("DELETE FROM note_sections WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     for s in sections {
@@ -533,7 +571,11 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
             }
             if in_tags_array {
                 if line.starts_with("  - ") || line.starts_with("\t- ") {
-                    let item = trimmed.trim_start_matches("- ").trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                    let item = trimmed
+                        .trim_start_matches("- ")
+                        .trim()
+                        .trim_matches(|c| c == '\'' || c == '"')
+                        .trim();
                     if !item.is_empty() {
                         tags.push(ExtractedTag {
                             tag: item.to_string(),
@@ -675,7 +717,11 @@ fn sync_tags(conn: &Connection, path: &str, tags: &[ExtractedTag]) -> Result<(),
     Ok(())
 }
 
-fn save_properties(conn: &Connection, path: &str, props: &[(String, String, String)]) -> Result<(), String> {
+fn save_properties(
+    conn: &Connection,
+    path: &str,
+    props: &[(String, String, String)],
+) -> Result<(), String> {
     conn.execute("DELETE FROM note_properties WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     for (key, value, typ) in props {
@@ -905,7 +951,9 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     }
 
     let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_notes_citekey ON notes(citekey)");
-    let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_notes_linked_source_id ON notes(linked_source_id)");
+    let _ = conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_notes_linked_source_id ON notes(linked_source_id)",
+    );
 
     for col in &["section_heading TEXT", "target_anchor TEXT"] {
         let _ = conn.execute_batch(&format!("ALTER TABLE note_links ADD COLUMN {col}"));
@@ -1003,7 +1051,11 @@ pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Resul
     }
 }
 
-fn upsert_note_inner(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<Vec<String>, String> {
+fn upsert_note_inner(
+    conn: &Connection,
+    meta: &IndexNoteMeta,
+    body: &str,
+) -> Result<Vec<String>, String> {
     upsert_note_simple(conn, meta, body)
 }
 
@@ -1190,10 +1242,7 @@ pub fn query_linked_notes_by_source(
         .map_err(|e| e.to_string())
 }
 
-pub fn count_linked_notes_by_source(
-    conn: &Connection,
-    source_name: &str,
-) -> Result<usize, String> {
+pub fn count_linked_notes_by_source(conn: &Connection, source_name: &str) -> Result<usize, String> {
     let prefix = format!("@linked/{source_name}/%");
     let count: i64 = conn
         .query_row(
@@ -2462,7 +2511,8 @@ pub fn get_note_headings(
             })
         })
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 pub fn get_note_links(
@@ -2485,7 +2535,8 @@ pub fn get_note_links(
             })
         })
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 pub fn get_file_cache(
@@ -2496,7 +2547,13 @@ pub fn get_file_cache(
         .query_row(
             "SELECT mtime_ms, ctime_ms, size_bytes FROM notes WHERE path = ?1",
             params![path],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            },
         )
         .map_err(|e| format!("Note not found: {e}"))?;
 
@@ -2506,9 +2563,8 @@ pub fn get_file_cache(
     let headings = get_note_headings(conn, path)?;
     let all_links = get_note_links(conn, path)?;
 
-    let (embeds, links): (Vec<_>, Vec<_>) = all_links
-        .into_iter()
-        .partition(|l| l.link_type == "embed");
+    let (embeds, links): (Vec<_>, Vec<_>) =
+        all_links.into_iter().partition(|l| l.link_type == "embed");
 
     Ok(crate::features::search::model::FileCache {
         frontmatter,
@@ -2847,13 +2903,19 @@ mod tests {
 
         let props = list_all_properties(&conn).expect("list");
         let status = props.iter().find(|p| p.name == "status").unwrap();
-        let uv = status.unique_values.as_ref().expect("should have unique_values");
+        let uv = status
+            .unique_values
+            .as_ref()
+            .expect("should have unique_values");
         assert_eq!(uv.len(), 2);
         assert!(uv.contains(&"active".to_string()));
         assert!(uv.contains(&"done".to_string()));
 
         let priority = props.iter().find(|p| p.name == "priority").unwrap();
-        let uv = priority.unique_values.as_ref().expect("should have unique_values");
+        let uv = priority
+            .unique_values
+            .as_ref()
+            .expect("should have unique_values");
         assert_eq!(uv, &vec!["1".to_string()]);
     }
 
@@ -2882,7 +2944,10 @@ mod tests {
 
         let props = list_all_properties(&conn).expect("list");
         let color = props.iter().find(|p| p.name == "color").unwrap();
-        let uv = color.unique_values.as_ref().expect("should have unique_values");
+        let uv = color
+            .unique_values
+            .as_ref()
+            .expect("should have unique_values");
         assert_eq!(uv.len(), 20);
         assert_eq!(uv[0], "color-00");
         assert_eq!(uv[19], "color-19");
@@ -3234,9 +3299,24 @@ mod tests {
     #[test]
     fn query_bases_filter_by_content_fts() {
         let conn = open_mem_db();
-        upsert_note(&conn, &note("fts/a.md", "Alpha"), "The quick brown fox jumps over the lazy dog").expect("a");
-        upsert_note(&conn, &note("fts/b.md", "Beta"), "Rust programming language is fast and safe").expect("b");
-        upsert_note(&conn, &note("fts/c.md", "Gamma"), "The lazy cat sleeps all day").expect("c");
+        upsert_note(
+            &conn,
+            &note("fts/a.md", "Alpha"),
+            "The quick brown fox jumps over the lazy dog",
+        )
+        .expect("a");
+        upsert_note(
+            &conn,
+            &note("fts/b.md", "Beta"),
+            "Rust programming language is fast and safe",
+        )
+        .expect("b");
+        upsert_note(
+            &conn,
+            &note("fts/c.md", "Gamma"),
+            "The lazy cat sleeps all day",
+        )
+        .expect("c");
 
         let result = query_bases(
             &conn,
@@ -3256,7 +3336,12 @@ mod tests {
 
         let result = query_bases(
             &conn,
-            make_query(vec![filter("content", "matches", "zzzznotfound")], vec![], 100, 0),
+            make_query(
+                vec![filter("content", "matches", "zzzznotfound")],
+                vec![],
+                100,
+                0,
+            ),
         )
         .expect("query");
         assert_eq!(result.total, 0);
@@ -3459,15 +3544,35 @@ mod tests {
         assert_eq!(row.1.as_deref(), Some("Smith, J."), "authors preserved");
         assert_eq!(row.2, Some(2024), "year preserved");
         assert_eq!(row.3.as_deref(), Some("10.1234/test"), "doi preserved");
-        assert_eq!(row.4.as_deref(), Some("978-0-123456-78-9"), "isbn preserved");
+        assert_eq!(
+            row.4.as_deref(),
+            Some("978-0-123456-78-9"),
+            "isbn preserved"
+        );
         assert_eq!(row.5.as_deref(), Some("2401.00001"), "arxiv_id preserved");
         assert_eq!(row.6.as_deref(), Some("Nature"), "journal preserved");
         assert_eq!(row.7.as_deref(), Some("An abstract."), "abstract preserved");
         assert_eq!(row.8.as_deref(), Some("article"), "item_type preserved");
-        assert_eq!(row.9.as_deref(), Some("/files/paper.pdf"), "external_file_path preserved");
-        assert_eq!(row.10.as_deref(), Some("zotero-123"), "linked_source_id preserved");
-        assert_eq!(row.11.as_deref(), Some("papers/moved.pdf"), "vault_relative_path updated");
-        assert_eq!(row.12.as_deref(), Some("~/papers/paper.pdf"), "home_relative_path preserved");
+        assert_eq!(
+            row.9.as_deref(),
+            Some("/files/paper.pdf"),
+            "external_file_path preserved"
+        );
+        assert_eq!(
+            row.10.as_deref(),
+            Some("zotero-123"),
+            "linked_source_id preserved"
+        );
+        assert_eq!(
+            row.11.as_deref(),
+            Some("papers/moved.pdf"),
+            "vault_relative_path updated"
+        );
+        assert_eq!(
+            row.12.as_deref(),
+            Some("~/papers/paper.pdf"),
+            "home_relative_path preserved"
+        );
     }
 
     #[test]
@@ -3480,7 +3585,9 @@ mod tests {
         upsert_note(&conn, &meta, body).expect("upsert");
 
         let rows: Vec<(i32, String, i64)> = conn
-            .prepare("SELECT level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line")
+            .prepare(
+                "SELECT level, text, line FROM note_headings WHERE note_path = ?1 ORDER BY line",
+            )
             .unwrap()
             .query_map(params!["h.md"], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -3650,7 +3757,9 @@ mod tests {
         upsert_note(&conn, &meta, body).expect("upsert");
 
         let rows: Vec<(i64, Option<String>, i64)> = conn
-            .prepare("SELECT line, language, length FROM note_code_blocks WHERE path = ?1 ORDER BY line")
+            .prepare(
+                "SELECT line, language, length FROM note_code_blocks WHERE path = ?1 ORDER BY line",
+            )
             .unwrap()
             .query_map(params!["c.md"], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -3723,7 +3832,11 @@ mod tests {
         let cache = get_file_cache(&conn, "linky.md").expect("file cache");
 
         let link_targets: Vec<&str> = cache.links.iter().map(|l| l.target_path.as_str()).collect();
-        let embed_targets: Vec<&str> = cache.embeds.iter().map(|l| l.target_path.as_str()).collect();
+        let embed_targets: Vec<&str> = cache
+            .embeds
+            .iter()
+            .map(|l| l.target_path.as_str())
+            .collect();
 
         assert!(link_targets.contains(&"note-a"));
         assert!(link_targets.contains(&"note-b"));
@@ -4235,7 +4348,12 @@ pub fn query_bases(
             } else {
                 filter.value.clone()
             };
-            where_clauses.push(format!("notes.{} {} ?{}", filter.property, op, params.len() + 1));
+            where_clauses.push(format!(
+                "notes.{} {} ?{}",
+                filter.property,
+                op,
+                params.len() + 1
+            ));
             params.push(Box::new(val));
         } else {
             let op = match filter.operator.as_str() {

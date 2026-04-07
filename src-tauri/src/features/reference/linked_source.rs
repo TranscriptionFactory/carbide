@@ -92,7 +92,15 @@ fn extract_pdf_info_string(doc: &lopdf::Document, key: &[u8]) -> Option<String> 
     }
 }
 
-fn extract_pdf_metadata(path: &Path) -> (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>) {
+fn extract_pdf_metadata(
+    path: &Path,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
     let doc = match lopdf::Document::load(path) {
         Ok(d) => d,
         Err(_) => return (None, None, None, None, None),
@@ -101,7 +109,8 @@ fn extract_pdf_metadata(path: &Path) -> (Option<String>, Option<String>, Option<
     let author = extract_pdf_info_string(&doc, b"Author").filter(|s| !s.trim().is_empty());
     let subject = extract_pdf_info_string(&doc, b"Subject").filter(|s| !s.trim().is_empty());
     let keywords = extract_pdf_info_string(&doc, b"Keywords").filter(|s| !s.trim().is_empty());
-    let creation_date = extract_pdf_info_string(&doc, b"CreationDate").filter(|s| !s.trim().is_empty());
+    let creation_date =
+        extract_pdf_info_string(&doc, b"CreationDate").filter(|s| !s.trim().is_empty());
     (title, author, subject, keywords, creation_date)
 }
 
@@ -109,8 +118,7 @@ fn extract_pdf_metadata(path: &Path) -> (Option<String>, Option<String>, Option<
 // DOI extraction from text
 // ---------------------------------------------------------------------------
 
-static DOI_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"10\.\d{4,}/[^\s\]>)]+").unwrap());
+static DOI_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"10\.\d{4,}/[^\s\]>)]+").unwrap());
 
 static ISBN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:ISBN[\-: ]*)?(?:97[89][\- ]?(?:\d[\- ]?){9}\d|\d{9}[\dXx])").unwrap()
@@ -139,7 +147,10 @@ fn extract_doi_from_text(text: &str, max_chars: usize) -> Option<String> {
 }
 
 fn normalize_isbn(raw: &str) -> Option<String> {
-    let digits: String = raw.chars().filter(|c| c.is_ascii_digit() || *c == 'X' || *c == 'x').collect();
+    let digits: String = raw
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == 'X' || *c == 'x')
+        .collect();
     if digits.len() == 10 || digits.len() == 13 {
         Some(digits)
     } else {
@@ -176,9 +187,7 @@ struct PdfTextResult {
 /// Extract PDF text in a subprocess to isolate OOM from pdf_extract::make_font().
 /// If the subprocess crashes (OOM on malformed fonts), only it dies — the app survives.
 fn extract_pdf_text_subprocess(path: &Path) -> Result<(String, Vec<usize>), String> {
-    let file_len = std::fs::metadata(path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     if file_len > MAX_PDF_BYTES as u64 {
         return Err(format!(
             "PDF too large for text extraction ({} MB, limit {} MB)",
@@ -187,8 +196,7 @@ fn extract_pdf_text_subprocess(path: &Path) -> Result<(String, Vec<usize>), Stri
         ));
     }
 
-    let exe = std::env::current_exe()
-        .map_err(|e| format!("current_exe: {e}"))?;
+    let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
 
     let mut child = std::process::Command::new(exe)
         .arg("--extract-pdf-text")
@@ -273,7 +281,11 @@ fn extract_content_attr(region: &str) -> Option<String> {
     let content_start = region.find("content=\"")? + 9;
     let content_end = region[content_start..].find('"')?;
     let value = region[content_start..content_start + content_end].to_string();
-    if value.trim().is_empty() { None } else { Some(value) }
+    if value.trim().is_empty() {
+        None
+    } else {
+        Some(value)
+    }
 }
 
 /// Find first `<meta {attr_key}="{attr_val}" content="...">` and return the content value.
@@ -315,7 +327,11 @@ fn extract_html_title_from(content: &str, lower: &str) -> Option<String> {
     }
     let close = lower[tag_end..].find("</title")?;
     let title = content[tag_end..tag_end + close].trim().to_string();
-    if title.is_empty() { None } else { Some(title) }
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
 }
 
 fn parse_json_ld(content: &str, lower: &str) -> Option<serde_json::Value> {
@@ -685,7 +701,10 @@ pub fn linked_source_remove_content(
     file_path: String,
 ) -> Result<(), String> {
     crate::features::search::service::linked_source_remove(
-        &app, &vault_id, &source_name, &file_path,
+        &app,
+        &vault_id,
+        &source_name,
+        &file_path,
     )
 }
 
@@ -720,22 +739,13 @@ mod tests {
 
     #[test]
     fn classify_pdf_file() {
-        assert_eq!(
-            classify_linked_file(Path::new("paper.pdf")),
-            Some("pdf")
-        );
+        assert_eq!(classify_linked_file(Path::new("paper.pdf")), Some("pdf"));
     }
 
     #[test]
     fn classify_html_file() {
-        assert_eq!(
-            classify_linked_file(Path::new("page.html")),
-            Some("html")
-        );
-        assert_eq!(
-            classify_linked_file(Path::new("page.htm")),
-            Some("html")
-        );
+        assert_eq!(classify_linked_file(Path::new("page.html")), Some("html"));
+        assert_eq!(classify_linked_file(Path::new("page.htm")), Some("html"));
     }
 
     #[test]
@@ -813,10 +823,7 @@ mod tests {
     #[test]
     fn html_meta_extraction() {
         let html = r#"<meta name="author" content="John Doe">"#;
-        assert_eq!(
-            meta(html, "author"),
-            Some("John Doe".to_string())
-        );
+        assert_eq!(meta(html, "author"), Some("John Doe".to_string()));
     }
 
     #[test]
@@ -846,10 +853,7 @@ mod tests {
     #[test]
     fn doi_extraction_utf8_boundary() {
         let text = "日本語テキスト 10.1234/test.5678 more text";
-        assert_eq!(
-            extract_doi_from_text(text, 10),
-            None
-        );
+        assert_eq!(extract_doi_from_text(text, 10), None);
         assert_eq!(
             extract_doi_from_text(text, 100),
             Some("10.1234/test.5678".to_string())
@@ -860,8 +864,14 @@ mod tests {
     fn strip_tags_unclosed_script() {
         let html = "<p>Before</p><script>alert('xss')<p>After the script</p>";
         let text = strip(html);
-        assert!(text.contains("Before"), "Content before script should be preserved");
-        assert!(text.contains("After the script"), "Content after unclosed script should be preserved");
+        assert!(
+            text.contains("Before"),
+            "Content before script should be preserved"
+        );
+        assert!(
+            text.contains("After the script"),
+            "Content after unclosed script should be preserved"
+        );
     }
 
     #[test]
@@ -955,10 +965,7 @@ mod tests {
     #[test]
     fn html_meta_property_extraction() {
         let html = r#"<meta property="og:title" content="OpenGraph Title">"#;
-        assert_eq!(
-            prop(html, "og:title"),
-            Some("OpenGraph Title".to_string())
-        );
+        assert_eq!(prop(html, "og:title"), Some("OpenGraph Title".to_string()));
     }
 
     #[test]

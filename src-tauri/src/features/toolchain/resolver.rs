@@ -42,7 +42,9 @@ pub async fn resolve(
             "{} not found locally, attempting auto-download",
             spec.display_name
         );
-        return super::downloader::download_tool(app, tool_id).await.map(ready);
+        return super::downloader::download_tool(app, tool_id)
+            .await
+            .map(ready);
     }
 
     Err(format!(

@@ -437,10 +437,7 @@ mod tests {
     fn test_mcp_router(token: &str) -> Router {
         let state = Arc::new(token.to_string());
         Router::new()
-            .route(
-                "/mcp",
-                get(mcp_get_handler).post(mcp_post_handler_no_app),
-            )
+            .route("/mcp", get(mcp_get_handler).post(mcp_post_handler_no_app))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 test_auth_middleware,

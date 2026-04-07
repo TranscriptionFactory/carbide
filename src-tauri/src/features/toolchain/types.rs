@@ -45,8 +45,7 @@ impl ToolSpec {
     }
 
     pub fn release_tag(&self) -> String {
-        self.release_tag_template
-            .replace("{version}", self.version)
+        self.release_tag_template.replace("{version}", self.version)
     }
 }
 

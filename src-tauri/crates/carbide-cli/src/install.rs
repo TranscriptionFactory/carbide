@@ -30,11 +30,7 @@ pub fn install_cli() -> Result<(), String> {
 
     create_symlink(&exe, &link)?;
 
-    eprintln!(
-        "installed: {} -> {}",
-        link.display(),
-        exe.display()
-    );
+    eprintln!("installed: {} -> {}", link.display(), exe.display());
     eprintln!("you can now run `carbide` from any terminal.");
 
     Ok(())
@@ -84,18 +80,18 @@ fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
 
 #[cfg(not(unix))]
 fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
-    std::fs::copy(original, link)
-        .map(|_| ())
-        .map_err(|e| format!("failed to copy {} -> {}: {e}", original.display(), link.display()))
-}
-
-fn remove_symlink(link: &Path) -> Result<(), String> {
-    std::fs::remove_file(link).map_err(|e| {
+    std::fs::copy(original, link).map(|_| ()).map_err(|e| {
         format!(
-            "failed to remove {}: {e} (try with sudo)",
+            "failed to copy {} -> {}: {e}",
+            original.display(),
             link.display()
         )
     })
+}
+
+fn remove_symlink(link: &Path) -> Result<(), String> {
+    std::fs::remove_file(link)
+        .map_err(|e| format!("failed to remove {}: {e} (try with sudo)", link.display()))
 }
 
 #[cfg(test)]

@@ -54,7 +54,12 @@ struct DeletePathParams {
     path: String,
 }
 
-pub async fn read(client: &CarbideClient, vault_id: &str, path: &str, json: bool) -> Result<(), String> {
+pub async fn read(
+    client: &CarbideClient,
+    vault_id: &str,
+    path: &str,
+    json: bool,
+) -> Result<(), String> {
     let resp: Value = client
         .post_json(
             "/cli/read",
@@ -68,10 +73,7 @@ pub async fn read(client: &CarbideClient, vault_id: &str, path: &str, json: bool
     if json {
         format::print_json(&resp);
     } else {
-        print!(
-            "{}",
-            resp["content"].as_str().unwrap_or("")
-        );
+        print!("{}", resp["content"].as_str().unwrap_or(""));
     }
     Ok(())
 }
@@ -204,7 +206,11 @@ pub async fn rename(
     if json {
         format::print_json(&resp);
     } else {
-        println!("Renamed {} -> {}", path, resp["path"].as_str().unwrap_or(new_path));
+        println!(
+            "Renamed {} -> {}",
+            path,
+            resp["path"].as_str().unwrap_or(new_path)
+        );
     }
     Ok(())
 }

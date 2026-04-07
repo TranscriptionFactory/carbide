@@ -33,9 +33,10 @@ pub async fn vault(client: &CarbideClient, vault_id: &str, json: bool) -> Result
 }
 
 pub async fn vaults(client: &CarbideClient, json: bool) -> Result<(), String> {
-    let resp: Value = client.post_raw("/cli/vaults", &()).await.and_then(|body| {
-        serde_json::from_str(&body).map_err(|e| format!("invalid JSON: {e}"))
-    })?;
+    let resp: Value = client
+        .post_raw("/cli/vaults", &())
+        .await
+        .and_then(|body| serde_json::from_str(&body).map_err(|e| format!("invalid JSON: {e}")))?;
 
     if json {
         format::print_json(&resp);

@@ -25,12 +25,10 @@ fn search_notes_has_optional_limit() {
     let defs = search::tool_definitions();
     let search_def = defs.iter().find(|d| d.name == "search_notes").unwrap();
     assert!(search_def.input_schema.properties.contains_key("limit"));
-    assert!(
-        !search_def
-            .input_schema
-            .required
-            .contains(&"limit".to_string())
-    );
+    assert!(!search_def
+        .input_schema
+        .required
+        .contains(&"limit".to_string()));
 }
 
 #[test]
@@ -42,18 +40,12 @@ fn metadata_tool_definitions_count() {
 #[test]
 fn get_note_metadata_requires_vault_id_and_path() {
     let defs = metadata::tool_definitions();
-    let meta_def = defs
-        .iter()
-        .find(|d| d.name == "get_note_metadata")
-        .unwrap();
+    let meta_def = defs.iter().find(|d| d.name == "get_note_metadata").unwrap();
     assert!(meta_def
         .input_schema
         .required
         .contains(&"vault_id".to_string()));
-    assert!(meta_def
-        .input_schema
-        .required
-        .contains(&"path".to_string()));
+    assert!(meta_def.input_schema.required.contains(&"path".to_string()));
 }
 
 #[test]

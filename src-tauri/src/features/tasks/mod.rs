@@ -75,7 +75,11 @@ pub fn tasks_update_due_date(
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let abs_path = notes_service::safe_vault_abs(&vault_root, &update.path)?;
 
-    update_task_due_date_in_file(&abs_path, update.line_number, update.new_due_date.as_deref())?;
+    update_task_due_date_in_file(
+        &abs_path,
+        update.line_number,
+        update.new_due_date.as_deref(),
+    )?;
 
     let content = io_utils::read_file_to_string(&abs_path)?;
     let tasks = service::extract_tasks(&update.path, &content);

@@ -33,15 +33,18 @@ fn library_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
 fn read_library(app: &AppHandle, vault_id: &str) -> Result<ReferenceLibrary, String> {
     let path = library_path(app, vault_id)?;
     match std::fs::read(&path) {
-        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-            format!("failed to parse reference library: {e}")
-        }),
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| format!("failed to parse reference library: {e}")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ReferenceLibrary::default()),
         Err(e) => Err(e.to_string()),
     }
 }
 
-fn write_library(app: &AppHandle, vault_id: &str, library: &ReferenceLibrary) -> Result<(), String> {
+fn write_library(
+    app: &AppHandle,
+    vault_id: &str,
+    library: &ReferenceLibrary,
+) -> Result<(), String> {
     let path = library_path(app, vault_id)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -86,9 +89,11 @@ pub fn reference_add_item(
 
     let mut library = read_library(&app, &vault_id)?;
 
-    if let Some(pos) = library.items.iter().position(|i| {
-        item_citekey(i).map_or(false, |k| k == citekey)
-    }) {
+    if let Some(pos) = library
+        .items
+        .iter()
+        .position(|i| item_citekey(i).map_or(false, |k| k == citekey))
+    {
         library.items[pos] = item;
     } else {
         library.items.push(item);
@@ -106,9 +111,9 @@ pub fn reference_remove_item(
     citekey: String,
 ) -> Result<ReferenceLibrary, String> {
     let mut library = read_library(&app, &vault_id)?;
-    library.items.retain(|i| {
-        item_citekey(i).map_or(true, |k| k != citekey)
-    });
+    library
+        .items
+        .retain(|i| item_citekey(i).map_or(true, |k| k != citekey));
     write_library(&app, &vault_id, &library)?;
     Ok(library)
 }
@@ -125,9 +130,7 @@ fn encode_doi_path(doi: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reference_doi_lookup(
-    doi: String,
-) -> Result<Option<serde_json::Value>, String> {
+pub async fn reference_doi_lookup(doi: String) -> Result<Option<serde_json::Value>, String> {
     let encoded = encode_doi_path(&doi);
     let url = format!(
         "{}/{}/transform/application/vnd.citationstyles.csl+json",
@@ -137,10 +140,7 @@ pub async fn reference_doi_lookup(
     let response = http_client()
         .get(&url)
         .header("Accept", "application/vnd.citationstyles.csl+json")
-        .header(
-            "User-Agent",
-            "Carbide/1.0 (mailto:support@carbide.app)",
-        )
+        .header("User-Agent", "Carbide/1.0 (mailto:support@carbide.app)")
         .send()
         .await
         .map_err(|e| format!("DOI lookup failed: {e}"))?;
@@ -150,10 +150,7 @@ pub async fn reference_doi_lookup(
     }
 
     if !response.status().is_success() {
-        return Err(format!(
-            "CrossRef returned status {}",
-            response.status()
-        ));
+        return Err(format!("CrossRef returned status {}", response.status()));
     }
 
     let csl: serde_json::Value = response
@@ -202,9 +199,7 @@ async fn bbt_rpc(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reference_bbt_test_connection(
-    bbt_url: String,
-) -> Result<bool, String> {
+pub async fn reference_bbt_test_connection(bbt_url: String) -> Result<bool, String> {
     match bbt_rpc(&bbt_url, "db.test", serde_json::json!([])).await {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
@@ -262,9 +257,7 @@ pub async fn reference_bbt_get_item(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reference_bbt_collections(
-    bbt_url: String,
-) -> Result<Vec<serde_json::Value>, String> {
+pub async fn reference_bbt_collections(bbt_url: String) -> Result<Vec<serde_json::Value>, String> {
     let result = bbt_rpc(&bbt_url, "collection.list", serde_json::json!([])).await?;
 
     Ok(match result {
@@ -357,12 +350,7 @@ pub async fn reference_bbt_annotations(
     citekey: String,
 ) -> Result<Vec<serde_json::Value>, String> {
     // BBT item.attachments returns attachment metadata including PDF annotation data
-    let result = bbt_rpc(
-        &bbt_url,
-        "item.attachments",
-        serde_json::json!([citekey]),
-    )
-    .await?;
+    let result = bbt_rpc(&bbt_url, "item.attachments", serde_json::json!([citekey])).await?;
 
     let attachments = match result {
         serde_json::Value::Array(arr) => arr,

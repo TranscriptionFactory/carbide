@@ -264,7 +264,11 @@ fn extract_frontmatter_description(text: &str) -> Option<String> {
     let start = if text.starts_with("---\r\n") { 5 } else { 4 };
     let end = text.find("\n---\n").or_else(|| {
         let pos = text.find("\n---")?;
-        if pos + 4 >= text.len() { Some(pos) } else { None }
+        if pos + 4 >= text.len() {
+            Some(pos)
+        } else {
+            None
+        }
     })?;
     if end < start {
         return None;

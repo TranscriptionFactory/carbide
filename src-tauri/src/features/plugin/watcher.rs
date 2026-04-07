@@ -76,7 +76,10 @@ pub fn watch_plugins(
             .lock()
             .map_err(|_| "lock poisoned")?;
         if current.as_deref() == Some(&vault_path) {
-            log::debug!("Already watching plugins for vault_path={}, skipping", vault_path);
+            log::debug!(
+                "Already watching plugins for vault_path={}, skipping",
+                vault_path
+            );
             return Ok(());
         }
     }

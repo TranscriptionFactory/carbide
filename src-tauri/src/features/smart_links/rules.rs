@@ -36,14 +36,14 @@ pub fn execute_rules(
             };
 
             for hit in rule_hits {
-                let entry = hits.entry(hit.target_path.clone()).or_insert_with(|| {
-                    SmartLinkSuggestion {
-                        target_path: hit.target_path.clone(),
-                        target_title: hit.target_title.clone(),
-                        score: 0.0,
-                        rules: Vec::new(),
-                    }
-                });
+                let entry =
+                    hits.entry(hit.target_path.clone())
+                        .or_insert_with(|| SmartLinkSuggestion {
+                            target_path: hit.target_path.clone(),
+                            target_title: hit.target_title.clone(),
+                            score: 0.0,
+                            rules: Vec::new(),
+                        });
                 entry.score += rule.weight * hit.raw_score;
                 entry.rules.push(SmartLinkRuleMatch {
                     rule_id: rule.id.clone(),
@@ -54,7 +54,11 @@ pub fn execute_rules(
     }
 
     let mut results: Vec<SmartLinkSuggestion> = hits.into_values().collect();
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(limit);
     Ok(results)
 }
@@ -142,10 +146,7 @@ fn query_shared_property(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
         .map_err(|e| e.to_string())
 }
 
-fn query_semantic_similarity(
-    conn: &Connection,
-    note_path: &str,
-) -> Result<Vec<RuleHit>, String> {
+fn query_semantic_similarity(conn: &Connection, note_path: &str) -> Result<Vec<RuleHit>, String> {
     let query_vec = match vector_db::get_embedding(conn, note_path) {
         Some(v) => v,
         None => return Ok(vec![]),
@@ -229,7 +230,11 @@ fn query_title_overlap(conn: &Connection, note_path: &str) -> Result<Vec<RuleHit
             });
         }
     }
-    hits.sort_by(|a, b| b.raw_score.partial_cmp(&a.raw_score).unwrap_or(std::cmp::Ordering::Equal));
+    hits.sort_by(|a, b| {
+        b.raw_score
+            .partial_cmp(&a.raw_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     hits.truncate(50);
     Ok(hits)
 }

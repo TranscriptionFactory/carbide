@@ -337,16 +337,15 @@ pub fn run() {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 let uri = req.uri().to_string();
-                let response =
-                    catch_unwind(AssertUnwindSafe(|| {
-                        shared::storage::handle_asset_request(&app, req)
-                    }))
-                    .unwrap_or_else(|_| {
-                        shared::storage::internal_error_response(
-                            "carbide-asset",
-                            format!("panic while handling {}", uri),
-                        )
-                    });
+                let response = catch_unwind(AssertUnwindSafe(|| {
+                    shared::storage::handle_asset_request(&app, req)
+                }))
+                .unwrap_or_else(|_| {
+                    shared::storage::internal_error_response(
+                        "carbide-asset",
+                        format!("panic while handling {}", uri),
+                    )
+                });
                 responder.respond(response);
             });
         })
@@ -354,16 +353,15 @@ pub fn run() {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 let uri = req.uri().to_string();
-                let response =
-                    catch_unwind(AssertUnwindSafe(|| {
-                        shared::storage::handle_plugin_request(&app, req)
-                    }))
-                    .unwrap_or_else(|_| {
-                        shared::storage::internal_error_response(
-                            "carbide-plugin",
-                            format!("panic while handling {}", uri),
-                        )
-                    });
+                let response = catch_unwind(AssertUnwindSafe(|| {
+                    shared::storage::handle_plugin_request(&app, req)
+                }))
+                .unwrap_or_else(|_| {
+                    shared::storage::internal_error_response(
+                        "carbide-plugin",
+                        format!("panic while handling {}", uri),
+                    )
+                });
                 responder.respond(response);
             });
         })
@@ -371,16 +369,15 @@ pub fn run() {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 let uri = req.uri().to_string();
-                let response =
-                    catch_unwind(AssertUnwindSafe(|| {
-                        shared::storage::handle_excalidraw_request(&app, req)
-                    }))
-                    .unwrap_or_else(|_| {
-                        shared::storage::internal_error_response(
-                            "carbide-excalidraw",
-                            format!("panic while handling {}", uri),
-                        )
-                    });
+                let response = catch_unwind(AssertUnwindSafe(|| {
+                    shared::storage::handle_excalidraw_request(&app, req)
+                }))
+                .unwrap_or_else(|_| {
+                    shared::storage::internal_error_response(
+                        "carbide-excalidraw",
+                        format!("panic while handling {}", uri),
+                    )
+                });
                 responder.respond(response);
             });
         })

@@ -159,7 +159,13 @@ pub async fn outline(
         for h in headings {
             let level = h["level"].as_u64().unwrap_or(1) as usize;
             let text = h["text"].as_str().unwrap_or("");
-            println!("{}", format::indent_tree(&format::format_heading(level as u32, text), level.saturating_sub(1)));
+            println!(
+                "{}",
+                format::indent_tree(
+                    &format::format_heading(level as u32, text),
+                    level.saturating_sub(1)
+                )
+            );
         }
     }
     Ok(())

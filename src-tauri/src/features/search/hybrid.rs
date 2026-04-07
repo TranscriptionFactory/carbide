@@ -15,13 +15,9 @@ pub fn hybrid_search(
 
     let over_fetch = limit * 3;
 
-    let vector_hits =
-        vector_db::knn_search(conn, &query_vec, over_fetch)
-            .unwrap_or_default();
+    let vector_hits = vector_db::knn_search(conn, &query_vec, over_fetch).unwrap_or_default();
 
-    let fts_hits =
-        search_db::search(conn, query, SearchScope::All, over_fetch)
-            .unwrap_or_default();
+    let fts_hits = search_db::search(conn, query, SearchScope::All, over_fetch).unwrap_or_default();
 
     let merged = rrf_merge(&fts_hits, &vector_hits, limit, query);
 

@@ -1,7 +1,10 @@
 use serde_json::Value;
 
 pub fn print_json(value: &Value) {
-    println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).unwrap_or_default()
+    );
 }
 
 pub fn print_lines(items: &[String]) {

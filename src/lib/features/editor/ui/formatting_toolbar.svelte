@@ -128,7 +128,9 @@
         : false}
       {@const current_view = get_view()}
       {@const _version = get_state_version()}
-      {@const available = current_view ? is_command_available(button.id, current_view) : false}
+      {@const available = current_view
+        ? is_command_available(button.id, current_view)
+        : false}
       <button
         type="button"
         class="FormattingToolbar__button"

@@ -120,8 +120,8 @@ struct MarkdownLspStartupResolution {
 }
 
 fn validate_iwe_working_dir(vault_path: &Path) -> Result<(), String> {
-    let metadata = std::fs::metadata(vault_path)
-        .map_err(|e| format!("IWE vault cwd unusable: {}", e))?;
+    let metadata =
+        std::fs::metadata(vault_path).map_err(|e| format!("IWE vault cwd unusable: {}", e))?;
     if !metadata.is_dir() {
         return Err(format!(
             "IWE vault cwd unusable: {} is not a directory",
@@ -163,10 +163,10 @@ async fn ensure_iwe_config(app: &AppHandle, vault_path: &Path) -> Result<(), Str
         true
     };
     if needs_copy {
-        if let Ok(default_config) = app
-            .path()
-            .resolve("resources/iwe-default-config.toml", tauri::path::BaseDirectory::Resource)
-        {
+        if let Ok(default_config) = app.path().resolve(
+            "resources/iwe-default-config.toml",
+            tauri::path::BaseDirectory::Resource,
+        ) {
             std::fs::create_dir_all(&iwe_dir)
                 .map_err(|e| format!("Failed to create .iwe directory: {}", e))?;
             std::fs::copy(&default_config, &iwe_config)
@@ -205,9 +205,7 @@ async fn resolve_markdown_lsp_startup(
 
             match preflight_iwe_startup(vault_path, &iwe_path).await {
                 Ok(()) => {
-                    log::info!(
-                        "Markdown LSP requested_provider=iwes effective_provider=iwes"
-                    );
+                    log::info!("Markdown LSP requested_provider=iwes effective_provider=iwes");
                     Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Iwes,
                         binary_path: iwe_path,
@@ -368,8 +366,7 @@ pub async fn markdown_lsp_start(
     let preferred = provider.as_deref().unwrap_or("iwes");
     let startup_reason = startup_reason.unwrap_or_else(|| "initial_start".to_string());
     let resolution_started_at = Instant::now();
-    let startup =
-        resolve_markdown_lsp_startup(&app, preferred, custom_ref, &vault_path).await?;
+    let startup = resolve_markdown_lsp_startup(&app, preferred, custom_ref, &vault_path).await?;
     log::info!(
         "markdown_lsp_startup phase=resolve_startup startup_reason={} requested_provider={} effective_provider={} duration_ms={}",
         startup_reason,
@@ -1393,7 +1390,10 @@ pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), St
 
     let default_config = app
         .path()
-        .resolve("resources/iwe-default-config.toml", tauri::path::BaseDirectory::Resource)
+        .resolve(
+            "resources/iwe-default-config.toml",
+            tauri::path::BaseDirectory::Resource,
+        )
         .map_err(|e| format!("Failed to resolve default config: {}", e))?;
 
     tokio::fs::create_dir_all(&iwe_dir)
@@ -1483,9 +1483,7 @@ fn build_command_toml(
             })
             .collect()
     } else {
-        args.iter()
-            .map(|a| a.replace("{model}", model))
-            .collect()
+        args.iter().map(|a| a.replace("{model}", model)).collect()
     };
 
     let args_str = final_args
@@ -1552,7 +1550,13 @@ fn rewrite_iwe_config(
                         if !inserted_commands {
                             inserted_commands = true;
                             for t in MANAGED_TRANSFORMS {
-                                result_lines.push(build_command_toml(t, command, args, model, prompt_in_args));
+                                result_lines.push(build_command_toml(
+                                    t,
+                                    command,
+                                    args,
+                                    model,
+                                    prompt_in_args,
+                                ));
                             }
                         }
                         continue;
@@ -1568,7 +1572,11 @@ fn rewrite_iwe_config(
                         if !inserted_actions {
                             inserted_actions = true;
                             for t in MANAGED_TRANSFORMS {
-                                result_lines.push(build_action_toml(t, provider_name, prompt_in_args));
+                                result_lines.push(build_action_toml(
+                                    t,
+                                    provider_name,
+                                    prompt_in_args,
+                                ));
                             }
                         }
                         continue;

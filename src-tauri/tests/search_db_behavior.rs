@@ -1,10 +1,9 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
-    compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest,
-    get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
-    open_search_db_at_path, query_bases, rebuild_index, remove_notes_by_prefix,
-    rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
-    upsert_note,
+    compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest, get_note_meta,
+    get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
+    query_bases, rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path,
+    search, set_outlinks, suggest_planned, sync_index, upsert_note,
 };
 use crate::features::search::model::{BaseQuery, IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
@@ -615,7 +614,16 @@ fn upsert_note_persists_ctime_ms() {
     };
     upsert_note(&conn, &meta, "hello world").expect("upsert");
 
-    let results = query_bases(&conn, BaseQuery { filters: vec![], sort: vec![], limit: 100, offset: 0 }).expect("query_bases");
+    let results = query_bases(
+        &conn,
+        BaseQuery {
+            filters: vec![],
+            sort: vec![],
+            limit: 100,
+            offset: 0,
+        },
+    )
+    .expect("query_bases");
     assert_eq!(results.rows.len(), 1);
     assert_eq!(results.rows[0].note.ctime_ms, 1000);
     assert_eq!(results.rows[0].note.mtime_ms, 2000);
@@ -639,6 +647,15 @@ fn ctime_ms_defaults_to_zero_for_legacy_notes() {
     };
     upsert_note(&conn, &meta, "content").expect("upsert");
 
-    let results = query_bases(&conn, BaseQuery { filters: vec![], sort: vec![], limit: 100, offset: 0 }).expect("query_bases");
+    let results = query_bases(
+        &conn,
+        BaseQuery {
+            filters: vec![],
+            sort: vec![],
+            limit: 100,
+            offset: 0,
+        },
+    )
+    .expect("query_bases");
     assert_eq!(results.rows[0].note.ctime_ms, 0);
 }

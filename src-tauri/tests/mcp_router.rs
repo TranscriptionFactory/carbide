@@ -104,7 +104,11 @@ fn tool_definitions_have_valid_schemas() {
         assert!(!tool["description"].as_str().unwrap().is_empty());
         assert_eq!(tool["inputSchema"]["type"], "object");
         let required = &tool["inputSchema"]["required"];
-        assert!(required.is_array() || required.is_null(), "required should be array or absent for {}", tool["name"]);
+        assert!(
+            required.is_array() || required.is_null(),
+            "required should be array or absent for {}",
+            tool["name"]
+        );
     }
 }
 
@@ -127,11 +131,7 @@ fn tools_call_without_app_returns_no_context_error() {
 #[test]
 fn tools_call_unknown_tool_returns_error_result() {
     let mut router = McpRouter::new();
-    let req = make_request(
-        "tools/call",
-        Some(json!({ "name": "nonexistent_tool" })),
-        1,
-    );
+    let req = make_request("tools/call", Some(json!({ "name": "nonexistent_tool" })), 1);
     let resp = router.handle_request(&req).unwrap();
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();

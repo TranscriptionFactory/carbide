@@ -35,7 +35,10 @@ fn create_note_requires_path_and_content() {
     let defs = notes::tool_definitions();
     let create = defs.iter().find(|d| d.name == "create_note").unwrap();
     assert!(create.input_schema.required.contains(&"path".to_string()));
-    assert!(create.input_schema.required.contains(&"content".to_string()));
+    assert!(create
+        .input_schema
+        .required
+        .contains(&"content".to_string()));
 }
 
 #[test]

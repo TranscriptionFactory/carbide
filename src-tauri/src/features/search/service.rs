@@ -280,11 +280,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn writer_thread_loop(
-    _vault_id: String,
-    rx: Receiver<DbCommand>,
-    conn: Connection,
-) {
+fn writer_thread_loop(_vault_id: String, rx: Receiver<DbCommand>, conn: Connection) {
     let mut notes_cache: BTreeMap<String, IndexNoteMeta> =
         match search_db::get_all_notes_from_db(&conn) {
             Ok(map) => map,
@@ -412,19 +408,18 @@ fn dispatch_command(
                     let embedding_state = app_handle.state::<EmbeddingServiceState>();
                     let cache_dir = resolve_embedding_cache_dir(&app_handle);
                     match embedding_state.get_or_init(cache_dir, &app_handle) {
-                        Ok(model) => {
-                            match model.embed_one(&embed_text) {
-                                Ok(vec) => {
-                                    if let Err(e) = vector_db::upsert_embedding(conn, &meta.path, &vec) {
-                                        log::warn!("writer: embed linked note failed: {e}");
-                                    }
-                                }
-                                Err(e) => {
-                                    log::warn!("writer: embed linked note model error: {e}");
-                                    let _ = vector_db::remove_embedding(conn, &meta.path);
+                        Ok(model) => match model.embed_one(&embed_text) {
+                            Ok(vec) => {
+                                if let Err(e) = vector_db::upsert_embedding(conn, &meta.path, &vec)
+                                {
+                                    log::warn!("writer: embed linked note failed: {e}");
                                 }
                             }
-                        }
+                            Err(e) => {
+                                log::warn!("writer: embed linked note model error: {e}");
+                                let _ = vector_db::remove_embedding(conn, &meta.path);
+                            }
+                        },
                         Err(e) => {
                             log::debug!("writer: embedding model unavailable for linked note: {e}");
                             let _ = vector_db::remove_embedding(conn, &meta.path);
@@ -443,13 +438,14 @@ fn dispatch_command(
             linked_meta,
             reply,
         } => {
-            let result = match search_db::find_linked_note_path(conn, &source_name, &external_file_path) {
-                Ok(Some(path)) => {
-                    search_db::update_linked_metadata(conn, &path, &linked_meta).map(|_| true)
-                }
-                Ok(None) => Ok(false),
-                Err(e) => Err(e),
-            };
+            let result =
+                match search_db::find_linked_note_path(conn, &source_name, &external_file_path) {
+                    Ok(Some(path)) => {
+                        search_db::update_linked_metadata(conn, &path, &linked_meta).map(|_| true)
+                    }
+                    Ok(None) => Ok(false),
+                    Err(e) => Err(e),
+                };
             let _ = reply.send(result);
         }
         DbCommand::RenamePaths {
@@ -1126,7 +1122,6 @@ fn send_write(app: &AppHandle, vault_id: &str, cmd: DbCommand) -> Result<(), Str
     tx.send(cmd).map_err(|e| e.to_string())
 }
 
-
 fn send_write_reply<T>(
     app: &AppHandle,
     vault_id: &str,
@@ -1639,13 +1634,8 @@ pub fn semantic_search_batch(
 ) -> Result<Vec<BatchSemanticEdge>, String> {
     with_read_conn(&app, &vault_id, |conn| {
         let linked_sets = search_db::get_linked_paths_batch(conn, &paths)?;
-        let edges = vector_db::knn_search_batch(
-            conn,
-            &paths,
-            limit,
-            distance_threshold,
-            &linked_sets,
-        )?;
+        let edges =
+            vector_db::knn_search_batch(conn, &paths, limit, distance_threshold, &linked_sets)?;
 
         Ok(edges
             .into_iter()

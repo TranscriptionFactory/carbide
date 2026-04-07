@@ -343,7 +343,10 @@ mod tests {
     #[test]
     fn resolve_carriage_returns_preserves_multiline_output() {
         let input = "line one\nline two\nline three";
-        assert_eq!(resolve_carriage_returns(input), "line one\nline two\nline three");
+        assert_eq!(
+            resolve_carriage_returns(input),
+            "line one\nline two\nline three"
+        );
     }
 
     #[test]

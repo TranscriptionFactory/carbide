@@ -1,6 +1,4 @@
-use crate::shared::asset_cache::{
-    serve_with_cache, AssetCacheState, CachePolicy,
-};
+use crate::shared::asset_cache::{serve_with_cache, AssetCacheState, CachePolicy};
 use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -158,7 +156,11 @@ fn error_response(
         uri,
         reason
     );
-    build_response(status, "text/plain; charset=utf-8", reason.as_bytes().to_vec())
+    build_response(
+        status,
+        "text/plain; charset=utf-8",
+        reason.as_bytes().to_vec(),
+    )
 }
 
 pub fn internal_error_response(scheme: &str, reason: impl AsRef<str>) -> Response<Vec<u8>> {
@@ -192,12 +194,10 @@ fn try_url_decode(input: &str) -> Result<String, String> {
 
 #[cfg(test)]
 fn url_decode(input: &str) -> String {
-    try_url_decode(input)
-        .unwrap_or_else(|error| format!("__decode_error__:{error}"))
+    try_url_decode(input).unwrap_or_else(|error| format!("__decode_error__:{error}"))
 }
 
-const EMBEDDED_SDK: &str =
-    include_str!("../features/plugin/sdk/carbide_plugin_api.js");
+const EMBEDDED_SDK: &str = include_str!("../features/plugin/sdk/carbide_plugin_api.js");
 
 pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
@@ -387,7 +387,10 @@ pub fn handle_excalidraw_request(
             "carbide-excalidraw",
             &uri,
             403,
-            format!("excalidraw asset escaped root: {}", canonical_target.display()),
+            format!(
+                "excalidraw asset escaped root: {}",
+                canonical_target.display()
+            ),
         );
     }
 
@@ -546,7 +549,10 @@ mod tests {
 
     #[test]
     fn url_decode_mixed_path() {
-        assert_eq!(url_decode("path/%E4%B8%AD%E6%96%87/file.md"), "path/中文/file.md");
+        assert_eq!(
+            url_decode("path/%E4%B8%AD%E6%96%87/file.md"),
+            "path/中文/file.md"
+        );
     }
 
     #[test]
@@ -566,7 +572,10 @@ mod tests {
     fn build_response_sets_headers() {
         let response = build_response(418, "text/plain", b"teapot".to_vec());
         assert_eq!(response.status(), 418);
-        assert_eq!(response.headers().get("Content-Type").unwrap(), "text/plain");
+        assert_eq!(
+            response.headers().get("Content-Type").unwrap(),
+            "text/plain"
+        );
         assert_eq!(response.headers().get("Content-Length").unwrap(), "6");
     }
 
