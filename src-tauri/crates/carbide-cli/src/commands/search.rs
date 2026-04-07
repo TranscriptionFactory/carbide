@@ -29,6 +29,24 @@ struct OutlineParams {
     path: String,
 }
 
+pub async fn reindex(client: &CarbideClient, vault_id: &str, json: bool) -> Result<(), String> {
+    let resp: Value = client
+        .post_json(
+            "/cli/reindex",
+            &VaultIdParams {
+                vault_id: vault_id.to_string(),
+            },
+        )
+        .await?;
+
+    if json {
+        format::print_json(&resp);
+    } else {
+        println!("Reindex started.");
+    }
+    Ok(())
+}
+
 pub async fn search(
     client: &CarbideClient,
     vault_id: &str,
