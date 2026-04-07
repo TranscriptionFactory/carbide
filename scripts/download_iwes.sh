@@ -50,5 +50,9 @@ fi
 cp "${BINARY}" "${DEST}"
 chmod +x "${DEST}"
 
+# Strip macOS quarantine attribute to prevent Gatekeeper blocking in CI
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    xattr -d com.apple.quarantine "${DEST}" 2>/dev/null || true
+fi
+
 echo "Installed iwes to ${DEST}"
-echo "Version: $(${DEST} --version 2>/dev/null || echo 'unknown')"
