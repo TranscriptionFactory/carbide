@@ -8,6 +8,7 @@ function create_deps() {
   const open_note = vi.fn().mockResolvedValue({ status: "opened" });
   const sync_visual_from_markdown = vi.fn();
   const sync_visual_from_markdown_diff = vi.fn().mockReturnValue(true);
+  const mark_clean = vi.fn();
   const set_markdown = vi.fn();
   const set_dirty = vi.fn();
   const find_tab_by_path = vi.fn().mockReturnValue(null);
@@ -33,6 +34,7 @@ function create_deps() {
       editor_service: {
         sync_visual_from_markdown,
         sync_visual_from_markdown_diff,
+        mark_clean,
       } as unknown as WorkspaceEditDeps["editor_service"],
       editor_store,
       tab_store: {
@@ -62,6 +64,7 @@ function create_deps() {
       open_note,
       sync_visual_from_markdown,
       sync_visual_from_markdown_diff,
+      mark_clean,
       set_markdown,
       set_dirty,
       find_tab_by_path,
@@ -117,7 +120,7 @@ describe("apply_workspace_edit_result", () => {
       "notes/test.md",
       "# Updated\nNew content",
     );
-    expect(mocks.set_dirty).toHaveBeenCalledWith("notes/test.md", false);
+    expect(mocks.mark_clean).toHaveBeenCalled();
     expect(mocks.open_note).not.toHaveBeenCalled();
   });
 

@@ -521,6 +521,7 @@ export function create_prosemirror_editor_port(args?: {
               view.state.doc.content.size,
               new_doc.content,
             );
+            tr.setMeta("addToHistory", false);
             view.dispatch(tr);
           }
 
