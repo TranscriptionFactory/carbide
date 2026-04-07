@@ -146,19 +146,17 @@ describe("MarkdownLspService", () => {
     harness.emit_status({
       type: "status_changed",
       vault_id: "vault-b",
-      status: "failed: wrong vault",
+      status: { failed: { message: "wrong vault" } },
     });
     expect(store.status).toBe("running");
-    expect(store.error).toBeNull();
 
     harness.emit_status({
       type: "status_changed",
       vault_id: "vault-a",
-      status: "failed: right vault",
+      status: { failed: { message: "right vault" } },
     });
 
-    expect(store.status).toBe("error");
-    expect(store.error).toBe("failed: right vault");
+    expect(store.status).toEqual({ failed: { message: "right vault" } });
   });
 
   it("passes startup reason and initial IWE provider config to the port", async () => {

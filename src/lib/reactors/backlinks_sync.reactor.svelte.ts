@@ -2,12 +2,15 @@ import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
 import type { LinksService } from "$lib/features/links";
 import type { LinksStore } from "$lib/features/links";
-import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
+import type {
+  MarkdownLspStore,
+  MarkdownLspStatus,
+} from "$lib/features/markdown_lsp";
 
 type BacklinksSyncState = {
   last_note_path: string | null;
   last_panel_open: boolean;
-  last_markdown_lsp_status: string;
+  last_markdown_lsp_status: MarkdownLspStatus;
   last_is_dirty: boolean;
   loaded_note_path: string | null;
 };
@@ -15,7 +18,7 @@ type BacklinksSyncState = {
 type BacklinksSyncInput = {
   open_note_path: string | null;
   panel_open: boolean;
-  markdown_lsp_status: string;
+  markdown_lsp_status: MarkdownLspStatus;
   is_dirty: boolean;
   snapshot_note_path: string | null;
   global_status: LinksStore["global_status"];
@@ -91,7 +94,7 @@ export function create_backlinks_sync_reactor(
   let state: BacklinksSyncState = {
     last_note_path: null,
     last_panel_open: false,
-    last_markdown_lsp_status: "idle",
+    last_markdown_lsp_status: "stopped",
     last_is_dirty: false,
     loaded_note_path: null,
   };

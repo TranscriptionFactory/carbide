@@ -11,7 +11,7 @@ import type {
 } from "$lib/features/markdown_lsp/types";
 
 export class MarkdownLspStore {
-  status = $state<MarkdownLspStatus>("idle");
+  status = $state<MarkdownLspStatus>("stopped");
   last_hover = $state<MarkdownLspHoverResult | null>(null);
   references = $state<MarkdownLspLocation[]>([]);
   code_actions = $state<MarkdownLspCodeAction[]>([]);
@@ -21,19 +21,12 @@ export class MarkdownLspStore {
   document_symbols = $state<MarkdownLspDocumentSymbol[]>([]);
   completion_trigger_characters = $state<string[]>([]);
   transform_actions = $state<IweActionInfo[]>([]);
-  error = $state<string | null>(null);
   loading = $state(false);
+
+  is_running = $derived(this.status === "running");
 
   set_status(status: MarkdownLspStatus) {
     this.status = status;
-    if (status !== "error") {
-      this.error = null;
-    }
-  }
-
-  set_error(message: string) {
-    this.error = message;
-    this.status = "error";
   }
 
   set_hover(result: MarkdownLspHoverResult | null) {
@@ -77,7 +70,7 @@ export class MarkdownLspStore {
   }
 
   reset() {
-    this.status = "idle";
+    this.status = "stopped";
     this.last_hover = null;
     this.references = [];
     this.code_actions = [];
@@ -87,7 +80,6 @@ export class MarkdownLspStore {
     this.inlay_hints = [];
     this.document_symbols = [];
     this.transform_actions = [];
-    this.error = null;
     this.loading = false;
   }
 }

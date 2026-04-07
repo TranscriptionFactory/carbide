@@ -1,9 +1,29 @@
+export type MarkdownLspProvider = "iwes" | "marksman";
+
 export type MarkdownLspStatus =
-  | "idle"
   | "starting"
   | "running"
-  | "error"
-  | "stopped";
+  | { restarting: { attempt: number } }
+  | "stopped"
+  | { failed: { message: string } };
+
+export function is_markdown_lsp_running(status: MarkdownLspStatus): boolean {
+  return status === "running";
+}
+
+export function is_markdown_lsp_failed(
+  status: MarkdownLspStatus,
+): status is { failed: { message: string } } {
+  return typeof status === "object" && "failed" in status;
+}
+
+export function markdown_lsp_error_message(
+  status: MarkdownLspStatus,
+): string | null {
+  if (typeof status === "object" && "failed" in status)
+    return status.failed.message;
+  return null;
+}
 
 export type MarkdownLspHoverResult = {
   contents: string | null;
@@ -36,7 +56,7 @@ export type MarkdownLspCompletionItem = {
 
 export type MarkdownLspStartResult = {
   completion_trigger_characters: string[];
-  effective_provider: string;
+  effective_provider: MarkdownLspProvider;
 };
 
 export type MarkdownLspStartReason =
@@ -100,7 +120,7 @@ export type MarkdownLspDiagnosticsEvent = {
 export type MarkdownLspStatusEvent = {
   type: "status_changed";
   vault_id: string;
-  status: string;
+  status: MarkdownLspStatus;
 };
 
 export type MarkdownLspEvent =

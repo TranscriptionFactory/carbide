@@ -11,7 +11,13 @@ export {
   resolve_iwe_ai_provider,
   is_output_file_provider,
 } from "$lib/features/markdown_lsp/domain/iwe_provider_resolution";
+export {
+  is_markdown_lsp_running,
+  is_markdown_lsp_failed,
+  markdown_lsp_error_message,
+} from "$lib/features/markdown_lsp/types";
 export type {
+  MarkdownLspProvider,
   MarkdownLspStatus,
   MarkdownLspHoverResult,
   MarkdownLspLocation,

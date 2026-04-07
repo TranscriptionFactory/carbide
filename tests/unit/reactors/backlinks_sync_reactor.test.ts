@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { resolve_backlinks_sync_decision } from "$lib/reactors/backlinks_sync.reactor.svelte";
+import type { MarkdownLspStatus } from "$lib/features/markdown_lsp/types";
 
 function state(
   input?: Partial<{
     last_note_path: string | null;
     last_panel_open: boolean;
-    last_markdown_lsp_status: string;
+    last_markdown_lsp_status: MarkdownLspStatus;
     last_is_dirty: boolean;
     loaded_note_path: string | null;
   }>,
@@ -13,7 +14,7 @@ function state(
   return {
     last_note_path: null,
     last_panel_open: false,
-    last_markdown_lsp_status: "idle",
+    last_markdown_lsp_status: "stopped" as MarkdownLspStatus,
     last_is_dirty: false,
     loaded_note_path: null,
     ...input,
@@ -24,7 +25,7 @@ function input(
   value: Partial<{
     open_note_path: string | null;
     panel_open: boolean;
-    markdown_lsp_status: string;
+    markdown_lsp_status: MarkdownLspStatus;
     is_dirty: boolean;
     snapshot_note_path: string | null;
     global_status: "idle" | "loading" | "ready" | "error";
@@ -33,7 +34,7 @@ function input(
   return {
     open_note_path: null,
     panel_open: false,
-    markdown_lsp_status: "running",
+    markdown_lsp_status: "running" as MarkdownLspStatus,
     is_dirty: false,
     snapshot_note_path: null,
     global_status: "idle" as const,

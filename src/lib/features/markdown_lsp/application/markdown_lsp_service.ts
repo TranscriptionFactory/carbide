@@ -21,10 +21,14 @@ import type {
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("markdown_lsp_service");
-const CHANNEL_CLOSED_PATTERN = "channel closed";
+
 function is_channel_closed_error(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
-  return msg.toLowerCase().includes(CHANNEL_CLOSED_PATTERN);
+  return msg.toLowerCase().includes("channel closed");
+}
+
+function error_message_from(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function to_diagnostic_severity(s: string): DiagnosticSeverity {
@@ -114,7 +118,9 @@ export class MarkdownLspService {
       } catch (e) {
         this.unsubscribe_all();
         log.from_error("Failed to start markdown LSP", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        this.store.set_status({
+          failed: { message: error_message_from(e) },
+        });
         return null;
       }
     });
@@ -169,14 +175,7 @@ export class MarkdownLspService {
 
   private handle_status_change(event: MarkdownLspStatusEvent): void {
     if (event.vault_id !== this.vault_store.vault?.id) return;
-    const { status } = event;
-    if (status === "running") {
-      this.store.set_status("running");
-    } else if (status.startsWith("failed")) {
-      this.store.set_error(status);
-    } else if (status === "stopped") {
-      this.store.set_status("idle");
-    }
+    this.store.set_status(event.status);
   }
 
   private unsubscribe_all(): void {
@@ -293,7 +292,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("references failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
       this.store.set_references([]);
     } finally {
@@ -346,7 +345,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("code_actions failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
       this.store.set_code_actions([]);
     }
@@ -397,7 +396,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("code_action_resolve failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
       return null;
     } finally {
@@ -415,7 +414,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("workspace_symbols failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
       this.store.set_symbols([]);
     }
@@ -467,7 +466,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("rename failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
     } finally {
       this.store.set_loading(false);
@@ -507,7 +506,7 @@ export class MarkdownLspService {
     } catch (e) {
       if (!this.handle_channel_closed(e)) {
         log.from_error("formatting failed", e);
-        this.store.set_error(e instanceof Error ? e.message : String(e));
+        log.warn("Operation error", { error: error_message_from(e) });
       }
       return [];
     } finally {
@@ -548,7 +547,9 @@ export class MarkdownLspService {
     if (this.store.status !== "running") return true;
 
     log.warn("Markdown LSP process died — backend will handle restart");
-    this.store.set_error("Markdown LSP process crashed — restarting...");
+    this.store.set_status({
+      failed: { message: "Markdown LSP process crashed — restarting..." },
+    });
 
     return true;
   }
