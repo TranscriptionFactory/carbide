@@ -76,7 +76,7 @@ export async function apply_workspace_edit_result(
           editor_service.sync_visual_from_markdown(new_markdown);
         }
         editor_store.set_markdown(open_note.meta.id, new_markdown);
-        editor_store.set_dirty(open_note.meta.id, false);
+        editor_service.mark_clean();
       } catch (err) {
         log.warn("Failed to read updated content, falling back to reload", {
           path,
