@@ -10,6 +10,7 @@ export type McpSetupStatus = {
   claudeCodeConfigured: boolean;
   httpPort: number;
   tokenExists: boolean;
+  cliInstalled: boolean;
 };
 
 export type McpSetupResult = {

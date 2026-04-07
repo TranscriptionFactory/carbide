@@ -3,6 +3,8 @@ mod client;
 mod commands;
 mod format;
 mod install;
+mod mcp;
+mod setup;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -10,7 +12,11 @@ use clap_complete::Shell;
 use client::CarbideClient;
 
 #[derive(Parser)]
-#[command(name = "carbide", about = "CLI client for Carbide note-taking app", version)]
+#[command(
+    name = "carbide",
+    about = "CLI client for Carbide note-taking app",
+    version
+)]
 struct Cli {
     #[arg(long, global = true, help = "Vault ID (defaults to active vault)")]
     vault: Option<String>,
@@ -107,6 +113,26 @@ enum Command {
     Vaults,
     #[command(about = "Show app status")]
     Status,
+    #[command(
+        about = "Run as MCP stdio proxy (reads JSON-RPC from stdin, proxies to HTTP server)"
+    )]
+    Mcp,
+    #[command(about = "Configure MCP integration")]
+    Setup {
+        #[command(subcommand)]
+        target: SetupTarget,
+    },
+}
+
+#[derive(Subcommand)]
+enum SetupTarget {
+    #[command(about = "Configure Claude Desktop MCP integration (stdio transport)")]
+    Desktop,
+    #[command(about = "Configure Claude Code MCP integration (.mcp.json in vault root)")]
+    Code {
+        #[arg(help = "Path to vault directory")]
+        vault_path: String,
+    },
 }
 
 async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result<String, String> {
@@ -119,10 +145,19 @@ async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result
     resp["active_vault_id"]
         .as_str()
         .map(String::from)
-        .ok_or_else(|| "no active vault. Open Carbide and select a vault, or pass --vault <id>".to_string())
+        .ok_or_else(|| {
+            "no active vault. Open Carbide and select a vault, or pass --vault <id>".to_string()
+        })
 }
 
 async fn ensure_running(client: &CarbideClient) -> Result<(), String> {
+    ensure_running_with_timeout(client, std::time::Duration::from_secs(10)).await
+}
+
+async fn ensure_running_with_timeout(
+    client: &CarbideClient,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
     if client.health().await.is_ok() {
         return Ok(());
     }
@@ -131,7 +166,7 @@ async fn ensure_running(client: &CarbideClient) -> Result<(), String> {
     launch_app()?;
 
     let poll_interval = std::time::Duration::from_millis(500);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + timeout;
 
     while std::time::Instant::now() < deadline {
         tokio::time::sleep(poll_interval).await;
@@ -141,7 +176,10 @@ async fn ensure_running(client: &CarbideClient) -> Result<(), String> {
         }
     }
 
-    Err("timed out waiting for Carbide to start (10s). Launch it manually and retry.".into())
+    Err(format!(
+        "timed out waiting for Carbide to start ({}s). Launch it manually and retry.",
+        timeout.as_secs()
+    ))
 }
 
 fn launch_app() -> Result<(), String> {
@@ -214,6 +252,19 @@ async fn main() {
         }
     };
 
+    // Setup commands don't need the server running
+    if let Command::Setup { ref target } = command {
+        let result = match target {
+            SetupTarget::Desktop => setup::setup_desktop(),
+            SetupTarget::Code { vault_path } => setup::setup_code(vault_path),
+        };
+        if let Err(e) = result {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
     let client = match CarbideClient::new() {
         Ok(c) => c,
         Err(e) => {
@@ -222,12 +273,18 @@ async fn main() {
         }
     };
 
-    if let Err(e) = ensure_running(&client).await {
+    // MCP proxy gets a longer timeout for cold launch
+    let timeout = match command {
+        Command::Mcp => std::time::Duration::from_secs(30),
+        _ => std::time::Duration::from_secs(10),
+    };
+    if let Err(e) = ensure_running_with_timeout(&client, timeout).await {
         eprintln!("error: {}", e);
         std::process::exit(1);
     }
 
     let result = match command {
+        Command::Mcp => mcp::run_proxy(&client).await,
         Command::Status => {
             let raw = client.post_raw("/cli/status", &serde_json::json!({})).await;
             match raw {
@@ -242,6 +299,11 @@ async fn main() {
                             Some(id) => println!("  active vault: {}", id),
                             None => println!("  active vault: (none)"),
                         }
+                        println!("  mcp endpoint: http://127.0.0.1:3457/mcp");
+                        println!(
+                            "  cli installed: {}",
+                            if setup::cli_installed() { "yes" } else { "no" }
+                        );
                     }
                     Ok(())
                 }
@@ -249,6 +311,7 @@ async fn main() {
             }
         }
         Command::Vaults => commands::vault::vaults(&client, cli.json).await,
+        Command::Setup { .. } => unreachable!(),
         command => {
             let vault_id = match resolve_vault(&client, cli.vault.as_deref()).await {
                 Ok(v) => v,
@@ -306,10 +369,10 @@ async fn run_command(
             commands::search::files(client, vault_id, folder.as_deref(), json).await
         }
         Command::Tags => commands::search::tags(client, vault_id, json).await,
-        Command::Outline { path } => {
-            commands::search::outline(client, vault_id, &path, json).await
-        }
+        Command::Outline { path } => commands::search::outline(client, vault_id, &path, json).await,
         Command::Vault => commands::vault::vault(client, vault_id, json).await,
-        Command::Status | Command::Vaults => unreachable!(),
+        Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {
+            unreachable!()
+        }
     }
 }

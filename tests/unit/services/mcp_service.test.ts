@@ -26,6 +26,7 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       claudeCodeConfigured: false,
       httpPort: 3457,
       tokenExists: true,
+      cliInstalled: false,
     }),
     ...overrides,
   };
@@ -156,6 +157,7 @@ describe("McpService", () => {
         claudeCodeConfigured: false,
         httpPort: 3457,
         tokenExists: true,
+        cliInstalled: false,
       }),
     });
     const service = new McpService(port, store);
@@ -167,6 +169,7 @@ describe("McpService", () => {
       claudeCodeConfigured: false,
       httpPort: 3457,
       tokenExists: true,
+      cliInstalled: false,
     });
   });
 

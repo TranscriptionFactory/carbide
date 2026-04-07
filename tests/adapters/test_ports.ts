@@ -247,6 +247,7 @@ export function create_test_ports(): Ports {
           claudeCodeConfigured: false,
           httpPort: 3457,
           tokenExists: false,
+          cliInstalled: false,
         }),
     },
   };

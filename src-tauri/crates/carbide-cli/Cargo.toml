@@ -14,5 +14,8 @@ clap_complete = "4"
 reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "io-std"] }
 dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"
