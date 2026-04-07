@@ -22,7 +22,10 @@ pub fn analyze(path: &Path) -> VaultPathRisk {
         };
     }
 
-    if path_str.contains("/OneDrive/") || path_str.contains("\\OneDrive\\") || path_str.contains("/OneDrive -") {
+    if path_str.contains("/OneDrive/")
+        || path_str.contains("\\OneDrive\\")
+        || path_str.contains("/OneDrive -")
+    {
         return VaultPathRisk {
             is_cloud_backed: true,
             cloud_provider: Some("OneDrive"),
