@@ -72,6 +72,25 @@ describe("extract_metadata", () => {
     expect(result.tags).toEqual([]);
   });
 
+  it("strips # prefix from frontmatter tags", () => {
+    const md = "---\ntags:\n  - \"#read\"\n  - plain\n---\n# Content";
+    const result = extract_metadata(md);
+
+    expect(result.tags).toEqual([
+      { tag: "read", source: "frontmatter" },
+      { tag: "plain", source: "frontmatter" },
+    ]);
+  });
+
+  it("deduplicates frontmatter #tag with inline tag of same name", () => {
+    const md = "---\ntags:\n  - \"#shared\"\n---\nBody #shared here.";
+    const result = extract_metadata(md);
+
+    expect(result.tags).toEqual([
+      { tag: "shared", source: "frontmatter" },
+    ]);
+  });
+
   it("does not treat headings as inline tags", () => {
     const md = "# Heading\n## SubHeading\nBody text.";
     const result = extract_metadata(md);

@@ -546,7 +546,7 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 if rest.starts_with('[') && rest.ends_with(']') {
                     let inner = &rest[1..rest.len() - 1];
                     for item in inner.split(',') {
-                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
                         if !t.is_empty() {
                             tags.push(ExtractedTag {
                                 tag: t.to_string(),
@@ -558,7 +558,7 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 } else if rest.is_empty() {
                     in_tags_array = true;
                 } else {
-                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim();
+                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
                     if !t.is_empty() {
                         tags.push(ExtractedTag {
                             tag: t.to_string(),
@@ -575,7 +575,8 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                         .trim_start_matches("- ")
                         .trim()
                         .trim_matches(|c| c == '\'' || c == '"')
-                        .trim();
+                        .trim()
+                        .trim_start_matches('#');
                     if !item.is_empty() {
                         tags.push(ExtractedTag {
                             tag: item.to_string(),
@@ -3422,6 +3423,22 @@ mod tests {
     #[test]
     fn extract_tags_frontmatter_inline_array() {
         let md = "---\ntags: [alpha, beta]\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["alpha", "beta"]);
+    }
+
+    #[test]
+    fn extract_tags_frontmatter_strips_hash_prefix() {
+        let md = "---\ntags:\n  - \"#read\"\n  - plain\n---\nBody text";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["read", "plain"]);
+    }
+
+    #[test]
+    fn extract_tags_frontmatter_inline_array_strips_hash() {
+        let md = "---\ntags: [#alpha, beta]\n---\nBody";
         let tags = extract_tags(md);
         let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
         assert_eq!(names, vec!["alpha", "beta"]);
