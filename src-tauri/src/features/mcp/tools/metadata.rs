@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::shared_ops::{self, OpError};
-use crate::features::mcp::tools::parse_args;
-use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
+use crate::features::mcp::shared_ops::{self};
+use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
+use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![get_note_metadata_def()]
@@ -15,15 +15,6 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
     match name {
         "get_note_metadata" => Some(handle_get_note_metadata(app, arguments)),
         _ => None,
-    }
-}
-
-fn prop(prop_type: &str, description: &str) -> PropertySchema {
-    PropertySchema {
-        prop_type: prop_type.into(),
-        description: Some(description.into()),
-        enum_values: None,
-        default: None,
     }
 }
 
@@ -57,14 +48,7 @@ fn handle_get_note_metadata(app: &AppHandle, arguments: Option<&Value>) -> ToolR
 
     let result = match shared_ops::note_metadata(app, &args.vault_id, &args.path) {
         Ok(r) => r,
-        Err(e) => {
-            return match e {
-                OpError::NotFound(m)
-                | OpError::BadRequest(m)
-                | OpError::Conflict(m)
-                | OpError::Internal(m) => ToolResult::error(m),
-            }
-        }
+        Err(e) => return op_err_to_tool_result(e),
     };
 
     let meta = &result.meta;

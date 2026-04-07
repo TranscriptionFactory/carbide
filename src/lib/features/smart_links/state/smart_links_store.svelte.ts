@@ -3,7 +3,6 @@ export type SmartLinkRule = {
   name: string;
   enabled: boolean;
   weight: number;
-  config: Record<string, string>;
 };
 
 export type SmartLinkRuleGroup = {
