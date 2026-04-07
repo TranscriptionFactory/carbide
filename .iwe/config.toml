@@ -16,26 +16,31 @@ link_format = "wiki"
 [commands.ai_rewrite]
 run = "claude"
 args = ["-p", "Rewrite the following text to improve clarity and readability. Keep the language personable, not overly formal. Simplify language, organize sentences logically, remove ambiguity. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the rewritten text:\n\n{{context}}", "--output-format", "text"]
+shell = false
 timeout_seconds = 120
 
 [commands.ai_summarize]
 run = "claude"
 args = ["-p", "Summarize the following text concisely. Output only the summary:\n\n{{context}}", "--output-format", "text"]
+shell = false
 timeout_seconds = 120
 
 [commands.ai_expand]
 run = "claude"
 args = ["-p", "Expand the following text into a couple of detailed paragraphs. Preserve any markdown links. Do not include list item '-' or header '#' prefixes. Output only the expanded text:\n\n{{context}}", "--output-format", "text"]
+shell = false
 timeout_seconds = 120
 
 [commands.ai_keywords]
 run = "claude"
 args = ["-p", "Mark the most important keywords with bold using ** markdown syntax. Keep the text otherwise completely unchanged. Output only the text with bold keywords:\n\n{{context}}", "--output-format", "text"]
+shell = false
 timeout_seconds = 120
 
 [commands.ai_emojify]
 run = "claude"
 args = ["-p", "Add a relevant emoji before each list item, header, or paragraph. Keep the text otherwise completely unchanged. Output only the text with emojis:\n\n{{context}}", "--output-format", "text"]
+shell = false
 timeout_seconds = 120
 
 # Structural actions
