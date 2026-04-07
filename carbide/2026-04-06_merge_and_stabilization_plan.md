@@ -79,17 +79,22 @@ This is **optional and independent**. The feature is self-contained (block detec
 
 These fix real user-facing bugs. Ship before any refactoring.
 
-### 2a. Terminal Bugs — 1 session, ~6 files
+### 2a. Terminal Bugs — 1 session, ~6 files ✅ DONE
 
+**Status:** Merged to main via `fix/terminal-session-lifecycle` (commit `abbce591`, merged `cb9430de`)
 **Source:** `2026-04-06_mcp_transports_terminal_plan.md` → "Terminal Bug Fixes"
 **Branch:** `fix/terminal-session-lifecycle`
 
-| #   | Bug                                                  | File                                              | Fix                                                                              |
-| --- | ---------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1   | Tab switch destroys xterm instance, loses scrollback | `terminal_panel_content.svelte:155-159`           | Remove `{#if}` guard — render all sessions, control visibility via `active` prop |
-| 2   | `fixed_cwd` ignores stored session cwd               | `terminal_session_view.svelte:39-44`              | Read `session?.cwd` instead of always using vault path                           |
-| 3   | Toggle/close kills all PTY processes                 | `terminal_actions.ts`, `terminal_store.svelte.ts` | Split `close()` into `hide()` (panel only) and `reset()` (destructive)           |
-| 4   | `reconcile_session` respawns manual-policy sessions  | `terminal_service.ts:202-216`                     | Check `respawn_policy` before killing process                                    |
+| #   | Bug                                                  | File                                                          | Fix                                                                                       | Status |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------ |
+| 1   | Tab switch destroys xterm instance, loses scrollback | `terminal_panel_content.svelte:154-161`                       | `{#each}` renders all sessions; CSS visibility via `active` prop (`display:none`/`block`) | ✅     |
+| 2   | `fixed_cwd` ignores stored session cwd               | `terminal_session_view.svelte:44`                             | `fixed_cwd: session?.cwd ?? stores.vault.vault?.path` reads stored cwd first              | ✅     |
+| 3   | Toggle/close kills all PTY processes                 | `terminal_actions.ts:47,62`, `terminal_store.svelte.ts:28-31` | `hide()` preserves sessions (panel-only); `close()` is destructive (reset)                | ✅     |
+| 4   | `reconcile_session` respawns manual-policy sessions  | `terminal_service.ts:202-218`                                 | Early return for `manual` policy — metadata-only update, no kill/respawn                  | ✅     |
+
+**Tests added:** `terminal_store.test.ts` (hide vs close), `terminal_service.test.ts` (manual-policy reconcile), `register_terminal_actions.test.ts` (toggle/close preserve sessions). All passing.
+
+**Note:** Pre-existing failure in `document_service.test.ts` (eviction test) — unrelated to terminal work.
 
 ### 2b. Floating Toolbar Fixes — 1 session, ~4 files
 
@@ -131,14 +136,18 @@ Simultaneously:
 
 **Expected outcome:** `cli_routes.rs` shrinks significantly; `tools/*.rs` shrinks moderately; new `shared_ops.rs` is ~300-400 lines of clean service wrappers.
 
-### 3b. DRY fixes — `refactor/mcp-dry`
+### 3b. DRY fixes — `refactor/mcp-dry` ✅ DONE
 
-Small, low-risk:
+**Status:** Completed on `refactor/mcp-dry` (commit `4f551960`)
 
-- Extract `prop()` helper to `tools/mod.rs` (currently copy-pasted in 7 modules)
-- Extract `VaultArgs` to `tools/mod.rs` (duplicated in git.rs, graph.rs)
-- Remove unused `SmartLinkRule.config` field from Rust types + TS types
-- Consolidate `HttpServerState` three mutexes → single `Arc<Mutex<ServerInner>>`
+| #   | Item                                                    | Status | Notes                                                                                                    |
+| --- | ------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| 1   | Extract `prop()` helper to `tools/mod.rs`               | ✅     | Was 3 copies (notes.rs, search.rs, metadata.rs), not 7 — audit overestimated. Also extracted `op_err_to_tool_result()` (2 copies + 1 inline). |
+| 2   | Extract `VaultArgs` to `tools/mod.rs`                   | N/A    | Does not exist in current code. Likely cleaned up during Phase 3a shared_ops refactor.                   |
+| 3   | Remove unused `SmartLinkRule.config` field               | ✅     | Removed from Rust struct, TS type, generated bindings, and all test fixtures (6 Rust + 5 TS literals).   |
+| 4   | Consolidate `HttpServerState` three mutexes              | ✅     | Replaced 3× `Arc<Mutex<T>>` with single `Arc<Mutex<ServerInner>>`. Eliminates implicit lock ordering.   |
+
+**Tests:** 322 Rust tests pass, 2890/2891 TS tests pass (1 pre-existing failure in `document_service.test.ts` eviction test — unrelated).
 
 ### 3c. Stdio transport decision — `refactor/stdio-cleanup` or `feat/mcp-stdio-proxy`
 
