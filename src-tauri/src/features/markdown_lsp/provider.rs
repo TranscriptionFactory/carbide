@@ -85,8 +85,7 @@ pub async fn resolve_markdown_lsp_startup(
                         "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed error={}",
                         error
                     );
-                    let marksman_path =
-                        toolchain::resolver::resolve(app, "marksman", None).await?;
+                    let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
                     return Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,
                         binary_path: marksman_path,
@@ -109,8 +108,7 @@ pub async fn resolve_markdown_lsp_startup(
                         "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_preflight_failed error={}",
                         error
                     );
-                    let marksman_path =
-                        toolchain::resolver::resolve(app, "marksman", None).await?;
+                    let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
                     Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,
                         binary_path: marksman_path,

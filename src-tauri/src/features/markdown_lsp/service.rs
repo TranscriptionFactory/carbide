@@ -89,8 +89,6 @@ fn markdown_lsp_state(app: &AppHandle) -> tauri::State<'_, MarkdownLspState> {
     app.state::<MarkdownLspState>()
 }
 
-
-
 fn lsp_severity_to_string(severity: Option<u64>) -> String {
     match severity {
         Some(1) => "error",
@@ -153,9 +151,13 @@ fn map_lsp_session_status(status: &LspSessionStatus) -> MarkdownLspStatus {
     match status {
         LspSessionStatus::Starting => MarkdownLspStatus::Starting,
         LspSessionStatus::Running => MarkdownLspStatus::Running,
-        LspSessionStatus::Restarting { attempt } => MarkdownLspStatus::Restarting { attempt: *attempt },
+        LspSessionStatus::Restarting { attempt } => {
+            MarkdownLspStatus::Restarting { attempt: *attempt }
+        }
         LspSessionStatus::Stopped => MarkdownLspStatus::Stopped,
-        LspSessionStatus::Failed { message } => MarkdownLspStatus::Failed { message: message.clone() },
+        LspSessionStatus::Failed { message } => MarkdownLspStatus::Failed {
+            message: message.clone(),
+        },
     }
 }
 
