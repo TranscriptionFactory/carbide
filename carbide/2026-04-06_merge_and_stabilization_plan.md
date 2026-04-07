@@ -193,16 +193,16 @@ Simultaneously:
 
 **Status:** Completed on `feat/mcp-stdio-proxy` (commit `1b0c3d97`)
 
-| #   | Item                                                       | Status | Notes                                                                                                     |
-| --- | ---------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| 1   | `carbide mcp` stdio proxy subcommand                       | ✅     | New `mcp.rs`: reads stdin line-by-line, POSTs to `/mcp`, writes JSON responses to stdout, errors to stderr |
-| 2   | `post_mcp_raw` client method                               | ✅     | Raw body POST to `/mcp` with `Accept: application/json`. Returns `Option<String>` (None for 204).          |
-| 3   | `ensure_running_with_timeout` extraction                   | ✅     | 30s timeout for `carbide mcp` (cold launch), 10s default for other commands.                               |
-| 4   | `carbide setup desktop` CLI command                        | ✅     | Writes stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`) — no server needed.           |
-| 5   | `carbide setup code <vault-path>` CLI command              | ✅     | Writes HTTP config to `.mcp.json` in vault root — no server needed.                                       |
-| 6   | Desktop config uses stdio when CLI installed               | ✅     | `write_claude_desktop_config` (server-side) now uses `build_mcp_server_entry_stdio()` if CLI detected.     |
-| 7   | `SetupStatus.cli_installed` field                          | ✅     | Added to Rust struct + TS type. Checks `/usr/local/bin/carbide` symlink existence.                         |
-| 8   | `carbide status` shows MCP info                            | ✅     | Displays MCP endpoint URL and CLI install state.                                                           |
+| #   | Item                                          | Status | Notes                                                                                                      |
+| --- | --------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- |
+| 1   | `carbide mcp` stdio proxy subcommand          | ✅     | New `mcp.rs`: reads stdin line-by-line, POSTs to `/mcp`, writes JSON responses to stdout, errors to stderr |
+| 2   | `post_mcp_raw` client method                  | ✅     | Raw body POST to `/mcp` with `Accept: application/json`. Returns `Option<String>` (None for 204).          |
+| 3   | `ensure_running_with_timeout` extraction      | ✅     | 30s timeout for `carbide mcp` (cold launch), 10s default for other commands.                               |
+| 4   | `carbide setup desktop` CLI command           | ✅     | Writes stdio config (`"command": "/usr/local/bin/carbide", "args": ["mcp"]`) — no server needed.           |
+| 5   | `carbide setup code <vault-path>` CLI command | ✅     | Writes HTTP config to `.mcp.json` in vault root — no server needed.                                        |
+| 6   | Desktop config uses stdio when CLI installed  | ✅     | `write_claude_desktop_config` (server-side) now uses `build_mcp_server_entry_stdio()` if CLI detected.     |
+| 7   | `SetupStatus.cli_installed` field             | ✅     | Added to Rust struct + TS type. Checks `/usr/local/bin/carbide` symlink existence.                         |
+| 8   | `carbide status` shows MCP info               | ✅     | Displays MCP endpoint URL and CLI install state.                                                           |
 
 **Tests:** 5 CLI tests pass (2 new: stdio entry format, cli_installed check), 11 server MCP setup tests pass (2 new: stdio entry format, cli_installed). 2890/2891 TS tests pass (1 pre-existing failure).
 

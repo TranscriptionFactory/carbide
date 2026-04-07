@@ -193,11 +193,7 @@ describe("MarkdownLspService", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
 
-    const service = new MarkdownLspService(
-      harness.port,
-      store,
-      vault_store,
-    );
+    const service = new MarkdownLspService(harness.port, store, vault_store);
 
     await service.start("marksman");
     expect(store.status).toBe("running");
@@ -219,19 +215,13 @@ describe("MarkdownLspService", () => {
 
   it("sets failed status with message on start failure", async () => {
     const harness = create_mock_port();
-    vi.mocked(harness.port.start).mockRejectedValue(
-      new Error("spawn failed"),
-    );
+    vi.mocked(harness.port.start).mockRejectedValue(new Error("spawn failed"));
 
     const store = new MarkdownLspStore();
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
 
-    const service = new MarkdownLspService(
-      harness.port,
-      store,
-      vault_store,
-    );
+    const service = new MarkdownLspService(harness.port, store, vault_store);
 
     await service.start("marksman");
     expect(store.status).toEqual({ failed: { message: "spawn failed" } });
@@ -243,11 +233,7 @@ describe("MarkdownLspService", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault());
 
-    const service = new MarkdownLspService(
-      harness.port,
-      store,
-      vault_store,
-    );
+    const service = new MarkdownLspService(harness.port, store, vault_store);
 
     await service.start("marksman");
     expect(store.status).toBe("running");

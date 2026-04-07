@@ -87,89 +87,104 @@ These are the specific error messages this plan is addressing.
 - `lint_close_file: No active lint session for vault 8a297a811f39bdf9b55460227d07f83266d1570b604d339e2fafd609667f9c9f`
 - `[lint_service] Failed to notify file closed tauri invoke failed: lint_close_file: No active lint session for vault ...`
 
-
 ### 1. Startup and fallback are operationally weak
 
 Observed:
+
 - startup falls back from `iwes` to `marksman` when IWE binary resolution or preflight fails
 - Marksman can then fail during initialize on large or iCloud-backed vaults
 - restart loop retries but the product state remains coarse and stringly typed
 
 Code facts:
+
 - provider resolution and fallback are in `resolve_markdown_lsp_startup()`
 - startup success returns only `completion_trigger_characters` and `effective_provider`
 - status forwarding emits plain strings such as `running`, `restarting (attempt 1)`, and `failed: ...`
 
 Impact:
+
 - the UI cannot reason cleanly about degraded mode, fallback reason, or retry exhaustion
 - editor features may appear broken when the real issue is provider state
 
 ### 2. IWES packaging/distribution is incomplete
 
 Observed:
+
 - release builds appear to miss IWES
 - logs show `IWE not found — install via Settings > Tools or place on PATH`
 
 Code facts:
+
 - `toolchain::resolver::resolve()` can auto-download only tools with declared platform binaries
 - `iwes` in `src-tauri/src/features/toolchain/registry.rs` has an empty `platform_binaries` list
 - this means IWES is not auto-downloadable through the same path as Marksman and Rumdl
 
 Impact:
+
 - release behavior is inconsistent
 - fallback is doing too much work to hide packaging gaps
 
 ### 3. Startup status is underspecified and partly lost in the frontend
 
 Observed:
+
 - backend emits richer runtime statuses than the frontend store models
 - frontend store supports `idle | starting | running | error | stopped`
 - restart and degraded states are flattened into strings or ignored
 
 Impact:
+
 - UI cannot distinguish starting vs restarting vs running-on-fallback vs permanently failed
 - diagnosis depends on logs instead of state
 
 ### 4. Markdown document lifecycle is incomplete
 
 Observed from code:
+
 - markdown LSP exposes `didOpen`, `didChange`, `didSave`
 - there is no `didClose` command/path for markdown LSP
 - lint does have `didClose`, but its close path is not idempotent
 
 Impact:
+
 - the markdown server may keep stale open-document state longer than intended
 - lifecycle semantics differ across LSP consumers
 
 ### 5. Error classification and observability are too weak
 
 Observed:
+
 - transport logs stderr lines and generic init/read failures
 - startup errors collapse into string messages like `LSP closed during init`, `early eof`, or provider fallback log lines
 
 Impact:
+
 - hard to distinguish packaging issue vs provider incompatibility vs workspace-scan issue vs transport bug
 - hard to turn failures into actionable UI states or tests
 
 ### 6. Lint has an avoidable LSP lifecycle bug
 
 Observed:
+
 - `lint_close_file` errors when no active session exists
 - frontend only guards on `lint_store.is_running`, which may lag session teardown
 - backend treats missing session as an error instead of a safe no-op
 
 Impact:
+
 - background noise obscures real failures
 - teardown order is brittle
 
 ## Architecture direction
 
 Keep the existing architecture shape:
+
 - Rust backend remains the thin native/LSP process layer
 - TypeScript services remain orchestration only
 - editor integrations keep consuming typed store state and explicit actions
 
 But split markdown LSP responsibilities more clearly:
+
 1. provider resolution
 2. process startup and health
 3. document sync lifecycle
@@ -205,6 +220,7 @@ Everything else is easier once state is explicit.
 ### Changes
 
 Backend:
+
 - replace string-only status projection with a typed status payload
 - include:
   - session phase: `idle | starting | running | restarting | degraded | stopped | failed`
@@ -216,11 +232,13 @@ Backend:
   - last error classification, if any
 
 Frontend:
+
 - replace `MarkdownLspStatus` string union with a typed state model
 - keep store-derived convenience booleans such as `is_running`, `is_degraded`, `can_complete`, `can_code_action`
 - update `handle_status_change()` to consume structured events instead of parsing strings
 
 Files
+
 - `src-tauri/src/features/markdown_lsp/types.rs`
 - `src-tauri/src/features/markdown_lsp/service.rs`
 - `src/lib/features/markdown_lsp/types.ts`
@@ -228,6 +246,7 @@ Files
 - `src/lib/features/markdown_lsp/application/markdown_lsp_service.ts`
 
 BDD scenarios
+
 - given requested IWES and available binary, status becomes running with effective provider IWES
 - given requested IWES and missing binary, status becomes degraded/running with fallback reason and effective provider Marksman
 - given initialization failure after fallback, status becomes failed with structured error
@@ -245,6 +264,7 @@ BDD scenarios
 Extract a backend module for provider planning.
 
 Introduce a planning result like:
+
 - requested provider
 - candidate list in evaluation order
 - chosen provider
@@ -254,6 +274,7 @@ Introduce a planning result like:
 - capability profile
 
 Split current `resolve_markdown_lsp_startup()` into:
+
 1. resolve requested provider intent
 2. resolve binary source
 3. run provider-specific preflight
@@ -262,11 +283,13 @@ Split current `resolve_markdown_lsp_startup()` into:
 Add a provider capability table in code so the frontend and editor can branch on capabilities without guessing.
 
 Files
+
 - new: `src-tauri/src/features/markdown_lsp/provider.rs`
 - update: `src-tauri/src/features/markdown_lsp/service.rs`
 - optional mirror: `src/lib/features/markdown_lsp/types.ts`
 
 BDD scenarios
+
 - requested IWES + missing binary => plan contains fallback-to-Marksman reason
 - requested Marksman + explicit custom path => no fallback, custom source recorded
 - requested IWES + preflight failure => plan records preflight failure distinctly from binary-resolution failure
@@ -283,26 +306,31 @@ BDD scenarios
 Decide one supported distribution path and implement it completely.
 
 Option A — bundle IWES sidecars per platform
+
 - add IWES platform binaries to `toolchain/registry.rs`
 - ensure release packaging places them in the expected `binaries/` locations
 - validate `sidecar_path()` resolution in packaged builds
 
 Option B — support auto-download like other tools
+
 - populate `platform_binaries` for IWES
 - verify download, checksum, extraction, and executable preparation
 - present install status in Settings > Tools
 
 Regardless of A or B:
+
 - add startup-time validation that records binary source in status
 - add release validation script/checklist for Marksman and IWES presence
 
 Files
+
 - `src-tauri/src/features/toolchain/registry.rs`
 - possibly `src-tauri/src/features/toolchain/downloader.rs`
 - release/build config files as needed
 - LSP startup tests/docs
 
 BDD scenarios
+
 - packaged build resolves IWES without PATH dependency
 - missing IWES in release build produces explicit install guidance and stable fallback behavior
 
@@ -318,6 +346,7 @@ BDD scenarios
 Enhance `LspClientError` and transport diagnostics.
 
 Add distinct error classes for:
+
 - process spawn failure
 - initialize timeout
 - initialize EOF
@@ -333,12 +362,14 @@ Add a dedicated initialize timeout separate from per-request timeout.
 Emit structured status transitions with these classified failures.
 
 Files
+
 - `src-tauri/src/shared/lsp_client/types.rs`
 - `src-tauri/src/shared/lsp_client/transport.rs`
 - `src-tauri/src/shared/lsp_client/restartable.rs`
 - `src-tauri/src/features/markdown_lsp/service.rs`
 
 BDD scenarios
+
 - server exits before initialize response => initialize EOF classification
 - server writes fatal stderr before exit => failed status includes stderr excerpt classification
 - repeated crashes exhaust restarts => final failed state is stable and visible
@@ -355,6 +386,7 @@ BDD scenarios
 Add vault-risk-aware startup safeguards.
 
 Minimum implementation:
+
 - detect and classify known risky vault characteristics at startup:
   - cloud-backed paths such as iCloud locations
   - very large vault file counts if cheaply measurable
@@ -365,15 +397,18 @@ Minimum implementation:
   - keep diagnostics/code-actions disabled with explicit degraded state instead of pretending startup is still in progress
 
 Nice-to-have follow-up:
+
 - user setting for `markdown_lsp_startup_mode`: `auto | conservative | force`
 - per-vault setting to disable Marksman fallback on cloud-backed vaults
 
 Files
+
 - `src-tauri/src/features/markdown_lsp/service.rs`
 - possibly shared vault/path helpers
 - settings feature if mode becomes user-configurable
 
 BDD scenarios
+
 - cloud-backed vault + Marksman init failure => no retry storm, stable degraded state
 - local minimal vault => normal startup path remains unchanged
 
@@ -389,14 +424,17 @@ BDD scenarios
 Add `markdown_lsp_did_close` end to end.
 
 Backend:
+
 - add Tauri command for `textDocument/didClose`
 
 Frontend:
+
 - add port method and service method
 - invoke on editor teardown / note switch / vault stop where appropriate
 - clear local document version tracking on close
 
 Files
+
 - `src-tauri/src/features/markdown_lsp/service.rs`
 - `src/lib/features/markdown_lsp/ports.ts`
 - `src/lib/features/markdown_lsp/adapters/markdown_lsp_tauri_adapter.ts`
@@ -404,6 +442,7 @@ Files
 - editor orchestration that owns note/session teardown
 
 BDD scenarios
+
 - open -> change -> close clears local version and sends didClose once
 - close after stop is a safe no-op
 
@@ -419,17 +458,20 @@ BDD scenarios
 Use the new typed LSP state to gate behavior in editor integrations.
 
 Examples:
+
 - only request completions when `completion` capability is active
 - only show code-action affordances when provider is running and supports them
 - surface fallback/degraded indicators near affected UI
 - avoid silently invoking link/code-action flows against a dead or restarting session
 
 Files
+
 - `src/lib/features/editor/adapters/lsp_*.ts`
 - `src/lib/features/markdown_lsp/state/markdown_lsp_store.svelte.ts`
 - `src/lib/features/markdown_lsp/application/markdown_lsp_service.ts`
 
 BDD scenarios
+
 - restarting session suppresses code-action requests
 - degraded Marksman session still allows supported read-only features, but unsupported actions are hidden or disabled
 
@@ -442,19 +484,23 @@ BDD scenarios
 ### Changes
 
 Backend:
+
 - make `lint_close_file` a no-op if the session does not exist
 - optionally do the same for open/update during teardown windows if appropriate
 
 Frontend:
+
 - keep current guards, but also stop treating close-after-stop as exceptional
 - add tests for stop-before-close and double-close
 
 Files
+
 - `src-tauri/src/features/lint/mod.rs`
 - `src/lib/features/lint/application/lint_service.ts`
 - tests in both Rust and TS where applicable
 
 BDD scenarios
+
 - close after stop does not log error
 - double close does not log error or recreate state
 
@@ -463,6 +509,7 @@ BDD scenarios
 ### Backend tests
 
 Add Rust tests for:
+
 - provider planning
 - fallback reason classification
 - init failure classification
@@ -473,6 +520,7 @@ Add Rust tests for:
 ### Frontend tests
 
 Add TS tests for:
+
 - typed status handling in `MarkdownLspService`
 - degraded/running/fallback UI state transitions
 - version tracking across open/change/close
@@ -481,6 +529,7 @@ Add TS tests for:
 ### Release checks
 
 Add a script or CI verification that confirms for packaged builds:
+
 - Marksman binary is resolvable
 - IWES binary is resolvable, or explicitly absent by product design
 - startup works on a smoke-test vault
@@ -488,25 +537,30 @@ Add a script or CI verification that confirms for packaged builds:
 ## Recommended execution order
 
 ### Iteration 1 — correctness foundation
+
 - Phase 1
 - Phase 2
 - Phase 8
 
 ### Iteration 2 — real startup reliability
+
 - Phase 3
 - Phase 4
 - Phase 5
 
 ### Iteration 3 — lifecycle and UX correctness
+
 - Phase 6
 - Phase 7
 
 ### Iteration 4 — verification and hardening
+
 - Phase 9
 
 ## Concrete file-level change list
 
 ### Must change
+
 - `src-tauri/src/features/markdown_lsp/service.rs`
 - `src-tauri/src/shared/lsp_client/transport.rs`
 - `src-tauri/src/shared/lsp_client/restartable.rs`
@@ -519,6 +573,7 @@ Add a script or CI verification that confirms for packaged builds:
 - `src-tauri/src/features/lint/mod.rs`
 
 ### Likely change
+
 - `src/lib/features/editor/adapters/lsp_code_action_plugin.ts`
 - `src/lib/features/editor/adapters/lsp_completion_plugin.ts`
 - `src/lib/features/editor/extensions/lsp_extension.ts`
@@ -527,17 +582,20 @@ Add a script or CI verification that confirms for packaged builds:
 ## Acceptance criteria
 
 ### Reliability
+
 - markdown LSP starts successfully on a minimal local vault
 - missing IWES no longer looks like a random runtime failure
 - fallback to Marksman is explicit and observable
 - Marksman init failure does not produce opaque retry noise forever
 
 ### Product behavior
+
 - UI can distinguish starting, restarting, running, degraded, stopped, and failed
 - editor features are enabled only when supported and healthy
 - lint close-file errors disappear during normal teardown
 
 ### Engineering quality
+
 - fallback and failure reasons are typed, not inferred from log strings
 - there is automated coverage for startup planning and lifecycle edges
 - release validation includes tool resolution and LSP smoke checks
