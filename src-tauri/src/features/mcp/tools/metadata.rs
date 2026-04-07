@@ -59,9 +59,10 @@ fn handle_get_note_metadata(app: &AppHandle, arguments: Option<&Value>) -> ToolR
         Ok(r) => r,
         Err(e) => {
             return match e {
-                OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
-                    ToolResult::error(m)
-                }
+                OpError::NotFound(m)
+                | OpError::BadRequest(m)
+                | OpError::Conflict(m)
+                | OpError::Internal(m) => ToolResult::error(m),
             }
         }
     };

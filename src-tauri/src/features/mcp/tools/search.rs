@@ -54,9 +54,10 @@ fn search_notes_def() -> ToolDefinition {
 
 fn op_err_to_tool_result(e: OpError) -> ToolResult {
     match e {
-        OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
-            ToolResult::error(m)
-        }
+        OpError::NotFound(m)
+        | OpError::BadRequest(m)
+        | OpError::Conflict(m)
+        | OpError::Internal(m) => ToolResult::error(m),
     }
 }
 

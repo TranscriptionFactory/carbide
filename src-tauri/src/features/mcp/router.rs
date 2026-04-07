@@ -3,9 +3,9 @@ use tauri::AppHandle;
 
 use crate::features::mcp::tools;
 use crate::features::mcp::types::{
-    InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+    method, InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
     ResourceDefinition, ServerCapabilities, ServerInfo, ToolCallParams, ToolDefinition, ToolResult,
-    ToolsCapability, method, INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND,
+    ToolsCapability, INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND,
 };
 
 pub struct McpRouter {

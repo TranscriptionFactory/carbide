@@ -160,9 +160,10 @@ mod tests {
         let buf_reader = tokio::io::BufReader::new(reader);
         let mut output = Vec::new();
 
-        let handle = tokio::spawn(async move {
-            run_jsonrpc_stream(buf_reader, &mut output, router, rx).await
-        });
+        let handle =
+            tokio::spawn(
+                async move { run_jsonrpc_stream(buf_reader, &mut output, router, rx).await },
+            );
 
         tx.send(true).unwrap();
         drop(writer);

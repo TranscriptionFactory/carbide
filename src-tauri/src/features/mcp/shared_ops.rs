@@ -4,8 +4,8 @@ use serde::Deserialize;
 use tauri::AppHandle;
 
 use crate::features::notes::service::{
-    self as notes_service, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs, NoteDeleteArgs,
-    NoteRenameArgs, MoveItem, MoveItemsArgs, NoteMeta,
+    self as notes_service, safe_vault_abs, safe_vault_abs_for_write, MoveItem, MoveItemsArgs,
+    NoteCreateArgs, NoteDeleteArgs, NoteMeta, NoteRenameArgs,
 };
 use crate::features::search::db as search_db;
 use crate::features::search::model::SearchScope;
@@ -21,13 +21,21 @@ pub enum OpError {
     Internal(String),
 }
 
-fn resolve_read_path(app: &AppHandle, vault_id: &str, path: &str) -> Result<(PathBuf, PathBuf), OpError> {
+fn resolve_read_path(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+) -> Result<(PathBuf, PathBuf), OpError> {
     let root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
     let abs = safe_vault_abs(&root, path).map_err(OpError::BadRequest)?;
     Ok((root, abs))
 }
 
-fn resolve_write_path(app: &AppHandle, vault_id: &str, path: &str) -> Result<(PathBuf, PathBuf), OpError> {
+fn resolve_write_path(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+) -> Result<(PathBuf, PathBuf), OpError> {
     let root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
     let abs = safe_vault_abs_for_write(&root, path).map_err(OpError::BadRequest)?;
     Ok((root, abs))
@@ -101,7 +109,12 @@ pub fn read_note(app: &AppHandle, vault_id: &str, path: &str) -> Result<(String,
     Ok((path.to_string(), content))
 }
 
-pub fn write_note(app: &AppHandle, vault_id: &str, path: &str, content: &str) -> Result<String, OpError> {
+pub fn write_note(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+    content: &str,
+) -> Result<String, OpError> {
     let (_, abs) = resolve_write_path(app, vault_id, path)?;
     if !abs.exists() {
         return Err(OpError::NotFound("note not found".into()));
@@ -110,7 +123,12 @@ pub fn write_note(app: &AppHandle, vault_id: &str, path: &str, content: &str) ->
     Ok(path.to_string())
 }
 
-pub fn append_to_note(app: &AppHandle, vault_id: &str, path: &str, content: &str) -> Result<String, OpError> {
+pub fn append_to_note(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+    content: &str,
+) -> Result<String, OpError> {
     let (_, abs) = resolve_read_path(app, vault_id, path)?;
     let existing = std::fs::read_to_string(&abs)
         .map_err(|e| OpError::NotFound(format!("Failed to read note: {}", e)))?;
@@ -125,7 +143,12 @@ pub fn append_to_note(app: &AppHandle, vault_id: &str, path: &str, content: &str
     Ok(path.to_string())
 }
 
-pub fn prepend_to_note(app: &AppHandle, vault_id: &str, path: &str, content: &str) -> Result<String, OpError> {
+pub fn prepend_to_note(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+    content: &str,
+) -> Result<String, OpError> {
     let (_, abs) = resolve_read_path(app, vault_id, path)?;
     let existing = std::fs::read_to_string(&abs)
         .map_err(|e| OpError::NotFound(format!("Failed to read note: {}", e)))?;
@@ -185,7 +208,12 @@ pub fn create_note(app: &AppHandle, args: &CreateNoteArgs) -> Result<CreateResul
     .map_err(OpError::Internal)
 }
 
-pub fn rename_note(app: &AppHandle, vault_id: &str, from: &str, to: &str) -> Result<String, OpError> {
+pub fn rename_note(
+    app: &AppHandle,
+    vault_id: &str,
+    from: &str,
+    to: &str,
+) -> Result<String, OpError> {
     notes_service::rename_note(
         NoteRenameArgs {
             vault_id: vault_id.to_string(),
@@ -233,9 +261,13 @@ pub fn delete_note(app: &AppHandle, vault_id: &str, path: &str) -> Result<(), Op
     .map_err(OpError::Internal)
 }
 
-pub fn list_notes(app: &AppHandle, vault_id: &str, folder: Option<&str>) -> Result<Vec<NoteMeta>, OpError> {
-    let mut notes = notes_service::list_notes(app.clone(), vault_id.to_string())
-        .map_err(OpError::Internal)?;
+pub fn list_notes(
+    app: &AppHandle,
+    vault_id: &str,
+    folder: Option<&str>,
+) -> Result<Vec<NoteMeta>, OpError> {
+    let mut notes =
+        notes_service::list_notes(app.clone(), vault_id.to_string()).map_err(OpError::Internal)?;
 
     if let Some(folder) = folder {
         let prefix = if folder.ends_with('/') {
@@ -278,9 +310,7 @@ pub fn search_notes_index(
         .map_err(OpError::Internal)
 }
 
-pub fn list_vaults(
-    app: &AppHandle,
-) -> Result<Vec<crate::shared::storage::Vault>, OpError> {
+pub fn list_vaults(app: &AppHandle) -> Result<Vec<crate::shared::storage::Vault>, OpError> {
     vault_service::list_vaults(app.clone()).map_err(OpError::Internal)
 }
 
@@ -334,7 +364,8 @@ pub fn note_metadata(
     let root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
     let meta = notes_service::build_note_meta(&root, path, None).map_err(OpError::Internal)?;
 
-    let stats = search_service::get_note_stats(app.clone(), vault_id.to_string(), path.to_string()).ok();
+    let stats =
+        search_service::get_note_stats(app.clone(), vault_id.to_string(), path.to_string()).ok();
 
     let tags_and_props = search_service::with_read_conn(app, vault_id, |conn| {
         let tags = search_db::get_note_tags(conn, path)?;
@@ -353,7 +384,10 @@ pub fn note_metadata(
 pub struct NoteMetadataResult {
     pub meta: NoteMeta,
     pub stats: Option<crate::features::search::model::NoteStats>,
-    pub tags_and_props: Option<(Vec<String>, std::collections::BTreeMap<String, (String, String)>)>,
+    pub tags_and_props: Option<(
+        Vec<String>,
+        std::collections::BTreeMap<String, (String, String)>,
+    )>,
 }
 
 fn find_frontmatter_end(content: &str) -> Option<usize> {

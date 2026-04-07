@@ -7,7 +7,9 @@ use serde::Serialize;
 use std::sync::Arc;
 
 use crate::features::mcp::http::HttpAppState;
-use crate::features::mcp::shared_ops::{self, OpError, CreateNoteArgs as SharedCreateArgs, CreateResult};
+use crate::features::mcp::shared_ops::{
+    self, CreateNoteArgs as SharedCreateArgs, CreateResult, OpError,
+};
 
 #[derive(Serialize)]
 struct ReadResponse {
@@ -75,7 +77,9 @@ async fn cli_read(
     Json(params): Json<shared_ops::VaultPathArgs>,
 ) -> axum::response::Response {
     match shared_ops::read_note(state.app(), &params.vault_id, &params.path) {
-        Ok((path, content)) => (StatusCode::OK, Json(ReadResponse { path, content })).into_response(),
+        Ok((path, content)) => {
+            (StatusCode::OK, Json(ReadResponse { path, content })).into_response()
+        }
         Err(e) => op_err_to_response(e),
     }
 }
@@ -141,26 +145,25 @@ async fn cli_vault(
     }
 }
 
-async fn cli_vaults(
-    State(state): State<Arc<HttpAppState>>,
-) -> axum::response::Response {
+async fn cli_vaults(State(state): State<Arc<HttpAppState>>) -> axum::response::Response {
     match shared_ops::list_vaults(state.app()) {
         Ok(vaults) => (StatusCode::OK, Json(vaults)).into_response(),
         Err(e) => op_err_to_response(e),
     }
 }
 
-async fn cli_status(
-    State(state): State<Arc<HttpAppState>>,
-) -> axum::response::Response {
-    let active_vault_id = shared_ops::get_active_vault_id(state.app())
-        .unwrap_or(None);
+async fn cli_status(State(state): State<Arc<HttpAppState>>) -> axum::response::Response {
+    let active_vault_id = shared_ops::get_active_vault_id(state.app()).unwrap_or(None);
 
-    (StatusCode::OK, Json(StatusResponse {
-        running: true,
-        version: env!("CARGO_PKG_VERSION"),
-        active_vault_id,
-    })).into_response()
+    (
+        StatusCode::OK,
+        Json(StatusResponse {
+            running: true,
+            version: env!("CARGO_PKG_VERSION"),
+            active_vault_id,
+        }),
+    )
+        .into_response()
 }
 
 async fn cli_create(
@@ -198,7 +201,8 @@ async fn cli_prepend(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::WriteNoteArgs>,
 ) -> axum::response::Response {
-    match shared_ops::prepend_to_note(state.app(), &params.vault_id, &params.path, &params.content) {
+    match shared_ops::prepend_to_note(state.app(), &params.vault_id, &params.path, &params.content)
+    {
         Ok(path) => mutation_ok(path),
         Err(e) => op_err_to_response(e),
     }
@@ -208,7 +212,12 @@ async fn cli_rename(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::RenameArgs>,
 ) -> axum::response::Response {
-    match shared_ops::rename_note(state.app(), &params.vault_id, &params.path, &params.new_path) {
+    match shared_ops::rename_note(
+        state.app(),
+        &params.vault_id,
+        &params.path,
+        &params.new_path,
+    ) {
         Ok(path) => mutation_ok(path),
         Err(e) => op_err_to_response(e),
     }
@@ -263,18 +272,25 @@ mod tests {
     }
 
     async fn cli_handler_status_no_app() -> axum::response::Response {
-        (StatusCode::OK, Json(StatusResponse {
-            running: true,
-            version: env!("CARGO_PKG_VERSION"),
-            active_vault_id: None,
-        })).into_response()
+        (
+            StatusCode::OK,
+            Json(StatusResponse {
+                running: true,
+                version: env!("CARGO_PKG_VERSION"),
+                active_vault_id: None,
+            }),
+        )
+            .into_response()
     }
 
     fn test_status_router(token: &str) -> Router {
         let state = Arc::new(token.to_string());
         Router::new()
             .route("/cli/status", post(cli_handler_status_no_app))
-            .layer(middleware::from_fn_with_state(state.clone(), test_auth_middleware))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                test_auth_middleware,
+            ))
             .with_state(state)
     }
 
@@ -297,7 +313,9 @@ mod tests {
     async fn test_cli_status_returns_running() {
         let router = test_status_router("secret");
         let req = post_json("/cli/status", "secret", "{}");
-        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
 
         let json = response_json(resp).await;
@@ -309,7 +327,9 @@ mod tests {
     async fn test_cli_status_auth_rejected() {
         let router = test_status_router("secret");
         let req = post_json("/cli/status", "wrong", "{}");
-        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
@@ -322,7 +342,9 @@ mod tests {
             .header("Content-Type", "application/json")
             .body(Body::from("{}"))
             .unwrap();
-        let resp = ServiceExt::<Request<Body>>::oneshot(router, req).await.unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
@@ -421,7 +443,10 @@ mod tests {
 
     #[test]
     fn test_mutation_response_serialization() {
-        let resp = MutationResponse { ok: true, path: "note.md".into() };
+        let resp = MutationResponse {
+            ok: true,
+            path: "note.md".into(),
+        };
         let json = serde_json::to_value(resp).unwrap();
         assert_eq!(json["ok"], true);
         assert_eq!(json["path"], "note.md");

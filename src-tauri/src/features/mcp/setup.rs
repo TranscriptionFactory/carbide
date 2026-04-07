@@ -91,8 +91,7 @@ pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
     let output = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
-    std::fs::write(&path, output)
-        .map_err(|e| format!("Failed to write config: {}", e))?;
+    std::fs::write(&path, output).map_err(|e| format!("Failed to write config: {}", e))?;
 
     Ok(SetupResult {
         success: true,
@@ -116,7 +115,9 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
 
     let entry = {
         let mut e = build_mcp_server_entry(token);
-        e.as_object_mut().unwrap().insert("type".to_string(), serde_json::json!("http"));
+        e.as_object_mut()
+            .unwrap()
+            .insert("type".to_string(), serde_json::json!("http"));
         e
     };
 
@@ -219,16 +220,13 @@ pub async fn mcp_regenerate_token() -> Result<String, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mcp_get_setup_status(
-    app: AppHandle,
-) -> Result<SetupStatus, String> {
-    let vault_path = storage::load_store(&app)
-        .ok()
-        .and_then(|store| {
-            store.last_vault_id.as_ref().and_then(|id| {
-                storage::vault_path_by_id(&store, id)
-            })
-        });
+pub async fn mcp_get_setup_status(app: AppHandle) -> Result<SetupStatus, String> {
+    let vault_path = storage::load_store(&app).ok().and_then(|store| {
+        store
+            .last_vault_id
+            .as_ref()
+            .and_then(|id| storage::vault_path_by_id(&store, id))
+    });
     Ok(get_setup_status(vault_path.as_deref()))
 }
 
@@ -238,13 +236,19 @@ mod tests {
 
     #[test]
     fn test_mcp_server_url() {
-        assert_eq!(mcp_server_url(), format!("http://localhost:{}/mcp", DEFAULT_PORT));
+        assert_eq!(
+            mcp_server_url(),
+            format!("http://localhost:{}/mcp", DEFAULT_PORT)
+        );
     }
 
     #[test]
     fn test_build_mcp_server_entry() {
         let entry = build_mcp_server_entry("test_token");
-        assert_eq!(entry["url"], format!("http://localhost:{}/mcp", DEFAULT_PORT));
+        assert_eq!(
+            entry["url"],
+            format!("http://localhost:{}/mcp", DEFAULT_PORT)
+        );
         assert_eq!(entry["headers"]["Authorization"], "Bearer test_token");
     }
 
@@ -259,7 +263,9 @@ mod tests {
 
         #[cfg(target_os = "macos")]
         {
-            let expected_path = dir.path().join("Library/Application Support/Claude/claude_desktop_config.json");
+            let expected_path = dir
+                .path()
+                .join("Library/Application Support/Claude/claude_desktop_config.json");
             if result.is_ok() {
                 let content = std::fs::read_to_string(&expected_path).unwrap();
                 let config: serde_json::Value = serde_json::from_str(&content).unwrap();
