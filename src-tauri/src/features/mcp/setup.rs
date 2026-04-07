@@ -53,6 +53,7 @@ fn claude_desktop_config_path() -> PathBuf {
 
 fn build_mcp_server_entry(token: &str) -> serde_json::Value {
     serde_json::json!({
+        "type": "http",
         "url": mcp_server_url(),
         "headers": {
             "Authorization": format!("Bearer {}", token)
@@ -113,13 +114,7 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
         serde_json::json!({})
     };
 
-    let entry = {
-        let mut e = build_mcp_server_entry(token);
-        e.as_object_mut()
-            .unwrap()
-            .insert("type".to_string(), serde_json::json!("http"));
-        e
-    };
+    let entry = build_mcp_server_entry(token);
 
     let servers = config
         .as_object_mut()
@@ -245,6 +240,7 @@ mod tests {
     #[test]
     fn test_build_mcp_server_entry() {
         let entry = build_mcp_server_entry("test_token");
+        assert_eq!(entry["type"], "http");
         assert_eq!(
             entry["url"],
             format!("http://localhost:{}/mcp", DEFAULT_PORT)
@@ -270,6 +266,7 @@ mod tests {
                 let content = std::fs::read_to_string(&expected_path).unwrap();
                 let config: serde_json::Value = serde_json::from_str(&content).unwrap();
                 assert!(config["mcpServers"]["carbide"].is_object());
+                assert_eq!(config["mcpServers"]["carbide"]["type"], "http");
                 assert_eq!(
                     config["mcpServers"]["carbide"]["headers"]["Authorization"],
                     "Bearer test_token_123"

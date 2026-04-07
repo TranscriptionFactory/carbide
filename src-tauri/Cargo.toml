@@ -70,6 +70,7 @@ pdf-extract = "0.10.0"
 lopdf = "0.34"
 rayon = "1.10"
 axum = "0.8"
+futures-util = "0.3"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors"] }
 subtle = "2"

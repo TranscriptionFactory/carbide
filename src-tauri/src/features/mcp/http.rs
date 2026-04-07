@@ -1,9 +1,12 @@
 use axum::extract::{Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::{self, Next};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use futures_util::stream;
+use rand::RngCore;
 use serde::Serialize;
 use specta::Type;
 use std::net::SocketAddr;
@@ -69,6 +72,7 @@ fn cors_layer() -> CorsLayer {
         .allow_headers([
             axum::http::header::CONTENT_TYPE,
             axum::http::header::AUTHORIZATION,
+            axum::http::header::ACCEPT,
         ])
 }
 
@@ -93,11 +97,17 @@ async fn auth_middleware(
     }
 }
 
+fn new_session_id() -> String {
+    let mut bytes = [0u8; 16];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    hex::encode(bytes)
+}
+
 pub fn build_router(state: HttpAppState) -> Router {
     let shared_state = Arc::new(state);
 
     let authenticated = Router::new()
-        .route("/mcp", post(mcp_handler))
+        .route("/mcp", get(mcp_get_handler).post(mcp_post_handler))
         .nest("/cli", cli_routes::cli_router())
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
@@ -124,7 +134,28 @@ async fn health_handler() -> impl IntoResponse {
     })
 }
 
-async fn mcp_handler(State(state): State<Arc<HttpAppState>>, body: String) -> impl IntoResponse {
+fn wants_sse(headers: &HeaderMap) -> bool {
+    headers
+        .get(axum::http::header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.contains("text/event-stream"))
+        .unwrap_or(false)
+}
+
+fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
+    let data = serde_json::to_string(&response).unwrap_or_default();
+    let event = Event::default().event("message").data(data);
+    Sse::new(stream::once(async move {
+        Ok::<_, std::convert::Infallible>(event)
+    }))
+    .keep_alive(KeepAlive::default())
+}
+
+async fn mcp_post_handler(
+    State(state): State<Arc<HttpAppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> impl IntoResponse {
     let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -143,11 +174,35 @@ async fn mcp_handler(State(state): State<Arc<HttpAppState>>, body: String) -> im
         }
     };
 
+    let is_initialize = request.method == "initialize";
     let mut router = McpRouter::with_app(state.app().clone());
+
     match router.handle_request(&request) {
-        Some(response) => (StatusCode::OK, Json(response)).into_response(),
         None => StatusCode::NO_CONTENT.into_response(),
+        Some(resp) if wants_sse(&headers) => {
+            let mut response = sse_response(resp).into_response();
+            if is_initialize {
+                response
+                    .headers_mut()
+                    .insert("Mcp-Session-Id", new_session_id().parse().unwrap());
+            }
+            response
+        }
+        Some(resp) => {
+            let mut response = (StatusCode::OK, Json(resp)).into_response();
+            if is_initialize {
+                response
+                    .headers_mut()
+                    .insert("Mcp-Session-Id", new_session_id().parse().unwrap());
+            }
+            response
+        }
     }
+}
+
+async fn mcp_get_handler() -> impl IntoResponse {
+    Sse::new(stream::empty::<Result<Event, std::convert::Infallible>>())
+        .keep_alive(KeepAlive::default())
 }
 
 pub fn extract_bearer_token(headers: &HeaderMap) -> Option<&str> {
@@ -334,7 +389,7 @@ mod tests {
         }
     }
 
-    async fn mcp_handler_no_app(body: String) -> impl IntoResponse {
+    async fn mcp_post_handler_no_app(headers: HeaderMap, body: String) -> impl IntoResponse {
         let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
             Ok(req) => req,
             Err(e) => {
@@ -353,17 +408,39 @@ mod tests {
             }
         };
 
+        let is_initialize = request.method == "initialize";
         let mut router = McpRouter::new();
+
         match router.handle_request(&request) {
-            Some(response) => (StatusCode::OK, Json(response)).into_response(),
             None => StatusCode::NO_CONTENT.into_response(),
+            Some(resp) if wants_sse(&headers) => {
+                let mut response = sse_response(resp).into_response();
+                if is_initialize {
+                    response
+                        .headers_mut()
+                        .insert("Mcp-Session-Id", new_session_id().parse().unwrap());
+                }
+                response
+            }
+            Some(resp) => {
+                let mut response = (StatusCode::OK, Json(resp)).into_response();
+                if is_initialize {
+                    response
+                        .headers_mut()
+                        .insert("Mcp-Session-Id", new_session_id().parse().unwrap());
+                }
+                response
+            }
         }
     }
 
     fn test_mcp_router(token: &str) -> Router {
         let state = Arc::new(token.to_string());
         Router::new()
-            .route("/mcp", post(mcp_handler_no_app))
+            .route(
+                "/mcp",
+                get(mcp_get_handler).post(mcp_post_handler_no_app),
+            )
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 test_auth_middleware,
@@ -593,5 +670,114 @@ mod tests {
 
         let stop_result = state.stop().await;
         assert!(stop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_post_with_sse_accept_returns_event_stream() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"ping","id":1}"#;
+        let req = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer secret")
+            .header("Accept", "text/event-stream")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(ct.contains("text/event-stream"));
+        let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.contains("event: message"));
+        assert!(text.contains("data: "));
+    }
+
+    #[tokio::test]
+    async fn test_post_without_sse_returns_json() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"ping","id":1}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(ct.contains("application/json"));
+    }
+
+    #[tokio::test]
+    async fn test_initialize_returns_session_id_header() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocol_version":"2024-11-05","capabilities":{},"client_info":{"name":"test"}},"id":1}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let session_id = resp.headers().get("Mcp-Session-Id");
+        assert!(session_id.is_some());
+        let id_str = session_id.unwrap().to_str().unwrap();
+        assert_eq!(id_str.len(), 32);
+    }
+
+    #[tokio::test]
+    async fn test_non_initialize_no_session_id_header() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"ping","id":1}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert!(resp.headers().get("Mcp-Session-Id").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_mcp_returns_event_stream() {
+        let router = test_mcp_router("secret");
+        let req = Request::builder()
+            .method("GET")
+            .uri("/mcp")
+            .header("Authorization", "Bearer secret")
+            .body(Body::empty())
+            .unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(ct.contains("text/event-stream"));
+    }
+
+    #[tokio::test]
+    async fn test_get_mcp_without_auth_returns_401() {
+        let router = test_mcp_router("secret");
+        let req = Request::builder()
+            .method("GET")
+            .uri("/mcp")
+            .body(Body::empty())
+            .unwrap();
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 }
