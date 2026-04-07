@@ -33,8 +33,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - uses: pnpm/action-setup@v4
 
@@ -143,8 +141,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - uses: pnpm/action-setup@v4
 
@@ -193,18 +189,9 @@ jobs:
           sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
           rm -f src-tauri/Cargo.toml.bak
 
-      - name: Build iwes sidecar from vendor/iwe
+      - name: Download iwes sidecar
         shell: bash
-        run: |
-          TRIPLE="${{ matrix.triple }}"
-          cargo build --release --manifest-path vendor/iwe/Cargo.toml -p iwes --target "$TRIPLE"
-          mkdir -p src-tauri/binaries
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            cp "vendor/iwe/target/$TRIPLE/release/iwes.exe" "src-tauri/binaries/iwes-$TRIPLE.exe"
-          else
-            cp "vendor/iwe/target/$TRIPLE/release/iwes" "src-tauri/binaries/iwes-$TRIPLE"
-            chmod +x "src-tauri/binaries/iwes-$TRIPLE"
-          fi
+        run: bash scripts/download_iwes.sh "${{ matrix.triple }}"
 
       - name: Download rumdl sidecar
         shell: bash
