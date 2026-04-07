@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "carbide"
-version = "1.13.0"
+version = "1.14.0"
 dependencies = [
  "anyhow",
  "axum",
