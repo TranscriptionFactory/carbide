@@ -17,18 +17,20 @@ describe("detect_file_type", () => {
     });
   });
 
-  describe("csv type", () => {
-    it("maps .csv to csv", () => {
-      expect(detect_file_type("data.csv")).toBe("csv");
+  describe("canvas / excalidraw types", () => {
+    it("maps .canvas to canvas", () => {
+      expect(detect_file_type("board.canvas")).toBe("canvas");
     });
 
-    it("maps .tsv to csv", () => {
-      expect(detect_file_type("data.tsv")).toBe("csv");
+    it("maps .excalidraw to excalidraw", () => {
+      expect(detect_file_type("drawing.excalidraw")).toBe("excalidraw");
     });
   });
 
-  describe("code type", () => {
+  describe("text type (text-by-default)", () => {
     it.each([
+      ".csv",
+      ".tsv",
       ".py",
       ".r",
       ".rs",
@@ -40,55 +42,71 @@ describe("detect_file_type", () => {
       ".toml",
       ".sh",
       ".bash",
-    ])("maps %s to code", (ext) => {
-      expect(detect_file_type(`script${ext}`)).toBe("code");
+      ".html",
+      ".htm",
+      ".txt",
+      ".log",
+      ".ini",
+      ".go",
+      ".sql",
+      ".c",
+      ".cpp",
+      ".java",
+      ".rb",
+      ".lua",
+      ".swift",
+      ".kt",
+      ".zig",
+      ".unknown_text",
+    ])("maps %s to text", (ext) => {
+      expect(detect_file_type(`file${ext}`)).toBe("text");
     });
   });
 
-  describe("text type", () => {
-    it("maps .txt to text", () => {
-      expect(detect_file_type("readme.txt")).toBe("text");
-    });
-
-    it("maps .log to text", () => {
-      expect(detect_file_type("app.log")).toBe("text");
-    });
-
-    it("maps .ini to text", () => {
-      expect(detect_file_type("config.ini")).toBe("text");
+  describe("binary denylist", () => {
+    it.each([
+      ".docx",
+      ".xlsx",
+      ".pptx",
+      ".zip",
+      ".gz",
+      ".tar",
+      ".7z",
+      ".rar",
+      ".dmg",
+      ".app",
+      ".exe",
+      ".dll",
+      ".so",
+      ".dylib",
+      ".wasm",
+      ".class",
+      ".o",
+      ".obj",
+    ])("returns null for binary extension %s", (ext) => {
+      expect(detect_file_type(`file${ext}`)).toBeNull();
     });
   });
 
-  describe("html type", () => {
-    it("maps .html to html", () => {
-      expect(detect_file_type("page.html")).toBe("html");
-    });
-
-    it("maps .htm to html", () => {
-      expect(detect_file_type("page.htm")).toBe("html");
-    });
-  });
-
-  describe("unknown / edge cases", () => {
-    it("returns null for unknown extension", () => {
-      expect(detect_file_type("file.xyz")).toBeNull();
-    });
-
-    it("returns null for markdown files", () => {
+  describe("note routing", () => {
+    it("returns null for .md files (notes handled separately)", () => {
       expect(detect_file_type("note.md")).toBeNull();
     });
+  });
 
+  describe("edge cases", () => {
     it("returns null for no extension", () => {
       expect(detect_file_type("Makefile")).toBeNull();
     });
 
     it("is case-insensitive", () => {
       expect(detect_file_type("Photo.PNG")).toBe("image");
-      expect(detect_file_type("script.TS")).toBe("code");
+      expect(detect_file_type("script.TS")).toBe("text");
+      expect(detect_file_type("archive.ZIP")).toBeNull();
     });
 
     it("uses the last extension for dotfiles with extensions", () => {
-      expect(detect_file_type(".gitignore.json")).toBe("code");
+      expect(detect_file_type(".gitignore.json")).toBe("text");
     });
   });
 });

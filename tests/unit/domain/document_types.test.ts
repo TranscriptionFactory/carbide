@@ -10,20 +10,20 @@ describe("detect_file_type", () => {
     expect(detect_file_type("image.PNG")).toBe("image");
   });
 
-  it("detects csv", () => {
-    expect(detect_file_type("data.csv")).toBe("csv");
+  it("detects text for csv (collapsed type)", () => {
+    expect(detect_file_type("data.csv")).toBe("text");
   });
 
-  it("detects code", () => {
-    expect(detect_file_type("main.rs")).toBe("code");
+  it("detects text for code files (collapsed type)", () => {
+    expect(detect_file_type("main.rs")).toBe("text");
   });
 
   it("detects text", () => {
     expect(detect_file_type("readme.txt")).toBe("text");
   });
 
-  it("returns null for unknown extension", () => {
-    expect(detect_file_type("unknown.xyz")).toBeNull();
+  it("returns text for unknown text extensions", () => {
+    expect(detect_file_type("unknown.xyz")).toBe("text");
   });
 
   it("returns null for markdown files", () => {
@@ -32,5 +32,10 @@ describe("detect_file_type", () => {
 
   it("returns null for files with no extension", () => {
     expect(detect_file_type("noext")).toBeNull();
+  });
+
+  it("returns null for binary denylist extensions", () => {
+    expect(detect_file_type("doc.docx")).toBeNull();
+    expect(detect_file_type("archive.zip")).toBeNull();
   });
 });

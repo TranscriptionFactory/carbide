@@ -643,6 +643,7 @@ export function create_app_context(input: {
       reference: reference_service,
       smart_links: smart_links_service,
       mcp: mcp_service,
+      document: document_service,
     },
     default_mount_config: input.default_mount_config,
   };

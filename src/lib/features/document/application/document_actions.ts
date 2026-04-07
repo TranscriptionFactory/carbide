@@ -78,6 +78,17 @@ export function register_document_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.document_save,
+    label: "Save Document",
+    execute: async () => {
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "document") return;
+      await document_service.save(active_tab.id);
+      stores.tab.set_dirty(active_tab.id, false);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.document_close,
     label: "Close Document",
     execute: (...args: unknown[]) => {

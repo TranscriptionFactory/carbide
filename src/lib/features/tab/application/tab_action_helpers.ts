@@ -202,6 +202,16 @@ export async function save_dirty_tab(
     return "saved";
   }
 
+  if (tab.kind === "document") {
+    try {
+      await services.document.save(tab_id);
+      stores.tab.set_dirty(tab_id, false);
+      return "saved";
+    } catch {
+      return "failed";
+    }
+  }
+
   const open_note = stores.editor.open_note;
   const is_active_untitled =
     stores.tab.active_tab_id === tab_id &&

@@ -89,7 +89,7 @@ export function scan_entry_to_linked_meta(
 
   let meta: LinkedSourceMeta = {
     citekey,
-    item_type: entry.file_type === "html" ? "webpage" : "article",
+    item_type: /\.html?$/i.test(entry.file_path) ? "webpage" : "article",
     external_file_path: entry.file_path,
     linked_source_id: source_id,
   };

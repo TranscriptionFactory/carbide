@@ -5,12 +5,11 @@
     DocumentViewerState,
   } from "$lib/features/document/state/document_store.svelte";
   import PdfViewer from "$lib/features/document/ui/pdf_viewer.svelte";
-  import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
-  import CodeViewer from "$lib/features/document/ui/code_viewer.svelte";
-  import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
+  import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
   import type { PdfMetadata } from "$lib/features/document/types/document";
+  import { is_editable_type } from "$lib/features/document/types/document";
 
   interface Props {
     viewer_state: DocumentViewerState;
@@ -20,12 +19,17 @@
   let { viewer_state, content_state }: Props = $props();
   const { stores } = use_app_context();
   const asset_url = $derived(content_state?.asset_url ?? null);
-  const content = $derived(content_state?.content ?? null);
-  const buffer_id = $derived(content_state?.buffer_id ?? null);
-  const line_count = $derived(content_state?.line_count ?? null);
+  const current_content = $derived(
+    stores.document.get_current_content(viewer_state.tab_id),
+  );
 
   function handle_pdf_metadata(metadata: PdfMetadata): void {
     stores.document.set_pdf_metadata(viewer_state.tab_id, metadata);
+  }
+
+  function handle_editor_change(new_content: string): void {
+    stores.document.set_edited_content(viewer_state.tab_id, new_content);
+    stores.tab.set_dirty(viewer_state.tab_id, true);
   }
 </script>
 
@@ -51,21 +55,13 @@
       src={asset_url}
       background_style={stores.ui.editor_settings.document_image_background}
     />
-  {:else if viewer_state.file_type === "html" && content !== null}
-    <HtmlViewer {content} />
-  {:else if viewer_state.file_type === "csv" && content !== null}
-    <CsvViewer {content} />
-  {:else if (viewer_state.file_type === "code" || viewer_state.file_type === "text") && (content !== null || buffer_id !== null)}
-    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${viewer_state.file_type}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
-      <CodeViewer
-        tab_id={viewer_state.tab_id}
-        {content}
-        {buffer_id}
-        {line_count}
-        file_type={viewer_state.file_type}
+  {:else if viewer_state.file_type === "text" && current_content !== null}
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
+      <DocumentEditor
+        content={current_content}
         filename={viewer_state.file_path.split("/").pop() ?? ""}
+        on_change={handle_editor_change}
         wrap_lines={stores.ui.editor_settings.document_code_wrap}
-        initial_scroll_top={viewer_state.scroll_top}
       />
     {/key}
   {:else if viewer_state.load_status === "error"}

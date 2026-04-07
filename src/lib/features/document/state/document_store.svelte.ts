@@ -21,6 +21,8 @@ export type DocumentContentState = {
   status: "loading" | "ready" | "error";
   error_message: string | null;
   content: string | null;
+  edited_content: string | null;
+  is_dirty: boolean;
   buffer_id: string | null;
   line_count: number | null;
   asset_url: string | null;
@@ -85,6 +87,33 @@ export class DocumentStore {
     });
   }
 
+  get_current_content(tab_id: string): string | null {
+    const state = this.content_states.get(tab_id);
+    if (!state) return null;
+    return state.edited_content ?? state.content;
+  }
+
+  set_edited_content(tab_id: string, edited_content: string): void {
+    const state = this.content_states.get(tab_id);
+    if (!state) return;
+    this.content_states = new Map(this.content_states).set(tab_id, {
+      ...state,
+      edited_content,
+      is_dirty: true,
+    });
+  }
+
+  mark_clean(tab_id: string, saved_content: string): void {
+    const state = this.content_states.get(tab_id);
+    if (!state) return;
+    this.content_states = new Map(this.content_states).set(tab_id, {
+      ...state,
+      content: saved_content,
+      edited_content: null,
+      is_dirty: false,
+    });
+  }
+
   touch_content_state(tab_id: string, now_ms: number): void {
     const state = this.content_states.get(tab_id);
     if (!state) return;
@@ -102,13 +131,13 @@ export class DocumentStore {
 
   #evict_inactive_content(): void {
     const limit = this.inactive_content_limit;
-    const entries = Array.from(this.content_states.entries()).sort(
-      ([, a], [, b]) => b.last_accessed_at - a.last_accessed_at,
-    );
+    const evictable = Array.from(this.content_states.entries())
+      .filter(([, state]) => !state.is_dirty)
+      .sort(([, a], [, b]) => b.last_accessed_at - a.last_accessed_at);
 
-    if (entries.length <= limit) return;
+    if (evictable.length <= limit) return;
 
-    const to_remove = entries.slice(limit);
+    const to_remove = evictable.slice(limit);
     const next = new Map(this.content_states);
     for (const [tab_id] of to_remove) {
       next.delete(tab_id);

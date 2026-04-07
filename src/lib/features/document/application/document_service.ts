@@ -7,12 +7,7 @@ import type { VaultStore } from "$lib/features/vault";
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
 function needs_text_content(file_type: DocumentFileType): boolean {
-  return (
-    file_type === "code" ||
-    file_type === "csv" ||
-    file_type === "text" ||
-    file_type === "html"
-  );
+  return file_type === "text";
 }
 
 export class DocumentService {
@@ -79,6 +74,8 @@ export class DocumentService {
       status: "loading",
       error_message: null,
       content: null,
+      edited_content: null,
+      is_dirty: false,
       buffer_id: null,
       line_count: null,
       asset_url: null,
@@ -138,6 +135,24 @@ export class DocumentService {
     }
   }
 
+  async save(tab_id: string): Promise<void> {
+    const content_state = this.document_store.get_content_state(tab_id);
+    if (!content_state || !content_state.is_dirty) return;
+
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return;
+
+    const content = content_state.edited_content ?? content_state.content;
+    if (content === null) return;
+
+    await this.document_port.write_file(
+      vault_id,
+      content_state.file_path,
+      content,
+    );
+    this.document_store.mark_clean(tab_id, content);
+  }
+
   close_document(tab_id: string): void {
     const existing = this.document_store.get_content_state(tab_id);
     if (existing?.buffer_id) {
@@ -176,7 +191,10 @@ export class DocumentService {
   private evict_inactive_content(active_tab_id: string | null): void {
     const ready_entries = [...this.document_store.content_states.values()]
       .filter(
-        (entry) => entry.status === "ready" && entry.tab_id !== active_tab_id,
+        (entry) =>
+          entry.status === "ready" &&
+          entry.tab_id !== active_tab_id &&
+          !entry.is_dirty,
       )
       .sort((a, b) => b.last_accessed_at - a.last_accessed_at);
 
