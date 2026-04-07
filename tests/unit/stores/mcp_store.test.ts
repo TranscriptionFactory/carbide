@@ -38,6 +38,7 @@ describe("McpStore", () => {
       claudeCodeConfigured: false,
       httpPort: 3457,
       tokenExists: true,
+      cliInstalled: false,
     };
     store.set_setup_status(status);
     expect(store.setup_status).toEqual(status);

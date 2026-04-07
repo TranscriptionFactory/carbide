@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::auth;
 
 const BASE_URL: &str = "http://127.0.0.1:3457";
+const MCP_ENDPOINT: &str = "/mcp";
 
 pub struct CarbideClient {
     http: Client,
@@ -62,6 +63,36 @@ impl CarbideClient {
                 }
                 _ => Err(format!("HTTP {}: {}", status, body)),
             }
+        }
+    }
+
+    pub async fn post_mcp_raw(&self, body: &str) -> Result<Option<String>, String> {
+        let resp = self
+            .http
+            .post(format!("{}{}", BASE_URL, MCP_ENDPOINT))
+            .bearer_auth(&self.token)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| format!("MCP request failed: {e}"))?;
+
+        let status = resp.status();
+
+        if status == reqwest::StatusCode::NO_CONTENT {
+            return Ok(None);
+        }
+
+        let body = resp
+            .text()
+            .await
+            .map_err(|e| format!("failed to read MCP response: {e}"))?;
+
+        if status.is_success() {
+            Ok(Some(body))
+        } else {
+            Err(format!("MCP HTTP {}: {}", status, body))
         }
     }
 

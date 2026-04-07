@@ -14,6 +14,7 @@ pub struct SetupStatus {
     pub claude_code_configured: bool,
     pub http_port: u16,
     pub token_exists: bool,
+    pub cli_installed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -61,6 +62,19 @@ fn build_mcp_server_entry(token: &str) -> serde_json::Value {
     })
 }
 
+fn build_mcp_server_entry_stdio() -> serde_json::Value {
+    serde_json::json!({
+        "command": "/usr/local/bin/carbide",
+        "args": ["mcp"]
+    })
+}
+
+fn cli_installed() -> bool {
+    std::path::Path::new("/usr/local/bin/carbide")
+        .symlink_metadata()
+        .is_ok()
+}
+
 pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
     let path = claude_desktop_config_path();
 
@@ -84,20 +98,30 @@ pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
         .entry("mcpServers")
         .or_insert_with(|| serde_json::json!({}));
 
+    // Use stdio transport if CLI is installed, otherwise fall back to HTTP
+    let entry = if cli_installed() {
+        build_mcp_server_entry_stdio()
+    } else {
+        build_mcp_server_entry(token)
+    };
+
     servers
         .as_object_mut()
         .ok_or("mcpServers is not a JSON object")?
-        .insert("carbide".to_string(), build_mcp_server_entry(token));
+        .insert("carbide".to_string(), entry);
 
     let output = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
     std::fs::write(&path, output).map_err(|e| format!("Failed to write config: {}", e))?;
 
+    let transport = if cli_installed() { "stdio" } else { "http" };
     Ok(SetupResult {
         success: true,
         path: path.to_string_lossy().to_string(),
-        message: "Claude Desktop configured with Carbide MCP server".to_string(),
+        message: format!(
+            "Claude Desktop configured with Carbide MCP server ({transport} transport)"
+        ),
     })
 }
 
@@ -186,6 +210,7 @@ pub fn get_setup_status(vault_path: Option<&str>) -> SetupStatus {
             .unwrap_or(false),
         http_port: DEFAULT_PORT,
         token_exists: token_exists(),
+        cli_installed: cli_installed(),
     }
 }
 
@@ -246,6 +271,20 @@ mod tests {
             format!("http://localhost:{}/mcp", DEFAULT_PORT)
         );
         assert_eq!(entry["headers"]["Authorization"], "Bearer test_token");
+    }
+
+    #[test]
+    fn test_build_mcp_server_entry_stdio() {
+        let entry = build_mcp_server_entry_stdio();
+        assert_eq!(entry["command"], "/usr/local/bin/carbide");
+        assert_eq!(entry["args"][0], "mcp");
+        assert!(entry.get("type").is_none());
+        assert!(entry.get("headers").is_none());
+    }
+
+    #[test]
+    fn test_cli_installed_returns_bool() {
+        let _ = cli_installed();
     }
 
     #[test]
