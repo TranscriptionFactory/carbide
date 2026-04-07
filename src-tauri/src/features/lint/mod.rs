@@ -121,9 +121,10 @@ pub async fn lint_close_file(
     path: String,
 ) -> Result<(), String> {
     let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
+    let session = match sessions.get(&vault_id) {
+        Some(s) => s,
+        None => return Ok(()),
+    };
     let uri = resolve_uri(&session.vault_path, &path);
     let params = serde_json::json!({
         "textDocument": {
