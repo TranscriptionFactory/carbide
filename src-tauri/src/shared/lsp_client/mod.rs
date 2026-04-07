@@ -4,4 +4,4 @@ pub mod types;
 
 pub use restartable::{is_retryable, LspSessionStatus, RestartableConfig, RestartableLspClient};
 pub use transport::{LspClient, ServerNotification};
-pub use types::{LspClientConfig, LspClientError};
+pub use types::{LspClientConfig, LspClientError, ServerRequest};

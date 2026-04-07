@@ -4,7 +4,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-use super::types::{LspClientConfig, LspClientError};
+use super::types::{LspClientConfig, LspClientError, ServerRequest};
 
 const STDERR_BUF_LINES: usize = 20;
 const STDERR_EXCERPT_LINES: usize = 10;
@@ -40,6 +40,7 @@ pub struct LspClient {
     stop_tx: Option<oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
     notification_rx: Option<mpsc::Receiver<ServerNotification>>,
+    server_request_rx: Option<mpsc::Receiver<ServerRequest>>,
     server_capabilities: serde_json::Value,
     request_timeout_ms: u64,
 }
@@ -56,6 +57,7 @@ impl LspClient {
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (ready_tx, ready_rx) = oneshot::channel::<Result<serde_json::Value, LspClientError>>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
+        let (server_request_tx, server_request_rx) = mpsc::channel::<ServerRequest>(16);
 
         let request_timeout_ms = config.request_timeout_ms;
 
@@ -65,6 +67,7 @@ impl LspClient {
             stop_rx,
             ready_tx,
             notification_tx,
+            server_request_tx,
         ));
 
         let server_capabilities = ready_rx
@@ -76,6 +79,7 @@ impl LspClient {
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
             notification_rx: Some(notification_rx),
+            server_request_rx: Some(server_request_rx),
             server_capabilities,
             request_timeout_ms,
         })
@@ -83,6 +87,10 @@ impl LspClient {
 
     pub fn take_notification_rx(&mut self) -> Option<mpsc::Receiver<ServerNotification>> {
         self.notification_rx.take()
+    }
+
+    pub fn take_server_request_rx(&mut self) -> Option<mpsc::Receiver<ServerRequest>> {
+        self.server_request_rx.take()
     }
 
     pub async fn send_notification(
@@ -161,6 +169,7 @@ async fn lsp_run_loop(
     mut stop_rx: oneshot::Receiver<()>,
     ready_tx: oneshot::Sender<Result<serde_json::Value, LspClientError>>,
     notification_tx: mpsc::Sender<ServerNotification>,
+    server_request_tx: mpsc::Sender<ServerRequest>,
 ) {
     let binary = &config.binary_path;
     let mut cmd = Command::new(binary);
@@ -238,6 +247,7 @@ async fn lsp_run_loop(
     let (reader_stop_tx, mut reader_stop_rx) = oneshot::channel::<()>();
 
     let stdin_clone = stdin.clone();
+    let server_request_tx_clone = server_request_tx;
     let reader_handle = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -245,7 +255,7 @@ async fn lsp_run_loop(
                 msg = read_lsp_message(&mut stdout_reader) => {
                     match msg {
                         Ok(Some(message)) => {
-                            dispatch_message(message, &pending_clone, &notification_tx_clone, &stdin_clone).await;
+                            dispatch_message(message, &pending_clone, &notification_tx_clone, &stdin_clone, &server_request_tx_clone).await;
                         }
                         Ok(None) => break,
                         Err(e) => {
@@ -311,6 +321,7 @@ async fn dispatch_message(
     pending: &Arc<Mutex<HashMap<i64, oneshot::Sender<Result<serde_json::Value, LspClientError>>>>>,
     notification_tx: &mpsc::Sender<ServerNotification>,
     stdin: &Arc<Mutex<tokio::process::ChildStdin>>,
+    server_request_tx: &mpsc::Sender<ServerRequest>,
 ) {
     let has_method = message.get("method").is_some();
     let has_id = message.get("id").is_some();
@@ -323,21 +334,52 @@ async fn dispatch_message(
             .unwrap_or("unknown");
         log::debug!("LSP server request: {} (id={id_value})", method);
 
-        let response = serde_json::json!({ "jsonrpc": "2.0", "id": id_value, "result": null });
-        if let Err(e) = write_lsp_message(stdin, &response).await {
-            log::warn!("Failed to respond to server request {}: {}", method, e);
-        }
-
         let params = message
             .get("params")
             .cloned()
             .unwrap_or(serde_json::Value::Null);
-        let _ = notification_tx
-            .send(ServerNotification {
-                method: method.to_string(),
-                params,
-            })
-            .await;
+
+        if method == "workspace/applyEdit" {
+            let (response_tx, response_rx) = oneshot::channel();
+            let sent = server_request_tx
+                .send(ServerRequest {
+                    id: id_value.clone(),
+                    method: method.to_string(),
+                    params,
+                    response_tx,
+                })
+                .await;
+
+            let stdin = stdin.clone();
+            let id = id_value;
+            tokio::spawn(async move {
+                let result = if sent.is_ok() {
+                    response_rx
+                        .await
+                        .unwrap_or(serde_json::json!({"applied": false}))
+                } else {
+                    serde_json::json!({"applied": false})
+                };
+                let response =
+                    serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result });
+                if let Err(e) = write_lsp_message(&stdin, &response).await {
+                    log::warn!("Failed to respond to workspace/applyEdit: {}", e);
+                }
+            });
+        } else {
+            let response =
+                serde_json::json!({ "jsonrpc": "2.0", "id": id_value, "result": null });
+            if let Err(e) = write_lsp_message(stdin, &response).await {
+                log::warn!("Failed to respond to server request {}: {}", method, e);
+            }
+
+            let _ = notification_tx
+                .send(ServerNotification {
+                    method: method.to_string(),
+                    params,
+                })
+                .await;
+        }
     } else if let Some(id) = message.get("id").and_then(|v| v.as_i64()) {
         let mut pending = pending.lock().await;
         if let Some(tx) = pending.remove(&id) {

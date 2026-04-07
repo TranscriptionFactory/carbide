@@ -125,7 +125,7 @@ pub struct MarkdownLspTextEdit {
     pub new_text: String,
 }
 
-#[derive(Debug, Serialize, Type)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct MarkdownLspWorkspaceEditResult {
     pub files_created: Vec<String>,
     pub files_deleted: Vec<String>,

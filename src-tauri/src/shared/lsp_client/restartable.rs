@@ -1,7 +1,7 @@
 use tokio::sync::{mpsc, oneshot};
 
 use super::transport::{LspClient, ServerNotification};
-use super::types::{LspClientConfig, LspClientError};
+use super::types::{LspClientConfig, LspClientError, ServerRequest};
 
 const DEFAULT_MAX_RESTARTS: u32 = 3;
 const DEFAULT_BACKOFF_MS: &[u64] = &[1000, 2000, 4000];
@@ -47,6 +47,7 @@ enum RestartableOutgoing {
 pub struct RestartableLspClient {
     request_tx: mpsc::Sender<RestartableOutgoing>,
     notification_rx: Option<mpsc::Receiver<ServerNotification>>,
+    server_request_rx: Option<mpsc::Receiver<ServerRequest>>,
     status_rx: Option<mpsc::Receiver<LspSessionStatus>>,
     stop_tx: Option<oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
@@ -57,6 +58,7 @@ impl RestartableLspClient {
         let (request_tx, request_rx) = mpsc::channel::<RestartableOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
+        let (server_request_fwd_tx, server_request_rx) = mpsc::channel::<ServerRequest>(16);
         let (status_tx, status_rx) = mpsc::channel::<LspSessionStatus>(16);
         let (ready_tx, ready_rx) = oneshot::channel::<Result<(), LspClientError>>();
 
@@ -65,6 +67,7 @@ impl RestartableLspClient {
             request_rx,
             stop_rx,
             notification_tx,
+            server_request_fwd_tx,
             status_tx,
             Some(ready_tx),
         ));
@@ -76,6 +79,7 @@ impl RestartableLspClient {
         Ok(Self {
             request_tx,
             notification_rx: Some(notification_rx),
+            server_request_rx: Some(server_request_rx),
             status_rx: Some(status_rx),
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
@@ -84,6 +88,10 @@ impl RestartableLspClient {
 
     pub fn take_notification_rx(&mut self) -> Option<mpsc::Receiver<ServerNotification>> {
         self.notification_rx.take()
+    }
+
+    pub fn take_server_request_rx(&mut self) -> Option<mpsc::Receiver<ServerRequest>> {
+        self.server_request_rx.take()
     }
 
     pub fn take_status_rx(&mut self) -> Option<mpsc::Receiver<LspSessionStatus>> {
@@ -156,6 +164,7 @@ async fn run_loop(
     mut request_rx: mpsc::Receiver<RestartableOutgoing>,
     mut stop_rx: oneshot::Receiver<()>,
     notification_fwd_tx: mpsc::Sender<ServerNotification>,
+    server_request_fwd_tx: mpsc::Sender<ServerRequest>,
     status_tx: mpsc::Sender<LspSessionStatus>,
     mut ready_tx: Option<oneshot::Sender<Result<(), LspClientError>>>,
 ) {
@@ -206,6 +215,9 @@ async fn run_loop(
         let mut inner_notification_rx = client
             .take_notification_rx()
             .expect("notification_rx available on fresh LspClient");
+        let mut inner_server_request_rx = client
+            .take_server_request_rx()
+            .expect("server_request_rx available on fresh LspClient");
 
         let terminated = loop {
             tokio::select! {
@@ -222,6 +234,11 @@ async fn run_loop(
                             log::warn!("RestartableLspClient: inner client died (notification channel closed)");
                             break false;
                         }
+                    }
+                }
+                server_req = inner_server_request_rx.recv() => {
+                    if let Some(req) = server_req {
+                        let _ = server_request_fwd_tx.send(req).await;
                     }
                 }
                 msg = request_rx.recv() => {

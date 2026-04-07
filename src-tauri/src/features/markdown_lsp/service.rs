@@ -1,11 +1,12 @@
 use crate::features::ai::service::AiProviderConfig;
 use crate::shared::lsp_client::{
     LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig, RestartableLspClient,
-    ServerNotification,
+    ServerNotification, ServerRequest,
 };
 use crate::shared::storage;
 use crate::shared::vault_path;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
@@ -15,12 +16,14 @@ use super::types::*;
 
 pub struct MarkdownLspState {
     clients: Mutex<HashMap<String, RestartableLspClient>>,
+    pending_workspace_edit: Arc<Mutex<Option<MarkdownLspWorkspaceEditResult>>>,
 }
 
 impl Default for MarkdownLspState {
     fn default() -> Self {
         Self {
             clients: Mutex::new(HashMap::new()),
+            pending_workspace_edit: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -143,6 +146,54 @@ fn spawn_notification_forwarder(
                         },
                     );
                 }
+            }
+        }
+    });
+}
+
+fn spawn_server_request_handler(
+    vault_path: std::path::PathBuf,
+    pending_workspace_edit: Arc<Mutex<Option<MarkdownLspWorkspaceEditResult>>>,
+    mut server_request_rx: tokio::sync::mpsc::Receiver<ServerRequest>,
+) {
+    tokio::spawn(async move {
+        while let Some(req) = server_request_rx.recv().await {
+            if req.method == "workspace/applyEdit" {
+                log::info!(
+                    "workspace/applyEdit received, applying edits for vault {}",
+                    vault_path.display()
+                );
+                let edit_param = &req.params;
+                let edit = if let Some(e) = edit_param.get("edit") {
+                    e
+                } else {
+                    edit_param
+                };
+                let result = apply_workspace_edit(&vault_path, edit).await;
+                match &result {
+                    Ok(r) => {
+                        log::info!(
+                            "workspace/applyEdit applied: created={} modified={} deleted={} errors={}",
+                            r.files_created.len(),
+                            r.files_modified.len(),
+                            r.files_deleted.len(),
+                            r.errors.len()
+                        );
+                        *pending_workspace_edit.lock().await = Some(r.clone());
+                        let _ = req
+                            .response_tx
+                            .send(serde_json::json!({"applied": true}));
+                    }
+                    Err(e) => {
+                        log::warn!("workspace/applyEdit failed: {}", e);
+                        let _ = req
+                            .response_tx
+                            .send(serde_json::json!({"applied": false, "failureReason": e}));
+                    }
+                }
+            } else {
+                log::debug!("Unhandled server request: {}", req.method);
+                let _ = req.response_tx.send(serde_json::Value::Null);
             }
         }
     });
@@ -327,6 +378,14 @@ pub async fn markdown_lsp_start(
 
     if let Some(rx) = client.take_notification_rx() {
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);
+    }
+
+    if let Some(rx) = client.take_server_request_rx() {
+        spawn_server_request_handler(
+            vault_path.clone(),
+            state.pending_workspace_edit.clone(),
+            rx,
+        );
     }
 
     if let Some(rx) = client.take_status_rx() {
@@ -575,11 +634,19 @@ pub async fn markdown_lsp_code_action_resolve(
     vault_id: String,
     code_action_json: String,
 ) -> Result<MarkdownLspWorkspaceEditResult, String> {
+    let state = markdown_lsp_state(&app);
+    *state.pending_workspace_edit.lock().await = None;
+
     let parsed: serde_json::Value =
         serde_json::from_str(&code_action_json).map_err(|e| e.to_string())?;
     let result = markdown_lsp_state(&app)
         .request(&vault_id, "codeAction/resolve", parsed)
         .await?;
+
+    if let Some(pending) = state.pending_workspace_edit.lock().await.take() {
+        log::info!("code_action_resolve: using workspace/applyEdit result (already applied)");
+        return Ok(pending);
+    }
 
     let vault_path = storage::vault_path(&app, &vault_id)?;
     apply_workspace_edit(&vault_path, &result).await
@@ -937,11 +1004,11 @@ fn parse_locations(v: &serde_json::Value) -> Result<Vec<MarkdownLspLocation>, St
 }
 
 fn uri_to_path(uri: &str) -> Result<std::path::PathBuf, String> {
-    let path_str = uri
-        .strip_prefix("file://")
-        .ok_or_else(|| format!("non-file URI: {}", uri))?;
-    let decoded = percent_decode(path_str);
-    Ok(std::path::PathBuf::from(decoded))
+    let parsed =
+        url::Url::parse(uri).map_err(|e| format!("invalid URI '{}': {}", uri, e))?;
+    parsed
+        .to_file_path()
+        .map_err(|_| format!("non-file URI: {}", uri))
 }
 
 fn percent_decode(s: &str) -> String {
@@ -977,6 +1044,12 @@ async fn apply_workspace_edit(
     } else {
         edit_response
     };
+
+    log::debug!(
+        "apply_workspace_edit: edit_keys={:?} edit_preview={}",
+        edit.as_object().map(|o| o.keys().collect::<Vec<_>>()),
+        &edit.to_string()[..edit.to_string().len().min(500)]
+    );
 
     let changes = edit.get("documentChanges").and_then(|c| c.as_array());
     if let Some(ops) = changes {
@@ -1111,9 +1184,15 @@ async fn apply_simple_text_edits(uri: &str, edits: &serde_json::Value) -> Result
 
 async fn apply_edits_to_file(uri: &str, edits: &[serde_json::Value]) -> Result<(), String> {
     let path = uri_to_path(uri)?;
-    let content = tokio::fs::read_to_string(&path)
-        .await
-        .map_err(|e| format!("read file failed: {}", e))?;
+    let content = tokio::fs::read_to_string(&path).await.map_err(|e| {
+        log::warn!(
+            "apply_edits_to_file: read failed uri={} resolved_path={} error={}",
+            uri,
+            path.display(),
+            e
+        );
+        format!("read file failed: {}", e)
+    })?;
 
     let lines: Vec<&str> = content.lines().collect();
 

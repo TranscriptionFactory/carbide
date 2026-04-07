@@ -1,4 +1,12 @@
 use std::fmt;
+use tokio::sync::oneshot;
+
+pub struct ServerRequest {
+    pub id: serde_json::Value,
+    pub method: String,
+    pub params: serde_json::Value,
+    pub response_tx: oneshot::Sender<serde_json::Value>,
+}
 
 #[derive(Debug, Clone)]
 pub struct LspClientConfig {
