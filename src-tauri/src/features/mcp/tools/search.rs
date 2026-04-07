@@ -8,12 +8,13 @@ use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
-    vec![search_notes_def()]
+    vec![search_notes_def(), reindex_def()]
 }
 
 pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Option<ToolResult> {
     match name {
         "search_notes" => Some(handle_search_notes(app, arguments)),
+        "reindex" => Some(handle_reindex(app, arguments)),
         _ => None,
     }
 }
@@ -40,6 +41,33 @@ fn search_notes_def() -> ToolDefinition {
             properties,
             required: vec!["vault_id".into(), "query".into()],
         },
+    }
+}
+
+fn reindex_def() -> ToolDefinition {
+    let mut properties = HashMap::new();
+    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+
+    ToolDefinition {
+        name: "reindex".into(),
+        description: "Rebuild the search index for a vault. Triggers a full re-index of all notes in the background.".into(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties,
+            required: vec!["vault_id".into()],
+        },
+    }
+}
+
+fn handle_reindex(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
+    let args: shared_ops::VaultIdArgs = match parse_args(arguments) {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    match shared_ops::reindex(app, &args.vault_id) {
+        Ok(()) => ToolResult::text("Reindex started.".into()),
+        Err(e) => op_err_to_tool_result(e),
     }
 }
 

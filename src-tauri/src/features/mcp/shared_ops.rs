@@ -329,6 +329,10 @@ pub fn get_active_vault_id(app: &AppHandle) -> Result<Option<String>, OpError> {
     vault_service::get_last_vault_id(app.clone()).map_err(OpError::Internal)
 }
 
+pub fn reindex(app: &AppHandle, vault_id: &str) -> Result<(), OpError> {
+    search_service::index_rebuild(app.clone(), vault_id.to_string()).map_err(OpError::Internal)
+}
+
 pub fn note_tags(
     app: &AppHandle,
     vault_id: &str,

@@ -70,6 +70,7 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/rename", post(cli_rename))
         .route("/move", post(cli_move))
         .route("/delete", post(cli_delete))
+        .route("/reindex", post(cli_reindex))
 }
 
 async fn cli_read(
@@ -229,6 +230,16 @@ async fn cli_move(
 ) -> axum::response::Response {
     match shared_ops::move_note(state.app(), &params.vault_id, &params.path, &params.to) {
         Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
+    }
+}
+
+async fn cli_reindex(
+    State(state): State<Arc<HttpAppState>>,
+    Json(params): Json<shared_ops::VaultIdArgs>,
+) -> axum::response::Response {
+    match shared_ops::reindex(state.app(), &params.vault_id) {
+        Ok(()) => (StatusCode::OK, Json(MutationResponse { ok: true, path: String::new() })).into_response(),
         Err(e) => op_err_to_response(e),
     }
 }
