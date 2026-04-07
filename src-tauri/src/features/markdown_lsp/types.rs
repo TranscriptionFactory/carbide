@@ -1,5 +1,62 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkdownLspProvider {
+    Iwes,
+    Marksman,
+}
+
+impl MarkdownLspProvider {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Iwes => "iwes",
+            Self::Marksman => "marksman",
+        }
+    }
+
+    pub fn completion_trigger_characters(self) -> Vec<String> {
+        match self {
+            Self::Iwes => vec!["+".to_string(), "[".to_string(), "(".to_string()],
+            Self::Marksman => vec!["[".to_string(), "(".to_string(), "#".to_string()],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkdownLspStatus {
+    Starting,
+    Running,
+    Restarting { attempt: u32 },
+    Stopped,
+    Failed { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum MarkdownLspEvent {
+    DiagnosticsUpdated {
+        vault_id: String,
+        uri: String,
+        diagnostics: Vec<MarkdownLspDiagnostic>,
+    },
+    StatusChanged {
+        vault_id: String,
+        status: MarkdownLspStatus,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct MarkdownLspDiagnostic {
+    pub line: u32,
+    pub character: u32,
+    pub end_line: u32,
+    pub end_character: u32,
+    pub severity: String,
+    pub message: String,
+}
 
 #[derive(Debug, Serialize, Type)]
 pub struct MarkdownLspHoverResult {
@@ -80,7 +137,7 @@ pub struct MarkdownLspInlayHint {
 #[derive(Debug, Serialize, Type)]
 pub struct MarkdownLspStartResult {
     pub completion_trigger_characters: Vec<String>,
-    pub effective_provider: String,
+    pub effective_provider: MarkdownLspProvider,
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
