@@ -14,7 +14,7 @@ Currently all non-markdown files open as read-only viewers. Text-based files (`.
 
 ## Scope
 
-**In scope:** Editable source mode for *any* non-binary file. Syntax highlighting via CodeMirror's `@codemirror/language-data` where available; plain text fallback otherwise.
+**In scope:** Editable source mode for _any_ non-binary file. Syntax highlighting via CodeMirror's `@codemirror/language-data` where available; plain text fallback otherwise.
 
 **Out of scope:** CSV/TSV table view (deferred — opens as plain text for now), visual/rendered mode for code, diff view, multi-cursor, LSP integration, PDF/image editing.
 
@@ -28,12 +28,12 @@ Instead of maintaining an allowlist of editable extensions, flip the logic: only
 
 The binary/special set is small and stable:
 
-| `DocumentFileType` | Viewer          |
-| ------------------ | --------------- |
-| `"pdf"`            | PDF viewer      |
-| `"image"`          | Image viewer    |
-| `"canvas"`         | Canvas editor   |
-| `"excalidraw"`     | Excalidraw      |
+| `DocumentFileType` | Viewer        |
+| ------------------ | ------------- |
+| `"pdf"`            | PDF viewer    |
+| `"image"`          | Image viewer  |
+| `"canvas"`         | Canvas editor |
+| `"excalidraw"`     | Excalidraw    |
 
 Any file not in this set — whether it's `.py`, `.rs`, `.csv`, `.sql`, `.go`, `.ini`, `.log`, or an unknown extension — opens as editable text. Syntax highlighting is resolved from the filename via `LanguageDescription.matchFilename()`; if nothing matches, the file gets plain text editing.
 
@@ -50,6 +50,7 @@ This eliminates the need to grow `DOCUMENT_TYPE_MAP` every time a new language i
 3. **Hardcodes `@codemirror/lang-markdown`** — a `.py` file would get markdown syntax highlighting
 
 Instead, build `document_editor.svelte` based on `code_viewer.svelte`, which already has:
+
 - Filename-based language detection via `LanguageDescription.matchFilename()`
 - Clean CodeMirror 6 setup with no note-store coupling
 - Proper extension loading
@@ -100,7 +101,7 @@ These define correctness — all must pass before shipping:
 export type DocumentFileType =
   | "pdf"
   | "image"
-  | "text"       // all editable text files — syntax highlighting resolved from filename
+  | "text" // all editable text files — syntax highlighting resolved from filename
   | "canvas"
   | "excalidraw";
 ```
@@ -118,6 +119,7 @@ export function is_editable_type(file_type: DocumentFileType): boolean {
 ```
 
 **Update existing tests immediately:**
+
 - `tests/unit/domain/document_types.test.ts` — update `"csv"`, `"code"`, `"html"` assertions to `"text"`
 - `tests/unit/domain/detect_file_type.test.ts` — update all affected assertions; add binary denylist and `.md` → `null` test cases
 
@@ -128,10 +130,12 @@ export function is_editable_type(file_type: DocumentFileType): boolean {
 **New file:** `src/lib/features/document/ui/document_editor.svelte`
 
 Based on `code_viewer.svelte`'s CodeMirror setup pattern (lines 192–267), which already does:
+
 - `LanguageDescription.matchFilename(languages, filename)` for syntax highlighting
 - Clean CodeMirror 6 initialization with no note-store coupling
 
 Adaptations:
+
 - Remove `EditorState.readOnly.of(true)` and `EditorView.editable.of(false)`
 - Add `EditorView.updateListener.of()` that calls an `on_change(content: string)` prop
 - Props: `content: string`, `filename: string`, `on_change: (content: string) => void`
@@ -243,6 +247,7 @@ The prompt trigger itself is fine — it already checks `Tab.is_dirty` generical
 ### Step 8: Tests
 
 **Existing files to update:**
+
 - `tests/unit/domain/document_types.test.ts` — update type assertions
 - `tests/unit/domain/detect_file_type.test.ts` — update type assertions, add binary denylist cases
 
@@ -286,6 +291,7 @@ Scenarios to cover:
 **No Rust changes needed** — `write_vault_file` already exists.
 
 **Dead code to clean up:**
+
 - Remove `CsvViewer` / `HtmlViewer` imports from `document_viewer_content.svelte` (retain component files for future CSV table view)
 - Check `file_tree_row.svelte` for dead `detect_file_type` import
 
