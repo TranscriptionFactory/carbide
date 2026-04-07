@@ -146,9 +146,9 @@ fn router_lists_all_eight_tools() {
         jsonrpc: "2.0".into(),
         method: "initialize".into(),
         params: Some(json!({
-            "protocol_version": "2024-11-05",
+            "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "client_info": { "name": "test", "version": "1.0" }
+            "clientInfo": { "name": "test", "version": "1.0" }
         })),
         id: Some(JsonRpcId::Number(1)),
     };
