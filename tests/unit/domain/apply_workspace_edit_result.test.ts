@@ -8,6 +8,7 @@ function create_deps() {
   const open_note = vi.fn().mockResolvedValue({ status: "opened" });
   const sync_visual_from_markdown = vi.fn();
   const sync_visual_from_markdown_diff = vi.fn().mockReturnValue(true);
+  const sync_visual_from_markdown_undoable = vi.fn();
   const mark_clean = vi.fn();
   const set_markdown = vi.fn();
   const set_dirty = vi.fn();
@@ -34,6 +35,7 @@ function create_deps() {
       editor_service: {
         sync_visual_from_markdown,
         sync_visual_from_markdown_diff,
+        sync_visual_from_markdown_undoable,
         mark_clean,
       } as unknown as WorkspaceEditDeps["editor_service"],
       editor_store,
@@ -64,6 +66,7 @@ function create_deps() {
       open_note,
       sync_visual_from_markdown,
       sync_visual_from_markdown_diff,
+      sync_visual_from_markdown_undoable,
       mark_clean,
       set_markdown,
       set_dirty,
@@ -143,9 +146,10 @@ describe("apply_workspace_edit_result", () => {
     expect(mocks.sync_visual_from_markdown_diff).toHaveBeenCalledWith(
       "# Updated\nNew content",
     );
-    expect(mocks.sync_visual_from_markdown).toHaveBeenCalledWith(
+    expect(mocks.sync_visual_from_markdown_undoable).toHaveBeenCalledWith(
       "# Updated\nNew content",
     );
+    expect(mocks.sync_visual_from_markdown).not.toHaveBeenCalled();
   });
 
   it("falls back to force_reload when read_note_content fails", async () => {

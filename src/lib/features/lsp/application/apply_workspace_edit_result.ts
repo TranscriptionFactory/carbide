@@ -73,7 +73,7 @@ export async function apply_workspace_edit_result(
         const applied =
           editor_service.sync_visual_from_markdown_diff(new_markdown);
         if (!applied) {
-          editor_service.sync_visual_from_markdown(new_markdown);
+          editor_service.sync_visual_from_markdown_undoable(new_markdown);
         }
         editor_store.set_markdown(open_note.meta.id, new_markdown);
         editor_service.mark_clean();

@@ -582,6 +582,35 @@ export function create_prosemirror_editor_port(args?: {
           save_current_buffer();
           return true;
         },
+        replace_doc_undoable(markdown: string) {
+          if (!view) return;
+          const normalized = normalize_markdown(markdown);
+          let new_doc: ProseNode;
+          try {
+            new_doc = parse_markdown(prepare_markdown_for_editor(normalized));
+          } catch {
+            return;
+          }
+
+          const tr = view.state.tr.replaceWith(
+            0,
+            view.state.doc.content.size,
+            new_doc.content,
+          );
+          suppress_change_echo = true;
+          view.dispatch(tr);
+          suppress_change_echo = false;
+
+          is_large_note = is_large_markdown(normalized);
+          current_markdown = normalized;
+
+          if (!is_large_note) {
+            run_view_action((v) => {
+              dispatch_full_scan(v);
+            });
+          }
+          save_current_buffer();
+        },
         get_markdown() {
           return current_markdown;
         },
