@@ -61,7 +61,6 @@ fn make_rule_group(rule_id: &str, weight: f64) -> Vec<SmartLinkRuleGroup> {
             name: rule_id.into(),
             enabled: true,
             weight,
-            config: Default::default(),
         }],
     }]
 }
@@ -92,7 +91,6 @@ fn same_day_finds_notes_modified_same_day() {
             name: "Same day".into(),
             enabled: true,
             weight: 1.0,
-            config: Default::default(),
         }],
     }];
 
@@ -126,7 +124,6 @@ fn shared_tag_ranks_by_overlap() {
             name: "Shared tags".into(),
             enabled: true,
             weight: 1.0,
-            config: Default::default(),
         }],
     }];
 
@@ -159,7 +156,6 @@ fn shared_property_finds_matching_kv_pairs() {
             name: "Shared properties".into(),
             enabled: true,
             weight: 1.0,
-            config: Default::default(),
         }],
     }];
 
@@ -186,7 +182,6 @@ fn disabled_group_skipped() {
             name: "Shared tags".into(),
             enabled: true,
             weight: 1.0,
-            config: Default::default(),
         }],
     }];
 
@@ -212,7 +207,6 @@ fn disabled_rule_skipped() {
             name: "Shared tags".into(),
             enabled: false,
             weight: 1.0,
-            config: Default::default(),
         }],
     }];
 
@@ -242,14 +236,12 @@ fn multi_rule_scores_aggregate() {
                 name: "Same day".into(),
                 enabled: true,
                 weight: 0.3,
-                config: Default::default(),
             },
             SmartLinkRule {
                 id: "shared_tag".into(),
                 name: "Shared tags".into(),
                 enabled: true,
                 weight: 0.5,
-                config: Default::default(),
             },
         ],
     }];
@@ -414,7 +406,6 @@ fn cross_group_aggregation_metadata_plus_semantic() {
                 name: "Shared tags".into(),
                 enabled: true,
                 weight: 0.5,
-                config: Default::default(),
             }],
         },
         SmartLinkRuleGroup {
@@ -426,7 +417,6 @@ fn cross_group_aggregation_metadata_plus_semantic() {
                 name: "Semantic".into(),
                 enabled: true,
                 weight: 0.6,
-                config: Default::default(),
             }],
         },
     ];
@@ -435,7 +425,11 @@ fn cross_group_aggregation_metadata_plus_semantic() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].target_path, "b.md");
     assert_eq!(results[0].rules.len(), 2);
-    let rule_ids: Vec<&str> = results[0].rules.iter().map(|r| r.rule_id.as_str()).collect();
+    let rule_ids: Vec<&str> = results[0]
+        .rules
+        .iter()
+        .map(|r| r.rule_id.as_str())
+        .collect();
     assert!(rule_ids.contains(&"shared_tag"));
     assert!(rule_ids.contains(&"semantic_similarity"));
     assert!(results[0].score > 0.5);

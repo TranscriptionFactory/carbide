@@ -192,19 +192,25 @@ pub async fn start_server(
     Ok(())
 }
 
+struct ServerInner {
+    shutdown_tx: Option<watch::Sender<bool>>,
+    task_handle: Option<tokio::task::JoinHandle<()>>,
+    running: bool,
+}
+
 pub struct HttpServerState {
-    shutdown_tx: Arc<tokio::sync::Mutex<Option<watch::Sender<bool>>>>,
-    task_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
-    running: Arc<tokio::sync::Mutex<bool>>,
+    inner: Arc<tokio::sync::Mutex<ServerInner>>,
     port: u16,
 }
 
 impl Default for HttpServerState {
     fn default() -> Self {
         Self {
-            shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
-            task_handle: Arc::new(tokio::sync::Mutex::new(None)),
-            running: Arc::new(tokio::sync::Mutex::new(false)),
+            inner: Arc::new(tokio::sync::Mutex::new(ServerInner {
+                shutdown_tx: None,
+                task_handle: None,
+                running: false,
+            })),
             port: DEFAULT_PORT,
         }
     }
@@ -212,8 +218,8 @@ impl Default for HttpServerState {
 
 impl HttpServerState {
     pub async fn start(&self, app: AppHandle) -> Result<HttpServerInfo, String> {
-        let mut running = self.running.lock().await;
-        if *running {
+        let mut inner = self.inner.lock().await;
+        if inner.running {
             return Ok(HttpServerInfo {
                 port: self.port,
                 running: true,
@@ -232,9 +238,9 @@ impl HttpServerState {
             }
         });
 
-        *self.shutdown_tx.lock().await = Some(shutdown_tx);
-        *self.task_handle.lock().await = Some(handle);
-        *running = true;
+        inner.shutdown_tx = Some(shutdown_tx);
+        inner.task_handle = Some(handle);
+        inner.running = true;
 
         log::info!("HTTP server started on port {}", port);
 
@@ -245,20 +251,20 @@ impl HttpServerState {
     }
 
     pub async fn stop(&self) -> Result<(), String> {
-        let mut running = self.running.lock().await;
-        if !*running {
+        let mut inner = self.inner.lock().await;
+        if !inner.running {
             return Ok(());
         }
 
-        if let Some(tx) = self.shutdown_tx.lock().await.take() {
+        if let Some(tx) = inner.shutdown_tx.take() {
             let _ = tx.send(true);
         }
 
-        if let Some(handle) = self.task_handle.lock().await.take() {
+        if let Some(handle) = inner.task_handle.take() {
             let _ = tokio::time::timeout(std::time::Duration::from_secs(5), handle).await;
         }
 
-        *running = false;
+        inner.running = false;
         log::info!("HTTP server stopped");
         Ok(())
     }
@@ -266,7 +272,7 @@ impl HttpServerState {
     pub async fn get_info(&self) -> HttpServerInfo {
         HttpServerInfo {
             port: self.port,
-            running: *self.running.lock().await,
+            running: self.inner.lock().await.running,
         }
     }
 
@@ -580,10 +586,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_server_start_stop_lifecycle() {
-        let state = HttpServerState {
-            port: 0,
-            ..Default::default()
-        };
+        let state = HttpServerState::default();
 
         let info = state.get_info().await;
         assert!(!info.running);

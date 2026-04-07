@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::shared_ops::{self, CreateResult, OpError};
-use crate::features::mcp::tools::parse_args;
-use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
+use crate::features::mcp::shared_ops::{self, CreateResult};
+use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
+use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
 use crate::features::notes::service::file_meta;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
@@ -26,15 +26,6 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
         "update_note" => Some(handle_update_note(app, arguments)),
         "delete_note" => Some(handle_delete_note(app, arguments)),
         _ => None,
-    }
-}
-
-fn prop(prop_type: &str, description: &str) -> PropertySchema {
-    PropertySchema {
-        prop_type: prop_type.into(),
-        description: Some(description.into()),
-        enum_values: None,
-        default: None,
     }
 }
 
@@ -141,15 +132,6 @@ fn delete_note_def() -> ToolDefinition {
             properties,
             required: vec!["vault_id".into(), "path".into()],
         },
-    }
-}
-
-fn op_err_to_tool_result(e: OpError) -> ToolResult {
-    match e {
-        OpError::NotFound(m)
-        | OpError::BadRequest(m)
-        | OpError::Conflict(m)
-        | OpError::Internal(m) => ToolResult::error(m),
     }
 }
 

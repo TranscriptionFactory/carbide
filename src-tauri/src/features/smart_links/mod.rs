@@ -15,8 +15,6 @@ pub struct SmartLinkRule {
     pub name: String,
     pub enabled: bool,
     pub weight: f64,
-    #[serde(default)]
-    pub config: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -56,21 +54,18 @@ pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
                     name: "Same day creation/modification".into(),
                     enabled: true,
                     weight: 0.3,
-                    config: Default::default(),
                 },
                 SmartLinkRule {
                     id: "shared_tag".into(),
                     name: "Shared tags".into(),
                     enabled: true,
                     weight: 0.5,
-                    config: Default::default(),
                 },
                 SmartLinkRule {
                     id: "shared_property".into(),
                     name: "Shared properties".into(),
                     enabled: true,
                     weight: 0.4,
-                    config: Default::default(),
                 },
             ],
         },
@@ -84,21 +79,18 @@ pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
                     name: "Semantic similarity".into(),
                     enabled: true,
                     weight: 0.6,
-                    config: Default::default(),
                 },
                 SmartLinkRule {
                     id: "title_overlap".into(),
                     name: "Title overlap".into(),
                     enabled: false,
                     weight: 0.3,
-                    config: Default::default(),
                 },
                 SmartLinkRule {
                     id: "shared_outlinks".into(),
                     name: "Shared outlinks".into(),
                     enabled: false,
                     weight: 0.4,
-                    config: Default::default(),
                 },
             ],
         },
