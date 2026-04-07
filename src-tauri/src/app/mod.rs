@@ -40,9 +40,6 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
 }
 
 async fn shutdown_managed_processes(app: &tauri::AppHandle) {
-    app.state::<features::mcp::server::McpState>()
-        .shutdown()
-        .await;
     app.state::<features::mcp::http::HttpServerState>()
         .shutdown()
         .await;
@@ -100,7 +97,6 @@ pub fn run() {
         .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
-        .manage(features::mcp::server::McpState::default())
         .manage(features::mcp::http::HttpServerState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
@@ -326,9 +322,6 @@ pub fn run() {
             features::reference::service::reference_bbt_annotations,
             features::reference::service::reference_save_annotation_note,
             features::reference::service::reference_read_annotation_note,
-            features::mcp::server::mcp_start,
-            features::mcp::server::mcp_stop,
-            features::mcp::server::mcp_status,
             features::mcp::http::http_server_start,
             features::mcp::http::http_server_stop,
             features::mcp::http::http_server_status,
