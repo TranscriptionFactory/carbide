@@ -719,7 +719,7 @@ mod tests {
     #[tokio::test]
     async fn test_initialize_returns_session_id_header() {
         let router = test_mcp_router("secret");
-        let body = r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocol_version":"2024-11-05","capabilities":{},"client_info":{"name":"test"}},"id":1}"#;
+        let body = r#"{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}},"id":1}"#;
         let req = mcp_request(router.clone(), "secret", body);
         let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
             .await

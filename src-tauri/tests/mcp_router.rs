@@ -51,17 +51,17 @@ fn initialize_succeeds() {
     let req = make_request(
         "initialize",
         Some(json!({
-            "protocol_version": "2024-11-05",
+            "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "client_info": { "name": "test-client", "version": "1.0" }
+            "clientInfo": { "name": "test-client", "version": "1.0" }
         })),
         1,
     );
     let resp = router.handle_request(&req).unwrap();
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();
-    assert_eq!(result["protocol_version"], "2024-11-05");
-    assert_eq!(result["server_info"]["name"], "carbide");
+    assert_eq!(result["protocolVersion"], "2024-11-05");
+    assert_eq!(result["serverInfo"]["name"], "carbide");
     assert!(result["capabilities"]["tools"].is_object());
 }
 
