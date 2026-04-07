@@ -149,17 +149,21 @@ Simultaneously:
 
 **Tests:** 322 Rust tests pass, 2890/2891 TS tests pass (1 pre-existing failure in `document_service.test.ts` eviction test — unrelated).
 
-### 3c. Stdio transport decision — `refactor/stdio-cleanup` or `feat/mcp-stdio-proxy`
+### 3c. Stdio transport cleanup — `refactor/stdio-cleanup` ✅ DONE
 
-**Choose one:**
+**Status:** Completed on `refactor/stdio-cleanup` (commit `8680a491`)
+**Decision:** Option A — removed unreachable stdio code.
 
-**Option A — Remove unreachable stdio code (~340 lines):**
-If the stdio proxy from the transports plan (Phase 4 below) replaces the in-process stdio transport, remove `server.rs`, `transport.rs`, and the unreachable `mcp_start`/`mcp_stop`/`mcp_status` Tauri commands. The CLI proxy approach makes the in-process transport unnecessary.
+| #   | Item                                                       | Status | Notes                                                                                                    |
+| --- | ---------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| 1   | Delete `server.rs` (McpState, mcp_start/stop/status cmds) | ✅     | 131 lines removed. McpState managed state, shutdown call, and 3 invoke_handler entries also removed.     |
+| 2   | Delete `transport.rs` (run_jsonrpc_stream + 9 tests)       | ✅     | 191 lines removed. Tests covered stdio line-protocol but transport was unreachable from Tauri.            |
+| 3   | Remove `pub mod server` / `pub mod transport` from mod.rs  | ✅     | 2 lines from `features/mcp/mod.rs`.                                                                      |
+| 4   | Rewire frontend adapter to HTTP server commands            | ✅     | `mcp_tauri_adapter.ts` now calls `http_server_start/stop/status` with a mapping to `McpStatusInfo`.      |
 
-**Option B — Keep for future use:**
-If in-process stdio is still desired (e.g., for a future non-Tauri binary), keep but document why it's currently unreachable.
+**Total:** 334 lines deleted, 14 lines added (adapter mapping). 312 Rust tests pass, 2890/2891 TS tests pass (1 pre-existing failure in `document_service.test.ts` — unrelated).
 
-**Recommendation: Option A.** The CLI proxy (`carbide mcp`) from Phase 4 is the right stdio solution — it avoids the Tauri stdout capture problem entirely.
+**Finding:** The frontend `McpPort.start()/stop()/get_status()` was calling the stdio Tauri commands (`mcp_start`/`mcp_stop`/`mcp_status`), meaning MCP autostart never actually started the HTTP server via the frontend path. Rewiring to `http_server_start/stop/status` fixes this — MCP autostart now correctly controls the HTTP server.
 
 ---
 
@@ -216,7 +220,7 @@ Phase 1: Merge feat/extended-tools into main           ← do first, unblocks ev
   │
   ├─ Phase 3a: Extract shared service wrappers         ← biggest tech debt item
   ├─ Phase 3b: DRY fixes                               ← small, can parallelize
-  ├─ Phase 3c: Stdio cleanup (remove dead code)        ← quick if doing 4b
+  ├─ Phase 3c: Stdio cleanup (remove dead code)        ✅ DONE
   │
   ├─ Phase 4a: Streamable HTTP                         ← independent of 3
   ├─ Phase 4b: stdio CLI proxy                         ← depends on 4a
