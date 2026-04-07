@@ -1,4 +1,5 @@
 use crate::features::toolchain;
+use crate::shared::vault_path;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Instant;
@@ -78,13 +79,22 @@ pub async fn resolve_markdown_lsp_startup(
 ) -> Result<MarkdownLspStartupResolution, String> {
     match preferred {
         "iwes" => {
+            let vault_risk = vault_path::analyze(vault_path);
             let iwe_path = match toolchain::resolver::resolve(app, "iwes", custom_ref).await {
                 Ok(path) => path,
                 Err(error) => {
-                    log::warn!(
-                        "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed error={}",
-                        error
-                    );
+                    if vault_risk.is_cloud_backed {
+                        log::warn!(
+                            "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed cloud_provider={} note=\"Cloud sync may cause indexing timeouts; consider a local vault copy\" error={}",
+                            vault_risk.cloud_provider.unwrap_or("unknown"),
+                            error
+                        );
+                    } else {
+                        log::warn!(
+                            "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_binary_resolution_failed error={}",
+                            error
+                        );
+                    }
                     let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
                     return Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,
@@ -104,10 +114,18 @@ pub async fn resolve_markdown_lsp_startup(
                     })
                 }
                 Err(error) => {
-                    log::warn!(
-                        "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_preflight_failed error={}",
-                        error
-                    );
+                    if vault_risk.is_cloud_backed {
+                        log::warn!(
+                            "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_preflight_failed cloud_provider={} note=\"Cloud sync may cause indexing timeouts; consider a local vault copy\" error={}",
+                            vault_risk.cloud_provider.unwrap_or("unknown"),
+                            error
+                        );
+                    } else {
+                        log::warn!(
+                            "Markdown LSP requested_provider=iwes effective_provider=marksman reason=iwe_preflight_failed error={}",
+                            error
+                        );
+                    }
                     let marksman_path = toolchain::resolver::resolve(app, "marksman", None).await?;
                     Ok(MarkdownLspStartupResolution {
                         effective_provider: MarkdownLspProvider::Marksman,

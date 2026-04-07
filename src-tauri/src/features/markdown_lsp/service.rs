@@ -4,6 +4,7 @@ use crate::shared::lsp_client::{
     ServerNotification,
 };
 use crate::shared::storage;
+use crate::shared::vault_path;
 use std::collections::HashMap;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
@@ -235,6 +236,17 @@ pub async fn markdown_lsp_start(
         }
     }
 
+    let vault_risk = vault_path::analyze(&vault_path);
+    let init_timeout_ms = if vault_risk.is_cloud_backed {
+        log::warn!(
+            "markdown_lsp_startup vault_path_risk=cloud_backed provider={}",
+            vault_risk.cloud_provider.unwrap_or("unknown")
+        );
+        10_000
+    } else {
+        30_000
+    };
+
     let config = LspClientConfig {
         binary_path: startup.binary_path.to_string_lossy().into_owned(),
         args: vec![],
@@ -290,7 +302,7 @@ pub async fn markdown_lsp_start(
                 .to_string(),
         ),
         request_timeout_ms: 30_000,
-        init_timeout_ms: 30_000,
+        init_timeout_ms,
     };
 
     // Stop existing client FIRST to avoid duplicate processes

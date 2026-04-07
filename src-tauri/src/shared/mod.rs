@@ -6,3 +6,4 @@ pub mod io_utils;
 pub mod lsp_client;
 pub mod storage;
 pub mod vault_ignore;
+pub mod vault_path;

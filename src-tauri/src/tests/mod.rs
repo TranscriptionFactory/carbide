@@ -34,6 +34,9 @@ mod lsp_client_error_display;
 #[path = "../../tests/iwes_registry.rs"]
 mod iwes_registry;
 
+#[path = "../../tests/vault_path_risk.rs"]
+mod vault_path_risk;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
