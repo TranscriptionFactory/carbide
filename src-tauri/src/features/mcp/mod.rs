@@ -4,6 +4,7 @@ pub mod http;
 pub mod router;
 pub mod server;
 pub mod setup;
+pub mod shared_ops;
 pub mod tools;
 pub mod transport;
 pub mod types;
