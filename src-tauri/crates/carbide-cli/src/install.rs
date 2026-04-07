@@ -1,13 +1,28 @@
 use std::path::{Path, PathBuf};
 
-const SYMLINK_NAME: &str = "carbide";
+const INSTALL_NAME: &str = "carbide";
 
-fn symlink_dir() -> PathBuf {
-    PathBuf::from("/usr/local/bin")
+#[cfg(not(target_os = "macos"))]
+fn home_dir() -> PathBuf {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn symlink_path() -> PathBuf {
-    symlink_dir().join(SYMLINK_NAME)
+fn install_dir() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        PathBuf::from("/usr/local/bin")
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        home_dir().join(".local/bin")
+    }
+}
+
+fn install_path() -> PathBuf {
+    install_dir().join(INSTALL_NAME)
 }
 
 fn current_exe_path() -> Result<PathBuf, String> {
@@ -16,12 +31,12 @@ fn current_exe_path() -> Result<PathBuf, String> {
 
 pub fn install_cli() -> Result<(), String> {
     let exe = current_exe_path()?;
-    let link = symlink_path();
-    let dir = symlink_dir();
+    let link = install_path();
+    let dir = install_dir();
 
     if !dir.exists() {
         std::fs::create_dir_all(&dir)
-            .map_err(|e| format!("failed to create {}: {e} (try with sudo)", dir.display()))?;
+            .map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
     }
 
     if link.exists() || link.symlink_metadata().is_ok() {
@@ -37,7 +52,7 @@ pub fn install_cli() -> Result<(), String> {
 }
 
 pub fn uninstall_cli() -> Result<(), String> {
-    let link = symlink_path();
+    let link = install_path();
 
     if link.symlink_metadata().is_err() {
         eprintln!("{} does not exist, nothing to remove.", link.display());
@@ -71,7 +86,7 @@ fn is_carbide_binary(path: &Path) -> bool {
 fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
     std::os::unix::fs::symlink(original, link).map_err(|e| {
         format!(
-            "failed to create symlink {} -> {}: {e} (try with sudo)",
+            "failed to create symlink {} -> {}: {e}",
             link.display(),
             original.display()
         )
@@ -90,8 +105,7 @@ fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
 }
 
 fn remove_symlink(link: &Path) -> Result<(), String> {
-    std::fs::remove_file(link)
-        .map_err(|e| format!("failed to remove {}: {e} (try with sudo)", link.display()))
+    std::fs::remove_file(link).map_err(|e| format!("failed to remove {}: {e}", link.display()))
 }
 
 #[cfg(test)]
@@ -99,8 +113,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn symlink_path_is_in_usr_local_bin() {
-        assert_eq!(symlink_path(), PathBuf::from("/usr/local/bin/carbide"));
+    fn install_path_matches_platform_default() {
+        #[cfg(target_os = "macos")]
+        assert_eq!(install_path(), PathBuf::from("/usr/local/bin/carbide"));
+
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(install_path(), home_dir().join(".local/bin/carbide"));
     }
 
     #[test]

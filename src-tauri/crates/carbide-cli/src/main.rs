@@ -22,9 +22,15 @@ struct Cli {
     vault: Option<String>,
     #[arg(long, global = true, help = "Output as JSON")]
     json: bool,
-    #[arg(long, help = "Create symlink at /usr/local/bin/carbide")]
+    #[arg(
+        long,
+        help = "Install CLI at ~/.local/bin/carbide on Linux/Windows or /usr/local/bin/carbide on macOS"
+    )]
     install_cli: bool,
-    #[arg(long, help = "Remove symlink at /usr/local/bin/carbide")]
+    #[arg(
+        long,
+        help = "Remove CLI from ~/.local/bin/carbide on Linux/Windows or /usr/local/bin/carbide on macOS"
+    )]
     uninstall_cli: bool,
     #[arg(long, help = "Generate shell completions", value_name = "SHELL")]
     completions: Option<Shell>,

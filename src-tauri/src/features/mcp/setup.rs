@@ -36,6 +36,17 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
+fn carbide_cli_path() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        PathBuf::from("/usr/local/bin/carbide")
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        home_dir().join(".local/bin/carbide")
+    }
+}
+
 fn claude_desktop_config_path() -> PathBuf {
     #[cfg(target_os = "macos")]
     {
@@ -64,15 +75,13 @@ fn build_mcp_server_entry(token: &str) -> serde_json::Value {
 
 fn build_mcp_server_entry_stdio() -> serde_json::Value {
     serde_json::json!({
-        "command": "/usr/local/bin/carbide",
+        "command": carbide_cli_path(),
         "args": ["mcp"]
     })
 }
 
 fn cli_installed() -> bool {
-    std::path::Path::new("/usr/local/bin/carbide")
-        .symlink_metadata()
-        .is_ok()
+    carbide_cli_path().symlink_metadata().is_ok()
 }
 
 pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
@@ -276,7 +285,10 @@ mod tests {
     #[test]
     fn test_build_mcp_server_entry_stdio() {
         let entry = build_mcp_server_entry_stdio();
-        assert_eq!(entry["command"], "/usr/local/bin/carbide");
+        assert_eq!(
+            entry["command"],
+            carbide_cli_path().to_string_lossy().to_string()
+        );
         assert_eq!(entry["args"][0], "mcp");
         assert!(entry.get("type").is_none());
         assert!(entry.get("headers").is_none());

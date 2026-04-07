@@ -2,13 +2,22 @@ use std::path::PathBuf;
 
 use crate::auth;
 
-const CARBIDE_CLI_PATH: &str = "/usr/local/bin/carbide";
-
 fn home_dir() -> PathBuf {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("."))
+}
+
+fn carbide_cli_path() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        PathBuf::from("/usr/local/bin/carbide")
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        home_dir().join(".local/bin/carbide")
+    }
 }
 
 fn claude_desktop_config_path() -> PathBuf {
@@ -29,14 +38,13 @@ fn claude_desktop_config_path() -> PathBuf {
 
 fn build_mcp_server_entry_stdio() -> serde_json::Value {
     serde_json::json!({
-        "command": CARBIDE_CLI_PATH,
+        "command": carbide_cli_path(),
         "args": ["mcp"]
     })
 }
 
 pub fn cli_installed() -> bool {
-    let path = std::path::Path::new(CARBIDE_CLI_PATH);
-    path.symlink_metadata().is_ok()
+    carbide_cli_path().symlink_metadata().is_ok()
 }
 
 pub fn setup_desktop() -> Result<(), String> {
@@ -75,7 +83,6 @@ pub fn setup_desktop() -> Result<(), String> {
 
     std::fs::write(&path, output).map_err(|e| format!("failed to write config: {e}"))?;
 
-    // Also verify the token is valid by reading it (already done above)
     let _ = token;
 
     eprintln!("configured Claude Desktop: {}", path.display());
@@ -139,9 +146,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn carbide_cli_path_matches_platform_default() {
+        #[cfg(target_os = "macos")]
+        assert_eq!(carbide_cli_path(), PathBuf::from("/usr/local/bin/carbide"));
+
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(carbide_cli_path(), home_dir().join(".local/bin/carbide"));
+    }
+
+    #[test]
     fn build_mcp_server_entry_stdio_format() {
         let entry = build_mcp_server_entry_stdio();
-        assert_eq!(entry["command"], CARBIDE_CLI_PATH);
+        assert_eq!(
+            entry["command"],
+            carbide_cli_path().to_string_lossy().to_string()
+        );
         assert_eq!(entry["args"][0], "mcp");
         assert!(entry.get("type").is_none());
     }
