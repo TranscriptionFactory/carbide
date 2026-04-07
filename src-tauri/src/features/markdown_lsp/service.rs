@@ -5,7 +5,6 @@ use crate::shared::lsp_client::{
     ServerNotification,
 };
 use crate::shared::storage;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -90,28 +89,6 @@ fn text_document_position(uri: &str, line: u32, character: u32) -> serde_json::V
 
 fn markdown_lsp_state(app: &AppHandle) -> tauri::State<'_, MarkdownLspState> {
     app.state::<MarkdownLspState>()
-}
-
-#[derive(Clone, Copy)]
-enum MarkdownLspProvider {
-    Iwes,
-    Marksman,
-}
-
-impl MarkdownLspProvider {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Iwes => "iwes",
-            Self::Marksman => "marksman",
-        }
-    }
-
-    fn completion_trigger_characters(self) -> Vec<String> {
-        match self {
-            Self::Iwes => vec!["+".to_string(), "[".to_string(), "(".to_string()],
-            Self::Marksman => vec!["[".to_string(), "(".to_string(), "#".to_string()],
-        }
-    }
 }
 
 struct MarkdownLspStartupResolution {
@@ -232,29 +209,6 @@ async fn resolve_markdown_lsp_startup(
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum MarksmanEvent {
-    DiagnosticsUpdated {
-        vault_id: String,
-        uri: String,
-        diagnostics: Vec<MarksmanLspDiagnostic>,
-    },
-    StatusChanged {
-        vault_id: String,
-        status: String,
-    },
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct MarksmanLspDiagnostic {
-    line: u32,
-    character: u32,
-    end_line: u32,
-    end_character: u32,
-    severity: String,
-    message: String,
-}
 
 fn lsp_severity_to_string(severity: Option<u64>) -> String {
     match severity {
@@ -268,7 +222,7 @@ fn lsp_severity_to_string(severity: Option<u64>) -> String {
 
 fn parse_lsp_diagnostics(
     params: &serde_json::Value,
-) -> Option<(String, Vec<MarksmanLspDiagnostic>)> {
+) -> Option<(String, Vec<MarkdownLspDiagnostic>)> {
     let uri = params.get("uri")?.as_str()?.to_string();
     let diags = params
         .get("diagnostics")?
@@ -278,7 +232,7 @@ fn parse_lsp_diagnostics(
             let range = d.get("range")?;
             let start = range.get("start")?;
             let end = range.get("end")?;
-            Some(MarksmanLspDiagnostic {
+            Some(MarkdownLspDiagnostic {
                 line: start.get("line")?.as_u64()? as u32,
                 character: start.get("character")?.as_u64()? as u32,
                 end_line: end.get("line")?.as_u64()? as u32,
@@ -302,7 +256,7 @@ fn spawn_notification_forwarder(
                 if let Some((uri, diagnostics)) = parse_lsp_diagnostics(&notification.params) {
                     let _ = app.emit(
                         "markdown_lsp_event",
-                        MarksmanEvent::DiagnosticsUpdated {
+                        MarkdownLspEvent::DiagnosticsUpdated {
                             vault_id: vault_id.clone(),
                             uri,
                             diagnostics,
@@ -314,6 +268,16 @@ fn spawn_notification_forwarder(
     });
 }
 
+fn map_lsp_session_status(status: &LspSessionStatus) -> MarkdownLspStatus {
+    match status {
+        LspSessionStatus::Starting => MarkdownLspStatus::Starting,
+        LspSessionStatus::Running => MarkdownLspStatus::Running,
+        LspSessionStatus::Restarting { attempt } => MarkdownLspStatus::Restarting { attempt: *attempt },
+        LspSessionStatus::Stopped => MarkdownLspStatus::Stopped,
+        LspSessionStatus::Failed { message } => MarkdownLspStatus::Failed { message: message.clone() },
+    }
+}
+
 fn spawn_status_forwarder(
     app: AppHandle,
     vault_id: String,
@@ -321,20 +285,11 @@ fn spawn_status_forwarder(
 ) {
     tokio::spawn(async move {
         while let Some(status) = status_rx.recv().await {
-            let status_str = match &status {
-                LspSessionStatus::Starting => "starting".to_string(),
-                LspSessionStatus::Running => "running".to_string(),
-                LspSessionStatus::Restarting { attempt } => {
-                    format!("restarting (attempt {})", attempt)
-                }
-                LspSessionStatus::Stopped => "stopped".to_string(),
-                LspSessionStatus::Failed { message } => format!("failed: {}", message),
-            };
             let _ = app.emit(
                 "markdown_lsp_event",
-                MarksmanEvent::StatusChanged {
+                MarkdownLspEvent::StatusChanged {
                     vault_id: vault_id.clone(),
-                    status: status_str,
+                    status: map_lsp_session_status(&status),
                 },
             );
         }
@@ -491,7 +446,7 @@ pub async fn markdown_lsp_start(
     );
     Ok(MarkdownLspStartResult {
         completion_trigger_characters: trigger_characters,
-        effective_provider: effective_provider.as_str().to_string(),
+        effective_provider,
     })
 }
 
