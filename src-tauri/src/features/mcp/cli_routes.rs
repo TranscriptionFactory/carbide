@@ -1,12 +1,12 @@
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::features::mcp::http::{check_auth, HttpAppState};
+use crate::features::mcp::http::HttpAppState;
 use crate::features::notes::service::{
     self as notes_service, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs,
     NoteDeleteArgs, NoteRenameArgs,
@@ -157,13 +157,8 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
 
 async fn cli_read(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<ReadParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let root = match storage::vault_path(state.app(), &params.vault_id) {
         Ok(r) => r,
         Err(e) => return internal_err(e),
@@ -185,13 +180,8 @@ async fn cli_read(
 
 async fn cli_search(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<SearchParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let limit = params.limit.min(200);
     match with_read_conn(state.app(), &params.vault_id, |conn| {
         search_db::search(conn, &params.query, SearchScope::All, limit)
@@ -203,13 +193,8 @@ async fn cli_search(
 
 async fn cli_files(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<FilesParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match notes_service::list_notes(state.app().clone(), params.vault_id) {
         Ok(mut notes) => {
             if let Some(ref folder) = params.folder {
@@ -228,13 +213,8 @@ async fn cli_files(
 
 async fn cli_tags(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<VaultIdParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match with_read_conn(state.app(), &params.vault_id, |conn| {
         search_db::list_all_tags(conn)
     }) {
@@ -245,13 +225,8 @@ async fn cli_tags(
 
 async fn cli_properties(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<VaultIdParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match with_read_conn(state.app(), &params.vault_id, |conn| {
         search_db::list_all_properties(conn)
     }) {
@@ -262,13 +237,8 @@ async fn cli_properties(
 
 async fn cli_outline(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<NotePathParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match with_read_conn(state.app(), &params.vault_id, |conn| {
         search_db::get_note_headings(conn, &params.path)
     }) {
@@ -279,13 +249,8 @@ async fn cli_outline(
 
 async fn cli_vault(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<VaultIdParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match vault_service::list_vaults(state.app().clone()) {
         Ok(vaults) => {
             match vaults.into_iter().find(|v| v.id == params.vault_id) {
@@ -299,12 +264,7 @@ async fn cli_vault(
 
 async fn cli_vaults(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match vault_service::list_vaults(state.app().clone()) {
         Ok(vaults) => (StatusCode::OK, Json(vaults)).into_response(),
         Err(e) => internal_err(e),
@@ -313,12 +273,7 @@ async fn cli_vaults(
 
 async fn cli_status(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let active_vault_id = vault_service::get_last_vault_id(state.app().clone())
         .unwrap_or(None);
 
@@ -355,13 +310,8 @@ fn find_frontmatter_end(content: &str) -> Option<usize> {
 
 async fn cli_create(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<CreateParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let root = match storage::vault_path(state.app(), &params.vault_id) {
         Ok(r) => r,
         Err(e) => return internal_err(e),
@@ -401,13 +351,8 @@ async fn cli_create(
 
 async fn cli_write(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<WriteParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let root = match storage::vault_path(state.app(), &params.vault_id) {
         Ok(r) => r,
         Err(e) => return internal_err(e),
@@ -433,13 +378,8 @@ async fn cli_write(
 
 async fn cli_append(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<AppendParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let root = match storage::vault_path(state.app(), &params.vault_id) {
         Ok(r) => r,
         Err(e) => return internal_err(e),
@@ -472,13 +412,8 @@ async fn cli_append(
 
 async fn cli_prepend(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<PrependParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     let root = match storage::vault_path(state.app(), &params.vault_id) {
         Ok(r) => r,
         Err(e) => return internal_err(e),
@@ -527,13 +462,8 @@ async fn cli_prepend(
 
 async fn cli_rename(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<RenameParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match notes_service::rename_note(
         NoteRenameArgs {
             vault_id: params.vault_id,
@@ -552,13 +482,8 @@ async fn cli_rename(
 
 async fn cli_move(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<MoveParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     use crate::features::notes::service::{MoveItem, MoveItemsArgs};
 
     match notes_service::move_items(
@@ -593,13 +518,8 @@ async fn cli_move(
 
 async fn cli_delete(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     Json(params): Json<DeleteParams>,
 ) -> axum::response::Response {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return json_err(status, "Unauthorized");
-    }
-
     match notes_service::delete_note(
         NoteDeleteArgs {
             vault_id: params.vault_id,
@@ -620,15 +540,30 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
+    use axum::middleware;
     use tower::ServiceExt;
 
-    async fn cli_handler_status_no_app(
+    use crate::features::mcp::auth;
+    use crate::features::mcp::http::check_auth;
+
+    async fn test_auth_middleware(
         State(token): State<Arc<String>>,
-        headers: HeaderMap,
+        request: axum::extract::Request,
+        next: axum::middleware::Next,
     ) -> axum::response::Response {
-        if let Err(status) = check_auth(&headers, &token) {
-            return json_err(status, "Unauthorized");
+        let provided = request
+            .headers()
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "));
+
+        match provided {
+            Some(t) if auth::verify_token(t, &token) => next.run(request).await,
+            _ => json_err(StatusCode::UNAUTHORIZED, "Unauthorized"),
         }
+    }
+
+    async fn cli_handler_status_no_app() -> axum::response::Response {
         (StatusCode::OK, Json(StatusResponse {
             running: true,
             version: env!("CARGO_PKG_VERSION"),
@@ -637,9 +572,11 @@ mod tests {
     }
 
     fn test_status_router(token: &str) -> Router {
+        let state = Arc::new(token.to_string());
         Router::new()
             .route("/cli/status", post(cli_handler_status_no_app))
-            .with_state(Arc::new(token.to_string()))
+            .layer(middleware::from_fn_with_state(state.clone(), test_auth_middleware))
+            .with_state(state)
     }
 
     fn post_json(uri: &str, token: &str, body: &str) -> Request<Body> {

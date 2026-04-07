@@ -1,5 +1,6 @@
-use axum::extract::State;
+use axum::extract::{Request, State};
 use axum::http::{HeaderMap, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -71,13 +72,43 @@ fn cors_layer() -> CorsLayer {
         ])
 }
 
+async fn auth_middleware(
+    State(state): State<Arc<HttpAppState>>,
+    request: Request,
+    next: Next,
+) -> axum::response::Response {
+    let token = request
+        .headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    match token {
+        Some(provided) if auth::verify_token(provided, state.token()) => next.run(request).await,
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response(),
+    }
+}
+
 pub fn build_router(state: HttpAppState) -> Router {
-    Router::new()
-        .route("/health", get(health_handler))
+    let shared_state = Arc::new(state);
+
+    let authenticated = Router::new()
         .route("/mcp", post(mcp_handler))
         .nest("/cli", cli_routes::cli_router())
+        .layer(middleware::from_fn_with_state(
+            shared_state.clone(),
+            auth_middleware,
+        ));
+
+    Router::new()
+        .route("/health", get(health_handler))
+        .merge(authenticated)
         .layer(cors_layer())
-        .with_state(Arc::new(state))
+        .with_state(shared_state)
 }
 
 #[derive(Serialize)]
@@ -95,20 +126,8 @@ async fn health_handler() -> impl IntoResponse {
 
 async fn mcp_handler(
     State(state): State<Arc<HttpAppState>>,
-    headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
-    if let Err(status) = check_auth(&headers, state.token()) {
-        return (status, Json(JsonRpcResponse::error(
-            None,
-            JsonRpcError {
-                code: -32000,
-                message: "Unauthorized".into(),
-                data: None,
-            },
-        ))).into_response();
-    }
-
     let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -289,28 +308,28 @@ mod tests {
     use axum::http::Request;
     use tower::ServiceExt;
 
-    fn test_mcp_router(token: &str) -> Router {
-        Router::new()
-            .route("/mcp", post(mcp_handler_no_app))
-            .with_state(Arc::new(token.to_string()))
+    async fn test_auth_middleware(
+        State(token): State<Arc<String>>,
+        request: Request<Body>,
+        next: Next,
+    ) -> axum::response::Response {
+        let provided = request
+            .headers()
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "));
+
+        match provided {
+            Some(t) if auth::verify_token(t, &token) => next.run(request).await,
+            _ => (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": {"message": "Unauthorized"}})),
+            )
+                .into_response(),
+        }
     }
 
-    async fn mcp_handler_no_app(
-        State(token): State<Arc<String>>,
-        headers: HeaderMap,
-        body: String,
-    ) -> impl IntoResponse {
-        if let Err(status) = check_auth(&headers, &token) {
-            return (status, Json(JsonRpcResponse::error(
-                None,
-                JsonRpcError {
-                    code: -32000,
-                    message: "Unauthorized".into(),
-                    data: None,
-                },
-            ))).into_response();
-        }
-
+    async fn mcp_handler_no_app(body: String) -> impl IntoResponse {
         let request = match serde_json::from_str::<JsonRpcRequest>(&body) {
             Ok(req) => req,
             Err(e) => {
@@ -330,6 +349,14 @@ mod tests {
             Some(response) => (StatusCode::OK, Json(response)).into_response(),
             None => StatusCode::NO_CONTENT.into_response(),
         }
+    }
+
+    fn test_mcp_router(token: &str) -> Router {
+        let state = Arc::new(token.to_string());
+        Router::new()
+            .route("/mcp", post(mcp_handler_no_app))
+            .layer(middleware::from_fn_with_state(state.clone(), test_auth_middleware))
+            .with_state(state)
     }
 
     fn mcp_request(router: Router, token: &str, body: &str) -> Request<Body> {
