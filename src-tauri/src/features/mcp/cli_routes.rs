@@ -3,59 +3,16 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 
 use crate::features::mcp::http::HttpAppState;
-use crate::features::notes::service::{
-    self as notes_service, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs,
-    NoteDeleteArgs, NoteRenameArgs,
-};
-use crate::features::search::db as search_db;
-use crate::features::search::model::SearchScope;
-use crate::features::search::service::with_read_conn;
-use crate::features::vault::service as vault_service;
-use crate::shared::{io_utils, storage};
-
-#[derive(Deserialize)]
-struct ReadParams {
-    vault_id: String,
-    path: String,
-}
+use crate::features::mcp::shared_ops::{self, OpError, CreateNoteArgs as SharedCreateArgs, CreateResult};
 
 #[derive(Serialize)]
 struct ReadResponse {
     path: String,
     content: String,
-}
-
-#[derive(Deserialize)]
-struct SearchParams {
-    vault_id: String,
-    query: String,
-    #[serde(default = "default_search_limit")]
-    limit: usize,
-}
-
-fn default_search_limit() -> usize {
-    50
-}
-
-#[derive(Deserialize)]
-struct FilesParams {
-    vault_id: String,
-    folder: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct VaultIdParams {
-    vault_id: String,
-}
-
-#[derive(Deserialize)]
-struct NotePathParams {
-    vault_id: String,
-    path: String,
 }
 
 #[derive(Serialize)]
@@ -74,65 +31,23 @@ fn json_err(status: StatusCode, msg: impl Into<String>) -> axum::response::Respo
     (status, Json(ErrorResponse { error: msg.into() })).into_response()
 }
 
-fn internal_err(msg: String) -> axum::response::Response {
-    json_err(StatusCode::INTERNAL_SERVER_ERROR, msg)
-}
-
-#[derive(Deserialize)]
-struct CreateParams {
-    vault_id: String,
-    path: String,
-    #[serde(default)]
-    content: String,
-    #[serde(default)]
-    overwrite: bool,
-}
-
-#[derive(Deserialize)]
-struct WriteParams {
-    vault_id: String,
-    path: String,
-    content: String,
-}
-
-#[derive(Deserialize)]
-struct AppendParams {
-    vault_id: String,
-    path: String,
-    content: String,
-}
-
-#[derive(Deserialize)]
-struct PrependParams {
-    vault_id: String,
-    path: String,
-    content: String,
-}
-
-#[derive(Deserialize)]
-struct RenameParams {
-    vault_id: String,
-    path: String,
-    new_path: String,
-}
-
-#[derive(Deserialize)]
-struct MoveParams {
-    vault_id: String,
-    path: String,
-    to: String,
-}
-
-#[derive(Deserialize)]
-struct DeleteParams {
-    vault_id: String,
-    path: String,
-}
-
 #[derive(Serialize)]
 struct MutationResponse {
     ok: bool,
     path: String,
+}
+
+fn op_err_to_response(e: OpError) -> axum::response::Response {
+    match e {
+        OpError::NotFound(m) => json_err(StatusCode::NOT_FOUND, m),
+        OpError::BadRequest(m) => json_err(StatusCode::BAD_REQUEST, m),
+        OpError::Conflict(m) => json_err(StatusCode::CONFLICT, m),
+        OpError::Internal(m) => json_err(StatusCode::INTERNAL_SERVER_ERROR, m),
+    }
+}
+
+fn mutation_ok(path: String) -> axum::response::Response {
+    (StatusCode::OK, Json(MutationResponse { ok: true, path })).into_response()
 }
 
 pub fn cli_router() -> Router<Arc<HttpAppState>> {
@@ -157,124 +72,88 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
 
 async fn cli_read(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<ReadParams>,
+    Json(params): Json<shared_ops::VaultPathArgs>,
 ) -> axum::response::Response {
-    let root = match storage::vault_path(state.app(), &params.vault_id) {
-        Ok(r) => r,
-        Err(e) => return internal_err(e),
-    };
-
-    let abs = match safe_vault_abs(&root, &params.path) {
-        Ok(a) => a,
-        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
-    };
-
-    match std::fs::read_to_string(&abs) {
-        Ok(content) => (StatusCode::OK, Json(ReadResponse {
-            path: params.path,
-            content,
-        })).into_response(),
-        Err(e) => json_err(StatusCode::NOT_FOUND, format!("Failed to read note: {}", e)),
+    match shared_ops::read_note(state.app(), &params.vault_id, &params.path) {
+        Ok((path, content)) => (StatusCode::OK, Json(ReadResponse { path, content })).into_response(),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_search(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<SearchParams>,
+    Json(params): Json<shared_ops::SearchArgs>,
 ) -> axum::response::Response {
-    let limit = params.limit.min(200);
-    match with_read_conn(state.app(), &params.vault_id, |conn| {
-        search_db::search(conn, &params.query, SearchScope::All, limit)
-    }) {
+    let limit = params.limit.unwrap_or(50).min(200);
+    match shared_ops::search_notes_db(state.app(), &params.vault_id, &params.query, limit) {
         Ok(hits) => (StatusCode::OK, Json(hits)).into_response(),
-        Err(e) => internal_err(e),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_files(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<FilesParams>,
+    Json(params): Json<shared_ops::ListNotesArgs>,
 ) -> axum::response::Response {
-    match notes_service::list_notes(state.app().clone(), params.vault_id) {
-        Ok(mut notes) => {
-            if let Some(ref folder) = params.folder {
-                let prefix = if folder.ends_with('/') {
-                    folder.clone()
-                } else {
-                    format!("{}/", folder)
-                };
-                notes.retain(|n| n.path.starts_with(&prefix));
-            }
-            (StatusCode::OK, Json(notes)).into_response()
-        }
-        Err(e) => internal_err(e),
+    match shared_ops::list_notes(state.app(), &params.vault_id, params.folder.as_deref()) {
+        Ok(notes) => (StatusCode::OK, Json(notes)).into_response(),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_tags(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<VaultIdParams>,
+    Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match with_read_conn(state.app(), &params.vault_id, |conn| {
-        search_db::list_all_tags(conn)
-    }) {
+    match shared_ops::note_tags(state.app(), &params.vault_id) {
         Ok(tags) => (StatusCode::OK, Json(tags)).into_response(),
-        Err(e) => internal_err(e),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_properties(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<VaultIdParams>,
+    Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match with_read_conn(state.app(), &params.vault_id, |conn| {
-        search_db::list_all_properties(conn)
-    }) {
+    match shared_ops::note_properties(state.app(), &params.vault_id) {
         Ok(props) => (StatusCode::OK, Json(props)).into_response(),
-        Err(e) => internal_err(e),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_outline(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<NotePathParams>,
+    Json(params): Json<shared_ops::VaultPathArgs>,
 ) -> axum::response::Response {
-    match with_read_conn(state.app(), &params.vault_id, |conn| {
-        search_db::get_note_headings(conn, &params.path)
-    }) {
+    match shared_ops::note_outline(state.app(), &params.vault_id, &params.path) {
         Ok(headings) => (StatusCode::OK, Json(headings)).into_response(),
-        Err(e) => internal_err(e),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_vault(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<VaultIdParams>,
+    Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match vault_service::list_vaults(state.app().clone()) {
-        Ok(vaults) => {
-            match vaults.into_iter().find(|v| v.id == params.vault_id) {
-                Some(vault) => (StatusCode::OK, Json(vault)).into_response(),
-                None => json_err(StatusCode::NOT_FOUND, "Vault not found"),
-            }
-        }
-        Err(e) => internal_err(e),
+    match shared_ops::get_vault(state.app(), &params.vault_id) {
+        Ok(vault) => (StatusCode::OK, Json(vault)).into_response(),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_vaults(
     State(state): State<Arc<HttpAppState>>,
 ) -> axum::response::Response {
-    match vault_service::list_vaults(state.app().clone()) {
+    match shared_ops::list_vaults(state.app()) {
         Ok(vaults) => (StatusCode::OK, Json(vaults)).into_response(),
-        Err(e) => internal_err(e),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_status(
     State(state): State<Arc<HttpAppState>>,
 ) -> axum::response::Response {
-    let active_vault_id = vault_service::get_last_vault_id(state.app().clone())
+    let active_vault_id = shared_ops::get_active_vault_id(state.app())
         .unwrap_or(None);
 
     (StatusCode::OK, Json(StatusResponse {
@@ -284,254 +163,74 @@ async fn cli_status(
     })).into_response()
 }
 
-fn find_frontmatter_end(content: &str) -> Option<usize> {
-    if !content.starts_with("---") {
-        return None;
-    }
-    let after_open = &content[3..];
-    let newline_pos = after_open.find('\n')?;
-    let search_start = 3 + newline_pos + 1;
-    let rest = &content[search_start..];
-    for (i, line) in rest.lines().enumerate() {
-        if line.trim() == "---" {
-            let offset = if i == 0 {
-                0
-            } else {
-                rest.match_indices('\n')
-                    .nth(i - 1)
-                    .map(|(pos, _)| pos + 1)
-                    .unwrap_or(0)
-            };
-            return Some(search_start + offset + line.len() + 1);
-        }
-    }
-    None
-}
-
 async fn cli_create(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<CreateParams>,
+    Json(params): Json<SharedCreateArgs>,
 ) -> axum::response::Response {
-    let root = match storage::vault_path(state.app(), &params.vault_id) {
-        Ok(r) => r,
-        Err(e) => return internal_err(e),
-    };
-
-    let abs = match safe_vault_abs_for_write(&root, &params.path) {
-        Ok(a) => a,
-        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
-    };
-
-    if abs.exists() && !params.overwrite {
-        return json_err(StatusCode::CONFLICT, "note already exists");
-    }
-
-    if params.overwrite && abs.exists() {
-        if let Err(e) = io_utils::atomic_write(&abs, params.content.as_bytes()) {
-            return internal_err(e);
-        }
-        return (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.path,
-        })).into_response();
-    }
-
-    match notes_service::create_note(
-        NoteCreateArgs {
-            vault_id: params.vault_id,
-            note_path: params.path.clone(),
-            initial_markdown: params.content,
-        },
-        state.app().clone(),
-    ) {
-        Ok(meta) => (StatusCode::CREATED, Json(meta)).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::create_note(state.app(), &params) {
+        Ok(CreateResult::Created(meta)) => (StatusCode::CREATED, Json(meta)).into_response(),
+        Ok(CreateResult::Overwritten(path)) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_write(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<WriteParams>,
+    Json(params): Json<shared_ops::WriteNoteArgs>,
 ) -> axum::response::Response {
-    let root = match storage::vault_path(state.app(), &params.vault_id) {
-        Ok(r) => r,
-        Err(e) => return internal_err(e),
-    };
-
-    let abs = match safe_vault_abs_for_write(&root, &params.path) {
-        Ok(a) => a,
-        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
-    };
-
-    if !abs.exists() {
-        return json_err(StatusCode::NOT_FOUND, "note not found");
-    }
-
-    match io_utils::atomic_write(&abs, params.content.as_bytes()) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.path,
-        })).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::write_note(state.app(), &params.vault_id, &params.path, &params.content) {
+        Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_append(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<AppendParams>,
+    Json(params): Json<shared_ops::WriteNoteArgs>,
 ) -> axum::response::Response {
-    let root = match storage::vault_path(state.app(), &params.vault_id) {
-        Ok(r) => r,
-        Err(e) => return internal_err(e),
-    };
-
-    let abs = match safe_vault_abs(&root, &params.path) {
-        Ok(a) => a,
-        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
-    };
-
-    let existing = match std::fs::read_to_string(&abs) {
-        Ok(c) => c,
-        Err(e) => return json_err(StatusCode::NOT_FOUND, format!("Failed to read note: {}", e)),
-    };
-
-    let mut new_content = existing;
-    if !new_content.ends_with('\n') && !new_content.is_empty() {
-        new_content.push('\n');
-    }
-    new_content.push_str(&params.content);
-
-    match io_utils::atomic_write(&abs, new_content.as_bytes()) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.path,
-        })).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::append_to_note(state.app(), &params.vault_id, &params.path, &params.content) {
+        Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_prepend(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<PrependParams>,
+    Json(params): Json<shared_ops::WriteNoteArgs>,
 ) -> axum::response::Response {
-    let root = match storage::vault_path(state.app(), &params.vault_id) {
-        Ok(r) => r,
-        Err(e) => return internal_err(e),
-    };
-
-    let abs = match safe_vault_abs(&root, &params.path) {
-        Ok(a) => a,
-        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
-    };
-
-    let existing = match std::fs::read_to_string(&abs) {
-        Ok(c) => c,
-        Err(e) => return json_err(StatusCode::NOT_FOUND, format!("Failed to read note: {}", e)),
-    };
-
-    let new_content = match find_frontmatter_end(&existing) {
-        Some(pos) => {
-            let mut result = String::with_capacity(existing.len() + params.content.len() + 1);
-            result.push_str(&existing[..pos]);
-            result.push_str(&params.content);
-            if !params.content.ends_with('\n') {
-                result.push('\n');
-            }
-            result.push_str(&existing[pos..]);
-            result
-        }
-        None => {
-            let mut result = String::with_capacity(existing.len() + params.content.len() + 1);
-            result.push_str(&params.content);
-            if !params.content.ends_with('\n') {
-                result.push('\n');
-            }
-            result.push_str(&existing);
-            result
-        }
-    };
-
-    match io_utils::atomic_write(&abs, new_content.as_bytes()) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.path,
-        })).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::prepend_to_note(state.app(), &params.vault_id, &params.path, &params.content) {
+        Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_rename(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<RenameParams>,
+    Json(params): Json<shared_ops::RenameArgs>,
 ) -> axum::response::Response {
-    match notes_service::rename_note(
-        NoteRenameArgs {
-            vault_id: params.vault_id,
-            from: params.path,
-            to: params.new_path.clone(),
-        },
-        state.app().clone(),
-    ) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.new_path,
-        })).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::rename_note(state.app(), &params.vault_id, &params.path, &params.new_path) {
+        Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_move(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<MoveParams>,
+    Json(params): Json<shared_ops::MoveArgs>,
 ) -> axum::response::Response {
-    use crate::features::notes::service::{MoveItem, MoveItemsArgs};
-
-    match notes_service::move_items(
-        MoveItemsArgs {
-            vault_id: params.vault_id,
-            items: vec![MoveItem {
-                path: params.path,
-                is_folder: false,
-            }],
-            target_folder: params.to.clone(),
-            overwrite: false,
-        },
-        state.app().clone(),
-    ) {
-        Ok(results) => {
-            let first = results.into_iter().next();
-            match first {
-                Some(r) if r.success => (StatusCode::OK, Json(MutationResponse {
-                    ok: true,
-                    path: r.new_path,
-                })).into_response(),
-                Some(r) => json_err(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    r.error.unwrap_or_else(|| "move failed".into()),
-                ),
-                None => internal_err("no move result".into()),
-            }
-        }
-        Err(e) => internal_err(e),
+    match shared_ops::move_note(state.app(), &params.vault_id, &params.path, &params.to) {
+        Ok(path) => mutation_ok(path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
 async fn cli_delete(
     State(state): State<Arc<HttpAppState>>,
-    Json(params): Json<DeleteParams>,
+    Json(params): Json<shared_ops::VaultPathArgs>,
 ) -> axum::response::Response {
-    match notes_service::delete_note(
-        NoteDeleteArgs {
-            vault_id: params.vault_id,
-            note_id: params.path.clone(),
-        },
-        state.app().clone(),
-    ) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse {
-            ok: true,
-            path: params.path,
-        })).into_response(),
-        Err(e) => internal_err(e),
+    match shared_ops::delete_note(state.app(), &params.vault_id, &params.path) {
+        Ok(()) => mutation_ok(params.path),
+        Err(e) => op_err_to_response(e),
     }
 }
 
@@ -544,7 +243,7 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::features::mcp::auth;
-    use crate::features::mcp::http::check_auth;
+    use crate::features::mcp::shared_ops::CreateNoteArgs;
 
     async fn test_auth_middleware(
         State(token): State<Arc<String>>,
@@ -672,14 +371,9 @@ mod tests {
     }
 
     #[test]
-    fn test_default_search_limit() {
-        assert_eq!(default_search_limit(), 50);
-    }
-
-    #[test]
-    fn test_create_params_deserialization() {
+    fn test_create_args_deserialization() {
         let json = r##"{"vault_id":"v1","path":"new.md","content":"# Hello","overwrite":false}"##;
-        let params: CreateParams = serde_json::from_str(json).unwrap();
+        let params: CreateNoteArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.vault_id, "v1");
         assert_eq!(params.path, "new.md");
         assert_eq!(params.content, "# Hello");
@@ -687,41 +381,41 @@ mod tests {
     }
 
     #[test]
-    fn test_create_params_defaults() {
+    fn test_create_args_defaults() {
         let json = r#"{"vault_id":"v1","path":"new.md"}"#;
-        let params: CreateParams = serde_json::from_str(json).unwrap();
+        let params: CreateNoteArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.content, "");
         assert!(!params.overwrite);
     }
 
     #[test]
-    fn test_write_params_deserialization() {
+    fn test_write_args_deserialization() {
         let json = r#"{"vault_id":"v1","path":"note.md","content":"updated"}"#;
-        let params: WriteParams = serde_json::from_str(json).unwrap();
+        let params: shared_ops::WriteNoteArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.path, "note.md");
         assert_eq!(params.content, "updated");
     }
 
     #[test]
-    fn test_rename_params_deserialization() {
+    fn test_rename_args_deserialization() {
         let json = r#"{"vault_id":"v1","path":"old.md","new_path":"new.md"}"#;
-        let params: RenameParams = serde_json::from_str(json).unwrap();
+        let params: shared_ops::RenameArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.path, "old.md");
         assert_eq!(params.new_path, "new.md");
     }
 
     #[test]
-    fn test_move_params_deserialization() {
+    fn test_move_args_deserialization() {
         let json = r#"{"vault_id":"v1","path":"note.md","to":"archive/"}"#;
-        let params: MoveParams = serde_json::from_str(json).unwrap();
+        let params: shared_ops::MoveArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.path, "note.md");
         assert_eq!(params.to, "archive/");
     }
 
     #[test]
-    fn test_delete_params_deserialization() {
+    fn test_delete_args_deserialization() {
         let json = r#"{"vault_id":"v1","path":"trash.md"}"#;
-        let params: DeleteParams = serde_json::from_str(json).unwrap();
+        let params: shared_ops::VaultPathArgs = serde_json::from_str(json).unwrap();
         assert_eq!(params.path, "trash.md");
     }
 
@@ -731,32 +425,5 @@ mod tests {
         let json = serde_json::to_value(resp).unwrap();
         assert_eq!(json["ok"], true);
         assert_eq!(json["path"], "note.md");
-    }
-
-    #[test]
-    fn test_find_frontmatter_end_with_frontmatter() {
-        let content = "---\ntitle: Hello\n---\n# Body";
-        let pos = find_frontmatter_end(content).unwrap();
-        assert_eq!(&content[pos..], "# Body");
-    }
-
-    #[test]
-    fn test_find_frontmatter_end_no_frontmatter() {
-        let content = "# Just a heading\nSome text";
-        assert_eq!(find_frontmatter_end(content), None);
-    }
-
-    #[test]
-    fn test_find_frontmatter_end_empty_frontmatter() {
-        let content = "---\n---\nBody text";
-        let pos = find_frontmatter_end(content).unwrap();
-        assert_eq!(&content[pos..], "Body text");
-    }
-
-    #[test]
-    fn test_find_frontmatter_end_multiline() {
-        let content = "---\ntitle: Test\ndate: 2026-01-01\ntags: [a, b]\n---\nContent here";
-        let pos = find_frontmatter_end(content).unwrap();
-        assert_eq!(&content[pos..], "Content here");
     }
 }

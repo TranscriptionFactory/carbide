@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
 use serde_json::Value;
 use tauri::AppHandle;
 
+use crate::features::mcp::shared_ops::{self, OpError, CreateResult};
+use crate::features::mcp::tools::parse_args;
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
-use crate::features::notes::service::{
-    self, file_meta, safe_vault_abs, safe_vault_abs_for_write, NoteCreateArgs, NoteDeleteArgs,
-};
-use crate::shared::io_utils;
-use crate::shared::storage;
+use crate::features::notes::service::file_meta;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![
@@ -141,156 +138,88 @@ fn delete_note_def() -> ToolDefinition {
     }
 }
 
-#[derive(Deserialize)]
-struct ListNotesArgs {
-    vault_id: String,
-    #[serde(default)]
-    folder: Option<String>,
+fn op_err_to_tool_result(e: OpError) -> ToolResult {
+    match e {
+        OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
+            ToolResult::error(m)
+        }
+    }
 }
 
 fn handle_list_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: ListNotesArgs = match parse_args(arguments) {
+    let args: shared_ops::ListNotesArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    match service::list_notes(app.clone(), args.vault_id) {
-        Ok(mut notes) => {
-            if let Some(folder) = &args.folder {
-                let prefix = if folder.ends_with('/') {
-                    folder.clone()
-                } else {
-                    format!("{}/", folder)
-                };
-                notes.retain(|n| n.path.starts_with(&prefix));
-            }
-
+    match shared_ops::list_notes(app, &args.vault_id, args.folder.as_deref()) {
+        Ok(notes) => {
             let lines: Vec<String> = notes
                 .iter()
                 .map(|n| format!("{}\t{}", n.path, n.title))
                 .collect();
             ToolResult::text(lines.join("\n"))
         }
-        Err(e) => ToolResult::error(e),
+        Err(e) => op_err_to_tool_result(e),
     }
-}
-
-#[derive(Deserialize)]
-struct ReadNoteArgs {
-    vault_id: String,
-    path: String,
 }
 
 fn handle_read_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: ReadNoteArgs = match parse_args(arguments) {
+    let args: shared_ops::VaultPathArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    let root = match storage::vault_path(app, &args.vault_id) {
-        Ok(r) => r,
-        Err(e) => return ToolResult::error(e),
-    };
-
-    let abs = match safe_vault_abs(&root, &args.path) {
-        Ok(a) => a,
-        Err(e) => return ToolResult::error(e),
-    };
-
-    match std::fs::read_to_string(&abs) {
-        Ok(content) => ToolResult::text(content),
-        Err(e) => ToolResult::error(format!("Failed to read note: {}", e)),
+    match shared_ops::read_note(app, &args.vault_id, &args.path) {
+        Ok((_, content)) => ToolResult::text(content),
+        Err(e) => op_err_to_tool_result(e),
     }
-}
-
-#[derive(Deserialize)]
-struct CreateNoteArgs {
-    vault_id: String,
-    path: String,
-    content: String,
 }
 
 fn handle_create_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: CreateNoteArgs = match parse_args(arguments) {
+    let args: shared_ops::CreateNoteArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    match service::create_note(
-        NoteCreateArgs {
-            vault_id: args.vault_id,
-            note_path: args.path,
-            initial_markdown: args.content,
-        },
-        app.clone(),
-    ) {
-        Ok(meta) => ToolResult::text(format!("Created: {}", meta.path)),
-        Err(e) => ToolResult::error(e),
+    match shared_ops::create_note(app, &args) {
+        Ok(CreateResult::Created(meta)) => ToolResult::text(format!("Created: {}", meta.path)),
+        Ok(CreateResult::Overwritten(path)) => ToolResult::text(format!("Overwritten: {}", path)),
+        Err(e) => op_err_to_tool_result(e),
     }
-}
-
-#[derive(Deserialize)]
-struct UpdateNoteArgs {
-    vault_id: String,
-    path: String,
-    content: String,
 }
 
 fn handle_update_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: UpdateNoteArgs = match parse_args(arguments) {
+    let args: shared_ops::WriteNoteArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    let root = match storage::vault_path(app, &args.vault_id) {
-        Ok(r) => r,
-        Err(e) => return ToolResult::error(e),
-    };
-
-    let abs = match safe_vault_abs_for_write(&root, &args.path) {
-        Ok(a) => a,
-        Err(e) => return ToolResult::error(e),
-    };
-
-    if !abs.exists() {
-        return ToolResult::error(format!("Note not found: {}", args.path));
-    }
-
-    match io_utils::atomic_write(&abs, args.content.as_bytes()) {
-        Ok(()) => {
-            let (mtime_ms, _, _) = file_meta(&abs).unwrap_or((0, 0, 0));
-            ToolResult::text(format!("Updated: {} (mtime={})", args.path, mtime_ms))
+    match shared_ops::write_note(app, &args.vault_id, &args.path, &args.content) {
+        Ok(path) => {
+            let root = crate::shared::storage::vault_path(app, &args.vault_id);
+            let mtime = root
+                .ok()
+                .and_then(|r| {
+                    crate::features::notes::service::safe_vault_abs(&r, &path).ok()
+                })
+                .and_then(|abs| file_meta(&abs).ok())
+                .map(|(m, _, _)| m)
+                .unwrap_or(0);
+            ToolResult::text(format!("Updated: {} (mtime={})", path, mtime))
         }
-        Err(e) => ToolResult::error(format!("Failed to write note: {}", e)),
+        Err(e) => op_err_to_tool_result(e),
     }
-}
-
-#[derive(Deserialize)]
-struct DeleteNoteArgs {
-    vault_id: String,
-    path: String,
 }
 
 fn handle_delete_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: DeleteNoteArgs = match parse_args(arguments) {
+    let args: shared_ops::VaultPathArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    match service::delete_note(
-        NoteDeleteArgs {
-            vault_id: args.vault_id.clone(),
-            note_id: args.path.clone(),
-        },
-        app.clone(),
-    ) {
+    match shared_ops::delete_note(app, &args.vault_id, &args.path) {
         Ok(()) => ToolResult::text(format!("Deleted: {}", args.path)),
-        Err(e) => ToolResult::error(e),
+        Err(e) => op_err_to_tool_result(e),
     }
-}
-
-pub fn parse_args<T: serde::de::DeserializeOwned>(arguments: Option<&Value>) -> Result<T, ToolResult> {
-    let value = arguments.ok_or_else(|| ToolResult::error("Missing arguments".into()))?;
-    serde_json::from_value(value.clone())
-        .map_err(|e| ToolResult::error(format!("Invalid arguments: {}", e)))
 }

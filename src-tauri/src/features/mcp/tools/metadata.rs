@@ -1,15 +1,11 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::tools::notes::parse_args;
+use crate::features::mcp::shared_ops::{self, OpError};
+use crate::features::mcp::tools::parse_args;
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
-use crate::features::notes::service::build_note_meta;
-use crate::features::search::db as search_db;
-use crate::features::search::service as search_service;
-use crate::shared::storage;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![get_note_metadata_def()]
@@ -53,36 +49,30 @@ fn get_note_metadata_def() -> ToolDefinition {
     }
 }
 
-#[derive(Deserialize)]
-struct GetNoteMetadataArgs {
-    vault_id: String,
-    path: String,
-}
-
 fn handle_get_note_metadata(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: GetNoteMetadataArgs = match parse_args(arguments) {
+    let args: shared_ops::VaultPathArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    let root = match storage::vault_path(app, &args.vault_id) {
+    let result = match shared_ops::note_metadata(app, &args.vault_id, &args.path) {
         Ok(r) => r,
-        Err(e) => return ToolResult::error(e),
+        Err(e) => {
+            return match e {
+                OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
+                    ToolResult::error(m)
+                }
+            }
+        }
     };
 
-    let meta = match build_note_meta(&root, &args.path, None) {
-        Ok(m) => m,
-        Err(e) => return ToolResult::error(e),
-    };
-
+    let meta = &result.meta;
     let mut output = format!(
         "path: {}\ntitle: {}\nsize: {} bytes\nmodified: {}",
         meta.path, meta.title, meta.size_bytes, meta.mtime_ms
     );
 
-    if let Ok(stats) =
-        search_service::get_note_stats(app.clone(), args.vault_id.clone(), args.path.clone())
-    {
+    if let Some(stats) = &result.stats {
         output.push_str(&format!(
             "\nwords: {}\nchars: {}\nheadings: {}\noutlinks: {}\nreading_time: {}s\ntasks: {}/{} done",
             stats.word_count,
@@ -95,18 +85,13 @@ fn handle_get_note_metadata(app: &AppHandle, arguments: Option<&Value>) -> ToolR
         ));
     }
 
-    if let Ok(tags_and_props) = search_service::with_read_conn(app, &args.vault_id, |conn| {
-        let tags = search_db::get_note_tags(conn, &args.path)?;
-        let props = search_db::get_note_properties(conn, &args.path)?;
-        Ok((tags, props))
-    }) {
-        let (tags, props) = tags_and_props;
+    if let Some((tags, props)) = &result.tags_and_props {
         if !tags.is_empty() {
             output.push_str(&format!("\ntags: {}", tags.join(", ")));
         }
         if !props.is_empty() {
             output.push('\n');
-            for (key, (value, prop_type)) in &props {
+            for (key, (value, prop_type)) in props {
                 output.push_str(&format!("\n{}({}): {}", key, prop_type, value));
             }
         }

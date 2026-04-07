@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tauri::AppHandle;
 
+use crate::features::mcp::shared_ops::{self, OpError};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
-use crate::features::vault::service as vault_service;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![list_vaults_def()]
@@ -30,7 +30,7 @@ fn list_vaults_def() -> ToolDefinition {
 }
 
 fn handle_list_vaults(app: &AppHandle) -> ToolResult {
-    match vault_service::list_vaults(app.clone()) {
+    match shared_ops::list_vaults(app) {
         Ok(vaults) => {
             if vaults.is_empty() {
                 return ToolResult::text("No vaults registered.".into());
@@ -52,6 +52,10 @@ fn handle_list_vaults(app: &AppHandle) -> ToolResult {
                 .collect();
             ToolResult::text(lines.join("\n"))
         }
-        Err(e) => ToolResult::error(e),
+        Err(e) => match e {
+            OpError::NotFound(m) | OpError::BadRequest(m) | OpError::Conflict(m) | OpError::Internal(m) => {
+                ToolResult::error(m)
+            }
+        },
     }
 }
