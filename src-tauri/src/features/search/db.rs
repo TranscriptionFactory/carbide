@@ -508,7 +508,7 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 if rest.starts_with('[') && rest.ends_with(']') {
                     let inner = &rest[1..rest.len() - 1];
                     for item in inner.split(',') {
-                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
                         if !t.is_empty() {
                             tags.push(ExtractedTag {
                                 tag: t.to_string(),
@@ -520,7 +520,7 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 } else if rest.is_empty() {
                     in_tags_array = true;
                 } else {
-                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim();
+                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
                     if !t.is_empty() {
                         tags.push(ExtractedTag {
                             tag: t.to_string(),
@@ -533,7 +533,7 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
             }
             if in_tags_array {
                 if line.starts_with("  - ") || line.starts_with("\t- ") {
-                    let item = trimmed.trim_start_matches("- ").trim().trim_matches(|c| c == '\'' || c == '"').trim();
+                    let item = trimmed.trim_start_matches("- ").trim().trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
                     if !item.is_empty() {
                         tags.push(ExtractedTag {
                             tag: item.to_string(),
@@ -3406,6 +3406,30 @@ mod tests {
         let md = "#project/sub/deep";
         let tags = extract_tags(md);
         assert_eq!(tags[0].tag, "project/sub/deep");
+    }
+
+    #[test]
+    fn extract_tags_strips_hash_from_frontmatter_inline_array() {
+        let md = "---\ntags: [\"#meeting\", \"#project\"]\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["meeting", "project"]);
+    }
+
+    #[test]
+    fn extract_tags_strips_hash_from_frontmatter_yaml_list() {
+        let md = "---\ntags:\n  - \"#tagged\"\n  - plain\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["tagged", "plain"]);
+    }
+
+    #[test]
+    fn extract_tags_strips_hash_from_frontmatter_single() {
+        let md = "---\ntags: \"#solo\"\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["solo"]);
     }
 
     #[test]
