@@ -1174,7 +1174,7 @@ fn handle_block_embed_batch(
             };
             let lines: Vec<&str> = body.lines().collect();
             let start = *start_line as usize;
-            let end = (*end_line as usize).min(lines.len());
+            let end = (*end_line as usize + 1).min(lines.len());
             if start >= lines.len() {
                 continue;
             }
