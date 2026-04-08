@@ -116,7 +116,15 @@ export type EmbeddingProgressEvent =
       embedded: number;
       elapsed_ms: number;
     }
-  | { status: "failed"; vault_id: string; error: string };
+  | { status: "failed"; vault_id: string; error: string }
+  | { status: "block_started"; vault_id: string; total: number }
+  | {
+      status: "block_progress";
+      vault_id: string;
+      embedded: number;
+      total: number;
+    }
+  | { status: "block_completed"; vault_id: string; embedded: number };
 
 export type OmnibarItem =
   | {
