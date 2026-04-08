@@ -137,7 +137,11 @@ pub fn smart_links_compute_suggestions(
     let rule_groups = config::load_rules(&root)?;
     let limit = limit.unwrap_or(20).min(100);
 
+    let (ni, bi) = search_service::get_index_arcs(&app, &vault_id)?;
+    let ni_guard = ni.read().map_err(|e| e.to_string())?;
+    let bi_guard = bi.read().map_err(|e| e.to_string())?;
+
     search_service::with_read_conn(&app, &vault_id, |conn| {
-        execute_rules(conn, &note_path, &rule_groups, limit)
+        execute_rules(conn, &note_path, &rule_groups, limit, &ni_guard, &bi_guard)
     })
 }
