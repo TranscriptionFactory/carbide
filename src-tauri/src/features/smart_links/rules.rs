@@ -1,4 +1,5 @@
 use super::{SmartLinkRuleGroup, SmartLinkRuleMatch, SmartLinkSuggestion};
+use crate::features::search::hnsw_index::VectorIndex;
 use crate::features::search::vector_db;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -14,6 +15,8 @@ pub fn execute_rules(
     note_path: &str,
     rule_groups: &[SmartLinkRuleGroup],
     limit: usize,
+    note_index: &VectorIndex,
+    block_index: &VectorIndex,
 ) -> Result<Vec<SmartLinkSuggestion>, String> {
     let mut hits: HashMap<String, SmartLinkSuggestion> = HashMap::new();
 
@@ -29,10 +32,12 @@ pub fn execute_rules(
                 "same_day" => query_same_day(conn, note_path)?,
                 "shared_tag" => query_shared_tag(conn, note_path)?,
                 "shared_property" => query_shared_property(conn, note_path)?,
-                "semantic_similarity" => query_semantic_similarity(conn, note_path)?,
+                "semantic_similarity" => query_semantic_similarity(conn, note_path, note_index)?,
                 "title_overlap" => query_title_overlap(conn, note_path)?,
                 "shared_outlinks" => query_shared_outlinks(conn, note_path)?,
-                "block_semantic_similarity" => query_block_semantic_similarity(conn, note_path)?,
+                "block_semantic_similarity" => {
+                    query_block_semantic_similarity(conn, note_path, note_index, block_index)?
+                }
                 _ => continue,
             };
 
@@ -146,13 +151,14 @@ fn query_shared_property(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
 fn query_semantic_similarity(
     conn: &Connection,
     note_path: &str,
+    note_index: &VectorIndex,
 ) -> Result<Vec<RuleHit>, String> {
-    let query_vec = match vector_db::get_embedding(conn, note_path) {
-        Some(v) => v,
+    let query_vec = match note_index.get_vector(note_path) {
+        Some(v) => v.clone(),
         None => return Ok(vec![]),
     };
 
-    let knn_results = vector_db::knn_search(conn, &query_vec, 51)?;
+    let knn_results = note_index.search(&query_vec, 51);
 
     let mut hits = Vec::new();
     for (path, distance) in knn_results {
@@ -268,14 +274,17 @@ fn query_shared_outlinks(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
 fn query_block_semantic_similarity(
     conn: &Connection,
     note_path: &str,
+    note_index: &VectorIndex,
+    block_index: &VectorIndex,
 ) -> Result<Vec<RuleHit>, String> {
     let source_blocks = vector_db::get_block_embeddings_for_note(conn, note_path);
     if source_blocks.is_empty() {
         return Ok(vec![]);
     }
 
-    let candidate_paths: Vec<String> = match vector_db::get_embedding(conn, note_path) {
-        Some(note_vec) => vector_db::knn_search(conn, &note_vec, 50)?
+    let candidate_paths: Vec<String> = match note_index.get_vector(note_path) {
+        Some(note_vec) => note_index
+            .search(note_vec, 50)
             .into_iter()
             .filter(|(p, _)| p != note_path)
             .map(|(p, _)| p)
@@ -295,12 +304,31 @@ fn query_block_semantic_similarity(
 
     let mut best_by_path: HashMap<String, f64> = HashMap::new();
     for candidate_path in &candidate_paths {
-        let target_blocks = vector_db::get_block_embeddings_for_note(conn, candidate_path);
-        for (_, target_vec) in &target_blocks {
-            for (_, source_vec) in &source_blocks {
+        for (_, source_vec) in &source_blocks {
+            let target_blocks = vector_db::get_block_embeddings_for_note(conn, candidate_path);
+            for (_, target_vec) in &target_blocks {
                 let sim = (1.0 - vector_db::dot_distance(source_vec, target_vec)) as f64;
                 if sim > 0.0 {
                     let entry = best_by_path.entry(candidate_path.clone()).or_insert(0.0);
+                    if sim > *entry {
+                        *entry = sim;
+                    }
+                }
+            }
+        }
+    }
+
+    // Also search directly in block index for each source block
+    for (_, source_vec) in &source_blocks {
+        let block_hits = block_index.search(source_vec, 20);
+        for (composite_key, distance) in block_hits {
+            if let Some(path) = composite_key.split('\0').next() {
+                if path == note_path {
+                    continue;
+                }
+                let sim = (1.0 - distance) as f64;
+                if sim > 0.0 {
+                    let entry = best_by_path.entry(path.to_string()).or_insert(0.0);
                     if sim > *entry {
                         *entry = sim;
                     }

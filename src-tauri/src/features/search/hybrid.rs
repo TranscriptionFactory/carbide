@@ -1,12 +1,13 @@
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::EmbeddingService;
+use crate::features::search::hnsw_index::VectorIndex;
 use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit, SearchScope};
-use crate::features::search::vector_db;
 use rusqlite::Connection;
 use std::collections::HashMap;
 
 pub fn hybrid_search(
     conn: &Connection,
+    note_index: &VectorIndex,
     model: &EmbeddingService,
     query: &str,
     limit: usize,
@@ -15,9 +16,7 @@ pub fn hybrid_search(
 
     let over_fetch = limit * 3;
 
-    let vector_hits =
-        vector_db::knn_search(conn, &query_vec, over_fetch)
-            .unwrap_or_default();
+    let vector_hits = note_index.search(&query_vec, over_fetch);
 
     let fts_hits =
         search_db::search(conn, query, SearchScope::All, over_fetch)
