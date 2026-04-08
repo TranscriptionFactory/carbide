@@ -107,11 +107,11 @@ struct VaultIdParams {
     vault_id: String,
 }
 
-pub async fn open_note(
+async fn resolve_note_path(
     client: &CarbideClient,
     vault_id: &str,
     path: &str,
-) -> Result<(), String> {
+) -> Result<std::path::PathBuf, String> {
     let vault_resp: Value = client
         .post_json(
             "/cli/vault",
@@ -135,8 +135,34 @@ pub async fn open_note(
     if !full_path.exists() {
         return Err(format!("note not found: {}", full_path.display()));
     }
+    Ok(full_path)
+}
 
+pub async fn open_note(
+    client: &CarbideClient,
+    vault_id: &str,
+    path: &str,
+) -> Result<(), String> {
+    let full_path = resolve_note_path(client, vault_id, path).await?;
     open_file(&full_path)
+}
+
+pub async fn edit_note(
+    client: &CarbideClient,
+    vault_id: &str,
+    path: &str,
+) -> Result<(), String> {
+    let full_path = resolve_note_path(client, vault_id, path).await?;
+
+    let editor = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .map_err(|_| "$EDITOR is not set. Set it (e.g. export EDITOR=vim) and retry.".to_string())?;
+
+    std::process::Command::new(&editor)
+        .arg(&full_path)
+        .status()
+        .map_err(|e| format!("failed to launch {}: {e}", editor))?;
+    Ok(())
 }
 
 fn open_file(path: &std::path::Path) -> Result<(), String> {

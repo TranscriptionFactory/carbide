@@ -100,6 +100,12 @@ pub struct MoveArgs {
     pub to: String,
 }
 
+#[derive(Deserialize)]
+pub struct NotesForTagArgs {
+    pub vault_id: String,
+    pub tag: String,
+}
+
 // --- Service wrappers ---
 
 pub fn read_note(app: &AppHandle, vault_id: &str, path: &str) -> Result<(String, String), OpError> {
@@ -339,6 +345,17 @@ pub fn note_tags(
 ) -> Result<Vec<crate::features::search::model::TagInfo>, OpError> {
     search_service::with_read_conn(app, vault_id, |conn| search_db::list_all_tags(conn))
         .map_err(OpError::Internal)
+}
+
+pub fn notes_for_tag(
+    app: &AppHandle,
+    vault_id: &str,
+    tag: &str,
+) -> Result<Vec<String>, OpError> {
+    search_service::with_read_conn(app, vault_id, |conn| {
+        search_db::get_notes_for_tag(conn, tag)
+    })
+    .map_err(OpError::Internal)
 }
 
 pub fn note_properties(

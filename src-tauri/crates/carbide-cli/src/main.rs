@@ -1,6 +1,7 @@
 mod auth;
 mod client;
 mod commands;
+mod completions;
 mod format;
 mod install;
 mod mcp;
@@ -10,6 +11,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 
 use client::CarbideClient;
+
+const EXIT_NOT_FOUND: i32 = 2;
+const EXIT_SERVER: i32 = 3;
 
 #[derive(Parser)]
 #[command(
@@ -47,8 +51,18 @@ enum Command {
         #[arg(long, help = "Output raw markdown (skip glow rendering)")]
         raw: bool,
     },
+    #[command(about = "Read a note (raw output, alias for read --raw)", visible_alias = "cat")]
+    Cat {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+    },
     #[command(about = "Open a note in the default app")]
     Open {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
+    },
+    #[command(about = "Open a note in $EDITOR")]
+    Edit {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
     },
@@ -107,6 +121,8 @@ enum Command {
         query: String,
         #[arg(long, default_value = "50", help = "Max results")]
         limit: usize,
+        #[arg(long, help = "Output only paths (one per line)")]
+        paths_only: bool,
     },
     #[command(about = "List files in vault")]
     Files {
@@ -114,7 +130,10 @@ enum Command {
         folder: Option<String>,
     },
     #[command(about = "List tags in vault")]
-    Tags,
+    Tags {
+        #[arg(long, help = "Show notes with this tag")]
+        filter: Option<String>,
+    },
     #[command(about = "Show headings for a note")]
     Outline {
         #[arg(help = "Note path (relative to vault root)")]
@@ -163,10 +182,6 @@ async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result
         .ok_or_else(|| {
             "no active vault. Open Carbide and select a vault, or pass --vault <id>".to_string()
         })
-}
-
-async fn ensure_running(client: &CarbideClient) -> Result<(), String> {
-    ensure_running_with_timeout(client, std::time::Duration::from_secs(10)).await
 }
 
 async fn ensure_running_with_timeout(
@@ -229,8 +244,17 @@ fn launch_app() -> Result<(), String> {
 }
 
 fn generate_completions(shell: Shell) {
-    let mut cmd = Cli::command();
-    clap_complete::generate(shell, &mut cmd, "carbide", &mut std::io::stdout());
+    completions::generate(shell);
+}
+
+fn classify_error(msg: &str) -> i32 {
+    if msg.contains("not found") || msg.contains("does not exist") {
+        EXIT_NOT_FOUND
+    } else if msg.contains("cannot reach") || msg.contains("timed out") {
+        EXIT_SERVER
+    } else {
+        1
+    }
 }
 
 #[tokio::main]
@@ -295,7 +319,7 @@ async fn main() {
     };
     if let Err(e) = ensure_running_with_timeout(&client, timeout).await {
         eprintln!("error: {}", e);
-        std::process::exit(1);
+        std::process::exit(EXIT_SERVER);
     }
 
     let result = match command {
@@ -340,8 +364,9 @@ async fn main() {
     };
 
     if let Err(e) = result {
+        let code = classify_error(&e);
         eprintln!("error: {}", e);
-        std::process::exit(1);
+        std::process::exit(code);
     }
 }
 
@@ -355,7 +380,11 @@ async fn run_command(
         Command::Read { path, raw } => {
             commands::notes::read(client, vault_id, &path, json, raw).await
         }
+        Command::Cat { path } => {
+            commands::notes::read(client, vault_id, &path, json, true).await
+        }
         Command::Open { path } => commands::notes::open_note(client, vault_id, &path).await,
+        Command::Edit { path } => commands::notes::edit_note(client, vault_id, &path).await,
         Command::Create {
             path,
             content,
@@ -380,14 +409,20 @@ async fn run_command(
             commands::notes::move_note(client, vault_id, &path, &to, json).await
         }
         Command::Delete { path } => commands::notes::delete(client, vault_id, &path, json).await,
-        Command::Search { query, limit } => {
-            commands::search::search(client, vault_id, &query, limit, json).await
-        }
+        Command::Search {
+            query,
+            limit,
+            paths_only,
+        } => commands::search::search(client, vault_id, &query, limit, json, paths_only).await,
         Command::Files { folder } => {
             commands::search::files(client, vault_id, folder.as_deref(), json).await
         }
-        Command::Tags => commands::search::tags(client, vault_id, json).await,
-        Command::Outline { path } => commands::search::outline(client, vault_id, &path, json).await,
+        Command::Tags { filter } => {
+            commands::search::tags(client, vault_id, json, filter.as_deref()).await
+        }
+        Command::Outline { path } => {
+            commands::search::outline(client, vault_id, &path, json).await
+        }
         Command::Vault => commands::vault::vault(client, vault_id, json).await,
         Command::Reindex => commands::search::reindex(client, vault_id, json).await,
         Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {

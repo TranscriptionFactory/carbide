@@ -29,6 +29,12 @@ struct OutlineParams {
     path: String,
 }
 
+#[derive(Serialize)]
+struct NotesForTagParams {
+    vault_id: String,
+    tag: String,
+}
+
 pub async fn reindex(client: &CarbideClient, vault_id: &str, json: bool) -> Result<(), String> {
     let resp: Value = client
         .post_json(
@@ -53,6 +59,7 @@ pub async fn search(
     query: &str,
     limit: usize,
     json: bool,
+    paths_only: bool,
 ) -> Result<(), String> {
     let resp: Value = client
         .post_json(
@@ -76,6 +83,10 @@ pub async fn search(
         }
         for hit in hits {
             let path = hit["note"]["path"].as_str().unwrap_or("?");
+            if paths_only {
+                println!("{}", path);
+                continue;
+            }
             let score = hit["score"].as_f64().unwrap_or(0.0);
             let snippet = hit["snippet"].as_str().unwrap_or("");
             println!("{} (score: {:.2})", path, score);
@@ -124,7 +135,16 @@ pub async fn files(
     Ok(())
 }
 
-pub async fn tags(client: &CarbideClient, vault_id: &str, json: bool) -> Result<(), String> {
+pub async fn tags(
+    client: &CarbideClient,
+    vault_id: &str,
+    json: bool,
+    filter: Option<&str>,
+) -> Result<(), String> {
+    if let Some(tag) = filter {
+        return notes_by_tag(client, vault_id, tag, json).await;
+    }
+
     let resp: Value = client
         .post_json(
             "/cli/tags",
@@ -145,6 +165,39 @@ pub async fn tags(client: &CarbideClient, vault_id: &str, json: bool) -> Result<
             println!("{} ({})", name, count);
         }
         println!("\n{} tags", tags.len());
+    }
+    Ok(())
+}
+
+async fn notes_by_tag(
+    client: &CarbideClient,
+    vault_id: &str,
+    tag: &str,
+    json: bool,
+) -> Result<(), String> {
+    let resp: Value = client
+        .post_json(
+            "/cli/notes_by_tag",
+            &NotesForTagParams {
+                vault_id: vault_id.to_string(),
+                tag: tag.to_string(),
+            },
+        )
+        .await?;
+
+    if json {
+        format::print_json(&resp);
+    } else {
+        let empty = vec![];
+        let paths = resp.as_array().unwrap_or(&empty);
+        if paths.is_empty() {
+            println!("No notes with tag \"{}\".", tag);
+            return Ok(());
+        }
+        for p in paths {
+            println!("{}", p.as_str().unwrap_or("?"));
+        }
+        println!("\n{} notes", paths.len());
     }
     Ok(())
 }

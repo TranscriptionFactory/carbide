@@ -58,6 +58,7 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/search", post(cli_search))
         .route("/files", post(cli_files))
         .route("/tags", post(cli_tags))
+        .route("/notes_by_tag", post(cli_notes_by_tag))
         .route("/properties", post(cli_properties))
         .route("/outline", post(cli_outline))
         .route("/vault", post(cli_vault))
@@ -112,6 +113,16 @@ async fn cli_tags(
 ) -> axum::response::Response {
     match shared_ops::note_tags(state.app(), &params.vault_id) {
         Ok(tags) => (StatusCode::OK, Json(tags)).into_response(),
+        Err(e) => op_err_to_response(e),
+    }
+}
+
+async fn cli_notes_by_tag(
+    State(state): State<Arc<HttpAppState>>,
+    Json(params): Json<shared_ops::NotesForTagArgs>,
+) -> axum::response::Response {
+    match shared_ops::notes_for_tag(state.app(), &params.vault_id, &params.tag) {
+        Ok(paths) => (StatusCode::OK, Json(paths)).into_response(),
         Err(e) => op_err_to_response(e),
     }
 }
