@@ -44,6 +44,13 @@ enum Command {
     Read {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
+        #[arg(long, help = "Output raw markdown (skip glow rendering)")]
+        raw: bool,
+    },
+    #[command(about = "Open a note in the default app")]
+    Open {
+        #[arg(help = "Note path (relative to vault root)")]
+        path: String,
     },
     #[command(about = "Create a new note")]
     Create {
@@ -345,7 +352,10 @@ async fn run_command(
     json: bool,
 ) -> Result<(), String> {
     match command {
-        Command::Read { path } => commands::notes::read(client, vault_id, &path, json).await,
+        Command::Read { path, raw } => {
+            commands::notes::read(client, vault_id, &path, json, raw).await
+        }
+        Command::Open { path } => commands::notes::open_note(client, vault_id, &path).await,
         Command::Create {
             path,
             content,

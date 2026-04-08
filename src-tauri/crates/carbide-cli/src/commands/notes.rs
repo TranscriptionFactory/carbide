@@ -1,3 +1,5 @@
+use std::io::IsTerminal;
+
 use serde::Serialize;
 use serde_json::Value;
 
@@ -59,6 +61,7 @@ pub async fn read(
     vault_id: &str,
     path: &str,
     json: bool,
+    raw: bool,
 ) -> Result<(), String> {
     let resp: Value = client
         .post_json(
@@ -73,8 +76,95 @@ pub async fn read(
     if json {
         format::print_json(&resp);
     } else {
-        print!("{}", resp["content"].as_str().unwrap_or(""));
+        let content = resp["content"].as_str().unwrap_or("");
+        if raw || !std::io::stdout().is_terminal() || !try_render_glow(content) {
+            print!("{}", content);
+        }
     }
+    Ok(())
+}
+
+fn try_render_glow(content: &str) -> bool {
+    let Ok(mut child) = std::process::Command::new("glow")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    else {
+        return false;
+    };
+
+    use std::io::Write;
+    if let Some(ref mut stdin) = child.stdin {
+        let _ = stdin.write_all(content.as_bytes());
+    }
+    drop(child.stdin.take());
+
+    child.wait().is_ok_and(|s| s.success())
+}
+
+#[derive(Serialize)]
+struct VaultIdParams {
+    vault_id: String,
+}
+
+pub async fn open_note(
+    client: &CarbideClient,
+    vault_id: &str,
+    path: &str,
+) -> Result<(), String> {
+    let vault_resp: Value = client
+        .post_json(
+            "/cli/vault",
+            &VaultIdParams {
+                vault_id: vault_id.to_string(),
+            },
+        )
+        .await?;
+
+    let vault_path = vault_resp["path"]
+        .as_str()
+        .ok_or("could not resolve vault path")?;
+
+    let note_path = if path.ends_with(".md") {
+        path.to_string()
+    } else {
+        format!("{}.md", path)
+    };
+
+    let full_path = std::path::Path::new(vault_path).join(&note_path);
+    if !full_path.exists() {
+        return Err(format!("note not found: {}", full_path.display()));
+    }
+
+    open_file(&full_path)
+}
+
+fn open_file(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("open");
+        c.arg(path);
+        c
+    };
+    #[cfg(target_os = "linux")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(path);
+        c
+    };
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "start", "", &path.to_string_lossy()]);
+        c
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    return Err("open is not supported on this platform".into());
+
+    cmd.spawn()
+        .map_err(|e| format!("failed to open: {e}"))?
+        .wait()
+        .map_err(|e| format!("failed to open: {e}"))?;
     Ok(())
 }
 
