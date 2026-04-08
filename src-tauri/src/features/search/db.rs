@@ -3511,6 +3511,30 @@ mod tests {
     }
 
     #[test]
+    fn extract_tags_strips_hash_from_frontmatter_inline_array() {
+        let md = "---\ntags: [\"#meeting\", \"#project\"]\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["meeting", "project"]);
+    }
+
+    #[test]
+    fn extract_tags_strips_hash_from_frontmatter_yaml_list() {
+        let md = "---\ntags:\n  - \"#tagged\"\n  - plain\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["tagged", "plain"]);
+    }
+
+    #[test]
+    fn extract_tags_strips_hash_from_frontmatter_single() {
+        let md = "---\ntags: \"#solo\"\n---\nBody";
+        let tags = extract_tags(md);
+        let names: Vec<&str> = tags.iter().map(|t| t.tag.as_str()).collect();
+        assert_eq!(names, vec!["solo"]);
+    }
+
+    #[test]
     fn sync_tags_populates_and_replaces() {
         let conn = open_search_db_at_path(Path::new(":memory:")).unwrap();
         let meta = note("t.md", "T");
