@@ -274,21 +274,37 @@ fn query_block_semantic_similarity(
         return Ok(vec![]);
     }
 
-    let mut best_by_path: HashMap<String, f64> = HashMap::new();
+    let candidate_paths: Vec<String> = match vector_db::get_embedding(conn, note_path) {
+        Some(note_vec) => vector_db::knn_search(conn, &note_vec, 50)?
+            .into_iter()
+            .filter(|(p, _)| p != note_path)
+            .map(|(p, _)| p)
+            .collect(),
+        None => {
+            let mut stmt = conn
+                .prepare("SELECT DISTINCT path FROM block_embeddings WHERE path != ?1")
+                .map_err(|e| e.to_string())?;
+            let paths: Vec<String> = stmt
+                .query_map([note_path], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect();
+            paths
+        }
+    };
 
-    for (_heading_id, query_vec) in &source_blocks {
-        let results = vector_db::block_knn_search(conn, query_vec, 21)?;
-        for (path, _target_heading, distance) in results {
-            if path == note_path {
-                continue;
-            }
-            let similarity = (1.0 - distance) as f64;
-            if similarity <= 0.0 {
-                continue;
-            }
-            let entry = best_by_path.entry(path).or_insert(0.0);
-            if similarity > *entry {
-                *entry = similarity;
+    let mut best_by_path: HashMap<String, f64> = HashMap::new();
+    for candidate_path in &candidate_paths {
+        let target_blocks = vector_db::get_block_embeddings_for_note(conn, candidate_path);
+        for (_, target_vec) in &target_blocks {
+            for (_, source_vec) in &source_blocks {
+                let sim = (1.0 - vector_db::dot_distance(source_vec, target_vec)) as f64;
+                if sim > 0.0 {
+                    let entry = best_by_path.entry(candidate_path.clone()).or_insert(0.0);
+                    if sim > *entry {
+                        *entry = sim;
+                    }
+                }
             }
         }
     }
@@ -309,7 +325,11 @@ fn query_block_semantic_similarity(
         })
         .collect();
 
-    hits.sort_by(|a, b| b.raw_score.partial_cmp(&a.raw_score).unwrap_or(std::cmp::Ordering::Equal));
+    hits.sort_by(|a, b| {
+        b.raw_score
+            .partial_cmp(&a.raw_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     hits.truncate(50);
     Ok(hits)
 }

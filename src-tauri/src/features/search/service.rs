@@ -72,6 +72,19 @@ pub enum EmbeddingProgressEvent {
         vault_id: String,
         error: String,
     },
+    BlockStarted {
+        vault_id: String,
+        total: usize,
+    },
+    BlockProgress {
+        vault_id: String,
+        embedded: usize,
+        total: usize,
+    },
+    BlockCompleted {
+        vault_id: String,
+        embedded: usize,
+    },
 }
 
 #[allow(dead_code)]
@@ -605,6 +618,7 @@ fn handle_upsert(
     search_db::upsert_note_simple(conn, &meta, &markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
     let _ = vector_db::remove_embedding(conn, note_id);
+    let _ = vector_db::remove_block_embeddings(conn, note_id);
     Ok(())
 }
 
@@ -621,6 +635,7 @@ fn handle_upsert_with_content(
     search_db::upsert_note_simple(conn, &meta, markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
     let _ = vector_db::remove_embedding(conn, note_id);
+    let _ = vector_db::remove_block_embeddings(conn, note_id);
     Ok(())
 }
 
@@ -1079,7 +1094,7 @@ fn handle_embed_batch(
         );
     }
 
-    handle_block_embed_batch(conn, cancel, &model, vault_id);
+    handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle);
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let _ = app_handle.emit(
@@ -1100,6 +1115,7 @@ fn handle_block_embed_batch(
     cancel: &Arc<AtomicBool>,
     model: &EmbeddingService,
     vault_id: &str,
+    app_handle: &AppHandle,
 ) {
     let sections = match search_db::get_embeddable_sections(
         conn,
@@ -1126,13 +1142,19 @@ fn handle_block_embed_batch(
         return;
     }
 
-    log::info!(
-        "block_embed: {} sections to embed for {vault_id}",
-        needing.len()
+    let block_total = needing.len();
+    log::info!("block_embed: {block_total} sections to embed for {vault_id}");
+    let _ = app_handle.emit(
+        "embedding_progress",
+        EmbeddingProgressEvent::BlockStarted {
+            vault_id: vault_id.to_string(),
+            total: block_total,
+        },
     );
 
     let batch_size = 50;
     let mut block_embedded = 0usize;
+    let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
 
     for chunk in needing.chunks(batch_size) {
         if cancel.load(Ordering::Relaxed) {
@@ -1143,8 +1165,11 @@ fn handle_block_embed_batch(
         let mut keys = Vec::with_capacity(chunk.len());
 
         for (path, heading_id, start_line, end_line) in chunk.iter().copied() {
-            let body = match search_db::get_fts_body(conn, path) {
-                Some(b) => b,
+            let body = match fts_cache
+                .entry(path.to_string())
+                .or_insert_with(|| search_db::get_fts_body(conn, path))
+            {
+                Some(b) => b.clone(),
                 None => continue,
             };
             let lines: Vec<&str> = body.lines().collect();
@@ -1176,6 +1201,14 @@ fn handle_block_embed_batch(
                     }
                 }
                 block_embedded += embeddings.len();
+                let _ = app_handle.emit(
+                    "embedding_progress",
+                    EmbeddingProgressEvent::BlockProgress {
+                        vault_id: vault_id.to_string(),
+                        embedded: block_embedded,
+                        total: block_total,
+                    },
+                );
             }
             Err(e) if e.contains("cancelled") => {
                 log::info!("block_embed: cancelled");
@@ -1190,6 +1223,13 @@ fn handle_block_embed_batch(
     if block_embedded > 0 {
         log::info!("block_embed: embedded {block_embedded} sections for {vault_id}");
     }
+    let _ = app_handle.emit(
+        "embedding_progress",
+        EmbeddingProgressEvent::BlockCompleted {
+            vault_id: vault_id.to_string(),
+            embedded: block_embedded,
+        },
+    );
 }
 
 fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {

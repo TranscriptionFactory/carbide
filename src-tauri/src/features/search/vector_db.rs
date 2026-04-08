@@ -437,7 +437,7 @@ pub fn set_model_version(conn: &Connection, version: &str) -> Result<(), String>
     Ok(())
 }
 
-fn dot_distance(a: &[f32], b: &[f32]) -> f32 {
+pub(crate) fn dot_distance(a: &[f32], b: &[f32]) -> f32 {
     let mut dot = 0.0f32;
     for (x, y) in a.iter().zip(b.iter()) {
         dot += x * y;
@@ -453,7 +453,7 @@ fn floats_to_bytes(floats: &[f32]) -> Vec<u8> {
     bytes
 }
 
-fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
+pub(crate) fn bytes_to_floats(bytes: &[u8]) -> Vec<f32> {
     bytes
         .chunks_exact(4)
         .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -567,10 +567,91 @@ mod tests {
     }
 
     #[test]
+    fn upsert_block_embedding_overwrite_then_remove() {
+        let conn = setup();
+        let emb_a = fake_embedding(0.1);
+        let emb_c = fake_embedding(0.3);
+        upsert_block_embedding(&conn, "note.md", "h-a", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-b", &emb_a).unwrap();
+        remove_block_embeddings(&conn, "note.md").unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-a", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "note.md", "h-c", &emb_c).unwrap();
+        let blocks = get_block_embeddings_for_note(&conn, "note.md");
+        assert_eq!(blocks.len(), 2);
+        let ids: Vec<&str> = blocks.iter().map(|(id, _)| id.as_str()).collect();
+        assert!(ids.contains(&"h-a"));
+        assert!(ids.contains(&"h-c"));
+        assert!(!ids.contains(&"h-b"));
+    }
+
+    #[test]
     fn get_block_embeddings_for_note_returns_empty_for_missing() {
         let conn = setup();
         let blocks = get_block_embeddings_for_note(&conn, "nonexistent.md");
         assert!(blocks.is_empty());
+    }
+
+    #[test]
+    fn two_tier_block_search_finds_similar() {
+        let conn = setup();
+        let emb_a = fake_embedding(0.1);
+        let emb_b = fake_embedding(0.11);
+        let emb_c = fake_embedding(0.9);
+        // Note-level embeddings
+        upsert_embedding(&conn, "src.md", &emb_a).unwrap();
+        upsert_embedding(&conn, "close.md", &emb_b).unwrap();
+        upsert_embedding(&conn, "far.md", &emb_c).unwrap();
+        // Block-level embeddings
+        upsert_block_embedding(&conn, "src.md", "h-1", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "close.md", "h-1", &emb_b).unwrap();
+        upsert_block_embedding(&conn, "far.md", "h-1", &emb_c).unwrap();
+        // Note-level KNN should return close.md as candidate
+        let candidates = knn_search(&conn, &emb_a, 50).unwrap();
+        let candidate_paths: Vec<&str> = candidates.iter().map(|(p, _)| p.as_str()).collect();
+        assert!(candidate_paths.contains(&"close.md"));
+        // Block-level pairwise should find close.md more similar
+        let close_blocks = get_block_embeddings_for_note(&conn, "close.md");
+        let src_blocks = get_block_embeddings_for_note(&conn, "src.md");
+        let sim_close = 1.0 - dot_distance(&src_blocks[0].1, &close_blocks[0].1);
+        let far_blocks = get_block_embeddings_for_note(&conn, "far.md");
+        let sim_far = 1.0 - dot_distance(&src_blocks[0].1, &far_blocks[0].1);
+        assert!(sim_close > sim_far, "close should be more similar than far");
+    }
+
+    #[test]
+    fn two_tier_block_search_excludes_self() {
+        let conn = setup();
+        let emb = fake_embedding(0.1);
+        upsert_embedding(&conn, "self.md", &emb).unwrap();
+        upsert_block_embedding(&conn, "self.md", "h-1", &emb).unwrap();
+        let results = knn_search(&conn, &emb, 50).unwrap();
+        // Filter as the two-tier algorithm does
+        let filtered: Vec<_> = results.iter().filter(|(p, _)| p != "self.md").collect();
+        // Self should be in raw results but filtered out
+        assert!(results.iter().any(|(p, _)| p == "self.md"));
+        assert!(filtered.iter().all(|(p, _)| p != "self.md"));
+    }
+
+    #[test]
+    fn two_tier_fallback_when_no_note_embedding() {
+        let conn = setup();
+        let emb_a = fake_embedding(0.1);
+        let emb_b = fake_embedding(0.2);
+        // Only block embeddings, no note-level embedding for src
+        upsert_block_embedding(&conn, "src.md", "h-1", &emb_a).unwrap();
+        upsert_block_embedding(&conn, "other.md", "h-1", &emb_b).unwrap();
+        // get_embedding should return None for src
+        assert!(get_embedding(&conn, "src.md").is_none());
+        // Fallback: query distinct paths from block_embeddings
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT path FROM block_embeddings WHERE path != ?1")
+            .unwrap();
+        let fallback_paths: Vec<String> = stmt
+            .query_map(["src.md"], |row| row.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(fallback_paths, vec!["other.md"]);
     }
 
     #[test]
