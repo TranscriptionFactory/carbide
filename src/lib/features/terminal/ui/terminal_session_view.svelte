@@ -1,6 +1,7 @@
 <script lang="ts">
   import "@xterm/xterm/css/xterm.css";
   import { FitAddon } from "@xterm/addon-fit";
+  import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import { RotateCcw } from "@lucide/svelte";
   import { onDestroy, onMount } from "svelte";
@@ -8,6 +9,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
   import { resolve_terminal_session_target } from "$lib/features/terminal";
+  import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
   import { create_logger } from "$lib/shared/utils/logger";
   import type { TerminalSessionRequest } from "$lib/features/terminal/application/terminal_service";
 
@@ -30,6 +32,52 @@
   let on_focus: (() => void) | undefined;
   let on_blur: (() => void) | undefined;
   let attached_view_id = $state<string | null>(null);
+
+  let output_buffer: Uint8Array[] = [];
+  let flush_scheduled = false;
+
+  function flush_output() {
+    flush_scheduled = false;
+    if (!terminal || output_buffer.length === 0) return;
+
+    if (output_buffer.length === 1) {
+      terminal.write(output_buffer[0]!);
+    } else {
+      const total = output_buffer.reduce((sum, chunk) => sum + chunk.length, 0);
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of output_buffer) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      terminal.write(merged);
+    }
+    output_buffer = [];
+  }
+
+  function schedule_output(data: Uint8Array) {
+    output_buffer.push(data);
+    if (!flush_scheduled) {
+      flush_scheduled = true;
+      requestAnimationFrame(flush_output);
+    }
+  }
+
+  const resize_debounce = create_debounced_task_controller<void>({
+    run: () => {
+      if (!fit_addon || !terminal || destroyed || !active) return;
+      try {
+        fit_addon.fit();
+        terminal_runtime.resize_session(
+          session_id,
+          terminal.cols,
+          terminal.rows,
+        );
+      } catch {
+        return;
+      }
+    },
+  });
 
   function get_shell(): string {
     return stores.ui.editor_settings.terminal_shell_path || "/bin/zsh";
@@ -134,7 +182,7 @@
         {
           on_output: (data) => {
             if (destroyed) return;
-            terminal?.write(data);
+            schedule_output(data);
           },
           on_exit: (event) => {
             if (destroyed) return;
@@ -229,6 +277,14 @@
     terminal.loadAddon(fit_addon);
     terminal.open(container_el);
 
+    try {
+      terminal.loadAddon(new WebglAddon());
+    } catch (e) {
+      log.warn("WebGL renderer unavailable, falling back to canvas", {
+        error: String(e),
+      });
+    }
+
     if (active) {
       requestAnimationFrame(() => {
         if (!fit_addon || !terminal || destroyed) return;
@@ -270,27 +326,18 @@
     void ensure_terminal_session();
 
     resize_observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        if (!fit_addon || !terminal || destroyed || !active) return;
-        try {
-          fit_addon.fit();
-          terminal_runtime.resize_session(
-            session_id,
-            terminal.cols,
-            terminal.rows,
-          );
-        } catch {
-          return;
-        }
-      });
+      resize_debounce.schedule(undefined, 100);
     });
     resize_observer.observe(container_el);
   }
 
   function cleanup() {
     destroyed = true;
+    resize_debounce.cancel();
     resize_observer?.disconnect();
     resize_observer = undefined;
+    output_buffer = [];
+    flush_scheduled = false;
 
     const textarea = terminal?.textarea;
     if (textarea) {
