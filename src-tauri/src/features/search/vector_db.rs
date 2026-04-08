@@ -21,7 +21,16 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS embedding_meta (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
-        );",
+        );
+
+        CREATE TABLE IF NOT EXISTS vector_key_map (
+            index_name TEXT NOT NULL,
+            str_key TEXT NOT NULL,
+            int_key INTEGER NOT NULL,
+            PRIMARY KEY (index_name, str_key)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_vkm_int
+            ON vector_key_map(index_name, int_key);",
     )
     .map_err(|e| e.to_string())?;
 

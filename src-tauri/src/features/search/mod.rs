@@ -1,5 +1,6 @@
 pub mod db;
 pub mod embeddings;
+pub mod hnsw_index;
 pub mod hybrid;
 pub mod model;
 pub mod service;

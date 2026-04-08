@@ -70,8 +70,21 @@ fn compute(
     note_path: &str,
     groups: &[SmartLinkRuleGroup],
 ) -> Vec<SmartLinkSuggestion> {
-    crate::features::smart_links::rules::execute_rules(conn, note_path, groups, 20)
-        .expect("execute_rules")
+    use crate::features::search::hnsw_index::VectorIndex;
+    // Detect dims from first embedding in the DB (tests may use non-384 dims)
+    let dims: usize = conn
+        .query_row(
+            "SELECT length(embedding) / 4 FROM note_embeddings LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(384);
+    let note_index = VectorIndex::rebuild_from_sqlite(conn, "notes", dims);
+    let block_index = VectorIndex::rebuild_from_sqlite(conn, "blocks", dims);
+    crate::features::smart_links::rules::execute_rules(
+        conn, note_path, groups, 20, &note_index, &block_index,
+    )
+    .expect("execute_rules")
 }
 
 #[test]
