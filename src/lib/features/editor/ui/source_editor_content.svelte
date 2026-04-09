@@ -266,7 +266,6 @@
   });
 
   onDestroy(() => {
-    stores.editor.clear_source_content_getter();
     destroyed = true;
     view_mounted = false;
     let cursor_offset = 0;
@@ -285,6 +284,8 @@
       clearTimeout(store_timer);
       on_markdown_change(get_content());
     }
+
+    stores.editor.clear_source_content_getter();
 
     on_destroy?.({ cursor_offset, scroll_fraction });
 

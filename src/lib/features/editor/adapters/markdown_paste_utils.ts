@@ -1,4 +1,4 @@
-type PasteMode = "markdown" | "html" | "none";
+type PasteMode = "markdown" | "html" | "url" | "none";
 
 type PasteModeInput = {
   text_markdown: string;
@@ -7,7 +7,7 @@ type PasteModeInput = {
 };
 
 const HEADING_REGEX = /(^|\n)\s{0,3}#{1,6}\s+\S/;
-const LIST_REGEX = /(^|\n)\s{0,3}([-*+]|\d+\.)\s+\S/;
+const LIST_REGEX = /(^|\n)\s*([-*+]|\d+\.)\s+\S/;
 const CODE_FENCE_REGEX = /(^|\n)\s{0,3}(```|~~~)/;
 const BLOCKQUOTE_REGEX = /(^|\n)\s{0,3}>\s+\S/;
 const LINK_REGEX = /\[[^\]]+\]\([^)]+\)/;
@@ -15,6 +15,7 @@ const IMAGE_REGEX = /!\[[^\]]*]\([^)]+\)/;
 const INLINE_CODE_REGEX = /`[^`]+`/;
 const EMPHASIS_REGEX =
   /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|__[^_]+__|_[^_\s][^_]*_)/;
+const BARE_URL_REGEX = /^https?:\/\/\S+$/;
 
 export function looks_like_markdown(text: string): boolean {
   const trimmed = text.trim();
@@ -32,8 +33,13 @@ export function looks_like_markdown(text: string): boolean {
   );
 }
 
+export function is_bare_url(text: string): boolean {
+  return BARE_URL_REGEX.test(text.trim());
+}
+
 export function pick_paste_mode(input: PasteModeInput): PasteMode {
   if (input.text_markdown.trim() !== "") return "markdown";
+  if (is_bare_url(input.text_plain)) return "url";
   if (looks_like_markdown(input.text_plain)) return "markdown";
   if (input.text_html.trim() !== "") return "html";
   return "none";

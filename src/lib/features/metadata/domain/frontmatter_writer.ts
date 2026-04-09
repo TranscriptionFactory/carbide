@@ -1,21 +1,6 @@
-const NEEDS_QUOTE_RE = /[:#{}\[\]>|*&!%@`,"]|^(true|false|yes|no|null|~)$/i;
-const FRONTMATTER_RE = /^---[ \t]*\n([\s\S]*?)---[ \t]*(?:\n|$)/;
+import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
 
-function find_frontmatter(markdown: string): {
-  start: number;
-  end: number;
-  body: string;
-} | null {
-  const match = FRONTMATTER_RE.exec(markdown);
-  if (!match || match[1] === undefined) return null;
-  const raw_body: string = match[1];
-  const body = raw_body.endsWith("\n") ? raw_body.slice(0, -1) : raw_body;
-  return {
-    start: match.index,
-    end: match.index + match[0].length,
-    body,
-  };
-}
+const NEEDS_QUOTE_RE = /[:#{}\[\]>|*&!%@`,"]|^(true|false|yes|no|null|~)$/i;
 
 function format_yaml_value(value: unknown): string {
   if (value === null || value === undefined) return "null";
@@ -83,7 +68,7 @@ function rebuild(
 }
 
 export function ensure_frontmatter(markdown: string): string {
-  if (find_frontmatter(markdown)) return markdown;
+  if (find_frontmatter_span(markdown)) return markdown;
   return "---\n---\n" + markdown;
 }
 
@@ -92,12 +77,12 @@ export function update_frontmatter_property(
   key: string,
   value: unknown,
 ): string {
-  const fm = find_frontmatter(markdown);
+  const fm = find_frontmatter_span(markdown);
   if (!fm) {
     return add_frontmatter_property(ensure_frontmatter(markdown), key, value);
   }
 
-  const found = find_key_line(fm.body, key);
+  const found = find_key_line(fm.yaml, key);
   if (!found) {
     return add_frontmatter_property(markdown, key, value);
   }
@@ -105,9 +90,9 @@ export function update_frontmatter_property(
   const formatted = format_yaml_value(value);
   const replacement = `${found.indent}${key}: ${formatted}`;
   const new_body =
-    fm.body.slice(0, found.lineStart) +
+    fm.yaml.slice(0, found.lineStart) +
     replacement +
-    fm.body.slice(found.lineEnd);
+    fm.yaml.slice(found.lineEnd);
 
   return rebuild(markdown, fm, new_body);
 }
@@ -117,20 +102,20 @@ export function add_frontmatter_property(
   key: string,
   value: unknown,
 ): string {
-  const fm = find_frontmatter(markdown);
+  const fm = find_frontmatter_span(markdown);
   if (!fm) {
     const ensured = ensure_frontmatter(markdown);
     return add_frontmatter_property(ensured, key, value);
   }
 
-  const found = find_key_line(fm.body, key);
+  const found = find_key_line(fm.yaml, key);
   if (found) {
     return update_frontmatter_property(markdown, key, value);
   }
 
   const formatted = format_yaml_value(value);
   const new_line = `${key}: ${formatted}`;
-  const new_body = fm.body.trim() === "" ? new_line : fm.body + "\n" + new_line;
+  const new_body = fm.yaml.trim() === "" ? new_line : fm.yaml + "\n" + new_line;
 
   return rebuild(markdown, fm, new_body);
 }
@@ -139,14 +124,14 @@ export function remove_frontmatter_property(
   markdown: string,
   key: string,
 ): string {
-  const fm = find_frontmatter(markdown);
+  const fm = find_frontmatter_span(markdown);
   if (!fm) return markdown;
 
-  const found = find_key_line(fm.body, key);
+  const found = find_key_line(fm.yaml, key);
   if (!found) return markdown;
 
-  let before = fm.body.slice(0, found.lineStart);
-  let after = fm.body.slice(found.lineEnd);
+  let before = fm.yaml.slice(0, found.lineStart);
+  let after = fm.yaml.slice(found.lineEnd);
 
   if (before.endsWith("\n") && (after.startsWith("\n") || after === "")) {
     before = before.slice(0, -1);

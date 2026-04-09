@@ -16,6 +16,7 @@ import { create_trailing_paragraph_plugin } from "../adapters/trailing_paragraph
 import { create_dirty_state_prose_plugin } from "../adapters/dirty_state_plugin";
 import { create_editor_context_plugin_instance } from "../adapters/editor_context_plugin";
 import { create_emoji_prose_plugin } from "../adapters/emoji_plugin";
+import { create_frontmatter_guard_plugin } from "../adapters/frontmatter_guard_plugin";
 import { create_typography_prose_plugin } from "../adapters/typography_plugin";
 import { create_outline_prose_plugin } from "../adapters/outline_plugin";
 import { create_block_input_rules_prose_plugin } from "../adapters/block_input_rules_plugin";
@@ -131,6 +132,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
       on_dirty_state_change: () => {},
     }),
   );
+  plugins.push(create_frontmatter_guard_plugin());
 
   return { plugins };
 }

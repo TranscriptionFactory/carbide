@@ -34,6 +34,7 @@ The `looks_like_markdown` check in `pick_paste_mode` uses `LIST_REGEX = /(^|\n)\
 **File:** `src/lib/features/editor/adapters/markdown_paste_plugin.ts`
 
 1. **Widen `LIST_REGEX` in `pick_paste_mode`** to detect indented list items (allow arbitrary leading whitespace, not just 0-3 spaces):
+
    ```
    LIST_REGEX = /(^|\n)\s*([-*+]|\d+\.)\s+\S/
    ```
@@ -47,6 +48,7 @@ The `looks_like_markdown` check in `pick_paste_mode` uses `LIST_REGEX = /(^|\n)\
    - Pasting nested list into a paragraph
 
 **Files touched:**
+
 - `src/lib/features/editor/adapters/markdown_paste_plugin.ts` — open_depth logic
 - `src/lib/features/editor/adapters/markdown_paste_utils.ts` — LIST_REGEX
 - `tests/` — new paste test file
@@ -65,7 +67,7 @@ The research confirms two distinct sub-issues:
 onDestroy(() => {
   if (store_timer !== null) {
     clearTimeout(store_timer);
-    on_markdown_change(get_content());  // flush
+    on_markdown_change(get_content()); // flush
   }
   view?.destroy();
 });
@@ -101,6 +103,7 @@ However, `capture_active_tab_snapshot` in `tab_action_helpers.ts` calls `service
 4. Invalidate cache entries when a note is saved to disk or reloaded externally.
 
 **Files touched:**
+
 - `src/lib/features/editor/ui/source_editor_content.svelte` — save/restore CM state
 - `src/lib/features/editor/application/editor_service.ts` — cm_buffer_map
 - `src/lib/features/tab/application/tab_action_helpers.ts` — verify flush ordering
@@ -113,8 +116,9 @@ However, `capture_active_tab_snapshot` in `tab_action_helpers.ts` calls `service
 ### Root Cause Analysis
 
 New documents are created with front matter via `build_initial_frontmatter()` in `ensure_open_note.ts`:
+
 ```ts
-`---\ntitle: "${title}"\ndate_created: ${date}\n---\n\n`
+`---\ntitle: "${title}"\ndate_created: ${date}\n---\n\n`;
 ```
 
 The ProseMirror schema places `frontmatter` as a `group: "block"` node. There is **no schema constraint** that `frontmatter` must be the first child of `doc` — it's just a block node. The `doc` content spec is `block+`, so a `frontmatter` node could theoretically appear anywhere in the document, or multiple times.
@@ -151,26 +155,29 @@ The `frontmatter` node has `code: true` which means ProseMirror treats it as a c
 
 There are currently **three independent parsers** with subtly different behavior:
 
-| Parser | Location | Mechanism | Used By |
-|--------|----------|-----------|---------|
-| remark-frontmatter | remark_processor.ts | remark plugin, full spec | ProseMirror pipeline |
-| `FRONTMATTER_RE` | frontmatter_writer.ts | Regex `^---[ \t]*\n([\s\S]*?)---` | Metadata mutations |
-| `indexOf("\n---\n")` | frontmatter_sync.ts | String search | Reference sync |
-| `starts_with("---\n")` | service.rs, db.rs | Line scanning | Rust blurb/search |
+| Parser                 | Location              | Mechanism                         | Used By              |
+| ---------------------- | --------------------- | --------------------------------- | -------------------- |
+| remark-frontmatter     | remark_processor.ts   | remark plugin, full spec          | ProseMirror pipeline |
+| `FRONTMATTER_RE`       | frontmatter_writer.ts | Regex `^---[ \t]*\n([\s\S]*?)---` | Metadata mutations   |
+| `indexOf("\n---\n")`   | frontmatter_sync.ts   | String search                     | Reference sync       |
+| `starts_with("---\n")` | service.rs, db.rs     | Line scanning                     | Rust blurb/search    |
 
 **Differences that can cause bugs:**
+
 - Regex allows trailing whitespace on `---` fences; indexOf does not
 - Regex uses non-greedy `[\s\S]*?` (matches first `---`); indexOf also finds first `\n---\n`
 - Rust parser treats any line equal to `"---"` as a fence closer (no position constraint)
 - None validate that the YAML content is actually valid YAML before treating it as front matter
 
 **Fix:**
+
 1. Extract a single canonical `parse_frontmatter(markdown: string): { yaml: string; body: string; has_frontmatter: boolean }` utility
 2. Strict rules: opening `---` must be at byte offset 0, closing `---` must be on its own line, YAML must parse without error (or fall back to treating entire content as body)
 3. Migrate `frontmatter_writer.ts` and `frontmatter_sync.ts` to use this utility
 4. Add comprehensive edge-case tests: empty doc, `---` only, `---\n---`, `--- \n`, nested `---` in body, etc.
 
 **Files touched:**
+
 - `src/lib/features/editor/adapters/schema.ts` — isolating, selectable
 - `src/lib/features/editor/adapters/` — cursor guard plugin
 - `src/lib/features/editor/ui/` — collapsible node view (Phase 2)
@@ -193,6 +200,7 @@ The paste pipeline processes clipboard content through `pick_paste_mode()`:
 4. Otherwise → "none" (ProseMirror default)
 
 **Problem:** When pasting a URL, the clipboard typically contains:
+
 - `text/plain`: `https://example.com`
 - `text/html`: `<a href="https://example.com">https://example.com</a>` (browser-generated)
 
@@ -227,6 +235,7 @@ The cascade failure (lists, fences, headings breaking) indicates the malformed n
 5. Add a `try/catch` around the `replaceSelection` dispatch — if the transaction throws or produces an invalid doc, fall back to inserting as plain text.
 
 **Files touched:**
+
 - `src/lib/features/editor/adapters/markdown_paste_utils.ts` — URL detection
 - `src/lib/features/editor/adapters/markdown_paste_plugin.ts` — URL handler, validation
 - `src/lib/features/editor/adapters/html_to_markdown.ts` — audit conversion
@@ -236,20 +245,15 @@ The cascade failure (lists, fences, headings breaking) indicates the malformed n
 
 ## Priority & Sequencing
 
-| Order | Bug | Severity | Effort | Rationale |
-|-------|-----|----------|--------|-----------|
-| 1 | BUG-003 Phase 1 | High | Small | Cursor guard is a quick fix that prevents data corruption. Unblocks other fixes. |
-| 2 | BUG-003 Phase 3 | High | Medium | Consolidating parsers eliminates a class of bugs. Front matter is load-bearing. |
-| 3 | BUG-002A | High | Small | Flush ordering fix prevents data loss on tab switch. |
-| 4 | BUG-004 | High | Medium | Paste corruption is user-visible and breaks editing. |
-| 5 | BUG-001 | High | Medium | List paste fix depends on understanding the full paste pipeline (informed by BUG-004 work). |
-| 6 | BUG-002B | Medium | Medium | CM buffer cache is a quality-of-life improvement (undo history). |
-| 7 | BUG-003 Phase 2 | Low | Large | Collapsible front matter is a UX enhancement, not a bug fix. |
-
-### Estimated scope
-- **Phase 1 (bugs 003.1, 002A):** ~2-3 files each, focused fixes
-- **Phase 2 (bugs 004, 001):** ~3-4 files each, requires paste pipeline understanding
-- **Phase 3 (bugs 003.3, 002B, 003.2):** Larger refactors, can be done incrementally
+| Order | Bug             | Severity | Effort | Rationale                                                                                   |
+| ----- | --------------- | -------- | ------ | ------------------------------------------------------------------------------------------- |
+| 1     | BUG-003 Phase 1 | High     | Small  | **Done**    | Cursor guard prevents data corruption.            |
+| 2     | BUG-003 Phase 3 | High     | Medium | **Done**    | Consolidating parsers eliminates a class of bugs.             |
+| 3     | BUG-002A        | High     | Small  | **Done**    | Flush ordering fix prevents data loss on tab switch.                                        |
+| 4     | BUG-004         | High     | Medium | **Done**    | Paste corruption is user-visible and breaks editing.                                        |
+| 5     | BUG-001         | High     | Medium | **Done**    | List paste fix depends on understanding the full paste pipeline. |
+| 6     | BUG-002B        | Medium   | Medium | **Partial** | CM content cache added. Full undo history deferred.    |
+| 7     | BUG-003 Phase 2 | Low      | Large  | Deferred    | Collapsible front matter is a UX enhancement, not a bug fix.                                |
 
 ---
 
@@ -262,9 +266,42 @@ All fixes should include:
 3. **Round-trip tests** for source ↔ visual mode transitions with dirty state
 4. **Edge-case tests** for frontmatter: empty docs, malformed fences, cursor positioning
 
-Test files:
-- `tests/editor/paste_indented_list.test.ts`
-- `tests/editor/paste_url.test.ts`
-- `tests/editor/source_editor_persistence.test.ts`
-- `tests/editor/frontmatter_parser.test.ts`
-- `tests/editor/frontmatter_cursor_guard.test.ts`
+Test files (actual):
+
+- `tests/unit/domain/frontmatter_parser.test.ts` — 18 tests for canonical parser
+- `tests/unit/domain/markdown_paste_utils.test.ts` — 24 tests for paste mode detection
+- `tests/unit/domain/frontmatter_writer.test.ts` — 53 existing tests (all passing with migrated parser)
+
+---
+
+## Implementation Summary (2026-04-08)
+
+### Files Created
+
+- `src/lib/shared/domain/frontmatter_parser.ts` — canonical frontmatter parser
+- `src/lib/features/editor/adapters/frontmatter_guard_plugin.ts` — cursor guard plugin
+- `tests/unit/domain/frontmatter_parser.test.ts` — parser tests
+- `tests/unit/domain/markdown_paste_utils.test.ts` — paste utils tests
+
+### Files Modified
+
+- `src/lib/features/editor/adapters/schema.ts` — `isolating: true`, `selectable: false`
+- `src/lib/features/editor/extensions/core_extension.ts` — wired guard plugin
+- `src/lib/features/editor/adapters/markdown_paste_plugin.ts` — URL handling, nested lists, try/catch
+- `src/lib/features/editor/adapters/markdown_paste_utils.ts` — widened LIST_REGEX, `is_bare_url`, "url" mode
+- `src/lib/features/editor/ui/source_editor_content.svelte` — fixed flush ordering
+- `src/lib/features/editor/state/editor_store.svelte.ts` — `cm_content_cache`
+- `src/lib/features/metadata/domain/frontmatter_writer.ts` — migrated to shared parser
+- `src/lib/features/reference/domain/frontmatter_sync.ts` — migrated to shared parser
+
+### Deferred
+
+- **BUG-002B undo history:** Requires not destroying CM on tab switch (architectural)
+- **BUG-003 Phase 2:** Collapsible frontmatter node view (UX enhancement)
+
+### Verification
+
+- `pnpm check` — 0 errors
+- `pnpm test` — 2427 tests pass (all existing + 42 new)
+- `pnpm lint` — no new errors
+- `cargo check` — passes
