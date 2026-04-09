@@ -1,6 +1,9 @@
 import { createHighlighterCoreSync } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import type { HighlighterCore } from "shiki/core";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("shiki_highlighter");
 
 import langBash from "shiki/dist/langs/bash.mjs";
 import langC from "shiki/dist/langs/c.mjs";
@@ -121,7 +124,7 @@ export function init_highlighter(): void {
   try {
     get_highlighter();
   } catch (error) {
-    console.error("Failed to initialize Shiki highlighter:", error);
+    log.from_error("Failed to initialize Shiki highlighter:", error);
   }
 }
 

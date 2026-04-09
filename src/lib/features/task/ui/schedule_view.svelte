@@ -3,6 +3,9 @@
   import TaskListItem from "./task_list_item.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
+  import { create_logger } from "$lib/shared/utils/logger";
+
+  const log = create_logger("schedule_view");
 
   let { tasks }: { tasks: Task[] } = $props();
   const { services } = use_app_context();
@@ -81,7 +84,7 @@
       if (task.due_date === newDate) return;
       await taskService.updateTaskDueDate(task.path, task.line_number, newDate);
     } catch (e) {
-      console.error("Failed to reschedule task:", e);
+      log.from_error("Failed to reschedule task:", e);
     }
   }
 </script>

@@ -3,6 +3,9 @@ import type { VaultId } from "$lib/shared/types/ids";
 import type { VaultFsEvent } from "$lib/features/watcher/types/watcher";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("watcher_adapter");
 
 function subscribe_vault_fs_events(
   callback: (event: VaultFsEvent) => void,
@@ -28,7 +31,7 @@ function subscribe_vault_fs_events(
       unlisten_fn = fn_ref;
     })
     .catch((error: unknown) => {
-      console.error("Failed to setup vault_fs_event listener", error);
+      log.from_error("Failed to setup vault_fs_event listener", error);
     });
 
   return () => {

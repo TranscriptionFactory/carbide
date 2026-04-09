@@ -5,6 +5,9 @@ import type {
   ReferenceSearchExtension,
   LinkedSourcePort,
 } from "../ports";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("reference_service");
 import type {
   ReferenceStore,
   MissingLinkedSource,
@@ -477,7 +480,7 @@ export class ReferenceService {
       );
       this.store.set_linked_sources(sources ?? []);
     } catch (e) {
-      console.error("Failed to load linked sources:", error_message(e));
+      log.from_error("Failed to load linked sources:", e);
     }
   }
 
@@ -773,10 +776,7 @@ export class ReferenceService {
         );
       }
     } catch (e) {
-      console.error(
-        `Failed to index linked file ${file_path}:`,
-        error_message(e),
-      );
+      log.from_error(`Failed to index linked file ${file_path}:`, e);
     }
   }
 
@@ -791,10 +791,7 @@ export class ReferenceService {
     try {
       await ls_port.remove_content(vault_id, source.name, file_path);
     } catch (e) {
-      console.error(
-        `Failed to unindex linked file ${file_path}:`,
-        error_message(e),
-      );
+      log.from_error(`Failed to unindex linked file ${file_path}:`, e);
     }
   }
 

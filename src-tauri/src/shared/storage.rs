@@ -74,7 +74,7 @@ pub fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn load_store(app: &AppHandle) -> Result<VaultStore, String> {
-    log::debug!("Loading vault store");
+    log::trace!("Loading vault store");
     let path = store_path(app)?;
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,

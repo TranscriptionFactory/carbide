@@ -3,6 +3,9 @@ import type { TaskStore } from "../state/task_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
 import type { TaskDueDateUpdate, TaskQuery, TaskStatus } from "../types";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("task_service");
 
 export class TaskService {
   constructor(
@@ -58,7 +61,7 @@ export class TaskService {
       this.store.setNoteTasks(path, tasks);
       return tasks;
     } catch (e) {
-      console.error(`Failed to get tasks for note ${path}:`, e);
+      log.error(`Failed to get tasks for note ${path}:`, { error: e });
       return [];
     }
   }
@@ -76,9 +79,9 @@ export class TaskService {
           return;
         }
       } catch (e) {
-        console.warn(
+        log.warn(
           "Editor-first task update failed, falling back to Rust write:",
-          e,
+          { error: e },
         );
       }
     }
@@ -91,7 +94,7 @@ export class TaskService {
       });
       await this.queryTasks();
     } catch (e) {
-      console.error(`Failed to update task status:`, e);
+      log.error("Failed to update task status:", { error: e });
       this.store.setError(e instanceof Error ? e.message : String(e));
     }
   }
@@ -113,7 +116,7 @@ export class TaskService {
       await this.port.updateTaskDueDate(vault.id, update);
       await this.queryTasks();
     } catch (e) {
-      console.error(`Failed to update task due date:`, e);
+      log.error("Failed to update task due date:", { error: e });
       this.store.setError(e instanceof Error ? e.message : String(e));
     }
   }
@@ -126,7 +129,7 @@ export class TaskService {
       await this.port.createTask(vault.id, path, text);
       await this.queryTasks();
     } catch (e) {
-      console.error(`Failed to create task:`, e);
+      log.error("Failed to create task:", { error: e });
       this.store.setError(e instanceof Error ? e.message : String(e));
     }
   }

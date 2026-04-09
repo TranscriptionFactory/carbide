@@ -7,6 +7,9 @@
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
   import type { Theme } from "$lib/shared/types/theme";
+  import { create_logger } from "$lib/shared/utils/logger";
+
+  const log = create_logger("vault_graph");
 
   type Props = {
     snapshot: VaultGraphSnapshot;
@@ -106,7 +109,7 @@
         }
         worker = w;
         w.onerror = (event) => {
-          console.error("[VaultGraph] Worker error:", event);
+          log.from_error("Worker error:", event);
         };
         w.onmessage = (event) => {
           const msg = event.data;
@@ -131,7 +134,7 @@
         });
       })
       .catch((err) => {
-        console.error("[VaultGraph] Init failed:", err);
+        log.from_error("Init failed:", err);
       });
 
     return {

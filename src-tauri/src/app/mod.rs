@@ -59,6 +59,21 @@ async fn shutdown_managed_processes(app: &tauri::AppHandle) {
 
 pub fn run() {
     let _ = ICON_STAMP;
+
+    std::panic::set_hook(Box::new(|info| {
+        let payload = info
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .unwrap_or("unknown");
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_default();
+        log::error!("PANIC at {}: {}", location, payload);
+        eprintln!("PANIC at {}: {}", location, payload);
+    }));
+
     log::info!("Carbide starting");
 
     let log_level = if cfg!(debug_assertions) {
