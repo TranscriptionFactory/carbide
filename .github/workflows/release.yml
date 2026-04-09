@@ -203,10 +203,10 @@ jobs:
         shell: bash
         run: |
           target="${{ matrix.triple }}"
-          cargo build --release --package carbide-cli --target "$target"
+          cargo build --release --manifest-path src-tauri/Cargo.toml --package carbide-cli --target "$target"
           ext=""
           if [[ "$target" == *"windows"* ]]; then ext=".exe"; fi
-          cp "target/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
+          cp "src-tauri/target/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
