@@ -317,6 +317,10 @@ export class EditorService {
     this.session?.mark_clean(markdown);
   }
 
+  mark_clean_from_editor() {
+    this.session?.mark_clean();
+  }
+
   sync_visual_from_markdown(markdown: string) {
     if (!this.session) return;
     const current = this.session.get_markdown();

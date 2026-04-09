@@ -58,6 +58,7 @@
   let store_timer: ReturnType<typeof setTimeout> | null = null;
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
+  let mounted_markdown_change: ((markdown: string) => void) | null = null;
 
   function get_content(): string {
     return view?.state.doc.toString() ?? "";
@@ -215,6 +216,7 @@
       extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
       last_applied_markdown = initial_markdown;
+      mounted_markdown_change = on_markdown_change;
 
       view = new EV({
         doc: initial_markdown,
@@ -282,7 +284,7 @@
 
     if (store_timer !== null) {
       clearTimeout(store_timer);
-      on_markdown_change(get_content());
+      (mounted_markdown_change ?? on_markdown_change)(get_content());
     }
 
     stores.editor.clear_source_content_getter();

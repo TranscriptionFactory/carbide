@@ -22,21 +22,7 @@ export class EditorStore {
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
   source_content_getter: (() => string) | null = null;
-  cm_content_cache: Map<string, { doc: string; cursor_offset: number }> =
-    new Map();
   zoom = $state(1.0);
-
-  cache_cm_content(note_path: string, doc: string, cursor_offset: number) {
-    this.cm_content_cache.set(note_path, { doc, cursor_offset });
-  }
-
-  get_cm_content_cache(note_path: string) {
-    return this.cm_content_cache.get(note_path) ?? null;
-  }
-
-  clear_cm_content_cache(note_path: string) {
-    this.cm_content_cache.delete(note_path);
-  }
 
   set_source_content_getter(fn: () => string) {
     this.source_content_getter = fn;
@@ -212,5 +198,6 @@ export class EditorStore {
     this.cursor_offset = 0;
     this.scroll_fraction = 0;
     this.selection = null;
+    this.source_content_getter = null;
   }
 }

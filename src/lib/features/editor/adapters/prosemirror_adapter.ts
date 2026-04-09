@@ -568,8 +568,11 @@ export function create_prosemirror_editor_port(args?: {
             new Slice(slice, 0, 0),
           );
           suppress_change_echo = true;
-          view.dispatch(tr);
-          suppress_change_echo = false;
+          try {
+            view.dispatch(tr);
+          } finally {
+            suppress_change_echo = false;
+          }
 
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
@@ -598,8 +601,11 @@ export function create_prosemirror_editor_port(args?: {
             new_doc.content,
           );
           suppress_change_echo = true;
-          view.dispatch(tr);
-          suppress_change_echo = false;
+          try {
+            view.dispatch(tr);
+          } finally {
+            suppress_change_echo = false;
+          }
 
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
