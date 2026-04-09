@@ -22,6 +22,7 @@
   let setup_loading = $state<string | null>(null);
   let setup_message = $state<string | null>(null);
   let regen_loading = $state(false);
+  let cli_loading = $state(false);
 
   $effect(() => {
     void services.mcp.refresh_setup_status();
@@ -55,6 +56,32 @@
       setup_message = `Failed: ${e instanceof Error ? e.message : String(e)}`;
     } finally {
       setup_loading = null;
+    }
+  }
+
+  async function install_cli() {
+    cli_loading = true;
+    setup_message = null;
+    try {
+      const result = await services.mcp.install_cli();
+      setup_message = result.message;
+    } catch (e) {
+      setup_message = `Failed: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      cli_loading = false;
+    }
+  }
+
+  async function uninstall_cli() {
+    cli_loading = true;
+    setup_message = null;
+    try {
+      const result = await services.mcp.uninstall_cli();
+      setup_message = result.message;
+    } catch (e) {
+      setup_message = `Failed: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      cli_loading = false;
     }
   }
 
@@ -106,6 +133,48 @@
     >
       {mcp_status}
     </span>
+  </div>
+
+  <div class="McpSettings__divider"></div>
+  <h3 class="McpSettings__subheader">CLI</h3>
+
+  <div class="McpSettings__row">
+    <div class="McpSettings__label-group">
+      <span class="McpSettings__label">
+        {#if setup_status?.cliInstalled}
+          <CheckCircle size={14} class="McpSettings__icon--ok" />
+        {:else}
+          <XCircle size={14} class="McpSettings__icon--missing" />
+        {/if}
+        Carbide CLI
+      </span>
+      <span class="McpSettings__description">
+        {#if setup_status?.cliInstalled}
+          Installed at ~/.local/bin/carbide
+        {:else}
+          Install the CLI to use Carbide from the terminal
+        {/if}
+      </span>
+    </div>
+    {#if setup_status?.cliInstalled}
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={cli_loading}
+        onclick={uninstall_cli}
+      >
+        {cli_loading ? "Removing..." : "Uninstall"}
+      </Button>
+    {:else}
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={cli_loading}
+        onclick={install_cli}
+      >
+        {cli_loading ? "Installing..." : "Install"}
+      </Button>
+    {/if}
   </div>
 
   <div class="McpSettings__divider"></div>

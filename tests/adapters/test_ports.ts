@@ -250,6 +250,10 @@ export function create_test_ports(): Ports {
           tokenExists: false,
           cliInstalled: false,
         }),
+      install_cli: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
+      uninstall_cli: () =>
+        Promise.resolve({ success: true, path: "", message: "" }),
     },
   };
 }

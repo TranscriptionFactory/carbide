@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
+use tauri::Manager;
 
 use crate::features::mcp::auth;
 use crate::features::mcp::http::DEFAULT_PORT;
@@ -260,6 +261,120 @@ pub async fn mcp_setup_claude_code(
 #[specta::specta]
 pub async fn mcp_regenerate_token() -> Result<String, String> {
     auth::generate_and_save_token()
+}
+
+fn install_dir() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        local_app_data_dir().join("Programs/Carbide/bin")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        home_dir().join(".local/bin")
+    }
+}
+
+fn is_carbide_binary(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .map(|n| n.starts_with("carbide"))
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
+    std::os::unix::fs::symlink(original, link).map_err(|e| {
+        format!(
+            "failed to create symlink {} -> {}: {e}",
+            link.display(),
+            original.display()
+        )
+    })
+}
+
+#[cfg(not(unix))]
+fn create_symlink(original: &Path, link: &Path) -> Result<(), String> {
+    std::fs::copy(original, link).map(|_| ()).map_err(|e| {
+        format!(
+            "failed to copy {} -> {}: {e}",
+            original.display(),
+            link.display()
+        )
+    })
+}
+
+fn remove_symlink(link: &Path) -> Result<(), String> {
+    std::fs::remove_file(link).map_err(|e| format!("failed to remove {}: {e}", link.display()))
+}
+
+fn resolve_cli_sidecar(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .resolve("binaries/carbide-cli", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("failed to resolve CLI sidecar path: {e}"))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mcp_install_cli(app: AppHandle) -> Result<SetupResult, String> {
+    let sidecar = resolve_cli_sidecar(&app)?;
+    if !sidecar.exists() {
+        return Err(format!(
+            "CLI sidecar not found at {}. The app bundle may be incomplete.",
+            sidecar.display()
+        ));
+    }
+
+    let dir = install_dir();
+    let link = carbide_cli_path();
+
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    }
+
+    if link.exists() || link.symlink_metadata().is_ok() {
+        remove_symlink(&link)?;
+    }
+
+    create_symlink(&sidecar, &link)?;
+
+    Ok(SetupResult {
+        success: true,
+        path: link.to_string_lossy().to_string(),
+        message: format!("CLI installed at {}", link.display()),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mcp_uninstall_cli() -> Result<SetupResult, String> {
+    let link = carbide_cli_path();
+
+    if link.symlink_metadata().is_err() {
+        return Ok(SetupResult {
+            success: true,
+            path: link.to_string_lossy().to_string(),
+            message: "CLI is not installed, nothing to remove.".to_string(),
+        });
+    }
+
+    if let Ok(target) = std::fs::read_link(&link) {
+        if !is_carbide_binary(&target) {
+            return Err(format!(
+                "{} points to {}, which doesn't look like a Carbide binary. Refusing to remove.",
+                link.display(),
+                target.display()
+            ));
+        }
+    }
+
+    remove_symlink(&link)?;
+
+    Ok(SetupResult {
+        success: true,
+        path: link.to_string_lossy().to_string(),
+        message: format!("CLI removed from {}", link.display()),
+    })
 }
 
 #[tauri::command]

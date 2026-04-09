@@ -35,6 +35,15 @@ fs.writeFileSync(
   cargoToml.replace(/^version\s*=\s*"[^"]*"/m, `version = "${pkg.version}"`),
 );
 
+const cliCargoToml = fs.readFileSync(
+  "src-tauri/crates/carbide-cli/Cargo.toml",
+  "utf8",
+);
+fs.writeFileSync(
+  "src-tauri/crates/carbide-cli/Cargo.toml",
+  cliCargoToml.replace(/^version\s*=\s*"[^"]*"/m, `version = "${pkg.version}"`),
+);
+
 const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
 fs.writeFileSync(
   "src-tauri/Cargo.lock",

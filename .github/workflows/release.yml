@@ -68,7 +68,7 @@ jobs:
       - name: Stub sidecar binaries for build
         run: |
           triple="x86_64-unknown-linux-gnu"
-          for bin in iwes rumdl; do
+          for bin in iwes rumdl carbide-cli; do
             touch "src-tauri/binaries/${bin}-${triple}"
             chmod +x "src-tauri/binaries/${bin}-${triple}"
           done
@@ -188,6 +188,8 @@ jobs:
           "
           sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
           rm -f src-tauri/Cargo.toml.bak
+          sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/crates/carbide-cli/Cargo.toml
+          rm -f src-tauri/crates/carbide-cli/Cargo.toml.bak
 
       - name: Download iwes sidecar
         shell: bash
@@ -196,6 +198,15 @@ jobs:
       - name: Download rumdl sidecar
         shell: bash
         run: bash scripts/download_rumdl.sh "${{ matrix.triple }}"
+
+      - name: Build carbide-cli sidecar
+        shell: bash
+        run: |
+          target="${{ matrix.triple }}"
+          cargo build --release --package carbide-cli --target "$target"
+          ext=""
+          if [[ "$target" == *"windows"* ]]; then ext=".exe"; fi
+          cp "target/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
