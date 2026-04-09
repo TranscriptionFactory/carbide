@@ -415,6 +415,8 @@ const frontmatter: NodeSpec = {
   content: "text*",
   code: true,
   defining: true,
+  isolating: true,
+  selectable: false,
   attrs: {},
   parseDOM: [
     {
