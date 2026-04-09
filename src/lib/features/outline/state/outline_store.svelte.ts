@@ -55,6 +55,23 @@ export class OutlineStore {
     }
   }
 
+  find_heading_by_fragment(fragment: string): OutlineHeading | undefined {
+    const normalized = fragment.toLowerCase();
+    const exact = this.headings.find(
+      (h) => h.text.toLowerCase() === normalized,
+    );
+    if (exact) return exact;
+
+    const slug = normalized.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "");
+    return this.headings.find((h) => {
+      const h_slug = h.text
+        .toLowerCase()
+        .replace(/[^\w]+/g, "-")
+        .replace(/^-|-$/g, "");
+      return h_slug === slug;
+    });
+  }
+
   clear() {
     if (this.current_note_path) {
       this.collapsed_map.set(

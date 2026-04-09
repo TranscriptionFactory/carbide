@@ -23,6 +23,11 @@ export class EditorStore {
   selection = $state<EditorSelectionSnapshot | null>(null);
   source_content_getter: (() => string) | null = null;
   zoom = $state(1.0);
+  pending_heading_fragment = $state<string | null>(null);
+
+  set_pending_heading_fragment(fragment: string | null) {
+    this.pending_heading_fragment = fragment;
+  }
 
   set_source_content_getter(fn: () => string) {
     this.source_content_getter = fn;

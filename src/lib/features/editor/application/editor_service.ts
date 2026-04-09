@@ -706,6 +706,15 @@ export class EditorService {
         if (!this.is_generation_current(generation)) return;
         const note_path = this.get_active_note_path();
         outline_store.set_headings(headings, note_path ?? undefined);
+
+        const fragment = this.editor_store.pending_heading_fragment;
+        if (fragment) {
+          this.editor_store.set_pending_heading_fragment(null);
+          const heading = outline_store.find_heading_by_fragment(fragment);
+          if (heading) {
+            this.scroll_to_position(heading.pos);
+          }
+        }
       };
     }
 

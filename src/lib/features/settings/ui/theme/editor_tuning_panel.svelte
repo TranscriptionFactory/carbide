@@ -419,6 +419,25 @@
     </div>
 
     <div class="EditorTuningPanel__row">
+      <span class="EditorTuningPanel__label">Block Drag Handle</span>
+      <div class="EditorTuningPanel__controls">
+        <Switch.Root
+          checked={editor_settings.editor_block_drag_handle}
+          onCheckedChange={(v: boolean) =>
+            on_update("editor_block_drag_handle", v)}
+        />
+        <button
+          type="button"
+          class="EditorTuningPanel__reset"
+          disabled={is_default("editor_block_drag_handle")}
+          onclick={() => reset("editor_block_drag_handle")}
+        >
+          <RotateCcw />
+        </button>
+      </div>
+    </div>
+
+    <div class="EditorTuningPanel__row">
       <span class="EditorTuningPanel__label">Selection Color</span>
       <div class="EditorTuningPanel__controls">
         <Input

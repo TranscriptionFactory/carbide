@@ -376,6 +376,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "editor_block_drag_handle",
+    label: "Block Drag Handle",
+    description:
+      "Show a drag handle in the left gutter to reorder blocks by dragging",
+    category: "Layout",
+    keywords: ["drag", "handle", "block", "reorder", "move", "grip", "gutter"],
+  },
+  {
+    key: "editor_block_drag_handle_visibility",
+    label: "Block Drag Handle Visibility",
+    description:
+      "Control when the block drag handle is visible: on hover or always",
+    category: "Layout",
+    keywords: ["drag", "handle", "visibility", "hover", "always", "show"],
+  },
+  {
     key: "editor_spellcheck",
     label: "Spell Check",
     description: "Enable browser-native spell checking in the editor",

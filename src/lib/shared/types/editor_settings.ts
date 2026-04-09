@@ -51,6 +51,7 @@ export type TerminalCursorStyle = "block" | "underline" | "bar";
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
 export type ToolbarVisibility = "always_show" | "always_hide";
+export type BlockDragHandleVisibility = "on_hover" | "always_show";
 export type FileTreeStyle =
   | "default"
   | "airy_minimal"
@@ -141,6 +142,8 @@ export type EditorSettings = {
   reference_enabled: boolean;
   reference_citation_style: string;
   reference_include_sources_in_search: boolean;
+  editor_block_drag_handle: boolean;
+  editor_block_drag_handle_visibility: BlockDragHandleVisibility;
   vim_nav_enabled: boolean;
   mcp_enabled: boolean;
 };
@@ -225,6 +228,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   reference_enabled: false,
   reference_citation_style: "apa",
   reference_include_sources_in_search: true,
+  editor_block_drag_handle: true,
+  editor_block_drag_handle_visibility: "on_hover",
   vim_nav_enabled: false,
   mcp_enabled: true,
 };
@@ -281,6 +286,14 @@ export const EDITOR_TOOLBAR_VISIBILITY_OPTIONS: {
 }[] = [
   { value: "always_show", label: "Always Show" },
   { value: "always_hide", label: "Always Hide" },
+];
+
+export const EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS: {
+  value: BlockDragHandleVisibility;
+  label: string;
+}[] = [
+  { value: "on_hover", label: "On Hover" },
+  { value: "always_show", label: "Always Show" },
 ];
 
 export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
@@ -341,6 +354,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_style",
   "file_tree_show_blurb",
   "file_tree_blurb_position",
+  "editor_block_drag_handle",
+  "editor_block_drag_handle_visibility",
   "vim_nav_enabled",
   "mcp_enabled",
 ] as const;
