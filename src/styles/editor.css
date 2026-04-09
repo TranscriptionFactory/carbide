@@ -336,6 +336,10 @@
   opacity: 0.4;
 }
 
+.block-drag-handle--near {
+  opacity: 0.3;
+}
+
 .block-drag-handle--hover {
   opacity: 1;
   background: var(--background-surface-2, oklch(0.95 0 0));
