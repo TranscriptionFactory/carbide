@@ -61,7 +61,7 @@ pub async fn get_setting(key: String, app: AppHandle) -> Result<Option<Value>, S
 
 #[tauri::command]
 pub async fn set_setting(key: String, value: Value, app: AppHandle) -> Result<(), String> {
-    log::debug!("Setting key={}", key);
+    log::trace!("Setting key={}", key);
     let _guard = SETTINGS_LOCK.lock().map_err(|e| e.to_string())?;
     let mut store = load_settings(&app)?;
     store.settings.insert(key, value);
