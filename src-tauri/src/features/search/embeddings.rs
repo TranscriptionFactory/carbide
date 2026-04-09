@@ -54,7 +54,8 @@ impl EmbeddingService {
 
         tokenizer
             .with_truncation(Some(TruncationParams {
-                max_length: 512,
+                // 512 max_position_embeddings minus 2 special tokens ([CLS] + [SEP])
+                max_length: 510,
                 strategy: TruncationStrategy::LongestFirst,
                 ..Default::default()
             }))
