@@ -167,7 +167,7 @@ describe("parse_canvas", () => {
     expect(reparsed.nodes[0].customField).toBe("keep");
   });
 
-  it("converts unknown node types to placeholder text nodes with warning", () => {
+  it("converts unknown node types to placeholder text nodes with warning", async () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const json = JSON.stringify({
@@ -182,6 +182,9 @@ describe("parse_canvas", () => {
     if (!result.ok) return;
     expect(result.data.nodes).toHaveLength(1);
     expect(result.data.nodes[0]!.type).toBe("text");
+
+    // Logger dispatches through an async microtask; flush before asserting
+    await new Promise((r) => setTimeout(r, 0));
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("custom-widget"));
 
     spy.mockRestore();

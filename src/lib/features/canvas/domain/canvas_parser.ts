@@ -1,4 +1,7 @@
 import type { CanvasData, CanvasEdge, CanvasNode } from "./canvas_types";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("canvas_parser");
 
 export type ParseResult =
   | { ok: true; data: CanvasData }
@@ -65,7 +68,7 @@ function validate_node(raw: unknown): CanvasNode | null {
   if (typeof type !== "string") return null;
 
   if (!VALID_NODE_TYPES.has(type)) {
-    console.warn(
+    log.warn(
       `Unknown canvas node type: "${type}" (id: ${node.id}). Rendering as placeholder.`,
     );
     return {

@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { PluginHostPort, DiscoveredPlugin, PluginFsEvent } from "../ports";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("plugin_host_adapter");
 
 export class PluginHostAdapter implements PluginHostPort {
   async discover(vault_path: string): Promise<DiscoveredPlugin[]> {
@@ -9,7 +12,7 @@ export class PluginHostAdapter implements PluginHostPort {
         vaultPath: vault_path,
       });
     } catch (e) {
-      console.error("Failed to discover plugins:", e);
+      log.from_error("Failed to discover plugins:", e);
       return [];
     }
   }

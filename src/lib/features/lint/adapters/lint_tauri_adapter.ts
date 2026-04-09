@@ -8,6 +8,9 @@ import type {
 } from "$lib/features/lint/types/lint";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("lint_adapter");
 
 function subscribe_lint_events(
   callback: (event: LintEvent) => void,
@@ -33,7 +36,7 @@ function subscribe_lint_events(
       unlisten_fn = fn_ref;
     })
     .catch((error: unknown) => {
-      console.error("Failed to setup lint_event listener", error);
+      log.from_error("Failed to setup lint_event listener", error);
     });
 
   return () => {

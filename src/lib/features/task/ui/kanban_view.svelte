@@ -60,6 +60,9 @@
 <script lang="ts">
   import TaskListItem from "./task_list_item.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { create_logger } from "$lib/shared/utils/logger";
+
+  const log = create_logger("kanban_view");
 
   let { tasks }: { tasks: Task[] } = $props();
   const { stores, services } = use_app_context();
@@ -103,7 +106,7 @@
         targetStatus,
       );
     } catch (e) {
-      console.error("Failed to drop task:", e);
+      log.from_error("Failed to drop task:", e);
     }
   }
 </script>
