@@ -81,7 +81,7 @@ fn tools_list_returns_note_tools() {
     assert!(resp.error.is_none());
     let result = resp.result.unwrap();
     let tools = result["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 8);
+    assert_eq!(tools.len(), 9);
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"list_notes"));
     assert!(names.contains(&"read_note"));
@@ -89,6 +89,7 @@ fn tools_list_returns_note_tools() {
     assert!(names.contains(&"update_note"));
     assert!(names.contains(&"delete_note"));
     assert!(names.contains(&"search_notes"));
+    assert!(names.contains(&"reindex"));
     assert!(names.contains(&"get_note_metadata"));
     assert!(names.contains(&"list_vaults"));
 }

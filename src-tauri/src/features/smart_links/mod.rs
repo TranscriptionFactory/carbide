@@ -97,7 +97,6 @@ pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
                     name: "Block-level semantic similarity".into(),
                     enabled: false,
                     weight: 0.5,
-                    config: Default::default(),
                 },
             ],
         },
