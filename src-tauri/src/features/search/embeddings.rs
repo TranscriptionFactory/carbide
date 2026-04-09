@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
+use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
 
 const MODEL_ID: &str = "Snowflake/snowflake-arctic-embed-xs";
 
@@ -53,12 +53,16 @@ impl EmbeddingService {
             Tokenizer::from_file(&tokenizer_path).map_err(|e| format!("load tokenizer: {e}"))?;
 
         tokenizer
-            .with_padding(Some(PaddingParams {
-                strategy: PaddingStrategy::BatchLongest,
+            .with_truncation(Some(TruncationParams {
+                max_length: 512,
+                strategy: TruncationStrategy::LongestFirst,
                 ..Default::default()
             }))
-            .with_truncation(None)
-            .map_err(|e| format!("tokenizer config: {e}"))?;
+            .map_err(|e| format!("tokenizer truncation config: {e}"))?;
+        tokenizer.with_padding(Some(PaddingParams {
+            strategy: PaddingStrategy::BatchLongest,
+            ..Default::default()
+        }));
 
         Ok(Self {
             model,

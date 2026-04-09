@@ -1,4 +1,6 @@
 use super::{SmartLinkRuleGroup, SmartLinkRuleMatch, SmartLinkSuggestion};
+use crate::features::search::db as search_db;
+use crate::features::search::hnsw_index::VectorIndex;
 use crate::features::search::vector_db;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -14,6 +16,8 @@ pub fn execute_rules(
     note_path: &str,
     rule_groups: &[SmartLinkRuleGroup],
     limit: usize,
+    note_index: &VectorIndex,
+    block_index: &VectorIndex,
 ) -> Result<Vec<SmartLinkSuggestion>, String> {
     let mut hits: HashMap<String, SmartLinkSuggestion> = HashMap::new();
 
@@ -29,9 +33,12 @@ pub fn execute_rules(
                 "same_day" => query_same_day(conn, note_path)?,
                 "shared_tag" => query_shared_tag(conn, note_path)?,
                 "shared_property" => query_shared_property(conn, note_path)?,
-                "semantic_similarity" => query_semantic_similarity(conn, note_path)?,
+                "semantic_similarity" => query_semantic_similarity(conn, note_path, note_index)?,
                 "title_overlap" => query_title_overlap(conn, note_path)?,
                 "shared_outlinks" => query_shared_outlinks(conn, note_path)?,
+                "block_semantic_similarity" => {
+                    query_block_semantic_similarity(conn, note_path, note_index, block_index)?
+                }
                 _ => continue,
             };
 
@@ -146,13 +153,25 @@ fn query_shared_property(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
         .map_err(|e| e.to_string())
 }
 
-fn query_semantic_similarity(conn: &Connection, note_path: &str) -> Result<Vec<RuleHit>, String> {
-    let query_vec = match vector_db::get_embedding(conn, note_path) {
-        Some(v) => v,
+fn query_semantic_similarity(
+    conn: &Connection,
+    note_path: &str,
+    note_index: &VectorIndex,
+) -> Result<Vec<RuleHit>, String> {
+    let query_vec = match note_index.get_vector(note_path) {
+        Some(v) => v.clone(),
         None => return Ok(vec![]),
     };
 
-    let knn_results = vector_db::knn_search(conn, &query_vec, 51)?;
+    let knn_results = note_index.search(&query_vec, 51);
+
+    let hit_paths: Vec<String> = knn_results
+        .iter()
+        .filter(|(p, d)| p != note_path && (1.0 - d) > 0.0)
+        .map(|(p, _)| p.clone())
+        .collect();
+
+    let titles = search_db::get_cached_titles(conn, &hit_paths).unwrap_or_default();
 
     let mut hits = Vec::new();
     for (path, distance) in knn_results {
@@ -163,11 +182,7 @@ fn query_semantic_similarity(conn: &Connection, note_path: &str) -> Result<Vec<R
         if similarity <= 0.0 {
             continue;
         }
-        let title: String = conn
-            .query_row("SELECT title FROM notes WHERE path = ?1", [&path], |row| {
-                row.get(0)
-            })
-            .unwrap_or_default();
+        let title = titles.get(&path).cloned().unwrap_or_default();
         hits.push(RuleHit {
             target_path: path,
             target_title: title,
@@ -267,4 +282,99 @@ fn query_shared_outlinks(conn: &Connection, note_path: &str) -> Result<Vec<RuleH
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+fn query_block_semantic_similarity(
+    conn: &Connection,
+    note_path: &str,
+    note_index: &VectorIndex,
+    block_index: &VectorIndex,
+) -> Result<Vec<RuleHit>, String> {
+    let source_blocks = vector_db::get_block_embeddings_for_note(conn, note_path);
+    if source_blocks.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let candidate_paths: Vec<String> = match note_index.get_vector(note_path) {
+        Some(note_vec) => note_index
+            .search(note_vec, 50)
+            .into_iter()
+            .filter(|(p, _)| p != note_path)
+            .map(|(p, _)| p)
+            .collect(),
+        None => {
+            let mut stmt = conn
+                .prepare("SELECT DISTINCT path FROM block_embeddings WHERE path != ?1")
+                .map_err(|e| e.to_string())?;
+            let paths: Vec<String> = stmt
+                .query_map([note_path], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect();
+            paths
+        }
+    };
+
+    let candidate_refs: Vec<&str> = candidate_paths.iter().map(|s| s.as_str()).collect();
+    let all_candidate_blocks = vector_db::get_block_embeddings_for_notes(conn, &candidate_refs);
+
+    let mut best_by_path: HashMap<String, f64> = HashMap::new();
+    for candidate_path in &candidate_paths {
+        let target_blocks = match all_candidate_blocks.get(candidate_path.as_str()) {
+            Some(blocks) => blocks,
+            None => continue,
+        };
+        for (_, source_vec) in &source_blocks {
+            for (_, target_vec) in target_blocks {
+                let sim = (1.0 - vector_db::dot_distance(source_vec, target_vec)) as f64;
+                if sim > 0.0 {
+                    let entry = best_by_path.entry(candidate_path.clone()).or_insert(0.0);
+                    if sim > *entry {
+                        *entry = sim;
+                    }
+                }
+            }
+        }
+    }
+
+    for (_, source_vec) in &source_blocks {
+        let block_hits = block_index.search(source_vec, 20);
+        for (composite_key, distance) in block_hits {
+            if let Some(path) = composite_key.split('\0').next() {
+                if path == note_path {
+                    continue;
+                }
+                let sim = (1.0 - distance) as f64;
+                if sim > 0.0 {
+                    let entry = best_by_path.entry(path.to_string()).or_insert(0.0);
+                    if sim > *entry {
+                        *entry = sim;
+                    }
+                }
+            }
+        }
+    }
+
+    let hit_paths: Vec<String> = best_by_path.keys().cloned().collect();
+    let titles = search_db::get_cached_titles(conn, &hit_paths).unwrap_or_default();
+
+    let mut hits: Vec<RuleHit> = best_by_path
+        .into_iter()
+        .map(|(path, score)| {
+            let title = titles.get(&path).cloned().unwrap_or_default();
+            RuleHit {
+                target_path: path,
+                target_title: title,
+                raw_score: score,
+            }
+        })
+        .collect();
+
+    hits.sort_by(|a, b| {
+        b.raw_score
+            .partial_cmp(&a.raw_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    hits.truncate(50);
+    Ok(hits)
 }

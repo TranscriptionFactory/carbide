@@ -15,6 +15,14 @@ pub struct BatchSemanticEdge {
     pub distance: f32,
 }
 
+#[derive(Debug, Serialize, Clone, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockSearchHit {
+    pub path: String,
+    pub heading_id: String,
+    pub distance: f32,
+}
+
 #[derive(Debug, Serialize, Clone, PartialEq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum HitSource {
