@@ -23,14 +23,7 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
             value TEXT NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS vector_key_map (
-            index_name TEXT NOT NULL,
-            str_key TEXT NOT NULL,
-            int_key INTEGER NOT NULL,
-            PRIMARY KEY (index_name, str_key)
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_vkm_int
-            ON vector_key_map(index_name, int_key);",
+",
     )
     .map_err(|e| e.to_string())?;
 
@@ -305,36 +298,6 @@ pub fn get_block_embeddings_for_note(
         .collect()
 }
 
-pub fn block_knn_search(
-    conn: &Connection,
-    query_vec: &[f32],
-    limit: usize,
-) -> Result<Vec<(String, String, f32)>, String> {
-    let mut stmt = conn
-        .prepare("SELECT path, heading_id, embedding FROM block_embeddings")
-        .map_err(|e| e.to_string())?;
-
-    let mut scored: Vec<(String, String, f32)> = stmt
-        .query_map([], |row| {
-            let path: String = row.get(0)?;
-            let heading_id: String = row.get(1)?;
-            let blob: Vec<u8> = row.get(2)?;
-            Ok((path, heading_id, blob))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .map(|(path, heading_id, blob)| {
-            let vec = bytes_to_floats(&blob);
-            let dist = dot_distance(query_vec, &vec);
-            (path, heading_id, dist)
-        })
-        .collect();
-
-    scored.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
-    scored.truncate(limit);
-    Ok(scored)
-}
-
 pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {
     let mut stmt = match conn.prepare("SELECT path, heading_id FROM block_embeddings") {
         Ok(s) => s,
@@ -531,21 +494,6 @@ mod tests {
         let keys = get_block_embedded_keys(&conn);
         assert!(keys.contains("new.md\0h-1-x-0"));
         assert!(!keys.contains("old.md\0h-1-x-0"));
-    }
-
-    #[test]
-    fn block_knn_search_returns_nearest() {
-        let conn = setup();
-        let emb_a = fake_embedding(0.1);
-        let emb_b = fake_embedding(0.9);
-        upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &emb_a).unwrap();
-        upsert_block_embedding(&conn, "b.md", "h-1-other-0", &emb_b).unwrap();
-
-        let results = block_knn_search(&conn, &emb_a, 2).unwrap();
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].0, "a.md");
-        assert_eq!(results[0].1, "h-1-intro-0");
-        assert!(results[0].2 < results[1].2);
     }
 
     #[test]

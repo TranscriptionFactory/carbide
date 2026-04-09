@@ -312,8 +312,8 @@ fn query_block_semantic_similarity(
 
     let mut best_by_path: HashMap<String, f64> = HashMap::new();
     for candidate_path in &candidate_paths {
+        let target_blocks = vector_db::get_block_embeddings_for_note(conn, candidate_path);
         for (_, source_vec) in &source_blocks {
-            let target_blocks = vector_db::get_block_embeddings_for_note(conn, candidate_path);
             for (_, target_vec) in &target_blocks {
                 let sim = (1.0 - vector_db::dot_distance(source_vec, target_vec)) as f64;
                 if sim > 0.0 {

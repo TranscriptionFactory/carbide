@@ -16,7 +16,6 @@ pub struct VectorIndex {
     id_to_key: HashMap<usize, String>,
     vectors: HashMap<String, Vec<f32>>,
     next_id: usize,
-    dirty: bool,
 }
 
 impl VectorIndex {
@@ -29,7 +28,6 @@ impl VectorIndex {
             id_to_key: HashMap::new(),
             vectors: HashMap::new(),
             next_id: 0,
-            dirty: false,
         }
     }
 
@@ -134,14 +132,12 @@ impl VectorIndex {
         self.key_to_id.insert(str_key.to_string(), id);
         self.id_to_key.insert(id, str_key.to_string());
         self.vectors.insert(str_key.to_string(), vector);
-        self.dirty = true;
     }
 
     pub fn remove(&mut self, str_key: &str) {
         if let Some(id) = self.key_to_id.remove(str_key) {
             self.id_to_key.remove(&id);
             self.vectors.remove(str_key);
-            self.dirty = true;
         }
     }
 
@@ -164,7 +160,6 @@ impl VectorIndex {
             }
             self.key_to_id.insert(new_key.to_string(), id);
             self.id_to_key.insert(id, new_key.to_string());
-            self.dirty = true;
         }
     }
 
@@ -187,7 +182,6 @@ impl VectorIndex {
         self.id_to_key.clear();
         self.vectors.clear();
         self.next_id = 0;
-        self.dirty = true;
     }
 
     pub fn search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
@@ -249,7 +243,6 @@ impl VectorIndex {
         for (key, vec) in old_vectors {
             self.insert(&key, vec);
         }
-        self.dirty = true;
     }
 }
 
