@@ -336,8 +336,15 @@
   opacity: 0.4;
 }
 
-.block-drag-handle--near {
+/* on_hover mode: fade in when mouse is near a block */
+.show-block-drag-handle:not(.block-drag-handle-always)
+  .block-drag-handle--near {
   opacity: 0.3;
+}
+
+/* always mode: bump slightly when mouse is near */
+.block-drag-handle-always .block-drag-handle--near {
+  opacity: 0.5;
 }
 
 .block-drag-handle--hover {

@@ -99,4 +99,3 @@ export {
   file_embed_plugin_key,
 } from "./embed_extension";
 export type { ToolbarConfig } from "./toolbar_extension";
-export { block_drag_handle_plugin_key } from "../adapters/block_drag_handle_plugin";

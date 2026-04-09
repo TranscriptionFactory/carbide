@@ -7,7 +7,7 @@ import {
   apply_block_move,
 } from "../domain/compute_block_drop";
 
-export const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
+const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
 
 function resolve_top_level_block(
   view: EditorView,
@@ -38,31 +38,18 @@ function create_handle_element(): HTMLDivElement {
   return handle;
 }
 
-type BlockDragState = {
-  dragging_from: number | null;
-};
-
 export function create_block_drag_handle_prose_plugin(): Plugin {
-  let drag_state: BlockDragState = { dragging_from: null };
+  let dragging_from: number | null = null;
 
   return new Plugin({
     key: block_drag_handle_plugin_key,
 
-    state: {
-      init(): BlockDragState {
-        return drag_state;
-      },
-      apply(_tr, value): BlockDragState {
-        return value;
-      },
-    },
-
     props: {
       handleDrop(view, event, _slice, moved) {
-        if (drag_state.dragging_from == null) return false;
+        if (dragging_from == null) return false;
         if (!moved) return false;
 
-        const source_pos = drag_state.dragging_from;
+        const source_pos = dragging_from;
         const coords = view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
@@ -80,7 +67,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         apply_block_move(tr, result);
         view.dispatch(tr);
 
-        drag_state.dragging_from = null;
+        dragging_from = null;
         return true;
       },
     },
@@ -185,7 +172,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = true;
         handle.classList.add("block-drag-handle--dragging");
 
-        drag_state.dragging_from = current_block_pos;
+        dragging_from = current_block_pos;
 
         const sel = NodeSelection.create(
           editor_view.state.doc,
@@ -209,7 +196,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = false;
         handle.classList.remove("block-drag-handle--dragging");
 
-        drag_state.dragging_from = null;
+        dragging_from = null;
 
         hide_handle();
       }
