@@ -75,25 +75,42 @@
       content_state={document_content_state}
     />
   {:else if open_note}
-    {#if split_view}
-      <div class="NoteEditor__split-container">
-        <div class="NoteEditor__split-pane">
-          <EditorContextMenu>
-            <div
-              use:mount_editor={open_note}
-              class="NoteEditor__content"
-              class:show-line-numbers={stores.ui.editor_settings
-                .source_editor_line_numbers}
-              class:show-heading-markers={stores.ui.editor_settings
-                .editor_heading_markers}
-            ></div>
-          </EditorContextMenu>
-        </div>
+    <div
+      class="NoteEditor__layout"
+      class:NoteEditor__layout--split={split_view}
+    >
+      <div
+        class="NoteEditor__visual-pane"
+        class:NoteEditor__hidden={!split_view &&
+          editor_mode !== "visual" &&
+          editor_mode !== "read_only"}
+      >
+        <EditorContextMenu>
+          <div
+            use:mount_editor={open_note}
+            class="NoteEditor__content"
+            class:NoteEditor__read-only={editor_mode === "read_only"}
+            class:show-line-numbers={stores.ui.editor_settings
+              .source_editor_line_numbers}
+            class:show-heading-markers={stores.ui.editor_settings
+              .editor_heading_markers}
+          ></div>
+        </EditorContextMenu>
+      </div>
+      {#if split_view}
         <div class="NoteEditor__split-handle"></div>
-        <div class="NoteEditor__split-pane">
+      {/if}
+      {#if split_view || editor_mode === "source"}
+        <div class="NoteEditor__source-pane">
           {#key open_note.meta.id}
             <SourceEditor
               initial_markdown={open_note.markdown}
+              initial_cursor_offset={split_view
+                ? 0
+                : stores.editor.cursor_offset}
+              initial_scroll_fraction={split_view
+                ? 0
+                : stores.editor.scroll_fraction}
               show_line_numbers={stores.ui.editor_settings
                 .source_editor_line_numbers}
               on_markdown_change={(md) =>
@@ -116,54 +133,8 @@
             />
           {/key}
         </div>
-      </div>
-    {:else}
-      <div
-        class="NoteEditor__visual-wrapper"
-        class:NoteEditor__hidden={editor_mode !== "visual" &&
-          editor_mode !== "read_only"}
-      >
-        <EditorContextMenu>
-          <div
-            use:mount_editor={open_note}
-            class="NoteEditor__content"
-            class:NoteEditor__read-only={editor_mode === "read_only"}
-            class:show-line-numbers={stores.ui.editor_settings
-              .source_editor_line_numbers}
-            class:show-heading-markers={stores.ui.editor_settings
-              .editor_heading_markers}
-          ></div>
-        </EditorContextMenu>
-      </div>
-      {#if editor_mode === "source"}
-        {#key open_note.meta.id}
-          <SourceEditor
-            initial_markdown={open_note.markdown}
-            initial_cursor_offset={stores.editor.cursor_offset}
-            initial_scroll_fraction={stores.editor.scroll_fraction}
-            show_line_numbers={stores.ui.editor_settings
-              .source_editor_line_numbers}
-            on_markdown_change={(md) =>
-              stores.editor.set_markdown(
-                open_note.meta.id,
-                as_markdown_text(md),
-              )}
-            on_dirty_change={(dirty) =>
-              stores.editor.set_dirty(open_note.meta.id, dirty)}
-            on_cursor_change={(cursor) =>
-              stores.editor.set_cursor(open_note.meta.id, cursor)}
-            on_selection_change={(selection) =>
-              stores.editor.set_selection(open_note.meta.id, selection)}
-            on_outline_change={(headings) =>
-              stores.outline?.set_headings(headings, open_note.meta.path)}
-            on_destroy={(state) => {
-              stores.editor.set_cursor_offset(state.cursor_offset);
-              stores.editor.set_scroll_fraction(state.scroll_fraction);
-            }}
-          />
-        {/key}
       {/if}
-    {/if}
+    </div>
   {:else}
     <div class="NoteEditor__empty">
       <div class="NoteEditor__empty-content">
@@ -201,30 +172,46 @@
     height: 100%;
   }
 
-  .NoteEditor__visual-wrapper {
+  .NoteEditor__layout {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
   }
 
-  .NoteEditor__content {
-    width: 100%;
-  }
-
-  .NoteEditor__split-container {
-    display: flex;
+  .NoteEditor__layout--split {
     flex-direction: row;
-    flex: 1;
-    min-height: 0;
     overflow: hidden;
   }
 
-  .NoteEditor__split-pane {
-    flex: 1 1 50%;
+  .NoteEditor__visual-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     min-width: 0;
+  }
+
+  .NoteEditor__layout--split .NoteEditor__visual-pane {
+    flex: 1 1 50%;
     overflow-y: auto;
     height: 100%;
+  }
+
+  .NoteEditor__source-pane {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .NoteEditor__layout--split .NoteEditor__source-pane {
+    flex: 1 1 50%;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .NoteEditor__content {
+    width: 100%;
   }
 
   .NoteEditor__split-handle {

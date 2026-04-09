@@ -363,13 +363,15 @@ export function register_app_actions(input: ActionRegistrationInput) {
           );
         }
       } else if (current === "source") {
+        const cursor_offset = editor_store.cursor_offset;
         services.editor.flush();
         const open_note = editor_store.open_note;
         if (open_note) {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
+          services.editor.set_cursor_from_markdown_offset(cursor_offset);
           if (!open_note.is_dirty) {
-            services.editor.mark_clean();
+            services.editor.mark_clean_from_editor();
           }
         }
       } else if (current === "read_only") {
@@ -395,7 +397,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
           if (!open_note.is_dirty) {
-            services.editor.mark_clean();
+            services.editor.mark_clean_from_editor();
           }
         }
       } else {
@@ -423,7 +425,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
           if (open_note) {
             services.editor.sync_visual_from_markdown(open_note.markdown);
             if (!open_note.is_dirty) {
-              services.editor.mark_clean();
+              services.editor.mark_clean_from_editor();
             }
           }
         }
