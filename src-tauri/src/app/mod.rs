@@ -82,7 +82,10 @@ pub fn run() {
         log::LevelFilter::Info
     };
 
-    let mut log_builder = tauri_plugin_log::Builder::new().level(log_level).targets([
+    let mut log_builder = tauri_plugin_log::Builder::new()
+        .level(log_level)
+        .level_for("hnsw_rs", log::LevelFilter::Warn)
+        .targets([
         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),

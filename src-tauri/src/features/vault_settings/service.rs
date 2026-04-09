@@ -145,7 +145,7 @@ pub async fn get_vault_setting(
     key: String,
     app: AppHandle,
 ) -> Result<Option<Value>, String> {
-    log::debug!("Getting vault setting vault_id={} key={}", vault_id, key);
+    log::trace!("Getting vault setting vault_id={} key={}", vault_id, key);
     get_vault_setting_value(&app, &vault_id, &key)
 }
 
@@ -156,7 +156,7 @@ pub async fn set_vault_setting(
     value: Value,
     app: AppHandle,
 ) -> Result<(), String> {
-    log::debug!("Setting vault setting vault_id={} key={}", vault_id, key);
+    log::trace!("Setting vault setting vault_id={} key={}", vault_id, key);
     if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
         log::debug!(
             "Skipping vault setting write in browse mode vault_id={}",
@@ -176,7 +176,7 @@ pub async fn get_local_setting(
     key: String,
     app: AppHandle,
 ) -> Result<Option<Value>, String> {
-    log::debug!("Getting local setting vault_id={} key={}", vault_id, key);
+    log::trace!("Getting local setting vault_id={} key={}", vault_id, key);
     let settings = load_local_settings(&app, &vault_id)?;
     Ok(settings.get(&key).cloned())
 }
@@ -188,7 +188,7 @@ pub async fn set_local_setting(
     value: Value,
     app: AppHandle,
 ) -> Result<(), String> {
-    log::debug!("Setting local setting vault_id={} key={}", vault_id, key);
+    log::trace!("Setting local setting vault_id={} key={}", vault_id, key);
     if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
         log::debug!(
             "Skipping local setting write in browse mode vault_id={}",

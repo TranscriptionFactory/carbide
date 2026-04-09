@@ -54,7 +54,7 @@ pub fn save_settings(app: &AppHandle, store: &SettingsStore) -> Result<(), Strin
 
 #[tauri::command]
 pub async fn get_setting(key: String, app: AppHandle) -> Result<Option<Value>, String> {
-    log::debug!("Getting setting key={}", key);
+    log::trace!("Getting setting key={}", key);
     let store = load_settings(&app)?;
     Ok(store.settings.get(&key).cloned())
 }
