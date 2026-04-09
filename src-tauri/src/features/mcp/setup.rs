@@ -308,9 +308,42 @@ fn remove_symlink(link: &Path) -> Result<(), String> {
 }
 
 fn resolve_cli_sidecar(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .resolve("binaries/carbide-cli", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("failed to resolve CLI sidecar path: {e}"))
+    const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
+    let base = "carbide-cli";
+
+    let names = if cfg!(target_os = "windows") {
+        vec![
+            format!("{base}-{TARGET_TRIPLE}.exe"),
+            format!("{base}.exe"),
+        ]
+    } else {
+        vec![format!("{base}-{TARGET_TRIPLE}"), base.to_string()]
+    };
+
+    let search_dirs: Vec<PathBuf> = [
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("binaries"))),
+        app.path().resource_dir().ok().map(|d| d.join("binaries")),
+        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    for dir in &search_dirs {
+        for name in &names {
+            let candidate = dir.join(name);
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+        }
+    }
+
+    Err(format!(
+        "CLI sidecar '{base}' not found in search paths: {:?}",
+        search_dirs
+    ))
 }
 
 #[tauri::command]
