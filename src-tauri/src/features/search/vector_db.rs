@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs";
 pub const _EMBEDDING_DIMS: usize = 384;
@@ -296,6 +296,45 @@ pub fn get_block_embeddings_for_note(
         .map(|(heading_id, blob)| (heading_id, bytes_to_floats(&blob)))
         .filter(|(_, vec)| !vec.is_empty())
         .collect()
+}
+
+pub fn get_block_embeddings_for_notes(
+    conn: &Connection,
+    paths: &[&str],
+) -> HashMap<String, Vec<(String, Vec<f32>)>> {
+    if paths.is_empty() {
+        return HashMap::new();
+    }
+    let placeholders: Vec<&str> = paths.iter().map(|_| "?").collect();
+    let sql = format!(
+        "SELECT path, heading_id, embedding FROM block_embeddings WHERE path IN ({})",
+        placeholders.join(",")
+    );
+    let mut stmt = match conn.prepare(&sql) {
+        Ok(s) => s,
+        Err(_) => return HashMap::new(),
+    };
+    let params: Vec<&dyn rusqlite::types::ToSql> = paths
+        .iter()
+        .map(|p| p as &dyn rusqlite::types::ToSql)
+        .collect();
+    let rows = match stmt.query_map(params.as_slice(), |row| {
+        let path: String = row.get(0)?;
+        let heading_id: String = row.get(1)?;
+        let blob: Vec<u8> = row.get(2)?;
+        Ok((path, heading_id, blob))
+    }) {
+        Ok(r) => r,
+        Err(_) => return HashMap::new(),
+    };
+    let mut map: HashMap<String, Vec<(String, Vec<f32>)>> = HashMap::new();
+    for row in rows.flatten() {
+        let vec = bytes_to_floats(&row.2);
+        if !vec.is_empty() {
+            map.entry(row.0).or_default().push((row.1, vec));
+        }
+    }
+    map
 }
 
 pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {

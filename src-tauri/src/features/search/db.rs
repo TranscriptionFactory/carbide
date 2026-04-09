@@ -2543,6 +2543,28 @@ pub fn get_embeddable_sections(
         .map_err(|e| e.to_string())
 }
 
+pub fn get_embeddable_sections_for_note(
+    conn: &Connection,
+    path: &str,
+    min_words: i64,
+    min_lines: i64,
+) -> Result<Vec<(String, String, i64, i64)>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT path, heading_id, start_line, end_line FROM note_sections
+             WHERE path = ?1 AND (word_count >= ?2 OR (end_line - start_line) >= ?3)
+             ORDER BY start_line",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path, min_words, min_lines], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 pub fn get_note_links(
     conn: &Connection,
     path: &str,

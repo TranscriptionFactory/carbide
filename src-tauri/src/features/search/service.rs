@@ -93,12 +93,14 @@ enum DbCommand {
     UpsertNote {
         vault_root: PathBuf,
         note_id: String,
+        app_handle: AppHandle,
         reply: SyncSender<Result<(), String>>,
     },
     UpsertNoteWithContent {
         vault_root: PathBuf,
         note_id: String,
         markdown: String,
+        app_handle: AppHandle,
         reply: SyncSender<Result<(), String>>,
     },
     RemoveNote {
@@ -173,6 +175,7 @@ enum DbCommand {
         new_path: String,
         reply: SyncSender<Result<(), String>>,
     },
+    RebuildIndex,
     Shutdown,
 }
 
@@ -280,14 +283,11 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     let read_conn = search_db::open_search_db(app, vault_id)?;
     let write_conn = search_db::open_search_db(app, vault_id)?;
 
-    let note_index = Arc::new(RwLock::new(VectorIndex::rebuild_from_sqlite(
-        &write_conn, "notes", 384,
-    )));
-    let block_index = Arc::new(RwLock::new(VectorIndex::rebuild_from_sqlite(
-        &write_conn, "blocks", 384,
-    )));
+    let note_index = Arc::new(RwLock::new(VectorIndex::new(384)));
+    let block_index = Arc::new(RwLock::new(VectorIndex::new(384)));
 
     let (tx, rx) = mpsc::channel::<DbCommand>();
+    let _ = tx.send(DbCommand::RebuildIndex);
 
     let ni = Arc::clone(&note_index);
     let bi = Arc::clone(&block_index);
@@ -349,9 +349,10 @@ fn dispatch_command(
         DbCommand::UpsertNote {
             vault_root,
             note_id,
+            app_handle,
             reply,
         } => {
-            let result = handle_upsert(conn, &vault_root, &note_id, notes_cache, note_index, block_index);
+            let result = handle_upsert(conn, &vault_root, &note_id, notes_cache, note_index, block_index, &app_handle);
             if let Err(ref e) = result {
                 log::warn!("writer: upsert failed for {note_id}: {e}");
             }
@@ -361,10 +362,11 @@ fn dispatch_command(
             vault_root,
             note_id,
             markdown,
+            app_handle,
             reply,
         } => {
             let result =
-                handle_upsert_with_content(conn, &vault_root, &note_id, &markdown, notes_cache, note_index, block_index);
+                handle_upsert_with_content(conn, &vault_root, &note_id, &markdown, notes_cache, note_index, block_index, &app_handle);
             if let Err(ref e) = result {
                 log::warn!("writer: upsert_with_content failed for {note_id}: {e}");
             }
@@ -666,6 +668,16 @@ fn dispatch_command(
                 block_index,
             );
         }
+        DbCommand::RebuildIndex => {
+            let new_note_index = VectorIndex::rebuild_from_sqlite(conn, "notes", 384);
+            let new_block_index = VectorIndex::rebuild_from_sqlite(conn, "blocks", 384);
+            if let Ok(mut ni) = note_index.write() {
+                *ni = new_note_index;
+            }
+            if let Ok(mut bi) = block_index.write() {
+                *bi = new_block_index;
+            }
+        }
         DbCommand::Shutdown => {
             return LoopAction::Break;
         }
@@ -680,6 +692,7 @@ fn handle_upsert(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
+    app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let markdown = match std::fs::read_to_string(&abs) {
@@ -709,6 +722,7 @@ fn handle_upsert(
     if let Ok(mut bi) = block_index.write() {
         bi.remove_by_prefix(&format!("{note_id}\0"));
     }
+    handle_embed_note(conn, note_id, app_handle, note_index, block_index);
     Ok(())
 }
 
@@ -720,6 +734,7 @@ fn handle_upsert_with_content(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
+    app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
@@ -734,7 +749,113 @@ fn handle_upsert_with_content(
     if let Ok(mut bi) = block_index.write() {
         bi.remove_by_prefix(&format!("{note_id}\0"));
     }
+    handle_embed_note(conn, note_id, app_handle, note_index, block_index);
     Ok(())
+}
+
+fn handle_embed_note(
+    conn: &Connection,
+    note_id: &str,
+    app_handle: &AppHandle,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    let embedding_state = app_handle.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(app_handle);
+    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
+        Ok(m) => m,
+        Err(e) => {
+            log::debug!("handle_embed_note: model unavailable for {note_id}: {e}");
+            return;
+        }
+    };
+
+    let embed_text = match search_db::get_fts_body(conn, note_id) {
+        Some(b) if !b.trim().is_empty() => b,
+        _ => Path::new(note_id)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(note_id)
+            .to_string(),
+    };
+
+    match model.embed_one(&embed_text) {
+        Ok(embedding) => {
+            if let Err(e) = vector_db::upsert_embedding(conn, note_id, &embedding) {
+                log::warn!("handle_embed_note: note upsert failed for {note_id}: {e}");
+            }
+            if let Ok(mut ni) = note_index.write() {
+                ni.insert(note_id, embedding);
+            }
+        }
+        Err(e) => {
+            log::warn!("handle_embed_note: note embedding failed for {note_id}: {e}");
+        }
+    }
+
+    let sections = match search_db::get_embeddable_sections_for_note(
+        conn,
+        note_id,
+        BLOCK_EMBED_MIN_WORDS,
+        BLOCK_EMBED_MIN_LINES,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("handle_embed_note: sections query failed for {note_id}: {e}");
+            return;
+        }
+    };
+
+    if sections.is_empty() {
+        return;
+    }
+
+    let fts_body = search_db::get_fts_body(conn, note_id);
+    let lines: Vec<&str> = fts_body.as_deref().map_or(vec![], |b| b.lines().collect());
+
+    let mut texts = Vec::with_capacity(sections.len());
+    let mut keys = Vec::with_capacity(sections.len());
+
+    for (path, heading_id, start_line, end_line) in &sections {
+        let start = *start_line as usize;
+        let end = (*end_line as usize + 1).min(lines.len());
+        if start >= lines.len() {
+            continue;
+        }
+        let section_text = lines[start..end].join("\n");
+        if section_text.trim().is_empty() {
+            continue;
+        }
+        keys.push((path.as_str(), heading_id.as_str()));
+        texts.push(section_text);
+    }
+
+    if texts.is_empty() {
+        return;
+    }
+
+    let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+    match model.embed_batch(&text_refs, None) {
+        Ok(embeddings) => {
+            for ((path, heading_id), embedding) in keys.iter().zip(embeddings.iter()) {
+                if let Err(e) = vector_db::upsert_block_embedding(conn, path, heading_id, embedding)
+                {
+                    log::warn!("handle_embed_note: block upsert failed for {path}#{heading_id}: {e}");
+                }
+                if let Ok(mut bi) = block_index.write() {
+                    let composite_key = format!("{path}\0{heading_id}");
+                    bi.insert(&composite_key, embedding.clone());
+                }
+            }
+            log::info!(
+                "handle_embed_note: embedded {} blocks for {note_id}",
+                embeddings.len()
+            );
+        }
+        Err(e) => {
+            log::warn!("handle_embed_note: block embedding failed for {note_id}: {e}");
+        }
+    }
 }
 
 fn extract_title(markdown: &str) -> Option<String> {
@@ -807,7 +928,8 @@ fn run_index_op(
                     | DbCommand::Sync { .. }
                     | DbCommand::SyncPaths { .. }
                     | DbCommand::EmbedBatch { .. }
-                    | DbCommand::RebuildEmbeddings { .. } => {
+                    | DbCommand::RebuildEmbeddings { .. }
+                    | DbCommand::RebuildIndex => {
                         deferred.borrow_mut().push(cmd);
                     }
                     DbCommand::Shutdown => {
@@ -1647,6 +1769,7 @@ pub fn index_upsert_note(app: AppHandle, vault_id: String, note_id: String) -> R
     send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertNote {
         vault_root,
         note_id,
+        app_handle: app.clone(),
         reply,
     })
 }
@@ -1662,6 +1785,7 @@ pub fn index_upsert_note_with_content(
         vault_root,
         note_id: note_id.to_string(),
         markdown,
+        app_handle: app.clone(),
         reply,
     })
 }
