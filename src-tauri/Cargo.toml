@@ -49,9 +49,9 @@ ropey = "1.6.1"
 tauri-plugin-single-instance = "2.4.0"
 regex = "1.12.3"
 lazy_static = "1.5.0"
-candle-core = { version = "0.9", default-features = false }
-candle-nn = { version = "0.9", default-features = false }
-candle-transformers = { version = "0.9", default-features = false }
+candle-core = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-nn = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-transformers = { version = "0.9", default-features = false, features = ["accelerate"] }
 hf-hub = { version = "0.5", features = ["tokio"] }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
@@ -75,6 +75,7 @@ tower-http = { version = "0.6", features = ["cors"] }
 subtle = "2"
 rand = "0.8"
 hex = "0.4"
+hnsw_rs = "0.3"
 
 [dev-dependencies]
 filetime = "0.2"
