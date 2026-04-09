@@ -42,5 +42,11 @@ export function create_mcp_tauri_adapter(): McpPort {
     async get_setup_status() {
       return tauri_invoke<McpSetupStatus>("mcp_get_setup_status");
     },
+    async install_cli() {
+      return tauri_invoke<McpSetupResult>("mcp_install_cli");
+    },
+    async uninstall_cli() {
+      return tauri_invoke<McpSetupResult>("mcp_uninstall_cli");
+    },
   };
 }

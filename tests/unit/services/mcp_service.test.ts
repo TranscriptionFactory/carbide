@@ -28,6 +28,16 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       tokenExists: true,
       cliInstalled: false,
     }),
+    install_cli: vi.fn().mockResolvedValue({
+      success: true,
+      path: "/home/user/.local/bin/carbide",
+      message: "CLI installed",
+    }),
+    uninstall_cli: vi.fn().mockResolvedValue({
+      success: true,
+      path: "/home/user/.local/bin/carbide",
+      message: "CLI removed",
+    }),
     ...overrides,
   };
 }
@@ -171,6 +181,32 @@ describe("McpService", () => {
       tokenExists: true,
       cliInstalled: false,
     });
+  });
+
+  it("install_cli returns result and refreshes setup status", async () => {
+    const store = new McpStore();
+    const port = create_mock_port();
+    const service = new McpService(port, store);
+
+    const result = await service.install_cli();
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("CLI installed");
+    expect(port.install_cli).toHaveBeenCalledOnce();
+    expect(port.get_setup_status).toHaveBeenCalledOnce();
+  });
+
+  it("uninstall_cli returns result and refreshes setup status", async () => {
+    const store = new McpStore();
+    const port = create_mock_port();
+    const service = new McpService(port, store);
+
+    const result = await service.uninstall_cli();
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("CLI removed");
+    expect(port.uninstall_cli).toHaveBeenCalledOnce();
+    expect(port.get_setup_status).toHaveBeenCalledOnce();
   });
 
   it("refresh_setup_status silently handles failure", async () => {

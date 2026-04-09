@@ -27,4 +27,6 @@ export interface McpPort {
   setup_claude_code(vault_id: string): Promise<McpSetupResult>;
   regenerate_token(): Promise<string>;
   get_setup_status(): Promise<McpSetupStatus>;
+  install_cli(): Promise<McpSetupResult>;
+  uninstall_cli(): Promise<McpSetupResult>;
 }

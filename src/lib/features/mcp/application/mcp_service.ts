@@ -51,6 +51,18 @@ export class McpService {
     return this.port.regenerate_token();
   }
 
+  async install_cli(): Promise<McpSetupResult> {
+    const result = await this.port.install_cli();
+    await this.refresh_setup_status();
+    return result;
+  }
+
+  async uninstall_cli(): Promise<McpSetupResult> {
+    const result = await this.port.uninstall_cli();
+    await this.refresh_setup_status();
+    return result;
+  }
+
   async refresh_setup_status(): Promise<void> {
     try {
       const status = await this.port.get_setup_status();
