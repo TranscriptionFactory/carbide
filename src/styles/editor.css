@@ -333,18 +333,18 @@
 }
 
 .block-drag-handle-always .block-drag-handle {
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
 /* on_hover mode: fade in when mouse is near a block */
 .show-block-drag-handle:not(.block-drag-handle-always)
   .block-drag-handle--near {
-  opacity: 0.3;
+  opacity: 0.6;
 }
 
 /* always mode: bump slightly when mouse is near */
 .block-drag-handle-always .block-drag-handle--near {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .block-drag-handle--hover {
@@ -362,16 +362,16 @@
   height: 14px;
   background-image: radial-gradient(
     circle,
-    var(--muted-foreground) 1px,
-    transparent 1px
+    var(--muted-foreground) 1.2px,
+    transparent 1.2px
   );
   background-size: 4px 4px;
   background-position: 0 1px;
-  opacity: 0.4;
+  opacity: 0.7;
 }
 
 .block-drag-handle--hover .block-drag-handle__grip {
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
 /* ============================================
