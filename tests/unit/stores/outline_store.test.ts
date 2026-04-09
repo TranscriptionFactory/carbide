@@ -98,6 +98,36 @@ describe("OutlineStore", () => {
     expect(store.collapsed_ids.size).toBe(1);
   });
 
+  describe("find_heading_by_fragment", () => {
+    it("returns heading for exact text match", () => {
+      const store = new OutlineStore();
+      const h = heading(1, "My Heading", 42);
+      store.set_headings([h]);
+      expect(store.find_heading_by_fragment("My Heading")).toBe(h);
+    });
+
+    it("returns heading for case-insensitive match", () => {
+      const store = new OutlineStore();
+      const h = heading(2, "Introduction", 10);
+      store.set_headings([h]);
+      expect(store.find_heading_by_fragment("introduction")).toBe(h);
+      expect(store.find_heading_by_fragment("INTRODUCTION")).toBe(h);
+    });
+
+    it("returns heading for slugified match", () => {
+      const store = new OutlineStore();
+      const h = heading(1, "My Heading", 0);
+      store.set_headings([h]);
+      expect(store.find_heading_by_fragment("my-heading")).toBe(h);
+    });
+
+    it("returns undefined for no match", () => {
+      const store = new OutlineStore();
+      store.set_headings([heading(1, "Title", 0)]);
+      expect(store.find_heading_by_fragment("nonexistent")).toBeUndefined();
+    });
+  });
+
   it("clears current note but saves state for restore", () => {
     const store = new OutlineStore();
     const h = heading(1, "Title", 0);

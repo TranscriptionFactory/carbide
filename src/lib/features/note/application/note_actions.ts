@@ -469,6 +469,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
           stores.ui.set_selected_folder_path(result.selected_folder_path);
           clear_folder_filetree_state(input, result.selected_folder_path);
           cache_open_note_for_tab(tab.id);
+          if (suffix.fragment) {
+            stores.editor.set_pending_heading_fragment(suffix.fragment);
+          }
         }
         if (result.status === "failed") {
           toast.error(result.error);
