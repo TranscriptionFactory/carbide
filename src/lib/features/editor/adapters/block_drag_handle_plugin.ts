@@ -43,12 +43,14 @@ type BlockDragState = {
 };
 
 export function create_block_drag_handle_prose_plugin(): Plugin {
+  let drag_state: BlockDragState = { dragging_from: null };
+
   return new Plugin({
     key: block_drag_handle_plugin_key,
 
     state: {
       init(): BlockDragState {
-        return { dragging_from: null };
+        return drag_state;
       },
       apply(_tr, value): BlockDragState {
         return value;
@@ -57,14 +59,10 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
     props: {
       handleDrop(view, event, _slice, moved) {
-        const plugin_state = block_drag_handle_plugin_key.getState(
-          view.state,
-        ) as BlockDragState | undefined;
-        if (!plugin_state?.dragging_from && plugin_state?.dragging_from !== 0)
-          return false;
+        if (drag_state.dragging_from == null) return false;
         if (!moved) return false;
 
-        const source_pos = plugin_state.dragging_from;
+        const source_pos = drag_state.dragging_from;
         const coords = view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
@@ -82,7 +80,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         apply_block_move(tr, result);
         view.dispatch(tr);
 
-        plugin_state.dragging_from = null;
+        drag_state.dragging_from = null;
         return true;
       },
     },
@@ -96,6 +94,10 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
       editor_dom.style.position = "relative";
       editor_dom.appendChild(handle);
+
+      function is_feature_enabled(): boolean {
+        return editor_dom.closest(".show-block-drag-handle") !== null;
+      }
 
       function position_handle(view: EditorView, block_pos: number) {
         const node = view.state.doc.nodeAt(block_pos);
@@ -115,18 +117,21 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
         handle.style.top = `${String(block_rect.top - editor_rect.top + view.dom.scrollTop)}px`;
         handle.style.display = "";
+        handle.classList.add("block-drag-handle--near");
         handle.dataset["blockPos"] = String(block_pos);
         current_block_pos = block_pos;
       }
 
       function hide_handle() {
         handle.style.display = "none";
+        handle.classList.remove("block-drag-handle--near");
         handle.removeAttribute("data-block-pos");
         current_block_pos = null;
       }
 
       function on_mousemove(event: MouseEvent) {
         if (is_dragging) return;
+        if (!is_feature_enabled()) return;
 
         const pos_info = editor_view.posAtCoords({
           left: event.clientX,
@@ -180,12 +185,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = true;
         handle.classList.add("block-drag-handle--dragging");
 
-        const plugin_state = block_drag_handle_plugin_key.getState(
-          editor_view.state,
-        ) as BlockDragState | undefined;
-        if (plugin_state) {
-          plugin_state.dragging_from = current_block_pos;
-        }
+        drag_state.dragging_from = current_block_pos;
 
         const sel = NodeSelection.create(
           editor_view.state.doc,
@@ -209,12 +209,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = false;
         handle.classList.remove("block-drag-handle--dragging");
 
-        const plugin_state = block_drag_handle_plugin_key.getState(
-          editor_view.state,
-        ) as BlockDragState | undefined;
-        if (plugin_state) {
-          plugin_state.dragging_from = null;
-        }
+        drag_state.dragging_from = null;
 
         hide_handle();
       }
