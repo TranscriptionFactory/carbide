@@ -22,6 +22,7 @@ import type {
   ScanEntry,
 } from "../types";
 import type { VaultStore, VaultSettingsPort } from "$lib/features/vault";
+import type { WorkspaceIndexPort } from "$lib/features/search";
 import type { VaultId } from "$lib/shared/types/ids";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { generate_citekey, match_query } from "../domain/csl_utils";
@@ -56,6 +57,7 @@ export class ReferenceService {
     private doi_port: DoiLookupPort | null = null,
     private linked_source_port: LinkedSourcePort | null = null,
     private vault_settings_port: VaultSettingsPort | null = null,
+    private index_port: WorkspaceIndexPort | null = null,
   ) {}
 
   private extensions = new Map<string, ReferenceSearchExtension>();
@@ -699,6 +701,14 @@ export class ReferenceService {
       });
       await this.save_linked_sources();
       this.store.set_linked_source_sync_status(source_id, "idle");
+
+      if (new_entries.length > 0 && this.index_port) {
+        void this.index_port
+          .embed_sync(vault_id as VaultId)
+          .catch((e: unknown) => {
+            log.from_error("embed_sync after linked source scan:", e);
+          });
+      }
 
       const entries_with_doi = new_entries
         .filter((e) => e.doi)

@@ -598,6 +598,7 @@ export function create_app_context(input: {
     input.ports.doi_lookup,
     input.ports.linked_source,
     input.ports.vault_settings,
+    input.ports.index,
   );
 
   const zotero_bbt_extension = new ZoteroBbtExtension(

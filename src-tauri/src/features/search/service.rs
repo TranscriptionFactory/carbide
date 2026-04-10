@@ -171,7 +171,6 @@ enum DbCommand {
         file_type: String,
         modified_at: u64,
         linked_meta: crate::features::search::model::LinkedSourceMeta,
-        app_handle: AppHandle,
         reply: SyncSender<Result<(), String>>,
     },
     UpdateLinkedMetadata {
@@ -455,7 +454,6 @@ fn dispatch_command(
             file_type,
             modified_at,
             linked_meta,
-            app_handle,
             reply,
         } => {
             let result = search_db::upsert_linked_content(
@@ -472,45 +470,6 @@ fn dispatch_command(
             match &result {
                 Ok(meta) => {
                     notes_cache.insert(meta.path.clone(), meta.clone());
-                    let embed_text = if body.trim().is_empty() {
-                        Path::new(&file_path)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or(&file_path)
-                            .to_string()
-                    } else {
-                        body.clone()
-                    };
-                    let embedding_state = app_handle.state::<EmbeddingServiceState>();
-                    let cache_dir = resolve_embedding_cache_dir(&app_handle);
-                    match embedding_state.get_or_init(cache_dir, &app_handle) {
-                        Ok(model) => {
-                            match model.embed_one(&embed_text) {
-                                Ok(vec) => {
-                                    if let Err(e) = vector_db::upsert_embedding(conn, &meta.path, &vec) {
-                                        log::warn!("writer: embed linked note failed: {e}");
-                                    }
-                                    if let Ok(mut ni) = note_index.write() {
-                                        ni.insert(&meta.path, vec);
-                                    }
-                                }
-                                Err(e) => {
-                                    log::warn!("writer: embed linked note model error: {e}");
-                                    let _ = vector_db::remove_embedding(conn, &meta.path);
-                                    if let Ok(mut ni) = note_index.write() {
-                                        ni.remove(&meta.path);
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::debug!("writer: embedding model unavailable for linked note: {e}");
-                            let _ = vector_db::remove_embedding(conn, &meta.path);
-                            if let Ok(mut ni) = note_index.write() {
-                                ni.remove(&meta.path);
-                            }
-                        }
-                    }
                 }
                 Err(e) => {
                     log::warn!("writer: upsert_linked_content failed: {e}");
@@ -1849,7 +1808,6 @@ pub fn linked_source_index(
         file_type: file_type.to_string(),
         modified_at,
         linked_meta,
-        app_handle: app.clone(),
         reply,
     })
 }
