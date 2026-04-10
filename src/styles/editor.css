@@ -314,7 +314,8 @@
 
 .block-drag-handle-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
   pointer-events: none;
   z-index: 2;
 }
@@ -2408,12 +2409,12 @@
   padding-left: 3.5em;
 }
 
-.show-line-numbers .ProseMirror > :not(.block-drag-handle-overlay) {
+.show-line-numbers .ProseMirror > * {
   counter-increment: line-number;
   position: relative;
 }
 
-.show-line-numbers .ProseMirror > :not(.block-drag-handle-overlay)::before {
+.show-line-numbers .ProseMirror > *::before {
   content: counter(line-number);
   position: absolute;
   left: -3.5em;
