@@ -407,6 +407,56 @@
 
   <div class="SttSettings__separator"></div>
 
+  <div class="SttSettings__custom-model">
+    <h4 class="SttSettings__custom-model-title">Add Custom Model</h4>
+    <div class="SttSettings__custom-model-form">
+      <Input
+        type="text"
+        placeholder="/path/to/model/file/or/directory"
+        disabled={stt_disabled}
+        value={custom_model_path}
+        oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+          custom_model_path = e.currentTarget.value;
+        }}
+      />
+      <div class="SttSettings__custom-model-row">
+        <Select.Root
+          type="single"
+          disabled={stt_disabled}
+          value={custom_model_engine}
+          onValueChange={(v: string | undefined) => {
+            if (v) custom_model_engine = v;
+          }}
+        >
+          <Select.Trigger class="w-48">
+            <span data-slot="select-value">
+              {engine_type_options.find((o) => o.value === custom_model_engine)
+                ?.label ?? custom_model_engine}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each engine_type_options as opt (opt.value)}
+              <Select.Item value={opt.value}>{opt.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <button
+          type="button"
+          class="SttSettings__add-button"
+          disabled={stt_disabled || !custom_model_path.trim()}
+          onclick={() => {
+            on_add_custom_model(custom_model_path.trim(), custom_model_engine);
+            custom_model_path = "";
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="SttSettings__separator"></div>
+
   <div class="SttSettings__model-section">
     <button
       type="button"
@@ -420,7 +470,7 @@
           : ''}"
       />
       <div>
-        <h3 class="SttSettings__section-title">Models</h3>
+        <h3 class="SttSettings__section-title">Browse Model Catalog</h3>
         <p class="SttSettings__section-description">
           Download and manage speech recognition models
         </p>
@@ -438,58 +488,6 @@
         on_select={on_select_model}
         on_remove_custom={on_remove_custom_model}
       />
-
-      <div class="SttSettings__custom-model">
-        <h4 class="SttSettings__custom-model-title">Add Custom Model</h4>
-        <div class="SttSettings__custom-model-form">
-          <Input
-            type="text"
-            placeholder="/path/to/model/file/or/directory"
-            disabled={stt_disabled}
-            value={custom_model_path}
-            oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-              custom_model_path = e.currentTarget.value;
-            }}
-          />
-          <div class="SttSettings__custom-model-row">
-            <Select.Root
-              type="single"
-              disabled={stt_disabled}
-              value={custom_model_engine}
-              onValueChange={(v: string | undefined) => {
-                if (v) custom_model_engine = v;
-              }}
-            >
-              <Select.Trigger class="w-48">
-                <span data-slot="select-value">
-                  {engine_type_options.find(
-                    (o) => o.value === custom_model_engine,
-                  )?.label ?? custom_model_engine}
-                </span>
-              </Select.Trigger>
-              <Select.Content>
-                {#each engine_type_options as opt (opt.value)}
-                  <Select.Item value={opt.value}>{opt.label}</Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
-            <button
-              type="button"
-              class="SttSettings__add-button"
-              disabled={stt_disabled || !custom_model_path.trim()}
-              onclick={() => {
-                on_add_custom_model(
-                  custom_model_path.trim(),
-                  custom_model_engine,
-                );
-                custom_model_path = "";
-              }}
-            >
-              Add
-            </button>
-          </div>
-        </div>
-      </div>
     {/if}
   </div>
 </div>
@@ -583,8 +581,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--border);
   }
 
   .SttSettings__custom-model-title {

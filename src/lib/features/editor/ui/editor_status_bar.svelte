@@ -249,6 +249,9 @@
         on_click={on_vim_nav_cheatsheet}
       />
     {/if}
+    {#if stt_enabled}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+    {/if}
     <SttStatusIndicator
       enabled={stt_enabled}
       recording_state={stt_recording_state}

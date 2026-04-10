@@ -14,7 +14,6 @@ export function register_stt_actions(input: {
   registry.register({
     id: ACTION_IDS.stt_toggle_recording,
     label: "Toggle Voice Recording",
-    shortcut: "Cmd+Shift+R",
     execute: async () => {
       if (!stt_store.config.enabled) {
         toast.info("Speech-to-text is not enabled. Enable it in Settings.");
