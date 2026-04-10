@@ -423,6 +423,14 @@
     void action_registry.execute(ACTION_IDS.stt_delete_model, model_id)}
   on_stt_select_model={(model_id: string) =>
     void action_registry.execute(ACTION_IDS.stt_select_model, model_id)}
+  on_stt_add_custom_model={(path: string, engine_type: string) =>
+    void action_registry.execute(
+      ACTION_IDS.stt_add_custom_model,
+      path,
+      engine_type,
+    )}
+  on_stt_remove_custom_model={(model_id: string) =>
+    void action_registry.execute(ACTION_IDS.stt_remove_custom_model, model_id)}
 />
 
 <CreateFolderDialog

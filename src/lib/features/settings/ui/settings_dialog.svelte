@@ -124,6 +124,8 @@
     on_stt_download_model: (model_id: string) => void;
     on_stt_delete_model: (model_id: string) => void;
     on_stt_select_model: (model_id: string) => void;
+    on_stt_add_custom_model: (path: string, engine_type: string) => void;
+    on_stt_remove_custom_model: (model_id: string) => void;
   };
 
   let {
@@ -170,6 +172,8 @@
     on_stt_download_model,
     on_stt_delete_model,
     on_stt_select_model,
+    on_stt_add_custom_model,
+    on_stt_remove_custom_model,
   }: Props = $props();
 
   const tab_count_options = Array.from({ length: 10 }, (_, i) => ({
@@ -3524,6 +3528,8 @@
               on_download_model={on_stt_download_model}
               on_delete_model={on_stt_delete_model}
               on_select_model={on_stt_select_model}
+              on_add_custom_model={on_stt_add_custom_model}
+              on_remove_custom_model={on_stt_remove_custom_model}
             />
           </div>
         {:else if active_category === "misc"}
@@ -4055,47 +4061,47 @@
     margin-bottom: var(--space-6);
   }
 
-  .SettingsDialog__section-content {
+  :global(.SettingsDialog__section-content) {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
   }
 
-  .SettingsDialog__row {
+  :global(.SettingsDialog__row) {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
   }
 
-  .SettingsDialog__row--top-aligned {
+  :global(.SettingsDialog__row--top-aligned) {
     align-items: flex-start;
   }
 
-  .SettingsDialog__row--column {
+  :global(.SettingsDialog__row--column) {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .SettingsDialog__label {
+  :global(.SettingsDialog__label) {
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--foreground);
   }
 
-  .SettingsDialog__label-group {
+  :global(.SettingsDialog__label-group) {
     display: flex;
     flex-direction: column;
     gap: var(--space-0-5);
   }
 
-  .SettingsDialog__description {
+  :global(.SettingsDialog__description) {
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     line-height: 1.4;
   }
 
-  .SettingsDialog__reset {
+  :global(.SettingsDialog__reset) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4111,17 +4117,17 @@
       color var(--duration-fast) var(--ease-default);
   }
 
-  .SettingsDialog__reset:hover:not(:disabled) {
+  :global(.SettingsDialog__reset:hover:not(:disabled)) {
     background: var(--muted);
     color: var(--foreground);
   }
 
-  .SettingsDialog__reset:disabled {
+  :global(.SettingsDialog__reset:disabled) {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
-  .SettingsDialog__reset :global(svg) {
+  :global(.SettingsDialog__reset) :global(svg) {
     width: 0.9rem;
     height: 0.9rem;
   }
@@ -4131,12 +4137,12 @@
     border-top: 1px solid var(--border);
   }
 
-  .SettingsDialog__section-divider {
+  :global(.SettingsDialog__section-divider) {
     border-top: 1px solid var(--border);
     margin-block: var(--space-4);
   }
 
-  .SettingsDialog__section-subheader {
+  :global(.SettingsDialog__section-subheader) {
     font-size: var(--text-sm);
     font-weight: 600;
     color: var(--foreground);

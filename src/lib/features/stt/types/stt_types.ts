@@ -17,6 +17,7 @@ export type ModelInfo = {
   is_recommended: boolean;
   supported_languages: string[];
   supports_language_selection: boolean;
+  is_custom: boolean;
 };
 
 export type TranscriptionResult = {

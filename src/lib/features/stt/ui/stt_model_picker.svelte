@@ -5,6 +5,7 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import StarIcon from "@lucide/svelte/icons/star";
+  import XIcon from "@lucide/svelte/icons/x";
   import type {
     ModelInfo,
     DownloadProgress,
@@ -18,6 +19,7 @@
     on_download: (model_id: string) => void;
     on_delete: (model_id: string) => void;
     on_select: (model_id: string) => void;
+    on_remove_custom: (model_id: string) => void;
   };
 
   let {
@@ -28,6 +30,7 @@
     on_download,
     on_delete,
     on_select,
+    on_remove_custom,
   }: Props = $props();
 
   const engine_labels: Record<string, string> = {
@@ -40,9 +43,12 @@
     Canary: "Canary",
   };
 
+  const custom_models = $derived(models.filter((m) => m.is_custom));
+  const catalog_models = $derived(models.filter((m) => !m.is_custom));
+
   const grouped_models = $derived.by(() => {
     const groups = new Map<string, ModelInfo[]>();
-    for (const model of models) {
+    for (const model of catalog_models) {
       const key = model.engine_type;
       const group = groups.get(key);
       if (group) {
@@ -68,6 +74,58 @@
 </script>
 
 <div class="SttModelPicker">
+  {#if custom_models.length > 0}
+    <div class="SttModelPicker__group">
+      <h4 class="SttModelPicker__group-title">Custom</h4>
+
+      {#each custom_models as model (model.id)}
+        {@const is_active = model.id === active_model_id}
+
+        <div
+          class="SttModelPicker__model"
+          class:SttModelPicker__model--active={is_active}
+        >
+          <div class="SttModelPicker__model-info">
+            <div class="SttModelPicker__model-header">
+              <span class="SttModelPicker__model-name">{model.name}</span>
+              <span class="SttModelPicker__model-size">
+                {engine_labels[model.engine_type] ?? model.engine_type}
+              </span>
+            </div>
+            <span class="SttModelPicker__langs SttModelPicker__custom-path">
+              {model.filename}
+            </span>
+          </div>
+
+          <div class="SttModelPicker__model-actions">
+            {#if !is_active}
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => on_select(model.id)}
+                disabled={model_loading}
+              >
+                Use
+              </Button>
+            {:else}
+              <span class="SttModelPicker__active-badge">
+                <CheckIcon />
+                Active
+              </span>
+            {/if}
+            <Button
+              variant="ghost"
+              size="sm"
+              onclick={() => on_remove_custom(model.id)}
+            >
+              <XIcon />
+            </Button>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   {#each grouped_models as [engine_type, group_models] (engine_type)}
     <div class="SttModelPicker__group">
       <h4 class="SttModelPicker__group-title">
@@ -187,7 +245,7 @@
   .SttModelPicker {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-4);
+    gap: var(--space-4);
   }
 
   .SttModelPicker__group-title {
@@ -195,30 +253,30 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-muted-foreground);
-    margin-bottom: var(--spacing-2);
+    color: var(--muted-foreground);
+    margin-bottom: var(--space-2);
   }
 
   .SttModelPicker__model {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--spacing-3);
-    padding: var(--spacing-2) var(--spacing-3);
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    background: var(--color-card);
+    border: 1px solid var(--border);
+    background: var(--card);
   }
 
   .SttModelPicker__model--active {
-    border-color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 5%, var(--color-card));
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 5%, var(--card));
   }
 
   .SttModelPicker__model-info {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-1);
+    gap: var(--space-1);
     min-width: 0;
     flex: 1;
   }
@@ -226,7 +284,7 @@
   .SttModelPicker__model-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-2);
+    gap: var(--space-2);
   }
 
   .SttModelPicker__model-name {
@@ -234,66 +292,74 @@
     font-weight: 500;
     display: flex;
     align-items: center;
-    gap: var(--spacing-1);
+    gap: var(--space-1);
   }
 
   .SttModelPicker__model-name :global(.SttModelPicker__star) {
     width: 12px;
     height: 12px;
-    color: var(--color-warning, #f59e0b);
+    color: var(--warning, #f59e0b);
   }
 
   .SttModelPicker__model-size {
     font-size: var(--text-xs);
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
   }
 
   .SttModelPicker__model-scores {
     display: flex;
-    gap: var(--spacing-3);
+    gap: var(--space-3);
     font-size: 10px;
     font-family: var(--font-mono);
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
   }
 
   .SttModelPicker__langs {
     font-size: var(--text-xs);
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
   }
 
   .SttModelPicker__progress {
     height: 4px;
-    background: var(--color-muted);
+    background: var(--muted);
     border-radius: 2px;
     overflow: hidden;
-    margin-top: var(--spacing-1);
+    margin-top: var(--space-1);
   }
 
   .SttModelPicker__progress-bar {
     height: 100%;
-    background: var(--color-primary);
+    background: var(--primary);
     transition: width 0.2s ease;
   }
 
   .SttModelPicker__progress-text {
     font-size: var(--text-xs);
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
   }
 
   .SttModelPicker__model-actions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-1);
+    gap: var(--space-1);
     flex-shrink: 0;
   }
 
   .SttModelPicker__active-badge {
     display: flex;
     align-items: center;
-    gap: var(--spacing-1);
+    gap: var(--space-1);
     font-size: var(--text-xs);
-    color: var(--color-primary);
+    color: var(--primary);
     font-weight: 500;
+  }
+
+  .SttModelPicker__custom-path {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .SttModelPicker__active-badge :global(svg) {

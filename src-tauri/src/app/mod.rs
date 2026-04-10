@@ -390,6 +390,8 @@ pub fn run() {
             features::stt::stt_download_model,
             features::stt::stt_delete_model,
             features::stt::stt_cancel_download,
+            features::stt::stt_add_custom_model,
+            features::stt::stt_remove_custom_model,
             features::stt::stt_load_model,
             features::stt::stt_unload_model,
             features::stt::stt_transcribe,

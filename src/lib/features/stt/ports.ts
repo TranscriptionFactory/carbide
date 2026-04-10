@@ -16,6 +16,8 @@ export interface SttPort {
   download_model(model_id: string): Promise<void>;
   delete_model(model_id: string): Promise<void>;
   cancel_download(model_id: string): Promise<void>;
+  add_custom_model(path: string, engine_type: string): Promise<ModelInfo>;
+  remove_custom_model(model_id: string): Promise<void>;
 
   load_model(model_id: string): Promise<void>;
   unload_model(): Promise<void>;

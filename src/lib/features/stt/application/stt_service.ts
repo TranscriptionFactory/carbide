@@ -138,6 +138,32 @@ export class SttService {
     }
   }
 
+  async add_custom_model(path: string, engine_type: string): Promise<void> {
+    try {
+      await this.stt_port.add_custom_model(path, engine_type);
+      await this.refresh_models();
+    } catch (error) {
+      log.error("Failed to add custom model", {
+        error: error_message(error),
+      });
+      throw error;
+    }
+  }
+
+  async remove_custom_model(model_id: string): Promise<void> {
+    try {
+      await this.stt_port.remove_custom_model(model_id);
+      if (this.stt_store.active_model_id === model_id) {
+        this.stt_store.set_active_model(null);
+      }
+      await this.refresh_models();
+    } catch (error) {
+      log.error("Failed to remove custom model", {
+        error: error_message(error),
+      });
+    }
+  }
+
   async delete_model(model_id: string): Promise<void> {
     try {
       await this.stt_port.delete_model(model_id);

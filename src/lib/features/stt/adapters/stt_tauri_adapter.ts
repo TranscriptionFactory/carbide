@@ -95,6 +95,19 @@ export function create_stt_tauri_adapter(): SttPort {
       });
     },
 
+    async add_custom_model(path, engine_type) {
+      return await tauri_invoke<ModelInfo>("stt_add_custom_model", {
+        path,
+        engineType: engine_type,
+      });
+    },
+
+    async remove_custom_model(model_id) {
+      await tauri_invoke<undefined>("stt_remove_custom_model", {
+        modelId: model_id,
+      });
+    },
+
     async load_model(model_id) {
       await tauri_invoke<undefined>("stt_load_model", {
         modelId: model_id,

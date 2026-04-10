@@ -30,6 +30,8 @@
     on_download_model: (model_id: string) => void;
     on_delete_model: (model_id: string) => void;
     on_select_model: (model_id: string) => void;
+    on_add_custom_model: (path: string, engine_type: string) => void;
+    on_remove_custom_model: (model_id: string) => void;
   };
 
   let {
@@ -43,9 +45,24 @@
     on_download_model,
     on_delete_model,
     on_select_model,
+    on_add_custom_model,
+    on_remove_custom_model,
   }: Props = $props();
 
   const stt_disabled = $derived(!editor_settings.stt_enabled);
+
+  let custom_model_path = $state("");
+  let custom_model_engine = $state("Whisper");
+
+  const engine_type_options = [
+    { value: "Whisper", label: "Whisper" },
+    { value: "Parakeet", label: "Parakeet" },
+    { value: "Moonshine", label: "Moonshine" },
+    { value: "MoonshineStreaming", label: "Moonshine (Streaming)" },
+    { value: "SenseVoice", label: "SenseVoice" },
+    { value: "GigaAM", label: "GigaAM" },
+    { value: "Canary", label: "Canary" },
+  ];
 
   const language_options = [
     { value: "auto", label: "Auto-detect" },
@@ -392,7 +409,60 @@
       on_download={on_download_model}
       on_delete={on_delete_model}
       on_select={on_select_model}
+      on_remove_custom={on_remove_custom_model}
     />
+
+    <div class="SttSettings__custom-model">
+      <h4 class="SttSettings__custom-model-title">Add Custom Model</h4>
+      <div class="SttSettings__custom-model-form">
+        <Input
+          type="text"
+          placeholder="/path/to/model/file/or/directory"
+          disabled={stt_disabled}
+          value={custom_model_path}
+          oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+            custom_model_path = e.currentTarget.value;
+          }}
+        />
+        <div class="SttSettings__custom-model-row">
+          <Select.Root
+            type="single"
+            disabled={stt_disabled}
+            value={custom_model_engine}
+            onValueChange={(v: string | undefined) => {
+              if (v) custom_model_engine = v;
+            }}
+          >
+            <Select.Trigger class="w-48">
+              <span data-slot="select-value">
+                {engine_type_options.find(
+                  (o) => o.value === custom_model_engine,
+                )?.label ?? custom_model_engine}
+              </span>
+            </Select.Trigger>
+            <Select.Content>
+              {#each engine_type_options as opt (opt.value)}
+                <Select.Item value={opt.value}>{opt.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <button
+            type="button"
+            class="SttSettings__add-button"
+            disabled={stt_disabled || !custom_model_path.trim()}
+            onclick={() => {
+              on_add_custom_model(
+                custom_model_path.trim(),
+                custom_model_engine,
+              );
+              custom_model_path = "";
+            }}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -403,18 +473,18 @@
   }
 
   .SttSettings__separator {
-    border-top: 1px solid var(--color-border);
-    margin: var(--spacing-2) 0;
+    border-top: 1px solid var(--border);
+    margin: var(--space-2) 0;
   }
 
   .SttSettings__textarea {
     width: 100%;
     min-height: 60px;
-    padding: var(--spacing-2);
-    border: 1px solid var(--color-border);
+    padding: var(--space-2);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    background: var(--color-input);
-    color: var(--color-foreground);
+    background: var(--input);
+    color: var(--foreground);
     font-size: var(--text-sm);
     font-family: var(--font-mono);
     resize: vertical;
@@ -433,7 +503,7 @@
   .SttSettings__model-section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-3);
+    gap: var(--space-3);
   }
 
   .SttSettings__section-title {
@@ -443,6 +513,54 @@
 
   .SttSettings__section-description {
     font-size: var(--text-xs);
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
+  }
+
+  .SttSettings__custom-model {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+  }
+
+  .SttSettings__custom-model-title {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+  }
+
+  .SttSettings__custom-model-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .SttSettings__custom-model-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .SttSettings__add-button {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--foreground);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .SttSettings__add-button:hover:not(:disabled) {
+    background: var(--muted);
+  }
+
+  .SttSettings__add-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>

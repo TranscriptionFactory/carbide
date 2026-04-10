@@ -79,6 +79,29 @@ export function register_stt_actions(input: {
   });
 
   registry.register({
+    id: ACTION_IDS.stt_add_custom_model,
+    label: "Add Custom Speech Model",
+    execute: async (...args: unknown[]) => {
+      const path = args[0] as string;
+      const engine_type = args[1] as string;
+      if (path && engine_type) {
+        await stt_service.add_custom_model(path, engine_type);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.stt_remove_custom_model,
+    label: "Remove Custom Speech Model",
+    execute: async (...args: unknown[]) => {
+      const model_id = args[0] as string;
+      if (model_id) {
+        await stt_service.remove_custom_model(model_id);
+      }
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.stt_open_settings,
     label: "Speech-to-Text Settings",
     execute: async () => {

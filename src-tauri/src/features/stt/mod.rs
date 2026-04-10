@@ -219,6 +219,31 @@ pub async fn stt_cancel_download(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_add_custom_model(
+    path: String,
+    engine_type: models::EngineType,
+    state: State<'_, SttModelState>,
+) -> Result<ModelInfo, String> {
+    state
+        .manager
+        .add_custom_model(&path, engine_type)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stt_remove_custom_model(
+    model_id: String,
+    state: State<'_, SttModelState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .remove_custom_model(&model_id)
+        .map_err(|e| e.to_string())
+}
+
 // ── Transcription commands ──────────────────────────────────────────────────
 
 #[tauri::command]

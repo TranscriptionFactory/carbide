@@ -3,7 +3,9 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,6 +42,7 @@ pub struct ModelInfo {
     pub is_recommended: bool,
     pub supported_languages: Vec<String>,
     pub supports_language_selection: bool,
+    pub is_custom: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -70,7 +73,20 @@ impl ModelManager {
             fs::create_dir_all(&models_dir)?;
         }
 
-        let available_models = build_model_catalog();
+        let mut available_models = build_model_catalog();
+
+        let custom_models_path = models_dir.join("custom_models.json");
+        if custom_models_path.exists() {
+            if let Ok(data) = fs::read_to_string(&custom_models_path) {
+                if let Ok(custom_models) =
+                    serde_json::from_str::<Vec<ModelInfo>>(&data)
+                {
+                    for model in custom_models {
+                        available_models.insert(model.id.clone(), model);
+                    }
+                }
+            }
+        }
 
         let manager = Self {
             app_handle: app_handle.clone(),
@@ -105,6 +121,14 @@ impl ModelManager {
             anyhow::bail!("Model is currently downloading: {}", model_id);
         }
 
+        if model_info.is_custom {
+            let path = PathBuf::from(&model_info.filename);
+            if path.exists() {
+                return Ok(path);
+            }
+            anyhow::bail!("Custom model path not found: {}", model_info.filename);
+        }
+
         let model_path = self.models_dir.join(&model_info.filename);
         if model_info.is_directory {
             if model_path.exists() && model_path.is_dir() {
@@ -122,6 +146,12 @@ impl ModelManager {
     fn update_download_status(&self) -> Result<()> {
         let mut models = self.available_models.lock().unwrap();
         for model in models.values_mut() {
+            if model.is_custom {
+                let path = Path::new(&model.filename);
+                model.is_downloaded = path.exists();
+                model.is_downloading = false;
+                continue;
+            }
             let model_path = self.models_dir.join(&model.filename);
             if model.is_directory {
                 model.is_downloaded = model_path.exists() && model_path.is_dir();
@@ -315,6 +345,73 @@ impl ModelManager {
         Ok(())
     }
 
+    pub fn add_custom_model(&self, path: &str, engine_type: EngineType) -> Result<ModelInfo> {
+        let model_path = Path::new(path);
+        if !model_path.exists() {
+            anyhow::bail!("Path does not exist: {}", path);
+        }
+
+        let is_directory = model_path.is_dir();
+        let name = model_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.to_string());
+
+        let mut hasher = DefaultHasher::new();
+        path.hash(&mut hasher);
+        let hash = hasher.finish();
+        let id = format!("custom:{:x}", hash);
+
+        let model_info = ModelInfo {
+            id: id.clone(),
+            name: format!("Custom: {}", name),
+            description: format!("Custom model at {}", path),
+            filename: path.to_string(),
+            url: None,
+            size_mb: 0,
+            is_downloaded: true,
+            is_downloading: false,
+            is_directory,
+            engine_type,
+            accuracy_score: 0.0,
+            speed_score: 0.0,
+            supports_translation: false,
+            is_recommended: false,
+            supported_languages: vec![],
+            supports_language_selection: false,
+            is_custom: true,
+        };
+
+        {
+            let mut models = self.available_models.lock().unwrap();
+            models.insert(id.clone(), model_info.clone());
+        }
+        self.persist_custom_models()?;
+        Ok(model_info)
+    }
+
+    pub fn remove_custom_model(&self, model_id: &str) -> Result<()> {
+        {
+            let mut models = self.available_models.lock().unwrap();
+            let is_custom = models.get(model_id).map(|m| m.is_custom).unwrap_or(false);
+            if !is_custom {
+                anyhow::bail!("Model is not a custom model: {}", model_id);
+            }
+            models.remove(model_id);
+        }
+        self.persist_custom_models()?;
+        Ok(())
+    }
+
+    fn persist_custom_models(&self) -> Result<()> {
+        let models = self.available_models.lock().unwrap();
+        let custom: Vec<&ModelInfo> = models.values().filter(|m| m.is_custom).collect();
+        let json = serde_json::to_string_pretty(&custom)?;
+        let path = self.models_dir.join("custom_models.json");
+        fs::write(path, json)?;
+        Ok(())
+    }
+
     pub fn cancel_download(&self, model_id: &str) -> Result<()> {
         {
             let flags = self.cancel_flags.lock().unwrap();
@@ -432,6 +529,7 @@ fn build_model_catalog() -> HashMap<String, ModelInfo> {
                     is_recommended: $rec,
                     supported_languages: $langs,
                     supports_language_selection: $lang_sel,
+                    is_custom: false,
                 },
             );
         };
