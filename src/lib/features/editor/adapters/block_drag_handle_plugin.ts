@@ -23,6 +23,13 @@ function resolve_top_level_block(
   return { pos: top_pos, node };
 }
 
+function create_overlay_element(): HTMLDivElement {
+  const overlay = document.createElement("div");
+  overlay.className = "block-drag-handle-overlay";
+  overlay.contentEditable = "false";
+  return overlay;
+}
+
 function create_handle_element(): HTMLDivElement {
   const handle = document.createElement("div");
   handle.className = "block-drag-handle";
@@ -73,6 +80,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     },
 
     view(editor_view: EditorView) {
+      const overlay = create_overlay_element();
       const handle = create_handle_element();
       let current_block_pos: number | null = null;
       let is_dragging = false;
@@ -80,7 +88,8 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       const editor_dom = editor_view.dom;
 
       editor_dom.style.position = "relative";
-      editor_dom.appendChild(handle);
+      overlay.appendChild(handle);
+      editor_dom.appendChild(overlay);
 
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
@@ -230,7 +239,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           handle.removeEventListener("mouseleave", on_handle_mouseleave);
           handle.removeEventListener("dragstart", on_dragstart);
           handle.removeEventListener("dragend", on_dragend);
-          handle.remove();
+          overlay.remove();
         },
       };
     },
