@@ -9,6 +9,8 @@ import {
 
 const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
 
+const HIDE_DELAY_MS = 150;
+
 function resolve_top_level_block(
   view: EditorView,
   pos: number,
@@ -84,21 +86,29 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       const handle = create_handle_element();
       let current_block_pos: number | null = null;
       let is_dragging = false;
+      let hide_timer: ReturnType<typeof setTimeout> | null = null;
 
       const editor_dom = editor_view.dom;
 
-      editor_dom.style.position = "relative";
-      overlay.appendChild(handle);
-      editor_dom.appendChild(overlay);
+      if (!editor_dom.parentElement) {
+        return {};
+      }
 
-      console.log("[drag] mounted", {
-        has_feature_class: editor_view.dom.closest(".show-block-drag-handle") !== null,
-        editor_class: editor_view.dom.className,
-        parent_class: editor_view.dom.parentElement?.className,
-      });
+      const mount_target: HTMLElement = editor_dom.parentElement;
+
+      mount_target.style.position = "relative";
+      overlay.appendChild(handle);
+      mount_target.appendChild(overlay);
 
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
+      }
+
+      function cancel_pending_hide() {
+        if (hide_timer !== null) {
+          clearTimeout(hide_timer);
+          hide_timer = null;
+        }
       }
 
       function position_handle(view: EditorView, block_pos: number) {
@@ -114,10 +124,14 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           return;
         }
 
-        const editor_rect = view.dom.getBoundingClientRect();
+        cancel_pending_hide();
+
+        const mount_target_rect = mount_target.getBoundingClientRect();
         const block_rect = dom_node.getBoundingClientRect();
 
-        handle.style.top = `${String(block_rect.top - editor_rect.top + view.dom.scrollTop)}px`;
+        overlay.style.left = `${String(editor_dom.offsetLeft)}px`;
+        overlay.style.width = `${String(editor_dom.offsetWidth)}px`;
+        handle.style.top = `${String(block_rect.top - mount_target_rect.top + mount_target.scrollTop)}px`;
         handle.style.display = "";
         handle.classList.add("block-drag-handle--near");
         handle.dataset["blockPos"] = String(block_pos);
@@ -125,28 +139,41 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       }
 
       function hide_handle() {
+        cancel_pending_hide();
         handle.style.display = "none";
         handle.classList.remove("block-drag-handle--near");
         handle.removeAttribute("data-block-pos");
         current_block_pos = null;
       }
 
+      function schedule_hide() {
+        cancel_pending_hide();
+        hide_timer = setTimeout(() => {
+          hide_timer = null;
+          if (!handle.matches(":hover")) {
+            hide_handle();
+          }
+        }, HIDE_DELAY_MS);
+      }
+
       function on_mousemove(event: MouseEvent) {
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
+
+        cancel_pending_hide();
 
         const pos_info = editor_view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
         });
         if (!pos_info) {
-          hide_handle();
+          schedule_hide();
           return;
         }
 
         const block = resolve_top_level_block(editor_view, pos_info.pos);
         if (!block) {
-          hide_handle();
+          schedule_hide();
           return;
         }
 
@@ -155,14 +182,13 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         }
       }
 
-      function on_mouseleave(event: MouseEvent) {
+      function on_mouseleave() {
         if (is_dragging) return;
-        const related = event.relatedTarget;
-        if (related === handle || handle.contains(related as Node)) return;
-        hide_handle();
+        schedule_hide();
       }
 
       function on_handle_mouseenter() {
+        cancel_pending_hide();
         handle.classList.add("block-drag-handle--hover");
       }
 
@@ -239,6 +265,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         },
 
         destroy() {
+          cancel_pending_hide();
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
           handle.removeEventListener("mouseenter", on_handle_mouseenter);
