@@ -46,6 +46,9 @@
       <Loader class="SttIndicator__icon SttIndicator__spinner" />
     {:else}
       <Mic class="SttIndicator__icon" />
+      {#if is_recording}
+        <span class="SttIndicator__pulse"></span>
+      {/if}
     {/if}
   </button>
 {/if}
@@ -79,11 +82,34 @@
   .SttIndicator--recording {
     color: var(--destructive);
     opacity: 1;
+    position: relative;
   }
 
   .SttIndicator--recording:hover {
     color: var(--destructive);
     opacity: 1;
+  }
+
+  .SttIndicator__pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-sm);
+    background: var(--destructive);
+    opacity: 0;
+    pointer-events: none;
+    animation: stt-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes stt-pulse {
+    0%,
+    100% {
+      opacity: 0;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.2;
+      transform: scale(1.3);
+    }
   }
 
   .SttIndicator--processing {
