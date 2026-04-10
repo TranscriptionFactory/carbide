@@ -2,20 +2,22 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { SttService } from "$lib/features/stt/application/stt_service";
 import type { SttStore } from "$lib/features/stt/state/stt_store.svelte";
+import type { UIStore } from "$lib/app";
 import { toast } from "svelte-sonner";
 
 export function register_stt_actions(input: {
   registry: ActionRegistry;
   stt_service: SttService;
   stt_store: SttStore;
+  ui_store: UIStore;
 }) {
-  const { registry, stt_service, stt_store } = input;
+  const { registry, stt_service, stt_store, ui_store } = input;
 
   registry.register({
     id: ACTION_IDS.stt_toggle_recording,
     label: "Toggle Voice Recording",
     execute: async () => {
-      if (!stt_store.config.enabled) {
+      if (!ui_store.editor_settings.stt_enabled) {
         toast.info("Speech-to-text is not enabled. Enable it in Settings.");
         return;
       }

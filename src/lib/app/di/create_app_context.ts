@@ -923,6 +923,7 @@ export function create_app_context(input: {
     registry: action_registry,
     stt_service,
     stt_store: stores.stt,
+    ui_store: stores.ui,
   });
 
   register_vim_nav_actions({
