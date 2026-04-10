@@ -322,7 +322,7 @@
 
 .block-drag-handle {
   position: absolute;
-  left: -0.75rem;
+  left: -0.5rem;
   width: 1.25rem;
   height: 1.5rem;
   cursor: grab;
@@ -334,7 +334,6 @@
   user-select: none;
   pointer-events: auto;
   border-radius: var(--radius-sm, 3px);
-  transform: translateY(0.2rem);
 }
 
 .show-block-drag-handle .block-drag-handle {

@@ -150,9 +150,16 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         const mount_target_rect = mount_target.getBoundingClientRect();
         const block_rect = dom_node.getBoundingClientRect();
 
+        const style = getComputedStyle(dom_node);
+        const line_height = parseFloat(style.lineHeight) || block_rect.height;
+        const padding_top = parseFloat(style.paddingTop) || 0;
+        const handle_height = handle.offsetHeight || 24;
+        const baseline_offset =
+          padding_top + line_height * 0.8 - handle_height;
+
         overlay.style.left = `${String(editor_dom.offsetLeft)}px`;
         overlay.style.width = `${String(editor_dom.offsetWidth)}px`;
-        handle.style.top = `${String(block_rect.top - mount_target_rect.top + mount_target.scrollTop)}px`;
+        handle.style.top = `${String(block_rect.top - mount_target_rect.top + mount_target.scrollTop + baseline_offset)}px`;
         handle.style.display = "";
         handle.classList.add("block-drag-handle--near");
         handle.dataset["blockPos"] = String(block_pos);
