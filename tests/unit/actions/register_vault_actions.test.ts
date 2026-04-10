@@ -16,6 +16,7 @@ import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
+import { SttStore } from "$lib/features/stt";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import {
   create_open_note_state,
@@ -40,6 +41,7 @@ function create_vault_actions_harness() {
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
+    stt: new SttStore(),
   };
 
   const services = {

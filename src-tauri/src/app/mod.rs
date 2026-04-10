@@ -116,6 +116,7 @@ pub fn run() {
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(features::mcp::http::HttpServerState::default())
+        .manage(features::stt::SttAudioState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -153,6 +154,32 @@ pub fn run() {
                     let _ = window.emit("menu-action", id);
                 }
             });
+
+            // Initialize STT model manager and transcription state
+            let app_handle = app.handle().clone();
+            match features::stt::models::ModelManager::new(&app_handle) {
+                Ok(manager) => {
+                    let manager = std::sync::Arc::new(manager);
+                    app.manage(features::stt::SttModelState {
+                        manager: manager.clone(),
+                    });
+                    match features::stt::transcription::SttTranscriptionState::new(
+                        &app_handle,
+                        manager,
+                    ) {
+                        Ok(transcription_state) => {
+                            app.manage(transcription_state);
+                        }
+                        Err(e) => {
+                            log::error!("Failed to initialize STT transcription: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to initialize STT model manager: {}", e);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -354,6 +381,19 @@ pub fn run() {
             features::smart_links::smart_links_load_rules,
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,
+            features::stt::stt_start_recording,
+            features::stt::stt_stop_recording,
+            features::stt::stt_cancel_recording,
+            features::stt::stt_list_audio_devices,
+            features::stt::stt_get_recording_state,
+            features::stt::stt_list_models,
+            features::stt::stt_download_model,
+            features::stt::stt_delete_model,
+            features::stt::stt_cancel_download,
+            features::stt::stt_load_model,
+            features::stt::stt_unload_model,
+            features::stt::stt_transcribe,
+            features::stt::stt_transcribe_file,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();

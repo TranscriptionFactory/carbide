@@ -255,5 +255,36 @@ export function create_test_ports(): Ports {
       uninstall_cli: () =>
         Promise.resolve({ success: true, path: "", message: "" }),
     },
+    stt: {
+      start_recording: () => Promise.resolve(),
+      stop_recording: () => Promise.resolve([]),
+      cancel_recording: () => Promise.resolve(),
+      get_recording_state: () => Promise.resolve("idle"),
+      list_models: () => Promise.resolve([]),
+      download_model: () => Promise.resolve(),
+      delete_model: () => Promise.resolve(),
+      cancel_download: () => Promise.resolve(),
+      load_model: () => Promise.resolve(),
+      unload_model: () => Promise.resolve(),
+      transcribe: () =>
+        Promise.resolve({
+          text: "",
+          language: null,
+          duration_ms: 0,
+          model_id: "",
+        }),
+      transcribe_file: () =>
+        Promise.resolve({
+          text: "",
+          language: null,
+          duration_ms: 0,
+          model_id: "",
+        }),
+      list_audio_devices: () => Promise.resolve([]),
+      subscribe_audio_levels: () => () => {},
+      subscribe_download_progress: () => () => {},
+      subscribe_model_state: () => () => {},
+      subscribe_recording_state: () => () => {},
+    },
   };
 }

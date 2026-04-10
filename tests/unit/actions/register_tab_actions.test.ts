@@ -21,6 +21,7 @@ import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
+import { SttStore } from "$lib/features/stt";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
@@ -88,6 +89,7 @@ function create_tab_actions_harness() {
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
+    stt: new SttStore(),
   };
   stores.vault.set_vault(create_test_vault());
 

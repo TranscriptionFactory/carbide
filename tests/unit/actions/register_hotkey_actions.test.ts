@@ -16,6 +16,7 @@ import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
+import { SttStore } from "$lib/features/stt";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
 
@@ -51,6 +52,7 @@ function create_harness() {
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
+    stt: new SttStore(),
   };
 
   const services = {
