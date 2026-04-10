@@ -10,7 +10,7 @@ export function create_stt_settings_sync_reactor(
       if (!ui_store.editor_settings_loaded) return;
 
       const s = ui_store.editor_settings;
-      stt_store.update_config({
+      stt_store.config = {
         enabled: s.stt_enabled,
         model_id: s.stt_model_id,
         language: s.stt_language,
@@ -22,7 +22,7 @@ export function create_stt_settings_sync_reactor(
         streaming_enabled: s.stt_streaming_enabled,
         ai_cleanup_enabled: s.stt_ai_cleanup_enabled,
         ai_cleanup_prompt: s.stt_ai_cleanup_prompt,
-      });
+      };
     });
   });
 }
