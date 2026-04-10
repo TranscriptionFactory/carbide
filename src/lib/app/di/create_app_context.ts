@@ -613,6 +613,8 @@ export function create_app_context(input: {
     now_ms,
   );
 
+  void stt_service.refresh_models();
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
