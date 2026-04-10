@@ -53,6 +53,24 @@ describe("filter_folder_paths", () => {
     const result = filter_folder_paths("nonexistent", folders);
     expect(result).toEqual([]);
   });
+
+  it("matches nested paths typed with intermediate slash", () => {
+    const result = filter_folder_paths("notes/d", folders);
+    expect(result).toEqual(["notes/daily", "notes/daily/2024"]);
+  });
+
+  it("trailing slash shows parent and children", () => {
+    const result = filter_folder_paths("notes/", folders);
+    expect(result).toContain("notes");
+    expect(result).toContain("notes/daily");
+    expect(result).toContain("notes/weekly");
+  });
+
+  it("deeply nested trailing slash filters correctly", () => {
+    const result = filter_folder_paths("notes/daily/", folders);
+    expect(result).toContain("notes/daily");
+    expect(result).toContain("notes/daily/2024");
+  });
 });
 
 describe("longest_common_prefix", () => {

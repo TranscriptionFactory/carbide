@@ -34,8 +34,9 @@
   const filtered = $derived(filter_folder_paths(query, folder_paths));
 
   function commit(path: string) {
-    query = path;
-    on_change(path);
+    const clean = path.replace(/\/+$/, "");
+    query = clean;
+    on_change(clean);
     show_dropdown = false;
     selected_index = 0;
   }
@@ -83,7 +84,7 @@
   }
 
   function on_input(e: Event) {
-    query = (e.currentTarget as HTMLInputElement).value.replace(/\/$/, "");
+    query = (e.currentTarget as HTMLInputElement).value;
     show_dropdown = true;
     selected_index = 0;
   }
@@ -100,17 +101,20 @@
 </script>
 
 <div class="FolderSuggest">
-  <input
-    class="FolderSuggest__input"
-    type="text"
-    value={query ? `${query}/` : ""}
-    {placeholder}
-    {disabled}
-    oninput={on_input}
-    onkeydown={on_keydown}
-    onfocus={on_focus}
-    onblur={on_blur}
-  />
+  <div class="FolderSuggest__input-wrapper">
+    <input
+      class="FolderSuggest__input"
+      type="text"
+      value={query}
+      {placeholder}
+      {disabled}
+      oninput={on_input}
+      onkeydown={on_keydown}
+      onfocus={on_focus}
+      onblur={on_blur}
+    />
+    <span class="FolderSuggest__suffix">/</span>
+  </div>
   {#if show_dropdown && filtered.length > 0}
     <div class="FolderSuggest__dropdown">
       {#each filtered as folder, i (folder)}
@@ -136,6 +140,13 @@
     width: 100%;
   }
 
+  .FolderSuggest__input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
   .FolderSuggest__input {
     border: 1px solid var(--border);
     background: var(--background);
@@ -144,13 +155,22 @@
     width: 100%;
     min-width: 0;
     border-radius: calc(var(--radius) - 2px);
-    padding: 0.25rem 0.75rem;
+    padding: 0.25rem 1.25rem 0.25rem 0.75rem;
     font-size: 0.875rem;
     outline: none;
     transition:
       color 0.15s,
       box-shadow 0.15s;
     box-shadow: var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+  }
+
+  .FolderSuggest__suffix {
+    position: absolute;
+    right: 0.5rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    pointer-events: none;
+    user-select: none;
   }
 
   .FolderSuggest__input::placeholder {
@@ -162,6 +182,10 @@
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent),
       var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+  }
+
+  .FolderSuggest__input:placeholder-shown ~ .FolderSuggest__suffix {
+    display: none;
   }
 
   .FolderSuggest__input:disabled {
