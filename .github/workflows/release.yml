@@ -50,7 +50,7 @@ jobs:
             librsvg2-dev \
             libasound2-dev \
             libvulkan-dev \
-            glslc \
+            shaderc \
             patchelf
 
       - uses: dtolnay/rust-toolchain@stable
@@ -162,7 +162,7 @@ jobs:
             librsvg2-dev \
             libasound2-dev \
             libvulkan-dev \
-            glslc \
+            shaderc \
             patchelf
 
       - uses: dtolnay/rust-toolchain@stable
