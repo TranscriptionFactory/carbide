@@ -9,7 +9,7 @@
   --editor-max-width: min(85ch, 90%);
   --editor-spacing: 1.5rem;
   --editor-padding-block: var(--space-12);
-  --editor-padding-inline: var(--space-8);
+  --editor-padding-inline: 3.25rem;
   --editor-source-bg: var(--background);
   --editor-heading-color: var(--foreground);
   --editor-heading-weight: 500;
