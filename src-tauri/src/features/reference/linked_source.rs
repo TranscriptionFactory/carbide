@@ -578,7 +578,7 @@ fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
         .collect();
 
     let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
+        .num_threads(2)
         .build()
         .map_err(|e| format!("rayon pool: {e}"))?;
 
@@ -666,7 +666,7 @@ pub async fn linked_source_list_files(
 
 #[tauri::command]
 #[specta::specta]
-pub fn linked_source_index_content(
+pub async fn linked_source_index_content(
     app: tauri::AppHandle,
     vault_id: String,
     source_name: String,
@@ -678,44 +678,59 @@ pub fn linked_source_index_content(
     modified_at: u64,
     linked_meta: crate::features::search::model::LinkedSourceMeta,
 ) -> Result<(), String> {
-    crate::features::search::service::linked_source_index(
-        &app,
-        &vault_id,
-        &source_name,
-        &file_path,
-        &title,
-        &body,
-        &page_offsets,
-        &file_type,
-        modified_at,
-        linked_meta,
-    )
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::features::search::service::linked_source_index(
+            &app_clone,
+            &vault_id,
+            &source_name,
+            &file_path,
+            &title,
+            &body,
+            &page_offsets,
+            &file_type,
+            modified_at,
+            linked_meta,
+        )
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn linked_source_remove_content(
+pub async fn linked_source_remove_content(
     app: tauri::AppHandle,
     vault_id: String,
     source_name: String,
     file_path: String,
 ) -> Result<(), String> {
-    crate::features::search::service::linked_source_remove(
-        &app,
-        &vault_id,
-        &source_name,
-        &file_path,
-    )
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::features::search::service::linked_source_remove(
+            &app_clone,
+            &vault_id,
+            &source_name,
+            &file_path,
+        )
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn linked_source_clear_source(
+pub async fn linked_source_clear_source(
     app: tauri::AppHandle,
     vault_id: String,
     source_name: String,
 ) -> Result<(), String> {
-    crate::features::search::service::linked_source_clear(&app, &vault_id, &source_name)
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::features::search::service::linked_source_clear(&app_clone, &vault_id, &source_name)
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 #[tauri::command]
