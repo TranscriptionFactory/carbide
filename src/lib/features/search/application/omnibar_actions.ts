@@ -66,6 +66,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   copy_as_html: ACTION_IDS.note_copy_html,
   rename_note: ACTION_IDS.note_request_rename,
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
+  update_embeddings: ACTION_IDS.vault_update_embeddings,
+  rebuild_embeddings: ACTION_IDS.vault_rebuild_embeddings,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

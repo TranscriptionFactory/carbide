@@ -440,4 +440,22 @@ export function register_vault_actions(input: ActionRegistrationInput) {
       }
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.vault_update_embeddings,
+    label: "Update Embeddings",
+    when: () => stores.vault.is_vault_mode,
+    execute: async () => {
+      await services.search.update_embeddings();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.vault_rebuild_embeddings,
+    label: "Rebuild All Embeddings",
+    when: () => stores.vault.is_vault_mode,
+    execute: async () => {
+      await services.search.rebuild_all_embeddings();
+    },
+  });
 }

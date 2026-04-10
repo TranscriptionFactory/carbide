@@ -779,4 +779,37 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "Navigation",
     keywords: ["vim", "navigation", "keyboard", "keybinding", "hjkl", "modal"],
   },
+  {
+    key: "embedding_note_enabled",
+    label: "Note Embedding",
+    description:
+      "Generate embeddings for entire notes (used by semantic search and suggested links)",
+    category: "Semantic",
+    keywords: [
+      "embedding",
+      "note",
+      "semantic",
+      "disable",
+      "enable",
+      "performance",
+      "battery",
+    ],
+  },
+  {
+    key: "embedding_block_enabled",
+    label: "Block Embedding",
+    description:
+      "Generate embeddings for individual note sections (used by block-level semantic search)",
+    category: "Semantic",
+    keywords: [
+      "embedding",
+      "block",
+      "section",
+      "semantic",
+      "disable",
+      "enable",
+      "performance",
+      "battery",
+    ],
+  },
 ];
