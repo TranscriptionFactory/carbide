@@ -41,6 +41,7 @@ import { create_reference_library_load_reactor } from "$lib/reactors/reference_l
 import { create_linked_source_tree_reactor } from "$lib/reactors/linked_source_tree.reactor.svelte";
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
+import { create_stt_settings_sync_reactor } from "$lib/reactors/stt_settings_sync.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
@@ -82,6 +83,7 @@ import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
+import type { SttStore } from "$lib/features/stt";
 
 export type ReactorContext = {
   editor_store: EditorStore;
@@ -128,6 +130,7 @@ export type ReactorContext = {
   reference_service: ReferenceService;
   reference_store: ReferenceStore;
   mcp_service: McpService;
+  stt_store: SttStore;
 };
 
 export function mount_reactors(context: ReactorContext): () => void {
@@ -357,6 +360,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.ui_store,
       context.mcp_service,
     ),
+    create_stt_settings_sync_reactor(context.ui_store, context.stt_store),
   ];
 
   return () => {
