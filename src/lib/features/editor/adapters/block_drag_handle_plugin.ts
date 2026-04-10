@@ -91,6 +91,12 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       overlay.appendChild(handle);
       editor_dom.appendChild(overlay);
 
+      console.log("[drag] mounted", {
+        has_feature_class: editor_view.dom.closest(".show-block-drag-handle") !== null,
+        editor_class: editor_view.dom.className,
+        parent_class: editor_view.dom.parentElement?.className,
+      });
+
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
       }
