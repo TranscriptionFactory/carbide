@@ -312,6 +312,14 @@
    BLOCK DRAG HANDLE
    ============================================ */
 
+.block-drag-handle-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .block-drag-handle {
   position: absolute;
   left: 0.25rem;
@@ -324,7 +332,7 @@
   align-items: center;
   justify-content: center;
   user-select: none;
-  z-index: 2;
+  pointer-events: auto;
   border-radius: var(--radius-sm, 3px);
 }
 
@@ -333,22 +341,22 @@
 }
 
 .block-drag-handle-always .block-drag-handle {
-  opacity: 0.5;
+  opacity: 0.35;
 }
 
 /* on_hover mode: fade in when mouse is near a block */
 .show-block-drag-handle:not(.block-drag-handle-always)
   .block-drag-handle--near {
-  opacity: 0.6;
+  opacity: 0.4;
 }
 
 /* always mode: bump slightly when mouse is near */
 .block-drag-handle-always .block-drag-handle--near {
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 .block-drag-handle--hover {
-  opacity: 1;
+  opacity: 0.8;
   background: var(--background-surface-2, oklch(0.95 0 0));
 }
 
@@ -362,16 +370,11 @@
   height: 14px;
   background-image: radial-gradient(
     circle,
-    var(--muted-foreground) 1.2px,
-    transparent 1.2px
+    var(--muted-foreground) 1px,
+    transparent 1px
   );
   background-size: 4px 4px;
   background-position: 0 1px;
-  opacity: 0.7;
-}
-
-.block-drag-handle--hover .block-drag-handle__grip {
-  opacity: 0.9;
 }
 
 /* ============================================

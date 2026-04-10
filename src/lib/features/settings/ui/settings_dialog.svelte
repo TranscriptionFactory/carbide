@@ -3472,7 +3472,6 @@
               </div>
             </div>
           </div>
-
           <div class="SettingsDialog__section-divider"></div>
           <h3 class="SettingsDialog__section-subheader">Smart Link Rules</h3>
           <div class="SettingsDialog__section-content">
