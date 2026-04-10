@@ -980,6 +980,7 @@ export function create_app_context(input: {
     reference_store: stores.reference,
     mcp_service,
     stt_store: stores.stt,
+    stt_service,
   });
 
   return {
