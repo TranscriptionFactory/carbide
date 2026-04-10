@@ -6,11 +6,17 @@ import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
-import { create_shiki_prose_plugin } from "$lib/features/editor/adapters/shiki_plugin";
-import { get_highlighter } from "$lib/features/editor/adapters/shiki_highlighter";
+import {
+  create_shiki_prose_plugin,
+  shiki_plugin_key,
+  load_shiki_module,
+} from "$lib/features/editor/adapters/shiki_plugin";
 
-beforeAll(() => {
-  get_highlighter();
+let shiki_mod: Awaited<ReturnType<typeof load_shiki_module>>;
+
+beforeAll(async () => {
+  shiki_mod = await load_shiki_module();
+  shiki_mod.get_highlighter();
 });
 
 let active_view: EditorView | null = null;
@@ -51,6 +57,11 @@ function create_editor(
       view.updateState(new_state);
     },
   });
+
+  // Trigger shiki re-decoration now that the module is loaded
+  const theme = shiki_mod.resolve_theme();
+  const tr = view.state.tr.setMeta(shiki_plugin_key, { theme });
+  view.dispatch(tr);
 
   active_view = view;
   active_container = container;

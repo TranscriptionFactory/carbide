@@ -22,8 +22,16 @@ export type {
   EditorSelectionSnapshot,
 } from "$lib/shared/types/editor";
 export { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
-export { load_shiki_theme } from "$lib/features/editor/adapters/shiki_highlighter";
-export { resolve_source_shiki_vars } from "$lib/features/editor/adapters/shiki_source_theme";
+export async function load_shiki_theme(name: string): Promise<boolean> {
+  const mod = await import("$lib/features/editor/adapters/shiki_highlighter");
+  return mod.load_shiki_theme(name);
+}
+export async function resolve_source_shiki_vars(
+  theme_name: string,
+): Promise<Record<string, string>> {
+  const mod = await import("$lib/features/editor/adapters/shiki_source_theme");
+  return mod.resolve_source_shiki_vars(theme_name);
+}
 export {
   MARKDOWN_HARD_BREAK,
   insert_markdown_hard_break,

@@ -2,12 +2,20 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
-import {
-  get_highlighter_sync,
-  resolve_language,
-  resolve_theme,
-  load_shiki_theme,
-} from "./shiki_highlighter";
+
+const DEFAULT_LIGHT_THEME = "github-light";
+
+let _shiki_mod: typeof import("./shiki_highlighter") | null = null;
+let _shiki_loading: Promise<typeof import("./shiki_highlighter")> | null = null;
+
+export function load_shiki_module(): Promise<
+  typeof import("./shiki_highlighter")
+> {
+  return (_shiki_loading ??= import("./shiki_highlighter").then((mod) => {
+    _shiki_mod = mod;
+    return mod;
+  }));
+}
 
 export const shiki_plugin_key = new PluginKey<ShikiPluginState>(
   "shiki-highlight",
@@ -44,7 +52,7 @@ function build_decorations(
     if (!code) return;
 
     const raw_lang = node.attrs.language as string | null | undefined;
-    const lang = resolve_language(raw_lang);
+    const lang = _shiki_mod?.resolve_language(raw_lang) ?? null;
     if (!lang) return;
 
     try {
@@ -94,8 +102,8 @@ export function create_shiki_prose_plugin(): Plugin {
 
     state: {
       init(_, { doc }): ShikiPluginState {
-        const highlighter = get_highlighter_sync();
-        const theme = resolve_theme();
+        const highlighter = _shiki_mod?.get_highlighter_sync() ?? null;
+        const theme = _shiki_mod?.resolve_theme() ?? DEFAULT_LIGHT_THEME;
         const fp = compute_code_fingerprint(doc);
         if (!highlighter) {
           return {
@@ -122,7 +130,7 @@ export function create_shiki_prose_plugin(): Plugin {
           return prev_state;
         }
 
-        const highlighter = get_highlighter_sync();
+        const highlighter = _shiki_mod?.get_highlighter_sync() ?? null;
         if (!highlighter) {
           return {
             ...prev_state,
@@ -166,16 +174,30 @@ export function create_shiki_prose_plugin(): Plugin {
       let destroyed = false;
 
       function load_and_apply(theme_name: string) {
-        void load_shiki_theme(theme_name).then((loaded) => {
-          if (!loaded || destroyed) return;
-          const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
-            theme: theme_name,
+        void load_shiki_module().then((mod) => {
+          if (destroyed) return;
+          return mod.load_shiki_theme(theme_name).then((loaded) => {
+            if (!loaded || destroyed) return;
+            const tr = editor_view.state.tr.setMeta(shiki_plugin_key, {
+              theme: theme_name,
+            });
+            editor_view.dispatch(tr);
           });
-          editor_view.dispatch(tr);
         });
       }
 
-      const initial_theme = resolve_theme();
+      load_shiki_module().then((mod) => {
+        if (destroyed) return;
+        mod.get_highlighter();
+        const theme = mod.resolve_theme();
+        const tr = editor_view.state.tr.setMeta(shiki_plugin_key, { theme });
+        editor_view.dispatch(tr);
+      });
+
+      const resolve_theme_safe = () =>
+        _shiki_mod?.resolve_theme() ?? DEFAULT_LIGHT_THEME;
+
+      const initial_theme = resolve_theme_safe();
       const initial_state = shiki_plugin_key.getState(editor_view.state);
       if (
         initial_state &&
@@ -186,7 +208,7 @@ export function create_shiki_prose_plugin(): Plugin {
       }
 
       theme_observer = new MutationObserver(() => {
-        const new_theme = resolve_theme();
+        const new_theme = resolve_theme_safe();
         const current = shiki_plugin_key.getState(editor_view.state);
         if (current && current.theme !== new_theme) {
           load_and_apply(new_theme);
