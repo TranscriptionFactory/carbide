@@ -39,6 +39,10 @@ import {
 } from "../domain/linked_source_paths";
 import { error_message } from "$lib/shared/utils/error_message";
 
+function yield_to_ui(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 const LINKED_SOURCES_SETTINGS_KEY = "linked_sources";
 
 export class ReferenceService {
@@ -632,10 +636,11 @@ export class ReferenceService {
 
       const new_entries: ScanEntry[] = [];
       const all_errors: string[] = [];
-      const batch_size = 5;
+      const batch_size = 2;
       const total = needs_extraction.length;
 
       for (let i = 0; i < total; i += batch_size) {
+        await yield_to_ui();
         const batch = needs_extraction.slice(i, i + batch_size);
         const extract_results = await Promise.allSettled(
           batch.map((fp) => ls_port.extract_file(fp)),
@@ -650,23 +655,17 @@ export class ReferenceService {
           }
         }
 
-        const index_results = await Promise.allSettled(
-          extracted.map((entry) =>
-            ls_port.index_content(
+        for (const entry of extracted) {
+          try {
+            await ls_port.index_content(
               vault_id,
               source.name,
               entry,
               scan_entry_to_linked_meta(entry, source_id, vault_root, home_dir),
-            ),
-          ),
-        );
-
-        for (let j = 0; j < index_results.length; j++) {
-          const result = index_results[j]!;
-          if (result.status === "fulfilled") {
-            new_entries.push(extracted[j]!);
-          } else {
-            all_errors.push(error_message(result.reason));
+            );
+            new_entries.push(entry);
+          } catch (e) {
+            all_errors.push(error_message(e));
           }
         }
 
@@ -723,8 +722,9 @@ export class ReferenceService {
     const port = this.doi_port;
     const ls_port = this.require_linked_source_port();
 
-    const batch_size = 5;
+    const batch_size = 2;
     for (let i = 0; i < entries.length; i += batch_size) {
+      await yield_to_ui();
       const batch = entries.slice(i, i + batch_size);
       await Promise.allSettled(
         batch.map(async (entry) => {
@@ -806,6 +806,7 @@ export class ReferenceService {
 
     for (const source of sources) {
       if (!source.enabled) continue;
+      await yield_to_ui();
       try {
         await ls_port.list_files(source.path);
       } catch {
