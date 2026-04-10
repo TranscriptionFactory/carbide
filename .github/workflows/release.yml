@@ -49,6 +49,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             libasound2-dev \
+            libvulkan-dev \
+            glslc \
             patchelf
 
       - uses: dtolnay/rust-toolchain@stable
@@ -159,6 +161,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             libasound2-dev \
+            libvulkan-dev \
+            glslc \
             patchelf
 
       - uses: dtolnay/rust-toolchain@stable

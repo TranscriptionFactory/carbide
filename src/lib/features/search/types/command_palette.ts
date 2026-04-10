@@ -59,6 +59,8 @@ export type CommandId =
   | "copy_as_html"
   | "rename_note"
   | "open_in_split_view"
+  | "update_embeddings"
+  | "rebuild_embeddings"
   | (string & {});
 
 export type CommandIcon =
