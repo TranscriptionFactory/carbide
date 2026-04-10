@@ -34,7 +34,6 @@
   }: Props = $props();
 
   const engine_labels: Record<string, string> = {
-    Whisper: "Whisper",
     Parakeet: "Parakeet",
     Moonshine: "Moonshine",
     MoonshineStreaming: "Moonshine (Streaming)",
