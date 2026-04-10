@@ -27,6 +27,14 @@ function manual_chunks(id: string): string | undefined {
     return "editor-viewer";
   }
 
+  if (id.includes("shiki")) {
+    return "shiki";
+  }
+
+  if (id.includes("prosemirror")) {
+    return "prosemirror";
+  }
+
   return undefined;
 }
 
@@ -49,7 +57,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["d3-force"],
+    include: ["d3-force", "shiki/core", "shiki/engine/javascript"],
   },
   ssr: {
     noExternal: ["d3-force"],

@@ -24,7 +24,6 @@ import {
 } from "$lib/features/editor/adapters/cursor_offset_mapper";
 import { count_words } from "$lib/shared/utils/count_words";
 import { create_logger } from "$lib/shared/utils/logger";
-import { init_highlighter } from "./shiki_highlighter";
 import type {
   CursorInfo,
   EditorSelectionSnapshot,
@@ -57,8 +56,6 @@ import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_exte
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 
 const log = create_logger("prosemirror_adapter");
-
-init_highlighter();
 
 const LARGE_DOC_LINE_THRESHOLD = 8000;
 const LARGE_DOC_CHAR_THRESHOLD = 400_000;

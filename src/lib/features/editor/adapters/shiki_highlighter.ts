@@ -108,7 +108,7 @@ const LANG_ALIASES: Record<string, string> = {
 let _highlighter: HighlighterCore | null = null;
 let _supported_langs: Set<string> | null = null;
 
-function get_highlighter(): HighlighterCore {
+export function get_highlighter(): HighlighterCore {
   if (!_highlighter) {
     _highlighter = createHighlighterCoreSync({
       engine: createJavaScriptRegexEngine(),
@@ -118,14 +118,6 @@ function get_highlighter(): HighlighterCore {
     _supported_langs = new Set(_highlighter.getLoadedLanguages());
   }
   return _highlighter;
-}
-
-export function init_highlighter(): void {
-  try {
-    get_highlighter();
-  } catch (error) {
-    log.from_error("Failed to initialize Shiki highlighter:", error);
-  }
 }
 
 export function get_highlighter_sync(): HighlighterCore | null {

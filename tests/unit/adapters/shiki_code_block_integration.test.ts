@@ -7,10 +7,10 @@ import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
 import { create_shiki_prose_plugin } from "$lib/features/editor/adapters/shiki_plugin";
-import { init_highlighter } from "$lib/features/editor/adapters/shiki_highlighter";
+import { get_highlighter } from "$lib/features/editor/adapters/shiki_highlighter";
 
 beforeAll(() => {
-  init_highlighter();
+  get_highlighter();
 });
 
 let active_view: EditorView | null = null;
