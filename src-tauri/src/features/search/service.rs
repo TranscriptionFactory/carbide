@@ -1295,7 +1295,7 @@ fn handle_embed_batch(
 
     let start = Instant::now();
     let mut embedded = 0usize;
-    let batch_size = 5;
+    let batch_size = 50;
 
     for chunk in notes_needing_embedding.chunks(batch_size) {
         if cancel.load(Ordering::Relaxed) {
@@ -1357,7 +1357,7 @@ fn handle_embed_batch(
             },
         );
 
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
 
     handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index);
@@ -1419,7 +1419,7 @@ fn handle_block_embed_batch(
         },
     );
 
-    let batch_size = 5;
+    let batch_size = 50;
     let mut block_embedded = 0usize;
     let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
 
@@ -1490,7 +1490,7 @@ fn handle_block_embed_batch(
             }
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
 
     if block_embedded > 0 {
