@@ -1,11 +1,12 @@
-import { Plugin, PluginKey, NodeSelection } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
 import {
-  compute_block_drop,
+  compute_section_drop,
   apply_block_move,
 } from "../domain/compute_block_drop";
+import { compute_heading_ranges } from "./heading_fold_plugin";
 
 const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
 
@@ -47,27 +48,47 @@ function create_handle_element(): HTMLDivElement {
   return handle;
 }
 
+function compute_drag_range(
+  view: EditorView,
+  block_pos: number,
+): { from: number; to: number } | null {
+  const node = view.state.doc.nodeAt(block_pos);
+  if (!node) return null;
+
+  if (node.type.name === "heading") {
+    const ranges = compute_heading_ranges(view.state.doc);
+    const range = ranges.find((r) => r.heading_pos === block_pos);
+    if (range) {
+      return { from: range.heading_pos, to: range.body_end };
+    }
+    return { from: block_pos, to: block_pos + node.nodeSize };
+  }
+
+  return { from: block_pos, to: block_pos + node.nodeSize };
+}
+
 export function create_block_drag_handle_prose_plugin(): Plugin {
-  let dragging_from: number | null = null;
+  let dragging_range: { from: number; to: number } | null = null;
 
   return new Plugin({
     key: block_drag_handle_plugin_key,
 
     props: {
       handleDrop(view, event, _slice, moved) {
-        if (dragging_from == null) return false;
+        if (dragging_range == null) return false;
         if (!moved) return false;
 
-        const source_pos = dragging_from;
+        const range = dragging_range;
         const coords = view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
         });
         if (!coords) return false;
 
-        const result = compute_block_drop(
+        const result = compute_section_drop(
           view.state.doc,
-          source_pos,
+          range.from,
+          range.to,
           coords.pos,
         );
         if (!result) return false;
@@ -76,7 +97,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         apply_block_move(tr, result);
         view.dispatch(tr);
 
-        dragging_from = null;
+        dragging_range = null;
         return true;
       },
     },
@@ -207,19 +228,22 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       function on_dragstart(event: DragEvent) {
         if (current_block_pos === null) return;
 
-        const node = editor_view.state.doc.nodeAt(current_block_pos);
-        if (!node) return;
+        const range = compute_drag_range(editor_view, current_block_pos);
+        if (!range) return;
 
         is_dragging = true;
         handle.classList.add("block-drag-handle--dragging");
 
-        dragging_from = current_block_pos;
+        dragging_range = range;
 
-        const sel = NodeSelection.create(
+        const sel = TextSelection.create(
           editor_view.state.doc,
-          current_block_pos,
+          range.from,
+          range.to,
         );
         editor_view.dispatch(editor_view.state.tr.setSelection(sel));
+
+        const slice = editor_view.state.doc.slice(range.from, range.to);
 
         const dom_node = editor_view.nodeDOM(current_block_pos);
         if (dom_node instanceof HTMLElement && event.dataTransfer) {
@@ -228,7 +252,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         }
 
         editor_view.dragging = {
-          slice: sel.content(),
+          slice,
           move: true,
         };
       }
@@ -237,7 +261,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         is_dragging = false;
         handle.classList.remove("block-drag-handle--dragging");
 
-        dragging_from = null;
+        dragging_range = null;
 
         hide_handle();
       }

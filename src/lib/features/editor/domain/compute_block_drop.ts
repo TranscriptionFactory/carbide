@@ -57,6 +57,21 @@ export function compute_block_drop(
   return { from, to, insert_pos };
 }
 
+export function compute_section_drop(
+  doc: PmNode,
+  section_from: number,
+  section_to: number,
+  raw_drop_pos: number,
+): BlockDropResult | null {
+  if (section_from >= section_to) return null;
+
+  const insert_pos = resolve_drop_target(doc, raw_drop_pos);
+
+  if (insert_pos >= section_from && insert_pos <= section_to) return null;
+
+  return { from: section_from, to: section_to, insert_pos };
+}
+
 export function apply_block_move(
   tr: Transaction,
   result: BlockDropResult,
