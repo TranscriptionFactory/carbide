@@ -431,6 +431,8 @@
     )}
   on_stt_remove_custom_model={(model_id: string) =>
     void action_registry.execute(ACTION_IDS.stt_remove_custom_model, model_id)}
+  on_stt_refresh_models={() =>
+    void action_registry.execute(ACTION_IDS.stt_refresh_models)}
 />
 
 <CreateFolderDialog

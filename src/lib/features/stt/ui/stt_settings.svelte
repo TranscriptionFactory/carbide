@@ -4,6 +4,7 @@
   import { Slider } from "$lib/components/ui/slider";
   import { Input } from "$lib/components/ui/input";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
   import type {
     EditorSettings,
@@ -32,6 +33,7 @@
     on_select_model: (model_id: string) => void;
     on_add_custom_model: (path: string, engine_type: string) => void;
     on_remove_custom_model: (model_id: string) => void;
+    on_refresh_models: () => void;
   };
 
   let {
@@ -47,12 +49,23 @@
     on_select_model,
     on_add_custom_model,
     on_remove_custom_model,
+    on_refresh_models,
   }: Props = $props();
 
   const stt_disabled = $derived(!editor_settings.stt_enabled);
 
   let custom_model_path = $state("");
   let custom_model_engine = $state("Whisper");
+  let models_expanded = $state(false);
+  let models_fetched = $state(false);
+
+  function toggle_models() {
+    models_expanded = !models_expanded;
+    if (models_expanded && !models_fetched) {
+      models_fetched = true;
+      on_refresh_models();
+    }
+  }
 
   const engine_type_options = [
     { value: "Whisper", label: "Whisper" },
@@ -395,74 +408,89 @@
   <div class="SttSettings__separator"></div>
 
   <div class="SttSettings__model-section">
-    <h3 class="SttSettings__section-title">Models</h3>
-    <p class="SttSettings__section-description">
-      Download and manage speech recognition models. Larger models are more
-      accurate but use more memory.
-    </p>
+    <button
+      type="button"
+      class="SttSettings__model-toggle"
+      disabled={stt_disabled}
+      onclick={toggle_models}
+    >
+      <ChevronRight
+        class="SttSettings__model-toggle-icon {models_expanded
+          ? 'SttSettings__model-toggle-icon--open'
+          : ''}"
+      />
+      <div>
+        <h3 class="SttSettings__section-title">Models</h3>
+        <p class="SttSettings__section-description">
+          Download and manage speech recognition models
+        </p>
+      </div>
+    </button>
 
-    <SttModelPicker
-      {models}
-      {active_model_id}
-      {model_loading}
-      {download_progress}
-      on_download={on_download_model}
-      on_delete={on_delete_model}
-      on_select={on_select_model}
-      on_remove_custom={on_remove_custom_model}
-    />
+    {#if models_expanded}
+      <SttModelPicker
+        {models}
+        {active_model_id}
+        {model_loading}
+        {download_progress}
+        on_download={on_download_model}
+        on_delete={on_delete_model}
+        on_select={on_select_model}
+        on_remove_custom={on_remove_custom_model}
+      />
 
-    <div class="SttSettings__custom-model">
-      <h4 class="SttSettings__custom-model-title">Add Custom Model</h4>
-      <div class="SttSettings__custom-model-form">
-        <Input
-          type="text"
-          placeholder="/path/to/model/file/or/directory"
-          disabled={stt_disabled}
-          value={custom_model_path}
-          oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-            custom_model_path = e.currentTarget.value;
-          }}
-        />
-        <div class="SttSettings__custom-model-row">
-          <Select.Root
-            type="single"
+      <div class="SttSettings__custom-model">
+        <h4 class="SttSettings__custom-model-title">Add Custom Model</h4>
+        <div class="SttSettings__custom-model-form">
+          <Input
+            type="text"
+            placeholder="/path/to/model/file/or/directory"
             disabled={stt_disabled}
-            value={custom_model_engine}
-            onValueChange={(v: string | undefined) => {
-              if (v) custom_model_engine = v;
+            value={custom_model_path}
+            oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+              custom_model_path = e.currentTarget.value;
             }}
-          >
-            <Select.Trigger class="w-48">
-              <span data-slot="select-value">
-                {engine_type_options.find(
-                  (o) => o.value === custom_model_engine,
-                )?.label ?? custom_model_engine}
-              </span>
-            </Select.Trigger>
-            <Select.Content>
-              {#each engine_type_options as opt (opt.value)}
-                <Select.Item value={opt.value}>{opt.label}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-          <button
-            type="button"
-            class="SttSettings__add-button"
-            disabled={stt_disabled || !custom_model_path.trim()}
-            onclick={() => {
-              on_add_custom_model(
-                custom_model_path.trim(),
-                custom_model_engine,
-              );
-              custom_model_path = "";
-            }}
-          >
-            Add
-          </button>
+          />
+          <div class="SttSettings__custom-model-row">
+            <Select.Root
+              type="single"
+              disabled={stt_disabled}
+              value={custom_model_engine}
+              onValueChange={(v: string | undefined) => {
+                if (v) custom_model_engine = v;
+              }}
+            >
+              <Select.Trigger class="w-48">
+                <span data-slot="select-value">
+                  {engine_type_options.find(
+                    (o) => o.value === custom_model_engine,
+                  )?.label ?? custom_model_engine}
+                </span>
+              </Select.Trigger>
+              <Select.Content>
+                {#each engine_type_options as opt (opt.value)}
+                  <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                {/each}
+              </Select.Content>
+            </Select.Root>
+            <button
+              type="button"
+              class="SttSettings__add-button"
+              disabled={stt_disabled || !custom_model_path.trim()}
+              onclick={() => {
+                on_add_custom_model(
+                  custom_model_path.trim(),
+                  custom_model_engine,
+                );
+                custom_model_path = "";
+              }}
+            >
+              Add
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    {/if}
   </div>
 </div>
 
@@ -504,6 +532,41 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+
+  .SttSettings__model-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: var(--foreground);
+  }
+
+  .SttSettings__model-toggle:hover:not(:disabled) {
+    background: var(--muted);
+  }
+
+  .SttSettings__model-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  :global(.SttSettings__model-toggle-icon) {
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+    color: var(--muted-foreground);
+    flex-shrink: 0;
+    transition: transform var(--duration-fast) var(--ease-default);
+  }
+
+  :global(.SttSettings__model-toggle-icon--open) {
+    transform: rotate(90deg);
   }
 
   .SttSettings__section-title {

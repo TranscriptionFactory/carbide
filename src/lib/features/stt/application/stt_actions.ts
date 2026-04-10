@@ -102,6 +102,14 @@ export function register_stt_actions(input: {
   });
 
   registry.register({
+    id: ACTION_IDS.stt_refresh_models,
+    label: "Refresh Speech Models",
+    execute: async () => {
+      await stt_service.refresh_models();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.stt_open_settings,
     label: "Speech-to-Text Settings",
     execute: async () => {

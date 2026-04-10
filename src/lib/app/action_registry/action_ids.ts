@@ -362,6 +362,7 @@ export const ACTION_IDS = {
   stt_add_custom_model: "stt.add_custom_model",
   stt_remove_custom_model: "stt.remove_custom_model",
   stt_open_settings: "stt.open_settings",
+  stt_refresh_models: "stt.refresh_models",
   stt_transcribe_file: "stt.transcribe_file",
 } as const;
 

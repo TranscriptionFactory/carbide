@@ -126,6 +126,7 @@
     on_stt_select_model: (model_id: string) => void;
     on_stt_add_custom_model: (path: string, engine_type: string) => void;
     on_stt_remove_custom_model: (model_id: string) => void;
+    on_stt_refresh_models: () => void;
   };
 
   let {
@@ -174,6 +175,7 @@
     on_stt_select_model,
     on_stt_add_custom_model,
     on_stt_remove_custom_model,
+    on_stt_refresh_models,
   }: Props = $props();
 
   const tab_count_options = Array.from({ length: 10 }, (_, i) => ({
@@ -3530,6 +3532,7 @@
               on_select_model={on_stt_select_model}
               on_add_custom_model={on_stt_add_custom_model}
               on_remove_custom_model={on_stt_remove_custom_model}
+              on_refresh_models={on_stt_refresh_models}
             />
           </div>
         {:else if active_category === "misc"}
