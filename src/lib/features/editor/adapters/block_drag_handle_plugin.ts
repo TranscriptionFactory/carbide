@@ -155,7 +155,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         const padding_top = parseFloat(style.paddingTop) || 0;
         const handle_height = handle.offsetHeight || 24;
         const baseline_offset =
-          padding_top + line_height * 0.8 - handle_height;
+          padding_top + line_height * 0.9 - handle_height;
 
         overlay.style.left = `${String(editor_dom.offsetLeft)}px`;
         overlay.style.width = `${String(editor_dom.offsetWidth)}px`;
