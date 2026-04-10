@@ -74,6 +74,7 @@ import {
 } from "$lib/features/reference";
 import { McpService } from "$lib/features/mcp";
 import { SmartLinksService } from "$lib/features/smart_links";
+import { SttService, register_stt_actions } from "$lib/features/stt";
 import {
   ZoteroBbtExtension,
   create_zotero_bbt_adapter,
@@ -604,6 +605,14 @@ export function create_app_context(input: {
   );
   reference_service.register_extension(zotero_bbt_extension);
 
+  const stt_service = new SttService(
+    input.ports.stt,
+    stores.stt,
+    editor_service,
+    stores.op,
+    now_ms,
+  );
+
   const base_action_input = {
     registry: action_registry,
     workspace_reconcile,
@@ -909,6 +918,12 @@ export function create_app_context(input: {
   register_task_actions(action_registry, task_service, stores.task, stores.ui);
 
   register_query_actions(action_registry, query_service, stores.ui);
+
+  register_stt_actions({
+    registry: action_registry,
+    stt_service,
+    stt_store: stores.stt,
+  });
 
   register_vim_nav_actions({
     registry: action_registry,
