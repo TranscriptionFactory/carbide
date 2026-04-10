@@ -55,7 +55,7 @@
   const stt_disabled = $derived(!editor_settings.stt_enabled);
 
   let custom_model_path = $state("");
-  let custom_model_engine = $state("Whisper");
+  let custom_model_engine = $state("Parakeet");
   let models_expanded = $state(false);
   let models_fetched = $state(false);
 
@@ -68,7 +68,6 @@
   }
 
   const engine_type_options = [
-    { value: "Whisper", label: "Whisper" },
     { value: "Parakeet", label: "Parakeet" },
     { value: "Moonshine", label: "Moonshine" },
     { value: "MoonshineStreaming", label: "Moonshine (Streaming)" },

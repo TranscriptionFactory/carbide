@@ -15,7 +15,6 @@ use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum EngineType {
-    Whisper,
     Parakeet,
     Moonshine,
     MoonshineStreaming,
@@ -487,19 +486,6 @@ impl ModelManager {
 fn build_model_catalog() -> HashMap<String, ModelInfo> {
     let mut models = HashMap::new();
 
-    let whisper_languages: Vec<String> = vec![
-        "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv",
-        "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-        "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr",
-        "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
-        "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu",
-        "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl",
-        "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect();
-
     let eu_languages: Vec<String> = vec![
         "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt",
         "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk",
@@ -534,22 +520,6 @@ fn build_model_catalog() -> HashMap<String, ModelInfo> {
             );
         };
     }
-
-    add_model!("small", "Whisper Small", "Fast and fairly accurate", "ggml-small.bin",
-        "https://blob.handy.computer/ggml-small.bin", 487, false, EngineType::Whisper,
-        0.60, 0.85, true, false, whisper_languages.clone(), true);
-
-    add_model!("medium", "Whisper Medium", "Good accuracy, medium speed", "whisper-medium-q4_1.bin",
-        "https://blob.handy.computer/whisper-medium-q4_1.bin", 492, false, EngineType::Whisper,
-        0.75, 0.60, true, false, whisper_languages.clone(), true);
-
-    add_model!("turbo", "Whisper Turbo", "Balanced accuracy and speed", "ggml-large-v3-turbo.bin",
-        "https://blob.handy.computer/ggml-large-v3-turbo.bin", 1600, false, EngineType::Whisper,
-        0.80, 0.40, false, false, whisper_languages.clone(), true);
-
-    add_model!("large", "Whisper Large", "Highest accuracy, slow", "ggml-large-v3-q5_0.bin",
-        "https://blob.handy.computer/ggml-large-v3-q5_0.bin", 1100, false, EngineType::Whisper,
-        0.85, 0.30, true, false, whisper_languages, true);
 
     add_model!("parakeet-tdt-0.6b-v2", "Parakeet V2", "English only, best for English speakers",
         "parakeet-tdt-0.6b-v2-int8", "https://blob.handy.computer/parakeet-v2-int8.tar.gz",

@@ -85,17 +85,14 @@ hound = "3.5.1"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
 strsim = "0.11.0"
 natural = "0.5.0"
-transcribe-rs = { version = "0.3.2", features = ["whisper-cpp", "onnx"] }
+transcribe-rs = { version = "0.3.2", features = ["onnx"] }
 rodio = { git = "https://github.com/cjpais/rodio.git" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-transcribe-rs = { version = "0.3.2", features = ["whisper-metal"] }
+transcribe-rs = { version = "0.3.2", features = ["onnx", "ort-coreml"] }
 
 [target.'cfg(windows)'.dependencies]
-transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan", "ort-directml"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan"] }
+transcribe-rs = { version = "0.3.2", features = ["onnx", "ort-directml"] }
 
 [dev-dependencies]
 filetime = "0.2"
