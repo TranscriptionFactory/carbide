@@ -394,4 +394,12 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Show or hide the problems panel",
     category: "navigation",
   },
+  {
+    action_id: ACTION_IDS.stt_toggle_recording,
+    key: "CmdOrCtrl+Shift+R",
+    phase: "capture",
+    label: "Toggle Voice Recording",
+    description: "Start or stop voice recording for speech-to-text",
+    category: "general",
+  },
 ];
