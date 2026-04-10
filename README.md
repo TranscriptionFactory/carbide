@@ -44,7 +44,8 @@ Built-in auto-updater applies updates on startup.
 | File mgmt | Atomic writes, notify watcher                                                                   |
 | Git       | `git2` backend, `isomorphic-git` frontend                                                       |
 | Canvas    | [Excalidraw](https://excalidraw.com/), [Mermaid](https://mermaid.js.org/)                       |
-| Search    | SQLite FTS5, candle semantic embeddings, fuzzy matching                                         |
+| Search    | SQLite FTS5, candle semantic embeddings, HNSW vector index, fuzzy matching                      |
+| STT       | [Whisper](https://github.com/openai/whisper) via candle                                         |
 | Terminal  | xterm.js, tauri-pty                                                                             |
 | Graph     | d3-force                                                                                        |
 | PDF       | pdfjs-dist, jspdf, pdf-extract (Rust)                                                           |
@@ -65,6 +66,7 @@ Built-in auto-updater applies updates on startup.
 - Drag-and-drop file embedding, including inline document and PDF embeds (`![[file.pdf]]`).
 - Document outline navigation.
 - Editor tuning panel: font, size, line height, and zoom controls.
+- Block drag-and-drop with section-aware handles for reordering content.
 - Zen mode for distraction-free writing (Cmd+Shift+Enter).
 
 ### AI & LSP Writing Assistance
@@ -74,12 +76,14 @@ Built-in auto-updater applies updates on startup.
 - Dynamic AI provider substitution for IWE transforms with config-driven actions.
 - AI-generated file tree blurbs: note descriptions displayed inline in the sidebar.
 - Prompt builder for composing AI queries from vault context.
+- Speech-to-text dictation via Whisper with configurable model selection, custom model paths, and keyboard shortcut.
 
 ### Search & Query
 
 - Omnibar for unified file, content, and command searches.
 - Full-text search (SQLite FTS5) with instant results.
-- Semantic search via candle BGE-small embeddings with hybrid FTS + vector KNN + Reciprocal Rank Fusion.
+- Semantic search via candle BGE-small embeddings with hybrid FTS + HNSW vector index + Reciprocal Rank Fusion.
+- Block-level semantic embeddings with `find_similar_blocks` for discovering related content across notes.
 - Fuzzy matching.
 - Composable query language with parser, evaluator, saved `.query` files, and lens views.
 
