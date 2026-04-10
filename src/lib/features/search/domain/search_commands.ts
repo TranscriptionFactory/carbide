@@ -507,4 +507,18 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "columns",
     when: (ctx) => ctx.has_open_note && !ctx.is_split_view,
   },
+  {
+    id: "update_embeddings",
+    label: "Update embeddings",
+    description: "Embed new and changed notes since last run",
+    keywords: ["embedding", "semantic", "vector", "sync", "update"],
+    icon: "search",
+  },
+  {
+    id: "rebuild_embeddings",
+    label: "Rebuild all embeddings",
+    description: "Clear and re-embed all notes from scratch",
+    keywords: ["embedding", "semantic", "vector", "rebuild", "reindex"],
+    icon: "settings",
+  },
 ];

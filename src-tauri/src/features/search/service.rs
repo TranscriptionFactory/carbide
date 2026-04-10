@@ -7,6 +7,7 @@ use crate::features::search::model::{
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::{hybrid, vector_db};
+use crate::features::vault_settings::service::get_vault_setting_value;
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -1137,6 +1138,25 @@ fn handle_embed_batch(
         }
     };
 
+    let (note_embed_enabled, block_embed_enabled) = {
+        let enabled = |key: &str| -> bool {
+            get_vault_setting_value(app_handle, vault_id, "editor")
+                .ok()
+                .flatten()
+                .and_then(|v| v.get(key)?.as_bool())
+                .unwrap_or(true)
+        };
+        (
+            enabled("embedding_note_enabled"),
+            enabled("embedding_block_enabled"),
+        )
+    };
+
+    if !note_embed_enabled && !block_embed_enabled {
+        log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
+        return;
+    }
+
     if clear_first {
         if let Err(e) = vector_db::clear_all_embeddings(conn) {
             log::warn!("embed_batch: clear failed: {e}");
@@ -1170,18 +1190,25 @@ fn handle_embed_batch(
         }
     }
 
-    let already_embedded = vector_db::get_embedded_paths(conn);
-    let notes_needing_embedding: Vec<String> = notes_cache
-        .keys()
-        .filter(|path| !already_embedded.contains(path.as_str()))
-        .cloned()
-        .collect();
-
-    let total = notes_needing_embedding.len();
     let mut deferred: Vec<DbCommand> = Vec::new();
 
+    let already_embedded = vector_db::get_embedded_paths(conn);
+    let notes_needing_embedding: Vec<String> = if note_embed_enabled {
+        notes_cache
+            .keys()
+            .filter(|path| !already_embedded.contains(path.as_str()))
+            .cloned()
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let total = notes_needing_embedding.len();
+
     if total == 0 {
-        handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+        if block_embed_enabled {
+            handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+        }
         for cmd in deferred {
             dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
         }
@@ -1284,7 +1311,9 @@ fn handle_embed_batch(
         }
     }
 
-    handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+    if block_embed_enabled {
+        handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+    }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let _ = app_handle.emit(

@@ -364,6 +364,9 @@ export const ACTION_IDS = {
   stt_open_settings: "stt.open_settings",
   stt_refresh_models: "stt.refresh_models",
   stt_transcribe_file: "stt.transcribe_file",
+
+  vault_update_embeddings: "vault.update_embeddings",
+  vault_rebuild_embeddings: "vault.rebuild_embeddings",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];
