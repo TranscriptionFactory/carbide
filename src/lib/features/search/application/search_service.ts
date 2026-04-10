@@ -718,4 +718,16 @@ export class SearchService {
       resolved
     );
   }
+
+  async update_embeddings(): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.index_port) return;
+    await this.index_port.embed_sync(vault_id);
+  }
+
+  async rebuild_all_embeddings(): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    await this.search_port.rebuild_embeddings(vault_id);
+  }
 }

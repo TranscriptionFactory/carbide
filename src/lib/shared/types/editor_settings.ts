@@ -160,6 +160,8 @@ export type EditorSettings = {
   stt_streaming_enabled: boolean;
   stt_ai_cleanup_enabled: boolean;
   stt_ai_cleanup_prompt: string;
+  embedding_note_enabled: boolean;
+  embedding_block_enabled: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -258,6 +260,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   stt_ai_cleanup_enabled: false,
   stt_ai_cleanup_prompt:
     "Clean up this dictated text. Fix grammar, remove filler words, maintain the speaker's intent and tone.",
+  embedding_note_enabled: true,
+  embedding_block_enabled: true,
 };
 
 export const SETTINGS_KEY = "editor" as const;
@@ -395,6 +399,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "stt_streaming_enabled",
   "stt_ai_cleanup_enabled",
   "stt_ai_cleanup_prompt",
+  "embedding_note_enabled",
+  "embedding_block_enabled",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
