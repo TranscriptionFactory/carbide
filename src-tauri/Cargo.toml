@@ -59,7 +59,7 @@ specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 lsp-types = "0.97"
-reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
+reqwest = { version = "0.12", features = ["rustls-tls", "json", "stream"], default-features = false }
 sha2 = "0.10"
 flate2 = "1"
 tar = "0.4"
@@ -76,6 +76,26 @@ subtle = "2"
 rand = "0.8"
 hex = "0.4"
 hnsw_rs = "0.3"
+
+# STT dependencies
+cpal = "0.16.0"
+rubato = "0.16.2"
+rustfft = "6.4.0"
+hound = "3.5.1"
+vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
+strsim = "0.11.0"
+natural = "0.5.0"
+transcribe-rs = { version = "0.3.2", features = ["whisper-cpp", "onnx"] }
+rodio = { git = "https://github.com/cjpais/rodio.git" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-metal"] }
+
+[target.'cfg(windows)'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan", "ort-directml"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+transcribe-rs = { version = "0.3.2", features = ["whisper-vulkan"] }
 
 [dev-dependencies]
 filetime = "0.2"

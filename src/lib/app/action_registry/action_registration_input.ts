@@ -23,6 +23,7 @@ import type { OutlineStore } from "$lib/features/outline";
 import type { GraphStore } from "$lib/features/graph";
 import type { BasesStore } from "$lib/features/bases";
 import type { TaskStore } from "$lib/features/task";
+import type { SttStore } from "$lib/features/stt";
 import type { ParsedNoteCache } from "$lib/features/note";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { ReferenceStore } from "$lib/features/reference";
@@ -45,6 +46,7 @@ export type ActionRegistrationInput = {
     graph: GraphStore;
     bases: BasesStore;
     task: TaskStore;
+    stt: SttStore;
     parsed_note_cache: ParsedNoteCache;
     reference: ReferenceStore;
   };

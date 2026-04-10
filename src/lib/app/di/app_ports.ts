@@ -19,6 +19,7 @@ import type { CanvasPort } from "$lib/features/canvas";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
+import type { SttPort } from "$lib/features/stt";
 
 import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
@@ -66,4 +67,5 @@ export type Ports = {
   doi_lookup: DoiLookupPort;
   linked_source: LinkedSourcePort;
   mcp: McpPort;
+  stt: SttPort;
 };

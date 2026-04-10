@@ -622,6 +622,7 @@ export function create_app_context(input: {
       task: stores.task,
       parsed_note_cache: stores.parsed_note_cache,
       reference: stores.reference,
+      stt: stores.stt,
     },
     services: {
       vault: vault_service,

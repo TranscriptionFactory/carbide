@@ -14,6 +14,7 @@ pub mod reference;
 pub mod search;
 pub mod settings;
 pub mod smart_links;
+pub mod stt;
 pub mod tasks;
 pub mod toolchain;
 pub mod vault;

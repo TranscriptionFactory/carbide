@@ -33,6 +33,7 @@
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
+  import type { DownloadProgress } from "$lib/features/stt";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type { OmnibarScope } from "$lib/shared/types/search";
   import type {
@@ -84,6 +85,11 @@
       stores.op.get("settings.load").error,
   );
   const image_paste_error = $derived(stores.op.get("asset.write").error);
+
+  let stt_download_progress = $state<DownloadProgress | null>(null);
+  let stt_audio_devices = $state<
+    { id: string; name: string; is_default: boolean }[]
+  >([]);
 
   let iwe_config_status: IweConfigStatus | null = $state(null);
   let iwe_fetch_seq = 0;
@@ -406,6 +412,17 @@
     await action_registry.execute(ACTION_IDS.iwe_reset_config);
     void fetch_iwe_config_status();
   }}
+  stt_models={stores.stt.available_models}
+  stt_active_model_id={stores.stt.active_model_id}
+  stt_model_loading={stores.stt.model_loading}
+  {stt_download_progress}
+  {stt_audio_devices}
+  on_stt_download_model={(model_id: string) =>
+    void action_registry.execute(ACTION_IDS.stt_download_model, model_id)}
+  on_stt_delete_model={(model_id: string) =>
+    void action_registry.execute(ACTION_IDS.stt_delete_model, model_id)}
+  on_stt_select_model={(model_id: string) =>
+    void action_registry.execute(ACTION_IDS.stt_select_model, model_id)}
 />
 
 <CreateFolderDialog
