@@ -21,6 +21,20 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
+fn set_current_thread_to_background_qos() {
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::raw::c_int;
+        const QOS_CLASS_BACKGROUND: c_int = 0x09;
+        extern "C" {
+            fn pthread_set_qos_class_self_np(qos_class: c_int, relative_priority: c_int) -> c_int;
+        }
+        unsafe {
+            pthread_set_qos_class_self_np(QOS_CLASS_BACKGROUND, 0);
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Type)]
 pub struct SearchQueryInput {
     #[allow(dead_code)]
@@ -293,6 +307,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     let bi = Arc::clone(&block_index);
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
+        set_current_thread_to_background_qos();
         writer_thread_loop(vid_for_writer, rx, write_conn, ni, bi);
     });
 
@@ -1280,7 +1295,7 @@ fn handle_embed_batch(
 
     let start = Instant::now();
     let mut embedded = 0usize;
-    let batch_size = 10;
+    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 50 };
 
     for chunk in notes_needing_embedding.chunks(batch_size) {
         if cancel.load(Ordering::Relaxed) {
@@ -1294,8 +1309,6 @@ fn handle_embed_batch(
             let body = match search_db::get_fts_body(conn, path) {
                 Some(b) if !b.trim().is_empty() => b,
                 _ => {
-                    // No indexed body (binary/unreadable): embed the file name
-                    // so it participates in name-based semantic similarity.
                     Path::new(path)
                         .file_name()
                         .and_then(|n| n.to_str())
@@ -1312,6 +1325,7 @@ fn handle_embed_batch(
         }
 
         let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+        let batch_start = Instant::now();
         match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
             Ok(embeddings) => {
                 for (path, embedding) in paths.iter().zip(embeddings.iter()) {
@@ -1342,7 +1356,13 @@ fn handle_embed_batch(
             },
         );
 
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        let sleep_ms = if cfg!(debug_assertions) {
+            // Sleep at least as long as compute took → ≤50% duty cycle
+            batch_start.elapsed().as_millis() as u64
+        } else {
+            50
+        };
+        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
     }
 
     handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index);
@@ -1404,7 +1424,7 @@ fn handle_block_embed_batch(
         },
     );
 
-    let batch_size = 10;
+    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 50 };
     let mut block_embedded = 0usize;
     let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
 
@@ -1443,6 +1463,7 @@ fn handle_block_embed_batch(
         }
 
         let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+        let batch_start = Instant::now();
         match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
             Ok(embeddings) => {
                 for ((path, heading_id), embedding) in keys.iter().zip(embeddings.iter()) {
@@ -1475,7 +1496,12 @@ fn handle_block_embed_batch(
             }
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        let sleep_ms = if cfg!(debug_assertions) {
+            batch_start.elapsed().as_millis() as u64
+        } else {
+            50
+        };
+        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
     }
 
     if block_embedded > 0 {
