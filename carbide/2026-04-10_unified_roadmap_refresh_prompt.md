@@ -33,38 +33,113 @@ Read the following source documents, then produce a new unified implementation r
 
 1. **Drop completed work.** Steps 1-9, 11-13 are done. Acknowledge them in a "Completed" summary section (one line per step with date range) but do not repeat their designs.
 
-2. **Incorporate remaining roadmap work** (Steps 10, 14-16 from the original):
-   - Step 10: Plugin Hardening — use the **corrected** plan at `carbide/2026-04-10_plugin_hardening_safe_selective_merge_plan.md`, not the original mcp_native_gaps_plan Phase 5. Key changes: hand-port only (no cherry-picks), skip lifecycle protocol rewrite, skip `on_file_type`/`on_startup_finished`. **Status: PARTIAL** — error budget/rate limiting merged; activation events (`on_startup_finished`, `on_file_type`, `vault_contains`) and `textarea` setting type still on `feat/plugin-hardening` (6 commits not on main).
-   - Step 14: Metadata Events — **scoped down to Phase C1 only** (`metadata-changed` event emission + plugin bridge). Phases A4 (link map) and D1 (property/tag accessors) are already on main. Phase C2 (`listTags` alias) remains low priority.
-   - Step 15: Graph Visualization (smart link edges, block-level edges) — NOT STARTED
-   - Step 16: Power Features (bulk property ops, nested property flattening, plugin SDK, CLI TUI) — NOT STARTED
+2. **Use the branch-aware merge strategy described below.** The remaining work comes from two sources — unmerged branch content (to hand-port) and new work (to implement fresh). The strategy prioritizes safety and efficiency by hand-porting onto fresh branches from main rather than rebasing the stale 26-commit lineage.
 
-3. **Incorporate new work not in the original roadmap:**
+### Branch lineage (verified 2026-04-10)
 
-   a. **Editor Width Token Refactor** (`carbide/plans/editor-width-token-refactor.md`) — **PARTIAL**
-      - ~~Standardize `--editor-max-width` across all themes~~ ✅ Done on main
-      - Expose `--source-editor-max-width` as CSS var in CodeMirror — NOT DONE (token does not exist yet)
-      - Fix zen mode hardcoded width — NOT VERIFIED
-      - Scoped down to ~1 hour remaining work
+`feat/plugin-hardening` (6 commits) → `feat/extended-tools` (20 more, 26 total vs main).
 
-   b. **Unmerged branch stabilization** — one branch remains:
-      - `feat/extended-tools` — 26 commits not on main. Contains: MCP Tier 2/3 tools (backlinks, outlinks, properties, references, git_status, git_log, rename_note), plugin MCP bridge, CLI git/reference/bases/tasks/dev commands, slash command contribution point. Has diverged significantly from main (includes stale autostart workaround). Needs rebase and selective merge review.
-      - ~~`feat/mcp-streamable-http`~~ ✅ Merged
-      - ~~`feat/cli-sidecar-install`~~ ✅ Merged
-      - ~~`feat/cli-glow-open`~~ ✅ Merged
+- `extended-tools` is a **child branch** of `plugin-hardening` (merge-base between them = `9e8c3268`, the tip of `plugin-hardening`). Both share merge-base `bba85e1e` with main.
+- **Do NOT rebase or merge either branch.** Hand-port useful work onto fresh branches from current main. Archive both old branches when done.
 
-   c. **Metadata API remaining gaps** (from `carbide/2026-04-05_plan_metadata_api_surface.md`):
-      - Phase C1: `metadata-changed` event emission + plugin bridge (= Step 14.1) — **NOT DONE** (db.rs does not emit typed change events when metadata is updated)
-      - ~~Phase A4: Resolved/unresolved link map~~ ✅ Done — `note_links` table, `get_note_links()`, `get_backlinks()` on main
-      - ~~Phase D1: `getFirstLinkpathDest` with vault index lookup~~ ✅ Done — property/tag accessors on main (verify if specific `getFirstLinkpathDest` wrapper is exposed to plugins)
-      - Phase C2: Optional `metadata.listTags()` alias (low priority, functionality already exists as `search.tags()`)
+#### Commit triage (what to port vs drop)
 
-   d. **Bug fix plans** — all verified as merged to main:
-      - ~~`2026-04-08-editor-bugs-implementation-plan.md`~~ ✅ BUG-001–004 merged. Only BUG-002B (undo history across tab switch) deferred by design (architectural — requires not destroying CM on tab switch)
-      - ~~`2026-04-06_LSP_IMPLEMENTATION_PLAN.md` / `2026-04-06_wave2_implementation_plan.md`~~ ✅ Waves 1–4 fully merged
-      - ~~`2026-04-06_mcp_transports_terminal_plan.md`~~ ✅ All 4 bugs resolved + flickering fix merged
+| Commits | Content | Disposition |
+|---|---|---|
+| `1f04cd0b` (10.1) | activation events + lazy loading (`on_startup_finished`, `on_file_type`, `vault_contains`) | **Hand-port `vault_contains` only** if needed (see Decisions). Skip `on_file_type`, `on_startup_finished` per corrected plan. |
+| `0b4817a3` (10.2) | lifecycle hooks, RPC timeouts, rate limiting, error budget | **Hand-port safety logic only** (RPC timeouts, rate limiting, consecutive-error budget). Skip lifecycle protocol rewrite — it's broken on the branch (sends `{ type: "lifecycle" }` but SDK still listens for `method: "lifecycle.activate"`). Error budget burst thresholds already on main (`bed34b32`). |
+| `b8edde58` (10.3) | textarea type, min/max, placeholder in settings schema | **Hand-port in full.** Do not cherry-pick (it depends on 10.1's `ports.ts` changes which we're partially skipping). |
+| `3d061841` (11.1) | block_embeddings table + section embedding pipeline | **DROP — already on main** (`bfbd9e11` + subsequent fixes `143e6568`, `3c96a578`, `c3cfeb29`, etc.) |
+| `f7aedc3c` (11.2) | block_semantic_similarity rule + find_similar_blocks | **DROP — already on main** (`67eeeb7d`) |
+| `27247865` (12.1) | MCP Tier 2 tools (backlinks, outlinks, properties, references) | **Hand-port.** Main has Tier 1 + HTTP transport. These add new tool handlers. |
+| `63b8bcb9` (12.2) | MCP Tier 3 tools (git_status, git_log, rename_note) + plugin MCP bridge | **Hand-port.** Plugin MCP bridge is the key new piece. |
+| `3d0179b1` (12.3) | CLI git + reference commands + backend routes | **Hand-port.** Main has CLI sidecar + glow. These add new subcommands. |
+| `48f0017c` (12.4) | CLI bases, tasks, dev commands + backend routes | **Hand-port.** More CLI subcommands. |
+| `6bc50243` (12.5) | slash command contribution point for plugins | **Hand-port.** Depends on plugin MCP bridge (12.2). |
+| `968750c9` | autostart workaround (wires to HTTP instead of broken stdio) | **DROP — stale.** Stdio was removed on main (`8680a491`). Autostart already uses HTTP. |
+| `0874184f` | cargo lock update | **DROP.** |
+| 4× checkpoint | WIP snapshots | **DROP.** |
+| 6× `chore: mark unit N complete` | Tracker bookmarks | **DROP.** |
 
-4. **Produce conversation-sized work units** for all remaining work, following the same format as `2026-04-05_conversation_work_units.md`:
+### Remaining work organized by phase
+
+Organize all remaining work into these phases, in this order. Each phase should only begin after the previous phase's review gate passes. Within a phase, independent work units can run in parallel.
+
+#### Phase A: Standalone fixes (no deps on unmerged work, can run in parallel)
+
+1. **Editor width token refactor** — finish remaining work from `carbide/plans/editor-width-token-refactor.md`:
+   - Expose `--source-editor-max-width` as CSS var in CodeMirror (token does not exist yet)
+   - Verify/fix zen mode hardcoded width
+   - ~1 hour, pure CSS/Svelte, zero risk
+
+2. **Plugin hardening: safety hand-port** (from units 10.1–10.3) — use the **corrected** plan at `carbide/2026-04-10_plugin_hardening_safe_selective_merge_plan.md`:
+   - RPC timeouts (`with_timeout`, `RpcTimeoutError`, timeout policy)
+   - Per-plugin RPC rate limiting (`PluginRateLimiter`)
+   - Consecutive-error budget (strengthen existing `PluginErrorTracker`)
+   - Wire into `PluginService.handle_rpc()`: rate-limit check → timeout wrapper → record_success
+   - Richer settings schema: `textarea` type, `min`/`max`/`placeholder`
+   - **Do NOT port:** lifecycle protocol rewrite, `on_file_type`, `on_startup_finished`
+   - Fresh branch from main. Hand-port only — do not cherry-pick.
+
+   **Review gate A:** Plugin tests pass, existing lifecycle SDK behavior intact, editor width works.
+
+#### Phase B: Extended tools hand-port (depends on Phase A for plugin infra, fresh branches from main)
+
+3. **MCP Tier 2/3 tools** (from units 12.1–12.2):
+   - Tier 2: backlinks, outlinks, properties, references tool handlers
+   - Tier 3: git_status, git_log, rename_note tool handlers
+   - Plugin MCP bridge (allows plugins to expose MCP tools)
+   - Depends on: main's MCP HTTP transport + shared_ops (already merged)
+
+4. **CLI extended commands** (from units 12.3–12.4):
+   - git + reference CLI subcommands + backend routes
+   - bases, tasks, dev CLI subcommands + backend routes
+   - Depends on: main's CLI sidecar + glow (already merged)
+
+5. **Slash command contribution point** (from unit 12.5):
+   - Plugin-contributed slash commands
+   - Depends on: plugin MCP bridge from unit 3 above
+
+   **Review gate B:** All MCP tools respond correctly, CLI subcommands work, slash commands from plugins render.
+
+#### Phase C: Metadata + events (independent of Phase B, but ordered here to avoid overloading review)
+
+6. **Metadata events — Phase C1 only** (`metadata-changed` event emission + plugin bridge):
+   - Scoped from `carbide/2026-04-05_plan_metadata_api_surface.md`
+   - db.rs must emit typed change events when metadata is updated
+   - Plugin bridge must forward these to subscribed plugins
+   - Phases A4 (link map) and D1 (property/tag accessors) already on main
+   - Phase C2 (`listTags` alias) remains low priority — defer
+
+   **Review gate C:** Metadata change events fire correctly, plugin bridge delivers them.
+
+#### Phase D: New feature work (depends on Phases A–C)
+
+7. **Graph visualization** (original Step 15):
+   - Smart link edges, block-level edges
+   - Design in `carbide/2026-04-02_smart_linking_and_block_notes.md`
+
+8. **Power features** (original Step 16):
+   - Bulk property ops, nested property flattening, plugin SDK extensions, CLI TUI
+   - Design context in `carbide/mcp_native_gaps_plan.md` Phase 7
+
+   **Review gate D:** Graph renders correctly, power features work end-to-end.
+
+#### Phase E: Cleanup
+
+9. **Archive stale branches:**
+   - `feat/plugin-hardening` → `archive/feat/plugin-hardening`
+   - `feat/extended-tools` → `archive/feat/extended-tools`
+   - Only after all useful work has been hand-ported and verified on main
+
+### Additional context for remaining work
+
+- **Bug fix plans** — all verified as merged to main:
+  - ~~`2026-04-08-editor-bugs-implementation-plan.md`~~ ✅ BUG-001–004 merged. Only BUG-002B (undo history across tab switch) deferred by design (architectural — requires not destroying CM on tab switch)
+  - ~~`2026-04-06_LSP_IMPLEMENTATION_PLAN.md` / `2026-04-06_wave2_implementation_plan.md`~~ ✅ Waves 1–4 fully merged
+  - ~~`2026-04-06_mcp_transports_terminal_plan.md`~~ ✅ All 4 bugs resolved + flickering fix merged
+
+3. **Produce conversation-sized work units** for all remaining work, following the same format as `2026-04-05_conversation_work_units.md`:
    - One coherent concern per unit
    - ≤8 files touched
    - Ends with a commit
@@ -72,11 +147,15 @@ Read the following source documents, then produce a new unified implementation r
    - Specify session type (Rust / TypeScript / Svelte / etc.)
    - Include `activeForm` descriptions
 
-5. **Build a new dependency graph** showing what blocks what.
+4. **Build a new dependency graph** showing what blocks what. Use the phase structure above as the skeleton — work units within a phase can have internal deps.
 
-6. **Define new batches** for review gates.
+5. **Define new batches** for review gates (aligned with Phases A–E above).
 
-7. **Flag any decisions needed** — e.g., whether `vault_contains` activation event is needed, whether to rebase `feat/extended-tools` (26 commits diverged) before or after new work, whether BUG-002B (undo history) should be tracked as future work.
+6. **Flag any decisions needed:**
+   - Whether `vault_contains` activation event should be hand-ported now or deferred (no known plugin needs it yet)
+   - Whether BUG-002B (undo history across tab switch) should be tracked as future work
+   - Whether Phase C (metadata events) should move before Phase B (it has no dependency on B and could run earlier if resources allow)
+   - Whether the 4 checkpoint commits on `feat/extended-tools` contain any uncommitted WIP worth inspecting before archiving
 
 ---
 
