@@ -663,6 +663,7 @@ fn dispatch_command(
                 false,
                 note_index,
                 block_index,
+                rx,
             );
         }
         DbCommand::RebuildEmbeddings {
@@ -681,6 +682,7 @@ fn dispatch_command(
                 true,
                 note_index,
                 block_index,
+                rx,
             );
         }
         DbCommand::RebuildIndex => {
@@ -707,7 +709,7 @@ fn handle_upsert(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let markdown = match std::fs::read_to_string(&abs) {
@@ -737,7 +739,6 @@ fn handle_upsert(
     if let Ok(mut bi) = block_index.write() {
         bi.remove_by_prefix(&format!("{note_id}\0"));
     }
-    handle_embed_note(conn, note_id, app_handle, note_index, block_index);
     Ok(())
 }
 
@@ -749,7 +750,7 @@ fn handle_upsert_with_content(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
@@ -764,114 +765,9 @@ fn handle_upsert_with_content(
     if let Ok(mut bi) = block_index.write() {
         bi.remove_by_prefix(&format!("{note_id}\0"));
     }
-    handle_embed_note(conn, note_id, app_handle, note_index, block_index);
     Ok(())
 }
 
-fn handle_embed_note(
-    conn: &Connection,
-    note_id: &str,
-    app_handle: &AppHandle,
-    note_index: &SharedVectorIndex,
-    block_index: &SharedVectorIndex,
-) {
-    let embedding_state = app_handle.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
-        Ok(m) => m,
-        Err(e) => {
-            log::debug!("handle_embed_note: model unavailable for {note_id}: {e}");
-            return;
-        }
-    };
-
-    let embed_text = match search_db::get_fts_body(conn, note_id) {
-        Some(b) if !b.trim().is_empty() => b,
-        _ => Path::new(note_id)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(note_id)
-            .to_string(),
-    };
-
-    match model.embed_one(&embed_text) {
-        Ok(embedding) => {
-            if let Err(e) = vector_db::upsert_embedding(conn, note_id, &embedding) {
-                log::warn!("handle_embed_note: note upsert failed for {note_id}: {e}");
-            }
-            if let Ok(mut ni) = note_index.write() {
-                ni.insert(note_id, embedding);
-            }
-        }
-        Err(e) => {
-            log::warn!("handle_embed_note: note embedding failed for {note_id}: {e}");
-        }
-    }
-
-    let sections = match search_db::get_embeddable_sections_for_note(
-        conn,
-        note_id,
-        BLOCK_EMBED_MIN_WORDS,
-        BLOCK_EMBED_MIN_LINES,
-    ) {
-        Ok(s) => s,
-        Err(e) => {
-            log::warn!("handle_embed_note: sections query failed for {note_id}: {e}");
-            return;
-        }
-    };
-
-    if sections.is_empty() {
-        return;
-    }
-
-    let fts_body = search_db::get_fts_body(conn, note_id);
-    let lines: Vec<&str> = fts_body.as_deref().map_or(vec![], |b| b.lines().collect());
-
-    let mut texts = Vec::with_capacity(sections.len());
-    let mut keys = Vec::with_capacity(sections.len());
-
-    for (path, heading_id, start_line, end_line) in &sections {
-        let start = *start_line as usize;
-        let end = (*end_line as usize + 1).min(lines.len());
-        if start >= lines.len() {
-            continue;
-        }
-        let section_text = lines[start..end].join("\n");
-        if section_text.trim().is_empty() {
-            continue;
-        }
-        keys.push((path.as_str(), heading_id.as_str()));
-        texts.push(section_text);
-    }
-
-    if texts.is_empty() {
-        return;
-    }
-
-    let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-    match model.embed_batch(&text_refs, None) {
-        Ok(embeddings) => {
-            for ((path, heading_id), embedding) in keys.iter().zip(embeddings.iter()) {
-                if let Err(e) = vector_db::upsert_block_embedding(conn, path, heading_id, embedding)
-                {
-                    log::warn!("handle_embed_note: block upsert failed for {path}#{heading_id}: {e}");
-                }
-                if let Ok(mut bi) = block_index.write() {
-                    let composite_key = format!("{path}\0{heading_id}");
-                    bi.insert(&composite_key, embedding.clone());
-                }
-            }
-            log::info!(
-                "handle_embed_note: embedded {} blocks for {note_id}",
-                embeddings.len()
-            );
-        }
-        Err(e) => {
-            log::warn!("handle_embed_note: block embedding failed for {note_id}: {e}");
-        }
-    }
-}
 
 fn extract_title(markdown: &str) -> Option<String> {
     let mut in_frontmatter = false;
@@ -1218,10 +1114,11 @@ fn handle_embed_batch(
     cancel: &Arc<AtomicBool>,
     app_handle: &AppHandle,
     vault_id: &str,
-    notes_cache: &BTreeMap<String, IndexNoteMeta>,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     clear_first: bool,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
+    rx: &Receiver<DbCommand>,
 ) {
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
@@ -1274,14 +1171,20 @@ fn handle_embed_batch(
     }
 
     let already_embedded = vector_db::get_embedded_paths(conn);
-    let notes_needing_embedding: Vec<(&str, &str)> = notes_cache
-        .iter()
-        .filter(|(path, _)| !already_embedded.contains(path.as_str()))
-        .map(|(path, _)| (path.as_str(), path.as_str()))
+    let notes_needing_embedding: Vec<String> = notes_cache
+        .keys()
+        .filter(|path| !already_embedded.contains(path.as_str()))
+        .cloned()
         .collect();
 
     let total = notes_needing_embedding.len();
+    let mut deferred: Vec<DbCommand> = Vec::new();
+
     if total == 0 {
+        handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+        for cmd in deferred {
+            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+        }
         return;
     }
 
@@ -1305,18 +1208,18 @@ fn handle_embed_batch(
         let mut texts = Vec::with_capacity(chunk.len());
         let mut paths = Vec::with_capacity(chunk.len());
 
-        for (path, _) in chunk {
+        for path in chunk {
             let body = match search_db::get_fts_body(conn, path) {
                 Some(b) if !b.trim().is_empty() => b,
                 _ => {
-                    Path::new(path)
+                    Path::new(path.as_str())
                         .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or(path)
                         .to_string()
                 }
             };
-            paths.push(*path);
+            paths.push(path.as_str());
             texts.push(body);
         }
 
@@ -1357,15 +1260,31 @@ fn handle_embed_batch(
         );
 
         let sleep_ms = if cfg!(debug_assertions) {
-            // Sleep at least as long as compute took → ≤50% duty cycle
             batch_start.elapsed().as_millis() as u64
         } else {
             50
         };
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+
+        while let Ok(cmd) = rx.try_recv() {
+            match cmd {
+                DbCommand::Rebuild { .. }
+                | DbCommand::Sync { .. }
+                | DbCommand::SyncPaths { .. }
+                | DbCommand::EmbedBatch { .. }
+                | DbCommand::RebuildEmbeddings { .. }
+                | DbCommand::RebuildIndex
+                | DbCommand::Shutdown => {
+                    deferred.push(cmd);
+                }
+                _ => {
+                    dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                }
+            }
+        }
     }
 
-    handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index);
+    handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let _ = app_handle.emit(
@@ -1376,6 +1295,10 @@ fn handle_embed_batch(
             elapsed_ms,
         },
     );
+
+    for cmd in deferred {
+        dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+    }
 }
 
 const BLOCK_EMBED_MIN_WORDS: i64 = 20;
@@ -1388,6 +1311,10 @@ fn handle_block_embed_batch(
     vault_id: &str,
     app_handle: &AppHandle,
     block_index: &SharedVectorIndex,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
+    rx: &Receiver<DbCommand>,
+    note_index: &SharedVectorIndex,
+    deferred: &mut Vec<DbCommand>,
 ) {
     let sections = match search_db::get_embeddable_sections(
         conn,
@@ -1502,6 +1429,23 @@ fn handle_block_embed_batch(
             50
         };
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+
+        while let Ok(cmd) = rx.try_recv() {
+            match cmd {
+                DbCommand::Rebuild { .. }
+                | DbCommand::Sync { .. }
+                | DbCommand::SyncPaths { .. }
+                | DbCommand::EmbedBatch { .. }
+                | DbCommand::RebuildEmbeddings { .. }
+                | DbCommand::RebuildIndex
+                | DbCommand::Shutdown => {
+                    deferred.push(cmd);
+                }
+                _ => {
+                    dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                }
+            }
+        }
     }
 
     if block_embedded > 0 {
