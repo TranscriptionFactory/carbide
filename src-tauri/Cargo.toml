@@ -49,9 +49,9 @@ ropey = "1.6.1"
 tauri-plugin-single-instance = "2.4.0"
 regex = "1.12.3"
 lazy_static = "1.5.0"
-candle-core = { version = "0.9", default-features = false, features = ["accelerate"] }
-candle-nn = { version = "0.9", default-features = false, features = ["accelerate"] }
-candle-transformers = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-core = { version = "0.9", default-features = false }
+candle-nn = { version = "0.9", default-features = false }
+candle-transformers = { version = "0.9", default-features = false }
 hf-hub = { version = "0.5", features = ["tokio"] }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
@@ -89,6 +89,9 @@ transcribe-rs = { version = "0.3.2", features = ["whisper-cpp", "onnx"] }
 rodio = { git = "https://github.com/cjpais/rodio.git" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+candle-core = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-nn = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-transformers = { version = "0.9", default-features = false, features = ["accelerate"] }
 transcribe-rs = { version = "0.3.2", features = ["whisper-metal"] }
 
 [target.'cfg(windows)'.dependencies]
