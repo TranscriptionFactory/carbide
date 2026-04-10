@@ -3284,6 +3284,38 @@
           <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Note Embedding</span>
+                <span class="SettingsDialog__description"
+                  >Generate embeddings for entire notes (used by semantic search
+                  and suggested links)</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.embedding_note_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("embedding_note_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Block Embedding</span>
+                <span class="SettingsDialog__description"
+                  >Generate embeddings for individual note sections (used by
+                  block-level semantic search)</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.embedding_block_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("embedding_block_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Similarity Threshold</span>
                 <span class="SettingsDialog__description"
                   >Minimum similarity for suggestions and graph edges (lower =
