@@ -1,5 +1,4 @@
 import type { HighlighterCore } from "shiki/core";
-import { get_highlighter_sync, load_shiki_theme } from "./shiki_highlighter";
 
 type TokenColor = {
   scope?: string | string[];
@@ -98,6 +97,9 @@ function extract_source_vars_from_theme_data(
 export async function resolve_source_shiki_vars(
   theme_name: string,
 ): Promise<Record<string, string>> {
+  const { get_highlighter_sync, load_shiki_theme } =
+    await import("./shiki_highlighter");
+
   await load_shiki_theme(theme_name);
   const highlighter: HighlighterCore | null = get_highlighter_sync();
   if (!highlighter) return {};
