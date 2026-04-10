@@ -8,12 +8,14 @@ import type {
 } from "$lib/features/stt/types/stt_types";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
+import { toast } from "svelte-sonner";
 
 const log = create_logger("stt_service");
 
 export class SttService {
   private audio_level_unsub: (() => void) | null = null;
   private recording_state_unsub: (() => void) | null = null;
+  private model_state_unsub: (() => void) | null = null;
 
   constructor(
     private readonly stt_port: SttPort,
@@ -22,6 +24,34 @@ export class SttService {
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
   ) {}
+
+  subscribe_model_state(): void {
+    if (this.model_state_unsub) return;
+    this.model_state_unsub = this.stt_port.subscribe_model_state((event) => {
+      log.info("Model state event", { event });
+      switch (event.event_type) {
+        case "loading_started":
+          this.stt_store.set_model_loading(true);
+          break;
+        case "loading_completed":
+          this.stt_store.set_model_loading(false);
+          if (event.model_id) {
+            this.stt_store.set_active_model(event.model_id);
+          }
+          break;
+        case "loading_failed":
+          this.stt_store.set_model_loading(false);
+          toast.error(
+            `Failed to load speech model: ${event.error ?? "unknown error"}`,
+          );
+          break;
+        case "unloaded":
+          this.stt_store.set_active_model(null);
+          this.stt_store.set_model_loading(false);
+          break;
+      }
+    });
+  }
 
   async start_recording(): Promise<void> {
     this.op_store.start("stt.record", this.now_ms());
@@ -47,6 +77,8 @@ export class SttService {
     } catch (error) {
       const msg = error_message(error);
       log.error("Failed to start recording", { error: msg });
+      toast.error(`Recording failed: ${msg}`);
+      this.stt_store.set_recording_state("idle");
       this.op_store.fail("stt.record", msg);
       this.cleanup_subscriptions();
     }
@@ -80,6 +112,7 @@ export class SttService {
     } catch (error) {
       const msg = error_message(error);
       log.error("Transcription failed", { error: msg });
+      toast.error(`Transcription failed: ${msg}`);
       this.stt_store.set_recording_state("idle");
       this.op_store.fail("stt.record", msg);
       this.cleanup_subscriptions();
@@ -187,11 +220,14 @@ export class SttService {
       this.stt_store.set_model_loading(false);
       this.stt_store.update_config({ model_id });
       this.op_store.succeed("stt.load_model");
+      log.info("Model loaded successfully", { model_id });
     } catch (error) {
       const msg = error_message(error);
       log.error("Model loading failed", { error: msg });
       this.stt_store.set_model_loading(false);
+      this.stt_store.set_active_model(null);
       this.op_store.fail("stt.load_model", msg);
+      toast.error(`Failed to load speech model: ${msg}`);
     }
   }
 

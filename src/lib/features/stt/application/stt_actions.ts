@@ -4,6 +4,9 @@ import type { SttService } from "$lib/features/stt/application/stt_service";
 import type { SttStore } from "$lib/features/stt/state/stt_store.svelte";
 import type { UIStore } from "$lib/app";
 import { toast } from "svelte-sonner";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("stt_actions");
 
 export function register_stt_actions(input: {
   registry: ActionRegistry;
@@ -17,18 +20,39 @@ export function register_stt_actions(input: {
     id: ACTION_IDS.stt_toggle_recording,
     label: "Toggle Voice Recording",
     execute: async () => {
-      if (!ui_store.editor_settings.stt_enabled) {
-        toast.info("Speech-to-text is not enabled. Enable it in Settings.");
-        return;
-      }
+      log.info("Toggle recording triggered", {
+        enabled: ui_store.editor_settings.stt_enabled,
+        is_ready: stt_store.is_ready,
+        is_recording: stt_store.is_recording,
+        active_model: stt_store.active_model_id,
+        recording_state: stt_store.recording_state,
+      });
 
-      if (!stt_store.is_ready && !stt_store.is_recording) {
-        toast.info("Download a speech model first.", {
+      if (!ui_store.editor_settings.stt_enabled) {
+        toast.info("Speech-to-text is not enabled. Enable it in Settings.", {
           action: {
             label: "Open Settings",
             onClick: () => registry.execute(ACTION_IDS.stt_open_settings),
           },
         });
+        return;
+      }
+
+      if (!stt_store.is_ready && !stt_store.is_recording) {
+        const loading = stt_store.model_loading;
+        if (loading) {
+          toast.info("Speech model is still loading. Please wait.");
+        } else {
+          toast.info(
+            "No speech model loaded. Download or select one in Settings.",
+            {
+              action: {
+                label: "Open Settings",
+                onClick: () => registry.execute(ACTION_IDS.stt_open_settings),
+              },
+            },
+          );
+        }
         return;
       }
 
