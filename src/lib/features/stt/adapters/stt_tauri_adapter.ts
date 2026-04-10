@@ -8,6 +8,9 @@ import type {
 } from "$lib/features/stt/types/stt_types";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { listen } from "@tauri-apps/api/event";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("stt_adapter");
 
 function subscribe_tauri_event<T>(
   event_name: string,
@@ -32,7 +35,7 @@ function subscribe_tauri_event<T>(
       unlisten_fn = fn_ref;
     })
     .catch((error: unknown) => {
-      console.error(`Failed to setup ${event_name} listener`, error);
+      log.from_error(`Failed to setup ${event_name} listener`, error);
     });
 
   return () => {
