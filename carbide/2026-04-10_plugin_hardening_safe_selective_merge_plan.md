@@ -72,10 +72,12 @@ Port only the safety logic, not the lifecycle message rewrite.
 
 ### Files to update
 
+Note: `src/lib/features/plugin/domain/` does not exist on the current branch and must be created.
+
 - `src/lib/features/plugin/application/plugin_service.ts`
 - `src/lib/features/plugin/application/plugin_error_tracker.ts`
-- `src/lib/features/plugin/domain/rate_limiter.ts`
-- `src/lib/features/plugin/domain/rpc_timeout.ts`
+- `src/lib/features/plugin/domain/rate_limiter.ts` (new)
+- `src/lib/features/plugin/domain/rpc_timeout.ts` (new)
 - `tests/unit/services/plugin_error_tracker.test.ts`
 - `tests/unit/services/plugin_service_hardening.test.ts`
 - `tests/unit/domain/rate_limiter.test.ts`
@@ -106,6 +108,7 @@ Expected behavior:
 
 - reject with clear error if a plugin exceeds the request budget
 - reset limiter state on unload / clear-active-vault
+- add `rate_limiter.clear_all()` call in `PluginService.clear_active_vault()`
 
 #### 3. Strengthen `PluginErrorTracker`
 
@@ -116,6 +119,8 @@ Port only these additions:
 - `get_consecutive_errors(plugin_id)` if useful in tests / UI
 
 Retain current burst-based thresholds and add consecutive-budget auto-disable on top.
+
+Update `reset(plugin_id)` and `clear_all()` to also clear the new `consecutive_errors` map.
 
 #### 4. Update `PluginService.handle_rpc()`
 
@@ -130,6 +135,7 @@ Add, in order:
 
 - `send_lifecycle_hook(...)`
 - new `{ type: "lifecycle", hook, context }` message format
+- `SettingChangedCallback` / `set_on_setting_changed()` / `on_settings_change` hook delivery
 - setting-change lifecycle hook delivery
 - artificial unload delay tied to the new lifecycle protocol
 
@@ -138,11 +144,13 @@ Reason:
 - current SDK and docs still depend on `method: "lifecycle.activate"` / `method: "lifecycle.deactivate"`
 - changing the protocol now would create doc/SDK/plugin drift for limited practical gain
 
-## Step 2: Cherry-pick or hand-port richer settings schema from `b8edde58`
+Implementer warning: the source branch itself has a broken lifecycle protocol — `0b4817a3` changes `plugin_iframe_host.svelte` to send `{ type: "lifecycle", hook: "activate" }` but never updates `carbide_plugin_api.js`, which still listens for `msg.method === "lifecycle.activate"`. Do not trust the source branch's lifecycle integration for correctness.
+
+## Step 2: Hand-port richer settings schema from `b8edde58`
 
 ### Preferred path
 
-Cherry-pick if conflict scope is limited to plugin settings UI and shared textarea component. Otherwise hand-port.
+Hand-port only. Do NOT cherry-pick `b8edde58` — it builds on top of `1f04cd0b` and its `ports.ts` includes activation event types (`on_startup_finished`, `on_file_type:${string}`, `vault_contains:${string}`) that this plan explicitly defers in Step 3.
 
 ### Files to update
 
@@ -282,9 +290,11 @@ Pros:
 - keeps protocol decisions deliberate
 - makes review easier
 
-### Option B: acceptable if conflicts are tiny
+### Option B: not recommended
 
 Cherry-pick `b8edde58` only, then hand-port Step 1.
+
+Reason: `b8edde58` includes activation event type changes from `1f04cd0b` in `ports.ts` that contradict Step 3 deferral decisions.
 
 ### Option C: not recommended
 
