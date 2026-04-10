@@ -15,7 +15,6 @@ use transcribe_rs::{
         sense_voice::{SenseVoiceModel, SenseVoiceParams},
         Quantization,
     },
-    whisper_cpp::{WhisperEngine, WhisperInferenceParams},
     SpeechModel, TranscribeOptions,
 };
 
@@ -55,7 +54,6 @@ pub struct TranscriptionResult {
 use serde::Deserialize;
 
 enum LoadedEngine {
-    Whisper(WhisperEngine),
     Parakeet(ParakeetModel),
     Moonshine(MoonshineModel),
     MoonshineStreaming(StreamingModel),
@@ -168,14 +166,6 @@ impl SttTranscriptionState {
         };
 
         let loaded_engine = match model_info.engine_type {
-            EngineType::Whisper => {
-                let engine = WhisperEngine::load(&model_path).map_err(|e| {
-                    let msg = format!("Failed to load Whisper model {}: {}", model_id, e);
-                    emit_loading_failed(&msg);
-                    anyhow::anyhow!(msg)
-                })?;
-                LoadedEngine::Whisper(engine)
-            }
             EngineType::Parakeet => {
                 let engine =
                     ParakeetModel::load(&model_path, &Quantization::Int8).map_err(|e| {
@@ -302,12 +292,6 @@ impl SttTranscriptionState {
                 .ok_or_else(|| anyhow::anyhow!("No model loaded"))?
         };
 
-        let model_info = self.model_manager.get_model_info(&model_id);
-        let is_whisper = model_info
-            .as_ref()
-            .map(|m| matches!(m.engine_type, EngineType::Whisper))
-            .unwrap_or(false);
-
         self.touch_activity();
         let start = std::time::Instant::now();
 
@@ -341,34 +325,6 @@ impl SttTranscriptionState {
             let transcribe_result = catch_unwind(AssertUnwindSafe(
                 || -> Result<transcribe_rs::TranscriptionResult> {
                     match &mut engine {
-                        LoadedEngine::Whisper(whisper_engine) => {
-                            let whisper_language = if validated_language == "auto" {
-                                None
-                            } else {
-                                let normalized =
-                                    if validated_language == "zh-Hans" || validated_language == "zh-Hant" {
-                                        "zh".to_string()
-                                    } else {
-                                        validated_language.clone()
-                                    };
-                                Some(normalized)
-                            };
-
-                            let params = WhisperInferenceParams {
-                                language: whisper_language,
-                                translate,
-                                initial_prompt: if custom_words.is_empty() {
-                                    None
-                                } else {
-                                    Some(custom_words.join(", "))
-                                },
-                                ..Default::default()
-                            };
-
-                            whisper_engine
-                                .transcribe_with(&audio, &params)
-                                .map_err(|e| anyhow::anyhow!("Whisper transcription failed: {}", e))
-                        }
                         LoadedEngine::Parakeet(parakeet_engine) => {
                             let params = ParakeetParams {
                                 timestamp_granularity: Some(TimestampGranularity::Segment),
@@ -465,8 +421,7 @@ impl SttTranscriptionState {
 
         let raw_text = result.text;
 
-        // Skip custom word correction for Whisper (already passed as initial_prompt)
-        let mut processed_text = if !custom_words.is_empty() && !is_whisper {
+        let mut processed_text = if !custom_words.is_empty() {
             text::apply_custom_words(&raw_text, &custom_words, 0.5)
         } else {
             raw_text
