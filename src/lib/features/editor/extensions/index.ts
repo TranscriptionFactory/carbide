@@ -62,6 +62,13 @@ export function assemble_extensions(
     }
   }
 
+  console.log(
+    "[ext] plugin count:",
+    plugins.length,
+    "has drag:",
+    plugins.some((plugin) => plugin.key?.startsWith("block_drag_handle")),
+  );
+
   return {
     plugins,
     on_note_path_change(path: string) {
