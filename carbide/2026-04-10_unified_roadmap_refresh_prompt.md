@@ -81,30 +81,45 @@ Organize all remaining work into these phases, in this order. Each phase should 
    - **Do NOT port:** lifecycle protocol rewrite, `on_file_type`, `on_startup_finished`
    - Fresh branch from main. Hand-port only — do not cherry-pick.
 
-   **Review gate A:** Plugin tests pass, existing lifecycle SDK behavior intact, editor width works.
+3. **Plugin AI + Network RPC** — new plugin capabilities (no branch deps, fresh work):
+   - `network.fetch` RPC namespace: host-side HTTP proxy via existing `reqwest` client
+     - New `PluginRpcNetworkBackend` interface in `plugin_rpc_handler.ts`
+     - New `plugin_http_fetch` Tauri command in Rust (uses `reqwest`)
+     - `network:fetch` permission, manifest `allowed_origins` allowlist
+     - SSRF protection: block localhost/private IPs in Rust before request fires
+     - Request/response size limits, per-plugin rate limiting
+   - `ai.execute` RPC namespace: bridge to existing `AiService` provider pipeline
+     - New `PluginRpcAiBackend` interface in `plugin_rpc_handler.ts`
+     - Invokes `AiService.execute()` → `ai_execute_cli` Tauri command (already exists)
+     - `ai:execute` permission
+     - Returns `{ output, success, error }` — no streaming (matches current pipeline design)
+   - SDK surface: `carbide.network.fetch(url, opts)` and `carbide.ai.execute({ prompt, mode? })`
+   - Update `carbide_plugin_api.js` and `docs/plugin_howto.md`
+
+   **Review gate A:** Plugin tests pass, existing lifecycle SDK behavior intact, editor width works, **AI and network RPC respond correctly with permission checks**.
 
 #### Phase B: Extended tools hand-port (depends on Phase A for plugin infra, fresh branches from main)
 
-3. **MCP Tier 2/3 tools** (from units 12.1–12.2):
+4. **MCP Tier 2/3 tools** (from units 12.1–12.2):
    - Tier 2: backlinks, outlinks, properties, references tool handlers
    - Tier 3: git_status, git_log, rename_note tool handlers
    - Plugin MCP bridge (allows plugins to expose MCP tools)
    - Depends on: main's MCP HTTP transport + shared_ops (already merged)
 
-4. **CLI extended commands** (from units 12.3–12.4):
+5. **CLI extended commands** (from units 12.3–12.4):
    - git + reference CLI subcommands + backend routes
    - bases, tasks, dev CLI subcommands + backend routes
    - Depends on: main's CLI sidecar + glow (already merged)
 
-5. **Slash command contribution point** (from unit 12.5):
+6. **Slash command contribution point** (from unit 12.5):
    - Plugin-contributed slash commands
-   - Depends on: plugin MCP bridge from unit 3 above
+   - Depends on: plugin MCP bridge from unit 4 above
 
    **Review gate B:** All MCP tools respond correctly, CLI subcommands work, slash commands from plugins render.
 
 #### Phase C: Metadata + events (independent of Phase B, but ordered here to avoid overloading review)
 
-6. **Metadata events — Phase C1 only** (`metadata-changed` event emission + plugin bridge):
+7. **Metadata events — Phase C1 only** (`metadata-changed` event emission + plugin bridge):
    - Scoped from `carbide/2026-04-05_plan_metadata_api_surface.md`
    - db.rs must emit typed change events when metadata is updated
    - Plugin bridge must forward these to subscribed plugins
@@ -115,11 +130,11 @@ Organize all remaining work into these phases, in this order. Each phase should 
 
 #### Phase D: New feature work (depends on Phases A–C)
 
-7. **Graph visualization** (original Step 15):
+8. **Graph visualization** (original Step 15):
    - Smart link edges, block-level edges
    - Design in `carbide/2026-04-02_smart_linking_and_block_notes.md`
 
-8. **Power features** (original Step 16):
+9. **Power features** (original Step 16):
    - Bulk property ops, nested property flattening, plugin SDK extensions, CLI TUI
    - Design context in `carbide/mcp_native_gaps_plan.md` Phase 7
 
@@ -127,7 +142,7 @@ Organize all remaining work into these phases, in this order. Each phase should 
 
 #### Phase E: Cleanup
 
-9. **Archive stale branches:**
+10. **Archive stale branches:**
    - `feat/plugin-hardening` → `archive/feat/plugin-hardening`
    - `feat/extended-tools` → `archive/feat/extended-tools`
    - Only after all useful work has been hand-ported and verified on main
@@ -156,6 +171,9 @@ Organize all remaining work into these phases, in this order. Each phase should 
    - Whether BUG-002B (undo history across tab switch) should be tracked as future work
    - Whether Phase C (metadata events) should move before Phase B (it has no dependency on B and could run earlier if resources allow)
    - Whether the 4 checkpoint commits on `feat/extended-tools` contain any uncommitted WIP worth inspecting before archiving
+   - Whether `network.fetch` should support streaming responses (SSE/chunked) or only return complete responses
+   - Whether `ai.execute` should support the `api` transport kind (currently stubbed as unimplemented) or only CLI providers
+   - Whether `allowed_origins` in the manifest should be required or optional (optional = allow all, with user consent via permission dialog)
 
 ---
 
@@ -173,6 +191,9 @@ Read these in order of priority:
 | `carbide/mcp_native_gaps_plan.md` | Phase 7 power features, plugin system gaps 2a-2e context |
 | `carbide/2026-04-02_smart_linking_and_block_notes.md` | Phase 5 graph visualization design |
 | `carbide/TODO.md` | Remaining top-level tasks (rebrand, suffix-link index) |
+| `src/lib/features/ai/` | Current AI service architecture, provider config, prompt builder |
+| `src-tauri/src/features/ai/service.rs` | Rust-side AI CLI execution, provider presets |
+| `src-tauri/src/features/pipeline/service.rs` | Pipeline execution (subprocess, timeout, output capture) |
 | `carbide/2026-04-08-editor-bugs-implementation-plan.md` | ✅ Merged — reference only for BUG-002B deferral context |
 | `carbide/2026-04-06_LSP_IMPLEMENTATION_PLAN.md` | ✅ Merged — no longer needed |
 | `carbide/2026-04-06_mcp_transports_terminal_plan.md` | ✅ Merged — no longer needed |
@@ -182,6 +203,9 @@ Also verify against the actual codebase:
 - Check `src/styles/theme-*.css` for current editor width token state
 - Check `src-tauri/src/features/mcp/` for current MCP transport state
 - Check `src-tauri/src/features/search/db.rs` for current metadata state
+- Check `src/lib/features/ai/` for current AI service and provider abstraction
+- Check `src-tauri/src/features/pipeline/` for subprocess execution infrastructure
+- Check `src/lib/shared/ui/sandboxed_iframe.svelte` for current CSP (must remain `connect-src none`)
 
 ---
 
