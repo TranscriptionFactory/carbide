@@ -21,8 +21,9 @@ Every plugin needs a `manifest.json` in its folder:
   "author": "Your Name",
   "description": "What your plugin does.",
   "api_version": "1",
-  "permissions": ["editor:read", "commands:register"],
+  "permissions": ["editor:read", "commands:register", "network:fetch"],
   "activation_events": ["on_startup"],
+  "allowed_origins": ["https://api.example.com"],
   "contributes": {
     "settings": [
       {
@@ -69,10 +70,11 @@ Every plugin needs a `manifest.json` in its folder:
 
 ### Optional Fields
 
-| Field               | Type       | Description                                          |
-| ------------------- | ---------- | ---------------------------------------------------- |
-| `activation_events` | `string[]` | When the plugin loads. Default: `["on_startup"]`     |
-| `contributes`       | `object`   | Static contributions (settings schema, ribbon icons) |
+| Field               | Type       | Description                                                                                                                                                                                                |
+| ------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activation_events` | `string[]` | When the plugin loads. Default: `["on_startup"]`                                                                                                                                                           |
+| `contributes`       | `object`   | Static contributions (settings schema, ribbon icons)                                                                                                                                                       |
+| `allowed_origins`   | `string[]` | Origins the plugin can fetch via `network.fetch` (e.g. `["https://api.example.com"]`). If omitted, all origins are allowed (with `network:fetch` permission). If present, only listed origins are allowed. |
 
 ### Activation Events
 
@@ -101,6 +103,8 @@ Declare all permissions your plugin needs in `manifest.json`. Users must approve
 | `metadata:read`     | Query bases, list properties, get backlinks, get note stats                   |
 | `diagnostics:write` | Push/clear diagnostics for files                                              |
 | `search:read`       | Full-text search and tag queries                                              |
+| `network:fetch`     | Make HTTP requests to external URLs via host-side proxy (`network.fetch`)     |
+| `ai:execute`        | Run AI prompts through the configured provider (`ai.execute`)                 |
 
 `settings.get`, `settings.set`, `settings.get_all`, and `ui.show_notice` require no permission.
 
@@ -189,6 +193,21 @@ await carbide.diagnostics.push("file.md", [
   },
 ]);
 await carbide.diagnostics.clear("file.md");
+
+// Network (requires network:fetch permission)
+const response = await carbide.network.fetch("https://api.example.com/data", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ query: "hello" }),
+});
+// response = { status: 200, headers: { ... }, body: "..." }
+
+// AI (requires ai:execute permission)
+const result = await carbide.ai.execute({
+  prompt: "Summarize this note",
+  mode: "ask", // "ask" (default) or "edit"
+});
+// result = { success: true, output: "...", error: null }
 ```
 
 See `docs/example-plugins/latex-snippets/` for a complete example using the SDK.
@@ -424,6 +443,47 @@ const stats = await rpc.send("metadata.get_stats", "path/to/note.md");
 // stats = { word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at }
 ```
 
+### network.\*
+
+Requires `network:fetch`. Makes HTTP requests through the host-side proxy (the iframe sandbox blocks direct `fetch`/`XMLHttpRequest`).
+
+```js
+const response = await rpc.send(
+  "network.fetch",
+  "https://api.example.com/data",
+  {
+    method: "POST", // GET (default), POST, PUT, DELETE, PATCH, HEAD
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "hello" }),
+  },
+);
+// response = { status: 200, headers: { "content-type": "application/json" }, body: "..." }
+```
+
+**Restrictions:**
+
+- SSRF protection blocks requests to localhost, private IPs (RFC 1918), and `.local`/`.internal` domains
+- Request body limit: 1 MB
+- Response body limit: 10 MB
+- Per-request timeout: 30 seconds
+- If `allowed_origins` is set in your manifest, only those origins are allowed
+
+### ai.\*
+
+Requires `ai:execute`. Runs prompts through the user's configured AI provider (CLI-based providers only: Claude Code, Codex, Ollama).
+
+```js
+const result = await rpc.send("ai.execute", {
+  prompt: "Summarize this text: ...",
+  mode: "ask", // "ask" (default) — freeform response; "edit" — returns edited text
+});
+// result = { success: true, output: "The text discusses...", error: null }
+```
+
+- Returns `{ success: false, error: "..." }` if the provider fails or is not configured
+- No streaming — the full response is returned when complete
+- Uses the vault's default AI provider from settings
+
 ### diagnostics.\*
 
 Requires `diagnostics:write`. Push code diagnostics (warnings, errors) for files.
@@ -491,7 +551,7 @@ All files are served via the `carbide-plugin://<id>/` URI scheme.
 ## Tips
 
 - **IDs are namespaced.** When you register command `"do-thing"`, it becomes `"<plugin-id>:do-thing"` in the host. Command execution messages use the full namespaced ID.
-- **No ambient network access.** The iframe sandbox blocks `fetch`, `XMLHttpRequest`, and WebSocket. Network access requires `network:fetch` (not yet implemented).
+- **No ambient network access.** The iframe sandbox blocks `fetch`, `XMLHttpRequest`, and WebSocket. Use `network.fetch` RPC (requires `network:fetch` permission) to make HTTP requests through the host-side proxy. Set `allowed_origins` in your manifest to restrict which domains your plugin can reach.
 - **Settings in manifest.** Declare `contributes.settings` in your manifest to let users configure your plugin. Read them at runtime via `settings.get`. Available setting types: `"string"`, `"number"`, `"boolean"`, `"select"`, `"textarea"`. Optional fields: `placeholder` (hint text for string/number/textarea), `min`/`max` (numeric bounds — values are clamped on save), `options` (for select type).
 - **Event backpressure.** The host queues up to 64 events per plugin. High-frequency events like `editor-selection-changed` are debounced (50ms).
 - **RPC timeouts.** Every RPC call has a timeout. Most calls time out after 5 seconds; filesystem-heavy vault calls (`vault.read`, `vault.list`, `vault.create`, `vault.modify`, `vault.delete`) get 30 seconds. If a call exceeds its timeout, the host rejects it with `RpcTimeoutError`. Design your plugin to handle timeout rejections gracefully.
