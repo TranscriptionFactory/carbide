@@ -14,7 +14,7 @@ use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use audio::{AudioRecorder, is_microphone_access_denied};
+use audio::{is_microphone_access_denied, AudioRecorder};
 use models::ModelInfo;
 use transcription::TranscriptionResult;
 use types::{AudioDeviceInfo, AudioLevelEvent, RecordingState, WHISPER_SAMPLE_RATE};
@@ -39,12 +39,12 @@ fn create_recorder(app: &AppHandle, vad_threshold: f32) -> Result<AudioRecorder,
         .resource_dir()
         .map_err(|e| format!("Failed to resolve resource dir: {e}"))?;
 
-    let vad_path = resource_dir.join("resources").join("models").join("silero_vad_v4.onnx");
+    let vad_path = resource_dir
+        .join("resources")
+        .join("models")
+        .join("silero_vad_v4.onnx");
     if !vad_path.exists() {
-        return Err(format!(
-            "VAD model not found at {}",
-            vad_path.display()
-        ));
+        return Err(format!("VAD model not found at {}", vad_path.display()));
     }
 
     let silero = SileroVad::new(&vad_path, vad_threshold)
@@ -119,9 +119,7 @@ pub async fn stt_stop_recording(
     emit_state(&app, RecordingState::Processing);
 
     let recorder_lock = state.recorder.lock().map_err(|e| e.to_string())?;
-    let recorder = recorder_lock
-        .as_ref()
-        .ok_or("Recorder not initialized")?;
+    let recorder = recorder_lock.as_ref().ok_or("Recorder not initialized")?;
 
     let samples = recorder.stop()?;
 
@@ -158,7 +156,7 @@ pub async fn stt_cancel_recording(
 #[tauri::command]
 #[specta::specta]
 pub async fn stt_list_audio_devices() -> Result<Vec<AudioDeviceInfo>, String> {
-    audio::list_input_devices()
+    audio::list_input_devices_safe()
 }
 
 #[tauri::command]
@@ -270,9 +268,7 @@ pub async fn stt_transcribe(
     language: Option<String>,
     state: State<'_, transcription::SttTranscriptionState>,
 ) -> Result<TranscriptionResult, String> {
-    state
-        .transcribe(audio, language)
-        .map_err(|e| e.to_string())
+    state.transcribe(audio, language).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -287,8 +283,8 @@ pub async fn stt_transcribe_file(
         .map_err(|e| format!("Failed to read file: {e}"))?;
 
     let cursor = Cursor::new(bytes);
-    let decoder = rodio::Decoder::new(cursor)
-        .map_err(|e| format!("Failed to decode audio file: {e}"))?;
+    let decoder =
+        rodio::Decoder::new(cursor).map_err(|e| format!("Failed to decode audio file: {e}"))?;
 
     let source_sample_rate = decoder.sample_rate() as usize;
     let source_channels = decoder.channels() as usize;
