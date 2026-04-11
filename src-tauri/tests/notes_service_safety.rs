@@ -37,14 +37,14 @@ fn safe_vault_abs_rejects_traversal() {
 
 #[cfg(unix)]
 #[test]
-fn safe_vault_abs_for_write_rejects_symlink_escape() {
+fn safe_vault_abs_for_write_allows_symlinked_folder() {
     let root = mk_temp_dir();
     let outside = mk_temp_dir();
     let link = root.join("notes");
     unix_fs::symlink(&outside, &link).expect("symlink should be created");
 
     let result = safe_vault_abs_for_write(&root, "notes/escape.md");
-    assert!(result.is_err());
+    assert!(result.is_ok());
 
     let _ = std::fs::remove_dir_all(&outside);
     let _ = std::fs::remove_dir_all(&root);

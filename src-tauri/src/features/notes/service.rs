@@ -73,33 +73,7 @@ fn canonical_vault_root(vault_root: &Path) -> Result<PathBuf, String> {
 
 fn resolve_under_vault_root(vault_root: &Path, rel: &Path) -> Result<PathBuf, String> {
     let base = canonical_vault_root(vault_root)?;
-    let candidate = base.join(rel);
-
-    let mut nearest_existing = candidate.as_path();
-    while !nearest_existing.exists() {
-        nearest_existing = nearest_existing
-            .parent()
-            .ok_or("note path escapes vault".to_string())?;
-    }
-
-    let nearest_existing_canon = nearest_existing.canonicalize().map_err(|e| e.to_string())?;
-    if !nearest_existing_canon.starts_with(&base) {
-        return Err("note path escapes vault".to_string());
-    }
-
-    let suffix = candidate
-        .strip_prefix(nearest_existing)
-        .map_err(|_| "note path escapes vault".to_string())?;
-    let resolved = if suffix.as_os_str().is_empty() {
-        nearest_existing_canon
-    } else {
-        nearest_existing_canon.join(suffix)
-    };
-
-    if !resolved.starts_with(&base) {
-        return Err("note path escapes vault".to_string());
-    }
-    Ok(resolved)
+    Ok(base.join(rel))
 }
 
 pub(crate) fn safe_vault_abs(vault_root: &Path, note_rel: &str) -> Result<PathBuf, String> {
