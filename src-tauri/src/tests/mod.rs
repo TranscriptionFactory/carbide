@@ -22,6 +22,9 @@ mod mcp_tools_notes;
 #[path = "../../tests/mcp_tools_search_metadata_vault.rs"]
 mod mcp_tools_search_metadata_vault;
 
+#[path = "../../tests/mcp_tools_graph_references.rs"]
+mod mcp_tools_graph_references;
+
 #[path = "../../tests/smart_links_rules.rs"]
 mod smart_links_rules;
 
