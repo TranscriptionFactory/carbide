@@ -77,29 +77,18 @@ pub async fn read(
         format::print_json(&resp);
     } else {
         let content = resp["content"].as_str().unwrap_or("");
-        if raw || !std::io::stdout().is_terminal() || !try_render_glow(content) {
+        if raw || !std::io::stdout().is_terminal() {
             print!("{}", content);
+        } else {
+            render_markdown(content);
         }
     }
     Ok(())
 }
 
-fn try_render_glow(content: &str) -> bool {
-    let Ok(mut child) = std::process::Command::new("glow")
-        .arg("-")
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-    else {
-        return false;
-    };
-
-    use std::io::Write;
-    if let Some(ref mut stdin) = child.stdin {
-        let _ = stdin.write_all(content.as_bytes());
-    }
-    drop(child.stdin.take());
-
-    child.wait().is_ok_and(|s| s.success())
+fn render_markdown(content: &str) {
+    let skin = termimad::MadSkin::default();
+    skin.print_text(content);
 }
 
 #[derive(Serialize)]

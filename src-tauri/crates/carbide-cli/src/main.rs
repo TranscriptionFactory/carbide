@@ -48,7 +48,7 @@ enum Command {
     Read {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
-        #[arg(long, help = "Output raw markdown (skip glow rendering)")]
+        #[arg(long, help = "Output raw markdown (skip terminal rendering)")]
         raw: bool,
     },
     #[command(
