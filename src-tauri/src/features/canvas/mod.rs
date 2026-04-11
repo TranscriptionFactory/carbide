@@ -114,6 +114,8 @@ pub fn rewrite_canvas_refs_for_rename(
     let new_link = format!("[[{new_name}]]");
 
     for entry in walkdir::WalkDir::new(&root)
+        .follow_links(true)
+        .max_depth(crate::shared::constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {

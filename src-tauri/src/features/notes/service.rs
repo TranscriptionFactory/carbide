@@ -441,6 +441,7 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
 
     for entry in WalkDir::new(&root)
         .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -939,6 +940,15 @@ pub(crate) fn scan_folder_entries(
             .then_with(|| a.name.cmp(&b.name)),
     });
 
+    if items.len() > constants::MAX_DIR_ENTRIES {
+        log::warn!(
+            "scan_folder_entries: truncating {} entries to {}",
+            items.len(),
+            constants::MAX_DIR_ENTRIES
+        );
+        items.truncate(constants::MAX_DIR_ENTRIES);
+    }
+
     Ok(items)
 }
 
@@ -1017,6 +1027,7 @@ pub fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, Str
 
     for entry in WalkDir::new(&root)
         .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -1548,6 +1559,7 @@ pub fn get_folder_stats(
 
     for entry in WalkDir::new(&target)
         .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -1640,6 +1652,7 @@ pub fn list_vault_files_by_extension(
     let mut results = Vec::new();
     for entry in WalkDir::new(&root)
         .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -1710,6 +1723,8 @@ pub fn search_vault_assets(
 
     let mut results = Vec::new();
     for entry in WalkDir::new(&root)
+        .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();

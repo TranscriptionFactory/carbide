@@ -62,6 +62,7 @@ pub fn scan_vault(
 
     for entry in WalkDir::new(root)
         .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -90,6 +91,14 @@ pub fn scan_vault(
     }
 
     files.sort();
+    if files.len() > constants::MAX_INDEXABLE_FILES {
+        log::warn!(
+            "scan_vault: capping indexable files from {} to {}",
+            files.len(),
+            constants::MAX_INDEXABLE_FILES
+        );
+        files.truncate(constants::MAX_INDEXABLE_FILES);
+    }
     Ok(VaultScanResult {
         indexable_files: files,
         stats: VaultScanStats {
@@ -1805,6 +1814,17 @@ fn index_single_file_from_disk(
     pending_links: &mut Vec<(String, Vec<String>)>,
 ) -> Result<(), String> {
     use crate::features::search::text_extractor::{classify_file, extract_content, FileCategory};
+
+    if meta.size_bytes > constants::MAX_INDEXABLE_FILE_SIZE as i64 {
+        log::warn!(
+            "skip indexing body for {} ({} bytes)",
+            abs.display(),
+            meta.size_bytes
+        );
+        upsert_plain_content(conn, meta, "", &[])?;
+        pending_links.push((meta.path.clone(), vec![]));
+        return Ok(());
+    }
 
     let category = classify_file(abs);
     meta.file_type = Some(category.as_str().to_string());
