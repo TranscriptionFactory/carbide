@@ -78,9 +78,9 @@ hex = "0.4"
 hnsw_rs = "0.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-candle-core = { version = "0.9", default-features = false, features = ["accelerate"] }
-candle-nn = { version = "0.9", default-features = false, features = ["accelerate"] }
-candle-transformers = { version = "0.9", default-features = false, features = ["accelerate"] }
+candle-core = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
+candle-nn = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
+candle-transformers = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 
 [dev-dependencies]
 filetime = "0.2"
