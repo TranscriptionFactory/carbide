@@ -61,7 +61,7 @@ fn load_note_count(app: &AppHandle, vault_id: &str) -> Option<u64> {
 
     let mut count = 0u64;
     for entry in WalkDir::new(&root)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();

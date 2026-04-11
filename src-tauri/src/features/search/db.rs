@@ -61,7 +61,7 @@ pub fn scan_vault(
     let mut folder_count: usize = 0;
 
     for entry in WalkDir::new(root)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();

@@ -569,7 +569,7 @@ fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
     }
 
     let paths: Vec<PathBuf> = WalkDir::new(&root)
-        .follow_links(false)
+        .follow_links(true)
         .max_depth(3)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -632,7 +632,7 @@ pub async fn linked_source_list_files(
         }
 
         let entries: Vec<LinkedSourceFileInfo> = WalkDir::new(&root)
-            .follow_links(false)
+            .follow_links(true)
             .max_depth(3)
             .into_iter()
             .filter_map(|e| e.ok())
