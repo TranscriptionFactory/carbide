@@ -13,7 +13,7 @@ use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -572,6 +572,14 @@ pub fn write_and_index_note(
         args.markdown,
     )?;
 
+    emit_metadata_changed(
+        &app,
+        MetadataChangedEvent::Upsert {
+            vault_id: args.vault_id,
+            path: args.note_id,
+        },
+    );
+
     Ok(WriteAndIndexResult { new_mtime, blurb })
 }
 
@@ -600,6 +608,13 @@ pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, Str
     io_utils::atomic_write(&abs, args.initial_markdown.as_bytes())?;
     let note = build_note_meta(&root, &args.note_path, None)?;
     invalidate_note_parent_folder_cache(&args.vault_id, &note.path);
+    emit_metadata_changed(
+        &app,
+        MetadataChangedEvent::Upsert {
+            vault_id: args.vault_id,
+            path: note.path.clone(),
+        },
+    );
     Ok(note)
 }
 
@@ -798,6 +813,14 @@ pub fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
     if to_parent != from_parent {
         invalidate_folder_cache(&args.vault_id, &to_parent);
     }
+    emit_metadata_changed(
+        &app,
+        MetadataChangedEvent::Rename {
+            vault_id: args.vault_id,
+            path: args.to,
+            old_path: args.from,
+        },
+    );
     Ok(())
 }
 
@@ -805,6 +828,28 @@ pub fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
 pub struct NoteDeleteArgs {
     pub vault_id: String,
     pub note_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(tag = "event_type", rename_all = "snake_case")]
+pub enum MetadataChangedEvent {
+    Upsert {
+        vault_id: String,
+        path: String,
+    },
+    Rename {
+        vault_id: String,
+        path: String,
+        old_path: String,
+    },
+    Delete {
+        vault_id: String,
+        path: String,
+    },
+}
+
+fn emit_metadata_changed(app: &AppHandle, event: MetadataChangedEvent) {
+    let _ = app.emit("metadata-changed", event);
 }
 
 #[derive(Debug, Clone)]
@@ -988,6 +1033,13 @@ pub fn delete_note(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
     let abs = safe_vault_abs(&root, &args.note_id)?;
     std::fs::remove_file(&abs).map_err(|e| e.to_string())?;
     invalidate_note_parent_folder_cache(&args.vault_id, &args.note_id);
+    emit_metadata_changed(
+        &app,
+        MetadataChangedEvent::Delete {
+            vault_id: args.vault_id,
+            path: args.note_id,
+        },
+    );
     Ok(())
 }
 

@@ -52,6 +52,9 @@ mod markdown_lsp_status_serde;
 #[path = "../../tests/toolchain_registry_specs.rs"]
 mod toolchain_registry_specs;
 
+#[path = "../../tests/metadata_events.rs"]
+mod metadata_events;
+
 mod specta_export {
     use specta_typescript::{BigIntExportBehavior, Typescript};
     use tauri_specta::{collect_commands, Builder};
