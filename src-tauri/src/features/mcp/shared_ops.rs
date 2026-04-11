@@ -347,11 +347,7 @@ pub fn note_tags(
         .map_err(OpError::Internal)
 }
 
-pub fn notes_for_tag(
-    app: &AppHandle,
-    vault_id: &str,
-    tag: &str,
-) -> Result<Vec<String>, OpError> {
+pub fn notes_for_tag(app: &AppHandle, vault_id: &str, tag: &str) -> Result<Vec<String>, OpError> {
     search_service::with_read_conn(app, vault_id, |conn| {
         search_db::get_notes_for_tag(conn, tag)
     })

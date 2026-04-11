@@ -2,8 +2,8 @@ use anyhow::Result;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
@@ -77,9 +77,7 @@ impl ModelManager {
         let custom_models_path = models_dir.join("custom_models.json");
         if custom_models_path.exists() {
             if let Ok(data) = fs::read_to_string(&custom_models_path) {
-                if let Ok(custom_models) =
-                    serde_json::from_str::<Vec<ModelInfo>>(&data)
-                {
+                if let Ok(custom_models) = serde_json::from_str::<Vec<ModelInfo>>(&data) {
                     for model in custom_models {
                         available_models.insert(model.id.clone(), model);
                     }
@@ -217,7 +215,10 @@ impl ModelManager {
         let mut response = request.send().await?;
 
         if resume_from > 0 && response.status() == reqwest::StatusCode::OK {
-            log::warn!("Server doesn't support range requests for {}, restarting", model_id);
+            log::warn!(
+                "Server doesn't support range requests for {}, restarting",
+                model_id
+            );
             drop(response);
             let _ = fs::remove_file(&partial_path);
             resume_from = 0;
@@ -291,7 +292,9 @@ impl ModelManager {
             total: total_size,
             percentage: 100.0,
         };
-        let _ = self.app_handle.emit("stt_download_progress", &final_progress);
+        let _ = self
+            .app_handle
+            .emit("stt_download_progress", &final_progress);
 
         file.flush()?;
         drop(file);
@@ -521,47 +524,181 @@ fn build_model_catalog() -> HashMap<String, ModelInfo> {
         };
     }
 
-    add_model!("parakeet-tdt-0.6b-v2", "Parakeet V2", "English only, best for English speakers",
-        "parakeet-tdt-0.6b-v2-int8", "https://blob.handy.computer/parakeet-v2-int8.tar.gz",
-        473, true, EngineType::Parakeet, 0.85, 0.85, false, false, vec!["en".into()], false);
+    add_model!(
+        "parakeet-tdt-0.6b-v2",
+        "Parakeet V2",
+        "English only, best for English speakers",
+        "parakeet-tdt-0.6b-v2-int8",
+        "https://blob.handy.computer/parakeet-v2-int8.tar.gz",
+        473,
+        true,
+        EngineType::Parakeet,
+        0.85,
+        0.85,
+        false,
+        false,
+        vec!["en".into()],
+        false
+    );
 
-    add_model!("parakeet-tdt-0.6b-v3", "Parakeet V3", "Fast, accurate, 25 European languages",
-        "parakeet-tdt-0.6b-v3-int8", "https://blob.handy.computer/parakeet-v3-int8.tar.gz",
-        478, true, EngineType::Parakeet, 0.80, 0.85, false, true, eu_languages.clone(), false);
+    add_model!(
+        "parakeet-tdt-0.6b-v3",
+        "Parakeet V3",
+        "Fast, accurate, 25 European languages",
+        "parakeet-tdt-0.6b-v3-int8",
+        "https://blob.handy.computer/parakeet-v3-int8.tar.gz",
+        478,
+        true,
+        EngineType::Parakeet,
+        0.80,
+        0.85,
+        false,
+        true,
+        eu_languages.clone(),
+        false
+    );
 
-    add_model!("moonshine-base", "Moonshine Base", "Very fast, English only",
-        "moonshine-base", "https://blob.handy.computer/moonshine-base.tar.gz",
-        58, true, EngineType::Moonshine, 0.70, 0.90, false, false, vec!["en".into()], false);
+    add_model!(
+        "moonshine-base",
+        "Moonshine Base",
+        "Very fast, English only",
+        "moonshine-base",
+        "https://blob.handy.computer/moonshine-base.tar.gz",
+        58,
+        true,
+        EngineType::Moonshine,
+        0.70,
+        0.90,
+        false,
+        false,
+        vec!["en".into()],
+        false
+    );
 
-    add_model!("moonshine-tiny-streaming-en", "Moonshine V2 Tiny", "Ultra-fast streaming, English",
-        "moonshine-tiny-streaming-en", "https://blob.handy.computer/moonshine-tiny-streaming-en.tar.gz",
-        31, true, EngineType::MoonshineStreaming, 0.55, 0.95, false, false, vec!["en".into()], false);
+    add_model!(
+        "moonshine-tiny-streaming-en",
+        "Moonshine V2 Tiny",
+        "Ultra-fast streaming, English",
+        "moonshine-tiny-streaming-en",
+        "https://blob.handy.computer/moonshine-tiny-streaming-en.tar.gz",
+        31,
+        true,
+        EngineType::MoonshineStreaming,
+        0.55,
+        0.95,
+        false,
+        false,
+        vec!["en".into()],
+        false
+    );
 
-    add_model!("moonshine-small-streaming-en", "Moonshine V2 Small", "Fast streaming, English",
-        "moonshine-small-streaming-en", "https://blob.handy.computer/moonshine-small-streaming-en.tar.gz",
-        100, true, EngineType::MoonshineStreaming, 0.65, 0.90, false, false, vec!["en".into()], false);
+    add_model!(
+        "moonshine-small-streaming-en",
+        "Moonshine V2 Small",
+        "Fast streaming, English",
+        "moonshine-small-streaming-en",
+        "https://blob.handy.computer/moonshine-small-streaming-en.tar.gz",
+        100,
+        true,
+        EngineType::MoonshineStreaming,
+        0.65,
+        0.90,
+        false,
+        false,
+        vec!["en".into()],
+        false
+    );
 
-    add_model!("moonshine-medium-streaming-en", "Moonshine V2 Medium", "High quality streaming, English",
-        "moonshine-medium-streaming-en", "https://blob.handy.computer/moonshine-medium-streaming-en.tar.gz",
-        192, true, EngineType::MoonshineStreaming, 0.75, 0.80, false, false, vec!["en".into()], false);
+    add_model!(
+        "moonshine-medium-streaming-en",
+        "Moonshine V2 Medium",
+        "High quality streaming, English",
+        "moonshine-medium-streaming-en",
+        "https://blob.handy.computer/moonshine-medium-streaming-en.tar.gz",
+        192,
+        true,
+        EngineType::MoonshineStreaming,
+        0.75,
+        0.80,
+        false,
+        false,
+        vec!["en".into()],
+        false
+    );
 
-    add_model!("sense-voice-int8", "SenseVoice", "Very fast, Chinese/English/Japanese/Korean",
-        "sense-voice-int8", "https://blob.handy.computer/sense-voice-int8.tar.gz",
-        160, true, EngineType::SenseVoice, 0.65, 0.95, false, false,
-        vec!["zh".into(), "en".into(), "yue".into(), "ja".into(), "ko".into()], true);
+    add_model!(
+        "sense-voice-int8",
+        "SenseVoice",
+        "Very fast, Chinese/English/Japanese/Korean",
+        "sense-voice-int8",
+        "https://blob.handy.computer/sense-voice-int8.tar.gz",
+        160,
+        true,
+        EngineType::SenseVoice,
+        0.65,
+        0.95,
+        false,
+        false,
+        vec![
+            "zh".into(),
+            "en".into(),
+            "yue".into(),
+            "ja".into(),
+            "ko".into()
+        ],
+        true
+    );
 
-    add_model!("gigaam-v3-e2e-ctc", "GigaAM v3", "Russian speech recognition",
-        "giga-am-v3-int8", "https://blob.handy.computer/giga-am-v3-int8.tar.gz",
-        152, true, EngineType::GigaAM, 0.85, 0.75, false, false, vec!["ru".into()], false);
+    add_model!(
+        "gigaam-v3-e2e-ctc",
+        "GigaAM v3",
+        "Russian speech recognition",
+        "giga-am-v3-int8",
+        "https://blob.handy.computer/giga-am-v3-int8.tar.gz",
+        152,
+        true,
+        EngineType::GigaAM,
+        0.85,
+        0.75,
+        false,
+        false,
+        vec!["ru".into()],
+        false
+    );
 
-    add_model!("canary-180m-flash", "Canary 180M Flash", "Very fast, en/de/es/fr, translation",
-        "canary-180m-flash", "https://blob.handy.computer/canary-180m-flash.tar.gz",
-        146, true, EngineType::Canary, 0.75, 0.85, true, false,
-        vec!["en".into(), "de".into(), "es".into(), "fr".into()], true);
+    add_model!(
+        "canary-180m-flash",
+        "Canary 180M Flash",
+        "Very fast, en/de/es/fr, translation",
+        "canary-180m-flash",
+        "https://blob.handy.computer/canary-180m-flash.tar.gz",
+        146,
+        true,
+        EngineType::Canary,
+        0.75,
+        0.85,
+        true,
+        false,
+        vec!["en".into(), "de".into(), "es".into(), "fr".into()],
+        true
+    );
 
-    add_model!("canary-1b-v2", "Canary 1B v2", "Accurate multilingual, 25 EU languages, translation",
-        "canary-1b-v2", "https://blob.handy.computer/canary-1b-v2.tar.gz",
-        692, true, EngineType::Canary, 0.85, 0.70, true, false, eu_languages, true);
+    add_model!(
+        "canary-1b-v2",
+        "Canary 1B v2",
+        "Accurate multilingual, 25 EU languages, translation",
+        "canary-1b-v2",
+        "https://blob.handy.computer/canary-1b-v2.tar.gz",
+        692,
+        true,
+        EngineType::Canary,
+        0.85,
+        0.70,
+        true,
+        false,
+        eu_languages,
+        true
+    );
 
     models
 }

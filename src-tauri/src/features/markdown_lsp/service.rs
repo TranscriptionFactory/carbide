@@ -180,9 +180,7 @@ fn spawn_server_request_handler(
                             r.errors.len()
                         );
                         *pending_workspace_edit.lock().await = Some(r.clone());
-                        let _ = req
-                            .response_tx
-                            .send(serde_json::json!({"applied": true}));
+                        let _ = req.response_tx.send(serde_json::json!({"applied": true}));
                     }
                     Err(e) => {
                         log::warn!("workspace/applyEdit failed: {}", e);
@@ -381,11 +379,7 @@ pub async fn markdown_lsp_start(
     }
 
     if let Some(rx) = client.take_server_request_rx() {
-        spawn_server_request_handler(
-            vault_path.clone(),
-            state.pending_workspace_edit.clone(),
-            rx,
-        );
+        spawn_server_request_handler(vault_path.clone(), state.pending_workspace_edit.clone(), rx);
     }
 
     if let Some(rx) = client.take_status_rx() {

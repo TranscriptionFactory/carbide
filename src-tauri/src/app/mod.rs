@@ -116,10 +116,10 @@ pub fn run() {
         .level(log_level)
         .level_for("hnsw_rs", log::LevelFilter::Warn)
         .targets([
-        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
-        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
-    ]);
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+        ]);
 
     if std::env::var("CARBIDE_LOG_FORMAT").as_deref() == Ok("json") {
         log_builder = log_builder.format(|callback, message, record| {

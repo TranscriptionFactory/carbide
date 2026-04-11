@@ -250,7 +250,14 @@ async fn cli_reindex(
     Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
     match shared_ops::reindex(state.app(), &params.vault_id) {
-        Ok(()) => (StatusCode::OK, Json(MutationResponse { ok: true, path: String::new() })).into_response(),
+        Ok(()) => (
+            StatusCode::OK,
+            Json(MutationResponse {
+                ok: true,
+                path: String::new(),
+            }),
+        )
+            .into_response(),
         Err(e) => op_err_to_response(e),
     }
 }

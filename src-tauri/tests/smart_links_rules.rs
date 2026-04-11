@@ -82,7 +82,12 @@ fn compute(
     let note_index = VectorIndex::rebuild_from_sqlite(conn, "notes", dims);
     let block_index = VectorIndex::rebuild_from_sqlite(conn, "blocks", dims);
     crate::features::smart_links::rules::execute_rules(
-        conn, note_path, groups, 20, &note_index, &block_index,
+        conn,
+        note_path,
+        groups,
+        20,
+        &note_index,
+        &block_index,
     )
     .expect("execute_rules")
 }
