@@ -20,7 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/iwes", "binaries/rumdl", "binaries/carbide-cli"],
+    "externalBin": ["binaries/carbide-cli"],
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",

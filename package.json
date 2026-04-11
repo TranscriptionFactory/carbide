@@ -24,7 +24,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sidecar": "bash scripts/download_rumdl.sh && bash scripts/build-iwes.sh && bash scripts/build-cli.sh",
+    "sidecar": "bash scripts/build-cli.sh",
     "tauri": "tauri",
     "version": "changeset version && node scripts/sync-versions.mjs && pnpm install"
   },

@@ -59,7 +59,7 @@ jobs:
       - name: Stub sidecar binaries for build
         run: |
           triple="aarch64-apple-darwin"
-          for bin in iwes rumdl carbide-cli; do
+          for bin in carbide-cli; do
             touch "src-tauri/binaries/${bin}-${triple}"
             chmod +x "src-tauri/binaries/${bin}-${triple}"
           done
@@ -183,14 +183,6 @@ jobs:
           rm -f src-tauri/Cargo.toml.bak
           sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/crates/carbide-cli/Cargo.toml
           rm -f src-tauri/crates/carbide-cli/Cargo.toml.bak
-
-      - name: Download iwes sidecar
-        shell: bash
-        run: bash scripts/download_iwes.sh "${{ matrix.triple }}"
-
-      - name: Download rumdl sidecar
-        shell: bash
-        run: bash scripts/download_rumdl.sh "${{ matrix.triple }}"
 
       - name: Build carbide-cli sidecar
         shell: bash
