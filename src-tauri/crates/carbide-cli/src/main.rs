@@ -51,7 +51,10 @@ enum Command {
         #[arg(long, help = "Output raw markdown (skip glow rendering)")]
         raw: bool,
     },
-    #[command(about = "Read a note (raw output, alias for read --raw)", visible_alias = "cat")]
+    #[command(
+        about = "Read a note (raw output, alias for read --raw)",
+        visible_alias = "cat"
+    )]
     Cat {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
@@ -380,9 +383,7 @@ async fn run_command(
         Command::Read { path, raw } => {
             commands::notes::read(client, vault_id, &path, json, raw).await
         }
-        Command::Cat { path } => {
-            commands::notes::read(client, vault_id, &path, json, true).await
-        }
+        Command::Cat { path } => commands::notes::read(client, vault_id, &path, json, true).await,
         Command::Open { path } => commands::notes::open_note(client, vault_id, &path).await,
         Command::Edit { path } => commands::notes::edit_note(client, vault_id, &path).await,
         Command::Create {
@@ -420,9 +421,7 @@ async fn run_command(
         Command::Tags { filter } => {
             commands::search::tags(client, vault_id, json, filter.as_deref()).await
         }
-        Command::Outline { path } => {
-            commands::search::outline(client, vault_id, &path, json).await
-        }
+        Command::Outline { path } => commands::search::outline(client, vault_id, &path, json).await,
         Command::Vault => commands::vault::vault(client, vault_id, json).await,
         Command::Reindex => commands::search::reindex(client, vault_id, json).await,
         Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {

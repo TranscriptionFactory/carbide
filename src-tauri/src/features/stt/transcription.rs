@@ -189,8 +189,8 @@ impl SttTranscriptionState {
                 LoadedEngine::Moonshine(engine)
             }
             EngineType::MoonshineStreaming => {
-                let engine =
-                    StreamingModel::load(&model_path, 0, &Quantization::default()).map_err(|e| {
+                let engine = StreamingModel::load(&model_path, 0, &Quantization::default())
+                    .map_err(|e| {
                         let msg = format!(
                             "Failed to load MoonshineStreaming model {}: {}",
                             model_id, e
@@ -210,21 +210,19 @@ impl SttTranscriptionState {
                 LoadedEngine::SenseVoice(engine)
             }
             EngineType::GigaAM => {
-                let engine =
-                    GigaAMModel::load(&model_path, &Quantization::Int8).map_err(|e| {
-                        let msg = format!("Failed to load GigaAM model {}: {}", model_id, e);
-                        emit_loading_failed(&msg);
-                        anyhow::anyhow!(msg)
-                    })?;
+                let engine = GigaAMModel::load(&model_path, &Quantization::Int8).map_err(|e| {
+                    let msg = format!("Failed to load GigaAM model {}: {}", model_id, e);
+                    emit_loading_failed(&msg);
+                    anyhow::anyhow!(msg)
+                })?;
                 LoadedEngine::GigaAM(engine)
             }
             EngineType::Canary => {
-                let engine =
-                    CanaryModel::load(&model_path, &Quantization::Int8).map_err(|e| {
-                        let msg = format!("Failed to load Canary model {}: {}", model_id, e);
-                        emit_loading_failed(&msg);
-                        anyhow::anyhow!(msg)
-                    })?;
+                let engine = CanaryModel::load(&model_path, &Quantization::Int8).map_err(|e| {
+                    let msg = format!("Failed to load Canary model {}: {}", model_id, e);
+                    emit_loading_failed(&msg);
+                    anyhow::anyhow!(msg)
+                })?;
                 LoadedEngine::Canary(engine)
             }
         };
@@ -241,7 +239,11 @@ impl SttTranscriptionState {
 
         self.touch_activity();
         self.emit_model_state("loading_completed", Some(model_id), None);
-        log::info!("Loaded STT model: {} ({:?})", model_id, model_info.engine_type);
+        log::info!(
+            "Loaded STT model: {} ({:?})",
+            model_id,
+            model_info.engine_type
+        );
         Ok(())
     }
 
@@ -315,9 +317,7 @@ impl SttTranscriptionState {
             let mut engine = match engine_guard.take() {
                 Some(e) => e,
                 None => {
-                    anyhow::bail!(
-                        "No engine loaded. Please check your model settings."
-                    );
+                    anyhow::bail!("No engine loaded. Please check your model settings.");
                 }
             };
             drop(engine_guard);
@@ -332,7 +332,9 @@ impl SttTranscriptionState {
                             };
                             parakeet_engine
                                 .transcribe_with(&audio, &params)
-                                .map_err(|e| anyhow::anyhow!("Parakeet transcription failed: {}", e))
+                                .map_err(|e| {
+                                    anyhow::anyhow!("Parakeet transcription failed: {}", e)
+                                })
                         }
                         LoadedEngine::Moonshine(moonshine_engine) => moonshine_engine
                             .transcribe(&audio, &TranscribeOptions::default())
@@ -404,12 +406,18 @@ impl SttTranscriptionState {
                     );
 
                     {
-                        let mut current_model =
-                            self.current_model_id.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut current_model = self
+                            .current_model_id
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
                         *current_model = None;
                     }
 
-                    self.emit_model_state("unloaded", None, Some(&format!("Engine panicked: {}", panic_msg)));
+                    self.emit_model_state(
+                        "unloaded",
+                        None,
+                        Some(&format!("Engine panicked: {}", panic_msg)),
+                    );
 
                     anyhow::bail!(
                         "Transcription engine panicked: {}. The model has been unloaded and will reload on next attempt.",
@@ -476,50 +484,47 @@ impl SttTranscriptionState {
         let unload_timeout = self.unload_timeout.clone();
         let app_handle = self.app_handle.clone();
 
-        let handle = std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(Duration::from_secs(10));
+        let handle = std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_secs(10));
 
-                if shutdown_signal.load(Ordering::Relaxed) {
-                    break;
+            if shutdown_signal.load(Ordering::Relaxed) {
+                break;
+            }
+
+            let timeout = unload_timeout.lock().unwrap().clone();
+            let timeout_secs = match timeout {
+                ModelUnloadTimeout::Immediately => continue,
+                ModelUnloadTimeout::Never => continue,
+                ModelUnloadTimeout::Minutes(m) => m as u64 * 60,
+            };
+
+            if current_model_id.lock().unwrap().is_none() {
+                continue;
+            }
+
+            let last = last_activity.load(Ordering::Relaxed);
+            let now = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            if last > 0 && now - last > timeout_secs {
+                log::info!("STT idle timeout reached, unloading model");
+
+                {
+                    let mut engine_guard = engine.lock().unwrap_or_else(|e| e.into_inner());
+                    *engine_guard = None;
                 }
 
-                let timeout = unload_timeout.lock().unwrap().clone();
-                let timeout_secs = match timeout {
-                    ModelUnloadTimeout::Immediately => continue,
-                    ModelUnloadTimeout::Never => continue,
-                    ModelUnloadTimeout::Minutes(m) => m as u64 * 60,
-                };
-
-                if current_model_id.lock().unwrap().is_none() {
-                    continue;
-                }
-
-                let last = last_activity.load(Ordering::Relaxed);
-                let now = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs();
-
-                if last > 0 && now - last > timeout_secs {
-                    log::info!("STT idle timeout reached, unloading model");
-
-                    {
-                        let mut engine_guard =
-                            engine.lock().unwrap_or_else(|e| e.into_inner());
-                        *engine_guard = None;
-                    }
-
-                    let mut current = current_model_id.lock().unwrap();
-                    if let Some(id) = current.take() {
-                        let event = ModelStateEvent {
-                            event_type: "unloaded".to_string(),
-                            model_id: Some(id),
-                            model_name: None,
-                            error: None,
-                        };
-                        let _ = app_handle.emit("stt_model_state", &event);
-                    }
+                let mut current = current_model_id.lock().unwrap();
+                if let Some(id) = current.take() {
+                    let event = ModelStateEvent {
+                        event_type: "unloaded".to_string(),
+                        model_id: Some(id),
+                        model_name: None,
+                        error: None,
+                    };
+                    let _ = app_handle.emit("stt_model_state", &event);
                 }
             }
         });

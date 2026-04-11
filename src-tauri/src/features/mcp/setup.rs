@@ -183,9 +183,7 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
     Ok(SetupResult {
         success: true,
         path: mcp_json_path.to_string_lossy().to_string(),
-        message: format!(
-            "Claude Code configured with Carbide MCP server ({transport} transport)"
-        ),
+        message: format!("Claude Code configured with Carbide MCP server ({transport} transport)"),
     })
 }
 
@@ -312,10 +310,7 @@ fn resolve_cli_sidecar(app: &AppHandle) -> Result<PathBuf, String> {
     let base = "carbide-cli";
 
     let names = if cfg!(target_os = "windows") {
-        vec![
-            format!("{base}-{TARGET_TRIPLE}.exe"),
-            format!("{base}.exe"),
-        ]
+        vec![format!("{base}-{TARGET_TRIPLE}.exe"), format!("{base}.exe")]
     } else {
         vec![format!("{base}-{TARGET_TRIPLE}"), base.to_string()]
     };

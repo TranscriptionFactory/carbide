@@ -1,11 +1,11 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
+use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
     BatchSemanticEdge, BlockSearchHit, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit,
     SearchScope, SemanticSearchHit,
 };
-use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::{hybrid, vector_db};
 use crate::features::vault_settings::service::get_vault_setting_value;
 use crate::shared::storage::{self, VaultMode};
@@ -367,7 +367,15 @@ fn dispatch_command(
             app_handle,
             reply,
         } => {
-            let result = handle_upsert(conn, &vault_root, &note_id, notes_cache, note_index, block_index, &app_handle);
+            let result = handle_upsert(
+                conn,
+                &vault_root,
+                &note_id,
+                notes_cache,
+                note_index,
+                block_index,
+                &app_handle,
+            );
             if let Err(ref e) = result {
                 log::warn!("writer: upsert failed for {note_id}: {e}");
             }
@@ -380,8 +388,16 @@ fn dispatch_command(
             app_handle,
             reply,
         } => {
-            let result =
-                handle_upsert_with_content(conn, &vault_root, &note_id, &markdown, notes_cache, note_index, block_index, &app_handle);
+            let result = handle_upsert_with_content(
+                conn,
+                &vault_root,
+                &note_id,
+                &markdown,
+                notes_cache,
+                note_index,
+                block_index,
+                &app_handle,
+            );
             if let Err(ref e) = result {
                 log::warn!("writer: upsert_with_content failed for {note_id}: {e}");
             }
@@ -541,10 +557,7 @@ fn dispatch_command(
                     ni.rename(&old_path, &new_path);
                 }
                 if let Ok(mut bi) = block_index.write() {
-                    bi.rename_by_prefix(
-                        &format!("{old_path}\0"),
-                        &format!("{new_path}\0"),
-                    );
+                    bi.rename_by_prefix(&format!("{old_path}\0"), &format!("{new_path}\0"));
                 }
             }
             let _ = reply.send(result);
@@ -727,7 +740,6 @@ fn handle_upsert_with_content(
     }
     Ok(())
 }
-
 
 fn extract_title(markdown: &str) -> Option<String> {
     let mut in_frontmatter = false;
@@ -1166,7 +1178,18 @@ fn handle_embed_batch(
 
     if total == 0 {
         if block_embed_enabled {
-            handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+            handle_block_embed_batch(
+                conn,
+                cancel,
+                &model,
+                vault_id,
+                app_handle,
+                block_index,
+                notes_cache,
+                rx,
+                note_index,
+                &mut deferred,
+            );
         }
         for cmd in deferred {
             dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
@@ -1197,13 +1220,11 @@ fn handle_embed_batch(
         for path in chunk {
             let body = match search_db::get_fts_body(conn, path) {
                 Some(b) if !b.trim().is_empty() => b,
-                _ => {
-                    Path::new(path.as_str())
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or(path)
-                        .to_string()
-                }
+                _ => Path::new(path.as_str())
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(path)
+                    .to_string(),
             };
             paths.push(path.as_str());
             texts.push(body);
@@ -1271,7 +1292,18 @@ fn handle_embed_batch(
     }
 
     if block_embed_enabled {
-        handle_block_embed_batch(conn, cancel, &model, vault_id, app_handle, block_index, notes_cache, rx, note_index, &mut deferred);
+        handle_block_embed_batch(
+            conn,
+            cancel,
+            &model,
+            vault_id,
+            app_handle,
+            block_index,
+            notes_cache,
+            rx,
+            note_index,
+            &mut deferred,
+        );
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -1505,7 +1537,10 @@ pub(crate) fn get_index_arcs(
     let state = app.state::<SearchDbState>();
     let map = state.workers.lock().map_err(|e| e.to_string())?;
     let worker = map.get(vault_id).ok_or("vault worker not found")?;
-    Ok((Arc::clone(&worker.note_index), Arc::clone(&worker.block_index)))
+    Ok((
+        Arc::clone(&worker.note_index),
+        Arc::clone(&worker.block_index),
+    ))
 }
 
 fn send_write(app: &AppHandle, vault_id: &str, cmd: DbCommand) -> Result<(), String> {
@@ -1958,7 +1993,10 @@ pub fn semantic_search(
         let mut results = Vec::with_capacity(hits.len());
         for (path, distance) in &hits {
             if let Ok(Some(note)) = search_db::get_note_meta(conn, path) {
-                results.push(SemanticSearchHit { note, distance: *distance });
+                results.push(SemanticSearchHit {
+                    note,
+                    distance: *distance,
+                });
             }
         }
         Ok(results)
@@ -1977,9 +2015,7 @@ pub fn find_similar_notes(
     let limit = limit.unwrap_or(5);
     let exclude = exclude_linked.unwrap_or(false);
 
-    let query_vec = with_note_index(&app, &vault_id, |idx| {
-        idx.get_vector(&note_path).cloned()
-    })?;
+    let query_vec = with_note_index(&app, &vault_id, |idx| idx.get_vector(&note_path).cloned())?;
     let query_vec = match query_vec {
         Some(v) => v,
         None => return Ok(vec![]),
@@ -2015,7 +2051,10 @@ pub fn find_similar_notes(
                 continue;
             }
             if let Ok(Some(note)) = search_db::get_note_meta(conn, path) {
-                results.push(SemanticSearchHit { note, distance: *distance });
+                results.push(SemanticSearchHit {
+                    note,
+                    distance: *distance,
+                });
                 if results.len() >= limit {
                     break;
                 }
@@ -2111,7 +2150,10 @@ pub async fn hybrid_search(
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
         let worker = map.get(vault_id.as_str()).ok_or("vault worker not found")?;
-        (Arc::clone(&worker.read_conn), Arc::clone(&worker.note_index))
+        (
+            Arc::clone(&worker.read_conn),
+            Arc::clone(&worker.note_index),
+        )
     };
 
     tauri::async_runtime::spawn_blocking(move || {

@@ -3,8 +3,7 @@ use specta::Type;
 
 pub const WHISPER_SAMPLE_RATE: u32 = 16_000;
 pub const SILERO_FRAME_MS: usize = 30;
-pub const SILERO_FRAME_SAMPLES: usize =
-    (WHISPER_SAMPLE_RATE as usize * SILERO_FRAME_MS) / 1000; // 480
+pub const SILERO_FRAME_SAMPLES: usize = (WHISPER_SAMPLE_RATE as usize * SILERO_FRAME_MS) / 1000; // 480
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AudioDeviceInfo {

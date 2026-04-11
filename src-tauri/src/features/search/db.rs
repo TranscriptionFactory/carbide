@@ -546,7 +546,11 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 if rest.starts_with('[') && rest.ends_with(']') {
                     let inner = &rest[1..rest.len() - 1];
                     for item in inner.split(',') {
-                        let t = item.trim().trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
+                        let t = item
+                            .trim()
+                            .trim_matches(|c| c == '\'' || c == '"')
+                            .trim()
+                            .trim_start_matches('#');
                         if !t.is_empty() {
                             tags.push(ExtractedTag {
                                 tag: t.to_string(),
@@ -558,7 +562,10 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
                 } else if rest.is_empty() {
                     in_tags_array = true;
                 } else {
-                    let t = rest.trim_matches(|c| c == '\'' || c == '"').trim().trim_start_matches('#');
+                    let t = rest
+                        .trim_matches(|c| c == '\'' || c == '"')
+                        .trim()
+                        .trim_start_matches('#');
                     if !t.is_empty() {
                         tags.push(ExtractedTag {
                             tag: t.to_string(),
@@ -3967,13 +3974,23 @@ mod tests {
         let meta = note("lines.md", "Lines");
         let mut lines = vec!["# Code Heavy"];
         for i in 0..12 {
-            lines.push(if i == 0 { "```" } else if i == 11 { "```" } else { "x" });
+            lines.push(if i == 0 {
+                "```"
+            } else if i == 11 {
+                "```"
+            } else {
+                "x"
+            });
         }
         let body = lines.join("\n");
         upsert_note(&conn, &meta, &body).expect("upsert");
 
         let sections = get_embeddable_sections(&conn, 20, 10).expect("query");
-        assert_eq!(sections.len(), 1, "section with >10 lines should qualify via line gate");
+        assert_eq!(
+            sections.len(),
+            1,
+            "section with >10 lines should qualify via line gate"
+        );
     }
 }
 

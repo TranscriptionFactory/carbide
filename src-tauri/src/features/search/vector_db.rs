@@ -274,16 +274,12 @@ pub fn rename_block_embeddings_by_prefix(
     Ok(())
 }
 
-pub fn get_block_embeddings_for_note(
-    conn: &Connection,
-    path: &str,
-) -> Vec<(String, Vec<f32>)> {
-    let mut stmt = match conn.prepare(
-        "SELECT heading_id, embedding FROM block_embeddings WHERE path = ?1",
-    ) {
-        Ok(s) => s,
-        Err(_) => return vec![],
-    };
+pub fn get_block_embeddings_for_note(conn: &Connection, path: &str) -> Vec<(String, Vec<f32>)> {
+    let mut stmt =
+        match conn.prepare("SELECT heading_id, embedding FROM block_embeddings WHERE path = ?1") {
+            Ok(s) => s,
+            Err(_) => return vec![],
+        };
     let rows = match stmt.query_map(params![path], |row| {
         let heading_id: String = row.get(0)?;
         let blob: Vec<u8> = row.get(1)?;

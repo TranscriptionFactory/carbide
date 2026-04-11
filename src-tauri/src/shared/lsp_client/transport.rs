@@ -360,15 +360,13 @@ async fn dispatch_message(
                 } else {
                     serde_json::json!({"applied": false})
                 };
-                let response =
-                    serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result });
+                let response = serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result });
                 if let Err(e) = write_lsp_message(&stdin, &response).await {
                     log::warn!("Failed to respond to workspace/applyEdit: {}", e);
                 }
             });
         } else {
-            let response =
-                serde_json::json!({ "jsonrpc": "2.0", "id": id_value, "result": null });
+            let response = serde_json::json!({ "jsonrpc": "2.0", "id": id_value, "result": null });
             if let Err(e) = write_lsp_message(stdin, &response).await {
                 log::warn!("Failed to respond to server request {}: {}", method, e);
             }

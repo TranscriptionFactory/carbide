@@ -20,7 +20,13 @@ pub struct VectorIndex {
 
 impl VectorIndex {
     pub fn new(dims: usize) -> Self {
-        let hnsw = Hnsw::new(MAX_NB_CONNECTION, 10_000, NB_LAYER, EF_CONSTRUCTION, DistCosine);
+        let hnsw = Hnsw::new(
+            MAX_NB_CONNECTION,
+            10_000,
+            NB_LAYER,
+            EF_CONSTRUCTION,
+            DistCosine,
+        );
         Self {
             dims,
             hnsw,
@@ -31,11 +37,7 @@ impl VectorIndex {
         }
     }
 
-    pub fn rebuild_from_sqlite(
-        conn: &rusqlite::Connection,
-        index_name: &str,
-        dims: usize,
-    ) -> Self {
+    pub fn rebuild_from_sqlite(conn: &rusqlite::Connection, index_name: &str, dims: usize) -> Self {
         let mut idx = Self::new(dims);
         let start = std::time::Instant::now();
 
@@ -177,7 +179,13 @@ impl VectorIndex {
     }
 
     pub fn clear(&mut self) {
-        self.hnsw = Hnsw::new(MAX_NB_CONNECTION, 10_000, NB_LAYER, EF_CONSTRUCTION, DistCosine);
+        self.hnsw = Hnsw::new(
+            MAX_NB_CONNECTION,
+            10_000,
+            NB_LAYER,
+            EF_CONSTRUCTION,
+            DistCosine,
+        );
         self.key_to_id.clear();
         self.id_to_key.clear();
         self.vectors.clear();
@@ -230,12 +238,15 @@ impl VectorIndex {
     }
 
     pub fn compact_from_vectors(&mut self) {
-        let old_vectors: Vec<(String, Vec<f32>)> = self
-            .vectors
-            .drain()
-            .collect();
+        let old_vectors: Vec<(String, Vec<f32>)> = self.vectors.drain().collect();
 
-        self.hnsw = Hnsw::new(MAX_NB_CONNECTION, old_vectors.len().max(1000), NB_LAYER, EF_CONSTRUCTION, DistCosine);
+        self.hnsw = Hnsw::new(
+            MAX_NB_CONNECTION,
+            old_vectors.len().max(1000),
+            NB_LAYER,
+            EF_CONSTRUCTION,
+            DistCosine,
+        );
         self.key_to_id.clear();
         self.id_to_key.clear();
         self.next_id = 0;
