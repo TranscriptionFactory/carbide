@@ -7,6 +7,7 @@
    ============================================ */
 
 [data-layout-variant="theater"] .WorkspaceLayout--theater {
+  --editor-max-width: 80ch;
   --theater-edge-width: 3px;
   --theater-sidebar-width: 20rem;
   --theater-reveal-speed: var(--duration-slow);
@@ -184,7 +185,7 @@
   }
 
   .NoteEditor {
-    max-width: 80ch;
+    max-width: var(--editor-max-width);
     margin-inline: auto;
   }
 

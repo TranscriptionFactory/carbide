@@ -7,6 +7,7 @@
   --editor-font-size: 1rem;
   --editor-line-height: 1.85;
   --editor-max-width: min(85ch, 90%);
+  --source-editor-max-width: 48rem;
   --editor-spacing: 1.5rem;
   --editor-padding-block: var(--space-12);
   --editor-padding-inline: var(--space-8);

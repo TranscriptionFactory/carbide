@@ -3,7 +3,7 @@
    ============================================ */
 
 .WorkspaceLayout--zen-deck {
-  --zen-max-width: 100ch;
+  --editor-max-width: 100ch;
   --zen-dock-height: 4rem;
   --zen-sidebar-width: 20rem;
 
@@ -123,7 +123,7 @@
   }
 
   .NoteEditor {
-    max-width: var(--zen-max-width);
+    max-width: var(--editor-max-width);
     margin-inline: auto;
   }
 
