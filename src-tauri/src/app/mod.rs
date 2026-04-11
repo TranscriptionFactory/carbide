@@ -57,35 +57,7 @@ async fn shutdown_managed_processes(app: &tauri::AppHandle) {
     log::info!("Process cleanup complete");
 }
 
-macro_rules! stt_commands {
-    ($($base:path),* $(,)?) => {{
-        #[cfg(feature = "stt")]
-        {
-            tauri::generate_handler![
-                $($base),*,
-                features::stt::stt_start_recording,
-                features::stt::stt_stop_recording,
-                features::stt::stt_cancel_recording,
-                features::stt::stt_list_audio_devices,
-                features::stt::stt_get_recording_state,
-                features::stt::stt_list_models,
-                features::stt::stt_download_model,
-                features::stt::stt_delete_model,
-                features::stt::stt_cancel_download,
-                features::stt::stt_add_custom_model,
-                features::stt::stt_remove_custom_model,
-                features::stt::stt_load_model,
-                features::stt::stt_unload_model,
-                features::stt::stt_transcribe,
-                features::stt::stt_transcribe_file,
-            ]
-        }
-        #[cfg(not(feature = "stt"))]
-        {
-            tauri::generate_handler![$($base),*]
-        }
-    }};
-}
+// STT commands removed — archived on archive/stt-main
 
 pub fn run() {
     let _ = ICON_STAMP;
@@ -184,38 +156,11 @@ pub fn run() {
                 }
             });
 
-            #[cfg(feature = "stt")]
-            {
-                // Initialize STT model manager and transcription state
-                app.manage(features::stt::SttAudioState::default());
-                let app_handle = app.handle().clone();
-                match features::stt::models::ModelManager::new(&app_handle) {
-                    Ok(manager) => {
-                        let manager = std::sync::Arc::new(manager);
-                        app.manage(features::stt::SttModelState {
-                            manager: manager.clone(),
-                        });
-                        match features::stt::transcription::SttTranscriptionState::new(
-                            &app_handle,
-                            manager,
-                        ) {
-                            Ok(transcription_state) => {
-                                app.manage(transcription_state);
-                            }
-                            Err(e) => {
-                                log::error!("Failed to initialize STT transcription: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to initialize STT model manager: {}", e);
-                    }
-                }
-            }
+            // STT init removed — archived on archive/stt-main
 
             Ok(())
         })
-        .invoke_handler(stt_commands![
+        .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
             features::ai::service::ai_execute_cli,
             features::pipeline::service::pipeline_execute,

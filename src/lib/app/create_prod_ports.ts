@@ -35,7 +35,8 @@ import { create_canvas_tauri_adapter } from "$lib/features/canvas";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
 import { create_markdown_lsp_tauri_adapter } from "$lib/features/markdown_lsp";
-import { create_stt_tauri_adapter } from "$lib/features/stt";
+// STT removed — archived on archive/stt-main
+// import { create_stt_tauri_adapter } from "$lib/features/stt";
 
 import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
@@ -114,6 +115,6 @@ export function create_prod_ports(): Ports {
     doi_lookup: create_doi_tauri_adapter(),
     linked_source: create_linked_source_tauri_adapter(),
     mcp: create_mcp_tauri_adapter(),
-    stt: create_stt_tauri_adapter(),
+    // stt: create_stt_tauri_adapter(),
   };
 }

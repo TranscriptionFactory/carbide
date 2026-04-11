@@ -1029,14 +1029,6 @@
           void action_registry.execute(ACTION_IDS.lint_toggle_problems)}
         on_lint_format_click={() =>
           void action_registry.execute(ACTION_IDS.lint_format_file)}
-        stt_enabled={stores.stt.config.enabled}
-        stt_recording_state={stores.stt.recording_state}
-        stt_model_loading={stores.stt.model_loading}
-        stt_has_model={stores.stt.is_ready}
-        on_stt_click={() =>
-          void action_registry.execute(ACTION_IDS.stt_toggle_recording)}
-        on_stt_settings_click={() =>
-          void action_registry.execute(ACTION_IDS.stt_open_settings)}
         editor_mode={stores.editor.editor_mode}
         split_view={stores.editor.split_view}
         on_split_toggle={() =>

@@ -255,57 +255,6 @@ export function create_test_ports(): Ports {
       uninstall_cli: () =>
         Promise.resolve({ success: true, path: "", message: "" }),
     },
-    stt: {
-      start_recording: () => Promise.resolve(),
-      stop_recording: () => Promise.resolve([]),
-      cancel_recording: () => Promise.resolve(),
-      get_recording_state: () => Promise.resolve("idle"),
-      list_models: () => Promise.resolve([]),
-      download_model: () => Promise.resolve(),
-      delete_model: () => Promise.resolve(),
-      cancel_download: () => Promise.resolve(),
-      add_custom_model: () =>
-        Promise.resolve({
-          id: "custom:test",
-          name: "Custom: test",
-          description: "Test custom model",
-          filename: "/tmp/test",
-          url: null,
-          size_mb: 0,
-          is_downloaded: true,
-          is_downloading: false,
-          is_directory: false,
-          engine_type: "Whisper",
-          accuracy_score: 0,
-          speed_score: 0,
-          supports_translation: false,
-          is_recommended: false,
-          supported_languages: [],
-          supports_language_selection: false,
-          is_custom: true,
-        }),
-      remove_custom_model: () => Promise.resolve(),
-      load_model: () => Promise.resolve(),
-      unload_model: () => Promise.resolve(),
-      transcribe: () =>
-        Promise.resolve({
-          text: "",
-          language: null,
-          duration_ms: 0,
-          model_id: "",
-        }),
-      transcribe_file: () =>
-        Promise.resolve({
-          text: "",
-          language: null,
-          duration_ms: 0,
-          model_id: "",
-        }),
-      list_audio_devices: () => Promise.resolve([]),
-      subscribe_audio_levels: () => () => {},
-      subscribe_download_progress: () => () => {},
-      subscribe_model_state: () => () => {},
-      subscribe_recording_state: () => () => {},
-    },
+    // STT removed — archived on archive/stt-main
   };
 }

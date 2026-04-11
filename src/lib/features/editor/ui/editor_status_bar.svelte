@@ -10,7 +10,8 @@
   import type { StatusBarItem } from "$lib/features/plugin";
   import { VimNavStatusIndicator } from "$lib/features/vim_nav";
   import type { NavContext } from "$lib/features/vim_nav";
-  import { SttStatusIndicator } from "$lib/features/stt";
+  // STT removed — archived on archive/stt-main
+  // import { SttStatusIndicator } from "$lib/features/stt";
 
   interface Props {
     cursor_info: CursorInfo | null;
@@ -58,12 +59,13 @@
     vim_nav_context: NavContext;
     vim_nav_pending_keys: string;
     on_vim_nav_cheatsheet: () => void;
-    stt_enabled: boolean;
-    stt_recording_state: "idle" | "recording" | "processing";
-    stt_model_loading: boolean;
-    stt_has_model: boolean;
-    on_stt_click: () => void;
-    on_stt_settings_click: () => void;
+    // STT removed — archived on archive/stt-main
+    // stt_enabled: boolean;
+    // stt_recording_state: "idle" | "recording" | "processing";
+    // stt_model_loading: boolean;
+    // stt_has_model: boolean;
+    // on_stt_click: () => void;
+    // on_stt_settings_click: () => void;
   }
 
   let {
@@ -112,12 +114,12 @@
     vim_nav_context,
     vim_nav_pending_keys,
     on_vim_nav_cheatsheet,
-    stt_enabled,
-    stt_recording_state,
-    stt_model_loading,
-    stt_has_model,
-    on_stt_click,
-    on_stt_settings_click,
+    // stt_enabled,
+    // stt_recording_state,
+    // stt_model_loading,
+    // stt_has_model,
+    // on_stt_click,
+    // on_stt_settings_click,
   }: Props = $props();
 
   const line = $derived(cursor_info?.line ?? null);
@@ -249,7 +251,8 @@
         on_click={on_vim_nav_cheatsheet}
       />
     {/if}
-    {#if stt_enabled}
+    <!-- STT removed — archived on archive/stt-main -->
+    <!-- {#if stt_enabled}
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}
     <SttStatusIndicator
@@ -259,7 +262,7 @@
       has_model={stt_has_model}
       on_click={on_stt_click}
       on_settings_click={on_stt_settings_click}
-    />
+    /> -->
   </div>
   <div class="StatusBar__section">
     {#if is_repairing_links}
