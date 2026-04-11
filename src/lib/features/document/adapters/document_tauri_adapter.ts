@@ -9,6 +9,11 @@ function is_absolute_path(path: string): boolean {
 export function create_document_tauri_adapter(): DocumentPort {
   return {
     async read_file(vault_id: string, relative_path: string): Promise<string> {
+      if (is_absolute_path(relative_path)) {
+        return invoke<string>("read_absolute_text_file", {
+          path: relative_path,
+        });
+      }
       return invoke<string>("read_vault_file", {
         vaultId: vault_id,
         relativePath: relative_path,

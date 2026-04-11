@@ -380,7 +380,15 @@ export function register_note_actions(input: ActionRegistrationInput) {
         if (is_linked_note_path(note_path)) {
           const note = stores.notes.notes.find((n) => n.path === note_path);
           if (note?.external_file_path) {
-            await services.shell.open_path(note.external_file_path);
+            const fname = filename_from_path(note.external_file_path);
+            const file_type = detect_file_type(fname);
+            if (file_type) {
+              await registry.execute(ACTION_IDS.document_open, {
+                file_path: note.external_file_path,
+              });
+            } else {
+              await services.shell.open_path(note.external_file_path);
+            }
           }
           return;
         }

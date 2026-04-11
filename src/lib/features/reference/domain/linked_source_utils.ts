@@ -147,13 +147,22 @@ export function linked_note_to_csl_item(note: LinkedNoteInfo): CslItem {
   return item;
 }
 
+function filename_from_external_path(
+  external_file_path?: string,
+  virtual_path?: string,
+): string {
+  const source = external_file_path || virtual_path || "";
+  const last_slash = source.lastIndexOf("/");
+  return last_slash >= 0 ? source.slice(last_slash + 1) : source;
+}
+
 export function linked_note_to_meta(info: LinkedNoteInfo): NoteMeta {
   const meta: NoteMeta = {
     id: info.path as NoteId,
     path: info.path as NotePath,
     name: info.title,
     title: info.title,
-    blurb: "",
+    blurb: filename_from_external_path(info.external_file_path, info.path),
     mtime_ms: info.mtime_ms,
     ctime_ms: info.mtime_ms,
     size_bytes: 0,
