@@ -33,6 +33,8 @@ function make_context(ai_execute = vi.fn()) {
       plugin: {
         register_command: vi.fn(),
         unregister_command: vi.fn(),
+        register_slash_command: vi.fn(),
+        unregister_slash_command: vi.fn(),
         register_status_bar_item: vi.fn(),
         update_status_bar_item: vi.fn(),
         unregister_status_bar_item: vi.fn(),

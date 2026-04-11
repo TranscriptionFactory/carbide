@@ -4,6 +4,7 @@ import type {
   PluginEventType,
   PluginSettingSchema,
   PluginSettingsTab,
+  SlashCommandContribution,
   PluginHttpFetchRequest,
   PluginHttpFetchResponse,
 } from "../ports";
@@ -145,6 +146,8 @@ export type PluginRpcContext = {
       PluginService,
       | "register_command"
       | "unregister_command"
+      | "register_slash_command"
+      | "unregister_slash_command"
       | "register_status_bar_item"
       | "update_status_bar_item"
       | "unregister_status_bar_item"
@@ -238,6 +241,26 @@ function read_command_definition(input: unknown): CommandDefinition {
     keywords: read_string_array(record.keywords, "command.keywords"),
     icon: read_string(record.icon, "command.icon") as CommandDefinition["icon"],
   };
+}
+
+function read_slash_command_input(input: unknown): SlashCommandContribution {
+  const record = read_record(input, "slash command");
+  const result: SlashCommandContribution = {
+    id: read_string(record.id, "slash_command.id"),
+    name: read_string(record.name, "slash_command.name"),
+    description: read_string(record.description, "slash_command.description"),
+  };
+  const icon = read_optional_string(record.icon);
+  if (icon !== undefined) result.icon = icon;
+  if (Array.isArray(record.keywords)) {
+    result.keywords = read_string_array(
+      record.keywords,
+      "slash_command.keywords",
+    );
+  }
+  const permission = read_optional_string(record.permission);
+  if (permission !== undefined) result.permission = permission;
+  return result;
 }
 
 function read_status_bar_item_input(input: unknown): PluginStatusBarItemInput {
@@ -636,6 +659,21 @@ export class PluginRpcHandler {
       case "remove": {
         const namespaced_id = `${plugin_id}:${read_param_string(params, 0, "command id")}`;
         this.context.services.plugin.unregister_command(namespaced_id);
+        return { success: true };
+      }
+      case "register_slash": {
+        const slash_cmd = read_slash_command_input(params[0]);
+        const namespaced: SlashCommandContribution & { plugin_id: string } = {
+          ...slash_cmd,
+          id: `${plugin_id}:${slash_cmd.id}`,
+          plugin_id,
+        };
+        this.context.services.plugin.register_slash_command(namespaced);
+        return { success: true };
+      }
+      case "remove_slash": {
+        const remove_id = `${plugin_id}:${read_param_string(params, 0, "slash command id")}`;
+        this.context.services.plugin.unregister_slash_command(remove_id);
         return { success: true };
       }
       default:
