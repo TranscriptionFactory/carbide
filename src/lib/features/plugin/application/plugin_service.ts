@@ -18,6 +18,8 @@ import type {
 } from "./plugin_rpc_handler";
 import { PluginRpcHandler } from "./plugin_rpc_handler";
 import { PluginErrorTracker } from "./plugin_error_tracker";
+import { PluginRateLimiter, RateLimitError } from "../domain/rate_limiter";
+import { with_timeout, RpcTimeoutError } from "../domain/rpc_timeout";
 import { error_message } from "$lib/shared/utils/error_message";
 import { PluginEventBus, type PluginEvent } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
@@ -30,6 +32,7 @@ const log = create_logger("plugin_service");
 export class PluginService {
   private rpc_handler: PluginRpcHandler | null = null;
   private error_tracker = new PluginErrorTracker();
+  private rate_limiter = new PluginRateLimiter();
   private notification_port: PluginNotificationPort | null = null;
   private event_bus = new PluginEventBus();
   private settings_service: PluginSettingsService | null = null;
@@ -300,6 +303,7 @@ export class PluginService {
   async unload_plugin(id: string) {
     await this.host_port.unload(id);
     this.error_tracker.reset(id);
+    this.rate_limiter.reset(id);
     this.event_bus.unsubscribe_all(id);
     this.unregister_iframe_messenger(id);
     this.clear_plugin_contributions(id);
@@ -405,6 +409,7 @@ export class PluginService {
   async clear_active_vault() {
     this.stop_hot_reload();
     this.settings_service?.clear();
+    this.rate_limiter.clear_all();
     await this.clear_vault_state();
   }
 
@@ -480,11 +485,29 @@ export class PluginService {
       return { id: request.id, error: "Plugin or RPC handler not initialized" };
     }
 
-    const response = await this.rpc_handler.handle_request(
-      id,
-      plugin.manifest,
-      request,
-    );
+    try {
+      this.rate_limiter.check(id);
+    } catch (e) {
+      if (e instanceof RateLimitError) {
+        return { id: request.id, error: e.message };
+      }
+      throw e;
+    }
+
+    const method = request.method;
+    let response: RpcResponse;
+    try {
+      response = await with_timeout(
+        this.rpc_handler.handle_request(id, plugin.manifest, request),
+        method,
+      );
+    } catch (e) {
+      if (e instanceof RpcTimeoutError) {
+        response = { id: request.id, error: e.message };
+      } else {
+        throw e;
+      }
+    }
 
     if (response.error) {
       const action = this.error_tracker.record_error(id, Date.now());
@@ -501,6 +524,8 @@ export class PluginService {
           plugin.manifest.name,
         );
       }
+    } else {
+      this.error_tracker.record_success(id);
     }
 
     return response;
