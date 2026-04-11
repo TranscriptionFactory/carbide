@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05 (updated 2026-04-11)
 **Companion to:** `2026-04-11_unified_implementation_roadmap.md`
-**Progress:** 38 / 56 units complete (34 original + 4/22 new)
+**Progress:** 47 / 56 units complete (34 original + 13/22 new)
 
 ---
 
@@ -41,9 +41,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
 
 | Batch  | Phase | Units                          | Sessions | Status      | Review gate                                                            |
 | ------ | ----- | ------------------------------ | -------- | ----------- | ---------------------------------------------------------------------- |
-| **G**  | A     | A1.1, A2.1–A2.3, A3.1–A3.3    | 7        | NOT STARTED | Plugin tests pass, editor width works, AI + network RPC respond        |
-| **H**  | B     | B1.1–B1.2, B2.1–B2.2, B3.1    | 5        | NOT STARTED | All MCP tools respond, CLI subcommands work, slash commands render     |
-| **I**  | C     | C1.1–C1.2                      | 2        | NOT STARTED | Metadata events fire and reach plugins                                 |
+| **G**  | A     | A1.1, A2.1–A2.3, A3.1–A3.3    | 7        | DONE        | Plugin tests pass, editor width works, AI + network RPC respond        |
+| **H**  | B     | B1.1–B1.2, B2.1–B2.2, B3.1    | 5        | DONE        | All MCP tools respond, CLI subcommands work, slash commands render     |
+| **I**  | C     | C1.1–C1.2                      | 2        | IN PROGRESS | Metadata events fire and reach plugins                                 |
 | **J**  | D     | D1.1–D1.2, D2.1–D2.5          | 7        | NOT STARTED | Graph renders smart links, power features work end-to-end              |
 | **K**  | E     | E1.1                           | 1        | NOT STARTED | Branches archived, main clean                                          |
 
@@ -394,27 +394,30 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** TypeScript + Rust
 **Depends on:** nothing (existing `AiService` and `reqwest` on main)
 
-- [ ] **A3.1** `network.fetch` RPC namespace — **Rust + TypeScript session**
+- [x] **A3.1** `network.fetch` RPC namespace — **Rust + TypeScript session**
   - Rust: new `plugin_http_fetch` Tauri command — uses existing `reqwest`
   - SSRF protection: block localhost/private IPs before request fires
+  - _Completed 2026-04-11 `df367450` (on feat/plugin-ai-network-rpc). Rust plugin_http_fetch command with SSRF protection, size limits. TS PluginRpcNetworkBackend with allowed_origins check. SDK carbide.network.fetch._
   - Request size limit (1MB body), response size limit (10MB)
   - TypeScript: new `PluginRpcNetworkBackend`, `network.fetch` dispatch — requires `network:fetch` permission
   - Manifest `allowed_origins` allowlist checked before forwarding
   - SDK: `carbide.network.fetch(url, opts)` in `carbide_plugin_api.js`
   - Tests: SSRF blocking, allowlist enforcement, rate limiting, success path
 
-- [ ] **A3.2** `ai.execute` RPC namespace — **TypeScript session**
+- [x] **A3.2** `ai.execute` RPC namespace — **TypeScript session**
   - New `PluginRpcAiBackend` in `plugin_rpc_handler.ts`
   - `ai.execute` dispatch — requires `ai:execute` permission
   - Invokes `AiService.execute()` → `AiPort` → `ai_execute_cli` Tauri command
   - Returns `{ output, success, error }` — no streaming
   - Uses default provider config from `AiSettingsStore`
   - Tests: permission check, execution success/failure, provider not configured error
+  - _Completed 2026-04-11 `c2966610` (on feat/plugin-ai-network-rpc). PluginRpcAiBackend with permission check, bridges to AiService.execute()._
 
-- [ ] **A3.3** SDK surface + docs — **Docs session**
+- [x] **A3.3** SDK surface + docs — **Docs session**
   - Update `carbide_plugin_api.js`: add `carbide.network.fetch(url, opts)` and `carbide.ai.execute({ prompt, mode? })`
   - Update `docs/plugin_howto.md`: AI and network namespace docs, permission requirements
   - Update manifest schema docs: `network:fetch`, `ai:execute` permissions, `allowed_origins`
+  - _Completed 2026-04-11 `ba2ceef6` (on feat/plugin-ai-network-rpc). SDK + docs updated._
 
 ---
 
@@ -431,15 +434,17 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** Rust + TypeScript
 **Depends on:** Phase A complete, main's MCP HTTP transport + shared_ops
 
-- [ ] **B1.1** MCP Tier 2 tools — **Rust session**
+- [x] **B1.1** MCP Tier 2 tools — **Rust session**
   - Hand-port from `27247865`: backlinks, outlinks, properties, references tool handlers
   - Register in `router.rs`, add tool definitions
   - Tests: tool dispatch for each new handler
+  - _Completed 2026-04-11 `96e5ec92` (on feat/plugin-slash-commands). MCP Tier 2 tools hand-ported._
 
-- [ ] **B1.2** MCP Tier 3 + plugin MCP bridge — **Rust + TypeScript session**
+- [x] **B1.2** MCP Tier 3 + plugin MCP bridge — **Rust + TypeScript session**
   - Hand-port from `63b8bcb9`: git_status, git_log, rename_note tool handlers
   - Plugin MCP bridge: `mcp.*` RPC namespace (list_tools, call_tool, register_tool)
   - Tests: git tool responses, plugin tool registration round-trip
+  - _Completed 2026-04-11 `f5ac7a5d` (on feat/plugin-slash-commands). Tier 3 tools + plugin MCP bridge hand-ported._
 
 ---
 
@@ -450,13 +455,15 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** Rust
 **Depends on:** main's CLI sidecar + glow (already merged)
 
-- [ ] **B2.1** CLI git + reference commands — **Rust session**
+- [x] **B2.1** CLI git + reference commands — **Rust session**
   - Hand-port from `3d0179b1`: git + reference CLI subcommands + backend routes
   - Tests: subcommand parsing, route serialization
+  - _Completed 2026-04-11 `7318455c` (on feat/plugin-slash-commands). Git + reference CLI hand-ported._
 
-- [ ] **B2.2** CLI bases, tasks, dev commands — **Rust session**
+- [x] **B2.2** CLI bases, tasks, dev commands — **Rust session**
   - Hand-port from `48f0017c`: bases, tasks, dev subcommands + backend routes
   - Tests: subcommand parsing, route serialization
+  - _Completed 2026-04-11 `6a7893bf` (on feat/plugin-slash-commands). Bases, tasks, dev CLI hand-ported._
 
 ---
 
@@ -467,10 +474,11 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** TypeScript + Svelte
 **Depends on:** Step B1 (plugin MCP bridge)
 
-- [ ] **B3.1** Slash command contribution point — **TypeScript + Svelte session**
+- [x] **B3.1** Slash command contribution point — **TypeScript + Svelte session**
   - Hand-port from `6bc50243`: manifest `contributes.slash_commands`, ProseMirror `/` menu hook
   - Depends on B1.2 (plugin MCP bridge)
   - Tests: command registration, menu rendering, dispatch
+  - _Completed 2026-04-11 `d9dd3c41` (on feat/plugin-slash-commands). Slash command contribution point hand-ported._
 
 ---
 
@@ -487,10 +495,11 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** Rust + TypeScript
 **Depends on:** Steps 4, 9 (on main — ctime, note_links, getFileCache all merged)
 
-- [ ] **C1.1** `metadata-changed` event emission — **Rust session**
+- [x] **C1.1** `metadata-changed` event emission — **Rust session**
   - Extend `db.rs` or `service.rs` to emit Tauri events on upsert/rename/delete
   - Define event payload: `{ event_type: "upsert"|"rename"|"delete", path, old_path? }`
   - Tests: event emission on each mutation type
+  - _Completed 2026-04-11 `3b648000`. Added MetadataChangedEvent enum (Upsert/Rename/Delete with serde tag "event_type") to notes/service.rs. emit_metadata_changed helper calls app.emit("metadata-changed", event). Emits from create_note (upsert), write_and_index_note (upsert), rename_note (rename with old_path), delete_note (delete). 3 serialization tests verify JSON payload format. C1.2 needs to subscribe to this event in the plugin host and forward to iframes._
 
 - [ ] **C1.2** Plugin bridge for metadata events — **TypeScript session**
   - Subscribe to Tauri metadata events in plugin host
