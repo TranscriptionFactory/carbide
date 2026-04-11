@@ -273,15 +273,157 @@ pub fn tags_get_notes_for_tag_prefix(
     })
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
+pub(crate) fn shutdown_worker_internal(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
-    if let Some(mut worker) = map.remove(&vault_id) {
+    if let Some(mut worker) = map.remove(vault_id) {
         shutdown_worker(&mut worker);
     }
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
+    shutdown_worker_internal(&app, &vault_id)
+}
+
+#[derive(Serialize, Type)]
+pub struct VaultDbInfo {
+    vault_id: String,
+    vault_name: String,
+    size_bytes: u64,
+    is_orphaned: bool,
+}
+
+#[derive(Serialize, Type)]
+pub struct StorageStats {
+    vault_dbs: Vec<VaultDbInfo>,
+    total_db_bytes: u64,
+    orphaned_count: u32,
+    orphaned_bytes: u64,
+    embedding_cache_bytes: u64,
+}
+
+fn dir_size(path: &std::path::Path) -> u64 {
+    walkdir::WalkDir::new(path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_storage_stats(app: AppHandle) -> Result<StorageStats, String> {
+    let cache_dir = search_db::db_cache_dir(&app)?;
+    let store = storage::load_store(&app)?;
+    let registered_ids: std::collections::HashSet<String> =
+        store.vaults.iter().map(|e| e.vault.id.clone()).collect();
+    let vault_name_map: std::collections::HashMap<String, String> = store
+        .vaults
+        .iter()
+        .map(|e| (e.vault.id.clone(), e.vault.name.clone()))
+        .collect();
+
+    let mut vault_dbs = Vec::new();
+    let mut total_db_bytes = 0u64;
+    let mut orphaned_count = 0u32;
+    let mut orphaned_bytes = 0u64;
+
+    if cache_dir.is_dir() {
+        for entry in std::fs::read_dir(&cache_dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("db") {
+                continue;
+            }
+            let vault_id = match path.file_stem().and_then(|s| s.to_str()) {
+                Some(s) => s.to_string(),
+                None => continue,
+            };
+            let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            let is_orphaned = !registered_ids.contains(&vault_id);
+            let vault_name = if is_orphaned {
+                "Unknown".to_string()
+            } else {
+                vault_name_map.get(&vault_id).cloned().unwrap_or_default()
+            };
+            total_db_bytes += size_bytes;
+            if is_orphaned {
+                orphaned_count += 1;
+                orphaned_bytes += size_bytes;
+            }
+            vault_dbs.push(VaultDbInfo {
+                vault_id,
+                vault_name,
+                size_bytes,
+                is_orphaned,
+            });
+        }
+    }
+
+    let embedding_cache_bytes = dir_size(&resolve_embedding_cache_dir(&app));
+
+    Ok(StorageStats {
+        vault_dbs,
+        total_db_bytes,
+        orphaned_count,
+        orphaned_bytes,
+        embedding_cache_bytes,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn cleanup_orphaned_dbs(app: AppHandle) -> Result<u64, String> {
+    let cache_dir = search_db::db_cache_dir(&app)?;
+    let store = storage::load_store(&app)?;
+    let registered_ids: std::collections::HashSet<String> =
+        store.vaults.iter().map(|e| e.vault.id.clone()).collect();
+
+    let mut freed_bytes = 0u64;
+
+    if !cache_dir.is_dir() {
+        return Ok(freed_bytes);
+    }
+
+    for entry in std::fs::read_dir(&cache_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("db") {
+            continue;
+        }
+        let vault_id = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        if registered_ids.contains(&vault_id) {
+            continue;
+        }
+        let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let _ = shutdown_worker_internal(&app, &vault_id);
+        if let Err(e) = std::fs::remove_file(&path) {
+            return Err(e.to_string());
+        }
+        freed_bytes += size_bytes;
+    }
+
+    Ok(freed_bytes)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn clear_embedding_model_cache(app: AppHandle) -> Result<u64, String> {
+    let model_dir = resolve_embedding_cache_dir(&app);
+    let freed = dir_size(&model_dir);
+    if model_dir.exists() {
+        std::fs::remove_dir_all(&model_dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::create_dir_all(&model_dir).map_err(|e| e.to_string())?;
+    Ok(freed)
 }
 
 fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {

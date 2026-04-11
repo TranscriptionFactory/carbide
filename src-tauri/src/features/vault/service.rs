@@ -237,6 +237,8 @@ pub struct RememberLastArgs {
 #[derive(Debug, Deserialize, Type)]
 pub struct RemoveVaultArgs {
     pub vault_id: String,
+    #[serde(default)]
+    pub delete_data: bool,
 }
 
 #[tauri::command]
@@ -259,6 +261,13 @@ pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Resu
         store.last_vault_id = None;
     }
     storage::save_store(&app, &store)?;
+    if args.delete_data {
+        let _ = crate::features::search::service::shutdown_worker_internal(&app, &args.vault_id);
+        let db = crate::features::search::db::db_path(&app, &args.vault_id)?;
+        if db.exists() {
+            std::fs::remove_file(&db).map_err(|e| e.to_string())?;
+        }
+    }
     Ok(())
 }
 
