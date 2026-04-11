@@ -250,7 +250,13 @@ pub async fn stt_load_model(
     model_id: String,
     state: State<'_, transcription::SttTranscriptionState>,
 ) -> Result<(), String> {
-    state.load_model(&model_id).map_err(|e| e.to_string())
+    let state = state.inner().clone();
+    let handle = tokio::task::spawn_blocking(move || state.load_model(&model_id));
+    match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
+        Ok(Ok(result)) => result.map_err(|e| e.to_string()),
+        Ok(Err(join_err)) => Err(format!("Model loading panicked: {join_err}")),
+        Err(_) => Err("Model loading timed out after 120 seconds".to_string()),
+    }
 }
 
 #[tauri::command]
