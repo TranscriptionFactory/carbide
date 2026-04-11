@@ -49,6 +49,8 @@ pub struct PluginManifest {
     pub activation_events: Option<Vec<String>>,
     #[serde(default)]
     pub contributes: Option<PluginContributes>,
+    #[serde(default)]
+    pub allowed_origins: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

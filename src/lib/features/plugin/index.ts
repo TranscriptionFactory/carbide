@@ -11,3 +11,4 @@ export { default as PluginSettingsDialog } from "./ui/plugin_settings_dialog.sve
 export { default as PluginRuntimeContainer } from "./ui/plugin_runtime_container.svelte";
 export { PluginHostAdapter } from "./adapters/plugin_host_adapter";
 export { PluginSettingsTauriAdapter } from "./adapters/plugin_settings_tauri_adapter";
+export { plugin_http_fetch } from "./adapters/plugin_network_tauri_adapter";

@@ -48,6 +48,7 @@ import {
   PluginService,
   PluginSettingsService,
   register_plugin_actions,
+  plugin_http_fetch,
 } from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
@@ -760,6 +761,9 @@ export function create_app_context(input: {
       async get_file_cache(note_path) {
         return input.ports.search.get_file_cache(require_vault().id, note_path);
       },
+    },
+    network: {
+      fetch: plugin_http_fetch,
     },
   });
 

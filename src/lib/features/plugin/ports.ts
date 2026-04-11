@@ -40,6 +40,21 @@ export interface PluginManifest {
   permissions: string[];
   activation_events?: ActivationEvent[];
   contributes?: PluginContributes;
+  allowed_origins?: string[];
+}
+
+export interface PluginHttpFetchRequest {
+  url: string;
+  method?: string | undefined;
+  headers?: Record<string, string> | undefined;
+  body?: string | undefined;
+}
+
+export interface PluginHttpFetchResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  ok: boolean;
 }
 
 export interface PluginSettingsData {
