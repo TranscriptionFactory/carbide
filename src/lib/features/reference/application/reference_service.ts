@@ -830,6 +830,13 @@ export class ReferenceService {
     this.store.set_missing_linked_sources(missing);
   }
 
+  async rescan_all_enabled_sources(): Promise<void> {
+    const sources = this.store.linked_sources.filter((s) => s.enabled);
+    for (const source of sources) {
+      await this.scan_linked_source(source.id);
+    }
+  }
+
   async relocate_linked_source(
     source_id: string,
     new_path: string,

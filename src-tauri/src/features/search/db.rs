@@ -1675,7 +1675,7 @@ pub fn compute_sync_plan(
 
     let removed: Vec<String> = manifest
         .keys()
-        .filter(|p| !seen_paths.contains(p.as_str()))
+        .filter(|p| !seen_paths.contains(p.as_str()) && !p.starts_with("@linked/"))
         .cloned()
         .collect();
 
@@ -1719,26 +1719,44 @@ pub fn rebuild_index(
     on_progress: &dyn Fn(usize, usize),
     yield_fn: &mut dyn FnMut(),
 ) -> Result<IndexResult, String> {
-    conn.execute("DELETE FROM notes", [])
+    conn.execute("DELETE FROM notes WHERE path NOT LIKE '@linked/%'", [])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM notes_fts", [])
+    conn.execute("DELETE FROM notes_fts WHERE path NOT LIKE '@linked/%'", [])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM outlinks", [])
+    conn.execute(
+        "DELETE FROM outlinks WHERE source_path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_headings WHERE path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM note_links WHERE path NOT LIKE '@linked/%'", [])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_headings", [])
+    conn.execute(
+        "DELETE FROM note_inline_tags WHERE path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_sections WHERE path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_code_blocks WHERE path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM tasks WHERE path NOT LIKE '@linked/%'", [])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_links", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_inline_tags", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_sections", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_code_blocks", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM tasks", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_properties", [])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_properties WHERE path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
 
     let paths = list_indexable_files(app, vault_id, vault_root)?;
     let total = paths.len();
@@ -3991,6 +4009,37 @@ mod tests {
             1,
             "section with >10 lines should qualify via line gate"
         );
+    }
+
+    #[test]
+    fn sync_plan_preserves_linked_source_paths() {
+        let mut manifest = BTreeMap::new();
+        manifest.insert("@linked/Papers/paper.pdf".to_string(), (200, 1000));
+
+        let vault_root = PathBuf::from("/vault");
+        let disk_files: Vec<PathBuf> = vec![];
+
+        let plan = compute_sync_plan(&vault_root, &manifest, &disk_files);
+
+        assert!(
+            plan.removed.is_empty(),
+            "@linked paths should not be removed, got: {:?}",
+            plan.removed
+        );
+    }
+
+    #[test]
+    fn sync_plan_still_removes_regular_missing_paths() {
+        let mut manifest = BTreeMap::new();
+        manifest.insert("deleted.md".to_string(), (100, 30));
+        manifest.insert("@linked/Papers/paper.pdf".to_string(), (200, 1000));
+
+        let vault_root = PathBuf::from("/vault");
+        let disk_files: Vec<PathBuf> = vec![];
+
+        let plan = compute_sync_plan(&vault_root, &manifest, &disk_files);
+
+        assert_eq!(plan.removed, vec!["deleted.md".to_string()]);
     }
 }
 
