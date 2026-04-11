@@ -75,6 +75,7 @@ impl Drop for LoadingGuard {
     }
 }
 
+#[derive(Clone)]
 pub struct SttTranscriptionState {
     engine: Arc<Mutex<Option<LoadedEngine>>>,
     model_manager: Arc<ModelManager>,
@@ -275,15 +276,18 @@ impl SttTranscriptionState {
             anyhow::bail!("No audio data provided");
         }
 
-        // Wait if model is currently loading
+        // Wait if model is currently loading (bounded to avoid hanging forever)
         {
             let mut is_loading = self.is_loading.lock().unwrap();
-            while *is_loading {
-                is_loading = self
+            if *is_loading {
+                let (guard, timeout_result) = self
                     .loading_condvar
                     .wait_timeout(is_loading, Duration::from_secs(30))
-                    .unwrap()
-                    .0;
+                    .unwrap();
+                is_loading = guard;
+                if timeout_result.timed_out() && *is_loading {
+                    anyhow::bail!("Timed out waiting for model to finish loading");
+                }
             }
         }
 

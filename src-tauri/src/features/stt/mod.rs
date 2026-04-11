@@ -268,7 +268,13 @@ pub async fn stt_transcribe(
     language: Option<String>,
     state: State<'_, transcription::SttTranscriptionState>,
 ) -> Result<TranscriptionResult, String> {
-    state.transcribe(audio, language).map_err(|e| e.to_string())
+    let state = state.inner().clone();
+    let handle = tokio::task::spawn_blocking(move || state.transcribe(audio, language));
+    match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
+        Ok(Ok(result)) => result.map_err(|e| e.to_string()),
+        Ok(Err(join_err)) => Err(format!("Transcription task panicked: {join_err}")),
+        Err(_) => Err("Transcription timed out after 120 seconds".to_string()),
+    }
 }
 
 #[tauri::command]
@@ -334,7 +340,11 @@ pub async fn stt_transcribe_file(
         mono_samples
     };
 
-    transcription_state
-        .transcribe(audio, language)
-        .map_err(|e| e.to_string())
+    let state = transcription_state.inner().clone();
+    let handle = tokio::task::spawn_blocking(move || state.transcribe(audio, language));
+    match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
+        Ok(Ok(result)) => result.map_err(|e| e.to_string()),
+        Ok(Err(join_err)) => Err(format!("Transcription task panicked: {join_err}")),
+        Err(_) => Err("Transcription timed out after 120 seconds".to_string()),
+    }
 }
