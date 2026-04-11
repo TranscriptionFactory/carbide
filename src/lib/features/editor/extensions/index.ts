@@ -13,6 +13,7 @@ import { create_link_extension } from "./link_extension";
 import { create_find_extension } from "./find_extension";
 import { create_wiki_link_extension } from "./wiki_link_extension";
 import { create_suggest_extension } from "./suggest_extension";
+import type { SlashCommandConfig } from "../adapters/slash_command_plugin";
 import { create_embed_extension } from "./embed_extension";
 import { create_paste_extension } from "./paste_extension";
 import { create_lsp_extension } from "./lsp_extension";
@@ -29,6 +30,7 @@ export type AssembledExtensions = {
 export function assemble_extensions(
   ctx: PluginContext,
   toolbar_config: ToolbarConfig,
+  slash_config?: SlashCommandConfig,
 ): AssembledExtensions {
   const extensions: EditorExtension[] = [
     create_core_extension(ctx),
@@ -43,7 +45,7 @@ export function assemble_extensions(
     create_task_list_extension(),
     create_find_extension(),
     create_wiki_link_extension(ctx),
-    create_suggest_extension(ctx),
+    create_suggest_extension(ctx, slash_config),
     create_embed_extension(ctx),
     create_paste_extension(ctx),
     create_lsp_extension(ctx),

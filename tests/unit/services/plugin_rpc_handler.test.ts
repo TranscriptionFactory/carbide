@@ -28,6 +28,8 @@ function make_context() {
   const plugin = {
     register_command: vi.fn(),
     unregister_command: vi.fn(),
+    register_slash_command: vi.fn(),
+    unregister_slash_command: vi.fn(),
     register_status_bar_item: vi.fn(),
     update_status_bar_item: vi.fn(),
     unregister_status_bar_item: vi.fn(),
@@ -1236,6 +1238,97 @@ describe("PluginRpcHandler", () => {
       });
 
       expect(response.error).toMatch(/MCP backend not initialized/);
+    });
+  });
+
+  describe("commands.register_slash", () => {
+    it("registers a slash command with namespaced id", async () => {
+      grant_permissions("commands:register");
+      const manifest = make_manifest(["commands:register"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s1",
+        method: "commands.register_slash",
+        params: [
+          {
+            id: "cite",
+            name: "Cite",
+            description: "Insert a citation",
+            icon: "📚",
+            keywords: ["citation", "reference"],
+          },
+        ],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(ctx.plugin.register_slash_command).toHaveBeenCalledWith({
+        id: `${PLUGIN_ID}:cite`,
+        name: "Cite",
+        description: "Insert a citation",
+        icon: "📚",
+        keywords: ["citation", "reference"],
+        plugin_id: PLUGIN_ID,
+      });
+    });
+
+    it("registers slash command without optional fields", async () => {
+      grant_permissions("commands:register");
+      const manifest = make_manifest(["commands:register"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s2",
+        method: "commands.register_slash",
+        params: [
+          {
+            id: "do-thing",
+            name: "Do Thing",
+            description: "Does a thing",
+          },
+        ],
+      });
+
+      expect(response.error).toBeUndefined();
+      const call_arg = ctx.plugin.register_slash_command.mock.calls[0]?.[0];
+      expect(call_arg.id).toBe(`${PLUGIN_ID}:do-thing`);
+      expect(call_arg.name).toBe("Do Thing");
+      expect(call_arg).not.toHaveProperty("icon");
+      expect(call_arg).not.toHaveProperty("keywords");
+    });
+
+    it("rejects slash command registration without permission", async () => {
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s3",
+        method: "commands.register_slash",
+        params: [
+          {
+            id: "cite",
+            name: "Cite",
+            description: "Insert a citation",
+          },
+        ],
+      });
+
+      expect(response.error).toMatch(/Missing commands:register permission/);
+    });
+  });
+
+  describe("commands.remove_slash", () => {
+    it("removes a slash command with namespaced id", async () => {
+      grant_permissions("commands:register");
+      const manifest = make_manifest(["commands:register"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s4",
+        method: "commands.remove_slash",
+        params: ["cite"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(ctx.plugin.unregister_slash_command).toHaveBeenCalledWith(
+        `${PLUGIN_ID}:cite`,
+      );
     });
   });
 });

@@ -7,6 +7,7 @@
   import { as_vault_path } from "$lib/shared/types/ids";
   import { AppShell, ViewerShell } from "$lib/app";
   import { parse_window_init } from "$lib/features/window";
+  import { to_editor_slash_commands } from "$lib/features/plugin";
 
   const url_params = new URLSearchParams(window.location.search);
   const vault_path_param = url_params.get("vault_path");
@@ -28,6 +29,20 @@
       window_kind: window_init.kind,
     },
   });
+
+  ports.slash_command_provider.set_provider(() =>
+    to_editor_slash_commands(
+      app.stores.plugin.slash_commands,
+      (plugin_id, command_name, context) =>
+        app.services.plugin.execute_slash_command(
+          plugin_id,
+          command_name,
+          context,
+        ),
+      (plugin_id) =>
+        app.stores.plugin.plugins.get(plugin_id)?.manifest.name ?? plugin_id,
+    ),
+  );
 
   provide_app_context(app);
 

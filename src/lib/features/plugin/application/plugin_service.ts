@@ -8,6 +8,7 @@ import type {
   RibbonIcon,
   PluginSettingsTab,
   PluginEventType,
+  SlashCommandContribution,
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
@@ -123,6 +124,32 @@ export class PluginService {
 
   unregister_command(id: string) {
     this.store.unregister_command(id);
+  }
+
+  register_slash_command(
+    command: SlashCommandContribution & { plugin_id: string },
+  ) {
+    this.store.register_slash_command(command);
+  }
+
+  unregister_slash_command(id: string) {
+    this.store.unregister_slash_command(id);
+  }
+
+  async execute_slash_command(
+    plugin_id: string,
+    command_name: string,
+    context: { cursor_position: number; selection?: string },
+  ): Promise<{ text?: string } | null> {
+    const request: RpcRequest = {
+      id: `slash_${Date.now()}`,
+      method: "commands.execute_slash",
+      params: [command_name, context],
+    };
+    const response = await this.handle_rpc(plugin_id, request);
+    if (response.error) return null;
+    const result = response.result as { text?: string } | undefined;
+    return result ?? null;
   }
 
   // Status bar registration
@@ -357,6 +384,11 @@ export class PluginService {
       .filter((r) => r.id.startsWith(prefix))
       .map((r) => r.id)) {
       this.store.unregister_ribbon_icon(rid);
+    }
+    for (const scid of this.store.slash_commands
+      .filter((c) => c.plugin_id === id)
+      .map((c) => c.id)) {
+      this.store.unregister_slash_command(scid);
     }
     this.store.unregister_settings_tab(id);
     for (const callback of this.cleanup_callbacks) {

@@ -4,6 +4,7 @@ import type {
   SidebarView,
   RibbonIcon,
   PluginSettingsTab,
+  SlashCommandContribution,
 } from "../ports";
 import type { CommandDefinition } from "$lib/features/search";
 import { SvelteMap } from "svelte/reactivity";
@@ -18,6 +19,10 @@ export class PluginStore {
   });
 
   private _commands = new SvelteMap<string, CommandDefinition>();
+  private _slash_commands = new SvelteMap<
+    string,
+    SlashCommandContribution & { plugin_id: string }
+  >();
   private _status_bar_items = new SvelteMap<string, StatusBarItem>();
   private _sidebar_views = new SvelteMap<string, SidebarView>();
   private _ribbon_icons = new SvelteMap<string, RibbonIcon>();
@@ -33,6 +38,22 @@ export class PluginStore {
 
   unregister_command(id: string) {
     this._commands.delete(id);
+  }
+
+  get slash_commands(): Array<
+    SlashCommandContribution & { plugin_id: string }
+  > {
+    return Array.from(this._slash_commands.values());
+  }
+
+  register_slash_command(
+    command: SlashCommandContribution & { plugin_id: string },
+  ) {
+    this._slash_commands.set(command.id, command);
+  }
+
+  unregister_slash_command(id: string) {
+    this._slash_commands.delete(id);
   }
 
   status_bar_items = $derived.by(() => {
@@ -100,6 +121,7 @@ export class PluginStore {
 
   reset_registries() {
     this._commands.clear();
+    this._slash_commands.clear();
     this._status_bar_items.clear();
     this._sidebar_views.clear();
     this._ribbon_icons.clear();

@@ -22,12 +22,15 @@ import type { CommandDefinition } from "$lib/features/search";
 type TestStore = {
   plugins: Map<string, PluginInfo>;
   commands: CommandDefinition[];
+  slash_commands: Array<{ id: string; plugin_id: string }>;
   status_bar_items: StatusBarItem[];
   sidebar_views: SidebarView[];
   ribbon_icons: RibbonIcon[];
   settings_tabs: PluginSettingsTab[];
   register_command: ReturnType<typeof vi.fn>;
   unregister_command: ReturnType<typeof vi.fn>;
+  register_slash_command: ReturnType<typeof vi.fn>;
+  unregister_slash_command: ReturnType<typeof vi.fn>;
   register_status_bar_item: ReturnType<typeof vi.fn>;
   unregister_status_bar_item: ReturnType<typeof vi.fn>;
   update_status_bar_item: ReturnType<typeof vi.fn>;
@@ -75,12 +78,15 @@ function make_store(plugin_id = "plugin-a"): TestStore {
   return {
     plugins,
     commands: [],
+    slash_commands: [],
     status_bar_items: [],
     sidebar_views: [],
     ribbon_icons: [],
     settings_tabs: [],
     register_command: vi.fn(),
     unregister_command: vi.fn(),
+    register_slash_command: vi.fn(),
+    unregister_slash_command: vi.fn(),
     register_status_bar_item: vi.fn(),
     unregister_status_bar_item: vi.fn(),
     update_status_bar_item: vi.fn(),
