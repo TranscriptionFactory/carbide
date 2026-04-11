@@ -150,6 +150,32 @@ enum Command {
     Reindex,
     #[command(about = "Show app status")]
     Status,
+    #[command(about = "Git operations")]
+    Git {
+        #[command(subcommand)]
+        action: commands::git::GitAction,
+    },
+    #[command(about = "List citation library entries")]
+    References,
+    #[command(name = "reference:search", about = "Search citation library")]
+    ReferenceSearch {
+        #[arg(help = "Search query")]
+        query: String,
+    },
+    #[command(name = "reference:add", about = "Add a citation by DOI lookup")]
+    ReferenceAdd {
+        #[arg(help = "DOI identifier")]
+        doi: String,
+    },
+    #[command(name = "reference:bbt", about = "Search Zotero Better BibTeX")]
+    ReferenceBbt {
+        #[arg(help = "Search query")]
+        query: String,
+        #[arg(long, help = "Max results")]
+        limit: Option<u32>,
+        #[arg(long, help = "BBT JSON-RPC URL")]
+        bbt_url: Option<String>,
+    },
     #[command(
         about = "Run as MCP stdio proxy (reads JSON-RPC from stdin, proxies to HTTP server)"
     )]
@@ -424,6 +450,19 @@ async fn run_command(
         Command::Outline { path } => commands::search::outline(client, vault_id, &path, json).await,
         Command::Vault => commands::vault::vault(client, vault_id, json).await,
         Command::Reindex => commands::search::reindex(client, vault_id, json).await,
+        Command::Git { ref action } => commands::git::run(client, vault_id, action, json).await,
+        Command::References => commands::references::list(client, vault_id, json).await,
+        Command::ReferenceSearch { ref query } => {
+            commands::references::search(client, vault_id, query, json).await
+        }
+        Command::ReferenceAdd { ref doi } => {
+            commands::references::add(client, vault_id, doi, json).await
+        }
+        Command::ReferenceBbt {
+            ref query,
+            limit,
+            ref bbt_url,
+        } => commands::references::bbt_search(client, query, limit, bbt_url.as_deref(), json).await,
         Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {
             unreachable!()
         }
