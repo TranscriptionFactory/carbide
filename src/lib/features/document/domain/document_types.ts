@@ -10,6 +10,8 @@ const SPECIAL_TYPE_MAP: Record<string, DocumentFileType> = {
   ".gif": "image",
   ".svg": "image",
   ".webp": "image",
+  ".html": "html",
+  ".htm": "html",
   ".canvas": "canvas",
   ".excalidraw": "excalidraw",
 };

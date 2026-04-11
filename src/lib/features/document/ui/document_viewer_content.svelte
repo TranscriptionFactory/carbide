@@ -7,6 +7,7 @@
   import PdfViewer from "$lib/features/document/ui/pdf_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
+  import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
   import type { PdfMetadata } from "$lib/features/document/types/document";
   import { is_editable_type } from "$lib/features/document/types/document";
@@ -54,6 +55,11 @@
     <ImageViewer
       src={asset_url}
       background_style={stores.ui.editor_settings.document_image_background}
+    />
+  {:else if viewer_state.file_type === "html" && current_content !== null}
+    <HtmlViewer
+      content={current_content}
+      theme={stores.ui.active_theme.color_scheme}
     />
   {:else if viewer_state.file_type === "text" && current_content !== null}
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
