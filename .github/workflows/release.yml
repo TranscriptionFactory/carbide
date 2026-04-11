@@ -121,9 +121,10 @@ jobs:
             args: --target aarch64-apple-darwin
             triple: aarch64-apple-darwin
           - platform: macos-latest
-            args: --target x86_64-apple-darwin
+            args: --target x86_64-apple-darwin -- --no-default-features
             triple: x86_64-apple-darwin
-          - platform: ubuntu-22.04
+            cargo_args: --no-default-features
+          - platform: ubuntu-24.04
             args: ""
             triple: x86_64-unknown-linux-gnu
           - platform: windows-latest
@@ -141,7 +142,7 @@ jobs:
           cache: pnpm
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -195,7 +196,7 @@ jobs:
         shell: bash
         run: |
           target="${{ matrix.triple }}"
-          cargo build --release --manifest-path src-tauri/Cargo.toml --package carbide-cli --target "$target"
+          cargo build --release --manifest-path src-tauri/Cargo.toml --package carbide-cli --target "$target" ${{ matrix.cargo_args }}
           ext=""
           if [[ "$target" == *"windows"* ]]; then ext=".exe"; fi
           cp "src-tauri/target/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
