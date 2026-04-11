@@ -5,6 +5,7 @@
   import { Input } from "$lib/components/ui/input";
   import * as Select from "$lib/components/ui/select/index.js";
   import * as Switch from "$lib/components/ui/switch/index.js";
+  import { Textarea } from "$lib/components/ui/textarea";
   import type { PluginSettingSchema } from "../ports";
 
   interface Props {
@@ -78,6 +79,13 @@
     draft_values = { ...draft_values, [schema.key]: value };
   }
 
+  function clamp_number(value: number, schema: PluginSettingSchema): number {
+    let result = value;
+    if (schema.min !== undefined && result < schema.min) result = schema.min;
+    if (schema.max !== undefined && result > schema.max) result = schema.max;
+    return result;
+  }
+
   function commit_number_setting(schema: PluginSettingSchema) {
     const raw = text_value(schema).trim();
     const fallback = value_as_text(current_value(schema));
@@ -108,8 +116,9 @@
       return;
     }
 
-    draft_values = { ...draft_values, [schema.key]: String(parsed) };
-    void services.plugin_settings.set_setting(plugin_id, schema.key, parsed);
+    const clamped = clamp_number(parsed, schema);
+    draft_values = { ...draft_values, [schema.key]: String(clamped) };
+    void services.plugin_settings.set_setting(plugin_id, schema.key, clamped);
   }
 
   function update_boolean_setting(
@@ -171,7 +180,9 @@
         {#each settings_schema as schema (schema.key)}
           <div class="rounded-md border bg-muted/20 p-3">
             <div
-              class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+              class={schema.type === "textarea"
+                ? "flex flex-col gap-3"
+                : "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"}
             >
               <div class="space-y-1">
                 <label
@@ -187,7 +198,7 @@
                 {/if}
               </div>
 
-              <div class="sm:w-64">
+              <div class={schema.type === "textarea" ? "" : "sm:w-64"}>
                 {#if schema.type === "boolean"}
                   <div class="flex justify-end pt-1">
                     <Switch.Root
@@ -217,11 +228,27 @@
                       {/each}
                     </Select.Content>
                   </Select.Root>
+                {:else if schema.type === "textarea"}
+                  <Textarea
+                    id={field_id(schema.key)}
+                    name={schema.key}
+                    rows={4}
+                    placeholder={schema.placeholder}
+                    value={text_value(schema)}
+                    oninput={(event) => {
+                      const value = (event.currentTarget as HTMLTextAreaElement)
+                        .value;
+                      update_text_setting(schema, value);
+                    }}
+                  />
                 {:else}
                   <Input
                     id={field_id(schema.key)}
                     name={schema.key}
                     type={schema.type === "number" ? "number" : "text"}
+                    placeholder={schema.placeholder}
+                    min={schema.type === "number" ? schema.min : undefined}
+                    max={schema.type === "number" ? schema.max : undefined}
                     value={text_value(schema)}
                     oninput={(event) => {
                       const value = (event.currentTarget as HTMLInputElement)

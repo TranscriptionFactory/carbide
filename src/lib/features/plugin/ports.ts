@@ -10,11 +10,14 @@ export type ActivationEvent =
 
 export interface PluginSettingSchema {
   key: string;
-  type: "string" | "number" | "boolean" | "select";
+  type: "string" | "number" | "boolean" | "select" | "textarea";
   label: string;
   description?: string;
   default?: unknown;
   options?: { label: string; value: string }[];
+  placeholder?: string;
+  min?: number;
+  max?: number;
 }
 
 export interface PluginContributes {
