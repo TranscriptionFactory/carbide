@@ -102,21 +102,6 @@ fn resolve_under_vault_root(vault_root: &Path, rel: &Path) -> Result<PathBuf, St
     Ok(resolved)
 }
 
-fn reject_symlink_components(vault_root: &Path, rel: &Path) -> Result<(), String> {
-    let mut current = vault_root.to_path_buf();
-    for component in rel.components() {
-        current.push(component.as_os_str());
-        if !current.exists() {
-            break;
-        }
-        let metadata = std::fs::symlink_metadata(&current).map_err(|e| e.to_string())?;
-        if metadata.file_type().is_symlink() {
-            return Err("note path contains symlink component".to_string());
-        }
-    }
-    Ok(())
-}
-
 pub(crate) fn safe_vault_abs(vault_root: &Path, note_rel: &str) -> Result<PathBuf, String> {
     let rel = parse_safe_relative_path(note_rel)?;
     resolve_under_vault_root(vault_root, &rel)
@@ -128,7 +113,6 @@ pub(crate) fn safe_vault_abs_for_write(
 ) -> Result<PathBuf, String> {
     let rel = parse_safe_relative_path(note_rel)?;
     let base = canonical_vault_root(vault_root)?;
-    reject_symlink_components(&base, &rel)?;
     resolve_under_vault_root(&base, &rel)
 }
 
@@ -456,7 +440,7 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
     let mut out = Vec::new();
 
     for entry in WalkDir::new(&root)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -930,7 +914,14 @@ pub(crate) fn scan_folder_entries(
         }
 
         let file_type = entry.file_type().map_err(|e| e.to_string())?;
-        let is_dir = file_type.is_dir();
+        let is_dir = if file_type.is_symlink() {
+            match std::fs::metadata(entry.path()) {
+                Ok(m) => m.is_dir(),
+                Err(_) => continue, // broken symlink
+            }
+        } else {
+            file_type.is_dir()
+        };
         if ignore_matcher.is_ignored(root, &entry.path(), is_dir) {
             continue;
         }
@@ -1025,7 +1016,7 @@ pub fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, Str
     let mut out = Vec::new();
 
     for entry in WalkDir::new(&root)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -1556,7 +1547,7 @@ pub fn get_folder_stats(
     let mut folder_count = 0usize;
 
     for entry in WalkDir::new(&target)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
@@ -1648,7 +1639,7 @@ pub fn list_vault_files_by_extension(
 
     let mut results = Vec::new();
     for entry in WalkDir::new(&root)
-        .follow_links(false)
+        .follow_links(true)
         .into_iter()
         .filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
