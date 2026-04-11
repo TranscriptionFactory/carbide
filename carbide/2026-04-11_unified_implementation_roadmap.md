@@ -3,7 +3,7 @@
 **Date:** 2026-04-11
 **Status:** Active — supersedes `2026-04-05_unified_implementation_roadmap.md`
 **Companion:** `2026-04-05_conversation_work_units.md` (completed units remain there for history)
-**Progress:** 38 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3); 18 remaining
+**Progress:** 39 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3, A3.1); 17 remaining
 
 ---
 
@@ -352,7 +352,7 @@ Phase E: Archive branches
 
 #### A3: Plugin AI + Network RPC
 
-- [ ] **A3.1** `network.fetch` RPC namespace — **Rust + TypeScript session**
+- [x] **A3.1** `network.fetch` RPC namespace — **Rust + TypeScript session**
   - `activeForm`: "Implementing network.fetch RPC for plugins"
   - Rust: new `plugin_http_fetch` Tauri command in `src-tauri/src/features/plugin/` (or extend `mcp/cli_routes.rs`)
     - Uses existing `reqwest` client
@@ -364,6 +364,7 @@ Phase E: Archive branches
     - Manifest `allowed_origins` allowlist checked before forwarding to Rust
   - SDK: `carbide.network.fetch(url, opts)` in `carbide_plugin_api.js`
   - Tests: SSRF blocking, allowlist enforcement, rate limiting, success path
+  - _Completed 2026-04-11 `df367450`. Created `http_fetch.rs` with SSRF guard (blocks private IPs, localhost, .local/.internal, DNS rebinding via resolve_and_check). Added PluginRpcNetworkBackend to RPC handler with network.fetch dispatch, origin allowlist enforcement from manifest allowed_origins, and network:fetch permission check. Added allowed_origins to PluginManifest in both Rust and TS. Created plugin_network_tauri_adapter.ts. SDK surface: carbide.network.fetch(url, opts). 9 TS tests + 7 Rust unit tests. Per-plugin rate limiting already covered by existing PluginRateLimiter in handle_rpc flow. Pre-existing lint/check failures unchanged._
 
 - [ ] **A3.2** `ai.execute` RPC namespace — **TypeScript session**
   - `activeForm`: "Implementing ai.execute RPC for plugins"
