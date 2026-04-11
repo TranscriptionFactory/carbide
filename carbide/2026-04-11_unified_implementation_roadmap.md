@@ -3,7 +3,7 @@
 **Date:** 2026-04-11
 **Status:** Active — supersedes `2026-04-05_unified_implementation_roadmap.md`
 **Companion:** `2026-04-05_conversation_work_units.md` (completed units remain there for history)
-**Progress:** 43 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3, A3.1, A3.2, A3.3, B1.1, B1.2); 13 remaining
+**Progress:** 44 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3, A3.1, A3.2, A3.3, B1.1, B1.2, B2.1); 12 remaining
 
 ---
 
@@ -409,10 +409,11 @@ Phase E: Archive branches
 
 #### B2: CLI Extended Commands
 
-- [ ] **B2.1** CLI git + reference commands — **Rust session**
+- [x] **B2.1** CLI git + reference commands — **Rust session**
   - `activeForm`: "Hand-porting CLI git and reference commands"
   - Hand-port from `3d0179b1`: git + reference CLI subcommands + backend routes
   - Tests: subcommand parsing, route serialization
+  - _Completed 2026-04-11 `7318455c`. Hand-ported from 3d0179b1. Created commands/git.rs (8 subcommands: status, commit, log, diff, push, pull, restore, init) and commands/references.rs (list, search, add by DOI, BBT search). Added git_diff_working() to git/service.rs for working tree diff. Added 12 backend routes to cli_routes.rs (/cli/git/*, /cli/references/*). Adapted route handlers to current codebase pattern — auth handled by middleware layer, not per-handler check_auth. Used resolve_vault_root helper and shared_ops::VaultIdArgs where applicable. 9 deserialization tests. 6 files changed. Pre-existing failures unchanged._
 
 - [ ] **B2.2** CLI bases, tasks, dev commands — **Rust session**
   - `activeForm`: "Hand-porting CLI bases/tasks/dev commands"
