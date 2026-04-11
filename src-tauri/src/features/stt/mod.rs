@@ -39,7 +39,7 @@ fn create_recorder(app: &AppHandle, vad_threshold: f32) -> Result<AudioRecorder,
         .resource_dir()
         .map_err(|e| format!("Failed to resolve resource dir: {e}"))?;
 
-    let vad_path = resource_dir.join("models").join("silero_vad_v4.onnx");
+    let vad_path = resource_dir.join("resources").join("models").join("silero_vad_v4.onnx");
     if !vad_path.exists() {
         return Err(format!(
             "VAD model not found at {}",
