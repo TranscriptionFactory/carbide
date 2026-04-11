@@ -3,7 +3,9 @@ You are running headless with no human in the loop. Complete exactly ONE unit fr
 ## Phase 0: Find the unit
 
 1. Read `carbide/2026-04-05_conversation_work_units.md`.
-2. Find the first unchecked `[ ]` unit whose step dependencies are met (prior dependent steps have all units `[x]`, or step says "depends on: nothing").
+2. Find the first unchecked `[ ]` unit whose dependencies are met:
+   - For original Steps 1–13: prior dependent steps have all units `[x]`, or step says "depends on: nothing".
+   - For Phases A–E: check the "Depends on" line. Phase A units have no deps. Phase B/C depend on Phase A. Phase D depends on B+C. Phase E depends on all hand-ports.
 3. If ALL units are checked, output "All units complete." and stop.
 
 ## Phase 1: Orient
@@ -63,7 +65,7 @@ You are running headless with no human in the loop. Complete exactly ONE unit fr
         - ...original description unchanged...
         - _Completed YYYY-MM-DD `abcdef1`. <What was built. Decisions made. What next unit needs to know.>_
       ```
-    - Update `**Progress:** N / 46 units complete` at the top.
+    - Update `**Progress:** N / 56 units complete` at the top.
 18. Commit the progress update:
     ```
     chore: mark unit X.Y complete

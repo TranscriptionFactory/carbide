@@ -211,7 +211,7 @@ Also verify against the actual codebase:
 
 ## Output Format
 
-Produce a single markdown document (`carbide/2026-04-10_unified_implementation_roadmap.md`) with:
+Produce a single markdown document (`carbide/2026-04-11_unified_implementation_roadmap.md`) with:
 
 1. Header with date, status, supersedes note
 2. Completed work summary (1 line per step)

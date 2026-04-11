@@ -1,8 +1,8 @@
 # Conversation-Sized Work Units
 
-**Date:** 2026-04-05 (updated 2026-04-10)
-**Companion to:** `2026-04-05_unified_implementation_roadmap.md`
-**Progress:** 34 / 46 units complete
+**Date:** 2026-04-05 (updated 2026-04-11)
+**Companion to:** `2026-04-11_unified_implementation_roadmap.md`
+**Progress:** 34 / 56 units complete (34 original + 0/22 new)
 
 ---
 
@@ -26,16 +26,26 @@ Run repeatedly. Each invocation completes one unit, updates checkboxes, and the 
 
 Review between batches — check the branch, run the app, read commits. Each batch is a natural ship point.
 
+### Original batches (Steps 1–13)
+
 | Batch | Steps | Units                           | Runs | Status      | Review gate                                                                                |
 | ----- | ----- | ------------------------------- | ---- | ----------- | ------------------------------------------------------------------------------------------ |
 | **A** | 1–2   | 1.1–1.5, 2.1                    | 6    | DONE        | MCP stdio works in Claude Desktop; headings command callable                               |
 | **B** | 3–4   | 3.1–3.3, 4.1–4.2                | 5    | DONE        | Type inference in bases; frontmatter edits round-trip; `ctime_ms` + `note_links` populated |
 | **C** | 5–6   | 5.1–5.3, 6.1–6.2                | 5    | DONE        | Suggested Links panel shows metadata + semantic rules with provenance                      |
 | **D** | 7–8   | 7.1–7.6, 8.1–8.2                | 8    | DONE        | `carbide read/search` works from terminal; Claude Desktop + Code auto-configured           |
-| **E** | 9–10  | 9.1, 10.1–10.3                  | 4    | PARTIAL     | `getFileCache` done; plugin hardening pending (revised plan)                               |
+| **E** | 9     | 9.1                             | 1    | DONE        | `getFileCache` done                                                                        |
 | **F** | 11–13 | 11.1–11.2, 12.1–12.5, 13.1–13.2 | 9    | DONE        | Block-level suggestions; full MCP + CLI surface; drag blocks                               |
-| **G** | 14–15 | 14.1–14.2, 15.1–15.2            | 4    | NOT STARTED | Live metadata events; graph shows smart link edges                                         |
-| **H** | 16    | 16.1–16.5                       | 5    | NOT STARTED | Bulk property ops; nested props; plugin SDK; CLI TUI                                       |
+
+### New batches (Phases A–E, from 2026-04-11 roadmap refresh)
+
+| Batch  | Phase | Units                          | Sessions | Status      | Review gate                                                            |
+| ------ | ----- | ------------------------------ | -------- | ----------- | ---------------------------------------------------------------------- |
+| **G**  | A     | A1.1, A2.1–A2.3, A3.1–A3.3    | 7        | NOT STARTED | Plugin tests pass, editor width works, AI + network RPC respond        |
+| **H**  | B     | B1.1–B1.2, B2.1–B2.2, B3.1    | 5        | NOT STARTED | All MCP tools respond, CLI subcommands work, slash commands render     |
+| **I**  | C     | C1.1–C1.2                      | 2        | NOT STARTED | Metadata events fire and reach plugins                                 |
+| **J**  | D     | D1.1–D1.2, D2.1–D2.5          | 7        | NOT STARTED | Graph renders smart links, power features work end-to-end              |
+| **K**  | E     | E1.1                           | 1        | NOT STARTED | Branches archived, main clean                                          |
 
 ---
 
@@ -240,35 +250,9 @@ Review between batches — check the branch, run the app, read commits. Each bat
 
 ---
 
-## Step 10: Plugin Hardening
+## Step 10: Plugin Hardening _(superseded — see Phase A2 below)_
 
-**Branch:** `feat/plugin-hardening-safe`
-**Design ref:** `carbide/2026-04-10_plugin_hardening_safe_selective_merge_plan.md` (revised — replaces mcp_native_gaps_plan Phase 5)
-**Depends on:** nothing (independent)
-
-**Scope change (2026-04-10):** Original units 10.1-10.3 revised. The detailed plugin hardening plan was reviewed and corrected — key changes: (1) do NOT cherry-pick `b8edde58`, hand-port only; (2) skip lifecycle protocol rewrite; (3) skip `on_file_type` and `on_startup_finished` activation events. See the corrected plan for full rationale.
-
-- [ ] **10.1** RPC hardening — timeouts + rate limiting + error budget — **TypeScript session**
-  - Create `src/lib/features/plugin/domain/rate_limiter.ts` (new) and `rpc_timeout.ts` (new). Note: `domain/` dir must be created.
-  - `RpcTimeoutError` + `with_timeout(promise, method)` — 5s default, 30s for FS ops.
-  - `PluginRateLimiter` — sliding window, 100 calls/min per plugin. Apply in `PluginService.handle_rpc()` before dispatch.
-  - Strengthen `PluginErrorTracker` — consecutive error counter, `record_success()`, update `reset()`/`clear_all()` to clear new map.
-  - Add `rate_limiter.clear_all()` in `PluginService.clear_active_vault()`.
-  - `record_success()` only on non-error, non-timeout response.
-  - **Explicitly do not port:** `send_lifecycle_hook`, `SettingChangedCallback`, `on_settings_change` hook delivery, new lifecycle message format.
-  - Tests: timeout behavior, rate-limit rejection, success resets consecutive-error budget, repeated failures auto-disable.
-
-- [ ] **10.2** Richer settings schema — **Svelte/UI session**
-  - Hand-port from `b8edde58` (do NOT cherry-pick — it includes activation event types from `1f04cd0b`).
-  - Extend `PluginSettingSchema` with `type: "textarea"`, `min?: number`, `max?: number`, `placeholder?: string`.
-  - Create shared textarea component (`src/lib/components/ui/textarea/`).
-  - UI: render textarea with shadcn component, clamp numeric input to min/max, pass placeholders.
-  - Tests: textarea rendering, placeholder rendering, numeric clamp behavior.
-
-- [ ] **10.3** Documentation + `vault_contains` decision — **Docs session**
-  - Update `docs/plugin_howto.md` — mention RPC timeout behavior, rate limiting, richer settings fields.
-  - Update `carbide/TODO.md`.
-  - Decide whether `vault_contains:${string}` activation event is needed now. If yes, hand-port with explicit vault file listing dependency injection (separate unit). If no, create follow-up issue.
+_Original units 10.1-10.3 superseded by the 2026-04-11 roadmap refresh. Plugin hardening is now Phase A2 with revised scope. See `2026-04-11_unified_implementation_roadmap.md` for details._
 
 ---
 
@@ -337,100 +321,309 @@ Review between batches — check the branch, run the app, read commits. Each bat
 
 ---
 
-## Step 14: Metadata Events + Link Resolution
+## Steps 14–16 _(superseded)_
 
-**Branch:** `feat/metadata-events`
-**Design ref:** `carbide/metadata_api_surface.md` → Phases C1, A4, D1
-**Depends on:** Steps 4, 9
-
-- [ ] **14.1** `metadata-changed` event emission + plugin bridge — **Rust + TS session**
-  - Rust event on upsert/rename/delete → plugin iframe forwarding. `events.on("metadata-changed", cb)`.
-
-- [ ] **14.2** Resolved/unresolved link map + `getFirstLinkpathDest` with index — **Rust session**
-  - Cross-reference `note_links.target` against `notes`. Extend resolve commands with vault index search.
+_Original Steps 14 (Metadata Events), 15 (Graph Viz), and 16 (Power Features) are superseded by Phases C, D below. The scope is similar but reorganized with new dependencies and additional work (AI/network RPC, branch hand-ports)._
 
 ---
 
-## Step 15: Graph Visualization
+# Remaining Work (2026-04-11 Roadmap Refresh)
+
+_The units below replace the original Steps 10, 14–16. They follow the phase structure from `2026-04-11_unified_implementation_roadmap.md`. Each unit follows the same sizing principles as above._
+
+---
+
+## Phase A: Standalone Fixes (parallel-safe, no deps on unmerged work)
+
+### Step A1: Editor Width Token Refactor
+
+**Branch:** `fix/editor-width-tokens`
+**Design ref:** `carbide/plans/editor-width-token-refactor.md`
+**Session type:** CSS/Svelte
+**Depends on:** nothing
+
+- [ ] **A1.1** Standardize `--editor-max-width` + expose `--source-editor-max-width` — **CSS/Svelte session**
+  - Files: `src/styles/editor.css`, `src/styles/theme-theater.css`, `src/styles/theme-spotlight.css`, `src/styles/theme-zen-deck.css`, `src/lib/features/editor/ui/source_editor_theme.ts`, `src/lib/app/bootstrap/ui/workspace_layout.svelte`
+  - Add `--source-editor-max-width: 48rem` default to `:root` in `editor.css`
+  - Change `source_editor_theme.ts` `.cm-content` maxWidth to `var(--source-editor-max-width, 48rem)`
+  - Replace hardcoded max-widths in theater (`120ch`) and spotlight (`80ch`) with `var(--editor-max-width)` + theme-level default
+  - Rename zen-deck `--zen-max-width` to `--editor-max-width`
+  - Fix zen mode in `workspace_layout.svelte` to use `var(--editor-max-width)` instead of hardcoded `72ch`
+  - Tests: visual verification only (no unit tests — pure CSS)
+
+---
+
+### Step A2: Plugin Hardening — Safety Hand-Port
+
+**Branch:** `feat/plugin-hardening-safe`
+**Design ref:** `carbide/2026-04-10_plugin_hardening_safe_selective_merge_plan.md`
+**Session type:** TypeScript + Svelte
+**Depends on:** nothing
+
+- [ ] **A2.1** RPC hardening — timeouts + rate limiting + error budget — **TypeScript session**
+  - Create `src/lib/features/plugin/domain/` directory
+  - Create `domain/rpc_timeout.ts`: `RpcTimeoutError`, `get_rpc_timeout(method)` (5s default, 30s for FS), `with_timeout(promise, method, timeout_ms?)`
+  - Create `domain/rate_limiter.ts`: `PluginRateLimiter` — sliding window, 100 calls/min per plugin
+  - Strengthen `plugin_error_tracker.ts`: add `consecutive_errors` map, `record_success(plugin_id)`, auto-disable threshold (10 consecutive)
+  - Update `plugin_service.ts` `handle_rpc()`: rate-limit check → timeout wrapper → record_success on non-error
+  - Add `rate_limiter.clear_all()` in `PluginService.clear_active_vault()`
+  - **Do NOT port:** `send_lifecycle_hook`, `SettingChangedCallback`, `on_settings_change` hook delivery, new lifecycle message format
+  - Tests: timeout behavior, rate-limit rejection, success resets consecutive-error budget, repeated failures auto-disable
+
+- [ ] **A2.2** Richer settings schema — **Svelte/UI session**
+  - Hand-port from `b8edde58` (do NOT cherry-pick — includes activation event types from `1f04cd0b`)
+  - Extend `PluginSettingSchema` in `ports.ts`: `type: "textarea"`, `min?: number`, `max?: number`, `placeholder?: string`
+  - Create `src/lib/components/ui/textarea/textarea.svelte` + `index.ts` (shadcn-style)
+  - Update `plugin_settings_dialog.svelte`: render textarea, clamp numeric to min/max, pass placeholders
+  - Tests: textarea rendering, placeholder rendering, numeric clamp behavior
+
+- [ ] **A2.3** Documentation + vault_contains decision — **Docs session**
+  - Update `docs/plugin_howto.md` — mention RPC timeout behavior, rate limiting, richer settings fields
+  - Decide on `vault_contains` (recommended: defer — no plugin needs it yet)
+
+---
+
+### Step A3: Plugin AI + Network RPC
+
+**Branch:** `feat/plugin-ai-network-rpc`
+**Design ref:** `2026-04-11_unified_implementation_roadmap.md` → Step A3
+**Session type:** TypeScript + Rust
+**Depends on:** nothing (existing `AiService` and `reqwest` on main)
+
+- [ ] **A3.1** `network.fetch` RPC namespace — **Rust + TypeScript session**
+  - Rust: new `plugin_http_fetch` Tauri command — uses existing `reqwest`
+  - SSRF protection: block localhost/private IPs before request fires
+  - Request size limit (1MB body), response size limit (10MB)
+  - TypeScript: new `PluginRpcNetworkBackend`, `network.fetch` dispatch — requires `network:fetch` permission
+  - Manifest `allowed_origins` allowlist checked before forwarding
+  - SDK: `carbide.network.fetch(url, opts)` in `carbide_plugin_api.js`
+  - Tests: SSRF blocking, allowlist enforcement, rate limiting, success path
+
+- [ ] **A3.2** `ai.execute` RPC namespace — **TypeScript session**
+  - New `PluginRpcAiBackend` in `plugin_rpc_handler.ts`
+  - `ai.execute` dispatch — requires `ai:execute` permission
+  - Invokes `AiService.execute()` → `AiPort` → `ai_execute_cli` Tauri command
+  - Returns `{ output, success, error }` — no streaming
+  - Uses default provider config from `AiSettingsStore`
+  - Tests: permission check, execution success/failure, provider not configured error
+
+- [ ] **A3.3** SDK surface + docs — **Docs session**
+  - Update `carbide_plugin_api.js`: add `carbide.network.fetch(url, opts)` and `carbide.ai.execute({ prompt, mode? })`
+  - Update `docs/plugin_howto.md`: AI and network namespace docs, permission requirements
+  - Update manifest schema docs: `network:fetch`, `ai:execute` permissions, `allowed_origins`
+
+---
+
+**Review gate A:** Plugin tests pass, existing lifecycle SDK behavior intact, editor width tokens work, AI and network RPC respond correctly with permission checks. `pnpm check && pnpm lint && pnpm test && cargo check` green.
+
+---
+
+## Phase B: Extended Tools Hand-Port (depends on Phase A)
+
+### Step B1: MCP Tier 2/3 + Plugin MCP Bridge
+
+**Branch:** `feat/mcp-extended-tools`
+**Design ref:** Hand-port from `27247865`, `63b8bcb9`
+**Session type:** Rust + TypeScript
+**Depends on:** Phase A complete, main's MCP HTTP transport + shared_ops
+
+- [ ] **B1.1** MCP Tier 2 tools — **Rust session**
+  - Hand-port from `27247865`: backlinks, outlinks, properties, references tool handlers
+  - Register in `router.rs`, add tool definitions
+  - Tests: tool dispatch for each new handler
+
+- [ ] **B1.2** MCP Tier 3 + plugin MCP bridge — **Rust + TypeScript session**
+  - Hand-port from `63b8bcb9`: git_status, git_log, rename_note tool handlers
+  - Plugin MCP bridge: `mcp.*` RPC namespace (list_tools, call_tool, register_tool)
+  - Tests: git tool responses, plugin tool registration round-trip
+
+---
+
+### Step B2: CLI Extended Commands
+
+**Branch:** `feat/cli-extended-commands`
+**Design ref:** Hand-port from `3d0179b1`, `48f0017c`
+**Session type:** Rust
+**Depends on:** main's CLI sidecar + glow (already merged)
+
+- [ ] **B2.1** CLI git + reference commands — **Rust session**
+  - Hand-port from `3d0179b1`: git + reference CLI subcommands + backend routes
+  - Tests: subcommand parsing, route serialization
+
+- [ ] **B2.2** CLI bases, tasks, dev commands — **Rust session**
+  - Hand-port from `48f0017c`: bases, tasks, dev subcommands + backend routes
+  - Tests: subcommand parsing, route serialization
+
+---
+
+### Step B3: Slash Command Contribution Point
+
+**Branch:** `feat/plugin-slash-commands`
+**Design ref:** Hand-port from `6bc50243`
+**Session type:** TypeScript + Svelte
+**Depends on:** Step B1 (plugin MCP bridge)
+
+- [ ] **B3.1** Slash command contribution point — **TypeScript + Svelte session**
+  - Hand-port from `6bc50243`: manifest `contributes.slash_commands`, ProseMirror `/` menu hook
+  - Depends on B1.2 (plugin MCP bridge)
+  - Tests: command registration, menu rendering, dispatch
+
+---
+
+**Review gate B:** All MCP tools respond correctly, CLI subcommands work, slash commands from plugins render. `pnpm check && pnpm lint && pnpm test && cargo check` green.
+
+---
+
+## Phase C: Metadata Events (independent of Phase B, can run concurrently after Phase A)
+
+### Step C1: Metadata Change Events + Plugin Bridge
+
+**Branch:** `feat/metadata-events`
+**Design ref:** `carbide/2026-04-05_plan_metadata_api_surface.md` → Phase C1
+**Session type:** Rust + TypeScript
+**Depends on:** Steps 4, 9 (on main — ctime, note_links, getFileCache all merged)
+
+- [ ] **C1.1** `metadata-changed` event emission — **Rust session**
+  - Extend `db.rs` or `service.rs` to emit Tauri events on upsert/rename/delete
+  - Define event payload: `{ event_type: "upsert"|"rename"|"delete", path, old_path? }`
+  - Tests: event emission on each mutation type
+
+- [ ] **C1.2** Plugin bridge for metadata events — **TypeScript session**
+  - Subscribe to Tauri metadata events in plugin host
+  - Forward to iframe via `events.on("metadata-changed", cb)` in plugin SDK
+  - Tests: event delivery to subscribed plugin, no delivery without subscription
+
+---
+
+**Review gate C:** Metadata change events fire correctly, plugin bridge delivers them to subscribed plugins. `pnpm check && pnpm lint && pnpm test && cargo check` green.
+
+---
+
+## Phase D: New Feature Work (depends on Phases A–C)
+
+### Step D1: Graph Visualization
 
 **Branch:** `feat/graph-smart-links`
 **Design ref:** `carbide/2026-04-02_smart_linking_and_block_notes.md` → Phase 5
-**Depends on:** Steps 5-6, 11
+**Session type:** Rust + TypeScript + Svelte/D3
+**Depends on:** Steps 5–6 (smart links — on main), Step 11 (block embeddings — on main)
 
-- [ ] **15.1** Smart link edges in graph data model — **Rust + TS session**
-  - Rust graph builder (new edge type), TS graph types. Provenance metadata.
+- [ ] **D1.1** Smart link edges in graph data model — **Rust + TypeScript session**
+  - Rust graph builder: new edge type for smart links, provenance metadata
+  - TS graph types: extend `VaultGraphSnapshot`, `GraphNeighborhoodSnapshot`
+  - Tests: graph builder produces smart link edges
 
-- [ ] **15.2** Rendering — dashed edges, hover provenance, section-level edges — **Svelte/D3 session**
-  - Visual differentiation from explicit links. Block-level edges when embeddings exist.
+- [ ] **D1.2** Graph rendering — dashed edges, hover provenance, section-level edges — **Svelte/D3 session**
+  - Visual differentiation: dashed lines for smart links, solid for explicit
+  - Hover tooltip shows rule provenance
+  - Block-level edges when embeddings exist
+  - Tests: rendering logic, hover state
 
 ---
 
-## Step 16: Power Features
+### Step D2: Power Features
 
 **Branch:** per-feature branches
-**Design ref:** `carbide/mcp_native_gaps_plan.md` Phase 7 + `carbide/metadata_api_surface.md` 3d-3e
+**Design ref:** `carbide/mcp_native_gaps_plan.md` Phase 7 + `carbide/2026-04-05_plan_metadata_api_surface.md` 3d-3e
+**Session type:** Mixed
 **Depends on:** all prior
 
-- [ ] **16.1** Bulk property rename — **Rust + TS session**
-  - Tauri command + frontmatter writer + UI confirmation + git checkpoint.
+- [ ] **D2.1** Bulk property rename — **Rust + TypeScript session**
+  - Tauri command, frontmatter writer integration, UI confirmation dialog, git checkpoint
+  - Tests: multi-file rename, rollback on error
 
-- [ ] **16.2** Bulk property delete — **Rust + TS session**
-  - Same pattern as 16.1. Can combine if straightforward.
+- [ ] **D2.2** Bulk property delete — **Rust + TypeScript session**
+  - Same pattern as D2.1
+  - Tests: multi-file delete, confirmation UI
 
-- [ ] **16.3** Nested property flattening — **TypeScript session**
-  - `extract_metadata.ts` dot notation (`author.name`). Write-back preserves original structure.
+- [ ] **D2.3** Nested property flattening — **TypeScript session**
+  - `extract_metadata.ts`: dot notation (`author.name`), write-back preserves original YAML structure
+  - Tests: extraction, round-trip, edge cases
 
-- [ ] **16.4** Plugin SDK package — **TypeScript session**
-  - `@carbide/plugin-types`, `create-carbide-plugin` template.
+- [ ] **D2.4** Plugin SDK package — **TypeScript session**
+  - `@carbide/plugin-types`, `create-carbide-plugin` template
+  - Tests: type checking, template generation
 
-- [ ] **16.5** CLI TUI mode — **Rust session**
-  - ratatui or rustyline. Exploratory — may span multiple conversations.
+- [ ] **D2.5** CLI TUI mode — **Rust session**
+  - ratatui or rustyline, exploratory — may span multiple conversations
+  - Tests: input handling, rendering
+
+---
+
+**Review gate D:** Graph renders correctly with smart link edges. Bulk property ops work end-to-end. `pnpm check && pnpm lint && pnpm test && cargo check` green.
+
+---
+
+## Phase E: Cleanup
+
+### Step E1: Archive Stale Branches
+
+**Depends on:** All hand-port work verified on main
+
+- [ ] **E1.1** Archive stale branches — **Git session**
+  - Rename `feat/plugin-hardening` → `archive/feat/plugin-hardening`
+  - Rename `feat/extended-tools` → `archive/feat/extended-tools`
+  - Only after all hand-port work verified on main
 
 ---
 
 ## Summary
 
-| Step                    | Units  | Sessions   | Status      |
-| ----------------------- | ------ | ---------- | ----------- |
-| 1. MCP Stdio            | 5      | 5          | DONE        |
-| 2. Headings Cmd         | 1      | 1          | DONE        |
-| 3. Metadata Foundations | 3      | 3          | DONE        |
-| 4. Backend Enrichment   | 2      | 2          | DONE        |
-| 5. Smart Linking P1     | 3      | 3          | DONE        |
-| 6. Smart Linking P2     | 2      | 2          | DONE        |
-| 7. HTTP + CLI           | 6      | 5-6        | DONE        |
-| 8. Auto-Setup           | 2      | 2          | DONE        |
-| 9. getFileCache         | 1      | 1          | DONE        |
-| 10. Plugin Hardening    | 3      | 2-3        | NOT STARTED |
-| 11. Block Embeddings    | 2      | 2          | DONE        |
-| 12. Extended Tools      | 5      | 4-5        | DONE        |
-| 13. Editor Drag         | 2      | 2          | DONE        |
-| 14. Metadata Events     | 2      | 2          | NOT STARTED |
-| 15. Graph Viz           | 2      | 2          | NOT STARTED |
-| 16. Power Features      | 5      | 5          | NOT STARTED |
-| **Total**               | **46** | **~43-46** |             |
-| **Remaining**           | **12** | **~11-13** |             |
+### Completed (original Steps 1–13)
+
+| Step                    | Units | Sessions | Status |
+| ----------------------- | ----- | -------- | ------ |
+| 1. MCP Stdio            | 5     | 5        | DONE   |
+| 2. Headings Cmd         | 1     | 1        | DONE   |
+| 3. Metadata Foundations  | 3     | 3        | DONE   |
+| 4. Backend Enrichment   | 2     | 2        | DONE   |
+| 5. Smart Linking P1     | 3     | 3        | DONE   |
+| 6. Smart Linking P2     | 2     | 2        | DONE   |
+| 7. HTTP + CLI           | 6     | 5-6      | DONE   |
+| 8. Auto-Setup           | 2     | 2        | DONE   |
+| 9. getFileCache         | 1     | 1        | DONE   |
+| 11. Block Embeddings    | 2     | 2        | DONE   |
+| 12. Extended Tools      | 5     | 4-5      | DONE   |
+| 13. Editor Drag         | 2     | 2        | DONE   |
+| **Subtotal**            | **34**| **~32-34**|       |
+
+### Remaining (Phases A–E from 2026-04-11 refresh)
+
+| Phase | Step                        | Units | Sessions | Status      |
+| ----- | --------------------------- | ----- | -------- | ----------- |
+| A     | A1: Editor width tokens     | 1     | 1        | NOT STARTED |
+| A     | A2: Plugin hardening        | 3     | 2–3      | NOT STARTED |
+| A     | A3: Plugin AI + network RPC | 3     | 3        | NOT STARTED |
+| B     | B1: MCP Tier 2/3 + bridge   | 2     | 2        | NOT STARTED |
+| B     | B2: CLI extended commands    | 2     | 2        | NOT STARTED |
+| B     | B3: Slash commands           | 1     | 1        | NOT STARTED |
+| C     | C1: Metadata events          | 2     | 2        | NOT STARTED |
+| D     | D1: Graph visualization      | 2     | 2        | NOT STARTED |
+| D     | D2: Power features           | 5     | 5        | NOT STARTED |
+| E     | E1: Archive branches         | 1     | 1        | NOT STARTED |
+| **Subtotal**                    || **22**| **~21-22**|            |
+
+| | **Grand total** | **56** | **~53-56** | **34 done, 22 remaining** |
 
 ---
 
 ## Out-of-Band Work (not in original unit plan)
 
-Work that happened on feature branches since 2026-04-05 that extends beyond the original units:
+Work merged to main outside the original unit plan:
 
-| Branch | Work | Status | Notes |
-|---|---|---|---|
-| `feat/mcp-streamable-http` | Replaced stdio MCP with streamable HTTP transport; extracted `shared_ops.rs`; DRY'd CLI routes + MCP tools; auth middleware refactor | On branch | Supersedes parts of Steps 1, 7. Needs merge review |
-| `feat/cli-sidecar-install` | CLI bundled as Tauri sidecar; Install/Uninstall controls in Settings | On branch | Extends Step 8 |
-| `feat/cli-glow-open` | Glow rendering for `read`; `edit`, `cat`, `search --paths-only`, `tags --filter`, exit codes, dynamic completions | On branch | CLI DX polish |
-| `feat/block-embeddings-clean` | HNSW vector index, truncation fix, batch queries, async HNSW, accelerate | Merged to main | Hardened Step 11 |
-| `feat/editor-drag-blocks-clean` | Section-aware drag handles, baseline alignment, grip adjustments | Merged to main | Refined Step 13 |
-| `feat/stt-clean` | Speech-to-text feature | Current branch | New feature, not in roadmap |
+| Work | Status | Notes |
+|---|---|---|
+| MCP streamable HTTP transport (`feat/mcp-streamable-http`) | Merged | Superseded stdio; extracted `shared_ops.rs`; DRY'd CLI routes + MCP tools |
+| CLI sidecar install (`feat/cli-sidecar-install`) | Merged | CLI bundled as Tauri sidecar; Install/Uninstall controls in Settings |
+| CLI glow + polish (`feat/cli-glow-open`) | Merged | Glow rendering, `edit`, `search --paths-only`, `tags --filter`, exit codes |
+| Block embeddings HNSW (`feat/block-embeddings-clean`) | Merged | HNSW vector index, truncation fix, batch queries, async HNSW, accelerate |
+| Editor drag refinements (`feat/editor-drag-blocks-clean`) | Merged | Section-aware positioning, baseline alignment, grip adjustments |
+| STT removal | Merged | Removed speech-to-text feature |
+| Tool status cards | Merged | Settings > Tools status display |
 
-### Unmerged branch status
+### Stale branches (to archive in Phase E)
 
-Before starting remaining units, these branches should be reviewed for merge:
-
-1. **`feat/extended-tools`** — Steps 11-12 code. Block embeddings merged separately via `feat/block-embeddings-clean`, but Step 12 (extended MCP/CLI tools, slash commands) is only on this branch.
-2. **`feat/mcp-streamable-http`** — MCP transport rework. Should merge before any further MCP work.
-3. **`feat/cli-sidecar-install`** — CLI distribution. Should merge before CLI TUI (16.5).
-4. **`feat/cli-glow-open`** — CLI polish. Independent, merge when convenient.
+| Branch | Commits | Disposition |
+|---|---|---|
+| `feat/plugin-hardening` | 6 commits (merge-base `bba85e1e`) | Hand-port useful work → archive |
+| `feat/extended-tools` | 26 commits (child of plugin-hardening) | Hand-port useful work → archive |
