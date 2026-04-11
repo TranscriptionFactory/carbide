@@ -765,6 +765,60 @@ export function create_app_context(input: {
     network: {
       fetch: plugin_http_fetch,
     },
+    ai: {
+      async execute(input) {
+        const settings = stores.ui.editor_settings;
+        if (!settings.ai_enabled) {
+          return {
+            success: false,
+            output: "",
+            error: "AI is disabled in settings",
+          };
+        }
+
+        const providers = settings.ai_providers;
+        const default_id = settings.ai_default_provider_id;
+        let provider =
+          default_id === "auto"
+            ? providers[0]
+            : providers.find((p) => p.id === default_id);
+
+        if (!provider) {
+          return {
+            success: false,
+            output: "",
+            error: "No AI provider configured",
+          };
+        }
+
+        const vault = stores.vault.vault;
+        if (!vault) {
+          return {
+            success: false,
+            output: "",
+            error: "No active vault",
+          };
+        }
+
+        const open_note = stores.editor.open_note;
+        return ai_service.execute({
+          provider_config: provider,
+          prompt: input.prompt,
+          context: {
+            note_path:
+              open_note?.meta.path ??
+              ("" as import("$lib/shared/types/ids").NotePath),
+            note_title: open_note?.meta.title ?? "",
+            note_markdown: (open_note?.markdown ??
+              "") as import("$lib/shared/types/ids").MarkdownText,
+            selection: null,
+            target: "full_note",
+          },
+          mode: input.mode ?? "ask",
+          timeout_seconds: settings.ai_execution_timeout_seconds,
+        });
+      },
+    },
   });
 
   register_plugin_actions(base_action_input, plugin_service);

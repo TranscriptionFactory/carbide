@@ -106,6 +106,13 @@ type PluginRpcNetworkBackend = {
   fetch(request: PluginHttpFetchRequest): Promise<PluginHttpFetchResponse>;
 };
 
+export type PluginRpcAiBackend = {
+  execute(input: {
+    prompt: string;
+    mode?: "edit" | "ask";
+  }): Promise<{ success: boolean; output: string; error: string | null }>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -132,6 +139,7 @@ export type PluginRpcContext = {
   diagnostics?: PluginRpcDiagnosticsBackend;
   metadata?: PluginRpcMetadataBackend;
   network?: PluginRpcNetworkBackend;
+  ai?: PluginRpcAiBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -502,6 +510,8 @@ export class PluginRpcHandler {
         return this.handle_metadata(plugin_id, action, params);
       case "network":
         return this.handle_network(plugin_id, manifest, action, params);
+      case "ai":
+        return this.handle_ai(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -864,6 +874,32 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown diagnostics action: ${action}`);
+    }
+  }
+
+  private async handle_ai(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "ai:execute");
+
+    if (!this.context.ai) {
+      throw new Error("AI backend not initialized");
+    }
+
+    switch (action) {
+      case "execute": {
+        const opts = read_record(params[0], "ai.execute options");
+        const prompt = read_string(opts.prompt, "prompt");
+        const mode = read_optional_string(opts.mode);
+        if (mode !== undefined && mode !== "edit" && mode !== "ask") {
+          throw new Error('Invalid mode: must be "edit" or "ask"');
+        }
+        return this.context.ai.execute({ prompt, mode: mode ?? "ask" });
+      }
+      default:
+        throw new Error(`Unknown ai action: ${action}`);
     }
   }
 

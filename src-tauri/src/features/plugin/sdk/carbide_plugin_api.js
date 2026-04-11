@@ -136,5 +136,9 @@
     network: {
       fetch: (url, opts) => _rpc("network.fetch", url, opts),
     },
+
+    ai: {
+      execute: (opts) => _rpc("ai.execute", opts),
+    },
   };
 })();
