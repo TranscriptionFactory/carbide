@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05 (updated 2026-04-11)
 **Companion to:** `2026-04-11_unified_implementation_roadmap.md`
-**Progress:** 34 / 56 units complete (34 original + 0/22 new)
+**Progress:** 35 / 56 units complete (34 original + 1/22 new)
 
 ---
 
@@ -342,7 +342,7 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** CSS/Svelte
 **Depends on:** nothing
 
-- [ ] **A1.1** Standardize `--editor-max-width` + expose `--source-editor-max-width` — **CSS/Svelte session**
+- [x] **A1.1** Standardize `--editor-max-width` + expose `--source-editor-max-width` — **CSS/Svelte session**
   - Files: `src/styles/editor.css`, `src/styles/theme-theater.css`, `src/styles/theme-spotlight.css`, `src/styles/theme-zen-deck.css`, `src/lib/features/editor/ui/source_editor_theme.ts`, `src/lib/app/bootstrap/ui/workspace_layout.svelte`
   - Add `--source-editor-max-width: 48rem` default to `:root` in `editor.css`
   - Change `source_editor_theme.ts` `.cm-content` maxWidth to `var(--source-editor-max-width, 48rem)`
@@ -350,6 +350,7 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
   - Rename zen-deck `--zen-max-width` to `--editor-max-width`
   - Fix zen mode in `workspace_layout.svelte` to use `var(--editor-max-width)` instead of hardcoded `72ch`
   - Tests: visual verification only (no unit tests — pure CSS)
+  - _Completed 2026-04-11 `14788ee2`. Added `--source-editor-max-width: 48rem` to `:root` in editor.css. Theater and spotlight both had 80ch hardcoded (plan said 120ch for theater but code was 80ch) — replaced with `var(--editor-max-width)` and added theme-level `--editor-max-width` defaults. Renamed zen-deck `--zen-max-width` to `--editor-max-width`. Source editor uses `var(--source-editor-max-width, 48rem)`. Zen mode in workspace_layout.svelte uses `var(--editor-max-width, 72ch)` fallback. All themes visually identical — tokens enable user override via `token_overrides`._
 
 ---
 
