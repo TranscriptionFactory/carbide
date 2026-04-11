@@ -45,13 +45,88 @@ pub fn list_input_devices() -> Result<Vec<AudioDeviceInfo>, String> {
     Ok(out)
 }
 
+#[cfg(target_os = "macos")]
+pub fn list_input_devices_safe() -> Result<Vec<AudioDeviceInfo>, String> {
+    let exe =
+        std::env::current_exe().map_err(|e| format!("Failed to get current exe path: {e}"))?;
+
+    let output = std::process::Command::new(&exe)
+        .arg("--stt-list-devices")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn device enumeration subprocess: {e}"))?
+        .wait_with_output()
+        .map_err(|e| format!("Failed to wait for device enumeration subprocess: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        log::warn!(
+            "Device enumeration subprocess failed (status={:?}): {}",
+            output.status.code(),
+            stderr
+        );
+        let host = get_cpal_host();
+        if let Some(device) = host.default_input_device() {
+            let name = device.name().unwrap_or_else(|_| "Default".into());
+            return Ok(vec![AudioDeviceInfo {
+                id: "0".to_string(),
+                name,
+                is_default: true,
+            }]);
+        }
+        return Err("Device enumeration crashed and no default device available".to_string());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str::<Vec<AudioDeviceInfo>>(&stdout)
+        .map_err(|e| format!("Failed to parse device list JSON: {e}"))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn list_input_devices_safe() -> Result<Vec<AudioDeviceInfo>, String> {
+    list_input_devices()
+}
+
+pub fn run_stt_list_devices() {
+    match list_input_devices() {
+        Ok(devices) => {
+            let json = serde_json::to_string(&devices).unwrap_or_else(|_| "[]".to_string());
+            println!("{json}");
+        }
+        Err(e) => {
+            eprintln!("Error listing devices: {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
 pub fn find_device_by_name(name: &str) -> Option<Device> {
     let host = get_cpal_host();
-    host.input_devices().ok()?.find(|d| {
-        d.name()
-            .map(|n| n == name)
-            .unwrap_or(false)
-    })
+    let devices = host.input_devices().ok()?;
+    let mut found = None;
+    for device in devices {
+        let device_name =
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| device.name())) {
+                Ok(Ok(n)) => n,
+                Ok(Err(e)) => {
+                    log::warn!("Skipping device with name error: {e}");
+                    continue;
+                }
+                Err(_) => {
+                    log::warn!("Skipping device that panicked on .name()");
+                    continue;
+                }
+            };
+        if device_name == name {
+            found = Some(device);
+            break;
+        }
+    }
+    if found.is_none() {
+        log::warn!("No audio device found matching name: {name:?}");
+    }
+    found
 }
 
 // ── Frame resampler ─────────────────────────────────────────────────────────
@@ -163,7 +238,13 @@ struct AudioVisualiser {
 }
 
 impl AudioVisualiser {
-    fn new(sample_rate: u32, window_size: usize, buckets: usize, freq_min: f32, freq_max: f32) -> Self {
+    fn new(
+        sample_rate: u32,
+        window_size: usize,
+        buckets: usize,
+        freq_min: f32,
+        freq_max: f32,
+    ) -> Self {
         let mut planner = FftPlanner::<f32>::new();
         let fft = planner.plan_fft_forward(window_size);
 
@@ -334,6 +415,9 @@ impl AudioRecorder {
                 .ok_or_else(|| "No input device found".to_string())?,
         };
 
+        let config = get_preferred_config(&device)
+            .map_err(|e| format!("Failed to fetch preferred config: {e}"))?;
+
         let thread_device = device.clone();
         let vad = self.vad.clone();
         let level_cb = self.level_cb.clone();
@@ -342,9 +426,6 @@ impl AudioRecorder {
             let stop_flag = Arc::new(AtomicBool::new(false));
             let stop_flag_for_stream = stop_flag.clone();
             let init_result = (|| -> Result<(cpal::Stream, u32), String> {
-                let config = get_preferred_config(&thread_device)
-                    .map_err(|e| format!("Failed to fetch preferred config: {e}"))?;
-
                 let sample_rate = config.sample_rate().0;
                 let channels = config.channels() as usize;
 
@@ -358,19 +439,39 @@ impl AudioRecorder {
 
                 let stream = match config.sample_format() {
                     cpal::SampleFormat::U8 => build_stream::<u8>(
-                        &thread_device, &config, sample_tx.clone(), channels, stop_flag_for_stream.clone(),
+                        &thread_device,
+                        &config,
+                        sample_tx.clone(),
+                        channels,
+                        stop_flag_for_stream.clone(),
                     ),
                     cpal::SampleFormat::I8 => build_stream::<i8>(
-                        &thread_device, &config, sample_tx.clone(), channels, stop_flag_for_stream.clone(),
+                        &thread_device,
+                        &config,
+                        sample_tx.clone(),
+                        channels,
+                        stop_flag_for_stream.clone(),
                     ),
                     cpal::SampleFormat::I16 => build_stream::<i16>(
-                        &thread_device, &config, sample_tx.clone(), channels, stop_flag_for_stream.clone(),
+                        &thread_device,
+                        &config,
+                        sample_tx.clone(),
+                        channels,
+                        stop_flag_for_stream.clone(),
                     ),
                     cpal::SampleFormat::I32 => build_stream::<i32>(
-                        &thread_device, &config, sample_tx.clone(), channels, stop_flag_for_stream.clone(),
+                        &thread_device,
+                        &config,
+                        sample_tx.clone(),
+                        channels,
+                        stop_flag_for_stream.clone(),
                     ),
                     cpal::SampleFormat::F32 => build_stream::<f32>(
-                        &thread_device, &config, sample_tx.clone(), channels, stop_flag_for_stream.clone(),
+                        &thread_device,
+                        &config,
+                        sample_tx.clone(),
+                        channels,
+                        stop_flag_for_stream.clone(),
                     ),
                     fmt => return Err(format!("Unsupported sample format: {fmt:?}")),
                 }
@@ -409,7 +510,9 @@ impl AudioRecorder {
             }
             Err(recv_error) => {
                 let _ = worker.join();
-                Err(format!("Failed to initialize microphone worker: {recv_error}"))
+                Err(format!(
+                    "Failed to initialize microphone worker: {recv_error}"
+                ))
             }
         }
     }
@@ -512,54 +615,10 @@ where
     )
 }
 
-fn get_preferred_config(
-    device: &cpal::Device,
-) -> Result<cpal::SupportedStreamConfig, String> {
-    let default_config = device
+fn get_preferred_config(device: &cpal::Device) -> Result<cpal::SupportedStreamConfig, String> {
+    device
         .default_input_config()
-        .map_err(|e| e.to_string())?;
-    let target_rate = default_config.sample_rate();
-
-    let supported_configs = match device.supported_input_configs() {
-        Ok(configs) => configs,
-        Err(e) => {
-            log::warn!("Could not enumerate input configs ({e}), using device default");
-            return Ok(default_config);
-        }
-    };
-
-    let mut best_config: Option<cpal::SupportedStreamConfigRange> = None;
-
-    for config_range in supported_configs {
-        if config_range.min_sample_rate() <= target_rate
-            && config_range.max_sample_rate() >= target_rate
-        {
-            match best_config {
-                None => best_config = Some(config_range),
-                Some(ref current) => {
-                    let score = |fmt: cpal::SampleFormat| match fmt {
-                        cpal::SampleFormat::F32 => 4,
-                        cpal::SampleFormat::I16 => 3,
-                        cpal::SampleFormat::I32 => 2,
-                        _ => 1,
-                    };
-                    if score(config_range.sample_format()) > score(current.sample_format()) {
-                        best_config = Some(config_range);
-                    }
-                }
-            }
-        }
-    }
-
-    if let Some(config) = best_config {
-        return Ok(config.with_sample_rate(target_rate));
-    }
-
-    log::warn!(
-        "No supported config matched device default rate {:?}, using default config",
-        target_rate
-    );
-    Ok(default_config)
+        .map_err(|e| format!("Failed to get default input config: {e}"))
 }
 
 // ── Consumer loop ───────────────────────────────────────────────────────────
@@ -583,8 +642,7 @@ fn run_consumer(
 
     const BUCKETS: usize = 16;
     const WINDOW_SIZE: usize = 512;
-    let mut visualizer =
-        AudioVisualiser::new(in_sample_rate, WINDOW_SIZE, BUCKETS, 400.0, 4000.0);
+    let mut visualizer = AudioVisualiser::new(in_sample_rate, WINDOW_SIZE, BUCKETS, 400.0, 4000.0);
 
     fn handle_frame(
         samples: &[f32],
@@ -598,10 +656,7 @@ fn run_consumer(
 
         if let Some(vad_arc) = vad {
             let mut det = vad_arc.lock().unwrap();
-            match det
-                .push_frame(samples)
-                .unwrap_or(VadFrame::Speech(samples))
-            {
+            match det.push_frame(samples).unwrap_or(VadFrame::Speech(samples)) {
                 VadFrame::Speech(buf) => out_buf.extend_from_slice(buf),
                 VadFrame::Noise => {}
             }
