@@ -267,6 +267,12 @@ export function create_test_ports(): Ports {
         Promise.resolve({ success: true, path: "", message: "" }),
       uninstall_cli: () =>
         Promise.resolve({ success: true, path: "", message: "" }),
+      list_tool_definitions: () => Promise.resolve([]),
+      call_tool: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "" }],
+          isError: false,
+        }),
     },
     // STT removed — archived on archive/stt-main
   };

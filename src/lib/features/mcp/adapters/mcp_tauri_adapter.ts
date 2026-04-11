@@ -4,6 +4,8 @@ import type {
   McpStatusInfo,
   McpSetupResult,
   McpSetupStatus,
+  McpToolDefinition,
+  McpToolResult,
 } from "../ports";
 
 type HttpServerInfo = { port: number; running: boolean };
@@ -47,6 +49,18 @@ export function create_mcp_tauri_adapter(): McpPort {
     },
     async uninstall_cli() {
       return tauri_invoke<McpSetupResult>("mcp_uninstall_cli");
+    },
+    async list_tool_definitions() {
+      return tauri_invoke<McpToolDefinition[]>("mcp_list_tool_definitions");
+    },
+    async call_tool(
+      tool_name: string,
+      tool_arguments?: Record<string, unknown>,
+    ) {
+      return tauri_invoke<McpToolResult>("mcp_call_tool", {
+        toolName: tool_name,
+        arguments: tool_arguments ?? null,
+      });
     },
   };
 }

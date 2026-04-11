@@ -25,6 +25,9 @@ mod mcp_tools_search_metadata_vault;
 #[path = "../../tests/mcp_tools_graph_references.rs"]
 mod mcp_tools_graph_references;
 
+#[path = "../../tests/mcp_tools_git.rs"]
+mod mcp_tools_git;
+
 #[path = "../../tests/smart_links_rules.rs"]
 mod smart_links_rules;
 

@@ -362,6 +362,8 @@ pub fn run() {
             features::mcp::setup::mcp_get_setup_status,
             features::mcp::setup::mcp_install_cli,
             features::mcp::setup::mcp_uninstall_cli,
+            features::mcp::router::mcp_list_tool_definitions,
+            features::mcp::router::mcp_call_tool,
             features::smart_links::smart_links_load_rules,
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,

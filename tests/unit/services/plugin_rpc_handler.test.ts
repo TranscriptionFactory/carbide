@@ -1078,4 +1078,164 @@ describe("PluginRpcHandler", () => {
       expect(response.error).toMatch(/Diagnostics backend not initialized/);
     });
   });
+
+  describe("mcp.*", () => {
+    function setup_mcp() {
+      const list_tool_definitions = vi.fn().mockResolvedValue([
+        {
+          name: "list_notes",
+          description: "List notes",
+          inputSchema: { type: "object", properties: {}, required: [] },
+        },
+      ]);
+      const call_tool = vi.fn().mockResolvedValue({
+        content: [{ type: "text", text: "result" }],
+        isError: false,
+      });
+      ctx.context.mcp = { list_tool_definitions, call_tool };
+      return { list_tool_definitions, call_tool };
+    }
+
+    it("lists native tools via mcp.list_tools", async () => {
+      grant_permissions("mcp:access");
+      const { list_tool_definitions } = setup_mcp();
+
+      const manifest = make_manifest(["mcp:access"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m1",
+        method: "mcp.list_tools",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(list_tool_definitions).toHaveBeenCalled();
+      const result = response.result as unknown[];
+      expect(result).toHaveLength(1);
+    });
+
+    it("calls a tool via mcp.call_tool", async () => {
+      grant_permissions("mcp:access");
+      const { call_tool } = setup_mcp();
+
+      const manifest = make_manifest(["mcp:access"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m2",
+        method: "mcp.call_tool",
+        params: ["list_notes", { vault_id: "test" }],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(call_tool).toHaveBeenCalledWith("list_notes", {
+        vault_id: "test",
+      });
+    });
+
+    it("registers a plugin tool via mcp.register_tool", async () => {
+      grant_permissions("mcp:access", "mcp:register");
+      setup_mcp();
+
+      const manifest = make_manifest(["mcp:access", "mcp:register"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m3",
+        method: "mcp.register_tool",
+        params: [
+          {
+            name: "my_tool",
+            description: "A plugin tool",
+            inputSchema: {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+          },
+        ],
+      });
+
+      expect(response.error).toBeUndefined();
+      const result = response.result as { success: boolean; name: string };
+      expect(result.success).toBe(true);
+      expect(result.name).toBe("test-plugin:my_tool");
+
+      const tools = handler.get_registered_tools();
+      expect(tools).toHaveLength(1);
+      const first_tool = tools[0]!;
+      expect(first_tool.plugin_id).toBe("test-plugin");
+      expect(first_tool.definition.name).toBe("test-plugin:my_tool");
+    });
+
+    it("includes registered plugin tools in list_tools", async () => {
+      grant_permissions("mcp:access", "mcp:register");
+      setup_mcp();
+
+      const manifest = make_manifest(["mcp:access", "mcp:register"]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m4a",
+        method: "mcp.register_tool",
+        params: [
+          {
+            name: "plugin_tool",
+            description: "From plugin",
+            inputSchema: { type: "object", properties: {}, required: [] },
+          },
+        ],
+      });
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m4b",
+        method: "mcp.list_tools",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      const result = response.result as Array<{ name: string }>;
+      expect(result).toHaveLength(2);
+      expect(result.map((t) => t.name)).toContain("test-plugin:plugin_tool");
+    });
+
+    it("blocks mcp access without permission", async () => {
+      grant_permissions();
+      setup_mcp();
+
+      const manifest = make_manifest([]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m5",
+        method: "mcp.list_tools",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Missing mcp:access permission/);
+    });
+
+    it("blocks register_tool without mcp:register permission", async () => {
+      grant_permissions("mcp:access");
+      setup_mcp();
+
+      const manifest = make_manifest(["mcp:access"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m6",
+        method: "mcp.register_tool",
+        params: [
+          {
+            name: "blocked_tool",
+            description: "Should fail",
+          },
+        ],
+      });
+
+      expect(response.error).toMatch(/Missing mcp:register permission/);
+    });
+
+    it("errors when mcp backend not initialized", async () => {
+      grant_permissions("mcp:access");
+
+      const manifest = make_manifest(["mcp:access"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "m7",
+        method: "mcp.list_tools",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/MCP backend not initialized/);
+    });
+  });
 });

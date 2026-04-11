@@ -166,6 +166,7 @@ impl McpRouter {
         defs.extend(tools::vault::tool_definitions());
         defs.extend(tools::graph::tool_definitions());
         defs.extend(tools::references::tool_definitions());
+        defs.extend(tools::git::tool_definitions());
         defs
     }
 
@@ -193,8 +194,19 @@ impl McpRouter {
         if let Some(result) = tools::references::dispatch(app, name, arguments) {
             return result;
         }
+        if let Some(result) = tools::git::dispatch(app, name, arguments) {
+            return result;
+        }
 
         ToolResult::error(format!("Unknown tool: {}", name))
+    }
+
+    pub fn tool_definitions_public(&self) -> Vec<ToolDefinition> {
+        self.get_tool_definitions()
+    }
+
+    pub fn dispatch_tool_public(&self, name: &str, arguments: Option<&Value>) -> ToolResult {
+        self.dispatch_tool(name, arguments)
     }
 }
 
@@ -202,4 +214,22 @@ impl Default for McpRouter {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[tauri::command]
+pub fn mcp_list_tool_definitions() -> Result<Value, String> {
+    let router = McpRouter::new();
+    let defs = router.tool_definitions_public();
+    serde_json::to_value(defs).map_err(|e| format!("Serialization error: {}", e))
+}
+
+#[tauri::command]
+pub fn mcp_call_tool(
+    app: AppHandle,
+    tool_name: String,
+    arguments: Option<Value>,
+) -> Result<Value, String> {
+    let router = McpRouter::with_app(app);
+    let result = router.dispatch_tool_public(&tool_name, arguments.as_ref());
+    serde_json::to_value(result).map_err(|e| format!("Serialization error: {}", e))
 }

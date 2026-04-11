@@ -38,6 +38,11 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       path: "/home/user/.local/bin/carbide",
       message: "CLI removed",
     }),
+    list_tool_definitions: vi.fn().mockResolvedValue([]),
+    call_tool: vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "" }],
+      isError: false,
+    }),
     ...overrides,
   };
 }

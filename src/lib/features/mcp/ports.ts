@@ -19,6 +19,21 @@ export type McpSetupResult = {
   message: string;
 };
 
+export type McpToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties: Record<string, unknown>;
+    required: string[];
+  };
+};
+
+export type McpToolResult = {
+  content: Array<{ type: string; text: string }>;
+  isError: boolean;
+};
+
 export interface McpPort {
   start(): Promise<McpStatusInfo>;
   stop(): Promise<void>;
@@ -29,4 +44,9 @@ export interface McpPort {
   get_setup_status(): Promise<McpSetupStatus>;
   install_cli(): Promise<McpSetupResult>;
   uninstall_cli(): Promise<McpSetupResult>;
+  list_tool_definitions(): Promise<McpToolDefinition[]>;
+  call_tool(
+    tool_name: string,
+    tool_arguments?: Record<string, unknown>,
+  ): Promise<McpToolResult>;
 }
