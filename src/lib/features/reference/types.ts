@@ -91,6 +91,8 @@ export type LinkedNoteInfo = {
   linked_source_id?: string;
   vault_relative_path?: string;
   home_relative_path?: string;
+  journal?: string;
+  abstract_text?: string;
 };
 
 export type PdfAnnotation = {

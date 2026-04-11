@@ -2,6 +2,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
     FolderPlus,
+    LibraryBig,
     RefreshCw,
     Trash2,
     ToggleLeft,
@@ -53,6 +54,13 @@
 
   async function rescan_source(id: string) {
     await ctx.action_registry.execute("reference.scan_linked_source", id);
+  }
+
+  async function import_to_library(source_id: string) {
+    await ctx.action_registry.execute(
+      "reference.import_linked_source_to_library",
+      { source_id },
+    );
   }
 
   function get_item_count(source_id: string): number {
@@ -145,6 +153,14 @@
                 ? 'animate-spin'
                 : ''}"
             />
+          </button>
+          <button
+            class="p-0.5 rounded hover:bg-muted"
+            onclick={() => import_to_library(source.id)}
+            title="Import to Reference Library"
+            disabled={!source.enabled || status === "scanning"}
+          >
+            <LibraryBig class="w-3.5 h-3.5 text-muted-foreground" />
           </button>
           <button
             class="p-0.5 rounded hover:bg-muted"

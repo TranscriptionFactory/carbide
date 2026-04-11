@@ -5,8 +5,9 @@ import {
   parse_author_string,
   parse_creation_date,
   generate_linked_source_id,
+  linked_note_to_csl_item,
 } from "$lib/features/reference/domain/linked_source_utils";
-import type { ScanEntry } from "$lib/features/reference/types";
+import type { ScanEntry, LinkedNoteInfo } from "$lib/features/reference/types";
 
 function make_entry(overrides: Partial<ScanEntry> = {}): ScanEntry {
   return {
@@ -213,6 +214,71 @@ describe("parse_creation_date", () => {
 
   it("returns null for implausible year", () => {
     expect(parse_creation_date("0001")).toBeNull();
+  });
+});
+
+function make_note(overrides: Partial<LinkedNoteInfo> = {}): LinkedNoteInfo {
+  return {
+    path: "@linked/papers/machine_learning.pdf",
+    title: "Deep Learning Fundamentals",
+    mtime_ms: 1700000000000,
+    citekey: "smith2024-abc123",
+    authors: "Smith, John; Doe, Jane",
+    year: 2024,
+    doi: "10.1234/test.5678",
+    item_type: "article",
+    external_file_path: "/home/user/papers/machine_learning.pdf",
+    linked_source_id: "source-1",
+    journal: "Nature Machine Intelligence",
+    abstract_text: "An introduction to deep learning",
+    ...overrides,
+  };
+}
+
+describe("linked_note_to_csl_item", () => {
+  it("converts a full LinkedNoteInfo to CslItem", () => {
+    const item = linked_note_to_csl_item(make_note());
+    expect(item.id).toBe("smith2024-abc123");
+    expect(item.type).toBe("article-journal");
+    expect(item.title).toBe("Deep Learning Fundamentals");
+    expect(item.author).toEqual([
+      { family: "Smith", given: "John" },
+      { family: "Doe", given: "Jane" },
+    ]);
+    expect(item.issued).toEqual({ "date-parts": [[2024]] });
+    expect(item.DOI).toBe("10.1234/test.5678");
+    expect(item["container-title"]).toBe("Nature Machine Intelligence");
+    expect(item.abstract).toBe("An introduction to deep learning");
+    expect(item.URL).toBe("/home/user/papers/machine_learning.pdf");
+  });
+
+  it("sets type to webpage for webpage item_type", () => {
+    const item = linked_note_to_csl_item(make_note({ item_type: "webpage" }));
+    expect(item.type).toBe("webpage");
+  });
+
+  it("uses empty string for id when citekey is missing", () => {
+    const item = linked_note_to_csl_item(make_note({ citekey: undefined }));
+    expect(item.id).toBe("");
+  });
+
+  it("omits optional fields when not present", () => {
+    const item = linked_note_to_csl_item(
+      make_note({
+        authors: undefined,
+        year: undefined,
+        doi: undefined,
+        journal: undefined,
+        abstract_text: undefined,
+        external_file_path: undefined,
+      }),
+    );
+    expect(item.author).toBeUndefined();
+    expect(item.issued).toBeUndefined();
+    expect(item.DOI).toBeUndefined();
+    expect(item["container-title"]).toBeUndefined();
+    expect(item.abstract).toBeUndefined();
+    expect(item.URL).toBeUndefined();
   });
 });
 

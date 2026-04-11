@@ -1248,7 +1248,8 @@ pub fn query_linked_notes_by_source(
     let mut stmt = conn
         .prepare(
             "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
-             external_file_path, linked_source_id, vault_relative_path, home_relative_path \
+             external_file_path, linked_source_id, vault_relative_path, home_relative_path, \
+             journal, abstract \
              FROM notes WHERE path LIKE ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -1277,7 +1278,8 @@ pub fn find_note_by_citekey(
 ) -> Result<Option<crate::features::search::model::LinkedNoteInfo>, String> {
     conn.query_row(
         "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
-         external_file_path, linked_source_id, vault_relative_path, home_relative_path \
+         external_file_path, linked_source_id, vault_relative_path, home_relative_path, \
+         journal, abstract \
          FROM notes WHERE citekey = ?1 LIMIT 1",
         params![citekey],
         |row| linked_note_info_from_row(row),
@@ -1295,7 +1297,8 @@ pub fn search_linked_notes(
     let mut stmt = conn
         .prepare(
             "SELECT path, title, mtime_ms, citekey, authors, year, doi, item_type, \
-             external_file_path, linked_source_id, vault_relative_path, home_relative_path \
+             external_file_path, linked_source_id, vault_relative_path, home_relative_path, \
+             journal, abstract \
              FROM notes \
              WHERE path LIKE '@linked/%' \
                AND (LOWER(title) LIKE ?1 ESCAPE '\\' \
@@ -1346,6 +1349,8 @@ fn linked_note_info_from_row(
         linked_source_id: row.get(9)?,
         vault_relative_path: row.get(10)?,
         home_relative_path: row.get(11)?,
+        journal: row.get(12)?,
+        abstract_text: row.get(13)?,
     })
 }
 

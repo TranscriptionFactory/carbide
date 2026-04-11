@@ -297,4 +297,28 @@ export function register_reference_actions(input: {
       await reference_service.delete_linked_source_data(id);
     },
   });
+
+  registry.register({
+    id: "reference.import_linked_note_to_library",
+    label: "References: Import Linked Note to Library",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      await reference_service.import_linked_note_to_library(
+        args as Parameters<
+          typeof reference_service.import_linked_note_to_library
+        >[0],
+      );
+    },
+  });
+
+  registry.register({
+    id: "reference.import_linked_source_to_library",
+    label: "References: Import Linked Source to Library",
+    execute: async (args: unknown) => {
+      if (!args || typeof args !== "object") return;
+      const { source_id } = args as { source_id: string };
+      if (typeof source_id !== "string") return;
+      await reference_service.import_linked_source_to_library(source_id);
+    },
+  });
 }

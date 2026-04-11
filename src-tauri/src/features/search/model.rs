@@ -108,6 +108,8 @@ pub struct LinkedNoteInfo {
     pub linked_source_id: Option<String>,
     pub vault_relative_path: Option<String>,
     pub home_relative_path: Option<String>,
+    pub journal: Option<String>,
+    pub abstract_text: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, Type)]

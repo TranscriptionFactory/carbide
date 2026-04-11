@@ -33,6 +33,7 @@ import {
 import {
   scan_entry_to_linked_meta,
   generate_linked_source_id,
+  linked_note_to_csl_item,
 } from "../domain/linked_source_utils";
 import {
   resolve_linked_path,
@@ -866,6 +867,46 @@ export class ReferenceService {
     this.store.remove_linked_source(source_id);
     this.store.dismiss_missing_linked_source(source_id);
     await this.save_linked_sources();
+  }
+
+  async import_linked_note_to_library(note: LinkedNoteInfo): Promise<void> {
+    const vault_id = this.require_vault_id();
+    const item = this.ensure_citekey(linked_note_to_csl_item(note));
+    const library = await this.storage_port.add_item(vault_id, item);
+    this.store.set_library_items(library.items);
+  }
+
+  async import_linked_source_to_library(
+    source_id: string,
+  ): Promise<{ imported: number }> {
+    const source = this.store.linked_sources.find((s) => s.id === source_id);
+    if (!source) return { imported: 0 };
+
+    const ls_port = this.require_linked_source_port();
+    const vault_id = this.require_vault_id();
+    const op_key = "reference.import_linked_source_to_library";
+    this.op_store.start(op_key, this.now_ms());
+
+    try {
+      const notes = await ls_port.query_linked_notes(vault_id, source.name);
+      const items = notes.map((n) =>
+        this.ensure_citekey(linked_note_to_csl_item(n)),
+      );
+      const current = await this.storage_port.load_library(vault_id);
+      const merged = new Map(current.items.map((i: CslItem) => [i.id, i]));
+      for (const item of items) merged.set(item.id, item);
+      const updated = { ...current, items: [...merged.values()] };
+      await this.storage_port.save_library(vault_id, updated);
+      this.store.set_library_items(updated.items);
+      this.store.set_error(null);
+      this.op_store.succeed(op_key);
+      return { imported: items.length };
+    } catch (e) {
+      const msg = error_message(e);
+      this.store.set_error(msg);
+      this.op_store.fail(op_key, msg);
+      return { imported: 0 };
+    }
   }
 }
 

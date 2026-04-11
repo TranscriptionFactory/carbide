@@ -1,5 +1,6 @@
 import type {
   CslDate,
+  CslItem,
   CslName,
   LinkedNoteInfo,
   LinkedSourceMeta,
@@ -129,6 +130,21 @@ function simple_hash(str: string): string {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   }
   return Math.abs(h).toString(36).slice(0, 6);
+}
+
+export function linked_note_to_csl_item(note: LinkedNoteInfo): CslItem {
+  const item: CslItem = {
+    id: note.citekey ?? "",
+    type: note.item_type === "webpage" ? "webpage" : "article-journal",
+    title: note.title,
+  };
+  if (note.authors) item.author = parse_author_string(note.authors);
+  if (note.year) item.issued = { "date-parts": [[note.year]] };
+  if (note.doi) item.DOI = note.doi;
+  if (note.journal) item["container-title"] = note.journal;
+  if (note.abstract_text) item.abstract = note.abstract_text;
+  if (note.external_file_path) item.URL = note.external_file_path;
+  return item;
 }
 
 export function linked_note_to_meta(info: LinkedNoteInfo): NoteMeta {
