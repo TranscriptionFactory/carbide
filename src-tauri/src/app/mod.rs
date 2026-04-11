@@ -277,6 +277,7 @@ pub fn run() {
             features::plugin::plugin_deny_permission,
             features::plugin::watcher::watch_plugins,
             features::plugin::watcher::unwatch_plugins,
+            features::plugin::http_fetch::plugin_http_fetch,
             shared::buffer::open_buffer,
             shared::buffer::update_buffer,
             shared::buffer::save_buffer,

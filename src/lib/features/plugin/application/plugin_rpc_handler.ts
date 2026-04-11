@@ -4,6 +4,8 @@ import type {
   PluginEventType,
   PluginSettingSchema,
   PluginSettingsTab,
+  PluginHttpFetchRequest,
+  PluginHttpFetchResponse,
 } from "../ports";
 import { Blocks, LayoutDashboard } from "@lucide/svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
@@ -100,6 +102,10 @@ type PluginRpcMetadataBackend = {
   get_file_cache(note_path: string): Promise<unknown>;
 };
 
+type PluginRpcNetworkBackend = {
+  fetch(request: PluginHttpFetchRequest): Promise<PluginHttpFetchResponse>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -125,6 +131,7 @@ export type PluginRpcContext = {
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
   metadata?: PluginRpcMetadataBackend;
+  network?: PluginRpcNetworkBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -493,6 +500,8 @@ export class PluginRpcHandler {
         return this.handle_diagnostics(plugin_id, action, params);
       case "metadata":
         return this.handle_metadata(plugin_id, action, params);
+      case "network":
+        return this.handle_network(plugin_id, manifest, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -857,6 +866,75 @@ export class PluginRpcHandler {
         throw new Error(`Unknown diagnostics action: ${action}`);
     }
   }
+
+  private async handle_network(
+    plugin_id: string,
+    manifest: PluginManifest,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "network:fetch");
+
+    if (!this.context.network) {
+      throw new Error("Network backend not initialized");
+    }
+
+    switch (action) {
+      case "fetch": {
+        const url = read_param_string(params, 0, "url");
+        const opts = params[1] ? read_record(params[1], "options") : {};
+
+        const origin = extract_origin(url);
+        if (origin && manifest.allowed_origins?.length) {
+          if (!manifest.allowed_origins.includes(origin)) {
+            throw new Error(
+              `Origin "${origin}" is not in this plugin's allowed_origins`,
+            );
+          }
+        }
+
+        const method =
+          read_optional_string(opts.method)?.toUpperCase() ?? "GET";
+        const headers = opts.headers
+          ? read_string_record(opts.headers, "headers")
+          : undefined;
+        const body = read_optional_string(opts.body);
+
+        return this.context.network.fetch({
+          url,
+          method,
+          headers,
+          body,
+        });
+      }
+      default:
+        throw new Error(`Unknown network action: ${action}`);
+    }
+  }
+}
+
+function extract_origin(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function read_string_record(
+  value: unknown,
+  label: string,
+): Record<string, string> {
+  const record = read_record(value, label);
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (typeof v !== "string") {
+      throw new Error(`Invalid ${label}.${k}: expected string`);
+    }
+    result[k] = v;
+  }
+  return result;
 }
 
 const VALID_SEVERITIES = new Set<DiagnosticSeverity>([

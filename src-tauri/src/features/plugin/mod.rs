@@ -1,3 +1,4 @@
+pub mod http_fetch;
 pub mod service;
 pub mod settings;
 pub mod types;

@@ -132,5 +132,9 @@
         _rpc("diagnostics.push", file_path, diagnostics),
       clear: (file_path) => _rpc("diagnostics.clear", file_path),
     },
+
+    network: {
+      fetch: (url, opts) => _rpc("network.fetch", url, opts),
+    },
   };
 })();
