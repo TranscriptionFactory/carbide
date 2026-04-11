@@ -3,7 +3,7 @@
 **Date:** 2026-04-11
 **Status:** Active — supersedes `2026-04-05_unified_implementation_roadmap.md`
 **Companion:** `2026-04-05_conversation_work_units.md` (completed units remain there for history)
-**Progress:** 40 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3, A3.1, A3.2); 16 remaining
+**Progress:** 41 / 56 units complete (34 original + A1.1, A2.1, A2.2, A2.3, A3.1, A3.2, A3.3); 15 remaining
 
 ---
 
@@ -112,6 +112,8 @@ Expose `--source-editor-max-width` as CSS var in CodeMirror; standardize `--edit
 **Branch:** `feat/plugin-ai-network-rpc`
 **Session type:** TypeScript + Rust
 **Depends on:** nothing (existing `AiService` and `reqwest` are on main)
+
+**Status:** DONE — A3.1 (`df367450`), A3.2 (`c2966610`), A3.3 (`ba2ceef6`) completed 2026-04-11.
 
 **Current state verified 2026-04-11:**
 - Plugin RPC handler dispatches 9 namespaces: vault, editor, commands, ui, settings, events, search, diagnostics, metadata
@@ -376,11 +378,12 @@ Phase E: Archive branches
   - Tests: permission check, execution success/failure, provider not configured error
   - _Completed 2026-04-11 `c2966610`. Added PluginRpcAiBackend type and handle_ai method in plugin_rpc_handler.ts. ai.execute dispatches with ai:execute permission check, validates prompt (required) and mode (optional, defaults to "ask"). Wired AI backend in create_app_context.ts: reads ai_providers and ai_default_provider_id from editor_settings, bridges to AiService.execute() with open note context. Added carbide.ai.execute(opts) to SDK. 9 tests covering permission check, mode validation, prompt validation, backend not initialized, success/failure propagation. Pre-existing lint/check failures unchanged._
 
-- [ ] **A3.3** SDK surface + docs — **Docs session**
+- [x] **A3.3** SDK surface + docs — **Docs session**
   - `activeForm`: "Adding AI and network SDK docs"
   - Update `carbide_plugin_api.js`: add `carbide.network.fetch(url, opts)` and `carbide.ai.execute({ prompt, mode? })`
   - Update `docs/plugin_howto.md`: AI and network namespace docs, permission requirements
   - Update manifest schema docs: `network:fetch`, `ai:execute` permissions, `allowed_origins`
+  - _Completed 2026-04-11 `ba2ceef6`. SDK already added in A3.1/A3.2. Updated plugin_howto.md: added network:fetch and ai:execute to permissions table, added allowed_origins to optional manifest fields and example, added network.* and ai.* RPC reference sections with restrictions/limitations, added SDK examples, fixed stale "not yet implemented" note. Phase A now fully complete._
 
 ---
 
@@ -506,7 +509,7 @@ Phase E: Archive branches
 
 | Batch | Phase | Units | Est. Sessions | Review Gate |
 |---|---|---|---|---|
-| **A** | A | ~~A1.1~~, ~~A2.1~~, ~~A2.2~~, ~~A2.3~~, A3.1–A3.3 | 7 (4 done) | Plugin tests pass, editor width works, AI + network RPC respond correctly |
+| **A** | A | ~~A1.1~~, ~~A2.1~~, ~~A2.2~~, ~~A2.3~~, ~~A3.1~~, ~~A3.2~~, ~~A3.3~~ | 7 (7 done) | Plugin tests pass, editor width works, AI + network RPC respond correctly |
 | **B** | B | B1.1–B1.2, B2.1–B2.2, B3.1 | 5 | All MCP tools respond, CLI subcommands work, slash commands render |
 | **C** | C | C1.1–C1.2 | 2 | Metadata events fire and reach plugins |
 | **D** | D | D1.1–D1.2, D2.1–D2.5 | 7 | Graph renders smart links, power features work end-to-end |
@@ -567,7 +570,7 @@ Phase E: Archive branches
 |---|---|---|---|---|
 | A | A1: Editor width tokens | 1 | 1 | DONE |
 | A | A2: Plugin hardening | 3 | 2–3 | DONE |
-| A | A3: Plugin AI + network RPC | 3 | 3 | NOT STARTED |
+| A | A3: Plugin AI + network RPC | 3 | 3 | DONE |
 | B | B1: MCP Tier 2/3 + bridge | 2 | 2 | NOT STARTED |
 | B | B2: CLI extended commands | 2 | 2 | NOT STARTED |
 | B | B3: Slash commands | 1 | 1 | NOT STARTED |
