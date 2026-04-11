@@ -6,6 +6,7 @@ import {
   parse_creation_date,
   generate_linked_source_id,
   linked_note_to_csl_item,
+  linked_note_to_meta,
 } from "$lib/features/reference/domain/linked_source_utils";
 import type { ScanEntry, LinkedNoteInfo } from "$lib/features/reference/types";
 
@@ -279,6 +280,41 @@ describe("linked_note_to_csl_item", () => {
     expect(item["container-title"]).toBeUndefined();
     expect(item.abstract).toBeUndefined();
     expect(item.URL).toBeUndefined();
+  });
+});
+
+describe("linked_note_to_meta", () => {
+  it("sets blurb to the file name from external_file_path", () => {
+    const meta = linked_note_to_meta(make_note());
+    expect(meta.blurb).toBe("machine_learning.pdf");
+  });
+
+  it("falls back to virtual path file name when external_file_path is absent", () => {
+    const { external_file_path: _, ...rest } = make_note();
+    const meta = linked_note_to_meta(rest as LinkedNoteInfo);
+    expect(meta.blurb).toBe("machine_learning.pdf");
+  });
+
+  it("uses name as title from info.title", () => {
+    const meta = linked_note_to_meta(make_note());
+    expect(meta.name).toBe("Deep Learning Fundamentals");
+    expect(meta.title).toBe("Deep Learning Fundamentals");
+  });
+
+  it("sets source to linked", () => {
+    const meta = linked_note_to_meta(make_note());
+    expect(meta.source).toBe("linked");
+  });
+
+  it("carries over optional metadata fields", () => {
+    const meta = linked_note_to_meta(make_note());
+    expect(meta.citekey).toBe("smith2024-abc123");
+    expect(meta.authors).toBe("Smith, John; Doe, Jane");
+    expect(meta.year).toBe(2024);
+    expect(meta.doi).toBe("10.1234/test.5678");
+    expect(meta.external_file_path).toBe(
+      "/home/user/papers/machine_learning.pdf",
+    );
   });
 });
 

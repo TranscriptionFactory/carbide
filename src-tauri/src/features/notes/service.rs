@@ -1583,6 +1583,20 @@ pub fn read_vault_file(
 
 #[tauri::command]
 #[specta::specta]
+pub fn read_absolute_text_file(path: String) -> Result<String, String> {
+    let abs = std::path::Path::new(&path);
+    if !abs.is_absolute() {
+        return Err("path must be absolute".to_string());
+    }
+    let meta = std::fs::metadata(abs).map_err(|e| e.to_string())?;
+    if meta.len() > 5 * 1024 * 1024 {
+        return Err("file exceeds 5 MB limit".to_string());
+    }
+    io_utils::read_file_to_string(abs)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn write_vault_file(
     app: AppHandle,
     vault_id: String,

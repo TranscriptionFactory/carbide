@@ -239,6 +239,7 @@ pub fn run() {
             features::notes::service::list_folder_contents,
             features::notes::service::get_folder_stats,
             features::notes::service::read_vault_file,
+            features::notes::service::read_absolute_text_file,
             features::notes::service::write_vault_file,
             features::notes::service::write_bytes_to_path,
             features::notes::service::delete_vault_file,
