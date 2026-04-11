@@ -3,6 +3,7 @@
    ============================================ */
 
 [data-layout-variant="spotlight"] .WorkspaceLayout--spotlight {
+  --editor-max-width: 80ch;
   --spotlight-tabbar-max-width: 36rem;
   --spotlight-sidebar-width: 18rem;
 
@@ -185,7 +186,7 @@
   }
 
   .NoteEditor {
-    max-width: 80ch;
+    max-width: var(--editor-max-width);
     margin-inline: auto;
   }
 

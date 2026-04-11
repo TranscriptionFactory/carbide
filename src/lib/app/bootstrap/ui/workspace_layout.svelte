@@ -1064,7 +1064,7 @@
 
 <style>
   .WorkspaceLayout--zen :global(.cm-editor) {
-    max-width: 72ch;
+    max-width: var(--editor-max-width, 72ch);
     margin-inline: auto;
   }
 
