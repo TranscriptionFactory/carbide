@@ -7,7 +7,7 @@ import type { VaultStore } from "$lib/features/vault";
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
 function needs_text_content(file_type: DocumentFileType): boolean {
-  return file_type === "text";
+  return file_type === "text" || file_type === "html";
 }
 
 export class DocumentService {

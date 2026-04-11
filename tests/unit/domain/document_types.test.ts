@@ -18,6 +18,10 @@ describe("detect_file_type", () => {
     expect(detect_file_type("main.rs")).toBe("text");
   });
 
+  it("detects html", () => {
+    expect(detect_file_type("page.html")).toBe("html");
+  });
+
   it("detects text", () => {
     expect(detect_file_type("readme.txt")).toBe("text");
   });

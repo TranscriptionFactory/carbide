@@ -27,6 +27,16 @@ describe("detect_file_type", () => {
     });
   });
 
+  describe("html type", () => {
+    it.each([".html", ".htm"])("maps %s to html", (ext) => {
+      expect(detect_file_type(`page${ext}`)).toBe("html");
+    });
+
+    it("is case-insensitive for html", () => {
+      expect(detect_file_type("page.HTML")).toBe("html");
+    });
+  });
+
   describe("text type (text-by-default)", () => {
     it.each([
       ".csv",
@@ -42,8 +52,6 @@ describe("detect_file_type", () => {
       ".toml",
       ".sh",
       ".bash",
-      ".html",
-      ".htm",
       ".txt",
       ".log",
       ".ini",

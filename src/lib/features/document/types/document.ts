@@ -2,6 +2,7 @@ export type DocumentFileType =
   | "pdf"
   | "image"
   | "text"
+  | "html"
   | "canvas"
   | "excalidraw";
 
