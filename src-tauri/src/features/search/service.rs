@@ -1724,15 +1724,24 @@ fn get_worker_is_embedding(app: &AppHandle, vault_id: &str) -> Result<Arc<Atomic
     Ok(Arc::clone(&worker.is_embedding))
 }
 
-fn replace_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
+fn fresh_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
     let next_cancel = Arc::new(AtomicBool::new(false));
     ensure_worker(app, vault_id)?;
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
     let worker = map.get_mut(vault_id).ok_or("vault worker not found")?;
-    worker.cancel.store(true, Ordering::Relaxed);
     worker.cancel = Arc::clone(&next_cancel);
     Ok(next_cancel)
+}
+
+fn replace_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
+    ensure_worker(app, vault_id)?;
+    let state = app.state::<SearchDbState>();
+    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
+    let worker = map.get_mut(vault_id).ok_or("vault worker not found")?;
+    worker.cancel.store(true, Ordering::Relaxed);
+    drop(map);
+    fresh_worker_cancel_token(app, vault_id)
 }
 
 fn enqueue_index_command(
@@ -2367,7 +2376,7 @@ pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
         }
     }
     let vault_root = storage::vault_path(&app, &vault_id)?;
-    let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let cancel = fresh_worker_cancel_token(&app, &vault_id)?;
     let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
     let vid = vault_id.clone();
     send_write(
