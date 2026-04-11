@@ -69,4 +69,43 @@ describe("PluginErrorTracker", () => {
     expect(tracker.record_error("plugin-a", BASE + 1_000)).toBe("none");
     expect(tracker.record_error("plugin-b", BASE + 1_000)).toBe("none");
   });
+
+  it("10 consecutive errors triggers auto_disable", () => {
+    const tracker = new PluginErrorTracker();
+    for (let i = 0; i < 9; i++) {
+      tracker.record_error("plugin-a", BASE + i * 20_000);
+    }
+    const action = tracker.record_error("plugin-a", BASE + 180_000);
+    expect(action).toBe("auto_disable");
+  });
+
+  it("record_success resets consecutive error count", () => {
+    const tracker = new PluginErrorTracker();
+    for (let i = 0; i < 8; i++) {
+      tracker.record_error("plugin-a", BASE + i * 20_000);
+    }
+    tracker.record_success("plugin-a");
+    expect(tracker.get_consecutive_errors("plugin-a")).toBe(0);
+
+    const action = tracker.record_error("plugin-a", BASE + 200_000);
+    expect(action).toBe("none");
+  });
+
+  it("reset clears consecutive errors", () => {
+    const tracker = new PluginErrorTracker();
+    for (let i = 0; i < 5; i++) {
+      tracker.record_error("plugin-a", BASE + i * 20_000);
+    }
+    tracker.reset("plugin-a");
+    expect(tracker.get_consecutive_errors("plugin-a")).toBe(0);
+  });
+
+  it("clear_all clears consecutive errors", () => {
+    const tracker = new PluginErrorTracker();
+    for (let i = 0; i < 5; i++) {
+      tracker.record_error("plugin-a", BASE + i * 20_000);
+    }
+    tracker.clear_all();
+    expect(tracker.get_consecutive_errors("plugin-a")).toBe(0);
+  });
 });
