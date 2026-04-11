@@ -35,6 +35,9 @@
   import { ACTION_IDS } from "$lib/app";
   // STT removed — archived on archive/stt-main
   // import type { DownloadProgress } from "$lib/features/stt";
+  import type { StorageStats } from "$lib/features/settings";
+  import { format_bytes } from "$lib/shared/utils/format_bytes";
+  import { toast } from "svelte-sonner";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type { OmnibarScope } from "$lib/shared/types/search";
   import type {
@@ -113,12 +116,34 @@
     }
   }
 
+  let storage_stats: StorageStats | null = $state(null);
+  let storage_loading = $state(false);
+
+  async function fetch_storage_stats() {
+    storage_loading = true;
+    try {
+      storage_stats = await ports.storage.get_storage_stats();
+    } catch {
+      storage_stats = null;
+    } finally {
+      storage_loading = false;
+    }
+  }
+
   $effect(() => {
     const is_open = stores.ui.settings_dialog.open;
     const provider =
       stores.ui.settings_dialog.current_settings.markdown_lsp_provider;
     if (is_open && provider === "iwes") {
       void fetch_iwe_config_status();
+    }
+  });
+
+  $effect(() => {
+    const is_open = stores.ui.settings_dialog.open;
+    const category = stores.ui.settings_dialog.active_category;
+    if (is_open && category === "misc") {
+      void fetch_storage_stats();
     }
   });
 
@@ -414,6 +439,49 @@
     await action_registry.execute(ACTION_IDS.iwe_reset_config);
     void fetch_iwe_config_status();
   }}
+  {storage_stats}
+  {storage_loading}
+  on_refresh_storage_stats={fetch_storage_stats}
+  on_cleanup_orphaned_dbs={async () => {
+    try {
+      const freed = await ports.storage.cleanup_orphaned_dbs();
+      toast.success(
+        `Cleaned up orphaned databases (${format_bytes(freed)} freed)`,
+      );
+      void fetch_storage_stats();
+    } catch (e) {
+      toast.error(
+        `Failed to clean up: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }}
+  on_clear_embedding_cache={async () => {
+    try {
+      const freed = await ports.storage.clear_embedding_model_cache();
+      toast.success(
+        `Cleared embedding model cache (${format_bytes(freed)} freed)`,
+      );
+      void fetch_storage_stats();
+    } catch (e) {
+      toast.error(
+        `Failed to clear cache: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }}
+  on_purge_asset_caches={async () => {
+    try {
+      await ports.storage.purge_all_asset_caches();
+      toast.success("Asset caches purged");
+    } catch (e) {
+      toast.error(
+        `Failed to purge: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }}
+  on_reindex_vault={() =>
+    void action_registry.execute(ACTION_IDS.vault_reindex)}
+  on_rebuild_embeddings={() =>
+    void action_registry.execute(ACTION_IDS.vault_rebuild_embeddings)}
 />
 
 <CreateFolderDialog

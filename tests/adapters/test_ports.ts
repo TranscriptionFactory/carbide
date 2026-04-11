@@ -38,6 +38,19 @@ export function create_test_ports(): Ports {
     index: create_test_workspace_index_adapter(),
     search: create_test_search_adapter(),
     settings: create_test_settings_adapter(),
+    storage: {
+      get_storage_stats: () =>
+        Promise.resolve({
+          vault_dbs: [],
+          total_db_bytes: 0,
+          orphaned_count: 0,
+          orphaned_bytes: 0,
+          embedding_cache_bytes: 0,
+        }),
+      cleanup_orphaned_dbs: () => Promise.resolve(0),
+      clear_embedding_model_cache: () => Promise.resolve(0),
+      purge_all_asset_caches: () => Promise.resolve(),
+    },
     vault_settings: create_test_vault_settings_adapter(),
     assets,
     editor: create_milkdown_editor_port({

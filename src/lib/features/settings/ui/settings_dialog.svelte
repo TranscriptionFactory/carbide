@@ -21,7 +21,10 @@
   // import MicIcon from "@lucide/svelte/icons/mic";
   import WrenchIcon from "@lucide/svelte/icons/wrench";
   import CableIcon from "@lucide/svelte/icons/cable";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import { toast } from "svelte-sonner";
+  import type { StorageStats } from "$lib/features/settings/ports";
+  import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { HotkeysPanel } from "$lib/features/hotkey";
   import { SmartLinksSettings } from "$lib/features/smart_links";
   import { McpSettings } from "$lib/features/mcp";
@@ -117,6 +120,14 @@
     iwe_config_status: IweConfigStatus | null;
     on_iwe_open_config: () => void;
     on_iwe_reset_config: () => void;
+    storage_stats: StorageStats | null;
+    storage_loading: boolean;
+    on_refresh_storage_stats: () => void;
+    on_cleanup_orphaned_dbs: () => void;
+    on_clear_embedding_cache: () => void;
+    on_purge_asset_caches: () => void;
+    on_reindex_vault: () => void;
+    on_rebuild_embeddings: () => void;
     // STT removed — archived on archive/stt-main
     // stt_models: ModelInfo[];
     // stt_active_model_id: string | null;
@@ -167,6 +178,14 @@
     iwe_config_status,
     on_iwe_open_config,
     on_iwe_reset_config,
+    storage_stats,
+    storage_loading,
+    on_refresh_storage_stats,
+    on_cleanup_orphaned_dbs,
+    on_clear_embedding_cache,
+    on_purge_asset_caches,
+    on_reindex_vault,
+    on_rebuild_embeddings,
     // stt_models,
     // stt_active_model_id,
     // stt_model_loading,
@@ -3589,6 +3608,135 @@
                   update("show_vault_dashboard_on_open", v);
                 }}
               />
+            </div>
+          </div>
+
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Storage & Cleanup</h3>
+
+          <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Disk Usage</span>
+                <span class="SettingsDialog__description">
+                  {#if storage_loading}
+                    Loading...
+                  {:else if storage_stats}
+                    Search indexes: {format_bytes(storage_stats.total_db_bytes)}
+                    ({storage_stats.vault_dbs.length}
+                    {storage_stats.vault_dbs.length === 1
+                      ? "database"
+                      : "databases"}) &middot; Embedding models: {format_bytes(
+                      storage_stats.embedding_cache_bytes,
+                    )}
+                  {:else}
+                    Click refresh to load storage stats
+                  {/if}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={storage_loading}
+                onclick={on_refresh_storage_stats}
+              >
+                <RefreshCwIcon class="size-3.5 mr-1" />
+                Refresh
+              </Button>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Orphaned Databases</span>
+                <span class="SettingsDialog__description">
+                  {#if storage_stats && storage_stats.orphaned_count > 0}
+                    {storage_stats.orphaned_count} orphaned {storage_stats.orphaned_count ===
+                    1
+                      ? "database"
+                      : "databases"} ({format_bytes(
+                      storage_stats.orphaned_bytes,
+                    )}) from removed vaults
+                  {:else}
+                    No orphaned databases found
+                  {/if}
+                </span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!storage_stats || storage_stats.orphaned_count === 0}
+                onclick={on_cleanup_orphaned_dbs}
+              >
+                Clean Up
+              </Button>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Rebuild Search Index</span>
+                <span class="SettingsDialog__description"
+                  >Re-index all notes in the current vault from scratch</span
+                >
+              </div>
+              <Button variant="outline" size="sm" onclick={on_reindex_vault}>
+                Reindex
+              </Button>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Rebuild Embeddings</span>
+                <span class="SettingsDialog__description"
+                  >Regenerate all semantic embeddings for the current vault</span
+                >
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={on_rebuild_embeddings}
+              >
+                Rebuild
+              </Button>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Embedding Model Cache</span>
+                <span class="SettingsDialog__description">
+                  {#if storage_stats}
+                    {format_bytes(storage_stats.embedding_cache_bytes)} used by downloaded
+                    models
+                  {:else}
+                    Cached embedding models on disk
+                  {/if}
+                </span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!storage_stats ||
+                  storage_stats.embedding_cache_bytes === 0}
+                onclick={on_clear_embedding_cache}
+              >
+                Clear
+              </Button>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Asset Cache</span>
+                <span class="SettingsDialog__description"
+                  >Clear in-memory caches for vault assets, plugins, and
+                  Excalidraw files</span
+                >
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={on_purge_asset_caches}
+              >
+                Purge
+              </Button>
             </div>
           </div>
         {:else if active_category === "toolchain"}

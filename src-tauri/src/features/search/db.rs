@@ -751,7 +751,7 @@ fn save_properties(
     Ok(())
 }
 
-fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
         .home_dir()
@@ -761,7 +761,7 @@ fn db_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .join("vaults"))
 }
 
-fn db_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
+pub(crate) fn db_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
     let dir = db_cache_dir(app)?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join(format!("{}.db", vault_id)))

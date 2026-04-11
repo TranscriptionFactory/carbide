@@ -1,7 +1,13 @@
 export { register_settings_actions } from "$lib/features/settings/application/settings_actions";
 export { SettingsService } from "$lib/features/settings/application/settings_service";
-export type { SettingsPort } from "$lib/features/settings/ports";
+export type {
+  SettingsPort,
+  StoragePort,
+  StorageStats,
+  VaultDbInfo,
+} from "$lib/features/settings/ports";
 export { create_settings_tauri_adapter } from "$lib/features/settings/adapters/settings_tauri_adapter";
+export { create_storage_tauri_adapter } from "$lib/features/settings/adapters/storage_tauri_adapter";
 export {
   SETTINGS_REGISTRY,
   type SettingDefinition,

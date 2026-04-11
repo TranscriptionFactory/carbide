@@ -179,6 +179,18 @@ pub fn serve_with_cache(
 
 #[tauri::command]
 #[specta::specta]
+pub fn purge_all_asset_caches(state: tauri::State<'_, AssetCacheState>) -> Result<(), String> {
+    let mut vault = state.vault.lock().map_err(|e| e.to_string())?;
+    vault.clear();
+    let mut plugin = state.plugin.lock().map_err(|e| e.to_string())?;
+    plugin.clear();
+    let mut excalidraw = state.excalidraw.lock().map_err(|e| e.to_string())?;
+    excalidraw.clear();
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn invalidate_asset_cache(
     state: tauri::State<'_, AssetCacheState>,
     vault_id: String,

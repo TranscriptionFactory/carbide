@@ -6,7 +6,10 @@ import {
   create_vault_tauri_adapter,
   create_vault_settings_tauri_adapter,
 } from "$lib/features/vault";
-import { create_settings_tauri_adapter } from "$lib/features/settings";
+import {
+  create_settings_tauri_adapter,
+  create_storage_tauri_adapter,
+} from "$lib/features/settings";
 import {
   create_search_tauri_adapter,
   create_workspace_index_tauri_adapter,
@@ -57,6 +60,7 @@ export function create_prod_ports(): Ports {
   const index = create_workspace_index_tauri_adapter();
   const search = create_search_tauri_adapter();
   const settings = create_settings_tauri_adapter();
+  const storage = create_storage_tauri_adapter();
   const vault_settings = create_vault_settings_tauri_adapter();
   const clipboard = create_clipboard_tauri_adapter();
   const shell = create_shell_tauri_adapter();
@@ -80,6 +84,7 @@ export function create_prod_ports(): Ports {
     index,
     search,
     settings,
+    storage,
     vault_settings,
     assets,
     editor: create_milkdown_editor_port({

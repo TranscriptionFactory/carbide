@@ -123,7 +123,6 @@ impl<K: Eq + Hash + Clone, V: Clone> ObservableCache<K, V> {
         count
     }
 
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.entries.clear();
         self.current_bytes = 0;
@@ -137,7 +136,6 @@ impl<K: Eq + Hash + Clone, V: Clone> ObservableCache<K, V> {
         self.entries.len()
     }
 
-    #[allow(dead_code)]
     pub fn current_bytes(&self) -> usize {
         self.current_bytes
     }
