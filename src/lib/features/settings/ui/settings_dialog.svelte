@@ -17,7 +17,8 @@
   import BrainIcon from "@lucide/svelte/icons/brain";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
-  import MicIcon from "@lucide/svelte/icons/mic";
+  // STT removed — archived on archive/stt-main
+  // import MicIcon from "@lucide/svelte/icons/mic";
   import WrenchIcon from "@lucide/svelte/icons/wrench";
   import CableIcon from "@lucide/svelte/icons/cable";
   import { toast } from "svelte-sonner";
@@ -26,12 +27,12 @@
   import { McpSettings } from "$lib/features/mcp";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
-  import {
-    SttSettings,
-    type ModelInfo,
-    type DownloadProgress,
-    type AudioDeviceInfo,
-  } from "$lib/features/stt";
+  // import {
+  //   SttSettings,
+  //   type ModelInfo,
+  //   type DownloadProgress,
+  //   type AudioDeviceInfo,
+  // } from "$lib/features/stt";
   import type {
     DocumentImageBackground,
     DocumentPdfScrollMode,
@@ -116,17 +117,18 @@
     iwe_config_status: IweConfigStatus | null;
     on_iwe_open_config: () => void;
     on_iwe_reset_config: () => void;
-    stt_models: ModelInfo[];
-    stt_active_model_id: string | null;
-    stt_model_loading: boolean;
-    stt_download_progress: DownloadProgress | null;
-    stt_audio_devices: AudioDeviceInfo[];
-    on_stt_download_model: (model_id: string) => void;
-    on_stt_delete_model: (model_id: string) => void;
-    on_stt_select_model: (model_id: string) => void;
-    on_stt_add_custom_model: (path: string, engine_type: string) => void;
-    on_stt_remove_custom_model: (model_id: string) => void;
-    on_stt_refresh_models: () => void;
+    // STT removed — archived on archive/stt-main
+    // stt_models: ModelInfo[];
+    // stt_active_model_id: string | null;
+    // stt_model_loading: boolean;
+    // stt_download_progress: DownloadProgress | null;
+    // stt_audio_devices: AudioDeviceInfo[];
+    // on_stt_download_model: (model_id: string) => void;
+    // on_stt_delete_model: (model_id: string) => void;
+    // on_stt_select_model: (model_id: string) => void;
+    // on_stt_add_custom_model: (path: string, engine_type: string) => void;
+    // on_stt_remove_custom_model: (model_id: string) => void;
+    // on_stt_refresh_models: () => void;
   };
 
   let {
@@ -165,17 +167,17 @@
     iwe_config_status,
     on_iwe_open_config,
     on_iwe_reset_config,
-    stt_models,
-    stt_active_model_id,
-    stt_model_loading,
-    stt_download_progress,
-    stt_audio_devices,
-    on_stt_download_model,
-    on_stt_delete_model,
-    on_stt_select_model,
-    on_stt_add_custom_model,
-    on_stt_remove_custom_model,
-    on_stt_refresh_models,
+    // stt_models,
+    // stt_active_model_id,
+    // stt_model_loading,
+    // stt_download_progress,
+    // stt_audio_devices,
+    // on_stt_download_model,
+    // on_stt_delete_model,
+    // on_stt_select_model,
+    // on_stt_add_custom_model,
+    // on_stt_remove_custom_model,
+    // on_stt_refresh_models,
   }: Props = $props();
 
   const tab_count_options = Array.from({ length: 10 }, (_, i) => ({
@@ -416,7 +418,7 @@
     { id: "terminal", label: "Terminal", icon: TerminalIcon },
     { id: "graph", label: "Graph", icon: NetworkIcon },
     { id: "semantic", label: "Semantic", icon: BrainIcon },
-    { id: "speech", label: "Speech", icon: MicIcon },
+    // { id: "speech", label: "Speech", icon: MicIcon },
     { id: "mcp", label: "MCP", icon: CableIcon },
     { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "toolchain", label: "Tools", icon: WrenchIcon },
@@ -3547,7 +3549,8 @@
               on_toggle_mcp={(v) => update("mcp_enabled", v)}
             />
           </div>
-        {:else if active_category === "speech"}
+          <!-- STT removed — archived on archive/stt-main -->
+          <!-- {:else if active_category === "speech"}
           <h2 class="SettingsDialog__content-header">Speech-to-Text</h2>
 
           <div class="SettingsDialog__section-content">
@@ -3566,7 +3569,7 @@
               on_remove_custom_model={on_stt_remove_custom_model}
               on_refresh_models={on_stt_refresh_models}
             />
-          </div>
+          </div> -->
         {:else if active_category === "misc"}
           <h2 class="SettingsDialog__content-header">Misc</h2>
 

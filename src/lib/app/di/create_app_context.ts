@@ -74,7 +74,8 @@ import {
 } from "$lib/features/reference";
 import { McpService } from "$lib/features/mcp";
 import { SmartLinksService } from "$lib/features/smart_links";
-import { SttService, register_stt_actions } from "$lib/features/stt";
+// STT removed — archived on archive/stt-main
+// import { SttService, register_stt_actions } from "$lib/features/stt";
 import {
   ZoteroBbtExtension,
   create_zotero_bbt_adapter,
@@ -606,13 +607,14 @@ export function create_app_context(input: {
   );
   reference_service.register_extension(zotero_bbt_extension);
 
-  const stt_service = new SttService(
-    input.ports.stt,
-    stores.stt,
-    editor_service,
-    stores.op,
-    now_ms,
-  );
+  // STT removed — archived on archive/stt-main
+  // const stt_service = new SttService(
+  //   input.ports.stt,
+  //   stores.stt,
+  //   editor_service,
+  //   stores.op,
+  //   now_ms,
+  // );
 
   const base_action_input = {
     registry: action_registry,
@@ -632,7 +634,7 @@ export function create_app_context(input: {
       task: stores.task,
       parsed_note_cache: stores.parsed_note_cache,
       reference: stores.reference,
-      stt: stores.stt,
+      // stt: stores.stt,
     },
     services: {
       vault: vault_service,
@@ -920,12 +922,13 @@ export function create_app_context(input: {
 
   register_query_actions(action_registry, query_service, stores.ui);
 
-  register_stt_actions({
-    registry: action_registry,
-    stt_service,
-    stt_store: stores.stt,
-    ui_store: stores.ui,
-  });
+  // STT removed — archived on archive/stt-main
+  // register_stt_actions({
+  //   registry: action_registry,
+  //   stt_service,
+  //   stt_store: stores.stt,
+  //   ui_store: stores.ui,
+  // });
 
   register_vim_nav_actions({
     registry: action_registry,
@@ -980,8 +983,8 @@ export function create_app_context(input: {
     reference_service,
     reference_store: stores.reference,
     mcp_service,
-    stt_store: stores.stt,
-    stt_service,
+    // stt_store: stores.stt,
+    // stt_service,
   });
 
   return {

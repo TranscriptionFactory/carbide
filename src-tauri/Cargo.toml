@@ -77,42 +77,13 @@ rand = "0.8"
 hex = "0.4"
 hnsw_rs = "0.3"
 
-# STT dependencies
-cpal = { version = "0.16.0", optional = true }
-rubato = { version = "0.16.2", optional = true }
-rustfft = { version = "6.4.0", optional = true }
-hound = { version = "3.5.1", optional = true }
-vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false, optional = true }
-strsim = { version = "0.11.0", optional = true }
-natural = { version = "0.5.0", optional = true }
-transcribe-rs = { version = "0.3.2", features = ["onnx"], optional = true }
-rodio = { git = "https://github.com/cjpais/rodio.git", optional = true }
-
 [target.'cfg(target_os = "macos")'.dependencies]
 candle-core = { version = "0.9", default-features = false, features = ["accelerate"] }
 candle-nn = { version = "0.9", default-features = false, features = ["accelerate"] }
 candle-transformers = { version = "0.9", default-features = false, features = ["accelerate"] }
-transcribe-rs = { version = "0.3.2", features = ["onnx", "ort-coreml"], optional = true }
-
-[target.'cfg(windows)'.dependencies]
-transcribe-rs = { version = "0.3.2", features = ["onnx", "ort-directml"], optional = true }
 
 [dev-dependencies]
 filetime = "0.2"
-
-[features]
-default = ["stt"]
-stt = [
-  "dep:transcribe-rs",
-  "dep:vad-rs",
-  "dep:rodio",
-  "dep:cpal",
-  "dep:rubato",
-  "dep:rustfft",
-  "dep:hound",
-  "dep:strsim",
-  "dep:natural",
-]
 
 [patch.crates-io]
 wry = { path = "patches/wry-0.54.4" }

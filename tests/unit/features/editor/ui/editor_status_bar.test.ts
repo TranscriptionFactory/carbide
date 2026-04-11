@@ -71,12 +71,6 @@ function render_editor_status_bar(props?: {
       vim_nav_context: "none",
       vim_nav_pending_keys: "",
       on_vim_nav_cheatsheet: vi.fn(),
-      stt_enabled: false,
-      stt_recording_state: "idle",
-      stt_model_loading: false,
-      stt_has_model: false,
-      on_stt_click: vi.fn(),
-      on_stt_settings_click: vi.fn(),
     },
   });
 

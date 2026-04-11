@@ -17,7 +17,6 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
-import { SttStore } from "$lib/features/stt";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import {
@@ -82,7 +81,6 @@ function create_harness(options: HarnessOptions = {}) {
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
-    stt: new SttStore(),
   };
 
   const services = {

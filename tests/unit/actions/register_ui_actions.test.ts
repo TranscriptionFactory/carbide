@@ -16,7 +16,6 @@ import { GraphStore } from "$lib/features/graph";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
-import { SttStore } from "$lib/features/stt";
 
 function create_ui_stores() {
   return {
@@ -34,7 +33,6 @@ function create_ui_stores() {
     outline: new OutlineStore(),
     parsed_note_cache: new ParsedNoteCache(),
     reference: new ReferenceStore(),
-    stt: new SttStore(),
   };
 }
 

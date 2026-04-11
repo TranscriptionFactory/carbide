@@ -6,10 +6,10 @@ fn main() {
         carbide_lib::features::reference::linked_source::run_extract_pdf_text(&args[2]);
         return;
     }
-    #[cfg(feature = "stt")]
-    if args.len() >= 2 && args[1] == "--stt-list-devices" {
-        carbide_lib::features::stt::audio::run_stt_list_devices();
-        return;
-    }
+    // STT removed — archived on archive/stt-main
+    // if args.len() >= 2 && args[1] == "--stt-list-devices" {
+    //     carbide_lib::features::stt::audio::run_stt_list_devices();
+    //     return;
+    // }
     carbide_lib::run()
 }

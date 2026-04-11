@@ -14,8 +14,7 @@ pub mod reference;
 pub mod search;
 pub mod settings;
 pub mod smart_links;
-#[cfg(feature = "stt")]
-pub mod stt;
+// STT removed — archived on archive/stt-main
 pub mod tasks;
 pub mod toolchain;
 pub mod vault;
