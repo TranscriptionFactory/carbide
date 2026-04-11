@@ -264,7 +264,8 @@ function read_setting_type(
     value === "string" ||
     value === "number" ||
     value === "boolean" ||
-    value === "select"
+    value === "select" ||
+    value === "textarea"
   ) {
     return value;
   }
@@ -328,6 +329,21 @@ function read_setting_schema(
   const options = read_setting_options(record.options, `${label}.options`);
   if (options !== undefined) {
     schema.options = options;
+  }
+
+  const placeholder = read_optional_string(record.placeholder);
+  if (placeholder !== undefined) {
+    schema.placeholder = placeholder;
+  }
+
+  const min = read_optional_number(record.min, `${label}.min`);
+  if (min !== undefined) {
+    schema.min = min;
+  }
+
+  const max = read_optional_number(record.max, `${label}.max`);
+  if (max !== undefined) {
+    schema.max = max;
   }
 
   return schema;

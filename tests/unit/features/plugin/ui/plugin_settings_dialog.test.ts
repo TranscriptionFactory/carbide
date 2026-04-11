@@ -21,6 +21,11 @@ vi.mock(
   async () => import("../../../helpers/ui_stubs/switch"),
 );
 
+vi.mock(
+  "$lib/components/ui/textarea",
+  async () => import("../../../helpers/ui_stubs/textarea"),
+);
+
 import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
 import type { AppContext } from "$lib/app/di/create_app_context";
 import type {
@@ -74,6 +79,14 @@ function required_input(selector: string): HTMLInputElement {
   const element = document.body.querySelector(selector);
   if (!(element instanceof HTMLInputElement)) {
     throw new Error(`Expected input matching ${selector}`);
+  }
+  return element;
+}
+
+function required_textarea(selector: string): HTMLTextAreaElement {
+  const element = document.body.querySelector(selector);
+  if (!(element instanceof HTMLTextAreaElement)) {
+    throw new Error(`Expected textarea matching ${selector}`);
   }
   return element;
 }
@@ -294,6 +307,163 @@ describe("plugin_settings_dialog.svelte", () => {
       "aggressive",
     );
     expect(trigger.textContent).toContain("Aggressive");
+
+    view.cleanup();
+  });
+
+  it("renders and saves textarea settings", async () => {
+    const { app_context, plugin_settings } = create_context({
+      prompt_template: "Hello world",
+    });
+    const schema: PluginSettingSchema[] = [
+      {
+        key: "prompt_template",
+        type: "textarea",
+        label: "Prompt Template",
+        placeholder: "Enter your prompt...",
+      },
+    ];
+
+    const view = render_with_app_context(PluginSettingsDialog, {
+      app_context,
+      props: {
+        plugin_id: "plugin-a",
+        plugin_name: "Plugin A",
+        plugin_version: "1.0.0",
+        settings_schema: schema,
+        on_close: vi.fn(),
+      },
+    });
+
+    const textarea = required_textarea("#plugin-a-prompt_template");
+    expect(textarea.value).toBe("Hello world");
+    expect(textarea.placeholder).toBe("Enter your prompt...");
+
+    textarea.value = "Updated prompt";
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle();
+
+    expect(plugin_settings.set_setting).toHaveBeenCalledWith(
+      "plugin-a",
+      "prompt_template",
+      "Updated prompt",
+    );
+
+    view.cleanup();
+  });
+
+  it("clamps number to min/max on blur", async () => {
+    const { app_context, plugin_settings } = create_context({
+      count: 5,
+    });
+    const schema: PluginSettingSchema[] = [
+      {
+        key: "count",
+        type: "number",
+        label: "Count",
+        min: 1,
+        max: 10,
+      },
+    ];
+
+    const view = render_with_app_context(PluginSettingsDialog, {
+      app_context,
+      props: {
+        plugin_id: "plugin-a",
+        plugin_name: "Plugin A",
+        plugin_version: "1.0.0",
+        settings_schema: schema,
+        on_close: vi.fn(),
+      },
+    });
+
+    const input = required_input("#plugin-a-count");
+
+    input.value = "99";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle();
+    input.dispatchEvent(new Event("blur", { bubbles: true }));
+    await settle();
+
+    expect(plugin_settings.set_setting).toHaveBeenCalledWith(
+      "plugin-a",
+      "count",
+      10,
+    );
+    expect(input.value).toBe("10");
+
+    plugin_settings.set_setting.mockClear();
+
+    input.value = "-5";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle();
+    input.dispatchEvent(new Event("blur", { bubbles: true }));
+    await settle();
+
+    expect(plugin_settings.set_setting).toHaveBeenCalledWith(
+      "plugin-a",
+      "count",
+      1,
+    );
+    expect(input.value).toBe("1");
+
+    view.cleanup();
+  });
+
+  it("renders placeholder on string input", async () => {
+    const { app_context } = create_context({});
+    const schema: PluginSettingSchema[] = [
+      {
+        key: "api_key",
+        type: "string",
+        label: "API Key",
+        placeholder: "sk-...",
+      },
+    ];
+
+    const view = render_with_app_context(PluginSettingsDialog, {
+      app_context,
+      props: {
+        plugin_id: "plugin-a",
+        plugin_name: "Plugin A",
+        plugin_version: "1.0.0",
+        settings_schema: schema,
+        on_close: vi.fn(),
+      },
+    });
+
+    const input = required_input("#plugin-a-api_key");
+    expect(input.placeholder).toBe("sk-...");
+
+    view.cleanup();
+  });
+
+  it("renders number input with min/max HTML attributes", () => {
+    const { app_context } = create_context({ rate: 5 });
+    const schema: PluginSettingSchema[] = [
+      {
+        key: "rate",
+        type: "number",
+        label: "Rate",
+        min: 0,
+        max: 100,
+      },
+    ];
+
+    const view = render_with_app_context(PluginSettingsDialog, {
+      app_context,
+      props: {
+        plugin_id: "plugin-a",
+        plugin_name: "Plugin A",
+        plugin_version: "1.0.0",
+        settings_schema: schema,
+        on_close: vi.fn(),
+      },
+    });
+
+    const input = required_input("#plugin-a-rate");
+    expect(input.min).toBe("0");
+    expect(input.max).toBe("100");
 
     view.cleanup();
   });
