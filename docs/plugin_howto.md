@@ -30,7 +30,25 @@ Every plugin needs a `manifest.json` in its folder:
         "type": "string",
         "label": "Some Option",
         "description": "Configures something.",
-        "default": "default value"
+        "default": "default value",
+        "placeholder": "Enter a value..."
+      },
+      {
+        "key": "api_key",
+        "type": "textarea",
+        "label": "API Key",
+        "description": "Paste your key here.",
+        "default": "",
+        "placeholder": "sk-..."
+      },
+      {
+        "key": "max_results",
+        "type": "number",
+        "label": "Max Results",
+        "description": "Number of results to show.",
+        "default": 10,
+        "min": 1,
+        "max": 100
       }
     ]
   }
@@ -474,7 +492,9 @@ All files are served via the `carbide-plugin://<id>/` URI scheme.
 
 - **IDs are namespaced.** When you register command `"do-thing"`, it becomes `"<plugin-id>:do-thing"` in the host. Command execution messages use the full namespaced ID.
 - **No ambient network access.** The iframe sandbox blocks `fetch`, `XMLHttpRequest`, and WebSocket. Network access requires `network:fetch` (not yet implemented).
-- **Settings in manifest.** Declare `contributes.settings` in your manifest to let users configure your plugin. Read them at runtime via `settings.get`.
+- **Settings in manifest.** Declare `contributes.settings` in your manifest to let users configure your plugin. Read them at runtime via `settings.get`. Available setting types: `"string"`, `"number"`, `"boolean"`, `"select"`, `"textarea"`. Optional fields: `placeholder` (hint text for string/number/textarea), `min`/`max` (numeric bounds — values are clamped on save), `options` (for select type).
 - **Event backpressure.** The host queues up to 64 events per plugin. High-frequency events like `editor-selection-changed` are debounced (50ms).
-- **Error auto-disable.** If your plugin generates 5+ RPC errors within 15 seconds, the host auto-disables it.
+- **RPC timeouts.** Every RPC call has a timeout. Most calls time out after 5 seconds; filesystem-heavy vault calls (`vault.read`, `vault.list`, `vault.create`, `vault.modify`, `vault.delete`) get 30 seconds. If a call exceeds its timeout, the host rejects it with `RpcTimeoutError`. Design your plugin to handle timeout rejections gracefully.
+- **RPC rate limiting.** Each plugin is limited to 100 RPC calls per minute (sliding window). Exceeding the limit rejects calls with a rate-limit error until the window advances. Batch your operations where possible to stay within the budget.
+- **Error auto-disable.** The host tracks errors in two ways: burst-based (5+ errors in 15 seconds → auto-disable) and consecutive (10 consecutive RPC errors without a success → auto-disable). A successful RPC call resets the consecutive counter. If your plugin is auto-disabled, fix the issue and re-enable it from the plugin manager.
 - **Console debugging.** Your plugin runs in a hidden iframe. Use the browser devtools (Tauri's webview inspector) to see `console.log` output from your plugin.
