@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05 (updated 2026-04-11)
 **Companion to:** `2026-04-11_unified_implementation_roadmap.md`
-**Progress:** 35 / 56 units complete (34 original + 1/22 new)
+**Progress:** 36 / 56 units complete (34 original + 2/22 new)
 
 ---
 
@@ -361,7 +361,7 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** TypeScript + Svelte
 **Depends on:** nothing
 
-- [ ] **A2.1** RPC hardening — timeouts + rate limiting + error budget — **TypeScript session**
+- [x] **A2.1** RPC hardening — timeouts + rate limiting + error budget — **TypeScript session**
   - Create `src/lib/features/plugin/domain/` directory
   - Create `domain/rpc_timeout.ts`: `RpcTimeoutError`, `get_rpc_timeout(method)` (5s default, 30s for FS), `with_timeout(promise, method, timeout_ms?)`
   - Create `domain/rate_limiter.ts`: `PluginRateLimiter` — sliding window, 100 calls/min per plugin
@@ -370,6 +370,7 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
   - Add `rate_limiter.clear_all()` in `PluginService.clear_active_vault()`
   - **Do NOT port:** `send_lifecycle_hook`, `SettingChangedCallback`, `on_settings_change` hook delivery, new lifecycle message format
   - Tests: timeout behavior, rate-limit rejection, success resets consecutive-error budget, repeated failures auto-disable
+  - _Completed 2026-04-11 `72daa535`. Created `domain/rpc_timeout.ts` (RpcTimeoutError, get_rpc_timeout, with_timeout) and `domain/rate_limiter.ts` (PluginRateLimiter with sliding window). Extended PluginErrorTracker with consecutive_errors map, record_success(), get_consecutive_errors(), and 10-consecutive auto-disable threshold. Updated handle_rpc() flow: rate-limit check → timeout wrapper → record_success on non-error. Rate limiter resets on unload_plugin() and clear_active_vault(). 4 test files covering all behaviors. Pre-existing lint (build_command_context layering) and check (linked_source_utils types) failures unchanged._
 
 - [ ] **A2.2** Richer settings schema — **Svelte/UI session**
   - Hand-port from `b8edde58` (do NOT cherry-pick — includes activation event types from `1f04cd0b`)
