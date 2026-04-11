@@ -155,12 +155,14 @@ enum DbCommand {
         app_handle: AppHandle,
         vault_id: String,
         cancel: Arc<AtomicBool>,
+        is_embedding: Arc<AtomicBool>,
     },
     RebuildEmbeddings {
         vault_root: PathBuf,
         app_handle: AppHandle,
         vault_id: String,
         cancel: Arc<AtomicBool>,
+        is_embedding: Arc<AtomicBool>,
     },
     UpsertLinkedContent {
         source_name: String,
@@ -197,6 +199,7 @@ struct VaultWorker {
     write_tx: mpsc::Sender<DbCommand>,
     read_conn: Arc<Mutex<Connection>>,
     cancel: Arc<AtomicBool>,
+    is_embedding: Arc<AtomicBool>,
     join_handle: Option<JoinHandle<()>>,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
@@ -457,6 +460,7 @@ fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
         write_tx: tx,
         read_conn: Arc::new(Mutex::new(read_conn)),
         cancel: Arc::new(AtomicBool::new(false)),
+        is_embedding: Arc::new(AtomicBool::new(false)),
         join_handle: Some(handle),
         note_index,
         block_index,
@@ -767,7 +771,9 @@ fn dispatch_command(
             app_handle,
             vault_id,
             cancel,
+            is_embedding,
         } => {
+            is_embedding.store(true, Ordering::Relaxed);
             handle_embed_batch(
                 conn,
                 &vault_root,
@@ -780,13 +786,16 @@ fn dispatch_command(
                 block_index,
                 rx,
             );
+            is_embedding.store(false, Ordering::Relaxed);
         }
         DbCommand::RebuildEmbeddings {
             vault_root,
             app_handle,
             vault_id,
             cancel,
+            is_embedding,
         } => {
+            is_embedding.store(true, Ordering::Relaxed);
             handle_embed_batch(
                 conn,
                 &vault_root,
@@ -799,6 +808,7 @@ fn dispatch_command(
                 block_index,
                 rx,
             );
+            is_embedding.store(false, Ordering::Relaxed);
         }
         DbCommand::RebuildIndex => {
             let new_note_index = VectorIndex::rebuild_from_sqlite(conn, "notes", 384);
@@ -1408,11 +1418,7 @@ fn handle_embed_batch(
             },
         );
 
-        let sleep_ms = if cfg!(debug_assertions) {
-            batch_start.elapsed().as_millis() as u64
-        } else {
-            50
-        };
+        let sleep_ms = batch_start.elapsed().as_millis() as u64;
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
 
         while let Ok(cmd) = rx.try_recv() {
@@ -1585,11 +1591,7 @@ fn handle_block_embed_batch(
             }
         }
 
-        let sleep_ms = if cfg!(debug_assertions) {
-            batch_start.elapsed().as_millis() as u64
-        } else {
-            50
-        };
+        let sleep_ms = batch_start.elapsed().as_millis() as u64;
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
 
         while let Ok(cmd) = rx.try_recv() {
@@ -1713,6 +1715,13 @@ fn send_write_blocking(
     make_cmd: impl FnOnce(SyncSender<Result<(), String>>) -> DbCommand,
 ) -> Result<(), String> {
     send_write_reply(app, vault_id, make_cmd)
+}
+
+fn get_worker_is_embedding(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
+    let state = app.state::<SearchDbState>();
+    let map = state.workers.lock().map_err(|e| e.to_string())?;
+    let worker = map.get(vault_id).ok_or("vault worker not found")?;
+    Ok(Arc::clone(&worker.is_embedding))
 }
 
 fn replace_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
@@ -2329,6 +2338,7 @@ pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<Embeddin
 pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
     let vid = vault_id.clone();
     send_write(
         &app,
@@ -2338,6 +2348,7 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
             app_handle: app.clone(),
             vault_id: vid,
             cancel,
+            is_embedding,
         },
     )
 }
@@ -2345,8 +2356,19 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
 #[tauri::command]
 #[specta::specta]
 pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
+    ensure_worker(&app, &vault_id)?;
+    {
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(&vault_id).ok_or("vault worker not found")?;
+        if worker.is_embedding.load(Ordering::Relaxed) {
+            log::info!("embed_sync: skipped, embedding already in progress");
+            return Ok(());
+        }
+    }
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
     let vid = vault_id.clone();
     send_write(
         &app,
@@ -2356,6 +2378,7 @@ pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
             app_handle: app.clone(),
             vault_id: vid,
             cancel,
+            is_embedding,
         },
     )
 }

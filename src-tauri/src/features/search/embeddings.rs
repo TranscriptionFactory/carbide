@@ -18,7 +18,19 @@ pub struct EmbeddingService {
 
 impl EmbeddingService {
     pub fn new(cache_dir: PathBuf) -> Result<Self, String> {
-        let device = Device::Cpu;
+        let device = {
+            #[cfg(target_os = "macos")]
+            {
+                Device::new_metal(0).unwrap_or_else(|e| {
+                    log::warn!("Metal GPU unavailable, falling back to CPU: {e}");
+                    Device::Cpu
+                })
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Device::Cpu
+            }
+        };
 
         let api = ApiBuilder::new()
             .with_cache_dir(cache_dir)
