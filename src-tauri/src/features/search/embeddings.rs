@@ -21,10 +21,16 @@ impl EmbeddingService {
         let device = {
             #[cfg(target_os = "macos")]
             {
-                Device::new_metal(0).unwrap_or_else(|e| {
-                    log::warn!("Metal GPU unavailable, falling back to CPU: {e}");
-                    Device::Cpu
-                })
+                match Device::new_metal(0) {
+                    Ok(d) => {
+                        log::info!("Embedding device: Metal GPU");
+                        d
+                    }
+                    Err(e) => {
+                        log::warn!("Metal GPU unavailable, falling back to CPU: {e}");
+                        Device::Cpu
+                    }
+                }
             }
             #[cfg(not(target_os = "macos"))]
             {
