@@ -363,6 +363,15 @@ export function create_prosemirror_editor_port(args?: {
         state,
         editable: () => is_editable,
         attributes: { spellcheck: String(spellcheck_enabled) },
+        dispatchTransaction: (tr) => {
+          if (!view) return;
+          try {
+            const new_state = view.state.apply(tr);
+            view.updateState(new_state);
+          } catch (error: unknown) {
+            log.error("Transaction dispatch failed", { error });
+          }
+        },
         clipboardTextSerializer: (slice) => {
           let all_code = true;
           slice.content.forEach((node) => {
