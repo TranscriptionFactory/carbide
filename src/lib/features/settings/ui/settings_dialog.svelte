@@ -22,6 +22,12 @@
   import WrenchIcon from "@lucide/svelte/icons/wrench";
   import CableIcon from "@lucide/svelte/icons/cable";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+  import DownloadIcon from "@lucide/svelte/icons/download";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
+  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+  import CircleXIcon from "@lucide/svelte/icons/circle-x";
+  import type { ToolInfo } from "$lib/features/toolchain";
   import { toast } from "svelte-sonner";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
@@ -128,6 +134,9 @@
     on_purge_asset_caches: () => void;
     on_reindex_vault: () => void;
     on_rebuild_embeddings: () => void;
+    toolchain_tools: ToolInfo[];
+    on_toolchain_install: (tool_id: string) => void;
+    on_toolchain_uninstall: (tool_id: string) => void;
     // STT removed — archived on archive/stt-main
     // stt_models: ModelInfo[];
     // stt_active_model_id: string | null;
@@ -186,6 +195,9 @@
     on_purge_asset_caches,
     on_reindex_vault,
     on_rebuild_embeddings,
+    toolchain_tools,
+    on_toolchain_install,
+    on_toolchain_uninstall,
     // stt_models,
     // stt_active_model_id,
     // stt_model_loading,
@@ -3746,6 +3758,83 @@
               External tools are downloaded automatically when needed. You can
               also configure custom binary paths below.
             </p>
+
+            {#if toolchain_tools.length > 0}
+              <h3 class="SettingsDialog__section-subheader">Installed Tools</h3>
+
+              {#each toolchain_tools as tool (tool.id)}
+                <div class="SettingsDialog__row">
+                  <div class="SettingsDialog__label-group">
+                    <span class="SettingsDialog__label"
+                      >{tool.display_name}</span
+                    >
+                    <span class="SettingsDialog__description">
+                      {#if tool.status.type === "installed"}
+                        v{tool.status.version} &middot; {tool.status.path}
+                      {:else if tool.status.type === "downloading"}
+                        Downloading… {tool.status.percent}%
+                      {:else if tool.status.type === "error"}
+                        <span class="text-destructive"
+                          >{tool.status.message}</span
+                        >
+                      {:else}
+                        Not installed
+                      {/if}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    {#if tool.status.type === "installed"}
+                      <span
+                        class="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
+                      >
+                        <CircleCheckIcon class="size-3.5" />
+                        Installed
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => on_toolchain_uninstall(tool.id)}
+                      >
+                        <TrashIcon class="size-3.5" />
+                        Uninstall
+                      </Button>
+                    {:else if tool.status.type === "downloading"}
+                      <span class="text-muted-foreground text-xs"
+                        >{tool.status.percent}%</span
+                      >
+                      <Button variant="outline" size="sm" disabled>
+                        <LoaderCircleIcon class="size-3.5 animate-spin" />
+                        Installing…
+                      </Button>
+                    {:else if tool.status.type === "error"}
+                      <span
+                        class="text-xs flex items-center gap-1 text-destructive"
+                      >
+                        <CircleXIcon class="size-3.5" />
+                        Failed
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => on_toolchain_install(tool.id)}
+                      >
+                        <RotateCcw class="size-3.5" />
+                        Retry
+                      </Button>
+                    {:else}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => on_toolchain_install(tool.id)}
+                      >
+                        <DownloadIcon class="size-3.5" />
+                        Install
+                      </Button>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            {/if}
 
             <div class="SettingsDialog__section-divider"></div>
             <h3 class="SettingsDialog__section-subheader">

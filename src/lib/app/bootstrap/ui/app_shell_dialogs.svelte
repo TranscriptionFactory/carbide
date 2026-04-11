@@ -36,6 +36,7 @@
   // STT removed — archived on archive/stt-main
   // import type { DownloadProgress } from "$lib/features/stt";
   import type { StorageStats } from "$lib/features/settings";
+  import type { ToolInfo } from "$lib/features/toolchain";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { toast } from "svelte-sonner";
   import type { OmnibarItem } from "$lib/shared/types/search";
@@ -129,6 +130,12 @@
       storage_loading = false;
     }
   }
+
+  const toolchain_tools: ToolInfo[] = $derived(
+    [...stores.toolchain.tools.values()].sort((a, b) =>
+      a.display_name.localeCompare(b.display_name),
+    ),
+  );
 
   $effect(() => {
     const is_open = stores.ui.settings_dialog.open;
@@ -432,6 +439,11 @@
     )}
   on_theme_set_system_themes={(args: { light_id?: string; dark_id?: string }) =>
     void action_registry.execute(ACTION_IDS.theme_set_system_themes, args)}
+  {toolchain_tools}
+  on_toolchain_install={(id: string) =>
+    void action_registry.execute(ACTION_IDS.toolchain_install, id)}
+  on_toolchain_uninstall={(id: string) =>
+    void action_registry.execute(ACTION_IDS.toolchain_uninstall, id)}
   {iwe_config_status}
   on_iwe_open_config={() =>
     void action_registry.execute(ACTION_IDS.iwe_open_config)}

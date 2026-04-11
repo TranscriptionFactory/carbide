@@ -19,6 +19,16 @@ export function register_toolchain_actions(input: {
   });
 
   registry.register({
+    id: ACTION_IDS.toolchain_uninstall,
+    label: "Toolchain: Uninstall Tool",
+    execute: async (...args: unknown[]) => {
+      const tool_id = args[0] as string | undefined;
+      if (!tool_id) return;
+      await toolchain_service.uninstall(tool_id);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.toolchain_manage,
     label: "Toolchain: Manage Tools",
     execute: () => {

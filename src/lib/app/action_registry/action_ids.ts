@@ -292,6 +292,7 @@ export const ACTION_IDS = {
   lint_prev_diagnostic: "lint.prev_diagnostic",
 
   toolchain_install: "toolchain.install",
+  toolchain_uninstall: "toolchain.uninstall",
   toolchain_manage: "toolchain.manage",
 
   markdown_lsp_code_action_resolve: "markdown_lsp.code_action_resolve",
