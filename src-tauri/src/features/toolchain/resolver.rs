@@ -90,7 +90,11 @@ fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
     let candidates = [&with_triple, &without_triple];
 
     let dirs: Vec<PathBuf> = [
-        // Bundled app: externalBin sits next to the main executable
+        // Bundled app: Tauri places sidecars next to the main executable (no subdirectory)
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf())),
+        // Dev mode / manual layout: binaries/ subdirectory next to executable
         std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|d| d.join("binaries"))),
