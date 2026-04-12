@@ -87,8 +87,34 @@ pub async fn read(
 }
 
 fn render_markdown(content: &str) {
-    let skin = termimad::MadSkin::default();
-    skin.print_text(content);
+    use termimad::crossterm::style::{Attribute, Color};
+    use termimad::MadSkin;
+
+    let mut skin = MadSkin::default();
+
+    skin.headers[0].set_fg(Color::Cyan);
+    skin.headers[0].add_attr(Attribute::Bold);
+    skin.headers[0].add_attr(Attribute::Underlined);
+    skin.headers[1].set_fg(Color::Cyan);
+    skin.headers[1].add_attr(Attribute::Bold);
+    skin.headers[2].set_fg(Color::Blue);
+    skin.headers[2].add_attr(Attribute::Bold);
+    skin.headers[3].set_fg(Color::Blue);
+
+    skin.bold.set_fg(Color::Yellow);
+    skin.italic.set_fg(Color::Magenta);
+    skin.inline_code.set_bg(Color::AnsiValue(236));
+    skin.inline_code.set_fg(Color::AnsiValue(222));
+    skin.code_block.set_bg(Color::AnsiValue(235));
+    skin.code_block.set_fg(Color::AnsiValue(252));
+    skin.bullet.set_fg(Color::Cyan);
+    skin.quote_mark.set_fg(Color::AnsiValue(243));
+    skin.horizontal_rule.set_fg(Color::AnsiValue(240));
+
+    let (width, _) = termimad::terminal_size();
+    let area = termimad::Area::new(0, 0, width, u16::MAX);
+    let text = skin.area_text(content, &area);
+    print!("{text}");
 }
 
 #[derive(Serialize)]
