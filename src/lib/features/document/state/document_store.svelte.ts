@@ -71,7 +71,7 @@ export class DocumentStore {
 
   set_content_state(tab_id: string, state: DocumentContentState): void {
     this.content_states = new Map(this.content_states).set(tab_id, state);
-    this.#evict_inactive_content();
+    this.#evict_inactive_content(tab_id);
   }
 
   get_content_state(tab_id: string): DocumentContentState | undefined {
@@ -129,10 +129,10 @@ export class DocumentStore {
     this.content_states = next;
   }
 
-  #evict_inactive_content(): void {
+  #evict_inactive_content(protected_tab_id?: string): void {
     const limit = this.inactive_content_limit;
     const evictable = Array.from(this.content_states.entries())
-      .filter(([, state]) => !state.is_dirty)
+      .filter(([id, state]) => id !== protected_tab_id && !state.is_dirty)
       .sort(([, a], [, b]) => b.last_accessed_at - a.last_accessed_at);
 
     if (evictable.length <= limit) return;

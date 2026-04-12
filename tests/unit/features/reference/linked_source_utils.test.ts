@@ -259,21 +259,22 @@ describe("linked_note_to_csl_item", () => {
   });
 
   it("uses empty string for id when citekey is missing", () => {
-    const item = linked_note_to_csl_item(make_note({ citekey: undefined }));
+    const { citekey: _, ...rest } = make_note();
+    const item = linked_note_to_csl_item(rest as LinkedNoteInfo);
     expect(item.id).toBe("");
   });
 
   it("omits optional fields when not present", () => {
-    const item = linked_note_to_csl_item(
-      make_note({
-        authors: undefined,
-        year: undefined,
-        doi: undefined,
-        journal: undefined,
-        abstract_text: undefined,
-        external_file_path: undefined,
-      }),
-    );
+    const {
+      authors: _a,
+      year: _y,
+      doi: _d,
+      journal: _j,
+      abstract_text: _at,
+      external_file_path: _ef,
+      ...rest
+    } = make_note();
+    const item = linked_note_to_csl_item(rest as LinkedNoteInfo);
     expect(item.author).toBeUndefined();
     expect(item.issued).toBeUndefined();
     expect(item.DOI).toBeUndefined();
