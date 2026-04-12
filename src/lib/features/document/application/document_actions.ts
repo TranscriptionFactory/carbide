@@ -101,6 +101,8 @@ export function register_document_actions(
     id: ACTION_IDS.document_export_pdf,
     label: "Export as PDF",
     execute: async () => {
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "note") return;
       const open_note = stores.editor.open_note;
       if (!open_note) return;
       const title = open_note.meta.title || open_note.meta.name;

@@ -189,6 +189,7 @@ export function create_app_context(input: {
     () =>
       build_command_context({
         editor: stores.editor,
+        tab: stores.tab,
         git: stores.git,
         ai: stores.ai,
         ui: stores.ui,
