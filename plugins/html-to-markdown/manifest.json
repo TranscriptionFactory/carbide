@@ -1,0 +1,45 @@
+{
+  "id": "html-to-markdown",
+  "name": "HTML to Markdown",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "Convert HTML files in your vault to Markdown using Turndown.",
+  "api_version": "1",
+  "permissions": ["fs:read", "fs:write", "commands:register"],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": [
+      {
+        "key": "heading_style",
+        "type": "select",
+        "label": "Heading style",
+        "default": "atx",
+        "options": [
+          { "label": "ATX (# Heading)", "value": "atx" },
+          { "label": "Setext (underlined)", "value": "setext" }
+        ]
+      },
+      {
+        "key": "bullet_list_marker",
+        "type": "select",
+        "label": "Bullet list marker",
+        "default": "-",
+        "options": [
+          { "label": "Dash (-)", "value": "-" },
+          { "label": "Asterisk (*)", "value": "*" },
+          { "label": "Plus (+)", "value": "+" }
+        ]
+      },
+      {
+        "key": "code_block_style",
+        "type": "select",
+        "label": "Code block style",
+        "default": "fenced",
+        "options": [
+          { "label": "Fenced (```)", "value": "fenced" },
+          { "label": "Indented", "value": "indented" }
+        ]
+      }
+    ]
+  }
+}

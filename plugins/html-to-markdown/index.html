@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HTML to Markdown Plugin</title>
+  </head>
+  <body>
+    <script src="./vendor/turndown.min.js"></script>
+    <script src="./vendor/turndown-plugin-gfm.min.js"></script>
+    <script>
+      const RPC_TIMEOUT_MS = 10000;
+
+      const rpc = {
+        _pending: new Map(),
+        send(method, ...params) {
+          const id = crypto.randomUUID();
+          window.parent.postMessage({ id, method, params }, "*");
+          return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+              this._pending.delete(id);
+              reject(new Error(`RPC timeout: ${method}`));
+            }, RPC_TIMEOUT_MS);
+            this._pending.set(id, {
+              resolve: (v) => {
+                clearTimeout(timer);
+                resolve(v);
+              },
+              reject: (e) => {
+                clearTimeout(timer);
+                reject(e);
+              },
+            });
+          });
+        },
+        _handle(event) {
+          const { id, result, error } = event.data;
+          if (!id || !this._pending.has(id)) return;
+          const { resolve, reject } = this._pending.get(id);
+          this._pending.delete(id);
+          if (error) reject(new Error(error));
+          else resolve(result);
+        },
+      };
+
+      window.addEventListener("message", (e) => rpc._handle(e));
+
+      function create_turndown_service(settings) {
+        const opts = {
+          headingStyle: settings.heading_style || "atx",
+          bulletListMarker: settings.bullet_list_marker || "-",
+          codeBlockStyle: settings.code_block_style || "fenced",
+          fence: "```",
+        };
+        const service = new TurndownService(opts);
+        service.use(turndownPluginGfm.gfm);
+        return service;
+      }
+
+      async function convert_all_html() {
+        let settings = {};
+        try {
+          settings = (await rpc.send("settings.get_all")) || {};
+        } catch {}
+
+        let files;
+        try {
+          files = await rpc.send("vault.list");
+        } catch (err) {
+          await rpc.send("ui.show_notice", {
+            message: "HTML→MD: failed to list vault files",
+          });
+          return;
+        }
+
+        const html_files = (files || []).filter((f) =>
+          f.toLowerCase().endsWith(".html"),
+        );
+
+        if (html_files.length === 0) {
+          await rpc.send("ui.show_notice", {
+            message: "HTML→MD: no .html files found",
+          });
+          return;
+        }
+
+        const turndown = create_turndown_service(settings);
+
+        let converted = 0;
+        let skipped = 0;
+        const errors = [];
+
+        for (const path of html_files) {
+          const md_path = path.replace(/\.html$/i, ".md");
+
+          try {
+            const existing = await rpc.send("vault.read", md_path);
+            if (existing !== null && existing !== undefined) {
+              skipped++;
+              continue;
+            }
+          } catch {}
+
+          try {
+            const html = await rpc.send("vault.read", path);
+            if (!html) {
+              errors.push(path);
+              continue;
+            }
+
+            const markdown = turndown.turndown(html);
+            await rpc.send("vault.create", md_path, markdown);
+            converted++;
+          } catch (err) {
+            errors.push(path);
+          }
+        }
+
+        const parts = [];
+        if (converted > 0) parts.push(`${converted} converted`);
+        if (skipped > 0) parts.push(`${skipped} skipped (MD exists)`);
+        if (errors.length > 0) parts.push(`${errors.length} failed`);
+
+        await rpc.send("ui.show_notice", {
+          message: `HTML→MD: ${parts.join(", ")}`,
+        });
+      }
+
+      let activated = false;
+
+      window.addEventListener("message", async (event) => {
+        if (event.data.method === "lifecycle.activate" && !activated) {
+          activated = true;
+          await rpc.send("commands.register", {
+            id: "convert",
+            label: "Convert HTML to Markdown",
+            icon: "file-text",
+          });
+        }
+
+        if (event.data.method === "command.execute") {
+          const cmd = event.data.params?.[0];
+          if (cmd === "html-to-markdown:convert") {
+            await convert_all_html();
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
