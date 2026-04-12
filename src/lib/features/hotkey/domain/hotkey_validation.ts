@@ -83,6 +83,21 @@ export function normalize_event_to_key(event: KeyboardEvent): string {
   }
 
   let key = event.key;
+
+  // On macOS, Alt composes special characters (e.g. Alt+G → "©").
+  // Fall back to event.code for the physical key when Alt is held.
+  if (event.altKey && key.length === 1 && event.code) {
+    if (event.code.startsWith("Key")) {
+      key = event.code.slice(3);
+    } else if (event.code.startsWith("Digit")) {
+      key = event.code.slice(5);
+    } else if (event.code === "Space") {
+      key = "Space";
+    } else if (event.code === "BracketLeft" || event.code === "BracketRight") {
+      key = event.code === "BracketLeft" ? "[" : "]";
+    }
+  }
+
   if (key === " ") {
     key = "Space";
   } else if (key.length === 1) {

@@ -162,6 +162,52 @@ describe("normalize_event_to_key", () => {
     const key = normalize_event_to_key(mock_event({ metaKey: true, key: "k" }));
     expect(key).toBe("CmdOrCtrl+K");
   });
+
+  it("uses event.code when Alt composes a special character (macOS)", () => {
+    // On macOS, Alt+G produces "©" as event.key
+    const key = normalize_event_to_key(
+      mock_event({
+        metaKey: true,
+        altKey: true,
+        key: "©",
+        code: "KeyG",
+      }),
+    );
+    expect(key).toBe("CmdOrCtrl+Alt+G");
+  });
+
+  it("uses event.code for Alt+bracket keys (macOS)", () => {
+    const left = normalize_event_to_key(
+      mock_event({
+        metaKey: true,
+        altKey: true,
+        key: "\u201C",
+        code: "BracketLeft",
+      }),
+    );
+    expect(left).toBe("CmdOrCtrl+Alt+[");
+
+    const right = normalize_event_to_key(
+      mock_event({
+        metaKey: true,
+        altKey: true,
+        key: "\u2018",
+        code: "BracketRight",
+      }),
+    );
+    expect(right).toBe("CmdOrCtrl+Alt+]");
+  });
+
+  it("uses event.code for Alt+digit keys (macOS)", () => {
+    const key = normalize_event_to_key(
+      mock_event({
+        altKey: true,
+        key: "¡",
+        code: "Digit1",
+      }),
+    );
+    expect(key).toBe("Alt+1");
+  });
 });
 
 describe("format_hotkey_for_display", () => {
