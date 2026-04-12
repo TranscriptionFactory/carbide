@@ -1,6 +1,7 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 function manual_chunks(id: string): string | undefined {
   if (!id.includes("node_modules")) {
@@ -19,6 +20,10 @@ function manual_chunks(id: string): string | undefined {
     return "mermaid";
   }
 
+  if (id.includes("pdfkit")) {
+    return "pdfkit";
+  }
+
   if (
     id.includes("codemirror") ||
     id.includes("@codemirror") ||
@@ -31,7 +36,13 @@ function manual_chunks(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [sveltekit(), tailwindcss()],
+  plugins: [
+    sveltekit(),
+    tailwindcss(),
+    nodePolyfills({
+      include: ["stream", "buffer", "process", "events", "util"],
+    }),
+  ],
   build: {
     chunkSizeWarningLimit: 3500,
     rollupOptions: {

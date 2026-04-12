@@ -4,60 +4,97 @@ import {
   create_md,
   render_tokens_to_pdf,
   extract_inline_spans,
+  split_text_to_width,
   export_note_as_pdf,
 } from "$lib/features/document/domain/pdf_export";
-import type { JsPDFDoc } from "$lib/features/document/domain/pdf_export";
+import type { PdfDoc } from "$lib/features/document/domain/pdf_export";
 
-function create_mock_doc(): JsPDFDoc & {
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+
+function create_mock_doc(): PdfDoc & {
   calls: { method: string; args: unknown[] }[];
   text: ReturnType<typeof vi.fn>;
-  setFont: ReturnType<typeof vi.fn>;
-  setFontSize: ReturnType<typeof vi.fn>;
-  setTextColor: ReturnType<typeof vi.fn>;
-  setDrawColor: ReturnType<typeof vi.fn>;
-  setFillColor: ReturnType<typeof vi.fn>;
-  setLineWidth: ReturnType<typeof vi.fn>;
-  getTextWidth: ReturnType<typeof vi.fn>;
-  splitTextToSize: ReturnType<typeof vi.fn>;
-  line: ReturnType<typeof vi.fn>;
+  font: ReturnType<typeof vi.fn>;
+  fontSize: ReturnType<typeof vi.fn>;
+  fillColor: ReturnType<typeof vi.fn>;
+  strokeColor: ReturnType<typeof vi.fn>;
+  lineWidth: ReturnType<typeof vi.fn>;
+  widthOfString: ReturnType<typeof vi.fn>;
   rect: ReturnType<typeof vi.fn>;
+  moveTo: ReturnType<typeof vi.fn>;
+  lineTo: ReturnType<typeof vi.fn>;
+  fill: ReturnType<typeof vi.fn>;
+  stroke: ReturnType<typeof vi.fn>;
+  fillAndStroke: ReturnType<typeof vi.fn>;
   addPage: ReturnType<typeof vi.fn>;
-  addFileToVFS: ReturnType<typeof vi.fn>;
-  addFont: ReturnType<typeof vi.fn>;
+  registerFont: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+  pipe: ReturnType<typeof vi.fn>;
 } {
   const calls: { method: string; args: unknown[] }[] = [];
+  const self = {} as ReturnType<typeof create_mock_doc>;
 
-  return {
-    calls,
-    text: vi.fn((...args: unknown[]) => calls.push({ method: "text", args })),
-    setFont: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setFont", args }),
-    ),
-    setFontSize: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setFontSize", args }),
-    ),
-    setTextColor: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setTextColor", args }),
-    ),
-    setDrawColor: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setDrawColor", args }),
-    ),
-    setFillColor: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setFillColor", args }),
-    ),
-    setLineWidth: vi.fn((...args: unknown[]) =>
-      calls.push({ method: "setLineWidth", args }),
-    ),
-    getTextWidth: vi.fn((text: string) => text.length * 1.5),
-    splitTextToSize: vi.fn((text: string) => [text]),
-    line: vi.fn((...args: unknown[]) => calls.push({ method: "line", args })),
-    rect: vi.fn((...args: unknown[]) => calls.push({ method: "rect", args })),
-    addPage: vi.fn(() => calls.push({ method: "addPage", args: [] })),
-    addFileToVFS: vi.fn(),
-    addFont: vi.fn(),
-    save: vi.fn(),
-    internal: { pageSize: { getHeight: () => 297 } },
-  };
+  self.calls = calls;
+  self.text = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "text", args });
+    return self;
+  });
+  self.font = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "font", args });
+    return self;
+  });
+  self.fontSize = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "fontSize", args });
+    return self;
+  });
+  self.fillColor = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "fillColor", args });
+    return self;
+  });
+  self.strokeColor = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "strokeColor", args });
+    return self;
+  });
+  self.lineWidth = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "lineWidth", args });
+    return self;
+  });
+  self.widthOfString = vi.fn((text: string) => text.length * 1.5);
+  self.rect = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "rect", args });
+    return self;
+  });
+  self.moveTo = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "moveTo", args });
+    return self;
+  });
+  self.lineTo = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "lineTo", args });
+    return self;
+  });
+  self.fill = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "fill", args });
+    return self;
+  });
+  self.stroke = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "stroke", args });
+    return self;
+  });
+  self.fillAndStroke = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "fillAndStroke", args });
+    return self;
+  });
+  self.addPage = vi.fn(() => {
+    calls.push({ method: "addPage", args: [] });
+    return self;
+  });
+  self.registerFont = vi.fn();
+  self.end = vi.fn();
+  self.pipe = vi.fn();
+  self.page = { width: A4_WIDTH, height: A4_HEIGHT };
+
+  return self;
 }
 
 function all_text(doc: ReturnType<typeof create_mock_doc>): string {
@@ -72,7 +109,7 @@ function text_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
 }
 
 function font_calls(doc: ReturnType<typeof create_mock_doc>): string[] {
-  return doc.setFont.mock.calls.map((c: unknown[]) => `${c[0]}:${c[1]}`);
+  return doc.font.mock.calls.map((c: unknown[]) => String(c[0]));
 }
 
 function parse(content: string) {
@@ -145,6 +182,31 @@ describe("extract_inline_spans", () => {
   });
 });
 
+describe("split_text_to_width", () => {
+  let doc: ReturnType<typeof create_mock_doc>;
+
+  beforeEach(() => {
+    doc = create_mock_doc();
+  });
+
+  it("returns single line when text fits", () => {
+    const result = split_text_to_width(doc, "short", 100);
+    expect(result).toEqual(["short"]);
+  });
+
+  it("wraps long line at character boundary", () => {
+    doc.widthOfString = vi.fn((text: string) => text.length * 10);
+    const result = split_text_to_width(doc, "abcdef", 35);
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.join("")).toBe("abcdef");
+  });
+
+  it("splits multi-line input by newlines", () => {
+    const result = split_text_to_width(doc, "line1\nline2\nline3", 1000);
+    expect(result).toEqual(["line1", "line2", "line3"]);
+  });
+});
+
 describe("render_tokens_to_pdf", () => {
   let doc: ReturnType<typeof create_mock_doc>;
 
@@ -161,7 +223,7 @@ describe("render_tokens_to_pdf", () => {
     render_tokens_to_pdf(doc, "T", parse("# Heading One"));
     expect(all_text(doc)).toContain("Heading");
     expect(all_text(doc)).toContain("One");
-    expect(doc.setFont).toHaveBeenCalledWith("Inter", "bold");
+    expect(doc.font).toHaveBeenCalledWith("Inter-bold");
   });
 
   it("renders h2 heading", () => {
@@ -186,25 +248,25 @@ describe("render_tokens_to_pdf", () => {
   it("renders bold text with bold font", () => {
     render_tokens_to_pdf(doc, "T", parse("This is **bold** text"));
     expect(all_text(doc)).toContain("bold");
-    expect(font_calls(doc)).toContain("Inter:bold");
+    expect(font_calls(doc)).toContain("Inter-bold");
   });
 
   it("renders italic text with italic font", () => {
     render_tokens_to_pdf(doc, "T", parse("This is *italic* text"));
     expect(all_text(doc)).toContain("italic");
-    expect(font_calls(doc)).toContain("Inter:italic");
+    expect(font_calls(doc)).toContain("Inter-italic");
   });
 
   it("renders bold+italic with bolditalic font", () => {
     render_tokens_to_pdf(doc, "T", parse("***both***"));
     expect(all_text(doc)).toContain("both");
-    expect(font_calls(doc)).toContain("Inter:bolditalic");
+    expect(font_calls(doc)).toContain("Inter-bolditalic");
   });
 
-  it("renders inline code with courier font", () => {
+  it("renders inline code with Courier font", () => {
     render_tokens_to_pdf(doc, "T", parse("use `myFunc()` here"));
     expect(all_text(doc)).toContain("myFunc()");
-    expect(doc.setFont).toHaveBeenCalledWith("courier", "normal");
+    expect(doc.font).toHaveBeenCalledWith("Courier");
   });
 
   it("preserves Unicode text natively", () => {
@@ -217,16 +279,19 @@ describe("render_tokens_to_pdf", () => {
     expect(rendered).toContain("model");
   });
 
-  it("renders code blocks with courier font", () => {
+  it("renders code blocks with Courier font", () => {
     render_tokens_to_pdf(doc, "T", parse("```\nconst x = 1;\n```"));
-    expect(doc.setFont).toHaveBeenCalledWith("courier", "normal");
+    expect(doc.font).toHaveBeenCalledWith("Courier");
     expect(all_text(doc)).toContain("const x = 1;");
   });
 
   it("renders code blocks with background rect", () => {
     render_tokens_to_pdf(doc, "T", parse("```\ncode\n```"));
     expect(doc.rect).toHaveBeenCalled();
-    expect(doc.setFillColor).toHaveBeenCalledWith(246, 248, 250);
+    expect(doc.fillAndStroke).toHaveBeenCalledWith(
+      [246, 248, 250],
+      [208, 215, 222],
+    );
   });
 
   it("renders bullet list items with bullet marker", () => {
@@ -245,9 +310,13 @@ describe("render_tokens_to_pdf", () => {
     expect(texts).toContain("2.");
   });
 
-  it("renders horizontal rule as a line", () => {
+  it("renders horizontal rule via moveTo/lineTo/stroke", () => {
     render_tokens_to_pdf(doc, "T", parse("---"));
-    expect(doc.line).toHaveBeenCalled();
+    const methods = doc.calls.map((c) => c.method);
+    const last_move = methods.lastIndexOf("moveTo");
+    expect(last_move).toBeGreaterThanOrEqual(0);
+    expect(methods[last_move + 1]).toBe("lineTo");
+    expect(methods[last_move + 2]).toBe("stroke");
   });
 
   it("renders tables with rect cells", () => {
@@ -259,11 +328,9 @@ describe("render_tokens_to_pdf", () => {
   });
 
   it("renders multi-line table cells", () => {
-    doc.splitTextToSize = vi.fn((text: string, _maxWidth: number) => {
-      if (text === "A long cell that wraps to multiple lines") {
-        return ["A long cell that wraps", "to multiple lines"];
-      }
-      return [text];
+    doc.widthOfString = vi.fn((text: string) => {
+      if (text === "A long cell that wraps to multiple lines") return 9999;
+      return text.length * 1.5;
     });
 
     const md = `| Header | Description |
@@ -272,13 +339,14 @@ describe("render_tokens_to_pdf", () => {
 
     render_tokens_to_pdf(doc, "T", parse(md));
     const rendered = all_text(doc);
-    expect(rendered).toContain("A long cell that wraps");
-    expect(rendered).toContain("to multiple lines");
+    expect(rendered).toContain("A long cell that wraps to multiple lines");
   });
 
-  it("renders h1 with underline", () => {
+  it("renders h1 with underline via moveTo/lineTo/stroke", () => {
     render_tokens_to_pdf(doc, "T", parse("# Title"));
-    expect(doc.line).toHaveBeenCalled();
+    expect(doc.moveTo).toHaveBeenCalled();
+    expect(doc.lineTo).toHaveBeenCalled();
+    expect(doc.stroke).toHaveBeenCalled();
   });
 
   it("handles mixed content correctly", () => {
@@ -309,60 +377,62 @@ describe("render_tokens_to_pdf", () => {
       parse("Normal **bold** then *italic* and `code`"),
     );
     const fonts = font_calls(doc);
-    expect(fonts).toContain("Inter:normal");
-    expect(fonts).toContain("Inter:bold");
-    expect(fonts).toContain("Inter:italic");
-    expect(fonts).toContain("courier:normal");
+    expect(fonts).toContain("Inter-normal");
+    expect(fonts).toContain("Inter-bold");
+    expect(fonts).toContain("Inter-italic");
+    expect(fonts).toContain("Courier");
   });
 
   it("renders inline formatting within headings", () => {
     render_tokens_to_pdf(doc, "T", parse("## Heading with *italic* word"));
     const fonts = font_calls(doc);
-    expect(fonts).toContain("Inter:bold");
-    expect(fonts).toContain("Inter:bolditalic");
+    expect(fonts).toContain("Inter-bold");
+    expect(fonts).toContain("Inter-bolditalic");
   });
 
-  it("sets courier font before splitTextToSize in code blocks", () => {
+  it("sets Courier font before split_text_to_width in code blocks", () => {
     const call_order: string[] = [];
-    doc.setFont = vi.fn((...args: unknown[]) => {
-      call_order.push(`setFont:${args[0]}`);
+    doc.font = vi.fn((...args: unknown[]) => {
+      call_order.push(`font:${args[0]}`);
+      return doc;
     });
-    doc.splitTextToSize = vi.fn((text: string) => {
-      call_order.push(`splitTextToSize:${text}`);
-      return [text];
+    doc.widthOfString = vi.fn((text: string) => {
+      call_order.push(`widthOfString:${text.slice(0, 20)}`);
+      return text.length * 1.5;
     });
     render_tokens_to_pdf(doc, "T", parse("```\ncode here\n```"));
-    const code_split_idx = call_order.findIndex((c) =>
-      c.startsWith("splitTextToSize:code here"),
+    const code_width_idx = call_order.findIndex((c) =>
+      c.startsWith("widthOfString:code here"),
     );
     const courier_before = call_order
-      .slice(0, code_split_idx)
-      .lastIndexOf("setFont:courier");
-    expect(code_split_idx).toBeGreaterThanOrEqual(0);
+      .slice(0, code_width_idx)
+      .lastIndexOf("font:Courier");
+    expect(code_width_idx).toBeGreaterThanOrEqual(0);
     expect(courier_before).toBeGreaterThanOrEqual(0);
   });
 
-  it("sets body font before splitTextToSize in tables", () => {
+  it("sets body font before split_text_to_width in tables", () => {
     const call_order: string[] = [];
-    doc.setFont = vi.fn((...args: unknown[]) => {
-      doc.calls.push({ method: "setFont", args: [...args] });
-      call_order.push(`setFont:${args[0]}:${args[1]}`);
+    doc.font = vi.fn((...args: unknown[]) => {
+      doc.calls.push({ method: "font", args: [...args] });
+      call_order.push(`font:${args[0]}`);
+      return doc;
     });
-    doc.splitTextToSize = vi.fn((text: string) => {
-      call_order.push(`splitTextToSize:${text}`);
-      return [text];
+    doc.widthOfString = vi.fn((text: string) => {
+      call_order.push(`widthOfString:${text}`);
+      return text.length * 1.5;
     });
     render_tokens_to_pdf(
       doc,
       "T",
       parse("```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |"),
     );
-    const table_split = call_order.findIndex((c) =>
-      c.startsWith("splitTextToSize:A"),
+    const table_width = call_order.findIndex((c) =>
+      c.startsWith("widthOfString:A"),
     );
     const body_font_before = call_order
-      .slice(0, table_split)
-      .lastIndexOf("setFont:Inter:normal");
+      .slice(0, table_width)
+      .lastIndexOf("font:Inter-normal");
     expect(body_font_before).toBeGreaterThanOrEqual(0);
   });
 });
@@ -370,7 +440,6 @@ describe("render_tokens_to_pdf", () => {
 describe("export_note_as_pdf", () => {
   const mock_invoke = vi.fn();
   const mock_dialog_save = vi.fn();
-  const mock_output = vi.fn(() => new ArrayBuffer(10));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -384,25 +453,41 @@ describe("export_note_as_pdf", () => {
       invoke: mock_invoke,
     }));
 
-    vi.doMock("jspdf", () => ({
-      jsPDF: vi.fn(() => ({
-        text: vi.fn(),
-        setFont: vi.fn(),
-        setFontSize: vi.fn(),
-        setTextColor: vi.fn(),
-        setDrawColor: vi.fn(),
-        setFillColor: vi.fn(),
-        setLineWidth: vi.fn(),
-        getTextWidth: vi.fn(() => 10),
-        splitTextToSize: vi.fn((text: string) => [text]),
-        line: vi.fn(),
-        rect: vi.fn(),
-        addPage: vi.fn(),
-        addFileToVFS: vi.fn(),
-        addFont: vi.fn(),
-        output: mock_output,
-        internal: { pageSize: { getHeight: () => 297 } },
+    const mock_stream = {
+      on: vi.fn((event: string, cb: Function) => {
+        if (event === "finish") {
+          setTimeout(cb, 0);
+        }
+        return mock_stream;
+      }),
+      toBlob: vi.fn(() => new Blob([new Uint8Array(10)])),
+    };
+
+    vi.doMock("pdfkit", () => ({
+      default: vi.fn(() => ({
+        font: vi.fn().mockReturnThis(),
+        fontSize: vi.fn().mockReturnThis(),
+        fillColor: vi.fn().mockReturnThis(),
+        strokeColor: vi.fn().mockReturnThis(),
+        lineWidth: vi.fn().mockReturnThis(),
+        text: vi.fn().mockReturnThis(),
+        widthOfString: vi.fn(() => 10),
+        rect: vi.fn().mockReturnThis(),
+        moveTo: vi.fn().mockReturnThis(),
+        lineTo: vi.fn().mockReturnThis(),
+        fill: vi.fn().mockReturnThis(),
+        stroke: vi.fn().mockReturnThis(),
+        fillAndStroke: vi.fn().mockReturnThis(),
+        addPage: vi.fn().mockReturnThis(),
+        registerFont: vi.fn(),
+        end: vi.fn(),
+        pipe: vi.fn(() => mock_stream),
+        page: { width: 595.28, height: 841.89 },
       })),
+    }));
+
+    vi.doMock("blob-stream", () => ({
+      default: vi.fn(),
     }));
 
     const ttf_header = new Uint8Array(100);
@@ -489,6 +574,25 @@ describe("export_note_as_pdf", () => {
       await import("$lib/features/document/domain/pdf_export");
     await expect(export_fn("My Note", "Hello")).rejects.toThrow(
       /PDF export failed.*font.*Inter-Regular\.ttf.*404/i,
+    );
+  });
+
+  it("calls registerFont instead of addFileToVFS/addFont", async () => {
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await export_fn("My Note", "Hello");
+
+    const PDFDocument = (await import("pdfkit")).default;
+    const doc_instance = (PDFDocument as unknown as ReturnType<typeof vi.fn>)
+      .mock.results[0]?.value;
+    expect(doc_instance.registerFont).toHaveBeenCalledTimes(4);
+    expect(doc_instance.registerFont).toHaveBeenCalledWith(
+      "Inter-normal",
+      expect.any(ArrayBuffer),
+    );
+    expect(doc_instance.registerFont).toHaveBeenCalledWith(
+      "Inter-bold",
+      expect.any(ArrayBuffer),
     );
   });
 });
