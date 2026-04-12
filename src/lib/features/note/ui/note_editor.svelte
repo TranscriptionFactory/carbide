@@ -9,7 +9,7 @@
   import { DocumentViewer } from "$lib/features/document";
   import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
-  import { GraphTabView } from "$lib/features/graph";
+  import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
   import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -61,7 +61,12 @@
 </script>
 
 <div class="NoteEditor" style:zoom={zoom !== 1 ? zoom : undefined}>
-  {#if active_tab?.kind === "graph"}
+  {#if active_tab?.kind === "search_graph"}
+    <SearchGraphTabView
+      tab_id={active_tab.id}
+      initial_query={active_tab.query}
+    />
+  {:else if active_tab?.kind === "graph"}
     <GraphTabView />
   {:else if is_canvas_tab && active_tab?.kind === "document"}
     <CanvasViewer

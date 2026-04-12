@@ -29,6 +29,9 @@ export {
 export { default as GraphPanel } from "$lib/features/graph/ui/graph_panel.svelte";
 export { default as VaultGraphCanvas } from "$lib/features/graph/ui/vault_graph_canvas.svelte";
 export { default as GraphTabView } from "$lib/features/graph/ui/graph_tab_view.svelte";
+export { default as SearchGraphTabView } from "$lib/features/graph/ui/search_graph_tab_view.svelte";
+export { default as SearchGraphCanvas } from "$lib/features/graph/ui/search_graph_canvas.svelte";
+export { default as SearchGraphResultList } from "$lib/features/graph/ui/search_graph_result_list.svelte";
 export type {
   SearchGraphNode,
   SearchGraphEdge,
