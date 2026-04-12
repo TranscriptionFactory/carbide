@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05 (updated 2026-04-11)
 **Companion to:** `2026-04-11_unified_implementation_roadmap.md`
-**Progress:** 48 / 56 units complete (34 original + 14/22 new)
+**Progress:** 49 / 56 units complete (34 original + 15/22 new)
 
 ---
 
@@ -522,10 +522,11 @@ _The units below replace the original Steps 10, 14–16. They follow the phase s
 **Session type:** Rust + TypeScript + Svelte/D3
 **Depends on:** Steps 5–6 (smart links — on main), Step 11 (block embeddings — on main)
 
-- [ ] **D1.1** Smart link edges in graph data model — **Rust + TypeScript session**
+- [x] **D1.1** Smart link edges in graph data model — **Rust + TypeScript session**
   - Rust graph builder: new edge type for smart links, provenance metadata
   - TS graph types: extend `VaultGraphSnapshot`, `GraphNeighborhoodSnapshot`
   - Tests: graph builder produces smart link edges
+  - _Completed 2026-04-11 `bc3f028b`. Added `SmartLinkEdge` struct in Rust with batch vault-wide Tauri command `smart_links_compute_vault_edges`. TS types: `SmartLinkEdge`, `SmartLinkRuleMatchInfo` in graph ports. GraphStore gets `smart_link_edges`/`show_smart_link_edges` state. GraphService gets `load_smart_link_edges`/`toggle_smart_link_edges` methods following SemanticEdge overlay pattern. Domain module `smart_link_edges.ts` with `build_smart_link_edges`. 9 tests passing. D1.2 needs to wire these edges into the D3 renderer with dashed styling + hover provenance._
 
 - [ ] **D1.2** Graph rendering — dashed edges, hover provenance, section-level edges — **Svelte/D3 session**
   - Visual differentiation: dashed lines for smart links, solid for explicit
