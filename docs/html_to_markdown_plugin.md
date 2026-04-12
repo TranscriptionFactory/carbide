@@ -26,12 +26,12 @@ The plugin ships in `plugins/html-to-markdown/`. To enable it:
 
 Turndown handles standard HTML elements. The bundled GFM plugin adds support for:
 
-| HTML | Markdown output |
-|---|---|
-| `<table>` with `<th>` heading row | GFM pipe table |
-| `<del>`, `<s>`, `<strike>` | `~strikethrough~` |
+| HTML                                | Markdown output                   |
+| ----------------------------------- | --------------------------------- |
+| `<table>` with `<th>` heading row   | GFM pipe table                    |
+| `<del>`, `<s>`, `<strike>`          | `~strikethrough~`                 |
 | `<input type="checkbox">` in `<li>` | `- [x]` / `- [ ]` task list items |
-| `<div class="highlight-source-*">` | Fenced code block with language |
+| `<div class="highlight-source-*">`  | Fenced code block with language   |
 
 Standard elements (headings, lists, links, images, code blocks, blockquotes, emphasis, horizontal rules) are all converted as expected.
 
@@ -39,11 +39,11 @@ Standard elements (headings, lists, links, images, code blocks, blockquotes, emp
 
 Configure via the plugin settings panel (plugin manager → HTML to Markdown → gear icon).
 
-| Setting | Options | Default |
-|---|---|---|
-| **Heading style** | ATX (`# Heading`) · Setext (underlined) | ATX |
-| **Bullet list marker** | `-` · `*` · `+` | `-` |
-| **Code block style** | Fenced (`` ``` ``) · Indented | Fenced |
+| Setting                | Options                                 | Default |
+| ---------------------- | --------------------------------------- | ------- |
+| **Heading style**      | ATX (`# Heading`) · Setext (underlined) | ATX     |
+| **Bullet list marker** | `-` · `*` · `+`                         | `-`     |
+| **Code block style**   | Fenced (` ``` `) · Indented             | Fenced  |
 
 ## Permissions
 

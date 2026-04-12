@@ -41,15 +41,9 @@ fn query_notes_by_property_requires_vault_id_and_property() {
         .find(|d| d.name == "query_notes_by_property")
         .unwrap();
     assert!(def.input_schema.required.contains(&"vault_id".to_string()));
-    assert!(def
-        .input_schema
-        .required
-        .contains(&"property".to_string()));
+    assert!(def.input_schema.required.contains(&"property".to_string()));
     assert!(!def.input_schema.required.contains(&"value".to_string()));
-    assert!(!def
-        .input_schema
-        .required
-        .contains(&"operator".to_string()));
+    assert!(!def.input_schema.required.contains(&"operator".to_string()));
 }
 
 #[test]
@@ -77,10 +71,7 @@ fn references_tool_definitions_count() {
 #[test]
 fn list_references_requires_vault_id() {
     let defs = references::tool_definitions();
-    let def = defs
-        .iter()
-        .find(|d| d.name == "list_references")
-        .unwrap();
+    let def = defs.iter().find(|d| d.name == "list_references").unwrap();
     assert!(def.input_schema.required.contains(&"vault_id".to_string()));
     assert!(!def.input_schema.required.contains(&"limit".to_string()));
 }
@@ -88,10 +79,7 @@ fn list_references_requires_vault_id() {
 #[test]
 fn search_references_requires_vault_id_and_query() {
     let defs = references::tool_definitions();
-    let def = defs
-        .iter()
-        .find(|d| d.name == "search_references")
-        .unwrap();
+    let def = defs.iter().find(|d| d.name == "search_references").unwrap();
     assert!(def.input_schema.required.contains(&"vault_id".to_string()));
     assert!(def.input_schema.required.contains(&"query".to_string()));
 }

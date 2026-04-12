@@ -105,9 +105,7 @@ pub async fn run(
         GitAction::Diff { path } => diff(client, vault_id, path.as_deref(), json).await,
         GitAction::Push => push(client, vault_id, json).await,
         GitAction::Pull { strategy } => pull(client, vault_id, strategy.clone(), json).await,
-        GitAction::Restore { path, commit } => {
-            restore(client, vault_id, path, commit, json).await
-        }
+        GitAction::Restore { path, commit } => restore(client, vault_id, path, commit, json).await,
         GitAction::Init => init(client, vault_id, json).await,
     }
 }

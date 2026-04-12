@@ -204,7 +204,11 @@ pub fn smart_links_compute_vault_edges(
             }
         }
 
-        edges.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        edges.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         Ok(edges)
     })
 }

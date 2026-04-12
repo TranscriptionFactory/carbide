@@ -80,10 +80,7 @@ struct SearchReferencesArgs {
 }
 
 fn format_csl_item(item: &Value) -> String {
-    let citekey = item
-        .get("id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
+    let citekey = item.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
     let title = item
         .get("title")
         .and_then(|v| v.as_str())

@@ -66,9 +66,7 @@ fn check_ssrf(url: &url::Url) -> Result<(), String> {
 
     match &host {
         url::Host::Domain(domain) => {
-            if *domain == "localhost"
-                || domain.ends_with(".local")
-                || domain.ends_with(".internal")
+            if *domain == "localhost" || domain.ends_with(".local") || domain.ends_with(".internal")
             {
                 return Err("Request to localhost/local network is blocked".to_string());
             }
@@ -114,8 +112,7 @@ async fn resolve_and_check(host: &str, port: u16) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn plugin_http_fetch(request: PluginHttpRequest) -> Result<PluginHttpResponse, String> {
-    let parsed_url =
-        url::Url::parse(&request.url).map_err(|e| format!("Invalid URL: {e}"))?;
+    let parsed_url = url::Url::parse(&request.url).map_err(|e| format!("Invalid URL: {e}"))?;
 
     check_ssrf(&parsed_url)?;
 
@@ -142,8 +139,8 @@ pub async fn plugin_http_fetch(request: PluginHttpRequest) -> Result<PluginHttpR
         for (k, v) in header_map {
             let name = HeaderName::from_bytes(k.as_bytes())
                 .map_err(|_| format!("Invalid header name: {k}"))?;
-            let value = HeaderValue::from_str(v)
-                .map_err(|_| format!("Invalid header value for {k}"))?;
+            let value =
+                HeaderValue::from_str(v).map_err(|_| format!("Invalid header value for {k}"))?;
             headers.insert(name, value);
         }
     }
@@ -204,7 +201,12 @@ mod tests {
 
     #[test]
     fn blocks_private_ipv4() {
-        for addr in &["http://127.0.0.1", "http://10.0.0.1", "http://192.168.1.1", "http://172.16.0.1"] {
+        for addr in &[
+            "http://127.0.0.1",
+            "http://10.0.0.1",
+            "http://192.168.1.1",
+            "http://172.16.0.1",
+        ] {
             let url = url::Url::parse(addr).unwrap();
             assert!(check_ssrf(&url).is_err(), "Should block {addr}");
         }

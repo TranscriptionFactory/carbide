@@ -29,7 +29,9 @@ fn git_status_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "git_status".into(),
-        description: "Get the git working tree status for a vault (branch, modified/staged/untracked files).".into(),
+        description:
+            "Get the git working tree status for a vault (branch, modified/staged/untracked files)."
+                .into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
