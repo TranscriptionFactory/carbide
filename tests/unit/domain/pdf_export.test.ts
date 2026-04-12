@@ -8,6 +8,7 @@ import {
   export_note_as_pdf,
 } from "$lib/features/document/domain/pdf_export";
 import type { PdfDoc } from "$lib/features/document/domain/pdf_export";
+import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -443,6 +444,30 @@ describe("render_tokens_to_pdf", () => {
       .slice(0, table_width)
       .lastIndexOf("font:Inter-normal");
     expect(body_font_before).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("frontmatter stripping", () => {
+  it("does not render frontmatter fields as body text", () => {
+    const doc = create_mock_doc();
+    const content =
+      '---\ntitle: "My Note"\ndate_created: 2024-01-01\n---\n\nActual body text.';
+    const { body } = parse_frontmatter(content);
+    const tokens = parse(body);
+    render_tokens_to_pdf(doc, "My Note", tokens);
+    const rendered = all_text(doc);
+    expect(rendered).toContain("Actual body text.");
+    expect(rendered).not.toContain("date_created");
+    expect(rendered).not.toContain("2024-01-01");
+  });
+
+  it("handles content without frontmatter unchanged", () => {
+    const doc = create_mock_doc();
+    const content = "Just a paragraph.";
+    const { body } = parse_frontmatter(content);
+    const tokens = parse(body);
+    render_tokens_to_pdf(doc, "Note", tokens);
+    expect(all_text(doc)).toContain("Just a paragraph.");
   });
 });
 
