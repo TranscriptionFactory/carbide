@@ -243,6 +243,8 @@ function render_paragraph(ctx: PdfContext, token: Token): void {
 
 function render_fence(ctx: PdfContext, token: Token): void {
   const code_text = token.content.trimEnd();
+  ctx.doc.setFont(FONT_CODE, "normal");
+  ctx.doc.setFontSize(CODE_FONT_SIZE);
   const lines = ctx.doc.splitTextToSize(
     code_text,
     usable_width(ctx) - CODE_BLOCK_PADDING * 2,
@@ -257,8 +259,6 @@ function render_fence(ctx: PdfContext, token: Token): void {
   ctx.doc.setLineWidth(0.2);
   ctx.doc.rect(left_x(ctx), ctx.y - 3, usable_width(ctx), block_height, "FD");
 
-  ctx.doc.setFont(FONT_CODE, "normal");
-  ctx.doc.setFontSize(CODE_FONT_SIZE);
   ctx.doc.setTextColor(...COLOR_BODY);
 
   let code_y = ctx.y + CODE_BLOCK_PADDING;
@@ -281,6 +281,7 @@ function render_hr(ctx: PdfContext): void {
 }
 
 function render_table(ctx: PdfContext, tokens: Token[], start: number): number {
+  set_body_font(ctx.doc);
   const rows: { cells: string[]; is_header: boolean }[] = [];
   let i = start + 1;
   let in_header = false;
@@ -298,8 +299,16 @@ function render_table(ctx: PdfContext, tokens: Token[], start: number): number {
           i++;
           if (i < tokens.length && tokens[i]!.type === "inline") {
             cells.push(extract_inline_text(tokens[i]!));
+            i++;
           }
-          i++;
+          // skip th_close / td_close
+          if (
+            i < tokens.length &&
+            (tokens[i]!.type === "th_close" || tokens[i]!.type === "td_close")
+          ) {
+            i++;
+          }
+          continue;
         }
         i++;
       }
@@ -487,6 +496,11 @@ const FONT_FILES = [
 async function load_fonts(doc: JsPDFDoc): Promise<void> {
   for (const { file, style } of FONT_FILES) {
     const res = await fetch(`/fonts/${file}`);
+    if (!res.ok) {
+      throw new Error(
+        `Failed to load font ${file}: ${res.status} ${res.statusText}`,
+      );
+    }
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = "";
@@ -513,17 +527,23 @@ export async function export_note_as_pdf(
 
   if (!file_path) return;
 
-  const { jsPDF } = await import("jspdf");
-  const md = create_md();
-  const tokens = md.parse(content, {});
+  try {
+    const { jsPDF } = await import("jspdf");
+    const md = create_md();
+    const tokens = md.parse(content, {});
 
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  await load_fonts(doc);
-  render_tokens_to_pdf(doc, title, tokens);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    await load_fonts(doc);
+    render_tokens_to_pdf(doc, title, tokens);
 
-  const pdf_bytes = doc.output("arraybuffer");
-  await invoke("write_bytes_to_path", {
-    path: file_path,
-    data: Array.from(new Uint8Array(pdf_bytes)),
-  });
+    const pdf_bytes = doc.output("arraybuffer");
+    await invoke("write_bytes_to_path", {
+      path: file_path,
+      data: Array.from(new Uint8Array(pdf_bytes)),
+    });
+  } catch (err) {
+    throw new Error(
+      `PDF export failed for "${title}": ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
