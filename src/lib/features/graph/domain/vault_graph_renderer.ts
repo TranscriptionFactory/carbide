@@ -9,6 +9,10 @@ import type {
 import type { Viewport } from "pixi-viewport";
 import { point_to_segment_distance } from "$lib/features/graph/domain/edge_hit_test";
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
+import {
+  convex_hull,
+  offset_polygon,
+} from "$lib/features/graph/domain/geometry";
 import type {
   SemanticEdge,
   SmartLinkEdge,
@@ -31,6 +35,9 @@ type NodeEntry = {
   label: Text;
   x: number;
   y: number;
+  kind?: "hit" | "neighbor";
+  score?: number;
+  group?: string;
 };
 
 type EdgeDef = { source: string; target: string };
@@ -50,6 +57,7 @@ export class VaultGraphRenderer {
   private pixi: typeof import("pixi.js") | null = null;
   private app: Application | null = null;
   private vp: Viewport | null = null;
+  private cluster_gfx: Graphics | null = null;
   private edges_gfx: Graphics | null = null;
   private nodes_layer: Container | null = null;
   private node_map = new Map<string, NodeEntry>();
@@ -64,6 +72,7 @@ export class VaultGraphRenderer {
   private selected_id: string | null = null;
   private hovered_id: string | null = null;
   private hovered_connections = new Set<string>();
+  private has_search_meta = false;
   private colors = {
     node: 0x888888,
     primary: 0x6366f1,
@@ -72,6 +81,9 @@ export class VaultGraphRenderer {
     smart_link_edge: 0x22d3ee,
     bg: 0x1a1a2e,
     label_fill: 0xffffff,
+    hit: 0x6366f1,
+    neighbor: 0x888888,
+    cluster_fill: 0x334155,
   };
   private destroyed = false;
   private container_el: HTMLElement | null = null;
@@ -142,6 +154,7 @@ export class VaultGraphRenderer {
     this.vp.on("moved", () => this.request_render());
     this.vp.on("zoomed", () => this.request_render());
 
+    this.cluster_gfx = new pixi.Graphics();
     this.edges_gfx = new pixi.Graphics();
     this.nodes_layer = new pixi.Container();
 
@@ -151,6 +164,7 @@ export class VaultGraphRenderer {
     this.circle_texture = this.app.renderer.generateTexture(g);
     g.destroy();
 
+    this.vp.addChild(this.cluster_gfx);
     this.vp.addChild(this.edges_gfx);
     this.vp.addChild(this.nodes_layer);
 
@@ -173,7 +187,16 @@ export class VaultGraphRenderer {
     });
   }
 
-  set_graph(nodes: { id: string; label: string }[], edges: EdgeDef[]): void {
+  set_graph(
+    nodes: {
+      id: string;
+      label: string;
+      kind?: "hit" | "neighbor";
+      score?: number;
+      group?: string;
+    }[],
+    edges: EdgeDef[],
+  ): void {
     if (!this.pixi || !this.nodes_layer || !this.circle_texture) return;
     const { Container: C, Sprite: S, Text: T } = this.pixi;
 
@@ -184,6 +207,7 @@ export class VaultGraphRenderer {
     this.nodes_layer.removeChildren();
     this.edge_defs = edges;
     this.edges_dirty = true;
+    this.has_search_meta = nodes.some((n) => n.kind != null);
 
     for (const node of nodes) {
       const c = new C();
@@ -233,7 +257,7 @@ export class VaultGraphRenderer {
       });
 
       this.nodes_layer.addChild(c);
-      this.node_map.set(node.id, {
+      const entry: NodeEntry = {
         id: node.id,
         label_text: node.label,
         container: c,
@@ -241,7 +265,11 @@ export class VaultGraphRenderer {
         label,
         x: 0,
         y: 0,
-      });
+      };
+      if (node.kind != null) entry.kind = node.kind;
+      if (node.score != null) entry.score = node.score;
+      if (node.group != null) entry.group = node.group;
+      this.node_map.set(node.id, entry);
     }
 
     this.request_render();
@@ -355,6 +383,7 @@ export class VaultGraphRenderer {
       this.edges_dirty = true;
     }
     this.apply_culling();
+    this.draw_clusters();
     this.draw_edges();
     this.apply_visual_state();
   }
@@ -403,33 +432,133 @@ export class VaultGraphRenderer {
       const is_selected = entry.id === this.selected_id;
       const is_hovered = entry.id === this.hovered_id;
       const is_connected = this.hovered_connections.has(entry.id);
-      const is_dimmed =
-        this.filter_set !== null && !this.filter_set.has(entry.id);
 
-      if (is_dimmed) {
-        entry.circle.tint = this.colors.node;
-        entry.circle.alpha = 0.15;
-        entry.circle.scale.set(base_scale);
-      } else if (is_selected) {
-        entry.circle.tint = this.colors.primary;
-        entry.circle.alpha = 1;
-        entry.circle.scale.set(base_scale * 1.8);
-      } else if (is_hovered) {
-        entry.circle.tint = this.colors.primary;
-        entry.circle.alpha = 1;
-        entry.circle.scale.set(base_scale * 1.5);
-      } else if (is_connected) {
-        entry.circle.tint = this.colors.primary;
-        entry.circle.alpha = 1;
-        entry.circle.scale.set(base_scale);
+      if (this.has_search_meta && entry.kind != null) {
+        this.apply_search_visual(
+          entry,
+          base_scale,
+          show_labels,
+          is_selected,
+          is_hovered,
+          is_connected,
+        );
       } else {
-        entry.circle.tint = this.colors.node;
-        entry.circle.alpha = 1;
-        entry.circle.scale.set(base_scale);
+        this.apply_vault_visual(
+          entry,
+          base_scale,
+          show_labels,
+          is_selected,
+          is_hovered,
+          is_connected,
+        );
       }
+    }
+  }
 
-      entry.label.visible =
-        is_hovered || is_selected || (show_labels && is_connected);
+  private apply_vault_visual(
+    entry: NodeEntry,
+    base_scale: number,
+    show_labels: boolean,
+    is_selected: boolean,
+    is_hovered: boolean,
+    is_connected: boolean,
+  ): void {
+    const is_dimmed =
+      this.filter_set !== null && !this.filter_set.has(entry.id);
+
+    if (is_dimmed) {
+      entry.circle.tint = this.colors.node;
+      entry.circle.alpha = 0.15;
+      entry.circle.scale.set(base_scale);
+    } else if (is_selected) {
+      entry.circle.tint = this.colors.primary;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale * 1.8);
+    } else if (is_hovered) {
+      entry.circle.tint = this.colors.primary;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale * 1.5);
+    } else if (is_connected) {
+      entry.circle.tint = this.colors.primary;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale);
+    } else {
+      entry.circle.tint = this.colors.node;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale);
+    }
+
+    entry.label.visible =
+      is_hovered || is_selected || (show_labels && is_connected);
+  }
+
+  private apply_search_visual(
+    entry: NodeEntry,
+    base_scale: number,
+    show_labels: boolean,
+    is_selected: boolean,
+    is_hovered: boolean,
+    is_connected: boolean,
+  ): void {
+    const is_hit = entry.kind === "hit";
+    const score = entry.score ?? 0;
+
+    if (is_selected) {
+      entry.circle.tint = this.colors.primary;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale * 1.8);
+      entry.label.visible = true;
+    } else if (is_hovered) {
+      entry.circle.tint = this.colors.primary;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale * 1.5);
+      entry.label.visible = true;
+    } else if (is_hit) {
+      const score_factor = 0.7 + 0.6 * score;
+      entry.circle.tint = this.colors.hit;
+      entry.circle.alpha = 1;
+      entry.circle.scale.set(base_scale * score_factor * 1.4);
+      entry.label.visible = show_labels || is_connected;
+    } else {
+      entry.circle.tint = this.colors.neighbor;
+      entry.circle.alpha = is_connected ? 0.8 : 0.4;
+      entry.circle.scale.set(base_scale * 0.7);
+      entry.label.visible = is_hovered || is_connected;
+    }
+  }
+
+  private draw_clusters(): void {
+    if (!this.cluster_gfx) return;
+    if (!this.has_search_meta || !this.edges_dirty) {
+      if (!this.has_search_meta) this.cluster_gfx.clear();
+      return;
+    }
+
+    this.cluster_gfx.clear();
+
+    const groups = new Map<string, { x: number; y: number }[]>();
+    for (const entry of this.node_map.values()) {
+      if (!entry.container.visible || entry.group == null) continue;
+      let arr = groups.get(entry.group);
+      if (!arr) {
+        arr = [];
+        groups.set(entry.group, arr);
+      }
+      arr.push({ x: entry.x, y: entry.y });
+    }
+
+    for (const points of groups.values()) {
+      if (points.length < 3) continue;
+      const hull = convex_hull(points);
+      if (hull.length < 3) continue;
+      const padded = offset_polygon(hull, 30);
+
+      this.cluster_gfx.moveTo(padded[0]!.x, padded[0]!.y);
+      for (let i = 1; i < padded.length; i++) {
+        this.cluster_gfx.lineTo(padded[i]!.x, padded[i]!.y);
+      }
+      this.cluster_gfx.closePath();
+      this.cluster_gfx.fill({ color: this.colors.cluster_fill, alpha: 0.08 });
     }
   }
 
@@ -482,6 +611,17 @@ export class VaultGraphRenderer {
     }
   }
 
+  private edge_kind_alpha(source_id: string, target_id: string): number {
+    if (!this.has_search_meta) return 1;
+    const src = this.node_map.get(source_id);
+    const tgt = this.node_map.get(target_id);
+    const src_hit = src?.kind === "hit";
+    const tgt_hit = tgt?.kind === "hit";
+    if (src_hit && tgt_hit) return 1;
+    if (src_hit || tgt_hit) return 0.4;
+    return 0.2;
+  }
+
   private draw_edges(): void {
     if (!this.edges_gfx) return;
     if (!this.edges_dirty) return;
@@ -498,7 +638,13 @@ export class VaultGraphRenderer {
       z > LOD_FULL_ZOOM ? 0.55 : z > LOD_MEDIUM_ZOOM ? 0.35 : 0.2;
     const edge_width = z > LOD_FULL_ZOOM ? 1 : z > LOD_MEDIUM_ZOOM ? 0.5 : 0.3;
 
-    type EdgeEndpoints = { x1: number; y1: number; x2: number; y2: number };
+    type EdgeEndpoints = {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      kind_alpha: number;
+    };
     const dimmed: EdgeEndpoints[] = [];
     const normal: EdgeEndpoints[] = [];
     const highlighted: EdgeEndpoints[] = [];
@@ -518,53 +664,90 @@ export class VaultGraphRenderer {
         (!this.filter_set.has(edge.source) ||
           !this.filter_set.has(edge.target));
 
-      const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
+      const kind_alpha = this.edge_kind_alpha(edge.source, edge.target);
+      const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y, kind_alpha };
       if (is_dimmed) dimmed.push(ep);
       else if (is_highlighted) highlighted.push(ep);
       else normal.push(ep);
     }
 
-    for (const ep of dimmed) {
-      this.edges_gfx.moveTo(ep.x1, ep.y1);
-      this.edges_gfx.lineTo(ep.x2, ep.y2);
-    }
-    if (dimmed.length > 0) {
-      this.edges_gfx.stroke({
-        width: edge_width,
-        color: this.colors.edge,
-        alpha: 0.08,
-      });
-    }
+    if (this.has_search_meta) {
+      for (const ep of dimmed) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+        this.edges_gfx.stroke({
+          width: edge_width,
+          color: this.colors.edge,
+          alpha: 0.08 * ep.kind_alpha,
+        });
+      }
+      for (const ep of normal) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+        this.edges_gfx.stroke({
+          width: edge_width,
+          color: this.colors.edge,
+          alpha: edge_alpha * ep.kind_alpha,
+        });
+      }
+      for (const ep of highlighted) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+        this.edges_gfx.stroke({
+          width: 1.5,
+          color: this.colors.primary,
+          alpha: 0.9,
+        });
+      }
+    } else {
+      for (const ep of dimmed) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+      }
+      if (dimmed.length > 0) {
+        this.edges_gfx.stroke({
+          width: edge_width,
+          color: this.colors.edge,
+          alpha: 0.08,
+        });
+      }
 
-    for (const ep of normal) {
-      this.edges_gfx.moveTo(ep.x1, ep.y1);
-      this.edges_gfx.lineTo(ep.x2, ep.y2);
-    }
-    if (normal.length > 0) {
-      this.edges_gfx.stroke({
-        width: edge_width,
-        color: this.colors.edge,
-        alpha: edge_alpha,
-      });
-    }
+      for (const ep of normal) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+      }
+      if (normal.length > 0) {
+        this.edges_gfx.stroke({
+          width: edge_width,
+          color: this.colors.edge,
+          alpha: edge_alpha,
+        });
+      }
 
-    for (const ep of highlighted) {
-      this.edges_gfx.moveTo(ep.x1, ep.y1);
-      this.edges_gfx.lineTo(ep.x2, ep.y2);
-    }
-    if (highlighted.length > 0) {
-      this.edges_gfx.stroke({
-        width: 1.5,
-        color: this.colors.primary,
-        alpha: 0.9,
-      });
+      for (const ep of highlighted) {
+        this.edges_gfx.moveTo(ep.x1, ep.y1);
+        this.edges_gfx.lineTo(ep.x2, ep.y2);
+      }
+      if (highlighted.length > 0) {
+        this.edges_gfx.stroke({
+          width: 1.5,
+          color: this.colors.primary,
+          alpha: 0.9,
+        });
+      }
     }
 
     if (!this.show_semantic) return;
 
-    const sem_dimmed: EdgeEndpoints[] = [];
-    const sem_normal: EdgeEndpoints[] = [];
-    const sem_highlighted: Array<EdgeEndpoints & { width: number }> = [];
+    type SimpleEdgeEndpoints = {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+    };
+    const sem_dimmed: SimpleEdgeEndpoints[] = [];
+    const sem_normal: SimpleEdgeEndpoints[] = [];
+    const sem_highlighted: Array<SimpleEdgeEndpoints & { width: number }> = [];
 
     for (const edge of this.semantic_edge_defs) {
       const src = this.node_map.get(edge.source);
@@ -632,9 +815,9 @@ export class VaultGraphRenderer {
 
     if (!this.show_smart_links) return;
 
-    const sl_dimmed: EdgeEndpoints[] = [];
-    const sl_normal: EdgeEndpoints[] = [];
-    const sl_highlighted: Array<EdgeEndpoints & { width: number }> = [];
+    const sl_dimmed: SimpleEdgeEndpoints[] = [];
+    const sl_normal: SimpleEdgeEndpoints[] = [];
+    const sl_highlighted: Array<SimpleEdgeEndpoints & { width: number }> = [];
 
     for (const edge of this.smart_link_edge_defs) {
       const src = this.node_map.get(edge.source);
@@ -732,6 +915,21 @@ export class VaultGraphRenderer {
       el,
       "--graph-label",
       resolve_css_color(el, "--foreground", 0xffffff),
+    );
+    this.colors.hit = resolve_css_color(
+      el,
+      "--graph-node-hit",
+      this.colors.primary,
+    );
+    this.colors.neighbor = resolve_css_color(
+      el,
+      "--graph-node-neighbor",
+      this.colors.node,
+    );
+    this.colors.cluster_fill = resolve_css_color(
+      el,
+      "--graph-cluster-fill",
+      0x334155,
     );
   }
 }

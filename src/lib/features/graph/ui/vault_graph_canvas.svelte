@@ -61,7 +61,22 @@
   let edge_tooltip = $state<EdgeHoverInfo | null>(null);
 
   function plain_nodes(snap: VaultGraphSnapshot) {
-    return snap.nodes.map((n) => ({ id: n.path, label: n.title }));
+    return snap.nodes.map((n) => {
+      const base: {
+        id: string;
+        label: string;
+        kind?: "hit" | "neighbor";
+        score?: number;
+        group?: string;
+      } = {
+        id: n.path,
+        label: n.title,
+      };
+      if (n.kind != null) base.kind = n.kind;
+      if (n.score != null) base.score = n.score;
+      if (n.group != null) base.group = n.group;
+      return base;
+    });
   }
 
   function plain_edges(snap: VaultGraphSnapshot) {
@@ -116,11 +131,23 @@
         r.update_positions(positions);
       }
     };
+    const has_search_meta = snap.nodes.some((n) => n.kind != null);
     w.postMessage({
       type: "init",
-      nodes: snap.nodes.map((n) => ({ id: n.path })),
+      nodes: snap.nodes.map((n) => ({
+        id: n.path,
+        kind: n.kind,
+        group: n.group,
+      })),
       edges: plain_edges(snap),
       force_params,
+      grouping: has_search_meta
+        ? {
+            mode: "both" as const,
+            folder_strength: 0.3,
+            hit_center_strength: 0.4,
+          }
+        : undefined,
     });
   }
 

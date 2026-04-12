@@ -4,12 +4,18 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   type Simulation,
   type SimulationNodeDatum,
   type SimulationLinkDatum,
 } from "d3-force";
 
-type WorkerNode = SimulationNodeDatum & { id: string };
+type WorkerNode = SimulationNodeDatum & {
+  id: string;
+  kind?: "hit" | "neighbor";
+  group?: string;
+};
 type WorkerEdge = SimulationLinkDatum<WorkerNode> & {
   source_id: string;
   target_id: string;
@@ -22,12 +28,25 @@ type ForceParams = {
   charge_max_distance: number;
 };
 
+type GroupingParams = {
+  mode: "both" | "hit_center" | "folder";
+  folder_strength: number;
+  hit_center_strength: number;
+};
+
 type InboundMessage =
   | {
       type: "init";
-      nodes: { id: string; x?: number; y?: number }[];
+      nodes: {
+        id: string;
+        x?: number;
+        y?: number;
+        kind?: "hit" | "neighbor";
+        group?: string;
+      }[];
       edges: { source: string; target: string }[];
       force_params?: ForceParams;
+      grouping?: GroupingParams;
     }
   | { type: "tick_budget"; ticks: number }
   | { type: "reheat"; alpha?: number }
@@ -71,6 +90,23 @@ function send_positions(): void {
   ]);
 }
 
+function compute_group_grid(
+  groups: string[],
+): Map<string, { x: number; y: number }> {
+  const unique = [...new Set(groups)].sort();
+  const cols = Math.ceil(Math.sqrt(unique.length));
+  const spacing = 300;
+  const result = new Map<string, { x: number; y: number }>();
+  for (let i = 0; i < unique.length; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = (col - (cols - 1) / 2) * spacing;
+    const cy = (row - (Math.ceil(unique.length / cols) - 1) / 2) * spacing;
+    result.set(unique[i]!, { x: cx, y: cy });
+  }
+  return result;
+}
+
 function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
   if (simulation) {
     simulation.stop();
@@ -78,11 +114,12 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
 
   const node_set = new Set(msg.nodes.map((n) => n.id));
 
-  nodes = msg.nodes.map((n) => ({
-    id: n.id,
-    x: n.x,
-    y: n.y,
-  }));
+  nodes = msg.nodes.map((n) => {
+    const node: WorkerNode = { id: n.id, x: n.x, y: n.y };
+    if (n.kind != null) node.kind = n.kind;
+    if (n.group != null) node.group = n.group;
+    return node;
+  });
   node_ids = nodes.map((n) => n.id);
 
   const edges: WorkerEdge[] = msg.edges
@@ -100,7 +137,7 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
   const collision = fp?.collision_radius ?? 20;
   const charge_max = fp?.charge_max_distance ?? 500;
 
-  simulation = forceSimulation<WorkerNode, WorkerEdge>(nodes)
+  const sim = forceSimulation<WorkerNode, WorkerEdge>(nodes)
     .force(
       "link",
       forceLink<WorkerNode, WorkerEdge>(edges)
@@ -111,6 +148,50 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
     .force("center", forceCenter(0, 0))
     .force("collide", forceCollide(collision))
     .stop();
+
+  const gp = msg.grouping;
+  if (gp) {
+    const use_hit_center = gp.mode === "both" || gp.mode === "hit_center";
+    const use_folder = gp.mode === "both" || gp.mode === "folder";
+
+    if (use_hit_center) {
+      const strength = gp.hit_center_strength;
+      sim.force(
+        "hit_x",
+        forceX<WorkerNode>(0).strength((d) =>
+          d.kind === "hit" ? strength : 0,
+        ),
+      );
+      sim.force(
+        "hit_y",
+        forceY<WorkerNode>(0).strength((d) =>
+          d.kind === "hit" ? strength : 0,
+        ),
+      );
+    }
+
+    if (use_folder) {
+      const groups = nodes.filter((n) => n.group != null).map((n) => n.group!);
+      if (groups.length > 0) {
+        const grid = compute_group_grid(groups);
+        const strength = gp.folder_strength;
+        sim.force(
+          "folder_x",
+          forceX<WorkerNode>((d) => grid.get(d.group ?? "")?.x ?? 0).strength(
+            (d) => (d.group != null ? strength : 0),
+          ),
+        );
+        sim.force(
+          "folder_y",
+          forceY<WorkerNode>((d) => grid.get(d.group ?? "")?.y ?? 0).strength(
+            (d) => (d.group != null ? strength : 0),
+          ),
+        );
+      }
+    }
+  }
+
+  simulation = sim;
 
   const budget = compute_tick_budget(nodes.length);
   for (let i = 0; i < budget; i++) {

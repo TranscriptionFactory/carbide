@@ -5,6 +5,9 @@ import type { OrphanLink } from "$lib/shared/types/search";
 export type VaultGraphNode = {
   path: string;
   title: string;
+  kind?: "hit" | "neighbor";
+  score?: number;
+  group?: string;
 };
 
 export type VaultGraphEdge = {

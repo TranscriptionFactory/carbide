@@ -35,10 +35,36 @@
     on_open_node,
   }: Props = $props();
 
+  function folder_from_path(path: string): string {
+    const idx = path.lastIndexOf("/");
+    return idx >= 0 ? path.slice(0, idx) : "";
+  }
+
+  function normalize_scores(
+    nodes: SearchGraphSnapshot["nodes"],
+  ): Map<string, number> {
+    let max_score = 0;
+    for (const n of nodes) {
+      if (n.score != null && n.score > max_score) max_score = n.score;
+    }
+    const result = new Map<string, number>();
+    for (const n of nodes) {
+      result.set(
+        n.path,
+        max_score > 0 && n.score != null ? n.score / max_score : 0,
+      );
+    }
+    return result;
+  }
+
   function to_vault_snapshot(snap: SearchGraphSnapshot): VaultGraphSnapshot {
+    const scores = normalize_scores(snap.nodes);
     const nodes: VaultGraphNode[] = snap.nodes.map((n) => ({
       path: n.path,
       title: n.title,
+      kind: n.kind,
+      score: scores.get(n.path) ?? 0,
+      group: folder_from_path(n.path),
     }));
     const edges: VaultGraphEdge[] = snap.edges
       .filter((e) => e.edge_type === "wiki")
@@ -78,10 +104,6 @@
       }));
   }
 
-  const hit_ids = $derived(
-    new Set(snapshot.nodes.filter((n) => n.kind === "hit").map((n) => n.path)),
-  );
-
   const vault_snapshot = $derived(to_vault_snapshot(snapshot));
   const semantic_edges = $derived(extract_semantic_edges(snapshot.edges));
   const smart_link_edges = $derived(extract_smart_link_edges(snapshot.edges));
@@ -91,7 +113,6 @@
 <VaultGraphCanvas
   snapshot={vault_snapshot}
   filter_query=""
-  filter_override_ids={hit_ids}
   selected_node_ids={selected_list}
   {hovered_node_id}
   {semantic_edges}
