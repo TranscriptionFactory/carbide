@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
@@ -43,8 +44,10 @@ export default defineConfig({
       include: ["stream", "buffer", "process", "events", "util"],
     }),
   ],
-  define: {
-    __dirname: '""',
+  resolve: {
+    alias: {
+      pdfkit: resolve("node_modules/pdfkit/js/pdfkit.standalone.js"),
+    },
   },
   build: {
     chunkSizeWarningLimit: 3500,
