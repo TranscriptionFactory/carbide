@@ -35,10 +35,7 @@ function create_instance(query: string): SearchGraphInstance {
 export class SearchGraphStore {
   instances = $state<Map<string, SearchGraphInstance>>(new Map());
 
-  private update(
-    tab_id: string,
-    patch: Partial<SearchGraphInstance>,
-  ): void {
+  private update(tab_id: string, patch: Partial<SearchGraphInstance>): void {
     const inst = this.instances.get(tab_id);
     if (!inst) return;
     const next = new Map(this.instances);
