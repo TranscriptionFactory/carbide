@@ -469,9 +469,9 @@ fn block_semantic_similarity_finds_similar_blocks_across_notes() {
     let vec_a = vec![1.0f32, 0.0, 0.0];
     let vec_b_similar = vec![0.95, 0.05, 0.0];
     let vec_c_different = vec![0.0, 0.0, 1.0];
-    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a).unwrap();
-    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b_similar).unwrap();
-    vector_db::upsert_block_embedding(&conn, "c.md", "h-1-other-0", &vec_c_different).unwrap();
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a, "").unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b_similar, "").unwrap();
+    vector_db::upsert_block_embedding(&conn, "c.md", "h-1-other-0", &vec_c_different, "").unwrap();
 
     let groups = make_rule_group("block_semantic_similarity", 1.0);
     let results = compute(&conn, "a.md", &groups);
@@ -504,10 +504,10 @@ fn block_semantic_similarity_aggregates_best_score_per_note() {
     let vec_a2 = vec![0.0, 1.0, 0.0];
     let vec_b1 = vec![0.95, 0.05, 0.0];
     let vec_b2 = vec![0.05, 0.95, 0.0];
-    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a1).unwrap();
-    vector_db::upsert_block_embedding(&conn, "a.md", "h-2-details-0", &vec_a2).unwrap();
-    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b1).unwrap();
-    vector_db::upsert_block_embedding(&conn, "b.md", "h-2-methods-0", &vec_b2).unwrap();
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-1-intro-0", &vec_a1, "").unwrap();
+    vector_db::upsert_block_embedding(&conn, "a.md", "h-2-details-0", &vec_a2, "").unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-1-setup-0", &vec_b1, "").unwrap();
+    vector_db::upsert_block_embedding(&conn, "b.md", "h-2-methods-0", &vec_b2, "").unwrap();
 
     let groups = make_rule_group("block_semantic_similarity", 1.0);
     let results = compute(&conn, "a.md", &groups);

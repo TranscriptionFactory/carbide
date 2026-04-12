@@ -226,6 +226,14 @@ impl VectorIndex {
         self.key_to_id.is_empty()
     }
 
+    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+        self.key_to_id
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect()
+    }
+
     fn stale_count(&self) -> usize {
         self.next_id.saturating_sub(self.key_to_id.len())
     }
