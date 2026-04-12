@@ -132,6 +132,8 @@ export function create_app_context(input: {
     stores.plugin_settings,
   );
 
+  plugin_service.set_diagnostics_store(stores.diagnostics);
+
   plugin_service.on_plugin_cleanup((plugin_id) => {
     stores.diagnostics.clear_source(`plugin:${plugin_id}` as DiagnosticSource);
   });

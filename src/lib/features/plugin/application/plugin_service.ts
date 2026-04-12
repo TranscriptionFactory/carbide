@@ -27,6 +27,8 @@ import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginSettingsStore } from "../state/plugin_settings_store.svelte";
 import { create_logger } from "$lib/shared/utils/logger";
 import { merge_plugin_settings_schema } from "./plugin_settings_schema";
+import type { DiagnosticsStore } from "$lib/features/diagnostics";
+import type { DiagnosticSource, Diagnostic } from "$lib/features/diagnostics";
 
 const log = create_logger("plugin_service");
 
@@ -38,6 +40,7 @@ export class PluginService {
   private event_bus = new PluginEventBus();
   private settings_service: PluginSettingsService | null = null;
   private iframe_post_message_map = new Map<string, (msg: unknown) => void>();
+  private diagnostics_store: DiagnosticsStore | null = null;
   private cleanup_callbacks: ((plugin_id: string) => void)[] = [];
   private unsubscribe_changes: (() => void) | null = null;
   private reload_debounce_timers = new Map<
@@ -80,6 +83,10 @@ export class PluginService {
         "events:subscribe",
       );
     });
+  }
+
+  set_diagnostics_store(store: DiagnosticsStore) {
+    this.diagnostics_store = store;
   }
 
   on_plugin_cleanup(callback: (plugin_id: string) => void) {
@@ -543,6 +550,22 @@ export class PluginService {
 
     if (response.error) {
       const action = this.error_tracker.record_error(id, Date.now());
+
+      if (this.diagnostics_store) {
+        const source = `plugin:${id}` as DiagnosticSource;
+        const diag: Diagnostic = {
+          source,
+          severity: "error",
+          message: `[${request.method}] ${response.error}`,
+          rule_id: request.method,
+          line: 0,
+          column: 0,
+          end_line: 0,
+          end_column: 0,
+          fixable: false,
+        };
+        this.diagnostics_store.push(source, `_plugins/${id}`, [diag]);
+      }
 
       if (action === "auto_disable") {
         this.notification_port?.notify_plugin_auto_disabled(

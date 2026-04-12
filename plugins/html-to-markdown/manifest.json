@@ -5,7 +5,13 @@
   "author": "Carbide",
   "description": "Convert HTML files in your vault to Markdown using Turndown.",
   "api_version": "1",
-  "permissions": ["fs:read", "fs:write", "commands:register"],
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "commands:register",
+    "editor:read",
+    "events:subscribe"
+  ],
   "activation_events": ["on_startup"],
   "contributes": {
     "settings": [

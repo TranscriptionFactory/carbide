@@ -160,7 +160,12 @@ export type PluginRpcContext = {
   };
   stores: {
     notes: { notes: Array<{ path: string }> };
-    editor: { open_note: { markdown: string } | null };
+    editor: {
+      open_note: {
+        markdown: string;
+        meta: { path: string; name: string };
+      } | null;
+    };
   };
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
@@ -237,9 +242,12 @@ function read_command_definition(input: unknown): CommandDefinition {
   return {
     id: read_string(record.id, "command.id") as CommandDefinition["id"],
     label: read_string(record.label, "command.label"),
-    description: read_string(record.description, "command.description"),
-    keywords: read_string_array(record.keywords, "command.keywords"),
-    icon: read_string(record.icon, "command.icon") as CommandDefinition["icon"],
+    description: read_optional_string(record.description) ?? "",
+    keywords: Array.isArray(record.keywords)
+      ? read_string_array(record.keywords, "command.keywords")
+      : [],
+    icon: (read_optional_string(record.icon) ??
+      "puzzle") as CommandDefinition["icon"],
   };
 }
 
@@ -637,6 +645,8 @@ export class PluginRpcHandler {
         );
         return { success: true };
       }
+      case "get_info":
+        return { path: open_note.meta.path, name: open_note.meta.name };
       default:
         throw new Error(`Unknown editor action: ${action}`);
     }

@@ -154,7 +154,10 @@ describe("PluginRpcHandler", () => {
   describe("editor.*", () => {
     it("returns editor content when editor:read is granted", async () => {
       grant_permissions("editor:read");
-      ctx.context.stores.editor.open_note = { markdown: "# Active" };
+      ctx.context.stores.editor.open_note = {
+        markdown: "# Active",
+        meta: { path: "test.md", name: "test" },
+      };
 
       const manifest = make_manifest(["editor:read"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -169,7 +172,10 @@ describe("PluginRpcHandler", () => {
 
     it("blocks editor writes when editor:modify is not granted", async () => {
       grant_permissions("editor:read");
-      ctx.context.stores.editor.open_note = { markdown: "# Active" };
+      ctx.context.stores.editor.open_note = {
+        markdown: "# Active",
+        meta: { path: "test.md", name: "test" },
+      };
 
       const manifest = make_manifest(["editor:read", "editor:modify"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
@@ -179,6 +185,51 @@ describe("PluginRpcHandler", () => {
       });
 
       expect(response.error).toMatch(/Missing editor:modify permission/);
+    });
+
+    it("returns file info via editor.get_info", async () => {
+      grant_permissions("editor:read");
+      ctx.context.stores.editor.open_note = {
+        markdown: "# Active",
+        meta: { path: "notes/hello.md", name: "hello" },
+      };
+
+      const manifest = make_manifest(["editor:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "ed3",
+        method: "editor.get_info",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({
+        path: "notes/hello.md",
+        name: "hello",
+      });
+    });
+  });
+
+  describe("commands.register optional fields", () => {
+    it("registers a command without description, keywords, or icon", async () => {
+      grant_permissions("commands:register");
+      const manifest = make_manifest(["commands:register"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "cmd1",
+        method: "commands.register",
+        params: [{ id: "test-cmd", label: "Test Command" }],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({ success: true });
+      expect(ctx.plugin.register_command).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: `${PLUGIN_ID}:test-cmd`,
+          label: "Test Command",
+          description: "",
+          keywords: [],
+          icon: "puzzle",
+        }),
+      );
     });
   });
 

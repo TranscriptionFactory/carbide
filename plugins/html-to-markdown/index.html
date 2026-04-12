@@ -67,7 +67,7 @@
           files = await rpc.send("vault.list");
         } catch (err) {
           await rpc.send("ui.show_notice", {
-            message: "HTML→MD: failed to list vault files",
+            message: "HTML\u2192MD: failed to list vault files",
           });
           return;
         }
@@ -78,7 +78,7 @@
 
         if (html_files.length === 0) {
           await rpc.send("ui.show_notice", {
-            message: "HTML→MD: no .html files found",
+            message: "HTML\u2192MD: no .html files found",
           });
           return;
         }
@@ -121,8 +121,55 @@
         if (errors.length > 0) parts.push(`${errors.length} failed`);
 
         await rpc.send("ui.show_notice", {
-          message: `HTML→MD: ${parts.join(", ")}`,
+          message: `HTML\u2192MD: ${parts.join(", ")}`,
         });
+      }
+
+      async function convert_current_html() {
+        let info;
+        try {
+          info = await rpc.send("editor.get_info");
+        } catch (err) {
+          await rpc.send("ui.show_notice", {
+            message: "HTML\u2192MD: no file open in editor",
+          });
+          return;
+        }
+
+        if (!info || !info.path.toLowerCase().endsWith(".html")) {
+          await rpc.send("ui.show_notice", {
+            message: "HTML\u2192MD: current file is not an HTML file",
+          });
+          return;
+        }
+
+        let settings = {};
+        try {
+          settings = (await rpc.send("settings.get_all")) || {};
+        } catch {}
+
+        const turndown = create_turndown_service(settings);
+        const md_path = info.path.replace(/\.html$/i, ".md");
+
+        try {
+          const html = await rpc.send("vault.read", info.path);
+          if (!html) {
+            await rpc.send("ui.show_notice", {
+              message: "HTML\u2192MD: file is empty",
+            });
+            return;
+          }
+
+          const markdown = turndown.turndown(html);
+          await rpc.send("vault.create", md_path, markdown);
+          await rpc.send("ui.show_notice", {
+            message: `HTML\u2192MD: converted ${info.name} \u2192 ${md_path}`,
+          });
+        } catch (err) {
+          await rpc.send("ui.show_notice", {
+            message: `HTML\u2192MD: failed to convert ${info.name}`,
+          });
+        }
       }
 
       let activated = false;
@@ -132,7 +179,16 @@
           activated = true;
           await rpc.send("commands.register", {
             id: "convert",
-            label: "Convert HTML to Markdown",
+            label: "Convert all HTML to Markdown",
+            description: "Convert all HTML files in the vault to Markdown",
+            keywords: ["html", "markdown", "convert", "batch"],
+            icon: "file-text",
+          });
+          await rpc.send("commands.register", {
+            id: "convert-current",
+            label: "Convert current HTML file to Markdown",
+            description: "Convert the currently open HTML file to Markdown",
+            keywords: ["html", "markdown", "convert", "current"],
             icon: "file-text",
           });
         }
@@ -141,6 +197,9 @@
           const cmd = event.data.params?.[0];
           if (cmd === "html-to-markdown:convert") {
             await convert_all_html();
+          }
+          if (cmd === "html-to-markdown:convert-current") {
+            await convert_current_html();
           }
         }
       });
