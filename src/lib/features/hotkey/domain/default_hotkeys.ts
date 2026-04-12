@@ -394,6 +394,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Show or hide the problems panel",
     category: "navigation",
   },
+  {
+    action_id: ACTION_IDS.search_graph_open,
+    key: "CmdOrCtrl+Alt+G",
+    phase: "capture",
+    label: "Open Search Graph",
+    description: "Open a search graph tab to visualize search results",
+    category: "navigation",
+  },
   // STT removed — archived on archive/stt-main
   // {
   //   action_id: ACTION_IDS.stt_toggle_recording,

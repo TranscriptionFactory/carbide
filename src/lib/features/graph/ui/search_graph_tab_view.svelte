@@ -24,11 +24,10 @@
   let debounce_timer: ReturnType<typeof setTimeout> | undefined;
 
   function handle_input(value: string) {
-    void action_registry.execute(
-      ACTION_IDS.search_graph_execute,
+    void action_registry.execute(ACTION_IDS.search_graph_execute, {
       tab_id,
-      value,
-    );
+      query: value,
+    });
   }
 
   function debounced_input(value: string) {
@@ -39,19 +38,17 @@
 
   function select_node(path: string | null) {
     if (!path) return;
-    void action_registry.execute(
-      ACTION_IDS.search_graph_select_node,
+    void action_registry.execute(ACTION_IDS.search_graph_select_node, {
       tab_id,
-      path,
-    );
+      node_id: path,
+    });
   }
 
   function hover_node(path: string | null) {
-    void action_registry.execute(
-      ACTION_IDS.search_graph_hover_node,
+    void action_registry.execute(ACTION_IDS.search_graph_hover_node, {
       tab_id,
-      path,
-    );
+      node_id: path,
+    });
   }
 
   function open_node(path: string) {

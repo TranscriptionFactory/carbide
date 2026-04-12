@@ -61,6 +61,7 @@ export type CommandId =
   | "open_in_split_view"
   | "update_embeddings"
   | "rebuild_embeddings"
+  | "open_search_graph"
   | (string & {});
 
 export type CommandIcon =
@@ -79,6 +80,7 @@ export type CommandIcon =
   | "terminal"
   | "blocks"
   | "maximize"
+  | "search"
   | (string & {});
 
 export type CommandDefinition = {

@@ -521,4 +521,18 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["embedding", "semantic", "vector", "rebuild", "reindex"],
     icon: "settings",
   },
+  {
+    id: "open_search_graph",
+    label: "Open Search Graph",
+    description: "Search notes and visualize results as a connected subgraph",
+    keywords: [
+      "search",
+      "graph",
+      "visualize",
+      "network",
+      "connections",
+      "subgraph",
+    ],
+    icon: "search",
+  },
 ];

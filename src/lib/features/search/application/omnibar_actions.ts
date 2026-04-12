@@ -68,6 +68,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
   update_embeddings: ACTION_IDS.vault_update_embeddings,
   rebuild_embeddings: ACTION_IDS.vault_rebuild_embeddings,
+  open_search_graph: ACTION_IDS.search_graph_open,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,
