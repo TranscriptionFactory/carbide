@@ -34,7 +34,11 @@ import {
   DocumentService,
   register_document_actions,
 } from "$lib/features/document";
-import { GraphService, register_graph_actions } from "$lib/features/graph";
+import {
+  GraphService,
+  register_graph_actions,
+  register_search_graph_actions,
+} from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
 import {
@@ -545,6 +549,7 @@ export function create_app_context(input: {
     stores.vault,
     stores.editor,
     stores.graph,
+    stores.search_graph,
   );
 
   const ai_service = new AiService(input.ports.ai, stores.vault);
@@ -857,6 +862,12 @@ export function create_app_context(input: {
   register_graph_actions({
     ...base_action_input,
     graph_store: stores.graph,
+    graph_service,
+  });
+
+  register_search_graph_actions({
+    ...base_action_input,
+    search_graph_store: stores.search_graph,
     graph_service,
   });
 
