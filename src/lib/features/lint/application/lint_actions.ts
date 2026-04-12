@@ -48,11 +48,11 @@ export function register_lint_actions(input: {
       const formatted = apply_lint_text_edits(current, edits);
       if (formatted === current) return;
 
+      editor_service.sync_visual_from_markdown_undoable(formatted);
       editor_store.set_markdown(
         open_note.meta.id as NoteId,
         as_markdown_text(formatted),
       );
-      editor_service.sync_visual_from_markdown(formatted);
       editor_store.set_dirty(open_note.meta.id as NoteId, true);
     },
   });
@@ -80,11 +80,11 @@ export function register_lint_actions(input: {
       const open_note = editor_store.open_note;
       if (!open_note) return;
 
+      editor_service.sync_visual_from_markdown_undoable(fixed);
       editor_store.set_markdown(
         open_note.meta.id as NoteId,
         as_markdown_text(fixed),
       );
-      editor_service.sync_visual_from_markdown(fixed);
       editor_store.set_dirty(open_note.meta.id as NoteId, true);
     },
   });
