@@ -1,5 +1,6 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { GraphPort } from "$lib/features/graph/ports";
+import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import {
   SEMANTIC_EDGE_DISTANCE_THRESHOLD,
@@ -12,6 +13,12 @@ import {
   SMART_LINK_EDGE_PER_NOTE_LIMIT,
 } from "$lib/features/graph/domain/smart_link_edges";
 import type { SearchPort } from "$lib/features/search";
+import {
+  extract_search_subgraph,
+  compute_auto_expanded_ids,
+  type SearchSubgraphHit,
+} from "$lib/features/graph/domain/search_subgraph";
+import type { SearchQuery } from "$lib/shared/types/search";
 import type { VaultStore } from "$lib/features/vault";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -31,6 +38,7 @@ export class GraphService {
     private readonly vault_store: VaultStore,
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
+    private readonly search_graph_store?: SearchGraphStore,
   ) {}
 
   private get_active_vault_id() {
@@ -348,5 +356,65 @@ export class GraphService {
     ) {
       await this.load_smart_link_edges(settings);
     }
+  }
+
+  async execute_search_graph(tab_id: string, query: string): Promise<void> {
+    if (!this.search_graph_store) return;
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+
+    this.search_graph_store.set_loading(tab_id);
+    this.search_graph_store.update_query(tab_id, query);
+
+    try {
+      const search_query: SearchQuery = {
+        raw: query,
+        text: query,
+        scope: "content",
+        domain: "notes",
+      };
+      const hits = await this.search_port.search_notes(
+        vault_id,
+        search_query,
+        50,
+      );
+
+      let vault_snapshot = this.graph_store.vault_snapshot;
+      if (!vault_snapshot) {
+        vault_snapshot = await this.graph_port.load_vault_graph(vault_id);
+        this.graph_store.set_vault_snapshot(vault_snapshot);
+      }
+
+      const subgraph_hits: SearchSubgraphHit[] = hits.map((h) => {
+        const hit: SearchSubgraphHit = {
+          path: h.note.path,
+          title: h.note.title,
+          score: h.score,
+        };
+        if (h.snippet) hit.snippet = h.snippet;
+        return hit;
+      });
+
+      const snapshot = extract_search_subgraph(subgraph_hits, vault_snapshot);
+      const auto_expanded = compute_auto_expanded_ids(snapshot);
+      this.search_graph_store.set_snapshot(tab_id, snapshot, auto_expanded);
+    } catch (error) {
+      log.error("Failed to execute search graph", {
+        error: error_message(error),
+      });
+      this.search_graph_store.set_error(tab_id, error_message(error));
+    }
+  }
+
+  select_search_graph_node(tab_id: string, node_id: string | null): void {
+    this.search_graph_store?.select_node(tab_id, node_id);
+  }
+
+  hover_search_graph_node(tab_id: string, node_id: string | null): void {
+    this.search_graph_store?.set_hovered_node(tab_id, node_id);
+  }
+
+  toggle_search_graph_user_expanded(tab_id: string, node_id: string): void {
+    this.search_graph_store?.toggle_user_expanded(tab_id, node_id);
   }
 }

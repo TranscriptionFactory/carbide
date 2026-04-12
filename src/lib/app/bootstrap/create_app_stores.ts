@@ -30,6 +30,7 @@ import { ReferenceStore } from "$lib/features/reference";
 import { VimNavStore } from "$lib/features/vim_nav";
 import { McpStore } from "$lib/features/mcp";
 import { SmartLinksStore } from "$lib/features/smart_links";
+import { SearchGraphStore } from "$lib/features/graph";
 // STT removed — archived on archive/stt-main
 // import { SttStore } from "$lib/features/stt";
 
@@ -68,6 +69,7 @@ export type AppStores = {
   vim_nav: VimNavStore;
   mcp: McpStore;
   smart_links: SmartLinksStore;
+  search_graph: SearchGraphStore;
   // stt: SttStore;
 };
 
@@ -107,6 +109,7 @@ export function create_app_stores(): AppStores {
     vim_nav: new VimNavStore(),
     mcp: new McpStore(),
     smart_links: new SmartLinksStore(),
+    search_graph: new SearchGraphStore(),
     // stt: new SttStore(),
   };
 }
