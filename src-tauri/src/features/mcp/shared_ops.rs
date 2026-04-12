@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::features::notes::service::{
@@ -59,6 +59,18 @@ pub struct ListNotesArgs {
     pub vault_id: String,
     #[serde(default)]
     pub folder: Option<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub offset: Option<usize>,
+}
+
+#[derive(Serialize)]
+pub struct PaginatedResponse<T: Serialize> {
+    pub items: Vec<T>,
+    pub total: usize,
+    pub limit: usize,
+    pub offset: usize,
 }
 
 #[derive(Deserialize)]
@@ -271,7 +283,9 @@ pub fn list_notes(
     app: &AppHandle,
     vault_id: &str,
     folder: Option<&str>,
-) -> Result<Vec<NoteMeta>, OpError> {
+    limit: usize,
+    offset: usize,
+) -> Result<PaginatedResponse<NoteMeta>, OpError> {
     let mut notes =
         notes_service::list_notes(app.clone(), vault_id.to_string()).map_err(OpError::Internal)?;
 
@@ -284,7 +298,15 @@ pub fn list_notes(
         notes.retain(|n| n.path.starts_with(&prefix));
     }
 
-    Ok(notes)
+    let total = notes.len();
+    let items: Vec<NoteMeta> = notes.into_iter().skip(offset).take(limit).collect();
+
+    Ok(PaginatedResponse {
+        items,
+        total,
+        limit,
+        offset,
+    })
 }
 
 pub fn search_notes_db(
