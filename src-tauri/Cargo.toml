@@ -3,7 +3,7 @@ members = [".", "crates/carbide-cli"]
 
 [package]
 name = "carbide"
-version = "1.19.0"
+version = "1.20.0"
 description = "Local-first markdown vault"
 authors = ["altamkhan"]
 edition = "2021"
