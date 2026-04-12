@@ -405,10 +405,15 @@ describe("export_note_as_pdf", () => {
       })),
     }));
 
+    const ttf_header = new Uint8Array(100);
+    ttf_header[0] = 0x00;
+    ttf_header[1] = 0x01;
+    ttf_header[2] = 0x00;
+    ttf_header[3] = 0x00;
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
+        arrayBuffer: () => Promise.resolve(ttf_header.buffer),
       }),
     ) as unknown as typeof fetch;
   });
@@ -443,15 +448,32 @@ describe("export_note_as_pdf", () => {
     expect(mock_invoke).not.toHaveBeenCalled();
   });
 
-  it("loads Inter fonts before rendering", async () => {
+  it("loads Inter fonts via Vite asset URLs", async () => {
     const { export_note_as_pdf: export_fn } =
       await import("$lib/features/document/domain/pdf_export");
     await export_fn("My Note", "Hello");
-    expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Regular.ttf");
-    expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Bold.ttf");
-    expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Italic.ttf");
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/fonts/Inter-BoldItalic.ttf",
+    const fetch_urls = (
+      globalThis.fetch as ReturnType<typeof vi.fn>
+    ).mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(fetch_urls).toHaveLength(4);
+    for (const url of fetch_urls) {
+      expect(url).toMatch(/Inter-.+\.ttf/);
+    }
+  });
+
+  it("throws when font response is not valid TTF", async () => {
+    const bad_bytes = new Uint8Array(100);
+    bad_bytes[0] = 0x3c; // '<' — HTML
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(bad_bytes.buffer),
+      }),
+    ) as unknown as typeof fetch;
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await expect(export_fn("My Note", "Hello")).rejects.toThrow(
+      /not a valid TTF/i,
     );
   });
 
