@@ -35,29 +35,40 @@
 
   let output_buffer: Uint8Array[] = [];
   let flush_scheduled = false;
+  let write_pending = false;
+
+  function merge_output_chunks(chunks: Uint8Array[]): Uint8Array {
+    if (chunks.length === 1) return chunks[0]!;
+    const total = chunks.reduce((sum, c) => sum + c.length, 0);
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+      merged.set(c, offset);
+      offset += c.length;
+    }
+    return merged;
+  }
 
   function flush_output() {
     flush_scheduled = false;
-    if (!terminal || output_buffer.length === 0) return;
+    if (!terminal || output_buffer.length === 0 || write_pending) return;
 
-    if (output_buffer.length === 1) {
-      terminal.write(output_buffer[0]!);
-    } else {
-      const total = output_buffer.reduce((sum, chunk) => sum + chunk.length, 0);
-      const merged = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of output_buffer) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-      terminal.write(merged);
-    }
+    write_pending = true;
+    const data = merge_output_chunks(output_buffer);
     output_buffer = [];
+
+    terminal.write(data, () => {
+      write_pending = false;
+      if (output_buffer.length > 0 && !flush_scheduled) {
+        flush_scheduled = true;
+        requestAnimationFrame(flush_output);
+      }
+    });
   }
 
   function schedule_output(data: Uint8Array) {
     output_buffer.push(data);
-    if (!flush_scheduled) {
+    if (!flush_scheduled && !write_pending) {
       flush_scheduled = true;
       requestAnimationFrame(flush_output);
     }
@@ -338,6 +349,7 @@
     resize_observer = undefined;
     output_buffer = [];
     flush_scheduled = false;
+    write_pending = false;
 
     const textarea = terminal?.textarea;
     if (textarea) {
