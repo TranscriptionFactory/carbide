@@ -43,6 +43,9 @@ export default defineConfig({
       include: ["stream", "buffer", "process", "events", "util"],
     }),
   ],
+  define: {
+    __dirname: '""',
+  },
   build: {
     chunkSizeWarningLimit: 3500,
     rollupOptions: {
