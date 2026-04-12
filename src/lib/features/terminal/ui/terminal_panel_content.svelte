@@ -84,30 +84,6 @@
 </script>
 
 <div class="TerminalPanel">
-  <div class="TerminalPanel__header">
-    <span class="TerminalPanel__title">Terminal</span>
-    <div class="TerminalPanel__headerActions">
-      <Button
-        variant="ghost"
-        size="icon"
-        class="TerminalPanel__iconButton"
-        aria-label="New terminal session"
-        onclick={() => void create_session()}
-      >
-        <Plus class="TerminalPanel__icon" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="TerminalPanel__iconButton"
-        aria-label="Close terminal"
-        onclick={() => void action_registry.execute(ACTION_IDS.terminal_close)}
-      >
-        <X class="TerminalPanel__icon" />
-      </Button>
-    </div>
-  </div>
-
   <div
     class="TerminalPanel__tabs"
     role="tablist"
@@ -149,6 +125,27 @@
         {/if}
       </div>
     {/each}
+
+    <div class="TerminalPanel__tabActions">
+      <Button
+        variant="ghost"
+        size="icon"
+        class="TerminalPanel__iconButton"
+        aria-label="New terminal session"
+        onclick={() => void create_session()}
+      >
+        <Plus class="TerminalPanel__icon" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="TerminalPanel__iconButton"
+        aria-label="Close terminal"
+        onclick={() => void action_registry.execute(ACTION_IDS.terminal_close)}
+      >
+        <X class="TerminalPanel__icon" />
+      </Button>
+    </div>
   </div>
 
   <div class="TerminalPanel__sessions">
@@ -170,30 +167,12 @@
     border-block-start: 1px solid var(--border);
   }
 
-  .TerminalPanel__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: var(--size-touch-md, 32px);
-    padding-inline: var(--space-1);
-    gap: var(--space-1);
-    flex-shrink: 0;
-    background: var(--sidebar);
-    border-block-end: 1px solid var(--border);
-  }
-
-  .TerminalPanel__title {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--muted-foreground);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .TerminalPanel__headerActions {
+  .TerminalPanel__tabActions {
     display: flex;
     align-items: center;
     gap: var(--space-1, 4px);
+    margin-inline-start: auto;
+    flex-shrink: 0;
   }
 
   :global(.TerminalPanel__iconButton) {
