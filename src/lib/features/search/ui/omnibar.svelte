@@ -48,6 +48,7 @@
     terminal: CommandIcon,
     blocks: BlocksIcon,
     maximize: MaximizeIcon,
+    search: SearchIcon,
   };
 
   function note_icon(file_type: string | null): Component {
