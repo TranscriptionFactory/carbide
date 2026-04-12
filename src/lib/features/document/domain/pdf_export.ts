@@ -1,5 +1,9 @@
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import interRegularUrl from "../assets/fonts/Inter-Regular.ttf?url";
+import interBoldUrl from "../assets/fonts/Inter-Bold.ttf?url";
+import interItalicUrl from "../assets/fonts/Inter-Italic.ttf?url";
+import interBoldItalicUrl from "../assets/fonts/Inter-BoldItalic.ttf?url";
 
 const MARGIN = 20;
 const PAGE_WIDTH = 210;
@@ -486,22 +490,34 @@ export function render_tokens_to_pdf(
   }
 }
 
+const TTF_MAGIC = new Uint8Array([0x00, 0x01, 0x00, 0x00]);
+
 const FONT_FILES = [
-  { file: "Inter-Regular.ttf", style: "normal" },
-  { file: "Inter-Bold.ttf", style: "bold" },
-  { file: "Inter-Italic.ttf", style: "italic" },
-  { file: "Inter-BoldItalic.ttf", style: "bolditalic" },
+  { file: "Inter-Regular.ttf", url: interRegularUrl, style: "normal" },
+  { file: "Inter-Bold.ttf", url: interBoldUrl, style: "bold" },
+  { file: "Inter-Italic.ttf", url: interItalicUrl, style: "italic" },
+  {
+    file: "Inter-BoldItalic.ttf",
+    url: interBoldItalicUrl,
+    style: "bolditalic",
+  },
 ] as const;
 
 async function load_fonts(doc: JsPDFDoc): Promise<void> {
-  for (const { file, style } of FONT_FILES) {
-    const res = await fetch(`/fonts/${file}`);
+  for (const { file, url, style } of FONT_FILES) {
+    const res = await fetch(url);
     if (!res.ok) {
       throw new Error(
         `Failed to load font ${file}: ${res.status} ${res.statusText}`,
       );
     }
     const buf = await res.arrayBuffer();
+    const header = new Uint8Array(buf, 0, 4);
+    if (!header.every((b, i) => b === TTF_MAGIC[i])) {
+      throw new Error(
+        `Font ${file} is not a valid TTF (bad magic bytes). The asset URL may be misconfigured.`,
+      );
+    }
     const bytes = new Uint8Array(buf);
     let binary = "";
     for (let i = 0; i < bytes.length; i++) {
