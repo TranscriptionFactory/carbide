@@ -4,6 +4,7 @@ import type {
   NoteStats,
   RewriteResult,
   SearchPort,
+  SmartLinkVaultEdge,
 } from "$lib/features/search/ports";
 import type { FileCache } from "$lib/features/metadata";
 import type {
@@ -407,6 +408,21 @@ export function create_search_tauri_adapter(): SearchPort {
           vaultId: vault_id,
           notePath: note_path,
           limit,
+        },
+      );
+    },
+
+    async compute_smart_link_vault_edges(
+      vault_id: VaultId,
+      min_score?: number,
+      per_note_limit?: number,
+    ): Promise<SmartLinkVaultEdge[]> {
+      return invoke_search<SmartLinkVaultEdge[]>(
+        "smart_links_compute_vault_edges",
+        {
+          vaultId: vault_id,
+          minScore: min_score ?? null,
+          perNoteLimit: per_note_limit ?? null,
         },
       );
     },

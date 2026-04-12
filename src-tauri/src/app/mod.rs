@@ -367,6 +367,7 @@ pub fn run() {
             features::smart_links::smart_links_load_rules,
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,
+            features::smart_links::smart_links_compute_vault_edges,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();

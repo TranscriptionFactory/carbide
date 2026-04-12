@@ -46,6 +46,18 @@ export type SemanticEdge = {
   distance: number;
 };
 
+export type SmartLinkRuleMatchInfo = {
+  rule_id: string;
+  raw_score: number;
+};
+
+export type SmartLinkEdge = {
+  source: string;
+  target: string;
+  score: number;
+  rules: SmartLinkRuleMatchInfo[];
+};
+
 export type HierarchyTreeNode = {
   key: string;
   name: string;

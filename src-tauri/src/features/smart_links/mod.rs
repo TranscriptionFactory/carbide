@@ -42,6 +42,15 @@ pub struct SmartLinkSuggestion {
     pub rules: Vec<SmartLinkRuleMatch>,
 }
 
+#[derive(Debug, Serialize, Clone, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartLinkEdge {
+    pub source_path: String,
+    pub target_path: String,
+    pub score: f64,
+    pub rules: Vec<SmartLinkRuleMatch>,
+}
+
 pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
     vec![
         SmartLinkRuleGroup {
@@ -142,5 +151,60 @@ pub fn smart_links_compute_suggestions(
 
     search_service::with_read_conn(&app, &vault_id, |conn| {
         execute_rules(conn, &note_path, &rule_groups, limit, &ni_guard, &bi_guard)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn smart_links_compute_vault_edges(
+    app: AppHandle,
+    vault_id: String,
+    min_score: Option<f64>,
+    per_note_limit: Option<usize>,
+) -> Result<Vec<SmartLinkEdge>, String> {
+    let root = storage::vault_path(&app, &vault_id)?;
+    let rule_groups = config::load_rules(&root)?;
+    let limit = per_note_limit.unwrap_or(5).min(20);
+    let threshold = min_score.unwrap_or(0.1);
+
+    let (ni, bi) = search_service::get_index_arcs(&app, &vault_id)?;
+    let ni_guard = ni.read().map_err(|e| e.to_string())?;
+    let bi_guard = bi.read().map_err(|e| e.to_string())?;
+
+    search_service::with_read_conn(&app, &vault_id, |conn| {
+        let manifest = crate::features::search::db::get_manifest(conn)?;
+        let note_paths: Vec<String> = manifest.into_keys().collect();
+
+        let mut seen = std::collections::HashSet::new();
+        let mut edges = Vec::new();
+
+        for source_path in &note_paths {
+            let suggestions =
+                execute_rules(conn, source_path, &rule_groups, limit, &ni_guard, &bi_guard)?;
+
+            for s in suggestions {
+                if s.score < threshold {
+                    continue;
+                }
+                let key = if source_path.as_str() < s.target_path.as_str() {
+                    format!("{}|{}", source_path, s.target_path)
+                } else {
+                    format!("{}|{}", s.target_path, source_path)
+                };
+                if seen.contains(&key) {
+                    continue;
+                }
+                seen.insert(key);
+                edges.push(SmartLinkEdge {
+                    source_path: source_path.clone(),
+                    target_path: s.target_path,
+                    score: s.score,
+                    rules: s.rules,
+                });
+            }
+        }
+
+        edges.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        Ok(edges)
     })
 }

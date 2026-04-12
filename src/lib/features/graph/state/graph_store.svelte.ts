@@ -2,6 +2,7 @@ import type {
   GraphNeighborhoodSnapshot,
   HierarchyTreeNode,
   SemanticEdge,
+  SmartLinkEdge,
   VaultGraphSnapshot,
 } from "$lib/features/graph/ports";
 
@@ -21,6 +22,8 @@ export class GraphStore {
   vault_snapshot = $state<VaultGraphSnapshot | null>(null);
   semantic_edges = $state<SemanticEdge[]>([]);
   show_semantic_edges = $state(false);
+  smart_link_edges = $state<SmartLinkEdge[]>([]);
+  show_smart_link_edges = $state(false);
   hierarchy_tree = $state<HierarchyTreeNode[] | null>(null);
   hierarchy_root_key = $state<string | null>(null);
 
@@ -105,6 +108,14 @@ export class GraphStore {
     this.show_semantic_edges = !this.show_semantic_edges;
   }
 
+  set_smart_link_edges(edges: SmartLinkEdge[]) {
+    this.smart_link_edges = edges;
+  }
+
+  toggle_show_smart_link_edges() {
+    this.show_smart_link_edges = !this.show_smart_link_edges;
+  }
+
   start_loading_hierarchy() {
     this.hierarchy_tree = null;
     this.status = "loading";
@@ -127,5 +138,7 @@ export class GraphStore {
     this.view_mode = "neighborhood";
     this.semantic_edges = [];
     this.show_semantic_edges = false;
+    this.smart_link_edges = [];
+    this.show_smart_link_edges = false;
   }
 }

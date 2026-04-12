@@ -5,6 +5,7 @@ export { SearchStore } from "$lib/features/search/state/search_store.svelte";
 export type { IndexProgress } from "$lib/features/search/state/search_store.svelte";
 export type {
   SearchPort,
+  SmartLinkVaultEdge,
   WorkspaceIndexPort,
   NoteStats,
 } from "$lib/features/search/ports";

@@ -6,6 +6,11 @@ import {
   SEMANTIC_EDGE_KNN_LIMIT,
   SEMANTIC_EDGE_MAX_VAULT_SIZE,
 } from "$lib/features/graph/domain/semantic_edges";
+import {
+  SMART_LINK_EDGE_MAX_VAULT_SIZE,
+  SMART_LINK_EDGE_MIN_SCORE,
+  SMART_LINK_EDGE_PER_NOTE_LIMIT,
+} from "$lib/features/graph/domain/smart_link_edges";
 import type { SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -17,6 +22,7 @@ export class GraphService {
   private neighborhood_load_revision = 0;
   private vault_load_revision = 0;
   private semantic_load_revision = 0;
+  private smart_link_load_revision = 0;
   private hierarchy_load_revision = 0;
 
   constructor(
@@ -170,6 +176,7 @@ export class GraphService {
     ++this.neighborhood_load_revision;
     ++this.vault_load_revision;
     ++this.semantic_load_revision;
+    ++this.smart_link_load_revision;
     ++this.hierarchy_load_revision;
     this.graph_store.clear();
   }
@@ -269,6 +276,77 @@ export class GraphService {
       this.graph_store.semantic_edges.length === 0
     ) {
       await this.load_semantic_edges(settings);
+    }
+  }
+
+  async load_smart_link_edges(settings?: {
+    max_vault_size?: number;
+    min_score?: number;
+    per_note_limit?: number;
+  }): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    const snapshot = this.graph_store.vault_snapshot;
+    if (!vault_id || !snapshot) return;
+
+    const max_size = settings?.max_vault_size ?? SMART_LINK_EDGE_MAX_VAULT_SIZE;
+
+    if (snapshot.stats.node_count > max_size) {
+      log.warn("Vault too large for smart link edges", {
+        node_count: snapshot.stats.node_count,
+        max_size,
+      });
+      return;
+    }
+
+    const revision = ++this.smart_link_load_revision;
+    const min_score = settings?.min_score ?? SMART_LINK_EDGE_MIN_SCORE;
+    const per_note_limit =
+      settings?.per_note_limit ?? SMART_LINK_EDGE_PER_NOTE_LIMIT;
+
+    try {
+      const raw_edges = await this.search_port.compute_smart_link_vault_edges(
+        vault_id,
+        min_score,
+        per_note_limit,
+      );
+      if (revision !== this.smart_link_load_revision) return;
+
+      const edges = raw_edges.map((e) => ({
+        source: e.sourcePath,
+        target: e.targetPath,
+        score: e.score,
+        rules: e.rules.map((r) => ({
+          rule_id: r.ruleId,
+          raw_score: r.rawScore,
+        })),
+      }));
+
+      log.info("Smart link edges loaded", {
+        edges_count: edges.length,
+        min_score,
+        per_note_limit,
+      });
+
+      this.graph_store.set_smart_link_edges(edges);
+    } catch (error) {
+      if (revision !== this.smart_link_load_revision) return;
+      log.error("Failed to load smart link edges", {
+        error: error_message(error),
+      });
+    }
+  }
+
+  async toggle_smart_link_edges(settings?: {
+    max_vault_size?: number;
+    min_score?: number;
+    per_note_limit?: number;
+  }): Promise<void> {
+    this.graph_store.toggle_show_smart_link_edges();
+    if (
+      this.graph_store.show_smart_link_edges &&
+      this.graph_store.smart_link_edges.length === 0
+    ) {
+      await this.load_smart_link_edges(settings);
     }
   }
 }

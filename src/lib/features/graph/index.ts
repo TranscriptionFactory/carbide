@@ -7,6 +7,8 @@ export type {
   VaultGraphEdge,
   VaultGraphStats,
   SemanticEdge,
+  SmartLinkEdge,
+  SmartLinkRuleMatchInfo,
   HierarchyTreeNode,
 } from "$lib/features/graph/ports";
 export { create_graph_tauri_adapter } from "$lib/features/graph/adapters/graph_tauri_adapter";
