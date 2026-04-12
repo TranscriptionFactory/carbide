@@ -5,7 +5,7 @@ use tauri::AppHandle;
 
 use crate::features::mcp::shared_ops::{self, CreateResult};
 use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
-use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
+use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::features::notes::service::file_meta;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
@@ -35,6 +35,24 @@ fn list_notes_def() -> ToolDefinition {
     properties.insert(
         "folder".into(),
         prop("string", "Filter to notes under this folder path"),
+    );
+    properties.insert(
+        "limit".into(),
+        PropertySchema {
+            prop_type: "integer".into(),
+            description: Some("Maximum number of results (default: 200)".into()),
+            enum_values: None,
+            default: Some(Value::Number(200.into())),
+        },
+    );
+    properties.insert(
+        "offset".into(),
+        PropertySchema {
+            prop_type: "integer".into(),
+            description: Some("Offset for pagination (default: 0)".into()),
+            enum_values: None,
+            default: Some(Value::Number(0.into())),
+        },
     );
 
     ToolDefinition {
@@ -141,13 +159,29 @@ fn handle_list_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
         Err(e) => return e,
     };
 
-    match shared_ops::list_notes(app, &args.vault_id, args.folder.as_deref()) {
-        Ok(notes) => {
-            let lines: Vec<String> = notes
+    let limit = args.limit.unwrap_or(200).min(500);
+    let offset = args.offset.unwrap_or(0);
+
+    match shared_ops::list_notes(app, &args.vault_id, args.folder.as_deref(), limit, offset) {
+        Ok(paginated) => {
+            let lines: Vec<String> = paginated
+                .items
                 .iter()
                 .map(|n| format!("{}\t{}", n.path, n.title))
                 .collect();
-            ToolResult::text(lines.join("\n"))
+            let end = (offset + paginated.items.len()).min(paginated.total);
+            let mut output = lines.join("\n");
+            output.push_str(&format!(
+                "\n(showing {}-{} of {})",
+                if paginated.items.is_empty() {
+                    0
+                } else {
+                    offset + 1
+                },
+                end,
+                paginated.total
+            ));
+            ToolResult::text(output)
         }
         Err(e) => op_err_to_tool_result(e),
     }

@@ -9,7 +9,9 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::features::git::service as git_service;
-use crate::features::mcp::http::HttpAppState;
+use crate::features::mcp::auth;
+use crate::features::mcp::http::{HttpAppState, DEFAULT_PORT};
+use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::shared_ops::{
     self, CreateNoteArgs as SharedCreateArgs, CreateResult, OpError,
 };
@@ -101,6 +103,8 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/tasks/update", post(cli_tasks_update))
         .route("/dev/index/build", post(cli_dev_index_build))
         .route("/dev/index/rebuild", post(cli_dev_index_rebuild))
+        .route("/dev/schema", post(cli_dev_schema))
+        .route("/mcp/inspect", post(cli_mcp_inspect))
 }
 
 async fn cli_read(
@@ -130,8 +134,16 @@ async fn cli_files(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::ListNotesArgs>,
 ) -> axum::response::Response {
-    match shared_ops::list_notes(state.app(), &params.vault_id, params.folder.as_deref()) {
-        Ok(notes) => (StatusCode::OK, Json(notes)).into_response(),
+    let limit = params.limit.unwrap_or(200).min(500);
+    let offset = params.offset.unwrap_or(0);
+    match shared_ops::list_notes(
+        state.app(),
+        &params.vault_id,
+        params.folder.as_deref(),
+        limit,
+        offset,
+    ) {
+        Ok(paginated) => (StatusCode::OK, Json(paginated)).into_response(),
         Err(e) => op_err_to_response(e),
     }
 }
@@ -724,6 +736,44 @@ async fn cli_dev_index_rebuild(
         Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response(),
         Err(e) => internal_err(e),
     }
+}
+
+async fn cli_dev_schema() -> axum::response::Response {
+    let router = McpRouter::new();
+    let defs = router.tool_definitions_public();
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(defs).unwrap_or_default()),
+    )
+        .into_response()
+}
+
+async fn cli_mcp_inspect() -> axum::response::Response {
+    let router = McpRouter::new();
+    let defs = router.tool_definitions_public();
+    let tool_count = defs.len();
+    let token_location = auth::token_path().display().to_string();
+
+    let response = serde_json::json!({
+        "server": {
+            "name": "carbide",
+            "version": env!("CARGO_PKG_VERSION"),
+            "protocol_version": "2024-11-05"
+        },
+        "transport": {
+            "http_url": format!("http://127.0.0.1:{}/mcp", DEFAULT_PORT),
+            "stdio_command": "carbide mcp",
+            "port": DEFAULT_PORT
+        },
+        "auth": {
+            "method": "bearer_token",
+            "token_location": token_location
+        },
+        "tools": serde_json::to_value(&defs).unwrap_or_default(),
+        "tool_count": tool_count
+    });
+
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 #[cfg(test)]

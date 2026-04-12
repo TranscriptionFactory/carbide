@@ -131,6 +131,10 @@ enum Command {
     Files {
         #[arg(long, help = "Filter by folder")]
         folder: Option<String>,
+        #[arg(long, default_value = "200", help = "Max results")]
+        limit: usize,
+        #[arg(long, default_value = "0", help = "Offset for pagination")]
+        offset: usize,
     },
     #[command(about = "List tags in vault")]
     Tags {
@@ -227,6 +231,8 @@ enum Command {
         about = "Run as MCP stdio proxy (reads JSON-RPC from stdin, proxies to HTTP server)"
     )]
     Mcp,
+    #[command(name = "mcp:inspect", about = "Inspect MCP server capabilities")]
+    McpInspect,
     #[command(about = "Configure MCP integration")]
     Setup {
         #[command(subcommand)]
@@ -240,6 +246,8 @@ enum DevAction {
     IndexBuild,
     #[command(name = "index:rebuild", about = "Rebuild search index from scratch")]
     IndexRebuild,
+    #[command(name = "schema", about = "Dump MCP tool definitions as JSON Schema")]
+    Schema,
 }
 
 #[derive(Subcommand)]
@@ -434,6 +442,7 @@ async fn main() {
             }
         }
         Command::Vaults => commands::vault::vaults(&client, cli.json).await,
+        Command::McpInspect => commands::dev::mcp_inspect(&client, cli.json).await,
         Command::Setup { .. } => unreachable!(),
         command => {
             let vault_id = match resolve_vault(&client, cli.vault.as_deref()).await {
@@ -496,8 +505,12 @@ async fn run_command(
             limit,
             paths_only,
         } => commands::search::search(client, vault_id, &query, limit, json, paths_only).await,
-        Command::Files { folder } => {
-            commands::search::files(client, vault_id, folder.as_deref(), json).await
+        Command::Files {
+            folder,
+            limit,
+            offset,
+        } => {
+            commands::search::files(client, vault_id, folder.as_deref(), limit, offset, json).await
         }
         Command::Tags { filter } => {
             commands::search::tags(client, vault_id, json, filter.as_deref()).await
@@ -548,8 +561,13 @@ async fn run_command(
         Command::Dev { ref action } => match action {
             DevAction::IndexBuild => commands::dev::index_build(client, vault_id, json).await,
             DevAction::IndexRebuild => commands::dev::index_rebuild(client, vault_id, json).await,
+            DevAction::Schema => commands::dev::schema(client, json).await,
         },
-        Command::Status | Command::Vaults | Command::Mcp | Command::Setup { .. } => {
+        Command::Status
+        | Command::Vaults
+        | Command::Mcp
+        | Command::McpInspect
+        | Command::Setup { .. } => {
             unreachable!()
         }
     }

@@ -21,6 +21,8 @@ struct FilesParams {
     vault_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     folder: Option<String>,
+    limit: usize,
+    offset: usize,
 }
 
 #[derive(Serialize)]
@@ -108,6 +110,8 @@ pub async fn files(
     client: &CarbideClient,
     vault_id: &str,
     folder: Option<&str>,
+    limit: usize,
+    offset: usize,
     json: bool,
 ) -> Result<(), String> {
     let resp: Value = client
@@ -116,6 +120,8 @@ pub async fn files(
             &FilesParams {
                 vault_id: vault_id.to_string(),
                 folder: folder.map(String::from),
+                limit,
+                offset,
             },
         )
         .await?;
@@ -123,14 +129,20 @@ pub async fn files(
     if json {
         format::print_json(&resp);
     } else {
+        let total = resp["total"].as_u64().unwrap_or(0);
         let empty = vec![];
-        let notes = resp.as_array().unwrap_or(&empty);
+        let notes = resp["items"].as_array().unwrap_or(&empty);
         let paths: Vec<String> = notes
             .iter()
             .filter_map(|n| n["path"].as_str().map(String::from))
             .collect();
         format::print_lines(&paths);
-        println!("\n{} files", paths.len());
+        println!(
+            "\nShowing {} of {} files (offset {})",
+            paths.len(),
+            total,
+            offset
+        );
     }
     Ok(())
 }

@@ -3,7 +3,7 @@ use subtle::ConstantTimeEq;
 
 const TOKEN_BYTES: usize = 32;
 
-fn token_path() -> PathBuf {
+pub fn token_path() -> PathBuf {
     dirs_config_path().join("mcp-token")
 }
 
