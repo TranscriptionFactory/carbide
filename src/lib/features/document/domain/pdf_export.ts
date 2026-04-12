@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 import interRegularUrl from "../assets/fonts/Inter-Regular.ttf?url";
 import interBoldUrl from "../assets/fonts/Inter-Bold.ttf?url";
 import interItalicUrl from "../assets/fonts/Inter-Italic.ttf?url";
@@ -596,7 +597,8 @@ export async function export_note_as_pdf(
     const PDFDocument = pdfkitModule.default || pdfkitModule;
 
     const md = create_md();
-    const tokens = md.parse(content, {});
+    const body = parse_frontmatter(content).body;
+    const tokens = md.parse(body, {});
 
     const doc: PdfDoc = new PDFDocument({
       size: "A4",
