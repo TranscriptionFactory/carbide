@@ -1,11 +1,16 @@
 <script lang="ts">
   import type {
     SemanticEdge,
+    SmartLinkEdge,
     VaultGraphSnapshot,
   } from "$lib/features/graph/ports";
-  import { VaultGraphRenderer } from "$lib/features/graph/domain/vault_graph_renderer";
+  import {
+    VaultGraphRenderer,
+    type EdgeHoverInfo,
+  } from "$lib/features/graph/domain/vault_graph_renderer";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
+  import { rule_chip_label } from "$lib/features/smart_links";
   import type { Theme } from "$lib/shared/types/theme";
   import { create_logger } from "$lib/shared/utils/logger";
 
@@ -18,6 +23,8 @@
     hovered_node_id: string | null;
     semantic_edges: SemanticEdge[];
     show_semantic_edges: boolean;
+    smart_link_edges: SmartLinkEdge[];
+    show_smart_link_edges: boolean;
     theme?: Theme;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
@@ -37,6 +44,8 @@
     hovered_node_id,
     semantic_edges,
     show_semantic_edges,
+    smart_link_edges,
+    show_smart_link_edges,
     theme,
     on_select_node,
     on_hover_node,
@@ -46,6 +55,7 @@
 
   let renderer = $state<VaultGraphRenderer | null>(null);
   let worker = $state<Worker | null>(null);
+  let edge_tooltip = $state<EdgeHoverInfo | null>(null);
 
   function plain_nodes(snap: VaultGraphSnapshot) {
     return snap.nodes.map((n) => ({ id: n.path, label: n.title }));
@@ -89,6 +99,9 @@
     r.on_node_click = on_select_node;
     r.on_node_hover = on_hover_node;
     r.on_node_dblclick = on_open_node;
+    r.on_edge_hover = (info) => {
+      edge_tooltip = info;
+    };
 
     const resize_observer = new ResizeObserver(() => {
       if (renderer === r) r.resize();
@@ -178,6 +191,18 @@
       show_semantic_edges,
     );
   });
+
+  $effect(() => {
+    renderer?.set_smart_link_edges(smart_link_edges, show_smart_link_edges);
+  });
+
+  function format_tooltip(info: EdgeHoverInfo): string {
+    const parts = info.rules.map(
+      (r) =>
+        `${rule_chip_label(r.rule_id)} ${String(Math.round(r.raw_score * 100))}%`,
+    );
+    return `Score: ${String(Math.round(info.score * 100))}% — ${parts.join(", ")}`;
+  }
 </script>
 
 <div class="VaultGraph" role="img" aria-label="Full vault graph">
@@ -191,6 +216,17 @@
 
   {#if snapshot.stats.node_count === 0}
     <div class="VaultGraph__empty">No notes in vault</div>
+  {/if}
+
+  {#if edge_tooltip}
+    <div
+      class="VaultGraph__tooltip"
+      style="left:{String(edge_tooltip.screen_x + 12)}px;top:{String(
+        edge_tooltip.screen_y - 8,
+      )}px;"
+    >
+      {format_tooltip(edge_tooltip)}
+    </div>
   {/if}
 </div>
 
@@ -230,5 +266,19 @@
     color: var(--muted-foreground);
     font-size: var(--text-sm);
     z-index: 1;
+  }
+
+  .VaultGraph__tooltip {
+    position: absolute;
+    z-index: 10;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    font-size: var(--text-xs);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm, none);
+    pointer-events: none;
+    white-space: nowrap;
   }
 </style>

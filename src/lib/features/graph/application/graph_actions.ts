@@ -139,6 +139,14 @@ export function register_graph_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.graph_toggle_smart_link_edges,
+    label: "Toggle Smart Link Connections",
+    execute: async () => {
+      await graph_service.toggle_smart_link_edges();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.graph_open_as_tab,
     label: "Open Vault Graph",
     execute: () => {

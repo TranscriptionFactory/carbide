@@ -7,8 +7,13 @@ import type {
   Texture,
 } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
+import { point_to_segment_distance } from "$lib/features/graph/domain/edge_hit_test";
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
-import type { SemanticEdge } from "$lib/features/graph/ports";
+import type {
+  SemanticEdge,
+  SmartLinkEdge,
+  SmartLinkRuleMatchInfo,
+} from "$lib/features/graph/ports";
 
 const LOD_FULL_ZOOM = 0.6;
 const LOD_MEDIUM_ZOOM = 0.3;
@@ -30,6 +35,16 @@ type NodeEntry = {
 
 type EdgeDef = { source: string; target: string };
 type SemanticEdgeDef = SemanticEdge;
+type SmartLinkEdgeDef = SmartLinkEdge;
+
+export type EdgeHoverInfo = {
+  source: string;
+  target: string;
+  score: number;
+  rules: SmartLinkRuleMatchInfo[];
+  screen_x: number;
+  screen_y: number;
+};
 
 export class VaultGraphRenderer {
   private pixi: typeof import("pixi.js") | null = null;
@@ -41,6 +56,8 @@ export class VaultGraphRenderer {
   private edge_defs: EdgeDef[] = [];
   private semantic_edge_defs: SemanticEdgeDef[] = [];
   private show_semantic = false;
+  private smart_link_edge_defs: SmartLinkEdgeDef[] = [];
+  private show_smart_links = false;
   private spatial = new SpatialIndex();
   private circle_texture: Texture | null = null;
   private filter_set: Set<string> | null = null;
@@ -52,6 +69,7 @@ export class VaultGraphRenderer {
     primary: 0x6366f1,
     edge: 0x888888,
     semantic_edge: 0xf59e0b,
+    smart_link_edge: 0x22d3ee,
     bg: 0x1a1a2e,
     label_fill: 0xffffff,
   };
@@ -64,6 +82,7 @@ export class VaultGraphRenderer {
   on_node_click: (id: string) => void = () => {};
   on_node_hover: (id: string | null) => void = () => {};
   on_node_dblclick: (id: string) => void = () => {};
+  on_edge_hover: (info: EdgeHoverInfo | null) => void = () => {};
 
   async initialize(container: HTMLElement): Promise<void> {
     // @ts-expect-error pixi.js/unsafe-eval is a side-effect-only module that
@@ -134,6 +153,24 @@ export class VaultGraphRenderer {
 
     this.vp.addChild(this.edges_gfx);
     this.vp.addChild(this.nodes_layer);
+
+    this.vp.on("pointermove", (e) => {
+      if (!this.show_smart_links || !this.vp) return;
+      const world = this.vp.toWorld(e.global.x, e.global.y);
+      const hit = this.find_nearest_smart_link_edge(world.x, world.y);
+      if (hit) {
+        this.on_edge_hover({
+          source: hit.source,
+          target: hit.target,
+          score: hit.score,
+          rules: hit.rules,
+          screen_x: e.global.x,
+          screen_y: e.global.y,
+        });
+      } else {
+        this.on_edge_hover(null);
+      }
+    });
   }
 
   set_graph(nodes: { id: string; label: string }[], edges: EdgeDef[]): void {
@@ -229,6 +266,13 @@ export class VaultGraphRenderer {
   set_semantic_edges(edges: SemanticEdgeDef[], visible: boolean): void {
     this.semantic_edge_defs = edges;
     this.show_semantic = visible;
+    this.edges_dirty = true;
+    this.request_render();
+  }
+
+  set_smart_link_edges(edges: SmartLinkEdgeDef[], visible: boolean): void {
+    this.smart_link_edge_defs = edges;
+    this.show_smart_links = visible;
     this.edges_dirty = true;
     this.request_render();
   }
@@ -389,6 +433,36 @@ export class VaultGraphRenderer {
     }
   }
 
+  private find_nearest_smart_link_edge(
+    wx: number,
+    wy: number,
+  ): SmartLinkEdgeDef | null {
+    const threshold = 8 / this.zoom;
+    let best: SmartLinkEdgeDef | null = null;
+    let best_dist = threshold;
+
+    for (const edge of this.smart_link_edge_defs) {
+      const src = this.node_map.get(edge.source);
+      const tgt = this.node_map.get(edge.target);
+      if (!src || !tgt) continue;
+
+      const dist = point_to_segment_distance(
+        wx,
+        wy,
+        src.x,
+        src.y,
+        tgt.x,
+        tgt.y,
+      );
+      if (dist < best_dist) {
+        best_dist = dist;
+        best = edge;
+      }
+    }
+
+    return best;
+  }
+
   private rebuild_hovered_connections(): void {
     this.hovered_connections.clear();
     if (!this.hovered_id) return;
@@ -397,6 +471,14 @@ export class VaultGraphRenderer {
         this.hovered_connections.add(edge.target);
       if (edge.target === this.hovered_id)
         this.hovered_connections.add(edge.source);
+    }
+    if (this.show_smart_links) {
+      for (const edge of this.smart_link_edge_defs) {
+        if (edge.source === this.hovered_id)
+          this.hovered_connections.add(edge.target);
+        if (edge.target === this.hovered_id)
+          this.hovered_connections.add(edge.source);
+      }
     }
   }
 
@@ -547,6 +629,76 @@ export class VaultGraphRenderer {
         1,
       );
     }
+
+    if (!this.show_smart_links) return;
+
+    const sl_dimmed: EdgeEndpoints[] = [];
+    const sl_normal: EdgeEndpoints[] = [];
+    const sl_highlighted: Array<EdgeEndpoints & { width: number }> = [];
+
+    for (const edge of this.smart_link_edge_defs) {
+      const src = this.node_map.get(edge.source);
+      const tgt = this.node_map.get(edge.target);
+      if (!src || !tgt) continue;
+      if (!visible_ids.has(edge.source) && !visible_ids.has(edge.target))
+        continue;
+
+      const is_highlighted =
+        this.hovered_id !== null &&
+        (edge.source === this.hovered_id || edge.target === this.hovered_id);
+      const is_dimmed =
+        this.filter_set !== null &&
+        (!this.filter_set.has(edge.source) ||
+          !this.filter_set.has(edge.target));
+
+      const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
+      if (is_dimmed) sl_dimmed.push(ep);
+      else if (is_highlighted) sl_highlighted.push({ ...ep, width: 2 });
+      else sl_normal.push(ep);
+    }
+
+    for (const ep of sl_dimmed) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        8,
+        5,
+        1.5,
+        this.colors.smart_link_edge,
+        0.1,
+      );
+    }
+    for (const ep of sl_normal) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        8,
+        5,
+        1.5,
+        this.colors.smart_link_edge,
+        0.6,
+      );
+    }
+    for (const ep of sl_highlighted) {
+      draw_dashed_line(
+        this.edges_gfx,
+        ep.x1,
+        ep.y1,
+        ep.x2,
+        ep.y2,
+        8,
+        5,
+        ep.width,
+        this.colors.smart_link_edge,
+        1,
+      );
+    }
   }
 
   private read_theme_colors(el: HTMLElement): void {
@@ -569,6 +721,11 @@ export class VaultGraphRenderer {
       el,
       "--graph-edge-semantic",
       resolve_css_color(el, "--semantic-edge", 0xf59e0b),
+    );
+    this.colors.smart_link_edge = resolve_css_color(
+      el,
+      "--graph-edge-smart-link",
+      0x22d3ee,
     );
     this.colors.bg = resolve_css_color(el, "--background", 0x1a1a2e);
     this.colors.label_fill = resolve_css_color(

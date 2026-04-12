@@ -2,6 +2,7 @@
   import {
     FolderTree,
     Globe,
+    Link,
     RefreshCw,
     Sparkles,
     Target,
@@ -23,6 +24,8 @@
   const filter_query = $derived(stores.graph.filter_query);
   const semantic_edges = $derived(stores.graph.semantic_edges);
   const show_semantic_edges = $derived(stores.graph.show_semantic_edges);
+  const smart_link_edges = $derived(stores.graph.smart_link_edges);
+  const show_smart_link_edges = $derived(stores.graph.show_smart_link_edges);
   const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
   const max_vault_size = $derived(
     stores.ui.editor_settings.semantic_graph_max_vault_size,
@@ -129,6 +132,21 @@
       <Button
         variant="ghost"
         size="icon"
+        title={show_smart_link_edges
+          ? "Hide smart link connections"
+          : "Show smart link connections"}
+        aria-pressed={show_smart_link_edges}
+        disabled={vault_node_count === 0 || vault_node_count > max_vault_size}
+        onclick={() =>
+          void action_registry.execute(
+            ACTION_IDS.graph_toggle_smart_link_edges,
+          )}
+      >
+        <Link size={14} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
         title="Refresh graph"
         onclick={() => void action_registry.execute(ACTION_IDS.graph_refresh)}
       >
@@ -162,6 +180,8 @@
         hovered_node_id={stores.graph.hovered_node_id}
         {semantic_edges}
         {show_semantic_edges}
+        {smart_link_edges}
+        {show_smart_link_edges}
         theme={stores.ui.active_theme}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
