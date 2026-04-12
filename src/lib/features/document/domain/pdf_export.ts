@@ -53,9 +53,9 @@ export type PdfDoc = {
     strokeColor?: string | [number, number, number],
   ): PdfDoc;
   addPage(): PdfDoc;
-  registerFont(name: string, src: ArrayBuffer | Buffer): void;
+  registerFont(name: string, src: ArrayBuffer | Buffer): PdfDoc;
+  on(event: string, listener: (...args: any[]) => void): PdfDoc;
   end(): void;
-  pipe(destination: unknown): unknown;
   page: { width: number; height: number };
 };
 
@@ -442,6 +442,7 @@ export function render_tokens_to_pdf(
   ctx.y += 6 * MM;
   set_body_font(doc);
 
+  const list_stack: { index: number; ordered: boolean }[] = [];
   let list_item_index = 0;
   let ordered = false;
 
@@ -483,6 +484,7 @@ export function render_tokens_to_pdf(
       }
 
       case "bullet_list_open": {
+        list_stack.push({ index: list_item_index, ordered });
         ordered = false;
         list_item_index = 0;
         ctx.indent += LIST_INDENT;
@@ -490,6 +492,7 @@ export function render_tokens_to_pdf(
       }
 
       case "ordered_list_open": {
+        list_stack.push({ index: list_item_index, ordered });
         ordered = true;
         list_item_index = 0;
         ctx.indent += LIST_INDENT;
@@ -500,6 +503,11 @@ export function render_tokens_to_pdf(
       case "ordered_list_close": {
         ctx.indent -= LIST_INDENT;
         ctx.y += PARAGRAPH_GAP;
+        const parent = list_stack.pop();
+        if (parent) {
+          list_item_index = parent.index;
+          ordered = parent.ordered;
+        }
         break;
       }
 
@@ -584,8 +592,8 @@ export async function export_note_as_pdf(
   if (!file_path) return;
 
   try {
-    const PDFDocument = (await import("pdfkit")).default;
-    const blobStream = (await import("blob-stream")).default;
+    const pdfkitModule = await import("pdfkit");
+    const PDFDocument = pdfkitModule.default || pdfkitModule;
 
     const md = create_md();
     const tokens = md.parse(content, {});
@@ -594,26 +602,35 @@ export async function export_note_as_pdf(
       size: "A4",
       margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
     });
-    const stream = doc.pipe(blobStream());
+
+    const chunks: Uint8Array[] = [];
+    const pdf_bytes = new Promise<Uint8Array>((resolve, reject) => {
+      doc.on("data", (chunk: Buffer | Uint8Array) => {
+        chunks.push(
+          chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk),
+        );
+      });
+      doc.on("end", () => {
+        let total = 0;
+        for (const c of chunks) total += c.length;
+        const result = new Uint8Array(total);
+        let offset = 0;
+        for (const c of chunks) {
+          result.set(c, offset);
+          offset += c.length;
+        }
+        resolve(result);
+      });
+      doc.on("error", reject);
+    });
 
     await load_fonts(doc);
     render_tokens_to_pdf(doc, title, tokens);
     doc.end();
 
-    const pdf_bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
-      (stream as { on: Function; toBlob: Function }).on("finish", () => {
-        (stream as { toBlob: (type: string) => Blob })
-          .toBlob("application/pdf")
-          .arrayBuffer()
-          .then(resolve)
-          .catch(reject);
-      });
-      (stream as { on: Function }).on("error", reject);
-    });
-
     await invoke("write_bytes_to_path", {
       path: file_path,
-      data: Array.from(new Uint8Array(pdf_bytes)),
+      data: Array.from(await pdf_bytes),
     });
   } catch (err) {
     throw new Error(

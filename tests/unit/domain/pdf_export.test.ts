@@ -29,8 +29,8 @@ function create_mock_doc(): PdfDoc & {
   fillAndStroke: ReturnType<typeof vi.fn>;
   addPage: ReturnType<typeof vi.fn>;
   registerFont: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
   end: ReturnType<typeof vi.fn>;
-  pipe: ReturnType<typeof vi.fn>;
 } {
   const calls: { method: string; args: unknown[] }[] = [];
   const self = {} as ReturnType<typeof create_mock_doc>;
@@ -90,8 +90,8 @@ function create_mock_doc(): PdfDoc & {
     return self;
   });
   self.registerFont = vi.fn();
+  self.on = vi.fn(() => self);
   self.end = vi.fn();
-  self.pipe = vi.fn();
   self.page = { width: A4_WIDTH, height: A4_HEIGHT };
 
   return self;
@@ -310,6 +310,15 @@ describe("render_tokens_to_pdf", () => {
     expect(texts).toContain("2.");
   });
 
+  it("renders nested lists with correct numbering after sub-list", () => {
+    const md = "1. first\n   - sub a\n   - sub b\n2. second";
+    render_tokens_to_pdf(doc, "T", parse(md));
+    const texts = text_calls(doc);
+    expect(texts).toContain("1.");
+    expect(texts).toContain("\u2022");
+    expect(texts).toContain("2.");
+  });
+
   it("renders horizontal rule via moveTo/lineTo/stroke", () => {
     render_tokens_to_pdf(doc, "T", parse("---"));
     const methods = doc.calls.map((c) => c.method);
@@ -453,42 +462,40 @@ describe("export_note_as_pdf", () => {
       invoke: mock_invoke,
     }));
 
-    const mock_stream = {
-      on: vi.fn((event: string, cb: Function) => {
-        if (event === "finish") {
-          setTimeout(cb, 0);
-        }
-        return mock_stream;
-      }),
-      toBlob: vi.fn(() => new Blob([new Uint8Array(10)])),
-    };
-
-    vi.doMock("pdfkit", () => ({
-      default: vi.fn(() => ({
-        font: vi.fn().mockReturnThis(),
-        fontSize: vi.fn().mockReturnThis(),
-        fillColor: vi.fn().mockReturnThis(),
-        strokeColor: vi.fn().mockReturnThis(),
-        lineWidth: vi.fn().mockReturnThis(),
-        text: vi.fn().mockReturnThis(),
-        widthOfString: vi.fn(() => 10),
-        rect: vi.fn().mockReturnThis(),
-        moveTo: vi.fn().mockReturnThis(),
-        lineTo: vi.fn().mockReturnThis(),
-        fill: vi.fn().mockReturnThis(),
-        stroke: vi.fn().mockReturnThis(),
-        fillAndStroke: vi.fn().mockReturnThis(),
-        addPage: vi.fn().mockReturnThis(),
-        registerFont: vi.fn(),
-        end: vi.fn(),
-        pipe: vi.fn(() => mock_stream),
-        page: { width: 595.28, height: 841.89 },
-      })),
-    }));
-
-    vi.doMock("blob-stream", () => ({
-      default: vi.fn(),
-    }));
+    vi.doMock("pdfkit", () => {
+      const make_doc = vi.fn(() => {
+        const listeners: Record<string, Function[]> = {};
+        const doc_instance = {
+          font: vi.fn().mockReturnThis(),
+          fontSize: vi.fn().mockReturnThis(),
+          fillColor: vi.fn().mockReturnThis(),
+          strokeColor: vi.fn().mockReturnThis(),
+          lineWidth: vi.fn().mockReturnThis(),
+          text: vi.fn().mockReturnThis(),
+          widthOfString: vi.fn(() => 10),
+          rect: vi.fn().mockReturnThis(),
+          moveTo: vi.fn().mockReturnThis(),
+          lineTo: vi.fn().mockReturnThis(),
+          fill: vi.fn().mockReturnThis(),
+          stroke: vi.fn().mockReturnThis(),
+          fillAndStroke: vi.fn().mockReturnThis(),
+          addPage: vi.fn().mockReturnThis(),
+          registerFont: vi.fn(),
+          on: vi.fn((event: string, cb: Function) => {
+            (listeners[event] ??= []).push(cb);
+            return doc_instance;
+          }),
+          end: vi.fn(() => {
+            for (const cb of listeners["data"] ?? [])
+              cb(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+            for (const cb of listeners["end"] ?? []) cb();
+          }),
+          page: { width: 595.28, height: 841.89 },
+        };
+        return doc_instance;
+      });
+      return { default: make_doc };
+    });
 
     const ttf_header = new Uint8Array(100);
     ttf_header[0] = 0x00;
