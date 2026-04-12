@@ -834,7 +834,7 @@ fn handle_upsert(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
-    _app_handle: &AppHandle,
+    app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let markdown = match std::fs::read_to_string(&abs) {
@@ -856,14 +856,9 @@ fn handle_upsert(
     meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_simple(conn, &meta, &markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
-    let _ = vector_db::remove_embedding(conn, note_id);
-    let _ = vector_db::remove_block_embeddings(conn, note_id);
-    if let Ok(mut ni) = note_index.write() {
-        ni.remove(note_id);
-    }
-    if let Ok(mut bi) = block_index.write() {
-        bi.remove_by_prefix(&format!("{note_id}\0"));
-    }
+
+    embed_note_on_save(conn, note_id, &markdown, note_index, block_index, app_handle);
+
     Ok(())
 }
 
@@ -875,22 +870,112 @@ fn handle_upsert_with_content(
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
-    _app_handle: &AppHandle,
+    app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_simple(conn, &meta, markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
-    let _ = vector_db::remove_embedding(conn, note_id);
-    let _ = vector_db::remove_block_embeddings(conn, note_id);
-    if let Ok(mut ni) = note_index.write() {
-        ni.remove(note_id);
-    }
-    if let Ok(mut bi) = block_index.write() {
-        bi.remove_by_prefix(&format!("{note_id}\0"));
-    }
+
+    embed_note_on_save(conn, note_id, markdown, note_index, block_index, app_handle);
+
     Ok(())
+}
+
+fn embed_note_on_save(
+    conn: &Connection,
+    note_id: &str,
+    markdown: &str,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    app_handle: &AppHandle,
+) {
+    let embedding_state = app_handle.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(app_handle);
+    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
+        Ok(m) => m,
+        Err(_) => return,
+    };
+
+    let note_text = search_db::get_fts_body(conn, note_id)
+        .unwrap_or_else(|| markdown.to_string());
+    match model.embed_one(&note_text) {
+        Ok(embedding) => {
+            let _ = vector_db::upsert_embedding(conn, note_id, &embedding);
+            if let Ok(mut ni) = note_index.write() {
+                ni.insert(note_id, embedding);
+            }
+        }
+        Err(e) => log::warn!("embed_on_save: note embed failed for {note_id}: {e}"),
+    }
+
+    let (_, _, sections) = search_db::extract_markdown_structure(markdown);
+    let lines: Vec<&str> = markdown.lines().collect();
+    let old_hashes = vector_db::get_block_hashes(conn, note_id);
+
+    let mut kept_heading_ids: Vec<&str> = Vec::new();
+    let mut to_embed: Vec<(&str, String, String)> = Vec::new();
+
+    for section in &sections {
+        if section.word_count < BLOCK_EMBED_MIN_WORDS
+            && (section.end_line - section.start_line) < BLOCK_EMBED_MIN_LINES
+        {
+            continue;
+        }
+
+        let start = section.start_line as usize;
+        let end = (section.end_line as usize + 1).min(lines.len());
+        if start >= lines.len() {
+            continue;
+        }
+        let section_text = lines[start..end].join("\n");
+        if section_text.trim().is_empty() {
+            continue;
+        }
+
+        let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
+        kept_heading_ids.push(&section.heading_id);
+
+        if old_hashes.get(&section.heading_id).map(|h| h.as_str()) == Some(&hash) {
+            continue;
+        }
+        to_embed.push((&section.heading_id, section_text, hash));
+    }
+
+    if !to_embed.is_empty() {
+        let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
+        match model.embed_batch(&texts, None) {
+            Ok(embeddings) => {
+                for ((heading_id, _, hash), embedding) in to_embed.iter().zip(embeddings.iter()) {
+                    let _ = vector_db::upsert_block_embedding(
+                        conn, note_id, heading_id, embedding, hash,
+                    );
+                    if let Ok(mut bi) = block_index.write() {
+                        let composite_key = format!("{note_id}\0{heading_id}");
+                        bi.insert(&composite_key, embedding.clone());
+                    }
+                }
+            }
+            Err(e) => log::warn!("embed_on_save: block embed failed for {note_id}: {e}"),
+        }
+    }
+
+    let _ = vector_db::remove_block_embeddings_except(conn, note_id, &kept_heading_ids);
+    if let Ok(mut bi) = block_index.write() {
+        let prefix = format!("{note_id}\0");
+        let orphaned_keys: Vec<String> = bi
+            .keys_with_prefix(&prefix)
+            .into_iter()
+            .filter(|k| {
+                let heading_id = &k[prefix.len()..];
+                !kept_heading_ids.contains(&heading_id)
+            })
+            .collect();
+        for key in orphaned_keys {
+            bi.remove(&key);
+        }
+    }
 }
 
 fn extract_title(markdown: &str) -> Option<String> {
@@ -1530,6 +1615,7 @@ fn handle_block_embed_batch(
 
         let mut texts = Vec::with_capacity(chunk.len());
         let mut keys = Vec::with_capacity(chunk.len());
+        let mut hashes = Vec::with_capacity(chunk.len());
 
         for (path, heading_id, start_line, end_line) in chunk.iter().copied() {
             let body = match fts_cache
@@ -1549,8 +1635,10 @@ fn handle_block_embed_batch(
             if section_text.trim().is_empty() {
                 continue;
             }
+            let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
             keys.push((path.as_str(), heading_id.as_str()));
             texts.push(section_text);
+            hashes.push(hash);
         }
 
         if texts.is_empty() {
@@ -1561,9 +1649,11 @@ fn handle_block_embed_batch(
         let batch_start = Instant::now();
         match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
             Ok(embeddings) => {
-                for ((path, heading_id), embedding) in keys.iter().zip(embeddings.iter()) {
+                for (((path, heading_id), embedding), hash) in
+                    keys.iter().zip(embeddings.iter()).zip(hashes.iter())
+                {
                     if let Err(e) =
-                        vector_db::upsert_block_embedding(conn, path, heading_id, embedding)
+                        vector_db::upsert_block_embedding(conn, path, heading_id, embedding, hash)
                     {
                         log::warn!("block_embed: upsert failed for {path}#{heading_id}: {e}");
                     }

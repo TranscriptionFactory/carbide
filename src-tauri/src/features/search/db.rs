@@ -300,26 +300,26 @@ struct ExtractedTag {
     source: &'static str,
 }
 
-struct ExtractedHeading {
-    level: i32,
-    text: String,
-    line: i64,
-    slug: String,
+pub(crate) struct ExtractedHeading {
+    pub level: i32,
+    pub text: String,
+    pub line: i64,
+    pub slug: String,
 }
 
-struct ExtractedCodeBlock {
-    line: i64,
-    language: Option<String>,
-    length: i64,
+pub(crate) struct ExtractedCodeBlock {
+    pub line: i64,
+    pub language: Option<String>,
+    pub length: i64,
 }
 
-struct ExtractedSection {
-    heading_id: String,
-    level: i32,
-    title: String,
-    start_line: i64,
-    end_line: i64,
-    word_count: i64,
+pub(crate) struct ExtractedSection {
+    pub heading_id: String,
+    pub level: i32,
+    pub title: String,
+    pub start_line: i64,
+    pub end_line: i64,
+    pub word_count: i64,
 }
 
 struct ExtractedLink {
@@ -330,7 +330,7 @@ struct ExtractedLink {
     section_heading: Option<String>,
 }
 
-fn extract_markdown_structure(
+pub(crate) fn extract_markdown_structure(
     markdown: &str,
 ) -> (
     Vec<ExtractedHeading>,
