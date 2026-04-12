@@ -79,5 +79,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    alias: {
+      "tauri-pty": new URL(
+        "node_modules/tauri-pty/dist/index.es.js",
+        import.meta.url,
+      ).pathname,
+    },
   },
 });
