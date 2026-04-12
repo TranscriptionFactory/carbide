@@ -321,6 +321,50 @@ describe("render_tokens_to_pdf", () => {
     expect(fonts).toContain("Inter:bold");
     expect(fonts).toContain("Inter:bolditalic");
   });
+
+  it("sets courier font before splitTextToSize in code blocks", () => {
+    const call_order: string[] = [];
+    doc.setFont = vi.fn((...args: unknown[]) => {
+      call_order.push(`setFont:${args[0]}`);
+    });
+    doc.splitTextToSize = vi.fn((text: string) => {
+      call_order.push(`splitTextToSize:${text}`);
+      return [text];
+    });
+    render_tokens_to_pdf(doc, "T", parse("```\ncode here\n```"));
+    const code_split_idx = call_order.findIndex((c) =>
+      c.startsWith("splitTextToSize:code here"),
+    );
+    const courier_before = call_order
+      .slice(0, code_split_idx)
+      .lastIndexOf("setFont:courier");
+    expect(code_split_idx).toBeGreaterThanOrEqual(0);
+    expect(courier_before).toBeGreaterThanOrEqual(0);
+  });
+
+  it("sets body font before splitTextToSize in tables", () => {
+    const call_order: string[] = [];
+    doc.setFont = vi.fn((...args: unknown[]) => {
+      doc.calls.push({ method: "setFont", args: [...args] });
+      call_order.push(`setFont:${args[0]}:${args[1]}`);
+    });
+    doc.splitTextToSize = vi.fn((text: string) => {
+      call_order.push(`splitTextToSize:${text}`);
+      return [text];
+    });
+    render_tokens_to_pdf(
+      doc,
+      "T",
+      parse("```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |"),
+    );
+    const table_split = call_order.findIndex((c) =>
+      c.startsWith("splitTextToSize:A"),
+    );
+    const body_font_before = call_order
+      .slice(0, table_split)
+      .lastIndexOf("setFont:Inter:normal");
+    expect(body_font_before).toBeGreaterThanOrEqual(0);
+  });
 });
 
 describe("export_note_as_pdf", () => {
@@ -363,6 +407,7 @@ describe("export_note_as_pdf", () => {
 
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({
+        ok: true,
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
       }),
     ) as unknown as typeof fetch;
@@ -407,6 +452,21 @@ describe("export_note_as_pdf", () => {
     expect(globalThis.fetch).toHaveBeenCalledWith("/fonts/Inter-Italic.ttf");
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/fonts/Inter-BoldItalic.ttf",
+    );
+  });
+
+  it("throws descriptive error when font fetch fails", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      }),
+    ) as unknown as typeof fetch;
+    const { export_note_as_pdf: export_fn } =
+      await import("$lib/features/document/domain/pdf_export");
+    await expect(export_fn("My Note", "Hello")).rejects.toThrow(
+      /PDF export failed.*font.*Inter-Regular\.ttf.*404/i,
     );
   });
 });
