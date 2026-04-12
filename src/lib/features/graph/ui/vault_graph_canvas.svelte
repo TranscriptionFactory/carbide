@@ -56,6 +56,7 @@
   }: Props = $props();
 
   let renderer = $state<VaultGraphRenderer | null>(null);
+  let renderer_ready = $state(false);
   let worker = $state<Worker | null>(null);
   let edge_tooltip = $state<EdgeHoverInfo | null>(null);
 
@@ -82,7 +83,50 @@
     return set;
   }
 
+  function feed_graph(r: VaultGraphRenderer, snap: VaultGraphSnapshot) {
+    r.set_graph(plain_nodes(snap), plain_edges(snap));
+
+    if (worker) {
+      worker.postMessage({ type: "stop" });
+      worker.terminate();
+      worker = null;
+    }
+
+    const w = new GraphWorker();
+    if (renderer !== r) {
+      w.terminate();
+      return;
+    }
+    worker = w;
+    w.onerror = (event) => {
+      log.from_error("Worker error:", event);
+    };
+    w.onmessage = (event) => {
+      const msg = event.data;
+      if (msg.type === "positions") {
+        const ids: string[] = msg.ids;
+        const buffer = new Float64Array(msg.buffer as ArrayBuffer);
+        const positions = new Map<string, { x: number; y: number }>();
+        for (let i = 0; i < ids.length; i++) {
+          positions.set(ids[i]!, {
+            x: buffer[i * 2]!,
+            y: buffer[i * 2 + 1]!,
+          });
+        }
+        r.update_positions(positions);
+      }
+    };
+    w.postMessage({
+      type: "init",
+      nodes: snap.nodes.map((n) => ({ id: n.path })),
+      edges: plain_edges(snap),
+      force_params,
+    });
+  }
+
   function cleanup() {
+    renderer_ready = false;
+    last_snapshot_ref = null;
     if (worker) {
       worker.postMessage({ type: "stop" });
       worker.terminate();
@@ -113,40 +157,8 @@
       .then(() => {
         if (renderer !== r) return;
 
-        r.set_graph(plain_nodes(snapshot), plain_edges(snapshot));
-
         resize_observer.observe(el);
-
-        const w = new GraphWorker();
-        if (renderer !== r) {
-          w.terminate();
-          return;
-        }
-        worker = w;
-        w.onerror = (event) => {
-          log.from_error("Worker error:", event);
-        };
-        w.onmessage = (event) => {
-          const msg = event.data;
-          if (msg.type === "positions") {
-            const ids: string[] = msg.ids;
-            const buffer = new Float64Array(msg.buffer as ArrayBuffer);
-            const positions = new Map<string, { x: number; y: number }>();
-            for (let i = 0; i < ids.length; i++) {
-              positions.set(ids[i]!, {
-                x: buffer[i * 2]!,
-                y: buffer[i * 2 + 1]!,
-              });
-            }
-            r.update_positions(positions);
-          }
-        };
-        w.postMessage({
-          type: "init",
-          nodes: snapshot.nodes.map((n) => ({ id: n.path })),
-          edges: plain_edges(snapshot),
-          force_params,
-        });
+        renderer_ready = true;
       })
       .catch((err) => {
         log.from_error("Init failed:", err);
@@ -159,6 +171,15 @@
       },
     };
   }
+
+  // Re-feed graph data when snapshot changes (e.g. new search query)
+  let last_snapshot_ref: VaultGraphSnapshot | null = null;
+  $effect(() => {
+    if (!renderer_ready || !renderer) return;
+    if (snapshot === last_snapshot_ref) return;
+    last_snapshot_ref = snapshot;
+    feed_graph(renderer, snapshot);
+  });
 
   $effect(() => {
     renderer?.set_filter(
