@@ -35,6 +35,17 @@ function create_instance(query: string): SearchGraphInstance {
 export class SearchGraphStore {
   instances = $state<Map<string, SearchGraphInstance>>(new Map());
 
+  private update(
+    tab_id: string,
+    patch: Partial<SearchGraphInstance>,
+  ): void {
+    const inst = this.instances.get(tab_id);
+    if (!inst) return;
+    const next = new Map(this.instances);
+    next.set(tab_id, { ...inst, ...patch });
+    this.instances = next;
+  }
+
   create_instance(tab_id: string, query: string): void {
     const next = new Map(this.instances);
     next.set(tab_id, create_instance(query));
@@ -52,10 +63,7 @@ export class SearchGraphStore {
   }
 
   set_loading(tab_id: string): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.status = "loading";
-    inst.error = null;
+    this.update(tab_id, { status: "loading", error: null });
   }
 
   set_snapshot(
@@ -63,68 +71,60 @@ export class SearchGraphStore {
     snapshot: SearchGraphSnapshot,
     auto_expanded_ids: Set<string>,
   ): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.snapshot = snapshot;
-    inst.auto_expanded_ids = auto_expanded_ids;
-    inst.status = "ready";
-    inst.error = null;
+    this.update(tab_id, {
+      snapshot,
+      auto_expanded_ids,
+      status: "ready",
+      error: null,
+    });
   }
 
   set_error(tab_id: string, message: string): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.status = "error";
-    inst.error = message;
-    inst.snapshot = null;
+    this.update(tab_id, { status: "error", error: message, snapshot: null });
   }
 
   select_node(tab_id: string, node_id: string | null): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.selected_node_id = node_id;
-    inst.scroll_to_path = node_id;
+    this.update(tab_id, {
+      selected_node_id: node_id,
+      scroll_to_path: node_id,
+    });
   }
 
   set_hovered_node(tab_id: string, node_id: string | null): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.hovered_node_id = node_id;
+    this.update(tab_id, { hovered_node_id: node_id });
   }
 
   toggle_user_expanded(tab_id: string, node_id: string): void {
     const inst = this.instances.get(tab_id);
     if (!inst) return;
-    const next = new Set(inst.user_expanded_ids);
-    if (next.has(node_id)) {
-      next.delete(node_id);
+    const next_expanded = new Set(inst.user_expanded_ids);
+    if (next_expanded.has(node_id)) {
+      next_expanded.delete(node_id);
     } else {
-      next.add(node_id);
+      next_expanded.add(node_id);
     }
-    inst.user_expanded_ids = next;
+    this.update(tab_id, { user_expanded_ids: next_expanded });
   }
 
   clear_scroll_to(tab_id: string): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.scroll_to_path = null;
+    this.update(tab_id, { scroll_to_path: null });
   }
 
   toggle_semantic_edges(tab_id: string): void {
     const inst = this.instances.get(tab_id);
     if (!inst) return;
-    inst.show_semantic_edges = !inst.show_semantic_edges;
+    this.update(tab_id, { show_semantic_edges: !inst.show_semantic_edges });
   }
 
   toggle_smart_link_edges(tab_id: string): void {
     const inst = this.instances.get(tab_id);
     if (!inst) return;
-    inst.show_smart_link_edges = !inst.show_smart_link_edges;
+    this.update(tab_id, {
+      show_smart_link_edges: !inst.show_smart_link_edges,
+    });
   }
 
   update_query(tab_id: string, query: string): void {
-    const inst = this.instances.get(tab_id);
-    if (!inst) return;
-    inst.query = query;
+    this.update(tab_id, { query });
   }
 }
