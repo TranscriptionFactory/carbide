@@ -316,6 +316,11 @@ fn resolve_cli_sidecar(app: &AppHandle) -> Result<PathBuf, String> {
     };
 
     let search_dirs: Vec<PathBuf> = [
+        // Bundled app: Tauri places sidecars next to the main executable (no subdirectory)
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf())),
+        // Dev mode / manual layout: binaries/ subdirectory next to executable
         std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|d| d.join("binaries"))),
