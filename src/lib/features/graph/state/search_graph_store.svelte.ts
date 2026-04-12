@@ -1,4 +1,4 @@
-import type { SearchGraphSnapshot } from "../domain/search_graph_types";
+import type { SearchGraphSnapshot } from "../ports";
 
 export type SearchGraphStatus = "idle" | "loading" | "ready" | "error";
 

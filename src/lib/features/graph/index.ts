@@ -28,3 +28,13 @@ export {
 export { default as GraphPanel } from "$lib/features/graph/ui/graph_panel.svelte";
 export { default as VaultGraphCanvas } from "$lib/features/graph/ui/vault_graph_canvas.svelte";
 export { default as GraphTabView } from "$lib/features/graph/ui/graph_tab_view.svelte";
+export type {
+  SearchGraphNode,
+  SearchGraphEdge,
+  SearchGraphSnapshot,
+  SearchGraphStats,
+  SearchGraphNodeKind,
+  SearchGraphEdgeType,
+} from "$lib/features/graph/ports";
+export { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
+export { extract_search_subgraph } from "$lib/features/graph/domain/search_subgraph";

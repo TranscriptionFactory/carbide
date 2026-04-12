@@ -1,10 +1,11 @@
-import type { VaultGraphSnapshot } from "../ports";
-import type { SemanticEdge, SmartLinkEdge } from "../ports";
 import type {
+  VaultGraphSnapshot,
+  SemanticEdge,
+  SmartLinkEdge,
   SearchGraphEdge,
   SearchGraphNode,
   SearchGraphSnapshot,
-} from "./search_graph_types";
+} from "../ports";
 
 export type SearchSubgraphHit = {
   path: string;

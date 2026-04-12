@@ -14,6 +14,7 @@ export type Tab = {
   | { kind: "note"; note_path: NotePath }
   | { kind: "document"; file_path: string; file_type: string }
   | { kind: "graph"; view_mode: "vault" }
+  | { kind: "search_graph"; query: string }
 );
 
 export type TabEditorSnapshot = {
@@ -40,6 +41,7 @@ export type PersistedTab = {
   | { kind: "note"; note_path: NotePath }
   | { kind: "document"; file_path: string; file_type: string }
   | { kind: "graph"; view_mode: "vault" }
+  | { kind: "search_graph"; query: string }
 );
 
 export type PersistedTabState = {

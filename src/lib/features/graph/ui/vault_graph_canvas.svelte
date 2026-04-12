@@ -19,6 +19,7 @@
   type Props = {
     snapshot: VaultGraphSnapshot;
     filter_query: string;
+    filter_override_ids?: Set<string> | null;
     selected_node_ids: string[];
     hovered_node_id: string | null;
     semantic_edges: SemanticEdge[];
@@ -40,6 +41,7 @@
   let {
     snapshot,
     filter_query,
+    filter_override_ids = null,
     selected_node_ids,
     hovered_node_id,
     semantic_edges,
@@ -159,7 +161,9 @@
   }
 
   $effect(() => {
-    renderer?.set_filter(compute_filter_set(filter_query, snapshot));
+    renderer?.set_filter(
+      filter_override_ids ?? compute_filter_set(filter_query, snapshot),
+    );
   });
 
   $effect(() => {
