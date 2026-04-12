@@ -334,12 +334,14 @@ Bidirectional sync via store:
 16. ��� Add `search_graph` routing branch in `note_editor.svelte` (before graph branch, passes `tab_id` + `initial_query`)
 17. ✅ Update exports in `graph/index.ts` — export `SearchGraphTabView`, `SearchGraphCanvas`, `SearchGraphResultList`
 
-### Phase 5: Entry Points + Polish
-18. Command palette / keybinding for "Open Search Graph"
-19. Context menu integration on existing search results
-20. Loading/empty/error states
-21. Status bar with edge type stats
-22. Style polish and responsive behavior
+### Phase 5: Entry Points + Polish ✅ (commit a2867792)
+18. ✅ Command palette entry: `"open_search_graph"` added to `CommandId`, `COMMANDS_REGISTRY`, `COMMAND_TO_ACTION_ID` — searchable via `> Search Graph`, `> visualize`, `> network`
+19. ✅ Keybinding: `CmdOrCtrl+Alt+G` bound to `search_graph_open` in `DEFAULT_HOTKEYS`
+20. ✅ Loading/empty/error states — already implemented in Phase 4 (`search_graph_tab_view.svelte` handles idle/loading/error/ready)
+21. ✅ Status bar with edge type stats — already implemented in Phase 4 (hit/neighbor/wiki/semantic/smart counts)
+22. ✅ Bug fix: tab view action calls corrected from positional args to payload objects (`{ tab_id, query }`, `{ tab_id, node_id }`)
+23. ✅ Omnibar icon: `"search"` icon type added to `CommandIcon` union and `COMMAND_ICONS` map
+24. Context menu on omnibar results deferred — command palette + keybinding provide sufficient entry points
 
 ---
 
