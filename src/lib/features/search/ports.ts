@@ -125,7 +125,19 @@ export interface SearchPort {
     note_path: string,
     limit?: number,
   ): Promise<SmartLinkSuggestion[]>;
+  compute_smart_link_vault_edges(
+    vault_id: VaultId,
+    min_score?: number,
+    per_note_limit?: number,
+  ): Promise<SmartLinkVaultEdge[]>;
 }
+
+export type SmartLinkVaultEdge = {
+  sourcePath: string;
+  targetPath: string;
+  score: number;
+  rules: { ruleId: string; rawScore: number }[];
+};
 
 export interface WorkspaceIndexPort {
   cancel_index(vault_id: VaultId): Promise<void>;

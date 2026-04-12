@@ -163,5 +163,6 @@ export function create_test_search_adapter(): SearchPort {
     load_smart_link_rules: () => Promise.resolve([]),
     save_smart_link_rules: () => Promise.resolve(),
     compute_smart_link_suggestions: () => Promise.resolve([]),
+    compute_smart_link_vault_edges: () => Promise.resolve([]),
   };
 }
