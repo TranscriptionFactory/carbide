@@ -125,6 +125,7 @@
       listProperties: () => _rpc("metadata.list_properties"),
       getBacklinks: (notePath) => _rpc("metadata.get_backlinks", notePath),
       getStats: (notePath) => _rpc("metadata.get_stats", notePath),
+      getFileCache: (path) => _rpc("metadata.get_file_cache", path),
     },
 
     diagnostics: {

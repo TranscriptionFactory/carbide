@@ -5,6 +5,7 @@ import type { PluginEventType } from "$lib/features/plugin/ports";
 
 const FILE_CREATED: PluginEventType = "file-created";
 const FILE_MODIFIED: PluginEventType = "file-modified";
+const METADATA_CHANGED: PluginEventType = "metadata-changed";
 
 function make_event(
   type: PluginEventType = FILE_CREATED,
@@ -199,6 +200,38 @@ describe("PluginEventBus", () => {
 
       vi.advanceTimersByTime(50);
       expect(listener).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("metadata-changed events", () => {
+    it("delivers metadata-changed events with payload to subscribed plugins", () => {
+      const listener = vi.fn();
+      bus.set_event_listener(listener);
+      bus.subscribe("plugin-a", METADATA_CHANGED, "cb-meta");
+
+      const payload = {
+        event_type: "upsert",
+        path: "notes/test.md",
+      };
+      bus.emit(make_event(METADATA_CHANGED, payload));
+      vi.advanceTimersByTime(100);
+
+      expect(listener).toHaveBeenCalledOnce();
+      expect(listener.mock.calls[0]?.[1].type).toBe("metadata-changed");
+      expect(listener.mock.calls[0]?.[1].data).toEqual(payload);
+    });
+
+    it("does not deliver metadata-changed to plugins subscribed to other events only", () => {
+      const listener = vi.fn();
+      bus.set_event_listener(listener);
+      bus.subscribe("plugin-a", FILE_CREATED, "cb-file");
+
+      bus.emit(
+        make_event(METADATA_CHANGED, { event_type: "delete", path: "x.md" }),
+      );
+      vi.advanceTimersByTime(100);
+
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 
