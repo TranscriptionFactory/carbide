@@ -108,15 +108,16 @@ export async function capture_active_tab_snapshot(
 
   const open_note = stores.editor.open_note;
   if (open_note) {
-    if (open_note.is_dirty) {
-      stores.tab.set_cached_note(active_id, open_note);
-    } else {
-      stores.tab.clear_cached_note(active_id);
-    }
-    stores.tab.set_dirty(active_id, open_note.is_dirty);
     if (open_note.is_dirty && stores.ui.editor_settings.autosave_enabled) {
       await services.note.save_note(null, true, "primary");
     }
+    const latest_note = stores.editor.open_note ?? open_note;
+    if (latest_note.is_dirty) {
+      stores.tab.set_cached_note(active_id, latest_note);
+    } else {
+      stores.tab.clear_cached_note(active_id);
+    }
+    stores.tab.set_dirty(active_id, latest_note.is_dirty);
   }
 }
 
