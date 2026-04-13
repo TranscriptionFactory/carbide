@@ -199,6 +199,13 @@ fn url_decode(input: &str) -> String {
 
 const EMBEDDED_SDK: &str = include_str!("../features/plugin/sdk/carbide_plugin_api.js");
 
+
+fn resolve_active_vault_path(app: &AppHandle) -> Option<String> {
+    let store = load_store(app).ok()?;
+    let vault_id = store.last_vault_id.as_ref()?;
+    vault_path_by_id(&store, vault_id)
+}
+
 pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
@@ -241,7 +248,17 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
             return error_response("carbide-plugin", &uri, 400, "missing vault path");
         }
         Some(Err(error)) => return error_response("carbide-plugin", &uri, 400, error),
-        None => return error_response("carbide-plugin", &uri, 400, "missing vault query"),
+        None => match resolve_active_vault_path(app) {
+            Some(p) => p,
+            None => {
+                return error_response(
+                    "carbide-plugin",
+                    &uri,
+                    400,
+                    "missing vault query and no active vault",
+                )
+            }
+        },
     };
 
     let vault_root = std::path::Path::new(&vault_path);
