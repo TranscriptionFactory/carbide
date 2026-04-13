@@ -7,7 +7,10 @@ import type {
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
-import type { WikiQueryEvent } from "$lib/features/editor/adapters/wiki_suggest_plugin";
+
+export type WikiQueryEvent =
+  | { kind: "note"; query: string }
+  | { kind: "heading"; note_name: string | null; heading_query: string };
 
 export type BufferConfig = {
   note_path: string;

@@ -859,9 +859,7 @@ describe("SearchService", () => {
   });
 
   describe("get_note_headings", () => {
-    function make_search_port_with_cache(
-      headings: Array<{ level: number; text: string; line: number }>,
-    ) {
+    function make_base_search_port() {
       return {
         suggest_wiki_links: vi.fn().mockResolvedValue([]),
         suggest_planned_links: vi.fn().mockResolvedValue([]),
@@ -893,17 +891,7 @@ describe("SearchService", () => {
         semantic_search_batch: vi.fn().mockResolvedValue([]),
         rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
         get_note_stats: vi.fn().mockResolvedValue({}),
-        get_file_cache: vi.fn().mockResolvedValue({
-          frontmatter: {},
-          tags: [],
-          headings,
-          links: [],
-          embeds: [],
-          stats: {},
-          ctime_ms: 0,
-          mtime_ms: 0,
-          size_bytes: 0,
-        }),
+        get_file_cache: vi.fn().mockResolvedValue({}),
         load_smart_link_rules: vi.fn().mockResolvedValue([]),
         save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
         compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
@@ -917,7 +905,18 @@ describe("SearchService", () => {
         { level: 2, text: "Background", line: 5 },
         { level: 2, text: "Methods", line: 12 },
       ];
-      const search_port = make_search_port_with_cache(headings);
+      const search_port = make_base_search_port();
+      search_port.get_file_cache = vi.fn().mockResolvedValue({
+        frontmatter: {},
+        tags: [],
+        headings,
+        links: [],
+        embeds: [],
+        stats: {},
+        ctime_ms: 0,
+        mtime_ms: 0,
+        size_bytes: 0,
+      });
 
       const vault_store = new VaultStore();
       vault_store.set_vault(create_test_vault());
@@ -942,7 +941,7 @@ describe("SearchService", () => {
     });
 
     it("returns empty array when get_file_cache throws", async () => {
-      const search_port = make_search_port_with_cache([]);
+      const search_port = make_base_search_port();
       search_port.get_file_cache = vi
         .fn()
         .mockRejectedValue(new Error("not found"));
