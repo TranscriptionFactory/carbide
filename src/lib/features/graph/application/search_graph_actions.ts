@@ -96,4 +96,17 @@ export function register_search_graph_actions(
       search_graph_store.toggle_smart_link_edges(tab_id);
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_expand_node,
+    label: "Find Similar Notes",
+    execute: async (payload: unknown) => {
+      const { tab_id, node_path } = (payload ?? {}) as {
+        tab_id?: string;
+        node_path?: string;
+      };
+      if (!tab_id || !node_path) return;
+      await graph_service.expand_search_graph_node(tab_id, node_path);
+    },
+  });
 }

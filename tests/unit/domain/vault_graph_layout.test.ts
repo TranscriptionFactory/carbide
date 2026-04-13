@@ -84,6 +84,28 @@ describe("stabilize_simulation", () => {
     }
   });
 
+  it("spreads nodes across both axes without collapsing to a line", () => {
+    const nodes = Array.from({ length: 10 }, (_, i) => ({
+      path: `n${i}.md`,
+      title: `N${i}`,
+    }));
+    const edges = nodes.slice(1).map((n) => ({
+      source: "n0.md",
+      target: n.path,
+    }));
+    const snapshot = make_snapshot(nodes, edges);
+
+    const state = create_vault_graph_simulation(snapshot);
+    stabilize_simulation(state, 300);
+
+    const ys = state.nodes.map((n) => n.y ?? 0);
+    const mean_y = ys.reduce((a, b) => a + b, 0) / ys.length;
+    const variance_y =
+      ys.reduce((a, y) => a + (y - mean_y) ** 2, 0) / ys.length;
+
+    expect(variance_y).toBeGreaterThan(100);
+  });
+
   it("produces distinct positions for connected nodes", () => {
     const snapshot = make_snapshot(
       [

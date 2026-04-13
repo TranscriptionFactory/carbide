@@ -30,6 +30,7 @@
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
+    on_expand_node?: ((path: string) => void) | undefined;
     force_params?: {
       link_distance: number;
       charge_strength: number;
@@ -52,6 +53,7 @@
     on_select_node,
     on_hover_node,
     on_open_node,
+    on_expand_node,
     force_params,
   }: Props = $props();
 
@@ -59,6 +61,16 @@
   let renderer_ready = $state(false);
   let worker = $state<Worker | null>(null);
   let edge_tooltip = $state<EdgeHoverInfo | null>(null);
+
+  let context_menu = $state<{
+    node_id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  function close_context_menu() {
+    context_menu = null;
+  }
 
   function plain_nodes(snap: VaultGraphSnapshot) {
     return snap.nodes.map((n) => {
@@ -169,9 +181,15 @@
     const r = new VaultGraphRenderer();
     renderer = r;
 
-    r.on_node_click = on_select_node;
+    r.on_node_click = (id) => {
+      close_context_menu();
+      on_select_node(id);
+    };
     r.on_node_hover = on_hover_node;
     r.on_node_dblclick = on_open_node;
+    r.on_node_contextmenu = (id, sx, sy) => {
+      context_menu = { node_id: id, x: sx, y: sy };
+    };
     r.on_edge_hover = (info) => {
       edge_tooltip = info;
     };
@@ -257,7 +275,13 @@
   }
 </script>
 
-<div class="VaultGraph" role="img" aria-label="Full vault graph">
+<div
+  class="VaultGraph"
+  role="img"
+  aria-label="Full vault graph"
+  oncontextmenu={(e) => e.preventDefault()}
+  onclick={close_context_menu}
+>
   <div class="VaultGraph__canvas" use:init_canvas></div>
 
   {#if snapshot.stats.node_count > 5000}
@@ -278,6 +302,34 @@
       )}px;"
     >
       {format_tooltip(edge_tooltip)}
+    </div>
+  {/if}
+
+  {#if context_menu}
+    <div
+      class="VaultGraph__context_menu"
+      style="left:{String(context_menu.x)}px;top:{String(context_menu.y)}px;"
+    >
+      {#if on_expand_node}
+        <button
+          class="VaultGraph__context_menu_item"
+          onclick={() => {
+            if (context_menu) on_expand_node(context_menu.node_id);
+            close_context_menu();
+          }}
+        >
+          Find similar notes
+        </button>
+      {/if}
+      <button
+        class="VaultGraph__context_menu_item"
+        onclick={() => {
+          if (context_menu) on_open_node(context_menu.node_id);
+          close_context_menu();
+        }}
+      >
+        Open note
+      </button>
     </div>
   {/if}
 </div>
@@ -332,5 +384,33 @@
     box-shadow: var(--shadow-sm, none);
     pointer-events: none;
     white-space: nowrap;
+  }
+
+  .VaultGraph__context_menu {
+    position: absolute;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    border-radius: var(--radius);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm, none);
+    overflow: hidden;
+  }
+
+  .VaultGraph__context_menu_item {
+    all: unset;
+    display: block;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .VaultGraph__context_menu_item:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
   }
 </style>

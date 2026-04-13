@@ -16,6 +16,7 @@ import type { SearchPort } from "$lib/features/search";
 import {
   extract_search_subgraph,
   compute_auto_expanded_ids,
+  merge_expansion_into_snapshot,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
 import type { VaultStore } from "$lib/features/vault";
@@ -385,6 +386,7 @@ export class GraphService {
       });
 
       let semantic_edges: SemanticEdge[] = [];
+      let semantic_boost_paths: Set<string> | undefined;
       try {
         const hit_paths = subgraph_hits.map((h) => h.path);
         semantic_edges = await this.search_port.semantic_search_batch(
@@ -393,6 +395,13 @@ export class GraphService {
           SEMANTIC_EDGE_KNN_LIMIT,
           SEMANTIC_EDGE_DISTANCE_THRESHOLD,
         );
+
+        const sem_hits = await this.search_port.semantic_search(
+          vault_id,
+          query,
+          20,
+        );
+        semantic_boost_paths = new Set(sem_hits.map((h) => h.note.path));
       } catch {
         // Embeddings may not be available — proceed without semantic edges
       }
@@ -403,6 +412,7 @@ export class GraphService {
         vault_snapshot,
         semantic_edges,
         smart_link_edges,
+        semantic_boost_paths ? { semantic_boost_paths } : undefined,
       );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
       this.search_graph_store.set_snapshot(tab_id, snapshot, auto_expanded);
@@ -424,5 +434,49 @@ export class GraphService {
 
   toggle_search_graph_user_expanded(tab_id: string, node_id: string): void {
     this.search_graph_store?.toggle_user_expanded(tab_id, node_id);
+  }
+
+  async expand_search_graph_node(
+    tab_id: string,
+    node_path: string,
+  ): Promise<void> {
+    if (!this.search_graph_store) return;
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+
+    const instance = this.search_graph_store.get_instance(tab_id);
+    if (!instance?.snapshot) return;
+
+    try {
+      const similar = await this.search_port.find_similar_notes(
+        vault_id,
+        node_path,
+        5,
+      );
+
+      let vault_snapshot = this.graph_store.vault_snapshot;
+      if (!vault_snapshot) {
+        vault_snapshot = await this.graph_port.load_vault_graph(vault_id);
+        this.graph_store.set_vault_snapshot(vault_snapshot);
+      }
+
+      const new_hits: SearchSubgraphHit[] = similar.map((h) => ({
+        path: h.note.path,
+        title: h.note.title,
+        score: h.distance,
+      }));
+
+      const merged = merge_expansion_into_snapshot(
+        instance.snapshot,
+        new_hits,
+        vault_snapshot,
+      );
+      const auto_expanded = compute_auto_expanded_ids(merged);
+      this.search_graph_store.set_snapshot(tab_id, merged, auto_expanded);
+    } catch (error) {
+      log.error("Failed to expand search graph node", {
+        error: error_message(error),
+      });
+    }
   }
 }

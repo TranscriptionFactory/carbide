@@ -4,6 +4,8 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   type Simulation,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
@@ -60,9 +62,18 @@ export type VaultGraphSimulationState = {
 export function create_vault_graph_simulation(
   snapshot: VaultGraphSnapshot,
 ): VaultGraphSimulationState {
+  const spread = Math.max(200, snapshot.nodes.length * 10);
+  let seed = snapshot.nodes.length;
+  function seeded_random(): number {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return (seed - 1) / 2147483646;
+  }
+
   const nodes: ForceNode[] = snapshot.nodes.map((n) => ({
     id: n.path,
     label: n.title,
+    x: seeded_random() * spread - spread / 2,
+    y: seeded_random() * spread - spread / 2,
   }));
 
   const node_set = new Set(nodes.map((n) => n.id));
@@ -85,7 +96,11 @@ export function create_vault_graph_simulation(
     )
     .force("charge", forceManyBody().strength(-200).distanceMax(500))
     .force("center", forceCenter(0, 0))
+    .force("x", forceX(0).strength(0.03))
+    .force("y", forceY(0).strength(0.03))
     .force("collide", forceCollide<ForceNode>(20))
+    .alphaMin(0.005)
+    .alphaDecay(0.02)
     .stop();
 
   return { simulation, nodes, edges };
@@ -99,7 +114,7 @@ export function stabilize_simulation(
 }
 
 export function compute_adaptive_tick_budget(node_count: number): number {
-  return Math.max(50, Math.min(Math.round(node_count * 0.5), 500));
+  return Math.max(80, Math.min(Math.round(node_count * 0.5), 500));
 }
 
 import { matches_filter } from "$lib/features/graph/domain/graph_filter";

@@ -21,6 +21,7 @@
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
+    on_expand_node?: (path: string) => void;
   };
 
   let {
@@ -33,6 +34,7 @@
     on_select_node,
     on_hover_node,
     on_open_node,
+    on_expand_node,
   }: Props = $props();
 
   function folder_from_path(path: string): string {
@@ -123,4 +125,5 @@
   {on_select_node}
   {on_hover_node}
   {on_open_node}
+  {on_expand_node}
 />

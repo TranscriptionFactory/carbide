@@ -41,4 +41,7 @@ export type {
   SearchGraphEdgeType,
 } from "$lib/features/graph/ports";
 export { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
-export { extract_search_subgraph } from "$lib/features/graph/domain/search_subgraph";
+export {
+  extract_search_subgraph,
+  merge_expansion_into_snapshot,
+} from "$lib/features/graph/domain/search_subgraph";
