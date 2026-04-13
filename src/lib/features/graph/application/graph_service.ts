@@ -1,5 +1,5 @@
 import type { EditorStore } from "$lib/features/editor";
-import type { GraphPort } from "$lib/features/graph/ports";
+import type { GraphPort, SemanticEdge } from "$lib/features/graph/ports";
 import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import {
@@ -18,7 +18,6 @@ import {
   compute_auto_expanded_ids,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
-import type { SearchQuery } from "$lib/shared/types/search";
 import type { VaultStore } from "$lib/features/vault";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -367,17 +366,7 @@ export class GraphService {
     this.search_graph_store.update_query(tab_id, query);
 
     try {
-      const search_query: SearchQuery = {
-        raw: query,
-        text: query,
-        scope: "content",
-        domain: "notes",
-      };
-      const hits = await this.search_port.search_notes(
-        vault_id,
-        search_query,
-        50,
-      );
+      const hits = await this.search_port.hybrid_search(vault_id, query, 50);
 
       let vault_snapshot = this.graph_store.vault_snapshot;
       if (!vault_snapshot) {
@@ -395,7 +384,26 @@ export class GraphService {
         return hit;
       });
 
-      const snapshot = extract_search_subgraph(subgraph_hits, vault_snapshot);
+      let semantic_edges: SemanticEdge[] = [];
+      try {
+        const hit_paths = subgraph_hits.map((h) => h.path);
+        semantic_edges = await this.search_port.semantic_search_batch(
+          vault_id,
+          hit_paths,
+          SEMANTIC_EDGE_KNN_LIMIT,
+          SEMANTIC_EDGE_DISTANCE_THRESHOLD,
+        );
+      } catch {
+        // Embeddings may not be available — proceed without semantic edges
+      }
+
+      const smart_link_edges = this.graph_store.smart_link_edges;
+      const snapshot = extract_search_subgraph(
+        subgraph_hits,
+        vault_snapshot,
+        semantic_edges,
+        smart_link_edges,
+      );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
       this.search_graph_store.set_snapshot(tab_id, snapshot, auto_expanded);
     } catch (error) {
