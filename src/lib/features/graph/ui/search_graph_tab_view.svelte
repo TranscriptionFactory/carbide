@@ -149,7 +149,7 @@
         direction="horizontal"
         class="SearchGraphTabView__panes"
       >
-        <Resizable.Pane defaultSize={55} minSize={30}>
+        <Resizable.Pane defaultSize={40} minSize={20}>
           <SearchGraphCanvas
             {snapshot}
             selected_node_id={instance?.selected_node_id ?? null}
@@ -164,7 +164,7 @@
           />
         </Resizable.Pane>
         <Resizable.Handle />
-        <Resizable.Pane defaultSize={45} minSize={20}>
+        <Resizable.Pane defaultSize={60} minSize={30}>
           <SearchGraphResultList
             nodes={snapshot.nodes}
             edges={snapshot.edges}
