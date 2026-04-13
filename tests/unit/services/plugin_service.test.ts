@@ -265,6 +265,7 @@ describe("PluginService", () => {
       stores: {
         notes: { notes: [] },
         editor: { open_note: null },
+        tab: { active_tab: null },
       },
     });
     const service_with_private = service as unknown as {

@@ -166,6 +166,13 @@ export type PluginRpcContext = {
         meta: { path: string; name: string };
       } | null;
     };
+    tab: {
+      active_tab: {
+        kind: string;
+        file_path?: string;
+        file_type?: string;
+      } | null;
+    };
   };
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
@@ -616,6 +623,21 @@ export class PluginRpcHandler {
     this.require_any_permission(plugin_id, ["editor:read", "editor:modify"]);
 
     const open_note = this.context.stores.editor.open_note;
+
+    if (action === "get_info") {
+      if (open_note) {
+        return { path: open_note.meta.path, name: open_note.meta.name };
+      }
+      const active_tab = this.context.stores.tab.active_tab;
+      if (active_tab?.kind === "document" && active_tab.file_path) {
+        const fp = active_tab.file_path;
+        const last_slash = fp.lastIndexOf("/");
+        const name = last_slash >= 0 ? fp.slice(last_slash + 1) : fp;
+        return { path: fp, name };
+      }
+      throw new Error("No active editor");
+    }
+
     if (!open_note) throw new Error("No active editor");
 
     switch (action) {
@@ -645,8 +667,6 @@ export class PluginRpcHandler {
         );
         return { success: true };
       }
-      case "get_info":
-        return { path: open_note.meta.path, name: open_note.meta.name };
       default:
         throw new Error(`Unknown editor action: ${action}`);
     }

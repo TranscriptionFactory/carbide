@@ -17,6 +17,7 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
+import { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import {
   as_markdown_text,
@@ -165,6 +166,7 @@ function create_harness() {
     registry,
     stores,
     document_service: services.document as never,
+    document_store: new DocumentStore(),
     services: services as never,
     default_mount_config: {
       reset_app_state: false,

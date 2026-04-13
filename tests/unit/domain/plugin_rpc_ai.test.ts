@@ -48,6 +48,7 @@ function make_context(ai_execute = vi.fn()) {
     stores: {
       notes: { notes: [] },
       editor: { open_note: null },
+      tab: { active_tab: null },
     },
     ai: {
       execute: ai_execute,

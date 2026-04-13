@@ -29,5 +29,7 @@ export function build_command_context(stores: ContextStores): CommandContext {
       stores.editor.selection.text.trim().length > 0,
     is_canvas_file: note_path.endsWith(".canvas"),
     is_excalidraw_file: note_path.endsWith(".excalidraw"),
+    is_html_document:
+      active_tab?.kind === "document" && active_tab.file_type === "html",
   };
 }

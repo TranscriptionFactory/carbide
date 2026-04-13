@@ -13,6 +13,7 @@ function make_state(tab_id: string): DocumentViewerState {
     zoom: 1,
     scroll_top: 0,
     pdf_page: 1,
+    html_view_mode: "visual",
     load_status: "idle",
     error_message: null,
   };
@@ -125,6 +126,39 @@ describe("DocumentStore", () => {
     const store = new DocumentStore();
     expect(() => {
       store.update_pdf_page("ghost", 3);
+    }).not.toThrow();
+    expect(store.viewer_states.size).toBe(0);
+  });
+
+  it("toggles html_view_mode for html documents", () => {
+    const store = new DocumentStore();
+    const state = {
+      ...make_state("tab-html"),
+      file_path: "vault/docs/page.html",
+      file_type: "html" as const,
+      html_view_mode: "visual" as const,
+    };
+    store.set_viewer_state("tab-html", state);
+
+    store.toggle_html_view_mode("tab-html");
+    expect(store.get_viewer_state("tab-html")?.html_view_mode).toBe("source");
+
+    store.toggle_html_view_mode("tab-html");
+    expect(store.get_viewer_state("tab-html")?.html_view_mode).toBe("visual");
+  });
+
+  it("toggle_html_view_mode is a no-op for non-html documents", () => {
+    const store = new DocumentStore();
+    store.set_viewer_state("tab-pdf", make_state("tab-pdf"));
+
+    store.toggle_html_view_mode("tab-pdf");
+    expect(store.get_viewer_state("tab-pdf")?.html_view_mode).toBe("visual");
+  });
+
+  it("toggle_html_view_mode is a no-op for non-existent tab", () => {
+    const store = new DocumentStore();
+    expect(() => {
+      store.toggle_html_view_mode("ghost");
     }).not.toThrow();
     expect(store.viewer_states.size).toBe(0);
   });

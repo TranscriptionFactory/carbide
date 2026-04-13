@@ -532,6 +532,7 @@
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
   hotkeys_config={stores.ui.hotkeys_config}
+  plugin_commands={stores.plugin.commands}
   {has_multiple_vaults}
   on_open_change={(open) => {
     if (open) {

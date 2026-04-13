@@ -48,6 +48,7 @@ function make_context(network_fetch = vi.fn()) {
     stores: {
       notes: { notes: [] },
       editor: { open_note: null },
+      tab: { active_tab: null },
     },
     network: {
       fetch: network_fetch,

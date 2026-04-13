@@ -11,8 +11,10 @@ export function is_binary_type(file_type: DocumentFileType): boolean {
 }
 
 export function is_editable_type(file_type: DocumentFileType): boolean {
-  return file_type === "text";
+  return file_type === "text" || file_type === "html";
 }
+
+export type HtmlViewMode = "visual" | "source";
 
 export type PdfMetadata = {
   title?: string;

@@ -717,6 +717,7 @@ export function create_app_context(input: {
     stores: {
       notes: stores.notes,
       editor: stores.editor,
+      tab: stores.tab,
     },
     search: {
       async fts(query, limit) {
@@ -849,6 +850,7 @@ export function create_app_context(input: {
   register_document_actions({
     ...base_action_input,
     document_service,
+    document_store: stores.document,
   });
 
   register_window_actions({
