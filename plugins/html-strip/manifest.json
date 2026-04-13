@@ -1,0 +1,62 @@
+{
+  "id": "html-strip",
+  "name": "HTML Strip",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "Strip unnecessary elements (styles, scripts, metadata) from HTML files, leaving only content.",
+  "api_version": "1",
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "commands:register",
+    "editor:read",
+    "events:subscribe"
+  ],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": [
+      {
+        "key": "strip_styles",
+        "type": "toggle",
+        "label": "Strip styles",
+        "description": "Remove <style>, <link rel=\"stylesheet\">, style attributes, and class attributes",
+        "default": true
+      },
+      {
+        "key": "strip_scripts",
+        "type": "toggle",
+        "label": "Strip scripts",
+        "description": "Remove <script>, <noscript>, and event handler attributes (on*)",
+        "default": true
+      },
+      {
+        "key": "strip_metadata",
+        "type": "toggle",
+        "label": "Strip metadata",
+        "description": "Remove <head> content (except <title>), <meta>, and HTML comments",
+        "default": true
+      },
+      {
+        "key": "strip_media_embeds",
+        "type": "toggle",
+        "label": "Strip media embeds",
+        "description": "Remove <iframe>, <embed>, and <object> elements",
+        "default": false
+      },
+      {
+        "key": "strip_data_attributes",
+        "type": "toggle",
+        "label": "Strip data attributes",
+        "description": "Remove all data-* attributes",
+        "default": true
+      },
+      {
+        "key": "strip_ids_and_classes",
+        "type": "toggle",
+        "label": "Strip IDs and classes",
+        "description": "Remove id and class attributes from all elements",
+        "default": false
+      }
+    ]
+  }
+}
