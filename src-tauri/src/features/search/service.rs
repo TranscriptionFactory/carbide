@@ -1317,6 +1317,18 @@ fn handle_sync_paths(
     }
 }
 
+fn embed_text_for_note(conn: &Connection, path: &str) -> String {
+    search_db::get_fts_body(conn, path)
+        .filter(|b| !b.trim().is_empty())
+        .unwrap_or_else(|| {
+            Path::new(path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(path)
+                .to_string()
+        })
+}
+
 fn handle_embed_batch(
     conn: &Connection,
     _vault_root: &Path,
@@ -1329,6 +1341,19 @@ fn handle_embed_batch(
     block_index: &SharedVectorIndex,
     rx: &Receiver<DbCommand>,
 ) {
+    // Embedding pipeline for a vault. Runs in two ordered phases:
+    //
+    // 1. Block embedding (handle_block_embed_batch): embeds each qualifying section
+    //    (>= BLOCK_EMBED_MIN_WORDS AND BLOCK_EMBED_MIN_LINES) into block_embeddings.
+    //    Must complete before phase 2. (ref: DL-006)
+    //
+    // 2. Note composition: derives note_embeddings by mean-pooling block vectors for
+    //    each note, then L2-normalizing. No separate full-body embed pass; composition
+    //    from blocks covers all sections without truncation. Notes with zero block
+    //    embeddings fall back to embed_one on FTS body or filename. (ref: DL-003, DL-005)
+    //
+    // Both phases are gated by per-vault feature flags (embedding_block_enabled,
+    // embedding_note_enabled). If both disabled, returns immediately.
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let model = match embedding_state.get_or_init(cache_dir, app_handle) {
@@ -1442,88 +1467,6 @@ fn handle_embed_batch(
         },
     );
 
-    let start = Instant::now();
-    let mut embedded = 0usize;
-    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 50 };
-
-    for chunk in notes_needing_embedding.chunks(batch_size) {
-        if cancel.load(Ordering::Relaxed) {
-            break;
-        }
-
-        let mut texts = Vec::with_capacity(chunk.len());
-        let mut paths = Vec::with_capacity(chunk.len());
-
-        for path in chunk {
-            let body = match search_db::get_fts_body(conn, path) {
-                Some(b) if !b.trim().is_empty() => b,
-                _ => Path::new(path.as_str())
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(path)
-                    .to_string(),
-            };
-            paths.push(path.as_str());
-            texts.push(body);
-        }
-
-        if texts.is_empty() {
-            continue;
-        }
-
-        let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-        let batch_start = Instant::now();
-        match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
-            Ok(embeddings) => {
-                for (path, embedding) in paths.iter().zip(embeddings.iter()) {
-                    if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
-                        log::warn!("embed_batch: upsert failed for {path}: {e}");
-                    }
-                    if let Ok(mut ni) = note_index.write() {
-                        ni.insert(path, embedding.clone());
-                    }
-                }
-                embedded += embeddings.len();
-            }
-            Err(e) if e.contains("cancelled") => {
-                log::info!("embed_batch: cancelled");
-                break;
-            }
-            Err(e) => {
-                log::warn!("embed_batch: batch embedding failed: {e}");
-            }
-        }
-
-        let _ = app_handle.emit(
-            "embedding_progress",
-            EmbeddingProgressEvent::Progress {
-                vault_id: vault_id.to_string(),
-                embedded,
-                total,
-            },
-        );
-
-        let sleep_ms = batch_start.elapsed().as_millis() as u64;
-        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
-
-        while let Ok(cmd) = rx.try_recv() {
-            match cmd {
-                DbCommand::Rebuild { .. }
-                | DbCommand::Sync { .. }
-                | DbCommand::SyncPaths { .. }
-                | DbCommand::EmbedBatch { .. }
-                | DbCommand::RebuildEmbeddings { .. }
-                | DbCommand::RebuildIndex
-                | DbCommand::Shutdown => {
-                    deferred.push(cmd);
-                }
-                _ => {
-                    dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
-                }
-            }
-        }
-    }
-
     if block_embed_enabled {
         handle_block_embed_batch(
             conn,
@@ -1539,15 +1482,145 @@ fn handle_embed_batch(
         );
     }
 
-    let elapsed_ms = start.elapsed().as_millis() as u64;
-    let _ = app_handle.emit(
-        "embedding_progress",
-        EmbeddingProgressEvent::Completed {
-            vault_id: vault_id.to_string(),
-            embedded,
-            elapsed_ms,
-        },
-    );
+    if note_embed_enabled {
+        let comp_start = Instant::now();
+        let mut embedded = 0usize;
+        // Batch size for progress emission and deferred-command draining.
+        let progress_batch: usize = if cfg!(debug_assertions) { 5 } else { 16 };
+        if block_embed_enabled {
+            // Bulk-fetch all block embeddings in one query, then compose per note. (N+1 avoided)
+            let path_refs: Vec<&str> = notes_needing_embedding.iter().map(|s| s.as_str()).collect();
+            let all_block_vecs = vector_db::get_block_embeddings_for_notes(conn, &path_refs);
+
+            for chunk in notes_needing_embedding.chunks(progress_batch) {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                for path in chunk {
+                    let note_vec = match all_block_vecs.get(path) {
+                        Some(bvs) if !bvs.is_empty() => {
+                            let vecs: Vec<Vec<f32>> = bvs.iter().map(|(_, v)| v.clone()).collect();
+                            Some(vector_db::mean_pool_normalize(&vecs))
+                        }
+                        _ => {
+                            // No qualifying block sections: fall back to embed_one on FTS
+                            // body or filename to ensure note_embeddings is always populated. (ref: DL-005)
+                            let text = embed_text_for_note(conn, path);
+                            model.embed_one(&text).ok()
+                        }
+                    };
+                    if let Some(embedding) = note_vec {
+                        if let Err(e) = vector_db::upsert_embedding(conn, path, &embedding) {
+                            log::warn!("embed_batch: upsert failed for {path}: {e}");
+                        }
+                        if let Ok(mut ni) = note_index.write() {
+                            ni.insert(path, embedding);
+                        }
+                        embedded += 1;
+                    }
+                }
+                let _ = app_handle.emit(
+                    "embedding_progress",
+                    EmbeddingProgressEvent::Progress {
+                        vault_id: vault_id.to_string(),
+                        embedded,
+                        total,
+                    },
+                );
+                while let Ok(cmd) = rx.try_recv() {
+                    match cmd {
+                        DbCommand::Rebuild { .. }
+                        | DbCommand::Sync { .. }
+                        | DbCommand::SyncPaths { .. }
+                        | DbCommand::EmbedBatch { .. }
+                        | DbCommand::RebuildEmbeddings { .. }
+                        | DbCommand::RebuildIndex
+                        | DbCommand::Shutdown => {
+                            deferred.push(cmd);
+                        }
+                        _ => {
+                            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                        }
+                    }
+                }
+            }
+        } else {
+            // block embed disabled: fall back to direct batch embed on FTS bodies. (ref: DL-002)
+            // 16 in release: BatchLongest padding means one long section pads all others;
+            // batch_size=16 caps worst-case Metal tensor at [16,12,256,256].
+            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 16 };
+            for chunk in notes_needing_embedding.chunks(batch_size) {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                let mut texts = Vec::with_capacity(chunk.len());
+                let mut paths = Vec::with_capacity(chunk.len());
+                for path in chunk {
+                    texts.push(embed_text_for_note(conn, path));
+                    paths.push(path.as_str());
+                }
+                let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+                let batch_start = Instant::now();
+                match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
+                    Ok(embeddings) => {
+                        for (path, embedding) in paths.iter().zip(embeddings.iter()) {
+                            if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
+                                log::warn!("embed_batch: upsert failed for {path}: {e}");
+                            }
+                            if let Ok(mut ni) = note_index.write() {
+                                ni.insert(path, embedding.clone());
+                            }
+                        }
+                        embedded += embeddings.len();
+                    }
+                    Err(e) if e.contains("cancelled") => {
+                        log::info!("embed_batch: cancelled");
+                        break;
+                    }
+                    Err(e) => {
+                        log::warn!("embed_batch: batch embedding failed: {e}");
+                    }
+                }
+                let _ = app_handle.emit(
+                    "embedding_progress",
+                    EmbeddingProgressEvent::Progress {
+                        vault_id: vault_id.to_string(),
+                        embedded,
+                        total,
+                    },
+                );
+                let sleep_ms = batch_start.elapsed().as_millis() as u64;
+                std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+                while let Ok(cmd) = rx.try_recv() {
+                    match cmd {
+                        DbCommand::Rebuild { .. }
+                        | DbCommand::Sync { .. }
+                        | DbCommand::SyncPaths { .. }
+                        | DbCommand::EmbedBatch { .. }
+                        | DbCommand::RebuildEmbeddings { .. }
+                        | DbCommand::RebuildIndex
+                        | DbCommand::Shutdown => {
+                            deferred.push(cmd);
+                        }
+                        _ => {
+                            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                        }
+                    }
+                }
+            }
+        }
+        let elapsed_ms = comp_start.elapsed().as_millis() as u64;
+        // Completed event emitted after composition pass; embedded count reflects
+        // notes written to note_embeddings, not raw model invocations. (ref: DL-003)
+        let _ = app_handle.emit(
+            "embedding_progress",
+            EmbeddingProgressEvent::Completed {
+                vault_id: vault_id.to_string(),
+                embedded,
+                elapsed_ms,
+            },
+        );
+    }
 
     for cmd in deferred {
         dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
@@ -1604,7 +1677,9 @@ fn handle_block_embed_batch(
         },
     );
 
-    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 50 };
+    // 16 in release: BatchLongest padding means one long section pads all others;
+    // batch_size=16 caps worst-case Metal tensor at [16,12,256,256]. (ref: DL-002)
+    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 16 };
     let mut block_embedded = 0usize;
     let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
 

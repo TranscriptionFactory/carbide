@@ -1,7 +1,10 @@
 use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
 
-pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs";
+// Version token: incrementing this string triggers clear_all_embeddings on startup,
+// atomically wiping both note_embeddings and block_embeddings. Bump whenever
+// max_length, model weights, or composition strategy changes. (ref: DL-004)
+pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs-v2";
 pub const _EMBEDDING_DIMS: usize = 384;
 
 pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
@@ -385,6 +388,29 @@ pub fn get_block_embeddings_for_notes(
     map
 }
 
+/// Mean-pools `vecs` and L2-normalizes the result.
+/// Returns an empty vec if `vecs` is empty.
+/// The returned vector is unit-length, compatible with cosine KNN retrieval. (ref: DL-003)
+pub fn mean_pool_normalize(vecs: &[Vec<f32>]) -> Vec<f32> {
+    let Some(first) = vecs.first() else {
+        return vec![];
+    };
+    let dim = first.len();
+    let mut mean = vec![0.0f32; dim];
+    for v in vecs {
+        for (m, x) in mean.iter_mut().zip(v.iter()) {
+            *m += x;
+        }
+    }
+    let n = vecs.len() as f32;
+    mean.iter_mut().for_each(|m| *m /= n);
+    let norm: f32 = mean.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        mean.iter_mut().for_each(|m| *m /= norm);
+    }
+    mean
+}
+
 pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {
     let mut stmt = match conn.prepare("SELECT path, heading_id FROM block_embeddings") {
         Ok(s) => s,
@@ -708,5 +734,52 @@ mod tests {
         assert_eq!(keys.len(), 2);
         assert!(keys.contains("x.md\0h-1-a-0"));
         assert!(keys.contains("y.md\0h-2-b-0"));
+    }
+
+    #[test]
+    fn mean_pool_is_unit_length_after_normalization() {
+        let v1 = fake_embedding(0.1);
+        let v2 = fake_embedding(0.3);
+        let result = mean_pool_normalize(&[v1, v2]);
+        let norm: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "mean-pooled vector not unit length: {norm}"
+        );
+    }
+
+    #[test]
+    fn composed_note_embedding_is_upserted_for_every_note() {
+        let conn = setup();
+        let notes = ["a.md", "b.md", "c.md"];
+        for (i, note) in notes.iter().enumerate() {
+            let v = fake_embedding(0.1 * (i + 1) as f32);
+            upsert_block_embedding(&conn, note, "h-1", &v, "h").unwrap();
+            let block_vecs = get_block_embeddings_for_note(&conn, note);
+            let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
+            let composed = mean_pool_normalize(&vecs);
+            upsert_embedding(&conn, note, &composed).unwrap();
+        }
+        assert_eq!(
+            get_embedding_count(&conn),
+            3,
+            "note_embeddings must have entry for every note"
+        );
+    }
+
+    #[test]
+    fn composed_note_vec_differs_from_any_single_block_vec() {
+        let conn = setup();
+        let v1 = fake_embedding(0.1);
+        let v2 = fake_embedding(0.9);
+        upsert_block_embedding(&conn, "multi.md", "h-1", &v1, "a").unwrap();
+        upsert_block_embedding(&conn, "multi.md", "h-2", &v2, "b").unwrap();
+        let block_vecs = get_block_embeddings_for_note(&conn, "multi.md");
+        let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
+        let mean = mean_pool_normalize(&vecs);
+        let sim_v1: f32 = mean.iter().zip(v1.iter()).map(|(a, b)| a * b).sum();
+        let sim_v2: f32 = mean.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
+        assert!(sim_v1 < 0.99, "composed vec must differ from block-1 alone: {sim_v1}");
+        assert!(sim_v2 < 0.99, "composed vec must differ from block-2 alone: {sim_v2}");
     }
 }

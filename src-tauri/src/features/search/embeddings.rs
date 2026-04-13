@@ -72,8 +72,10 @@ impl EmbeddingService {
 
         tokenizer
             .with_truncation(Some(TruncationParams {
-                // 512 max_position_embeddings minus 2 special tokens ([CLS] + [SEP])
-                max_length: 510,
+                // 256 tokens covers >95% of PKM sections; shorter sequences yield
+                // [B,12,256,256] attention tensors, keeping Metal buffer
+                // accumulation below 1 GB at batch_size=16. (ref: DL-001)
+                max_length: 256,
                 strategy: TruncationStrategy::LongestFirst,
                 ..Default::default()
             }))
