@@ -122,8 +122,7 @@ export type EditorSettings = {
   semantic_suggested_links_limit: number;
   semantic_graph_edges_per_note: number;
   semantic_graph_max_vault_size: number;
-  semantic_omnibar_fallback_enabled: boolean;
-  semantic_omnibar_min_words: number;
+  semantic_omnibar_enabled: boolean;
   graph_force_link_distance: number;
   graph_force_charge_strength: number;
   graph_force_collision_radius: number;
@@ -222,8 +221,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   semantic_suggested_links_limit: 5,
   semantic_graph_edges_per_note: 3,
   semantic_graph_max_vault_size: 200,
-  semantic_omnibar_fallback_enabled: true,
-  semantic_omnibar_min_words: 3,
+  semantic_omnibar_enabled: true,
   graph_force_link_distance: 80,
   graph_force_charge_strength: -200,
   graph_force_collision_radius: 20,

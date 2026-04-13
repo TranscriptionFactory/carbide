@@ -637,19 +637,12 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["graph", "vault", "size", "limit", "performance"],
   },
   {
-    key: "semantic_omnibar_fallback_enabled",
-    label: "Omnibar Semantic Fallback",
+    key: "semantic_omnibar_enabled",
+    label: "Omnibar Semantic Search",
     description:
-      "Fall back to semantic search when keyword search returns few results",
+      "Use semantic search in omnibar (falls back to keyword-only if embeddings unavailable)",
     category: "Semantic",
-    keywords: ["omnibar", "fallback", "hybrid", "search", "semantic"],
-  },
-  {
-    key: "semantic_omnibar_min_words",
-    label: "Omnibar Min Words",
-    description: "Minimum query word count to trigger semantic fallback",
-    category: "Semantic",
-    keywords: ["omnibar", "words", "minimum", "fallback", "threshold"],
+    keywords: ["omnibar", "hybrid", "search", "semantic", "vector"],
   },
   {
     key: "graph_force_link_distance",

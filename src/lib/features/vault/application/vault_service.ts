@@ -687,9 +687,9 @@ export class VaultService {
   private async apply_settings_migrations(
     settings: EditorSettings,
   ): Promise<EditorSettings> {
-    const ai = migrate_ai_settings(
-      settings as unknown as Record<string, unknown>,
-    );
+    const raw = settings as unknown as Record<string, unknown>;
+
+    const ai = migrate_ai_settings(raw);
     if (ai) {
       settings.ai_providers = ai.ai_providers;
       settings.ai_default_provider_id = ai.ai_default_provider_id;
@@ -699,6 +699,16 @@ export class VaultService {
         ai.ai_default_provider_id,
       );
     }
+
+    if (
+      "semantic_omnibar_fallback_enabled" in raw &&
+      !("semantic_omnibar_enabled" in raw)
+    ) {
+      settings.semantic_omnibar_enabled = raw[
+        "semantic_omnibar_fallback_enabled"
+      ] as boolean;
+    }
+
     return settings;
   }
 

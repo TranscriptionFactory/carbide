@@ -3513,58 +3513,19 @@
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label"
-                  >Omnibar Semantic Fallback</span
+                  >Omnibar Semantic Search</span
                 >
                 <span class="SettingsDialog__description"
-                  >Use semantic search when keyword search returns few results</span
+                  >Use semantic search in omnibar (falls back to keyword-only if
+                  embeddings unavailable)</span
                 >
               </div>
               <Switch.Root
-                checked={editor_settings.semantic_omnibar_fallback_enabled}
+                checked={editor_settings.semantic_omnibar_enabled}
                 onCheckedChange={(v: boolean) => {
-                  update("semantic_omnibar_fallback_enabled", v);
+                  update("semantic_omnibar_enabled", v);
                 }}
               />
-            </div>
-
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Omnibar Min Words</span>
-                <span class="SettingsDialog__description"
-                  >Minimum query words to trigger semantic fallback</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Slider
-                  type="single"
-                  value={editor_settings.semantic_omnibar_min_words}
-                  onValueChange={(v: number | undefined) => {
-                    if (v !== undefined)
-                      update("semantic_omnibar_min_words", v);
-                  }}
-                  min={2}
-                  max={6}
-                  step={1}
-                  class="w-32"
-                />
-                <span class="text-sm tabular-nums w-10"
-                  >{editor_settings.semantic_omnibar_min_words}</span
-                >
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "semantic_omnibar_min_words",
-                      DEFAULT_EDITOR_SETTINGS.semantic_omnibar_min_words,
-                    )}
-                  disabled={editor_settings.semantic_omnibar_min_words ===
-                    DEFAULT_EDITOR_SETTINGS.semantic_omnibar_min_words}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.semantic_omnibar_min_words)})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
             </div>
           </div>
           <div class="SettingsDialog__section-divider"></div>

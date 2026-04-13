@@ -8,7 +8,6 @@ import type { CommandDefinition } from "$lib/features/search/types/command_palet
 import type { SettingDefinition } from "$lib/features/settings";
 import type { CommandContext } from "$lib/features/search/types/command_context";
 import type {
-  HybridSearchHit,
   InFileMatch,
   OmnibarItem,
   PlannedLinkSuggestion,
@@ -37,71 +36,6 @@ const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
 const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
-const HYBRID_FALLBACK_THRESHOLD = 3;
-const HYBRID_FALLBACK_MIN_WORDS = 3;
-
-function word_count(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
-function merge_fts_with_hybrid(
-  fts_items: OmnibarItem[],
-  hybrid_hits: HybridSearchHit[],
-): OmnibarItem[] {
-  const seen_paths = new Set(
-    fts_items
-      .filter(
-        (item): item is Extract<OmnibarItem, { kind: "note" }> =>
-          item.kind === "note",
-      )
-      .map((item) => String(item.note.path)),
-  );
-
-  const hybrid_items: OmnibarItem[] = hybrid_hits
-    .filter((hit) => !seen_paths.has(String(hit.note.path)))
-    .map((hit) => ({
-      kind: "note" as const,
-      note: hit.note,
-      score: hit.score,
-      snippet: hit.snippet,
-      snippet_page: hit.snippet_page,
-      source: hit.source,
-    }));
-
-  // FTS items are ranked by BM25 (already sorted by the backend).
-  // Hybrid items are ranked by RRF (already sorted by the backend).
-  // Since these scores are on different scales, interleave by
-  // normalizing each list's position to a [0, 1] rank score.
-  const ranked = rank_interleave(fts_items, hybrid_items);
-  return ranked;
-}
-
-function rank_interleave(
-  primary: OmnibarItem[],
-  secondary: OmnibarItem[],
-): OmnibarItem[] {
-  if (secondary.length === 0) return primary;
-  if (primary.length === 0) return secondary;
-
-  type Ranked = { item: OmnibarItem; rank_score: number };
-  const tagged: Ranked[] = [];
-
-  for (let i = 0; i < primary.length; i++) {
-    tagged.push({
-      item: primary[i]!,
-      rank_score: 1 - i / Math.max(primary.length, 1),
-    });
-  }
-  for (let i = 0; i < secondary.length; i++) {
-    tagged.push({
-      item: secondary[i]!,
-      rank_score: 1 - i / Math.max(secondary.length, 1),
-    });
-  }
-
-  tagged.sort((a, b) => b.rank_score - a.rank_score);
-  return tagged.map((t) => t.item);
-}
 type CrossVaultSettledSearch = PromiseSettledResult<
   Awaited<ReturnType<SearchPort["search_notes"]>>
 >;
@@ -564,7 +498,7 @@ export class SearchService {
 
   async search_omnibar(
     raw_query: string,
-    semantic_fallback?: { enabled: boolean; min_words: number },
+    semantic_enabled?: boolean,
   ): Promise<OmnibarSearchResult> {
     const parsed = parse_search_query(raw_query);
 
@@ -580,6 +514,30 @@ export class SearchService {
       return this.search_planned_omnibar_items(parsed.text);
     }
 
+    const vault_id = this.get_active_vault_id();
+    if ((semantic_enabled ?? true) && vault_id !== null) {
+      try {
+        const hybrid_hits = await this.search_port.hybrid_search(
+          vault_id,
+          parsed.text,
+          20,
+        );
+        const items: OmnibarItem[] = hybrid_hits.map((hit) => ({
+          kind: "note" as const,
+          note: hit.note,
+          score: hit.score,
+          snippet: hit.snippet,
+          snippet_page: hit.snippet_page,
+          source: hit.source,
+        }));
+        return { domain: "notes", items };
+      } catch (error) {
+        log.warn("Hybrid search unavailable, falling back to FTS", {
+          error: error_message(error),
+        });
+      }
+    }
+
     const result = await this.search_notes(raw_query);
     const fts_items: OmnibarItem[] = result.results.map((r) => ({
       kind: "note" as const,
@@ -588,33 +546,6 @@ export class SearchService {
       snippet: r.snippet,
       snippet_page: r.snippet_page,
     }));
-
-    const fallback_enabled = semantic_fallback?.enabled ?? true;
-    const fallback_min_words =
-      semantic_fallback?.min_words ?? HYBRID_FALLBACK_MIN_WORDS;
-
-    const vault_id = this.get_active_vault_id();
-    if (
-      fallback_enabled &&
-      vault_id !== null &&
-      fts_items.length < HYBRID_FALLBACK_THRESHOLD &&
-      word_count(parsed.text) >= fallback_min_words
-    ) {
-      try {
-        const hybrid_hits = await this.search_port.hybrid_search(
-          vault_id,
-          parsed.text,
-          20,
-        );
-        const items = merge_fts_with_hybrid(fts_items, hybrid_hits);
-        return { domain: "notes", items, status: result.status };
-      } catch (error) {
-        log.error("Hybrid search fallback failed", {
-          error: error_message(error),
-        });
-      }
-    }
-
     return { domain: "notes", items: fts_items, status: result.status };
   }
 

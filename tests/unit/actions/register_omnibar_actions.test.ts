@@ -254,7 +254,7 @@ describe("register_omnibar_actions", () => {
     expect(services.search.search_notes_all_vaults).not.toHaveBeenCalled();
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
       "#planned docs",
-      expect.objectContaining({ enabled: true }),
+      true,
     );
     expect(stores.search.omnibar_items).toEqual([
       {
