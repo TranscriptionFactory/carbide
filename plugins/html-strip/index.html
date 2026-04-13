@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HTML Strip Plugin</title>
+  </head>
+  <body>
+    <script>
+      const RPC_TIMEOUT_MS = 10000;
+
+      const rpc = {
+        _pending: new Map(),
+        send(method, ...params) {
+          const id = crypto.randomUUID();
+          window.parent.postMessage({ id, method, params }, "*");
+          return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+              this._pending.delete(id);
+              reject(new Error(`RPC timeout: ${method}`));
+            }, RPC_TIMEOUT_MS);
+            this._pending.set(id, {
+              resolve: (v) => {
+                clearTimeout(timer);
+                resolve(v);
+              },
+              reject: (e) => {
+                clearTimeout(timer);
+                reject(e);
+              },
+            });
+          });
+        },
+        _handle(event) {
+          const { id, result, error } = event.data;
+          if (!id || !this._pending.has(id)) return;
+          const { resolve, reject } = this._pending.get(id);
+          this._pending.delete(id);
+          if (error) reject(new Error(error));
+          else resolve(result);
+        },
+      };
+
+      window.addEventListener("message", (e) => rpc._handle(e));
+
+      const EVENT_HANDLER_ATTRS = [
+        "onabort",
+        "onblur",
+        "onchange",
+        "onclick",
+        "ondblclick",
+        "onerror",
+        "onfocus",
+        "oninput",
+        "onkeydown",
+        "onkeypress",
+        "onkeyup",
+        "onload",
+        "onmousedown",
+        "onmousemove",
+        "onmouseout",
+        "onmouseover",
+        "onmouseup",
+        "onreset",
+        "onresize",
+        "onscroll",
+        "onselect",
+        "onsubmit",
+        "onunload",
+      ];
+
+      function strip_html(html, settings) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        if (settings.strip_metadata) {
+          strip_metadata(doc);
+        }
+
+        if (settings.strip_scripts) {
+          strip_scripts(doc);
+        }
+
+        if (settings.strip_styles) {
+          strip_styles(doc);
+        }
+
+        if (settings.strip_media_embeds) {
+          strip_media_embeds(doc);
+        }
+
+        strip_attributes(doc, settings);
+
+        if (settings.strip_metadata) {
+          strip_comments(doc);
+        }
+
+        return serialize(doc);
+      }
+
+      function strip_metadata(doc) {
+        const head = doc.head;
+        if (!head) return;
+
+        const children = Array.from(head.children);
+        for (const child of children) {
+          if (child.tagName.toLowerCase() !== "title") {
+            child.remove();
+          }
+        }
+
+        for (const meta of doc.querySelectorAll("body meta")) {
+          meta.remove();
+        }
+      }
+
+      function strip_scripts(doc) {
+        for (const el of doc.querySelectorAll("script, noscript")) {
+          el.remove();
+        }
+
+        for (const el of doc.querySelectorAll("*")) {
+          for (const attr of EVENT_HANDLER_ATTRS) {
+            el.removeAttribute(attr);
+          }
+        }
+      }
+
+      function strip_styles(doc) {
+        for (const el of doc.querySelectorAll(
+          'style, link[rel="stylesheet"]',
+        )) {
+          el.remove();
+        }
+
+        for (const el of doc.querySelectorAll("[style]")) {
+          el.removeAttribute("style");
+        }
+
+        for (const el of doc.querySelectorAll("[class]")) {
+          el.removeAttribute("class");
+        }
+      }
+
+      function strip_media_embeds(doc) {
+        for (const el of doc.querySelectorAll("iframe, embed, object")) {
+          el.remove();
+        }
+      }
+
+      function strip_attributes(doc, settings) {
+        for (const el of doc.querySelectorAll("*")) {
+          if (settings.strip_data_attributes) {
+            const data_attrs = Array.from(el.attributes).filter((a) =>
+              a.name.startsWith("data-"),
+            );
+            for (const attr of data_attrs) {
+              el.removeAttribute(attr.name);
+            }
+          }
+
+          if (settings.strip_ids_and_classes) {
+            el.removeAttribute("id");
+            el.removeAttribute("class");
+          }
+        }
+      }
+
+      function strip_comments(node) {
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_COMMENT);
+        const comments = [];
+        while (walker.nextNode()) {
+          comments.push(walker.currentNode);
+        }
+        for (const comment of comments) {
+          comment.remove();
+        }
+      }
+
+      function serialize(doc) {
+        return "<!doctype html>\n" + doc.documentElement.outerHTML + "\n";
+      }
+
+      async function get_settings() {
+        try {
+          return (await rpc.send("settings.get_all")) || {};
+        } catch {
+          return {};
+        }
+      }
+
+      function settings_with_defaults(raw) {
+        return {
+          strip_styles: raw.strip_styles !== false,
+          strip_scripts: raw.strip_scripts !== false,
+          strip_metadata: raw.strip_metadata !== false,
+          strip_media_embeds: raw.strip_media_embeds === true,
+          strip_data_attributes: raw.strip_data_attributes !== false,
+          strip_ids_and_classes: raw.strip_ids_and_classes === true,
+        };
+      }
+
+      async function get_current_html_info() {
+        let info;
+        try {
+          info = await rpc.send("editor.get_info");
+        } catch {
+          await rpc.send("ui.show_notice", {
+            message: "HTML Strip: no file open in editor",
+          });
+          return null;
+        }
+
+        if (!info || !info.path.toLowerCase().endsWith(".html")) {
+          await rpc.send("ui.show_notice", {
+            message: "HTML Strip: current file is not an HTML file",
+          });
+          return null;
+        }
+
+        return info;
+      }
+
+      async function strip_current() {
+        const info = await get_current_html_info();
+        if (!info) return;
+
+        const settings = settings_with_defaults(await get_settings());
+
+        try {
+          const html = await rpc.send("vault.read", info.path);
+          if (!html) {
+            await rpc.send("ui.show_notice", {
+              message: "HTML Strip: file is empty",
+            });
+            return;
+          }
+
+          const cleaned = strip_html(html, settings);
+          await rpc.send("vault.modify", info.path, cleaned);
+          await rpc.send("ui.show_notice", {
+            message: `HTML Strip: cleaned ${info.name}`,
+          });
+        } catch (err) {
+          await rpc.send("ui.show_notice", {
+            message: `HTML Strip: failed to clean ${info.name}`,
+          });
+        }
+      }
+
+      async function strip_current_copy() {
+        const info = await get_current_html_info();
+        if (!info) return;
+
+        const settings = settings_with_defaults(await get_settings());
+        const copy_path = info.path.replace(/\.html$/i, ".clean.html");
+
+        try {
+          const html = await rpc.send("vault.read", info.path);
+          if (!html) {
+            await rpc.send("ui.show_notice", {
+              message: "HTML Strip: file is empty",
+            });
+            return;
+          }
+
+          const cleaned = strip_html(html, settings);
+          await rpc.send("vault.create", copy_path, cleaned);
+          await rpc.send("ui.show_notice", {
+            message: `HTML Strip: saved ${copy_path}`,
+          });
+        } catch (err) {
+          await rpc.send("ui.show_notice", {
+            message: `HTML Strip: failed to create clean copy of ${info.name}`,
+          });
+        }
+      }
+
+      let activated = false;
+
+      window.addEventListener("message", async (event) => {
+        if (event.data.method === "lifecycle.activate" && !activated) {
+          activated = true;
+          await rpc.send("commands.register", {
+            id: "strip-current",
+            label: "Strip HTML (overwrite)",
+            description:
+              "Strip styles, scripts, and metadata from the current HTML file",
+            keywords: ["html", "strip", "clean", "current"],
+            icon: "eraser",
+          });
+          await rpc.send("commands.register", {
+            id: "strip-current-copy",
+            label: "Strip HTML (copy)",
+            description: "Strip the current HTML file and save as .clean.html",
+            keywords: ["html", "strip", "clean", "copy"],
+            icon: "copy",
+          });
+        }
+
+        if (event.data.method === "command.execute") {
+          const cmd = event.data.params?.[0];
+          if (cmd === "html-strip:strip-current") {
+            await strip_current();
+          }
+          if (cmd === "html-strip:strip-current-copy") {
+            await strip_current_copy();
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
