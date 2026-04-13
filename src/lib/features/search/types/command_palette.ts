@@ -62,6 +62,7 @@ export type CommandId =
   | "update_embeddings"
   | "rebuild_embeddings"
   | "open_search_graph"
+  | "create_task_list"
   | (string & {});
 
 export type CommandIcon =

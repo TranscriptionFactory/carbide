@@ -49,6 +49,11 @@ import {
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService, register_task_actions } from "$lib/features/task";
 import {
+  TaskListStore,
+  TaskListService,
+  register_task_list_actions,
+} from "$lib/features/task_list";
+import {
   PluginService,
   PluginSettingsService,
   register_plugin_actions,
@@ -180,7 +185,8 @@ export function create_app_context(input: {
         command.id === "quick_capture_task" ||
         command.id === "show_tasks_list" ||
         command.id === "show_tasks_kanban" ||
-        command.id === "show_tasks_schedule"
+        command.id === "show_tasks_schedule" ||
+        command.id === "create_task_list"
       ) {
         return stores.vault.is_vault_mode;
       }
@@ -568,6 +574,11 @@ export function create_app_context(input: {
       editor_service.update_task_checkbox(line_number, status),
   );
 
+  const task_list_service = new TaskListService(
+    input.ports.task_list,
+    stores.task_list,
+  );
+
   const canvas_service = new CanvasService(
     input.ports.canvas,
     stores.vault,
@@ -641,6 +652,7 @@ export function create_app_context(input: {
       graph: stores.graph,
       bases: stores.bases,
       task: stores.task,
+      task_list: stores.task_list,
       parsed_note_cache: stores.parsed_note_cache,
       reference: stores.reference,
       // stt: stores.stt,
@@ -660,6 +672,7 @@ export function create_app_context(input: {
       theme: theme_service,
       bases: bases_service,
       task: task_service,
+      task_list: task_list_service,
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
       reference: reference_service,
@@ -1002,6 +1015,8 @@ export function create_app_context(input: {
 
   register_task_actions(action_registry, task_service, stores.task, stores.ui);
 
+  register_task_list_actions(action_registry, task_list_service, stores.vault);
+
   register_query_actions(action_registry, query_service, stores.ui);
 
   // STT removed — archived on archive/stt-main
@@ -1049,6 +1064,7 @@ export function create_app_context(input: {
     secondary_editor_manager,
     document_service,
     task_service,
+    task_list_service,
     plugin_service,
     workspace_index_port: input.ports.index,
     lint_store: stores.lint,

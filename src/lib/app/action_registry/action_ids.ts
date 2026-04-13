@@ -332,6 +332,12 @@ export const ACTION_IDS = {
   bases_list_views: "bases.list_views",
   bases_delete_view: "bases.delete_view",
 
+  task_list_create: "task_list.create",
+  task_list_delete: "task_list.delete",
+  task_list_add_item: "task_list.add_item",
+  task_list_toggle_item: "task_list.toggle_item",
+  task_list_load_available: "task_list.load_available",
+
   query_execute: "query.execute",
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",

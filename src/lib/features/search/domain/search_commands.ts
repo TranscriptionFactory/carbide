@@ -543,4 +543,11 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "terminal",
     when: (ctx) => ctx.is_html_document,
   },
+  {
+    id: "create_task_list",
+    label: "Create Task List",
+    description: "Create a new named task list",
+    keywords: ["task", "list", "create", "new", "checklist", "todo", "tasks"],
+    icon: "list-tree",
+  },
 ];

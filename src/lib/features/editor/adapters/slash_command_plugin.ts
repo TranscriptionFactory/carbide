@@ -127,6 +127,23 @@ function make_code_block_insert() {
   };
 }
 
+function make_task_list_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const code_type = state.schema.nodes["code_block"];
+    if (!code_type) return;
+    const cursor = state.selection.from;
+    const node = code_type.create(
+      { language: "tasks" },
+      state.schema.text("list: "),
+    );
+    const tr = state.tr.delete(from, cursor).replaceWith(from, from, node);
+    const pos_inside = from + 2 + "list: ".length;
+    tr.setSelection(TextSelection.create(tr.doc, pos_inside));
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 function make_blockquote_insert() {
   return (view: EditorView, from: number) => {
     const { state } = view;
@@ -455,6 +472,14 @@ export function create_commands(): SlashCommand[] {
       insert: make_frontmatter_insert(),
       is_available: (state) =>
         state.doc.firstChild?.type.name !== "frontmatter",
+    },
+    {
+      id: "task_list",
+      label: "Task List",
+      description: "Embed a named task list",
+      icon: "☑",
+      keywords: ["task", "list", "embed", "checklist", "tasks"],
+      insert: make_task_list_insert(),
     },
   ];
 }
