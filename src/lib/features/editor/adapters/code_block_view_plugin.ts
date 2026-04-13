@@ -10,6 +10,8 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
+import { mount, unmount } from "svelte";
+import { TaskListEmbedView, parse_embed_config } from "$lib/features/task_list";
 
 const log = create_logger("code_block_view");
 
@@ -156,6 +158,12 @@ type MermaidState = {
   toggle_btn: HTMLButtonElement;
   render_timer: ReturnType<typeof setTimeout> | undefined;
   last_rendered_content: string;
+};
+
+type TaskListState = {
+  container: HTMLElement;
+  svelte_app: Record<string, unknown>;
+  list_name: string;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -321,6 +329,7 @@ class CodeBlockView implements NodeView {
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
+  private task_list: TaskListState | null = null;
   private current_language: string;
   private is_resizing = false;
   private cancel_resize: () => void;
@@ -386,6 +395,8 @@ class CodeBlockView implements NodeView {
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid();
+    } else if (this.current_language === "tasks") {
+      this.setup_task_list();
     }
   }
 
@@ -469,6 +480,38 @@ class CodeBlockView implements NodeView {
     this.pre.style.display = "";
   }
 
+  private setup_task_list() {
+    const config = parse_embed_config(this.node.textContent);
+    if (!config) return;
+
+    const container = document.createElement("div");
+    container.className = "task-list-embed-container";
+
+    const svelte_app = mount(TaskListEmbedView, {
+      target: container,
+      props: { list_name: config.list_name },
+    });
+
+    this.dom.appendChild(container);
+    this.pre.style.display = "none";
+    this.toolbar.style.display = "none";
+
+    this.task_list = {
+      container,
+      svelte_app,
+      list_name: config.list_name,
+    };
+  }
+
+  private teardown_task_list() {
+    if (!this.task_list) return;
+    void unmount(this.task_list.svelte_app);
+    this.task_list.container.remove();
+    this.task_list = null;
+    this.pre.style.display = "";
+    this.toolbar.style.display = "";
+  }
+
   private toggle_picker() {
     if (this.picker_el) {
       this.dismiss_picker();
@@ -524,9 +567,17 @@ class CodeBlockView implements NodeView {
     const old_lang = this.current_language;
 
     if (new_lang === "mermaid" && old_lang !== "mermaid") {
+      this.teardown_task_list();
       this.setup_mermaid();
     } else if (new_lang !== "mermaid" && old_lang === "mermaid") {
       this.teardown_mermaid();
+    }
+
+    if (new_lang === "tasks" && old_lang !== "tasks") {
+      this.teardown_mermaid();
+      this.setup_task_list();
+    } else if (new_lang !== "tasks" && old_lang === "tasks") {
+      this.teardown_task_list();
     }
 
     if (new_lang !== this.current_language) {
@@ -546,6 +597,15 @@ class CodeBlockView implements NodeView {
       if (new_content !== this.mermaid.last_rendered_content) {
         this.mermaid.last_rendered_content = new_content;
         this.schedule_mermaid_render();
+      }
+    }
+
+    if (this.task_list) {
+      const config = parse_embed_config(updated.textContent);
+      if (config && config.list_name !== this.task_list.list_name) {
+        this.teardown_task_list();
+        this.node = updated;
+        this.setup_task_list();
       }
     }
 
@@ -573,6 +633,7 @@ class CodeBlockView implements NodeView {
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);
     }
+    this.teardown_task_list();
   }
 }
 

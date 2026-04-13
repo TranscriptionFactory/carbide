@@ -24,6 +24,7 @@ import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconc
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
+import { create_task_list_loader_reactor } from "$lib/reactors/task_list_loader.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
@@ -72,6 +73,7 @@ import type { TerminalService, TerminalStore } from "$lib/features/terminal";
 import type { GraphService, GraphStore } from "$lib/features/graph";
 import type { BasesService, BasesStore } from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
+import type { TaskListService } from "$lib/features/task_list";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type {
   MarkdownLspStore,
@@ -117,6 +119,7 @@ export type ReactorContext = {
   secondary_editor_manager: SecondaryEditorManager;
   document_service: DocumentService;
   task_service: TaskService;
+  task_list_service: TaskListService;
   plugin_service: PluginService;
   workspace_index_port: WorkspaceIndexPort;
   lint_store: LintStore;
@@ -269,6 +272,10 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.task_service,
       context.watcher_service,
+    ),
+    create_task_list_loader_reactor(
+      context.vault_store,
+      context.task_list_service,
     ),
     create_menu_action_reactor(
       (action_id) => void context.action_registry.execute(action_id),

@@ -14,6 +14,7 @@ import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore } from "$lib/features/bases";
 import { TaskStore } from "$lib/features/task";
+import { TaskListStore } from "$lib/features/task_list";
 import { PluginStore, PluginSettingsStore } from "$lib/features/plugin";
 import { CanvasStore } from "$lib/features/canvas";
 import { TagStore } from "$lib/features/tags";
@@ -51,6 +52,7 @@ export type AppStores = {
   graph: GraphStore;
   bases: BasesStore;
   task: TaskStore;
+  task_list: TaskListStore;
   plugin: PluginStore;
   plugin_settings: PluginSettingsStore;
   canvas: CanvasStore;
@@ -91,6 +93,7 @@ export function create_app_stores(): AppStores {
     graph: new GraphStore(),
     bases: new BasesStore(),
     task: new TaskStore(),
+    task_list: new TaskListStore(),
     plugin: new PluginStore(),
     plugin_settings: new PluginSettingsStore(),
     canvas: new CanvasStore(),

@@ -81,6 +81,18 @@ export function create_test_ports(): Ports {
       updateTaskDueDate: () => Promise.resolve(),
       createTask: () => Promise.resolve(),
     },
+    task_list: {
+      list_task_lists: () => Promise.resolve([]),
+      read_task_list: () =>
+        Promise.resolve({
+          name: "",
+          items: [],
+          created_at: "",
+          updated_at: "",
+        }),
+      write_task_list: () => Promise.resolve(),
+      delete_task_list: () => Promise.resolve(),
+    },
     plugin: {
       discover: () => Promise.resolve([]),
       load: () => Promise.resolve(),

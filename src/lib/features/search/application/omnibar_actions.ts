@@ -70,6 +70,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   rebuild_embeddings: ACTION_IDS.vault_rebuild_embeddings,
   open_search_graph: ACTION_IDS.search_graph_open,
   document_toggle_source: ACTION_IDS.document_toggle_source,
+  create_task_list: ACTION_IDS.task_list_create,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

@@ -30,6 +30,7 @@ import { create_ai_tauri_adapter } from "$lib/features/ai";
 import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_task_tauri_adapter } from "$lib/features/task";
+import { create_task_list_tauri_adapter } from "$lib/features/task_list";
 import {
   PluginHostAdapter,
   PluginSettingsTauriAdapter,
@@ -92,6 +93,7 @@ export function create_prod_ports(): Ports & {
   });
   const bases = create_bases_tauri_adapter();
   const task = create_task_tauri_adapter();
+  const task_list = create_task_list_tauri_adapter();
   const plugin = new PluginHostAdapter();
   const plugin_settings = new PluginSettingsTauriAdapter();
   const canvas = create_canvas_tauri_adapter();
@@ -128,6 +130,7 @@ export function create_prod_ports(): Ports & {
     graph,
     bases,
     task,
+    task_list,
     plugin,
     plugin_settings,
     canvas,
