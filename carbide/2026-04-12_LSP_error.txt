@@ -1,0 +1,24 @@
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] 
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] thread '<unnamed>' (15956982) panicked at /Users/abir/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liwe-0.0.65/src/graph.rs:144:65:
+[2026-04-13][04:34:08][carbide_lib::shared::lsp_client::transport][WARN] [lsp stderr] to have a prev_id
