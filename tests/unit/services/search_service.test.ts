@@ -857,4 +857,109 @@ describe("SearchService", () => {
       expect(search_port.hybrid_search).not.toHaveBeenCalled();
     });
   });
+
+  describe("get_note_headings", () => {
+    function make_search_port_with_cache(
+      headings: Array<{ level: number; text: string; line: number }>,
+    ) {
+      return {
+        suggest_wiki_links: vi.fn().mockResolvedValue([]),
+        suggest_planned_links: vi.fn().mockResolvedValue([]),
+        search_notes: vi.fn().mockResolvedValue([]),
+        get_note_links_snapshot: vi.fn().mockResolvedValue({
+          backlinks: [],
+          outlinks: [],
+          orphan_links: [],
+        }),
+        extract_local_note_links: vi
+          .fn()
+          .mockResolvedValue({ outlink_paths: [], external_links: [] }),
+        rewrite_note_links: vi
+          .fn()
+          .mockImplementation((markdown: string) =>
+            Promise.resolve({ markdown, changed: false }),
+          ),
+        resolve_note_link: vi.fn().mockResolvedValue(null),
+        resolve_wiki_link: vi.fn().mockResolvedValue(null),
+        semantic_search: vi.fn().mockResolvedValue([]),
+        hybrid_search: vi.fn().mockResolvedValue([]),
+        get_embedding_status: vi.fn().mockResolvedValue({
+          total_notes: 0,
+          embedded_notes: 0,
+          model_version: "unavailable",
+          is_embedding: false,
+        }),
+        find_similar_notes: vi.fn().mockResolvedValue([]),
+        semantic_search_batch: vi.fn().mockResolvedValue([]),
+        rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
+        get_note_stats: vi.fn().mockResolvedValue({}),
+        get_file_cache: vi.fn().mockResolvedValue({
+          frontmatter: {},
+          tags: [],
+          headings,
+          links: [],
+          embeds: [],
+          stats: {},
+          ctime_ms: 0,
+          mtime_ms: 0,
+          size_bytes: 0,
+        }),
+        load_smart_link_rules: vi.fn().mockResolvedValue([]),
+        save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
+        compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
+        compute_smart_link_vault_edges: vi.fn().mockResolvedValue([]),
+      };
+    }
+
+    it("returns headings from the file cache", async () => {
+      const headings = [
+        { level: 1, text: "Introduction", line: 0 },
+        { level: 2, text: "Background", line: 5 },
+        { level: 2, text: "Methods", line: 12 },
+      ];
+      const search_port = make_search_port_with_cache(headings);
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.get_note_headings(
+        as_vault_id("test-vault"),
+        "docs/note.md",
+      );
+
+      expect(result).toEqual(headings);
+      expect(search_port.get_file_cache).toHaveBeenCalledWith(
+        as_vault_id("test-vault"),
+        "docs/note.md",
+      );
+    });
+
+    it("returns empty array when get_file_cache throws", async () => {
+      const search_port = make_search_port_with_cache([]);
+      search_port.get_file_cache = vi
+        .fn()
+        .mockRejectedValue(new Error("not found"));
+
+      const service = new SearchService(
+        search_port,
+        new VaultStore(),
+        new OpStore(),
+        () => 1,
+      );
+
+      const result = await service.get_note_headings(
+        as_vault_id("test-vault"),
+        "missing/note.md",
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
 });

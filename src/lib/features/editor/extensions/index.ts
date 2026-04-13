@@ -89,6 +89,8 @@ export { find_highlight_plugin_key } from "./find_extension";
 export {
   wiki_link_plugin_key,
   set_wiki_suggestions,
+  set_heading_suggestions,
+  type WikiQueryEvent,
 } from "./wiki_link_extension";
 export {
   set_tag_suggestions,

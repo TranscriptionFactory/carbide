@@ -29,6 +29,7 @@ import { create_logger } from "$lib/shared/utils/logger";
 import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";
 import type { Vault } from "$lib/shared/types/vault";
 import type { VaultId } from "$lib/shared/types/ids";
+import type { CachedHeading } from "$lib/features/metadata";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { PluginStore } from "$lib/features/plugin";
 
@@ -648,6 +649,18 @@ export class SearchService {
       (await this.resolve_indexed_note_path(resolved ?? "")) ??
       resolved
     );
+  }
+
+  async get_note_headings(
+    vault_id: VaultId,
+    note_path: string,
+  ): Promise<CachedHeading[]> {
+    try {
+      const cache = await this.search_port.get_file_cache(vault_id, note_path);
+      return cache.headings;
+    } catch {
+      return [];
+    }
   }
 
   async update_embeddings(): Promise<void> {

@@ -1587,6 +1587,15 @@
   border-color: currentColor;
 }
 
+.WikiSuggest__item--heading .WikiSuggest__label {
+  font-size: var(--text-sm);
+}
+
+.WikiSuggest__level {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============================================
    TAG SUGGEST DROPDOWN
    ============================================ */

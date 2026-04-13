@@ -40,6 +40,7 @@ import {
   excalidraw_embed_plugin_key,
   file_embed_plugin_key,
   set_wiki_suggestions,
+  set_heading_suggestions,
   set_image_suggestions,
   set_tag_suggestions,
   set_cite_suggestions,
@@ -862,6 +863,10 @@ export function create_prosemirror_editor_port(args?: {
         ) {
           if (!view) return;
           set_wiki_suggestions(view, items);
+        },
+        set_heading_suggestions(items: Array<{ text: string; level: number }>) {
+          if (!view) return;
+          set_heading_suggestions(view, items);
         },
         set_image_suggestions(items: Array<{ path: string; name: string }>) {
           if (!view) return;

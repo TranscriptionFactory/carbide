@@ -26,6 +26,7 @@ import type { EditorStore } from "$lib/features/editor/state/editor_store.svelte
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
+import type { WikiQueryEvent } from "$lib/features/editor/adapters/wiki_suggest_plugin";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort } from "$lib/features/note";
 import type { TagPort } from "$lib/features/tags";
@@ -537,23 +538,78 @@ export class EditorService {
     });
   }
 
-  private handle_wiki_suggest_query(generation: number, query: string): void {
+  private handle_wiki_suggest_query(
+    generation: number,
+    event: WikiQueryEvent,
+  ): void {
     if (!this.is_generation_current(generation)) return;
     const search_service = this.search_service;
     if (!search_service) return;
 
-    void search_service.suggest_wiki_links(query).then((result) => {
-      if (!this.is_generation_current(generation)) return;
-      if (result.status === "stale") return;
-      if (result.status !== "success") {
-        this.session?.set_wiki_suggestions?.([]);
-        return;
-      }
+    if (event.kind === "note") {
+      void search_service.suggest_wiki_links(event.query).then((result) => {
+        if (!this.is_generation_current(generation)) return;
+        if (result.status === "stale") return;
+        if (result.status !== "success") {
+          this.session?.set_wiki_suggestions?.([]);
+          return;
+        }
 
-      this.session?.set_wiki_suggestions?.(
-        this.map_wiki_suggestions(result.results),
+        this.session?.set_wiki_suggestions?.(
+          this.map_wiki_suggestions(result.results),
+        );
+      });
+    } else {
+      void this.handle_heading_suggest(
+        generation,
+        event.note_name,
+        event.heading_query,
       );
-    });
+    }
+  }
+
+  private async handle_heading_suggest(
+    generation: number,
+    note_name: string | null,
+    heading_query: string,
+  ): Promise<void> {
+    const search_service = this.search_service;
+    if (!search_service) return;
+
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    let resolved_path: string | null = null;
+
+    if (note_name === null) {
+      resolved_path = this.get_active_note_path();
+    } else {
+      const source_path = this.get_active_note_path();
+      if (!source_path) return;
+      resolved_path = await search_service.resolve_wiki_link(
+        source_path,
+        note_name,
+      );
+    }
+
+    if (!resolved_path) {
+      this.session?.set_heading_suggestions?.([]);
+      return;
+    }
+    if (!this.is_generation_current(generation)) return;
+
+    const headings = await search_service.get_note_headings(
+      vault_id,
+      resolved_path,
+    );
+    if (!this.is_generation_current(generation)) return;
+
+    const query_lower = heading_query.toLowerCase();
+    const filtered = headings.filter((h) =>
+      h.text.toLowerCase().includes(query_lower),
+    );
+
+    this.session?.set_heading_suggestions?.(filtered);
   }
 
   private handle_image_suggest_query(generation: number, query: string): void {
@@ -674,8 +730,8 @@ export class EditorService {
     };
 
     if (this.search_service) {
-      events.on_wiki_suggest_query = (query: string) => {
-        this.handle_wiki_suggest_query(generation, query);
+      events.on_wiki_suggest_query = (event: WikiQueryEvent) => {
+        this.handle_wiki_suggest_query(generation, event);
       };
     }
 

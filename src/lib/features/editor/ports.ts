@@ -7,6 +7,7 @@ import type {
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
+import type { WikiQueryEvent } from "$lib/features/editor/adapters/wiki_suggest_plugin";
 
 export type BufferConfig = {
   note_path: string;
@@ -37,6 +38,9 @@ export type EditorSession = {
       kind: "existing" | "planned";
       ref_count?: number | undefined;
     }>,
+  ) => void;
+  set_heading_suggestions?: (
+    items: Array<{ text: string; level: number }>,
   ) => void;
   set_image_suggestions?: (
     items: Array<{ path: string; name: string }>,
@@ -77,7 +81,7 @@ export type EditorEventHandlers = {
   on_external_link_click?: (url: string) => void;
   on_image_paste_requested?: (payload: PastedImagePayload) => void;
   on_file_drop_requested?: (payload: PastedImagePayload) => void;
-  on_wiki_suggest_query?: (query: string) => void;
+  on_wiki_suggest_query?: (event: WikiQueryEvent) => void;
   on_image_suggest_query?: (query: string) => void;
   on_tag_suggest_query?: (query: string) => void;
   on_cite_suggest_query?: (query: string) => void;

@@ -16,12 +16,20 @@ export const wiki_suggest_plugin_key = new PluginKey<WikiSuggestState>(
   "wiki-suggest",
 );
 
-type SuggestionItem = {
+type NoteSuggestionItem = {
+  kind: "existing" | "planned";
   title: string;
   path: string;
-  kind: "existing" | "planned";
   ref_count?: number | undefined;
 };
+
+type HeadingSuggestionItem = {
+  kind: "heading";
+  text: string;
+  level: number;
+};
+
+type SuggestionItem = NoteSuggestionItem | HeadingSuggestionItem;
 
 type WikiSuggestState = {
   active: boolean;
@@ -29,10 +37,15 @@ type WikiSuggestState = {
   from: number;
   items: SuggestionItem[];
   selected_index: number;
+  mode: "note" | "heading";
 };
 
+export type WikiQueryEvent =
+  | { kind: "note"; query: string }
+  | { kind: "heading"; note_name: string | null; heading_query: string };
+
 export type WikiSuggestPluginConfig = {
-  on_query: (query: string) => void;
+  on_query: (event: WikiQueryEvent) => void;
   on_dismiss: () => void;
   base_note_path: string;
 };
@@ -43,21 +56,44 @@ const EMPTY_STATE: WikiSuggestState = {
   from: 0,
   items: [],
   selected_index: 0,
+  mode: "note",
 };
 
 export function describe_suggestion_location(path: string): string {
   return parent_folder_path(path) || "Vault root";
 }
 
-function extract_wiki_query(
-  text_before: string,
-): { query: string; offset: number } | null {
+type ExtractedQuery =
+  | { mode: "note"; query: string; offset: number }
+  | {
+      mode: "heading";
+      query: string;
+      offset: number;
+      note_name: string | null;
+      heading_query: string;
+    };
+
+function extract_wiki_query(text_before: string): ExtractedQuery | null {
   const open_idx = text_before.lastIndexOf("[[");
   if (open_idx === -1) return null;
   const after_open = text_before.slice(open_idx + 2);
   if (after_open.includes("]]") || after_open.includes("\n")) return null;
   if (after_open.includes("|")) return null;
-  return { query: after_open, offset: open_idx };
+
+  const hash_idx = after_open.indexOf("#");
+  if (hash_idx !== -1) {
+    const note_name = after_open.slice(0, hash_idx);
+    const heading_query = after_open.slice(hash_idx + 1);
+    return {
+      mode: "heading",
+      query: after_open,
+      offset: open_idx,
+      note_name: note_name.length > 0 ? note_name : null,
+      heading_query,
+    };
+  }
+
+  return { mode: "note", query: after_open, offset: open_idx };
 }
 
 function create_dropdown(): HTMLElement {
@@ -80,31 +116,49 @@ function render_items(
     row.type = "button";
     row.className = "WikiSuggest__item";
     if (i === selected_index) row.classList.add("WikiSuggest__item--selected");
-    if (item.kind === "planned") {
-      row.classList.add("WikiSuggest__item--planned");
-    }
 
-    const label = document.createElement("span");
-    const meta = document.createElement("span");
-    const location = document.createElement("span");
-    const content = document.createElement("span");
-    content.className = "WikiSuggest__content";
+    if (item.kind === "heading") {
+      row.classList.add("WikiSuggest__item--heading");
 
-    label.className = "WikiSuggest__label";
-    label.textContent = item.title;
-    meta.className = "WikiSuggest__meta";
-    location.className = "WikiSuggest__location";
-    location.textContent = describe_suggestion_location(item.path);
-    meta.appendChild(location);
-    content.appendChild(label);
-    content.appendChild(meta);
-    row.appendChild(content);
+      const content = document.createElement("span");
+      content.className = "WikiSuggest__content";
+      const label = document.createElement("span");
+      label.className = "WikiSuggest__label";
+      label.textContent = item.text;
+      content.appendChild(label);
+      row.appendChild(content);
 
-    if (item.kind === "planned") {
-      const refs = document.createElement("span");
-      refs.className = "WikiSuggest__badge";
-      refs.textContent = `${String(item.ref_count ?? 0)} refs`;
-      row.appendChild(refs);
+      const badge = document.createElement("span");
+      badge.className = "WikiSuggest__badge WikiSuggest__level";
+      badge.textContent = `H${String(item.level)}`;
+      row.appendChild(badge);
+    } else {
+      if (item.kind === "planned") {
+        row.classList.add("WikiSuggest__item--planned");
+      }
+
+      const label = document.createElement("span");
+      const meta = document.createElement("span");
+      const location = document.createElement("span");
+      const content = document.createElement("span");
+      content.className = "WikiSuggest__content";
+
+      label.className = "WikiSuggest__label";
+      label.textContent = item.title;
+      meta.className = "WikiSuggest__meta";
+      location.className = "WikiSuggest__location";
+      location.textContent = describe_suggestion_location(item.path);
+      meta.appendChild(location);
+      content.appendChild(label);
+      content.appendChild(meta);
+      row.appendChild(content);
+
+      if (item.kind === "planned") {
+        const refs = document.createElement("span");
+        refs.className = "WikiSuggest__badge";
+        refs.textContent = `${String(item.ref_count ?? 0)} refs`;
+        row.appendChild(refs);
+      }
     }
 
     row.addEventListener("mousedown", (e) => {
@@ -152,7 +206,7 @@ export function create_wiki_suggest_prose_plugin(
     if (!current.active && current.items.length === 0) return;
 
     if (lock_query && current.active) {
-      dismissed_query = current.query;
+      dismissed_query = current.mode + ":" + current.query;
       dismissed_from = current.from;
     } else {
       dismissed_query = null;
@@ -171,8 +225,24 @@ export function create_wiki_suggest_prose_plugin(
     const state = get_state(view);
     const item = state.items[index];
     if (!item) return;
-    const target = format_wiki_display(item.path);
-    const replacement = `[[${target}]]`;
+
+    let replacement: string;
+    if (item.kind === "heading") {
+      const parsed = extract_wiki_query(
+        view.state.doc.textBetween(state.from, view.state.selection.from),
+      );
+      const note_prefix =
+        parsed && parsed.mode === "heading" && parsed.note_name
+          ? parsed.note_name
+          : "";
+      replacement = note_prefix
+        ? `[[${note_prefix}#${item.text}]]`
+        : `[[#${item.text}]]`;
+    } else {
+      const target = format_wiki_display(item.path);
+      replacement = `[[${target}]]`;
+    }
+
     const selection_from = view.state.selection.from;
     const replace_to = Math.min(
       selection_from + 2,
@@ -278,11 +348,12 @@ export function create_wiki_suggest_prose_plugin(
           }
 
           const prose_from = $from.start() + result.offset;
+          const dismiss_key = result.mode + ":" + result.query;
 
           if (
             dismissed_query !== null &&
             dismissed_from !== null &&
-            result.query === dismissed_query &&
+            dismiss_key === dismissed_query &&
             prose_from === dismissed_from
           ) {
             if (plugin_state.active) dismiss(view, false);
@@ -300,13 +371,20 @@ export function create_wiki_suggest_prose_plugin(
             return;
           }
 
-          if (result.query !== plugin_state.query || !plugin_state.active) {
+          if (
+            result.query !== plugin_state.query ||
+            result.mode !== plugin_state.mode ||
+            !plugin_state.active
+          ) {
+            const keep_items =
+              plugin_state.active && result.mode === plugin_state.mode;
             const new_state: WikiSuggestState = {
               active: true,
               query: result.query,
               from: prose_from,
-              items: plugin_state.active ? plugin_state.items : [],
+              items: keep_items ? plugin_state.items : [],
               selected_index: 0,
+              mode: result.mode,
             };
             view.dispatch(
               view.state.tr.setMeta(wiki_suggest_plugin_key, new_state),
@@ -314,7 +392,15 @@ export function create_wiki_suggest_prose_plugin(
 
             if (debounce_timer) clearTimeout(debounce_timer);
             debounce_timer = setTimeout(() => {
-              config.on_query(result.query);
+              if (result.mode === "heading") {
+                config.on_query({
+                  kind: "heading",
+                  note_name: result.note_name,
+                  heading_query: result.heading_query,
+                });
+              } else {
+                config.on_query({ kind: "note", query: result.query });
+              }
             }, 50);
           }
 
@@ -378,21 +464,32 @@ export function create_wiki_suggest_prose_plugin(
           event.preventDefault();
           event.stopPropagation();
 
+          if (state.mode === "heading") {
+            if (state.items.length >= 1) {
+              accept(view, state.selected_index);
+            }
+            return true;
+          }
+
           if (state.items.length === 1) {
             accept(view, 0);
             return true;
           }
 
-          const paths = state.items.map((item) =>
-            format_wiki_display(item.path).toLowerCase(),
-          );
+          const paths = state.items
+            .filter(
+              (item): item is NoteSuggestionItem => item.kind !== "heading",
+            )
+            .map((item) => format_wiki_display(item.path).toLowerCase());
           const query_lower = state.query.toLowerCase();
           const prefix = longest_common_prefix(paths);
 
           if (prefix.length > query_lower.length) {
-            const original_paths = state.items.map((item) =>
-              format_wiki_display(item.path),
-            );
+            const original_paths = state.items
+              .filter(
+                (item): item is NoteSuggestionItem => item.kind !== "heading",
+              )
+              .map((item) => format_wiki_display(item.path));
             const completion = (original_paths[0] ?? "").slice(
               0,
               prefix.length,
@@ -437,4 +534,18 @@ export function set_wiki_suggestions(
   }>,
 ) {
   view.dispatch(view.state.tr.setMeta(wiki_suggest_plugin_key, { items }));
+}
+
+export function set_heading_suggestions(
+  view: EditorView,
+  items: Array<{ text: string; level: number }>,
+) {
+  const mapped: HeadingSuggestionItem[] = items.map((h) => ({
+    kind: "heading" as const,
+    text: h.text,
+    level: h.level,
+  }));
+  view.dispatch(
+    view.state.tr.setMeta(wiki_suggest_plugin_key, { items: mapped }),
+  );
 }
