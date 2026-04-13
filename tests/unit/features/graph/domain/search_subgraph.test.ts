@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   extract_search_subgraph,
   compute_auto_expanded_ids,
+  merge_expansion_into_snapshot,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
 import type { VaultGraphSnapshot } from "$lib/features/graph/ports";
@@ -268,5 +269,162 @@ describe("compute_auto_expanded_ids", () => {
 
     const auto = compute_auto_expanded_ids(snapshot);
     expect(auto.size).toBe(0);
+  });
+});
+
+describe("semantic boost scoring", () => {
+  it("boosts neighbors that appear in semantic boost set", () => {
+    const hits: SearchSubgraphHit[] = [
+      { path: "h1.md", title: "H1", score: 1 },
+    ];
+    const vault = make_vault(
+      [
+        { path: "h1.md", title: "H1" },
+        { path: "boosted.md", title: "Boosted" },
+        { path: "normal.md", title: "Normal" },
+      ],
+      [
+        { source: "h1.md", target: "boosted.md" },
+        { source: "h1.md", target: "normal.md" },
+      ],
+    );
+
+    const result = extract_search_subgraph(hits, vault, undefined, undefined, {
+      max_neighbors: 1,
+      semantic_boost_paths: new Set(["boosted.md"]),
+    });
+
+    const neighbors = result.nodes.filter((n) => n.kind === "neighbor");
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0]!.path).toBe("boosted.md");
+  });
+
+  it("does not boost when semantic_boost_paths is omitted", () => {
+    const hits: SearchSubgraphHit[] = [
+      { path: "h1.md", title: "H1", score: 1 },
+      { path: "h2.md", title: "H2", score: 0.9 },
+    ];
+    const vault = make_vault(
+      [
+        { path: "h1.md", title: "H1" },
+        { path: "h2.md", title: "H2" },
+        { path: "bridge.md", title: "Bridge" },
+        { path: "leaf.md", title: "Leaf" },
+      ],
+      [
+        { source: "h1.md", target: "bridge.md" },
+        { source: "h2.md", target: "bridge.md" },
+        { source: "h1.md", target: "leaf.md" },
+      ],
+    );
+
+    const result = extract_search_subgraph(hits, vault, undefined, undefined, {
+      max_neighbors: 1,
+    });
+
+    const neighbors = result.nodes.filter((n) => n.kind === "neighbor");
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0]!.path).toBe("bridge.md");
+  });
+});
+
+describe("merge_expansion_into_snapshot", () => {
+  it("adds new nodes without duplicating existing ones", () => {
+    const existing = extract_search_subgraph(
+      [{ path: "a.md", title: "A", score: 1 }],
+      make_vault(
+        [
+          { path: "a.md", title: "A" },
+          { path: "b.md", title: "B" },
+        ],
+        [{ source: "a.md", target: "b.md" }],
+      ),
+    );
+
+    const new_hits: SearchSubgraphHit[] = [
+      { path: "b.md", title: "B", score: 0.5 },
+      { path: "c.md", title: "C", score: 0.4 },
+    ];
+
+    const vault = make_vault(
+      [
+        { path: "a.md", title: "A" },
+        { path: "b.md", title: "B" },
+        { path: "c.md", title: "C" },
+      ],
+      [
+        { source: "a.md", target: "b.md" },
+        { source: "b.md", target: "c.md" },
+      ],
+    );
+
+    const merged = merge_expansion_into_snapshot(existing, new_hits, vault);
+
+    const paths = merged.nodes.map((n) => n.path);
+    expect(paths).toContain("a.md");
+    expect(paths).toContain("b.md");
+    expect(paths).toContain("c.md");
+    expect(paths.filter((p) => p === "b.md")).toHaveLength(1);
+  });
+
+  it("adds wiki edges between new and existing nodes", () => {
+    const existing = extract_search_subgraph(
+      [{ path: "a.md", title: "A", score: 1 }],
+      make_vault([{ path: "a.md", title: "A" }], []),
+    );
+
+    const new_hits: SearchSubgraphHit[] = [
+      { path: "b.md", title: "B", score: 0.5 },
+    ];
+
+    const vault = make_vault(
+      [
+        { path: "a.md", title: "A" },
+        { path: "b.md", title: "B" },
+      ],
+      [{ source: "a.md", target: "b.md" }],
+    );
+
+    const merged = merge_expansion_into_snapshot(existing, new_hits, vault);
+
+    const wiki_edges = merged.edges.filter((e) => e.edge_type === "wiki");
+    expect(wiki_edges).toHaveLength(1);
+    expect(wiki_edges[0]!.source).toBe("a.md");
+    expect(wiki_edges[0]!.target).toBe("b.md");
+  });
+
+  it("recomputes stats correctly", () => {
+    const existing = extract_search_subgraph(
+      [{ path: "a.md", title: "A", score: 1 }],
+      make_vault(
+        [
+          { path: "a.md", title: "A" },
+          { path: "n.md", title: "N" },
+        ],
+        [{ source: "a.md", target: "n.md" }],
+      ),
+    );
+
+    const new_hits: SearchSubgraphHit[] = [
+      { path: "b.md", title: "B", score: 0.5 },
+    ];
+
+    const vault = make_vault(
+      [
+        { path: "a.md", title: "A" },
+        { path: "n.md", title: "N" },
+        { path: "b.md", title: "B" },
+      ],
+      [
+        { source: "a.md", target: "n.md" },
+        { source: "b.md", target: "n.md" },
+      ],
+    );
+
+    const merged = merge_expansion_into_snapshot(existing, new_hits, vault);
+
+    expect(merged.stats.hit_count).toBe(2);
+    expect(merged.stats.neighbor_count).toBe(1);
+    expect(merged.stats.wiki_edge_count).toBe(2);
   });
 });

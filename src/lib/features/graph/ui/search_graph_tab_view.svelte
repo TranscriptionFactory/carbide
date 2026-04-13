@@ -55,6 +55,13 @@
     void action_registry.execute(ACTION_IDS.note_open, path);
   }
 
+  function expand_node(path: string) {
+    void action_registry.execute(ACTION_IDS.search_graph_expand_node, {
+      tab_id,
+      node_path: path,
+    });
+  }
+
   function close_tab() {
     void action_registry.execute(ACTION_IDS.search_graph_close, tab_id);
   }
@@ -153,6 +160,7 @@
             on_select_node={(id) => select_node(id)}
             on_hover_node={hover_node}
             on_open_node={open_node}
+            on_expand_node={expand_node}
           />
         </Resizable.Pane>
         <Resizable.Handle />

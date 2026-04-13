@@ -137,6 +137,7 @@ export const ACTION_IDS = {
   search_graph_close: "search_graph.close",
   search_graph_toggle_semantic: "search_graph.toggle_semantic",
   search_graph_toggle_smart_links: "search_graph.toggle_smart_links",
+  search_graph_expand_node: "search_graph.expand_node",
 
   help_open: "help.open",
   help_close: "help.close",

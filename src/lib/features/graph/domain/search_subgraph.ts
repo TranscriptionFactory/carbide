@@ -16,6 +16,7 @@ export type SearchSubgraphHit = {
 
 export type SearchSubgraphOptions = {
   max_neighbors?: number;
+  semantic_boost_paths?: Set<string>;
 };
 
 const DEFAULT_MAX_NEIGHBORS = 50;
@@ -41,7 +42,13 @@ export function extract_search_subgraph(
     title_map.set(hit.path, hit.title);
   }
 
-  const neighbor_scores = score_neighbors(hit_set, adjacency);
+  const semantic_boost_set = options?.semantic_boost_paths;
+
+  const neighbor_scores = score_neighbors(
+    hit_set,
+    adjacency,
+    semantic_boost_set,
+  );
 
   const sorted_neighbors = [...neighbor_scores.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -157,6 +164,72 @@ export function compute_auto_expanded_ids(
   return auto_expanded;
 }
 
+export function merge_expansion_into_snapshot(
+  existing: SearchGraphSnapshot,
+  new_hits: SearchSubgraphHit[],
+  vault_snapshot: VaultGraphSnapshot,
+): SearchGraphSnapshot {
+  const existing_paths = new Set(existing.nodes.map((n) => n.path));
+
+  const nodes = [...existing.nodes];
+  for (const hit of new_hits) {
+    if (existing_paths.has(hit.path)) continue;
+    const node: SearchGraphNode = {
+      path: hit.path,
+      title: hit.title,
+      kind: "hit",
+    };
+    if (hit.snippet !== undefined) node.snippet = hit.snippet;
+    if (hit.score !== undefined) node.score = hit.score;
+    nodes.push(node);
+    existing_paths.add(hit.path);
+  }
+
+  const edge_key = (s: string, t: string) => `${s}→${t}`;
+  const existing_edge_keys = new Set(
+    existing.edges.map((e) => edge_key(e.source, e.target)),
+  );
+
+  const edges = [...existing.edges];
+  for (const edge of vault_snapshot.edges) {
+    if (
+      existing_paths.has(edge.source) &&
+      existing_paths.has(edge.target) &&
+      !existing_edge_keys.has(edge_key(edge.source, edge.target))
+    ) {
+      edges.push({
+        source: edge.source,
+        target: edge.target,
+        edge_type: "wiki",
+      });
+      existing_edge_keys.add(edge_key(edge.source, edge.target));
+    }
+  }
+
+  const hit_count = nodes.filter((n) => n.kind === "hit").length;
+  const neighbor_count = nodes.filter((n) => n.kind === "neighbor").length;
+  const wiki_edge_count = edges.filter((e) => e.edge_type === "wiki").length;
+  const semantic_edge_count = edges.filter(
+    (e) => e.edge_type === "semantic",
+  ).length;
+  const smart_link_edge_count = edges.filter(
+    (e) => e.edge_type === "smart_link",
+  ).length;
+
+  return {
+    query: existing.query,
+    nodes,
+    edges,
+    stats: {
+      hit_count,
+      neighbor_count,
+      wiki_edge_count,
+      semantic_edge_count,
+      smart_link_edge_count,
+    },
+  };
+}
+
 function build_adjacency_map(
   snapshot: VaultGraphSnapshot,
 ): Map<string, Set<string>> {
@@ -182,6 +255,7 @@ function build_adjacency_map(
 function score_neighbors(
   hit_set: Set<string>,
   adjacency: Map<string, Set<string>>,
+  semantic_boost_set?: Set<string>,
 ): Map<string, number> {
   const neighbor_candidates = new Map<string, number>();
 
@@ -201,7 +275,9 @@ function score_neighbors(
   const scores = new Map<string, number>();
   for (const [path, edges_to_hits] of neighbor_candidates) {
     const total_edges = adjacency.get(path)?.size ?? 1;
-    scores.set(path, edges_to_hits / total_edges);
+    const base = edges_to_hits / total_edges;
+    const boost = semantic_boost_set?.has(path) ? 0.3 : 0;
+    scores.set(path, base + boost);
   }
   return scores;
 }

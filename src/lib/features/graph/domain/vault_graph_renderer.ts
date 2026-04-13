@@ -94,6 +94,11 @@ export class VaultGraphRenderer {
   on_node_click: (id: string) => void = () => {};
   on_node_hover: (id: string | null) => void = () => {};
   on_node_dblclick: (id: string) => void = () => {};
+  on_node_contextmenu: (
+    id: string,
+    screen_x: number,
+    screen_y: number,
+  ) => void = () => {};
   on_edge_hover: (info: EdgeHoverInfo | null) => void = () => {};
 
   async initialize(container: HTMLElement): Promise<void> {
@@ -245,6 +250,11 @@ export class VaultGraphRenderer {
       });
       c.on("pointerout", () => {
         this.on_node_hover(null);
+      });
+      c.on("rightclick", (e) => {
+        e.preventDefault?.();
+        const global = e.global ?? e;
+        this.on_node_contextmenu(id, global.x, global.y);
       });
 
       let last_tap = 0;
