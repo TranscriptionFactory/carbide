@@ -41,6 +41,7 @@ export class DocumentService {
         zoom: 1,
         scroll_top: 0,
         pdf_page: normalized_initial_pdf_page ?? 1,
+        html_view_mode: "visual",
         load_status: "idle",
         error_message: null,
       });

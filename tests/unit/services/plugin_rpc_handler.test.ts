@@ -57,6 +57,7 @@ function make_context() {
     stores: {
       notes: { notes: [] },
       editor: { open_note: null },
+      tab: { active_tab: null },
     },
   };
 
@@ -206,6 +207,44 @@ describe("PluginRpcHandler", () => {
         path: "notes/hello.md",
         name: "hello",
       });
+    });
+
+    it("returns file info from document tab when no open note", async () => {
+      grant_permissions("editor:read");
+      ctx.context.stores.editor.open_note = null;
+      ctx.context.stores.tab.active_tab = {
+        kind: "document",
+        file_path: "vault/docs/page.html",
+        file_type: "html",
+      };
+
+      const manifest = make_manifest(["editor:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "ed-doc",
+        method: "editor.get_info",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({
+        path: "vault/docs/page.html",
+        name: "page.html",
+      });
+    });
+
+    it("throws when no open note and no document tab", async () => {
+      grant_permissions("editor:read");
+      ctx.context.stores.editor.open_note = null;
+      ctx.context.stores.tab.active_tab = null;
+
+      const manifest = make_manifest(["editor:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "ed-none",
+        method: "editor.get_info",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/No active editor/);
     });
   });
 

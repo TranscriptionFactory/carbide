@@ -1,5 +1,6 @@
 import type {
   DocumentFileType,
+  HtmlViewMode,
   PdfMetadata,
 } from "$lib/features/document/types/document";
 
@@ -10,6 +11,7 @@ export type DocumentViewerState = {
   zoom: number;
   scroll_top: number;
   pdf_page: number;
+  html_view_mode: HtmlViewMode;
   load_status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
 };
@@ -67,6 +69,14 @@ export class DocumentStore {
 
   update_pdf_page(tab_id: string, page: number): void {
     this.#patch(tab_id, { pdf_page: page });
+  }
+
+  toggle_html_view_mode(tab_id: string): void {
+    const state = this.viewer_states.get(tab_id);
+    if (!state || state.file_type !== "html") return;
+    this.#patch(tab_id, {
+      html_view_mode: state.html_view_mode === "visual" ? "source" : "visual",
+    });
   }
 
   set_content_state(tab_id: string, state: DocumentContentState): void {

@@ -30,6 +30,7 @@
   import { COMMAND_TO_ACTION_ID } from "$lib/features/search/application/omnibar_actions";
   import { HotkeyKey } from "$lib/features/hotkey";
   import type { HotkeyConfig } from "$lib/features/hotkey";
+  import type { CommandDefinition } from "$lib/features/search/types/command_palette";
   import type { Component } from "svelte";
 
   const COMMAND_ICONS: Record<CommandIconType, Component> = {
@@ -88,6 +89,7 @@
     recent_command_ids: string[];
     hotkeys_config: HotkeyConfig;
     has_multiple_vaults: boolean;
+    plugin_commands: CommandDefinition[];
     on_open_change: (open: boolean) => void;
     on_query_change: (query: string) => void;
     on_selected_index_change: (index: number) => void;
@@ -106,6 +108,7 @@
     recent_command_ids,
     hotkeys_config,
     has_multiple_vaults,
+    plugin_commands,
     on_open_change,
     on_query_change,
     on_selected_index_change,
@@ -190,7 +193,7 @@
 
   const sorted_commands = $derived.by(() => {
     const mru_index = new Map(recent_command_ids.map((id, i) => [id, i]));
-    return [...COMMANDS_REGISTRY].sort((a, b) => {
+    return [...COMMANDS_REGISTRY, ...plugin_commands].sort((a, b) => {
       const a_idx = mru_index.get(a.id);
       const b_idx = mru_index.get(b.id);
       if (a_idx !== undefined && b_idx !== undefined) return a_idx - b_idx;
@@ -257,7 +260,7 @@
     !has_query &&
       !is_command_mode &&
       !is_all_vaults &&
-      COMMANDS_REGISTRY.length > 0,
+      (COMMANDS_REGISTRY.length > 0 || plugin_commands.length > 0),
   );
   const commands_start_index = $derived(
     !has_query && !is_command_mode && !is_all_vaults ? recent_notes.length : -1,

@@ -1,6 +1,7 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { DocumentService } from "$lib/features/document/application/document_service";
+import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
 import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
 
@@ -42,9 +43,10 @@ function parse_document_open_payload(
 export function register_document_actions(
   input: ActionRegistrationInput & {
     document_service: DocumentService;
+    document_store: DocumentStore;
   },
 ) {
-  const { registry, stores, document_service } = input;
+  const { registry, stores, document_service, document_store } = input;
 
   registry.register({
     id: ACTION_IDS.document_open,
@@ -94,6 +96,18 @@ export function register_document_actions(
     execute: (...args: unknown[]) => {
       const tab_id = args[0] as string;
       document_service.close_document(tab_id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_toggle_source,
+    label: "Toggle HTML Source/Visual View",
+    execute: () => {
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "document") return;
+      const viewer = document_store.get_viewer_state(active_tab.id);
+      if (!viewer || viewer.file_type !== "html") return;
+      document_store.toggle_html_view_mode(active_tab.id);
     },
   });
 

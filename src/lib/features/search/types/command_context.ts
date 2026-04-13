@@ -7,4 +7,5 @@ export type CommandContext = {
   has_selection: boolean;
   is_canvas_file: boolean;
   is_excalidraw_file: boolean;
+  is_html_document: boolean;
 };

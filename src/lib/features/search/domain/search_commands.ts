@@ -535,4 +535,12 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     ],
     icon: "search",
   },
+  {
+    id: "document_toggle_source",
+    label: "Toggle HTML Source/Visual View",
+    description: "Switch between rendered HTML view and source code editor",
+    keywords: ["html", "source", "visual", "toggle", "code", "view", "edit"],
+    icon: "terminal",
+    when: (ctx) => ctx.is_html_document,
+  },
 ];
