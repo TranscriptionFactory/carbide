@@ -120,3 +120,29 @@ fn plugin_url_decode_strips_vault_param() {
 
     assert_eq!(vault_val.as_deref(), Some("/home/user/my vault"));
 }
+
+#[test]
+fn plugin_sub_resource_resolves_without_vault_query() {
+    let vault = mk_temp_dir();
+    let plugin_dir = make_plugin_dir(&vault, "html-to-md");
+    let vendor_dir = plugin_dir.join("vendor");
+    std::fs::create_dir_all(&vendor_dir).expect("vendor dir should be created");
+    std::fs::write(
+        vendor_dir.join("turndown-plugin-gfm.min.js"),
+        "// gfm plugin",
+    )
+    .expect("vendor js should be written");
+
+    let canonical_plugin = plugin_dir
+        .canonicalize()
+        .expect("plugin dir should canonicalize");
+    let target = canonical_plugin.join("vendor/turndown-plugin-gfm.min.js");
+    let canonical_target = target
+        .canonicalize()
+        .expect("sub-resource should canonicalize");
+
+    assert!(canonical_target.starts_with(&canonical_plugin));
+    assert!(canonical_target.exists());
+
+    let _ = std::fs::remove_dir_all(&vault);
+}
