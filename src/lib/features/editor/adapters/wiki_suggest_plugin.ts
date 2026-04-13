@@ -38,11 +38,10 @@ type WikiSuggestState = {
   items: SuggestionItem[];
   selected_index: number;
   mode: "note" | "heading";
+  note_name: string | null;
 };
 
-export type WikiQueryEvent =
-  | { kind: "note"; query: string }
-  | { kind: "heading"; note_name: string | null; heading_query: string };
+import type { WikiQueryEvent } from "$lib/features/editor/ports";
 
 export type WikiSuggestPluginConfig = {
   on_query: (event: WikiQueryEvent) => void;
@@ -57,6 +56,7 @@ const EMPTY_STATE: WikiSuggestState = {
   items: [],
   selected_index: 0,
   mode: "note",
+  note_name: null,
 };
 
 export function describe_suggestion_location(path: string): string {
@@ -228,13 +228,7 @@ export function create_wiki_suggest_prose_plugin(
 
     let replacement: string;
     if (item.kind === "heading") {
-      const parsed = extract_wiki_query(
-        view.state.doc.textBetween(state.from, view.state.selection.from),
-      );
-      const note_prefix =
-        parsed && parsed.mode === "heading" && parsed.note_name
-          ? parsed.note_name
-          : "";
+      const note_prefix = state.note_name ?? "";
       replacement = note_prefix
         ? `[[${note_prefix}#${item.text}]]`
         : `[[#${item.text}]]`;
@@ -385,6 +379,7 @@ export function create_wiki_suggest_prose_plugin(
               items: keep_items ? plugin_state.items : [],
               selected_index: 0,
               mode: result.mode,
+              note_name: result.mode === "heading" ? result.note_name : null,
             };
             view.dispatch(
               view.state.tr.setMeta(wiki_suggest_plugin_key, new_state),
@@ -476,24 +471,19 @@ export function create_wiki_suggest_prose_plugin(
             return true;
           }
 
-          const paths = state.items
-            .filter(
-              (item): item is NoteSuggestionItem => item.kind !== "heading",
-            )
-            .map((item) => format_wiki_display(item.path).toLowerCase());
+          const note_items = state.items.filter(
+            (item): item is NoteSuggestionItem => item.kind !== "heading",
+          );
+          const paths = note_items.map((item) =>
+            format_wiki_display(item.path).toLowerCase(),
+          );
           const query_lower = state.query.toLowerCase();
           const prefix = longest_common_prefix(paths);
 
           if (prefix.length > query_lower.length) {
-            const original_paths = state.items
-              .filter(
-                (item): item is NoteSuggestionItem => item.kind !== "heading",
-              )
-              .map((item) => format_wiki_display(item.path));
-            const completion = (original_paths[0] ?? "").slice(
-              0,
-              prefix.length,
-            );
+            const completion = format_wiki_display(
+              note_items[0]?.path ?? "",
+            ).slice(0, prefix.length);
             const insert_from = state.from + 2;
             const insert_to = view.state.selection.from;
             const tr = view.state.tr.replaceWith(

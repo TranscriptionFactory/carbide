@@ -3,6 +3,7 @@ import type {
   InternalLinkSource,
   EditorPort,
   EditorSession,
+  WikiQueryEvent,
 } from "$lib/features/editor/ports";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
@@ -26,7 +27,6 @@ import type { EditorStore } from "$lib/features/editor/state/editor_store.svelte
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
-import type { WikiQueryEvent } from "$lib/features/editor/adapters/wiki_suggest_plugin";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort } from "$lib/features/note";
 import type { TagPort } from "$lib/features/tags";
