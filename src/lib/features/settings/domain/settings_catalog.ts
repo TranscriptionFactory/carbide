@@ -702,7 +702,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "markdown_lsp_provider",
     label: "Markdown LSP Provider",
     description:
-      "Choose the language server for markdown files. IWE provides graph transformations (extract, inline, restructure). Marksman provides standard markdown LSP features.",
+      "Choose the language server for markdown files. IWE provides graph transformations (extract, inline, restructure). Markdown Oxide offers PKM-oriented completions and references. Marksman provides standard markdown LSP features.",
     category: "Tools",
     keywords: [
       "markdown",
@@ -710,6 +710,8 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "provider",
       "iwes",
       "iwe",
+      "markdown-oxide",
+      "moxide",
       "marksman",
       "language",
       "server",

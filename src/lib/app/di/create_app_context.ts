@@ -350,10 +350,13 @@ export function create_app_context(input: {
             end_line,
             end_character,
           );
+          const provider = stores.ui.editor_settings.markdown_lsp_provider;
           const source =
-            stores.ui.editor_settings.markdown_lsp_provider === "iwes"
+            provider === "iwes"
               ? "IWE"
-              : "Markdown LSP";
+              : provider === "markdown_oxide"
+                ? "Markdown Oxide"
+                : "Marksman";
           all_actions.push(...md_lsp_actions.map((a) => ({ ...a, source })));
         } catch {
           /* ignore */

@@ -1,4 +1,4 @@
-export type MarkdownLspProvider = "iwes" | "marksman";
+export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 
 export type MarkdownLspCapabilities = {
   inlay_hints: boolean;
@@ -12,6 +12,7 @@ export function markdown_lsp_capabilities(
   switch (provider) {
     case "iwes":
       return { inlay_hints: true, formatting: true, transform_actions: true };
+    case "markdown_oxide":
     case "marksman":
       return {
         inlay_hints: false,
