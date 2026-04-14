@@ -288,7 +288,7 @@ pub async fn markdown_lsp_start(
     let working_dir = vault_path
         .to_str()
         .ok_or("invalid vault path encoding")?;
-    let mut config = lsp_provider.build_config(&startup.binary_path, &root_uri, working_dir);
+    let config = lsp_provider.build_config(&startup.binary_path, &root_uri, working_dir);
 
     let vault_risk = vault_path::analyze(&vault_path);
     if vault_risk.is_cloud_backed {
@@ -296,7 +296,6 @@ pub async fn markdown_lsp_start(
             "markdown_lsp_startup vault_path_risk=cloud_backed provider={}",
             vault_risk.cloud_provider.unwrap_or("unknown")
         );
-        config.init_timeout_ms = 10_000;
     }
 
     let state = markdown_lsp_state(&app);
