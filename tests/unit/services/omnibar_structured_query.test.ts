@@ -91,14 +91,12 @@ function make_mock_tag_port(
   tags_to_notes: Record<string, string[]> = {},
 ): TagPort {
   return {
-    list_all_tags: vi
-      .fn()
-      .mockResolvedValue(
-        Object.keys(tags_to_notes).map((t) => ({
-          tag: t,
-          count: tags_to_notes[t]!.length,
-        })),
-      ),
+    list_all_tags: vi.fn().mockResolvedValue(
+      Object.keys(tags_to_notes).map((t) => ({
+        tag: t,
+        count: tags_to_notes[t]!.length,
+      })),
+    ),
     get_notes_for_tag: vi
       .fn()
       .mockImplementation((_vid: string, tag: string) =>
