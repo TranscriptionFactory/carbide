@@ -108,7 +108,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
           liftListItem(list_item_type),
         ),
         Tab: chainCommands(sinkListItem(list_item_type), () => true),
-        "Shift-Tab": liftListItem(list_item_type),
+        "Shift-Tab": chainCommands(liftListItem(list_item_type), () => true),
       }),
     );
   }
