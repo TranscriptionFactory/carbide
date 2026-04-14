@@ -231,7 +231,10 @@ export class EditorService {
   }
 
   insert_text(text: string) {
+    const open_note = this.editor_store.open_note;
+    if (!open_note) return;
     this.session?.insert_text_at_cursor(text);
+    this.editor_store.set_dirty(open_note.meta.id, true);
   }
 
   get_ai_context(): EditorAiContext | null {
