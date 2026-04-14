@@ -63,9 +63,10 @@ impl LintLspSession {
             init_timeout_ms: 30_000,
         };
 
-        let mut client = RestartableLspClient::start(RestartableConfig::new(lsp_config))
-            .await
-            .map_err(|e| e.to_string())?;
+        let (mut client, _server_caps) =
+            RestartableLspClient::start(RestartableConfig::new(lsp_config))
+                .await
+                .map_err(|e| e.to_string())?;
 
         let notification_rx = client.take_notification_rx();
         let status_rx = client.take_status_rx();

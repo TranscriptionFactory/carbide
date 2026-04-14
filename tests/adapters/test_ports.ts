@@ -126,7 +126,19 @@ export function create_test_ports(): Ports {
       start: () =>
         Promise.resolve({
           completion_trigger_characters: [],
-          effective_provider: "marksman",
+          effective_provider: "marksman" as const,
+          server_capabilities: {
+            hover: true,
+            completion: true,
+            references: true,
+            definition: true,
+            code_actions: false,
+            rename: false,
+            formatting: false,
+            inlay_hints: false,
+            workspace_symbols: false,
+            document_symbols: true,
+          },
         }),
       stop: () => Promise.resolve(),
       did_open: () => Promise.resolve(),

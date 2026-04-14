@@ -3,6 +3,52 @@ use tokio::sync::{mpsc, oneshot};
 use super::transport::{LspClient, ServerNotification};
 use super::types::{LspClientConfig, LspClientError, ServerRequest};
 
+#[derive(Clone)]
+pub struct LspRequestHandle {
+    tx: mpsc::Sender<RestartableOutgoing>,
+    request_timeout_ms: u64,
+}
+
+impl LspRequestHandle {
+    pub async fn send_request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, LspClientError> {
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .send(RestartableOutgoing::Request {
+                method: method.to_string(),
+                params,
+                response_tx,
+            })
+            .await
+            .map_err(|_| LspClientError::ChannelClosed)?;
+
+        tokio::time::timeout(
+            std::time::Duration::from_millis(self.request_timeout_ms),
+            response_rx,
+        )
+        .await
+        .map_err(|_| LspClientError::RequestTimeout)?
+        .map_err(|_| LspClientError::ChannelClosed)?
+    }
+
+    pub async fn send_notification(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<(), LspClientError> {
+        self.tx
+            .send(RestartableOutgoing::Notification {
+                method: method.to_string(),
+                params,
+            })
+            .await
+            .map_err(|_| LspClientError::ChannelClosed)
+    }
+}
+
 const DEFAULT_MAX_RESTARTS: u32 = 3;
 const DEFAULT_BACKOFF_MS: &[u64] = &[1000, 2000, 4000];
 
@@ -51,16 +97,21 @@ pub struct RestartableLspClient {
     status_rx: Option<mpsc::Receiver<LspSessionStatus>>,
     stop_tx: Option<oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
+    request_timeout_ms: u64,
 }
 
 impl RestartableLspClient {
-    pub async fn start(config: RestartableConfig) -> Result<Self, LspClientError> {
+    pub async fn start(
+        config: RestartableConfig,
+    ) -> Result<(Self, serde_json::Value), LspClientError> {
+        let request_timeout_ms = config.lsp_config.request_timeout_ms;
         let (request_tx, request_rx) = mpsc::channel::<RestartableOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
         let (notification_tx, notification_rx) = mpsc::channel::<ServerNotification>(64);
         let (server_request_fwd_tx, server_request_rx) = mpsc::channel::<ServerRequest>(16);
         let (status_tx, status_rx) = mpsc::channel::<LspSessionStatus>(16);
-        let (ready_tx, ready_rx) = oneshot::channel::<Result<(), LspClientError>>();
+        let (ready_tx, ready_rx) =
+            oneshot::channel::<Result<serde_json::Value, LspClientError>>();
 
         let join_handle = tokio::spawn(run_loop(
             config,
@@ -72,18 +123,26 @@ impl RestartableLspClient {
             Some(ready_tx),
         ));
 
-        ready_rx
+        let server_capabilities = ready_rx
             .await
             .map_err(|_| LspClientError::ChannelClosed)??;
 
-        Ok(Self {
+        Ok((Self {
             request_tx,
             notification_rx: Some(notification_rx),
             server_request_rx: Some(server_request_rx),
             status_rx: Some(status_rx),
             stop_tx: Some(stop_tx),
             join_handle: Some(join_handle),
-        })
+            request_timeout_ms,
+        }, server_capabilities))
+    }
+
+    pub fn request_handle(&self) -> LspRequestHandle {
+        LspRequestHandle {
+            tx: self.request_tx.clone(),
+            request_timeout_ms: self.request_timeout_ms,
+        }
     }
 
     pub fn take_notification_rx(&mut self) -> Option<mpsc::Receiver<ServerNotification>> {
@@ -113,9 +172,13 @@ impl RestartableLspClient {
             .await
             .map_err(|_| LspClientError::ChannelClosed)?;
 
-        response_rx
-            .await
-            .map_err(|_| LspClientError::ChannelClosed)?
+        tokio::time::timeout(
+            std::time::Duration::from_millis(self.request_timeout_ms),
+            response_rx,
+        )
+        .await
+        .map_err(|_| LspClientError::RequestTimeout)?
+        .map_err(|_| LspClientError::ChannelClosed)?
     }
 
     pub async fn send_notification(
@@ -166,7 +229,7 @@ async fn run_loop(
     notification_fwd_tx: mpsc::Sender<ServerNotification>,
     server_request_fwd_tx: mpsc::Sender<ServerRequest>,
     status_tx: mpsc::Sender<LspSessionStatus>,
-    mut ready_tx: Option<oneshot::Sender<Result<(), LspClientError>>>,
+    mut ready_tx: Option<oneshot::Sender<Result<serde_json::Value, LspClientError>>>,
 ) {
     let mut restart_count: u32 = 0;
 
@@ -208,7 +271,7 @@ async fn run_loop(
 
         emit_status(&status_tx, LspSessionStatus::Running);
         if let Some(tx) = ready_tx.take() {
-            let _ = tx.send(Ok(()));
+            let _ = tx.send(Ok(client.server_capabilities().clone()));
         }
         restart_count = 0;
 

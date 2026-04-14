@@ -42,11 +42,14 @@ impl MarkdownLspState {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
-        let clients = self.clients.lock().await;
-        let client = clients
-            .get(vault_id)
-            .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?;
-        client.send_request(method, params).await.map_err(err)
+        let handle = {
+            let clients = self.clients.lock().await;
+            clients
+                .get(vault_id)
+                .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?
+                .request_handle()
+        };
+        handle.send_request(method, params).await.map_err(err)
     }
 
     async fn notify(
@@ -55,11 +58,14 @@ impl MarkdownLspState {
         method: &str,
         params: serde_json::Value,
     ) -> Result<(), String> {
-        let clients = self.clients.lock().await;
-        let client = clients
-            .get(vault_id)
-            .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?;
-        client.send_notification(method, params).await.map_err(err)
+        let handle = {
+            let clients = self.clients.lock().await;
+            clients
+                .get(vault_id)
+                .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?
+                .request_handle()
+        };
+        handle.send_notification(method, params).await.map_err(err)
     }
 }
 
@@ -293,17 +299,22 @@ pub async fn markdown_lsp_start(
         config.init_timeout_ms = 10_000;
     }
 
-    // Stop existing client FIRST to avoid duplicate processes
     let state = markdown_lsp_state(&app);
-    let old_client = state.clients.lock().await.remove(&vault_id);
-    if let Some(old) = old_client {
+    // Hold the clients lock for the entire start sequence to prevent TOCTOU races.
+    // Requests use LspRequestHandle (clone of mpsc::Sender) and don't hold this lock,
+    // so this only serializes concurrent start/stop calls — which is correct.
+    let mut clients = state.clients.lock().await;
+
+    if let Some(old) = clients.remove(&vault_id) {
         old.stop().await;
     }
 
     let spawn_started_at = Instant::now();
-    let mut client = RestartableLspClient::start(RestartableConfig::new(config))
-        .await
-        .map_err(err)?;
+    let (mut client, server_caps_json) =
+        RestartableLspClient::start(RestartableConfig::new(config))
+            .await
+            .map_err(err)?;
+    let server_capabilities = MarkdownLspServerCapabilities::from_initialize_result(&server_caps_json);
     log::info!(
         "markdown_lsp_startup phase=lsp_initialize_completed startup_reason={} effective_provider={} duration_ms={}",
         startup_reason,
@@ -331,7 +342,8 @@ pub async fn markdown_lsp_start(
         spawn_status_forwarder(app.clone(), vault_id.clone(), rx);
     }
 
-    state.clients.lock().await.insert(vault_id, client);
+    clients.insert(vault_id, client);
+    drop(clients);
     log::info!(
         "markdown_lsp_startup phase=complete startup_reason={} effective_provider={} total_duration_ms={}",
         startup_reason,
@@ -341,6 +353,7 @@ pub async fn markdown_lsp_start(
     Ok(MarkdownLspStartResult {
         completion_trigger_characters: trigger_characters,
         effective_provider,
+        server_capabilities,
     })
 }
 

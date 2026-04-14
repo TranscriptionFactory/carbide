@@ -138,9 +138,10 @@ impl CodeLspManager {
             &self.vault_path.to_string_lossy(),
         );
 
-        let mut client = RestartableLspClient::start(RestartableConfig::new(lsp_config))
-            .await
-            .map_err(|e| e.to_string())?;
+        let (mut client, _server_caps) =
+            RestartableLspClient::start(RestartableConfig::new(lsp_config))
+                .await
+                .map_err(|e| e.to_string())?;
 
         if let Some(rx) = client.take_notification_rx() {
             let app = self.app.clone();

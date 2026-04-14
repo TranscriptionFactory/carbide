@@ -158,6 +158,48 @@ pub struct MarkdownLspInlayHint {
 pub struct MarkdownLspStartResult {
     pub completion_trigger_characters: Vec<String>,
     pub effective_provider: MarkdownLspProvider,
+    pub server_capabilities: MarkdownLspServerCapabilities,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct MarkdownLspServerCapabilities {
+    pub hover: bool,
+    pub completion: bool,
+    pub references: bool,
+    pub definition: bool,
+    pub code_actions: bool,
+    pub rename: bool,
+    pub formatting: bool,
+    pub inlay_hints: bool,
+    pub workspace_symbols: bool,
+    pub document_symbols: bool,
+}
+
+impl MarkdownLspServerCapabilities {
+    pub fn from_initialize_result(result: &serde_json::Value) -> Self {
+        let caps = result
+            .get("capabilities")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        Self {
+            hover: caps.get("hoverProvider").is_some_and(|v| !v.is_null()),
+            completion: caps.get("completionProvider").is_some_and(|v| !v.is_null()),
+            references: caps.get("referencesProvider").is_some_and(|v| !v.is_null()),
+            definition: caps.get("definitionProvider").is_some_and(|v| !v.is_null()),
+            code_actions: caps.get("codeActionProvider").is_some_and(|v| !v.is_null()),
+            rename: caps.get("renameProvider").is_some_and(|v| !v.is_null()),
+            formatting: caps
+                .get("documentFormattingProvider")
+                .is_some_and(|v| !v.is_null()),
+            inlay_hints: caps.get("inlayHintProvider").is_some_and(|v| !v.is_null()),
+            workspace_symbols: caps
+                .get("workspaceSymbolProvider")
+                .is_some_and(|v| !v.is_null()),
+            document_symbols: caps
+                .get("documentSymbolProvider")
+                .is_some_and(|v| !v.is_null()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Type)]

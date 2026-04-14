@@ -131,6 +131,11 @@ impl LspClient {
         .map_err(|_| LspClientError::ChannelClosed)?
     }
 
+
+    pub fn server_capabilities(&self) -> &serde_json::Value {
+        &self.server_capabilities
+    }
+
     pub fn completion_trigger_characters(&self) -> Vec<String> {
         log::info!(
             "LSP server capabilities: {}",

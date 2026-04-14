@@ -7,18 +7,51 @@ import {
 } from "$lib/features/markdown_lsp/types";
 
 describe("markdown_lsp_capabilities", () => {
-  it("returns full capabilities for iwes", () => {
-    expect(markdown_lsp_capabilities("iwes")).toEqual({
-      inlay_hints: true,
-      formatting: true,
+  const full_server_caps = {
+    hover: true,
+    completion: true,
+    references: true,
+    definition: true,
+    code_actions: true,
+    rename: true,
+    formatting: true,
+    inlay_hints: true,
+    workspace_symbols: true,
+    document_symbols: true,
+  };
+
+  const minimal_server_caps = {
+    hover: true,
+    completion: true,
+    references: false,
+    definition: false,
+    code_actions: false,
+    rename: false,
+    formatting: false,
+    inlay_hints: false,
+    workspace_symbols: false,
+    document_symbols: false,
+  };
+
+  it("merges server caps with iwes transform_actions", () => {
+    expect(markdown_lsp_capabilities(full_server_caps, "iwes")).toEqual({
+      ...full_server_caps,
       transform_actions: true,
     });
   });
 
-  it("returns no capabilities for marksman", () => {
-    expect(markdown_lsp_capabilities("marksman")).toEqual({
-      inlay_hints: false,
-      formatting: false,
+  it("merges server caps with marksman (no transform_actions)", () => {
+    expect(markdown_lsp_capabilities(minimal_server_caps, "marksman")).toEqual({
+      ...minimal_server_caps,
+      transform_actions: false,
+    });
+  });
+
+  it("merges server caps with markdown_oxide (no transform_actions)", () => {
+    expect(
+      markdown_lsp_capabilities(full_server_caps, "markdown_oxide"),
+    ).toEqual({
+      ...full_server_caps,
       transform_actions: false,
     });
   });

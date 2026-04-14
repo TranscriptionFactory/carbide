@@ -21,6 +21,18 @@ function create_mock_port() {
     start: vi.fn().mockResolvedValue({
       completion_trigger_characters: ["["],
       effective_provider: "marksman",
+      server_capabilities: {
+        hover: true,
+        completion: true,
+        references: true,
+        definition: true,
+        code_actions: false,
+        rename: false,
+        formatting: false,
+        inlay_hints: false,
+        workspace_symbols: false,
+        document_symbols: true,
+      },
     }),
     stop: vi.fn().mockResolvedValue(undefined),
     did_open: vi.fn().mockResolvedValue(undefined),
@@ -299,6 +311,18 @@ describe("MarkdownLspService", () => {
       vi.mocked(port.start).mockResolvedValue({
         completion_trigger_characters: ["+"],
         effective_provider: "iwes",
+        server_capabilities: {
+          hover: true,
+          completion: true,
+          references: true,
+          definition: true,
+          code_actions: true,
+          rename: true,
+          formatting: true,
+          inlay_hints: true,
+          workspace_symbols: true,
+          document_symbols: true,
+        },
       });
       const store = new MarkdownLspStore();
       const vault_store = new VaultStore();
@@ -315,6 +339,18 @@ describe("MarkdownLspService", () => {
       vi.mocked(port.start).mockResolvedValue({
         completion_trigger_characters: ["+"],
         effective_provider: "iwes",
+        server_capabilities: {
+          hover: true,
+          completion: true,
+          references: true,
+          definition: true,
+          code_actions: true,
+          rename: true,
+          formatting: true,
+          inlay_hints: true,
+          workspace_symbols: true,
+          document_symbols: true,
+        },
       });
       const store = new MarkdownLspStore();
       const vault_store = new VaultStore();
@@ -333,6 +369,18 @@ describe("MarkdownLspService", () => {
       vi.mocked(port.start).mockResolvedValue({
         completion_trigger_characters: ["+"],
         effective_provider: "iwes",
+        server_capabilities: {
+          hover: true,
+          completion: true,
+          references: true,
+          definition: true,
+          code_actions: true,
+          rename: true,
+          formatting: true,
+          inlay_hints: true,
+          workspace_symbols: true,
+          document_symbols: true,
+        },
       });
       const store = new MarkdownLspStore();
       const vault_store = new VaultStore();
@@ -342,8 +390,16 @@ describe("MarkdownLspService", () => {
       await service.start("iwes");
 
       expect(store.capabilities).toEqual({
-        inlay_hints: true,
+        hover: true,
+        completion: true,
+        references: true,
+        definition: true,
+        code_actions: true,
+        rename: true,
         formatting: true,
+        inlay_hints: true,
+        workspace_symbols: true,
+        document_symbols: true,
         transform_actions: true,
       });
     });
@@ -358,8 +414,16 @@ describe("MarkdownLspService", () => {
       await service.start("marksman");
 
       expect(store.capabilities).toEqual({
-        inlay_hints: false,
+        hover: true,
+        completion: true,
+        references: true,
+        definition: true,
+        code_actions: false,
+        rename: false,
         formatting: false,
+        inlay_hints: false,
+        workspace_symbols: false,
+        document_symbols: true,
         transform_actions: false,
       });
     });
@@ -629,6 +693,136 @@ describe("MarkdownLspService", () => {
       const change_calls = vi.mocked(port.did_change).mock.calls;
       expect(change_calls[0]![2]).toBe(2);
       expect(change_calls[1]![2]).toBe(2);
+    });
+  });
+
+  describe("stale-result guarding", () => {
+    it("discards stale hover results when superseded", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      let resolve_first!: (v: { contents: string | null }) => void;
+      let resolve_second!: (v: { contents: string | null }) => void;
+
+      vi.mocked(port.hover)
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_first = r;
+            }),
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_second = r;
+            }),
+        );
+
+      const p1 = service.hover("note.md", 0, 0);
+      const p2 = service.hover("note.md", 1, 0);
+
+      resolve_second({ contents: "second" });
+      await p2;
+      expect(store.last_hover).toEqual({ contents: "second" });
+
+      resolve_first({ contents: "first (stale)" });
+      await p1;
+      expect(store.last_hover).toEqual({ contents: "second" });
+    });
+
+    it("discards stale completion results when superseded", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      let resolve_first!: (
+        v: { label: string; detail: null; insert_text: null }[],
+      ) => void;
+      let resolve_second!: (
+        v: { label: string; detail: null; insert_text: null }[],
+      ) => void;
+
+      vi.mocked(port.completion)
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_first = r;
+            }),
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_second = r;
+            }),
+        );
+
+      const p1 = service.completion("note.md", 0, 0);
+      const p2 = service.completion("note.md", 1, 0);
+
+      resolve_second([{ label: "second", detail: null, insert_text: null }]);
+      await p2;
+      expect(store.completions).toHaveLength(1);
+      expect(store.completions[0]!.label).toBe("second");
+
+      resolve_first([{ label: "stale", detail: null, insert_text: null }]);
+      await p1;
+      expect(store.completions[0]!.label).toBe("second");
+    });
+
+    it("discards stale code_actions results when superseded", async () => {
+      const { port } = create_mock_port();
+      const store = new MarkdownLspStore();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new MarkdownLspService(port, store, vault_store);
+      await service.start("marksman");
+
+      let resolve_first!: (
+        v: { title: string; kind: null; data: null; raw_json: string }[],
+      ) => void;
+      let resolve_second!: (
+        v: { title: string; kind: null; data: null; raw_json: string }[],
+      ) => void;
+
+      vi.mocked(port.code_actions)
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_first = r;
+            }),
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise((r) => {
+              resolve_second = r;
+            }),
+        );
+
+      const p1 = service.code_actions("note.md", 0, 0, 1, 0);
+      const p2 = service.code_actions("note.md", 2, 0, 3, 0);
+
+      resolve_second([
+        { title: "second", kind: null, data: null, raw_json: "{}" },
+      ]);
+      await p2;
+      expect(store.code_actions).toHaveLength(1);
+      expect(store.code_actions[0]!.title).toBe("second");
+
+      resolve_first([
+        { title: "stale", kind: null, data: null, raw_json: "{}" },
+      ]);
+      await p1;
+      expect(store.code_actions[0]!.title).toBe("second");
     });
   });
 });

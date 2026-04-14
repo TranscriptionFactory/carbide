@@ -5,6 +5,8 @@ pub mod transport;
 pub mod types;
 pub mod uri_utils;
 
-pub use restartable::{is_retryable, LspSessionStatus, RestartableConfig, RestartableLspClient};
+pub use restartable::{
+    is_retryable, LspRequestHandle, LspSessionStatus, RestartableConfig, RestartableLspClient,
+};
 pub use transport::{LspClient, ServerNotification};
 pub use types::{LspClientConfig, LspClientError, ServerRequest};

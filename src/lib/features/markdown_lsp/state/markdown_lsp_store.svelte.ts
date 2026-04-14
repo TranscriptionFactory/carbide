@@ -8,6 +8,7 @@ import type {
   MarkdownLspInlayHint,
   MarkdownLspLocation,
   MarkdownLspProvider,
+  MarkdownLspServerCapabilities,
   MarkdownLspStatus,
   MarkdownLspSymbol,
 } from "$lib/features/markdown_lsp/types";
@@ -25,12 +26,16 @@ export class MarkdownLspStore {
   completion_trigger_characters = $state<string[]>([]);
   transform_actions = $state<IweActionInfo[]>([]);
   effective_provider = $state<MarkdownLspProvider | null>(null);
+  server_capabilities = $state<MarkdownLspServerCapabilities | null>(null);
   loading = $state(false);
 
   is_running = $derived(this.status === "running");
   capabilities = $derived<MarkdownLspCapabilities | null>(
-    this.effective_provider
-      ? markdown_lsp_capabilities(this.effective_provider)
+    this.server_capabilities && this.effective_provider
+      ? markdown_lsp_capabilities(
+          this.server_capabilities,
+          this.effective_provider,
+        )
       : null,
   );
 
@@ -78,6 +83,10 @@ export class MarkdownLspStore {
     this.effective_provider = provider;
   }
 
+  set_server_capabilities(caps: MarkdownLspServerCapabilities | null) {
+    this.server_capabilities = caps;
+  }
+
   set_loading(loading: boolean) {
     this.loading = loading;
   }
@@ -94,6 +103,7 @@ export class MarkdownLspStore {
     this.document_symbols = [];
     this.transform_actions = [];
     this.effective_provider = null;
+    this.server_capabilities = null;
     this.loading = false;
   }
 }

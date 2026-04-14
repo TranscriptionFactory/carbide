@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { MarkdownLspStore } from "$lib/features/markdown_lsp/state/markdown_lsp_store.svelte";
-import { markdown_lsp_capabilities } from "$lib/features/markdown_lsp/types";
 
 describe("MarkdownLspStore", () => {
   it("initial status is stopped", () => {
@@ -29,22 +28,62 @@ describe("MarkdownLspStore", () => {
     expect(store.capabilities).toBeNull();
   });
 
-  it("capabilities reflects iwes provider", () => {
+  it("capabilities reflects iwes provider with server caps", () => {
     const store = new MarkdownLspStore();
     store.set_effective_provider("iwes");
-    expect(markdown_lsp_capabilities(store.effective_provider!)).toEqual({
-      inlay_hints: true,
+    store.set_server_capabilities({
+      hover: true,
+      completion: true,
+      references: true,
+      definition: true,
+      code_actions: true,
+      rename: true,
       formatting: true,
+      inlay_hints: true,
+      workspace_symbols: true,
+      document_symbols: true,
+    });
+    expect(store.capabilities).toEqual({
+      hover: true,
+      completion: true,
+      references: true,
+      definition: true,
+      code_actions: true,
+      rename: true,
+      formatting: true,
+      inlay_hints: true,
+      workspace_symbols: true,
+      document_symbols: true,
       transform_actions: true,
     });
   });
 
-  it("capabilities reflects marksman provider", () => {
+  it("capabilities reflects marksman provider with server caps", () => {
     const store = new MarkdownLspStore();
     store.set_effective_provider("marksman");
-    expect(markdown_lsp_capabilities(store.effective_provider!)).toEqual({
-      inlay_hints: false,
+    store.set_server_capabilities({
+      hover: true,
+      completion: true,
+      references: true,
+      definition: true,
+      code_actions: false,
+      rename: false,
       formatting: false,
+      inlay_hints: false,
+      workspace_symbols: false,
+      document_symbols: true,
+    });
+    expect(store.capabilities).toEqual({
+      hover: true,
+      completion: true,
+      references: true,
+      definition: true,
+      code_actions: false,
+      rename: false,
+      formatting: false,
+      inlay_hints: false,
+      workspace_symbols: false,
+      document_symbols: true,
       transform_actions: false,
     });
   });

@@ -1,25 +1,30 @@
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 
-export type MarkdownLspCapabilities = {
-  inlay_hints: boolean;
+export type MarkdownLspServerCapabilities = {
+  hover: boolean;
+  completion: boolean;
+  references: boolean;
+  definition: boolean;
+  code_actions: boolean;
+  rename: boolean;
   formatting: boolean;
+  inlay_hints: boolean;
+  workspace_symbols: boolean;
+  document_symbols: boolean;
+};
+
+export type MarkdownLspCapabilities = MarkdownLspServerCapabilities & {
   transform_actions: boolean;
 };
 
 export function markdown_lsp_capabilities(
+  server_caps: MarkdownLspServerCapabilities,
   provider: MarkdownLspProvider,
 ): MarkdownLspCapabilities {
-  switch (provider) {
-    case "iwes":
-      return { inlay_hints: true, formatting: true, transform_actions: true };
-    case "markdown_oxide":
-    case "marksman":
-      return {
-        inlay_hints: false,
-        formatting: false,
-        transform_actions: false,
-      };
-  }
+  return {
+    ...server_caps,
+    transform_actions: provider === "iwes",
+  };
 }
 
 export type MarkdownLspStatus =
@@ -79,6 +84,7 @@ export type MarkdownLspCompletionItem = {
 export type MarkdownLspStartResult = {
   completion_trigger_characters: string[];
   effective_provider: MarkdownLspProvider;
+  server_capabilities: MarkdownLspServerCapabilities;
 };
 
 export type MarkdownLspStartReason =

@@ -59,6 +59,9 @@ export class MarkdownLspService {
   private last_provider: string | undefined = undefined;
   private last_custom_binary_path: string | undefined = undefined;
   private active_vault_id: string | null = null;
+  private hover_gen = 0;
+  private completion_gen = 0;
+  private code_actions_gen = 0;
 
   constructor(
     private readonly port: MarkdownLspPort,
@@ -108,6 +111,7 @@ export class MarkdownLspService {
           result.completion_trigger_characters,
         );
         this.store.set_effective_provider(result.effective_provider);
+        this.store.set_server_capabilities(result.server_capabilities);
         this.active_vault_id = vault_id;
         this.store.set_status("running");
         log.info("Markdown LSP started", {
@@ -152,6 +156,9 @@ export class MarkdownLspService {
         this.active_vault_id = null;
       }
       this.doc_versions.clear();
+      this.hover_gen = 0;
+      this.completion_gen = 0;
+      this.code_actions_gen = 0;
       this.store.reset();
       this.diagnostics_store?.clear_source("markdown_lsp");
     });
@@ -271,6 +278,7 @@ export class MarkdownLspService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return;
 
+    const gen = ++this.hover_gen;
     try {
       const result = await this.port.hover(
         vault_id,
@@ -278,8 +286,10 @@ export class MarkdownLspService {
         line,
         character,
       );
+      if (gen !== this.hover_gen) return;
       this.store.set_hover(result);
     } catch (e) {
+      if (gen !== this.hover_gen) return;
       if (!this.handle_channel_closed(e)) log.from_error("hover failed", e);
       this.store.set_hover(null);
     }
@@ -345,6 +355,7 @@ export class MarkdownLspService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return;
 
+    const gen = ++this.code_actions_gen;
     try {
       const actions = await this.port.code_actions(
         vault_id,
@@ -354,8 +365,10 @@ export class MarkdownLspService {
         end_line,
         end_character,
       );
+      if (gen !== this.code_actions_gen) return;
       this.store.set_code_actions(actions);
     } catch (e) {
+      if (gen !== this.code_actions_gen) return;
       if (!this.handle_channel_closed(e)) {
         log.from_error("code_actions failed", e);
         log.warn("Operation error", { error: error_message_from(e) });
@@ -494,6 +507,7 @@ export class MarkdownLspService {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id || this.store.status !== "running") return;
 
+    const gen = ++this.completion_gen;
     try {
       const items = await this.port.completion(
         vault_id,
@@ -501,8 +515,10 @@ export class MarkdownLspService {
         line,
         character,
       );
+      if (gen !== this.completion_gen) return;
       this.store.set_completions(items);
     } catch (e) {
+      if (gen !== this.completion_gen) return;
       if (!this.handle_channel_closed(e))
         log.from_error("completion failed", e);
       this.store.set_completions([]);
