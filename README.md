@@ -45,12 +45,10 @@ Built-in auto-updater applies updates on startup.
 | Git       | `git2` backend, `isomorphic-git` frontend                                                       |
 | Canvas    | [Excalidraw](https://excalidraw.com/), [Mermaid](https://mermaid.js.org/)                       |
 | Search    | SQLite FTS5, candle semantic embeddings, HNSW vector index, fuzzy matching                      |
-| STT       | [Whisper](https://github.com/openai/whisper) via candle                                         |
 | Terminal  | xterm.js, tauri-pty                                                                             |
 | Graph     | d3-force                                                                                        |
 | PDF       | pdfjs-dist, jspdf, pdf-extract (Rust)                                                           |
 | Citations | Citation.js (BibTeX, CSL, RIS)                                                                  |
-| Collab    | Yjs, y-prosemirror                                                                              |
 
 ---
 
@@ -76,7 +74,6 @@ Built-in auto-updater applies updates on startup.
 - Dynamic AI provider substitution for IWE transforms with config-driven actions.
 - AI-generated file tree blurbs: note descriptions displayed inline in the sidebar.
 - Prompt builder for composing AI queries from vault context.
-- Speech-to-text dictation via Whisper with configurable model selection, custom model paths, and keyboard shortcut.
 
 ### Search & Query
 
