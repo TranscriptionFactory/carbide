@@ -64,7 +64,7 @@ export type FileTreeStyle =
   | "refined";
 export type FileTreeBlurbPosition = "caption" | "heading";
 export type LintFormatter = "prettier" | "rumdl";
-export type MarkdownLspProvider = "iwes" | "marksman";
+export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 
 export type EditorSettings = {
   attachment_folder: string;

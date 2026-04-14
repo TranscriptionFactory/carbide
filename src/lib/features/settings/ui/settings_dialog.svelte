@@ -3958,10 +3958,15 @@
                 <Select.Trigger class="w-48">
                   {editor_settings.markdown_lsp_provider === "iwes"
                     ? "IWE"
-                    : "Marksman"}
+                    : editor_settings.markdown_lsp_provider === "markdown_oxide"
+                      ? "Markdown Oxide"
+                      : "Marksman"}
                 </Select.Trigger>
                 <Select.Content>
                   <Select.Item value="iwes">IWE</Select.Item>
+                  <Select.Item value="markdown_oxide"
+                    >Markdown Oxide</Select.Item
+                  >
                   <Select.Item value="marksman">Marksman</Select.Item>
                 </Select.Content>
               </Select.Root>
@@ -3980,7 +3985,9 @@
                 class="w-64"
                 placeholder={editor_settings.markdown_lsp_provider === "iwes"
                   ? "/usr/local/bin/iwes"
-                  : "/usr/local/bin/marksman"}
+                  : editor_settings.markdown_lsp_provider === "markdown_oxide"
+                    ? "/usr/local/bin/markdown-oxide"
+                    : "/usr/local/bin/marksman"}
                 value={editor_settings.markdown_lsp_binary_path}
                 oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
                   update("markdown_lsp_binary_path", e.currentTarget.value);
