@@ -1,4 +1,5 @@
 import type {
+  HybridSearchHit,
   NoteSearchHit,
   WikiSuggestion,
   OmnibarItem,
@@ -39,6 +40,10 @@ export type OmnibarSearchResult = {
   domain: string;
   items: OmnibarItem[];
   status?: string;
+};
+
+export type SearchPipelineResult = {
+  hits: HybridSearchHit[];
 };
 
 export type CrossVaultSearchGroup = {

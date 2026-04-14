@@ -19,6 +19,7 @@ import type {
   OmnibarSearchResult,
   CrossVaultSearchResult,
   CrossVaultSearchGroup,
+  SearchPipelineResult,
 } from "$lib/features/search/types/search_service_result";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { search_within_text } from "$lib/features/search/domain/search_within_text";
@@ -497,6 +498,20 @@ export class SearchService {
     return search_within_text(text, query);
   }
 
+  async run_search_pipeline(
+    vault_id: VaultId,
+    query: string,
+    options?: { limit?: number },
+  ): Promise<SearchPipelineResult> {
+    const parsed = parse_search_query(query);
+    const hits = await this.search_port.hybrid_search(
+      vault_id,
+      { raw: parsed.raw, text: parsed.text, scope: parsed.scope },
+      options?.limit ?? 20,
+    );
+    return { hits };
+  }
+
   async search_omnibar(
     raw_query: string,
     semantic_enabled?: boolean,
@@ -518,12 +533,8 @@ export class SearchService {
     const vault_id = this.get_active_vault_id();
     if ((semantic_enabled ?? true) && vault_id !== null) {
       try {
-        const hybrid_hits = await this.search_port.hybrid_search(
-          vault_id,
-          { raw: parsed.raw, text: parsed.text, scope: parsed.scope },
-          20,
-        );
-        const items: OmnibarItem[] = hybrid_hits.map((hit) => ({
+        const { hits } = await this.run_search_pipeline(vault_id, raw_query);
+        const items: OmnibarItem[] = hits.map((hit) => ({
           kind: "note" as const,
           note: hit.note,
           score: hit.score,
