@@ -64,7 +64,7 @@ export function register_lsp_actions(input: {
     id: ACTION_IDS.lsp_refresh_diagnostics,
     label: "Refresh LSP Diagnostics",
     execute: () => {
-      const lsp_sources = ["code_lsp"] as const;
+      const lsp_sources = ["code_lsp", "markdown_lsp"] as const;
       const lsp_diags: LspDiagnostic[] = [];
       for (const diag of diagnostics_store.active_diagnostics) {
         if (lsp_sources.includes(diag.source as (typeof lsp_sources)[number])) {
