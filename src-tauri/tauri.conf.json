@@ -25,7 +25,9 @@
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
       "resources/models/**/*",
-      "resources/iwe-default-config.toml"
+      "resources/iwe-default-config.toml",
+      "resources/markdown-oxide-default-config.toml",
+      "resources/marksman-default-config.toml"
     ],
     "macOS": {
       "signingIdentity": "-"
