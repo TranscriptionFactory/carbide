@@ -3,11 +3,21 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp";
+  import type {
+    MarkdownLspStatus,
+    MarkdownLspCapabilities,
+    MarkdownLspProvider,
+  } from "$lib/features/markdown_lsp";
 
   const { stores, action_registry } = use_app_context();
 
   const code_actions = $derived(stores.lsp.code_actions);
   const diagnostics = $derived(stores.lsp.diagnostics);
+
+  const lsp_status = $derived(stores.markdown_lsp.status);
+  const lsp_enabled = $derived(stores.ui.editor_settings.markdown_lsp_enabled);
+  const effective_provider = $derived(stores.markdown_lsp.effective_provider);
+  const capabilities = $derived(stores.markdown_lsp.capabilities);
 
   type LspTab = "code_actions" | "diagnostics";
   let active_tab = $state<LspTab>("code_actions");
@@ -16,6 +26,65 @@
     code_actions: code_actions.length,
     diagnostics: diagnostics.length,
   });
+
+  const PROVIDER_DISPLAY: Record<MarkdownLspProvider, string> = {
+    iwes: "IWE",
+    markdown_oxide: "Markdown Oxide",
+    marksman: "Marksman",
+  };
+
+  const CAPABILITY_DISPLAY: Partial<
+    Record<keyof MarkdownLspCapabilities, string>
+  > = {
+    hover: "Hover",
+    completion: "Completion",
+    definition: "Go to Definition",
+    references: "References",
+    code_actions: "Code Actions",
+    rename: "Rename",
+    formatting: "Formatting",
+    inlay_hints: "Inlay Hints",
+    transform_actions: "Transforms",
+  };
+
+  function status_label(s: MarkdownLspStatus): string {
+    if (s === "running") return "Running";
+    if (s === "starting") return "Starting\u2026";
+    if (s === "stopped") return "Stopped";
+    if (typeof s === "object" && "restarting" in s)
+      return `Restarting (attempt ${s.restarting.attempt})\u2026`;
+    if (typeof s === "object" && "failed" in s) return "Failed";
+    return "Unknown";
+  }
+
+  function status_color(s: MarkdownLspStatus): string {
+    if (s === "running") return "var(--success, #22c55e)";
+    if (s === "starting") return "var(--warning, var(--chart-4))";
+    if (s === "stopped") return "var(--muted-foreground)";
+    if (typeof s === "object" && "restarting" in s)
+      return "var(--warning, var(--chart-4))";
+    if (typeof s === "object" && "failed" in s) return "var(--destructive)";
+    return "var(--muted-foreground)";
+  }
+
+  function status_tooltip(s: MarkdownLspStatus): string | undefined {
+    if (typeof s === "object" && "failed" in s) return s.failed.message;
+    return undefined;
+  }
+
+  const active_capabilities = $derived.by(() => {
+    if (!capabilities) return [];
+    return (
+      Object.entries(CAPABILITY_DISPLAY) as [
+        keyof MarkdownLspCapabilities,
+        string,
+      ][]
+    ).filter(([key]) => capabilities[key]);
+  });
+
+  function open_toolchain_settings() {
+    void action_registry.execute(ACTION_IDS.settings_open, "toolchain");
+  }
 
   function resolve_code_action(action: LspCodeAction) {
     void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
@@ -73,6 +142,40 @@
         {/if}
       </button>
     </div>
+  </div>
+
+  <div class="LspResults__status-strip">
+    {#if !lsp_enabled}
+      <span class="LspResults__status-text LspResults__status-text--muted">
+        LSP Disabled
+      </span>
+      <button
+        type="button"
+        class="LspResults__enable-link"
+        onclick={open_toolchain_settings}
+      >
+        Enable in Settings
+      </button>
+    {:else}
+      <span
+        class="LspResults__status-dot"
+        style:background-color={status_color(lsp_status)}
+      ></span>
+      <span class="LspResults__status-text" title={status_tooltip(lsp_status)}>
+        {#if effective_provider}
+          {PROVIDER_DISPLAY[effective_provider]}
+        {:else}
+          LSP
+        {/if}
+        &middot; {status_label(lsp_status)}
+      </span>
+      {#if active_capabilities.length > 0}
+        <span class="LspResults__cap-divider"></span>
+        {#each active_capabilities as [, label]}
+          <span class="LspResults__cap-badge">{label}</span>
+        {/each}
+      {/if}
+    {/if}
   </div>
 
   <div class="LspResults__body">
@@ -197,6 +300,72 @@
     background-color: var(--muted);
     color: var(--muted-foreground);
     line-height: 1.4;
+  }
+
+  .LspResults__status-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-0-5) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: wrap;
+  }
+
+  .LspResults__status-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .LspResults__status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full, 9999px);
+    flex-shrink: 0;
+  }
+
+  .LspResults__status-text {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .LspResults__status-text--muted {
+    opacity: 0.6;
+  }
+
+  .LspResults__enable-link {
+    font-size: var(--text-xs);
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .LspResults__enable-link:hover {
+    opacity: 0.8;
+  }
+
+  .LspResults__cap-divider {
+    width: 1px;
+    height: 12px;
+    background-color: var(--border);
+    flex-shrink: 0;
+  }
+
+  .LspResults__cap-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-1);
+    font-size: 10px;
+    color: var(--muted-foreground);
+    background-color: var(--muted);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    line-height: 1.6;
   }
 
   .LspResults__body {

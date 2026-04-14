@@ -166,7 +166,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Enable Markdown Linting",
     description:
       "Run rumdl in the background to check markdown files for style and formatting issues",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "lint",
       "markdown",
@@ -181,7 +181,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "lint_format_on_save",
     label: "Format on Save",
     description: "Automatically format the current markdown file when saving",
-    category: "Tools",
+    category: "Toolchain",
     keywords: ["lint", "format", "save", "auto", "markdown", "prettier"],
   },
   {
@@ -189,7 +189,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Formatter",
     description:
       "Which tool to use for markdown formatting. Prettier is recommended for most users",
-    category: "Tools",
+    category: "Toolchain",
     keywords: ["lint", "formatter", "format", "prettier", "rumdl", "markdown"],
   },
   {
@@ -197,7 +197,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Rule Overrides (TOML)",
     description:
       "Custom rumdl rule configuration in TOML format, merged with defaults. Example: MD013 = false",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "lint",
       "rules",
@@ -213,7 +213,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "rumdl Binary Path",
     description:
       "Path to the rumdl binary. Leave empty to use the bundled version",
-    category: "Tools",
+    category: "Toolchain",
     keywords: ["rumdl", "lint", "binary", "path", "executable", "markdown"],
   },
   {
@@ -687,7 +687,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Enable Markdown LSP",
     description:
       "Enable the markdown language server for wiki-link completion, go-to-definition, hover, and diagnostics",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "markdown_lsp",
       "lsp",
@@ -703,7 +703,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Markdown LSP Provider",
     description:
       "Choose the language server for markdown files. IWE provides graph transformations (extract, inline, restructure). Markdown Oxide offers PKM-oriented completions and references. Marksman provides standard markdown LSP features.",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "markdown",
       "lsp",
@@ -722,7 +722,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Markdown LSP Binary Path",
     description:
       "Custom path to the LSP binary. Leave empty to auto-detect from PATH or toolchain",
-    category: "Tools",
+    category: "Toolchain",
     keywords: ["marksman", "iwes", "lsp", "binary", "path", "executable"],
   },
   {
@@ -730,7 +730,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Enable References",
     description:
       "Enable the reference manager for citing papers, books, and articles in your notes",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "reference",
       "citation",
@@ -746,7 +746,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Citation Style",
     description:
       "Default CSL citation style for rendering bibliographies (e.g. apa, vancouver, harvard1)",
-    category: "Tools",
+    category: "Toolchain",
     keywords: [
       "reference",
       "citation",
@@ -763,7 +763,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Include Sources in Search",
     description:
       "Include linked reference sources (PDFs, HTML) in search results, semantic similarity, and graph edges",
-    category: "Tools",
+    category: "Toolchain",
     keywords: ["reference", "search", "linked", "sources", "pdf", "semantic"],
   },
   {

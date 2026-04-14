@@ -17,6 +17,8 @@ export {
   markdown_lsp_error_message,
 } from "$lib/features/markdown_lsp/types";
 export type {
+  MarkdownLspCapabilities,
+  MarkdownLspServerCapabilities,
   MarkdownLspProvider,
   MarkdownLspStatus,
   MarkdownLspHoverResult,
