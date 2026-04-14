@@ -1,7 +1,7 @@
 use crate::features::ai::service::AiProviderConfig;
 use crate::shared::lsp_client::{
-    LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig, RestartableLspClient,
-    ServerNotification, ServerRequest,
+    forwarding, uri_utils, LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig,
+    RestartableLspClient, ServerNotification, ServerRequest,
 };
 use crate::shared::storage;
 use crate::shared::vault_path;
@@ -64,10 +64,7 @@ impl MarkdownLspState {
 }
 
 fn file_uri(vault_path: &std::path::Path, file_path: &str) -> String {
-    let full = vault_path.join(file_path);
-    tauri::Url::from_file_path(&full)
-        .map(|u| u.to_string())
-        .unwrap_or_else(|_| format!("file://{}", full.display()))
+    uri_utils::file_uri(vault_path, file_path)
 }
 
 fn err(e: LspClientError) -> String {
@@ -94,13 +91,7 @@ fn markdown_lsp_state(app: &AppHandle) -> tauri::State<'_, MarkdownLspState> {
 }
 
 fn lsp_severity_to_string(severity: Option<u64>) -> String {
-    match severity {
-        Some(1) => "error",
-        Some(2) => "warning",
-        Some(3) => "info",
-        _ => "hint",
-    }
-    .to_string()
+    forwarding::lsp_severity_to_string(severity).to_string()
 }
 
 fn parse_lsp_diagnostics(
@@ -1030,20 +1021,7 @@ fn uri_to_path(uri: &str) -> Result<std::path::PathBuf, String> {
 }
 
 fn percent_decode(s: &str) -> String {
-    let mut bytes = Vec::with_capacity(s.len());
-    let mut iter = s.bytes();
-    while let Some(b) = iter.next() {
-        if b == b'%' {
-            let hi = iter.next().and_then(|c| (c as char).to_digit(16));
-            let lo = iter.next().and_then(|c| (c as char).to_digit(16));
-            if let (Some(h), Some(l)) = (hi, lo) {
-                bytes.push((h * 16 + l) as u8);
-            }
-        } else {
-            bytes.push(b);
-        }
-    }
-    String::from_utf8(bytes).unwrap_or_else(|_| s.to_string())
+    uri_utils::percent_decode(s)
 }
 
 async fn apply_workspace_edit(
