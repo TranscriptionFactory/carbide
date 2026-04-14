@@ -37,4 +37,12 @@ pub trait LspProvider: Send + Sync {
     fn supports_workspace_edit(&self) -> bool {
         false
     }
+
+    fn config_path(&self, _vault_path: &Path) -> Option<PathBuf> {
+        None
+    }
+
+    async fn reset_config(&self, _app: &AppHandle, _vault_path: &Path) -> Result<(), String> {
+        Err("This provider has no config to reset".to_string())
+    }
 }

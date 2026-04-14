@@ -169,3 +169,9 @@ export type IweConfigStatus = {
   action_names: string[];
   actions: IweActionInfo[];
 };
+
+export type LspProviderConfigStatus = {
+  has_config: boolean;
+  exists: boolean;
+  config_path: string;
+};

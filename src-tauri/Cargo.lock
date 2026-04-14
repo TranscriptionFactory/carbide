@@ -851,6 +851,7 @@ name = "carbide"
 version = "1.20.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "blake3",
  "candle-core",

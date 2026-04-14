@@ -48,7 +48,10 @@
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
-  import type { IweConfigStatus } from "$lib/features/markdown_lsp";
+  import type {
+    IweConfigStatus,
+    LspProviderConfigStatus,
+  } from "$lib/features/markdown_lsp";
 
   type Props = {
     hide_choose_vault_button?: boolean;
@@ -117,6 +120,31 @@
     }
   }
 
+  let lsp_config_status: LspProviderConfigStatus | null = $state(null);
+  let lsp_config_fetch_seq = 0;
+
+  async function fetch_lsp_config_status() {
+    const seq = ++lsp_config_fetch_seq;
+    const vault_id = stores.vault.vault?.id;
+    const provider =
+      stores.ui.settings_dialog.current_settings.markdown_lsp_provider;
+    if (!vault_id || !provider) {
+      lsp_config_status = null;
+      return;
+    }
+    try {
+      const result = await ports.markdown_lsp.lsp_config_status(
+        vault_id,
+        provider,
+      );
+      if (seq !== lsp_config_fetch_seq) return;
+      lsp_config_status = result;
+    } catch {
+      if (seq !== lsp_config_fetch_seq) return;
+      lsp_config_status = null;
+    }
+  }
+
   let storage_stats: StorageStats | null = $state(null);
   let storage_loading = $state(false);
 
@@ -143,6 +171,9 @@
       stores.ui.settings_dialog.current_settings.markdown_lsp_provider;
     if (is_open && provider === "iwes") {
       void fetch_iwe_config_status();
+    }
+    if (is_open && provider) {
+      void fetch_lsp_config_status();
     }
   });
 
@@ -450,6 +481,28 @@
   on_iwe_reset_config={async () => {
     await action_registry.execute(ACTION_IDS.iwe_reset_config);
     void fetch_iwe_config_status();
+  }}
+  {lsp_config_status}
+  on_lsp_open_config={() => {
+    if (lsp_config_status?.exists && lsp_config_status.config_path) {
+      void action_registry.execute(
+        ACTION_IDS.shell_reveal_in_file_manager,
+        lsp_config_status.config_path,
+      );
+    }
+  }}
+  on_lsp_reset_config={async () => {
+    const provider =
+      stores.ui.settings_dialog.current_settings.markdown_lsp_provider;
+    if (!provider) return;
+    const vault_id = stores.vault.vault?.id;
+    if (!vault_id) return;
+    try {
+      await ports.markdown_lsp.lsp_config_reset(vault_id, provider);
+    } catch {
+      /* handled by service */
+    }
+    void fetch_lsp_config_status();
   }}
   {storage_stats}
   {storage_loading}
