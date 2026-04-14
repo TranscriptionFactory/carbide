@@ -1747,8 +1747,11 @@ pub fn rebuild_index(
         [],
     )
     .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM note_links WHERE path NOT LIKE '@linked/%'", [])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM note_links WHERE source_path NOT LIKE '@linked/%'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM note_inline_tags WHERE path NOT LIKE '@linked/%'",
         [],

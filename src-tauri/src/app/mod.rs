@@ -212,6 +212,7 @@ pub fn run() {
             features::search::service::note_get_file_cache,
             features::search::service::resolve_note_link,
             features::search::service::resolve_wiki_link,
+            features::search::service::rewrite_note_links,
             features::bases::service::bases_list_properties,
             features::bases::service::bases_query,
             features::bases::service::bases_save_view,

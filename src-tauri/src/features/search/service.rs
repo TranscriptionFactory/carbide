@@ -857,7 +857,14 @@ fn handle_upsert(
     search_db::upsert_note_simple(conn, &meta, &markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
 
-    embed_note_on_save(conn, note_id, &markdown, note_index, block_index, app_handle);
+    embed_note_on_save(
+        conn,
+        note_id,
+        &markdown,
+        note_index,
+        block_index,
+        app_handle,
+    );
 
     Ok(())
 }
@@ -898,8 +905,7 @@ fn embed_note_on_save(
         Err(_) => return,
     };
 
-    let note_text = search_db::get_fts_body(conn, note_id)
-        .unwrap_or_else(|| markdown.to_string());
+    let note_text = search_db::get_fts_body(conn, note_id).unwrap_or_else(|| markdown.to_string());
     match model.embed_one(&note_text) {
         Ok(embedding) => {
             let _ = vector_db::upsert_embedding(conn, note_id, &embedding);
@@ -2746,4 +2752,246 @@ pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<Stri
         ""
     };
     resolve_relative_path(base_dir, &with_ext)
+}
+
+#[derive(Serialize, Deserialize, Type)]
+pub struct RewriteLinksResult {
+    pub markdown: String,
+    pub changed: bool,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn rewrite_note_links(
+    markdown: String,
+    old_source_path: String,
+    new_source_path: String,
+    target_map: HashMap<String, String>,
+) -> RewriteLinksResult {
+    use regex::Regex;
+    use std::sync::LazyLock;
+
+    // Suppress unused variable warning — new_source_path is part of the command
+    // signature for future relative-link support but resolution is currently absolute.
+    let _ = &new_source_path;
+
+    static WIKI_LINK_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(!?)\[\[([^\]\n]+?)]]").unwrap());
+
+    if target_map.is_empty() {
+        return RewriteLinksResult {
+            markdown,
+            changed: false,
+        };
+    }
+
+    let mut changed = false;
+    let mut result = String::with_capacity(markdown.len());
+    let mut last_end = 0;
+    let mut in_frontmatter = false;
+    let mut in_code_block = false;
+
+    let lines: Vec<&str> = markdown.lines().collect();
+    let mut line_starts: Vec<usize> = Vec::with_capacity(lines.len());
+    {
+        let mut offset = 0;
+        for line in &lines {
+            line_starts.push(offset);
+            offset += line.len() + 1;
+        }
+    }
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+
+        if line_idx == 0 && trimmed == "---" {
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter {
+            if trimmed == "---" {
+                in_frontmatter = false;
+            }
+            continue;
+        }
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+
+        let line_start = line_starts[line_idx];
+        for caps in WIKI_LINK_RE.captures_iter(line) {
+            let full_match = caps.get(0).unwrap();
+            let prefix = &caps[1];
+            let inner = &caps[2];
+
+            let (target_part, display) = match inner.split_once('|') {
+                Some((t, d)) => (t.trim(), Some(d.trim())),
+                None => (inner.trim(), None),
+            };
+
+            let (link_target, anchor) = match target_part.split_once('#') {
+                Some((t, a)) => (t, Some(a)),
+                None => (target_part, None),
+            };
+
+            if link_target.is_empty() {
+                continue;
+            }
+
+            let resolved = resolve_wiki_link_target(link_target, &old_source_path);
+            let resolved_path = match resolved {
+                Some(r) => r,
+                None => continue,
+            };
+
+            let new_target = match target_map.get(&resolved_path) {
+                Some(t) => t,
+                None => continue,
+            };
+
+            let new_link_name = new_target.strip_suffix(".md").unwrap_or(new_target);
+
+            let new_inner = match (anchor, display) {
+                (Some(a), Some(d)) => format!("{new_link_name}#{a}|{d}"),
+                (Some(a), None) => format!("{new_link_name}#{a}"),
+                (None, Some(d)) => format!("{new_link_name}|{d}"),
+                (None, None) => new_link_name.to_string(),
+            };
+
+            let abs_start = line_start + full_match.start();
+            let abs_end = line_start + full_match.end();
+
+            result.push_str(&markdown[last_end..abs_start]);
+            result.push_str(&format!("{prefix}[[{new_inner}]]"));
+            last_end = abs_end;
+            changed = true;
+        }
+    }
+
+    if !changed {
+        return RewriteLinksResult {
+            markdown,
+            changed: false,
+        };
+    }
+
+    result.push_str(&markdown[last_end..]);
+    RewriteLinksResult {
+        markdown: result,
+        changed: true,
+    }
+}
+
+fn resolve_wiki_link_target(target: &str, source_path: &str) -> Option<String> {
+    let cleaned = target.trim_start_matches('/');
+    if cleaned.is_empty() {
+        return None;
+    }
+    let with_ext = if cleaned.ends_with(".md") {
+        cleaned.to_string()
+    } else {
+        format!("{cleaned}.md")
+    };
+    let base_dir = if cleaned.starts_with("./") || cleaned.starts_with("../") {
+        source_dir(source_path)
+    } else {
+        ""
+    };
+    resolve_relative_path(base_dir, &with_ext)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_target_map(entries: &[(&str, &str)]) -> HashMap<String, String> {
+        entries
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn rewrite_simple_wikilink() {
+        let md = "See [[notes/foo]] for details.".to_string();
+        let map = make_target_map(&[("notes/foo.md", "archive/foo.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(result.markdown, "See [[archive/foo]] for details.");
+    }
+
+    #[test]
+    fn rewrite_with_anchor_and_display() {
+        let md = "See [[notes/foo#heading|my link]] here.".to_string();
+        let map = make_target_map(&[("notes/foo.md", "archive/foo.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(result.markdown, "See [[archive/foo#heading|my link]] here.");
+    }
+
+    #[test]
+    fn rewrite_embed_link() {
+        let md = "![[notes/image]]".to_string();
+        let map = make_target_map(&[("notes/image.md", "media/image.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(result.markdown, "![[media/image]]");
+    }
+
+    #[test]
+    fn no_change_when_target_not_in_map() {
+        let md = "See [[notes/foo]] and [[other/bar]].".to_string();
+        let map = make_target_map(&[("unrelated.md", "moved.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(!result.changed);
+        assert_eq!(result.markdown, "See [[notes/foo]] and [[other/bar]].");
+    }
+
+    #[test]
+    fn skips_code_blocks() {
+        let md = "```\n[[notes/foo]]\n```\n[[notes/foo]]".to_string();
+        let map = make_target_map(&[("notes/foo.md", "archive/foo.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(result.markdown, "```\n[[notes/foo]]\n```\n[[archive/foo]]");
+    }
+
+    #[test]
+    fn skips_frontmatter() {
+        let md = "---\naliases: [[notes/foo]]\n---\n[[notes/foo]]".to_string();
+        let map = make_target_map(&[("notes/foo.md", "archive/foo.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(
+            result.markdown,
+            "---\naliases: [[notes/foo]]\n---\n[[archive/foo]]"
+        );
+    }
+
+    #[test]
+    fn multiple_links_on_same_line() {
+        let md = "See [[a]] and [[b]] here.".to_string();
+        let map = make_target_map(&[("a.md", "x/a.md"), ("b.md", "x/b.md")]);
+        let result = rewrite_note_links(md, "index.md".into(), "index.md".into(), map);
+        assert!(result.changed);
+        assert_eq!(result.markdown, "See [[x/a]] and [[x/b]] here.");
+    }
+
+    #[test]
+    fn empty_target_map_returns_unchanged() {
+        let md = "See [[notes/foo]].".to_string();
+        let result = rewrite_note_links(
+            md.clone(),
+            "index.md".into(),
+            "index.md".into(),
+            HashMap::new(),
+        );
+        assert!(!result.changed);
+        assert_eq!(result.markdown, md);
+    }
 }
