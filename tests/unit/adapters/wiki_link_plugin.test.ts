@@ -10,7 +10,6 @@ import {
   create_wiki_link_converter_prose_plugin,
   wiki_link_plugin_key,
 } from "$lib/features/editor/adapters/wiki_link_plugin";
-import { dirty_state_plugin_key } from "$lib/features/editor/adapters/dirty_state_plugin";
 import { create_paired_delimiter_prose_plugin } from "$lib/features/editor/adapters/paired_delimiter_plugin";
 import type { MarkType, Node as ProseNode, Mark } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
@@ -213,25 +212,23 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     expect(hrefs).toHaveLength(2);
   });
 
-  it("marks full-scan conversions as clean", () => {
+  it("full-scan conversions are excluded from undo history", () => {
     const schema = create_schema();
     const plugin = create_wiki_link_converter_prose_plugin({
       link_type: schema.marks.link,
     });
 
-    const observer_key = new PluginKey<{ saw_mark_clean: boolean }>(
-      "dirty-meta-observer",
+    const observer_key = new PluginKey<{ add_to_history: boolean }>(
+      "history-meta-observer",
     );
-    const observer = new Plugin<{ saw_mark_clean: boolean }>({
+    const observer = new Plugin<{ add_to_history: boolean }>({
       key: observer_key,
       state: {
-        init: () => ({ saw_mark_clean: false }),
+        init: () => ({ add_to_history: true }),
         apply: (tr, prev) => {
-          const meta = tr.getMeta(dirty_state_plugin_key) as
-            | { action?: string }
-            | undefined;
-          if (meta?.action === "mark_clean") {
-            return { saw_mark_clean: true };
+          const meta = tr.getMeta("addToHistory");
+          if (meta === false) {
+            return { add_to_history: false };
           }
           return prev;
         },
@@ -253,7 +250,7 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     const next = state.apply(tr);
 
     const observer_state = observer_key.getState(next);
-    expect(observer_state?.saw_mark_clean).toBe(true);
+    expect(observer_state?.add_to_history).toBe(false);
   });
 
   it("does not append .md to wikilinks that already have an extension", () => {

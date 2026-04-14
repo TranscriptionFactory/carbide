@@ -2,7 +2,6 @@ import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { MarkType, Node as ProseNode, Mark } from "prosemirror-model";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 import type { InternalLinkSource } from "$lib/features/editor/ports";
-import { dirty_state_plugin_key } from "./dirty_state_plugin";
 import { editor_context_plugin_key } from "./editor_context_plugin";
 
 const ZERO_WIDTH_SPACE = "\u200B";
@@ -252,7 +251,6 @@ export function create_wiki_link_converter_prose_plugin(input: {
           if (block) scan_textblock(block.node, block.pos, null);
         }
         if (!tr.docChanged) return null;
-        tr.setMeta(dirty_state_plugin_key, { action: "mark_clean" });
         tr.setMeta("addToHistory", false);
         return tr;
       }

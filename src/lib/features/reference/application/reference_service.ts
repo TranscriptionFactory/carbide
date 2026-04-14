@@ -38,6 +38,7 @@ import {
 import {
   resolve_linked_path,
   enrich_meta_with_paths,
+  compute_vault_relative_path,
 } from "../domain/linked_source_paths";
 import { error_message } from "$lib/shared/utils/error_message";
 
@@ -585,9 +586,29 @@ export class ReferenceService {
         existing_notes.map((n) => [n.external_file_path!, n]),
       );
 
+      // Build reverse lookup by vault-relative path so we can detect
+      // files whose absolute path changed but vault-relative stayed the same.
+      const existing_by_vault_rel = new Map<string, LinkedNoteInfo>();
+      for (const note of existing_notes) {
+        if (note.vault_relative_path) {
+          existing_by_vault_rel.set(note.vault_relative_path, note);
+        }
+      }
+
       const needs_extraction: string[] = [];
       for (const [file_path, modified_at] of current_files) {
-        const existing = existing_by_path.get(file_path);
+        let existing = existing_by_path.get(file_path);
+
+        // If not found by absolute path, try vault-relative match.
+        // This catches files whose absolute path representation changed
+        // (e.g. cloud folder remount) but vault-relative path is stable.
+        if (!existing && vault_root) {
+          const vault_rel = compute_vault_relative_path(file_path, vault_root);
+          if (vault_rel !== undefined) {
+            existing = existing_by_vault_rel.get(vault_rel);
+          }
+        }
+
         if (!existing || existing.mtime_ms !== modified_at) {
           needs_extraction.push(file_path);
         }
@@ -600,12 +621,17 @@ export class ReferenceService {
         }
       }
 
+      // Track which current file paths were matched via relocation
+      // so we can skip re-extracting them.
+      const relocated_paths = new Set<string>();
+
       for (const removed_path of removed_paths) {
         const note = existing_by_path.get(removed_path);
         if (note) {
-          const resolve_meta: LinkedSourceMeta = {
-            external_file_path: removed_path,
-          };
+          // Resolve via vault-relative or home-relative path only.
+          // Do NOT pass external_file_path — it points to the old, missing
+          // location and resolve_linked_path would return it immediately.
+          const resolve_meta: LinkedSourceMeta = {};
           if (note.vault_relative_path)
             resolve_meta.vault_relative_path = note.vault_relative_path;
           if (note.home_relative_path)
@@ -631,20 +657,27 @@ export class ReferenceService {
               removed_path,
               updated_meta,
             );
+            relocated_paths.add(resolved);
             continue;
           }
         }
         await ls_port.remove_content(vault_id, source.name, removed_path);
       }
 
+      // Filter out relocated files — they were already updated, not new.
+      const to_extract =
+        relocated_paths.size > 0
+          ? needs_extraction.filter((p) => !relocated_paths.has(p))
+          : needs_extraction;
+
       const new_entries: ScanEntry[] = [];
       const all_errors: string[] = [];
       const batch_size = 2;
-      const total = needs_extraction.length;
+      const total = to_extract.length;
 
       for (let i = 0; i < total; i += batch_size) {
         await yield_to_ui();
-        const batch = needs_extraction.slice(i, i + batch_size);
+        const batch = to_extract.slice(i, i + batch_size);
         const extract_results = await Promise.allSettled(
           batch.map((fp) => ls_port.extract_file(fp)),
         );
