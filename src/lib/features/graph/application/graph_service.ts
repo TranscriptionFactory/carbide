@@ -367,7 +367,11 @@ export class GraphService {
     this.search_graph_store.update_query(tab_id, query);
 
     try {
-      const hits = await this.search_port.hybrid_search(vault_id, query, 50);
+      const hits = await this.search_port.hybrid_search(
+        vault_id,
+        { raw: query, text: query, scope: "all" },
+        50,
+      );
 
       let vault_snapshot = this.graph_store.vault_snapshot;
       if (!vault_snapshot) {

@@ -21,6 +21,7 @@ import type {
   HybridSearchHit,
   EmbeddingStatus,
   HitSource,
+  SearchQueryInput,
 } from "$lib/shared/types/search";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
@@ -311,7 +312,7 @@ export function create_search_tauri_adapter(): SearchPort {
 
     async hybrid_search(
       vault_id: VaultId,
-      query: string,
+      query: SearchQueryInput,
       limit = 20,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(

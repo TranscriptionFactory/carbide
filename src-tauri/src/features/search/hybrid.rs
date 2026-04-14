@@ -1,7 +1,8 @@
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::EmbeddingService;
 use crate::features::search::hnsw_index::VectorIndex;
-use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit, SearchScope};
+use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit};
+use crate::features::search::service::SearchQueryInput;
 use rusqlite::Connection;
 use std::collections::HashMap;
 
@@ -9,18 +10,19 @@ pub fn hybrid_search(
     conn: &Connection,
     note_index: &VectorIndex,
     model: &EmbeddingService,
-    query: &str,
+    query: &SearchQueryInput,
     limit: usize,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let query_vec = model.embed_one(query)?;
+    let query_vec = model.embed_one(&query.text)?;
 
     let over_fetch = limit * 3;
 
     let vector_hits = note_index.search(&query_vec, over_fetch);
 
-    let fts_hits = search_db::search(conn, query, SearchScope::All, over_fetch).unwrap_or_default();
+    let fts_hits =
+        search_db::search(conn, &query.text, query.scope, over_fetch).unwrap_or_default();
 
-    let merged = rrf_merge(&fts_hits, &vector_hits, limit, query);
+    let merged = rrf_merge(&fts_hits, &vector_hits, limit, &query.text);
 
     Ok(merged)
 }

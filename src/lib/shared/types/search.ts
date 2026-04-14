@@ -22,6 +22,8 @@ export type SearchQuery = {
   domain: SearchDomain;
 };
 
+export type SearchQueryInput = Pick<SearchQuery, "raw" | "text" | "scope">;
+
 export type NoteSearchHit = {
   note: NoteMeta;
   score: number;
