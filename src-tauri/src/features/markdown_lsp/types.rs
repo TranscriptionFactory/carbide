@@ -5,6 +5,7 @@ use specta::Type;
 #[serde(rename_all = "snake_case")]
 pub enum MarkdownLspProvider {
     Iwes,
+    MarkdownOxide,
     Marksman,
 }
 
@@ -12,6 +13,7 @@ impl MarkdownLspProvider {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Iwes => "iwes",
+            Self::MarkdownOxide => "markdown_oxide",
             Self::Marksman => "marksman",
         }
     }
@@ -31,6 +33,12 @@ impl MarkdownLspProvider {
     pub fn completion_trigger_characters(self) -> Vec<String> {
         match self {
             Self::Iwes => vec!["+".to_string(), "[".to_string(), "(".to_string()],
+            Self::MarkdownOxide => vec![
+                "[".to_string(),
+                "(".to_string(),
+                "#".to_string(),
+                "^".to_string(),
+            ],
             Self::Marksman => vec!["[".to_string(), "(".to_string(), "#".to_string()],
         }
     }

@@ -1,6 +1,6 @@
 use crate::features::ai::service::AiProviderConfig;
 use crate::shared::lsp_client::{
-    forwarding, uri_utils, LspClientConfig, LspClientError, LspSessionStatus, RestartableConfig,
+    forwarding, uri_utils, LspClientError, LspSessionStatus, RestartableConfig,
     RestartableLspClient, ServerNotification, ServerRequest,
 };
 use crate::shared::storage;
@@ -11,7 +11,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
-use super::provider::{ensure_iwe_config, resolve_markdown_lsp_startup};
+use super::provider::resolve_markdown_lsp_startup;
 use super::types::*;
 
 pub struct MarkdownLspState {
@@ -254,15 +254,18 @@ pub async fn markdown_lsp_start(
         resolution_started_at.elapsed().as_millis()
     );
     let effective_provider = startup.effective_provider;
+    let lsp_provider = startup.lsp_provider;
+
+    let pre_start_started_at = Instant::now();
+    lsp_provider.on_pre_start(&app, &vault_path).await?;
+    log::info!(
+        "markdown_lsp_startup phase=on_pre_start startup_reason={} effective_provider={} duration_ms={}",
+        startup_reason,
+        effective_provider.as_str(),
+        pre_start_started_at.elapsed().as_millis()
+    );
 
     if matches!(effective_provider, MarkdownLspProvider::Iwes) {
-        let config_started_at = Instant::now();
-        ensure_iwe_config(&app, &vault_path).await?;
-        log::info!(
-            "markdown_lsp_startup phase=ensure_iwe_config startup_reason={} duration_ms={}",
-            startup_reason,
-            config_started_at.elapsed().as_millis()
-        );
         if let Some(provider_config) = initial_iwe_provider_config.as_ref() {
             let rewrite_started_at = Instant::now();
             iwe_config_rewrite_provider(app.clone(), vault_id.clone(), provider_config.clone())
@@ -276,74 +279,19 @@ pub async fn markdown_lsp_start(
         }
     }
 
+    let working_dir = vault_path
+        .to_str()
+        .ok_or("invalid vault path encoding")?;
+    let mut config = lsp_provider.build_config(&startup.binary_path, &root_uri, working_dir);
+
     let vault_risk = vault_path::analyze(&vault_path);
-    let init_timeout_ms = if vault_risk.is_cloud_backed {
+    if vault_risk.is_cloud_backed {
         log::warn!(
             "markdown_lsp_startup vault_path_risk=cloud_backed provider={}",
             vault_risk.cloud_provider.unwrap_or("unknown")
         );
-        10_000
-    } else {
-        30_000
-    };
-
-    let config = LspClientConfig {
-        binary_path: startup.binary_path.to_string_lossy().into_owned(),
-        args: vec![],
-        root_uri,
-        capabilities: serde_json::json!({
-            "textDocument": {
-                "codeAction": {
-                    "codeActionLiteralSupport": {
-                        "codeActionKind": {
-                            "valueSet": [
-                                "quickfix", "refactor", "refactor.extract",
-                                "refactor.inline", "refactor.rewrite",
-                                "source", "source.organizeImports"
-                            ]
-                        }
-                    },
-                    "resolveSupport": {
-                        "properties": ["edit"]
-                    }
-                },
-                "completion": {
-                    "completionItem": {
-                        "snippetSupport": false,
-                        "resolveSupport": { "properties": ["documentation", "detail"] }
-                    }
-                },
-                "hover": { "contentFormat": ["markdown", "plaintext"] },
-                "formatting": { "dynamicRegistration": false },
-                "synchronization": {
-                    "didSave": true,
-                    "willSave": false
-                },
-                "rename": { "prepareSupport": true },
-                "documentSymbol": {
-                    "hierarchicalDocumentSymbolSupport": true
-                },
-                "inlayHint": { "dynamicRegistration": false },
-                "foldingRange": { "dynamicRegistration": false }
-            },
-            "workspace": {
-                "workspaceEdit": {
-                    "documentChanges": true,
-                    "resourceOperations": ["create", "rename", "delete"]
-                },
-                "symbol": { "dynamicRegistration": false },
-                "workspaceFolders": false
-            }
-        }),
-        working_dir: Some(
-            vault_path
-                .to_str()
-                .ok_or("invalid vault path encoding")?
-                .to_string(),
-        ),
-        request_timeout_ms: 30_000,
-        init_timeout_ms,
-    };
+        config.init_timeout_ms = 10_000;
+    }
 
     // Stop existing client FIRST to avoid duplicate processes
     let state = markdown_lsp_state(&app);
@@ -369,8 +317,14 @@ pub async fn markdown_lsp_start(
         spawn_notification_forwarder(app.clone(), vault_id.clone(), rx);
     }
 
-    if let Some(rx) = client.take_server_request_rx() {
-        spawn_server_request_handler(vault_path.clone(), state.pending_workspace_edit.clone(), rx);
+    if lsp_provider.supports_workspace_edit() {
+        if let Some(rx) = client.take_server_request_rx() {
+            spawn_server_request_handler(
+                vault_path.clone(),
+                state.pending_workspace_edit.clone(),
+                rx,
+            );
+        }
     }
 
     if let Some(rx) = client.take_status_rx() {

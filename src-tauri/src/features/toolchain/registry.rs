@@ -3,6 +3,7 @@ use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 const RUMDL_VERSION: &str = "0.1.59";
 const MARKSMAN_VERSION: &str = "2026-02-08";
 const IWES_VERSION: &str = "0.0.67";
+const MARKDOWN_OXIDE_VERSION: &str = "0.25.10";
 
 static RUMDL_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
@@ -73,6 +74,29 @@ static IWES_BINARIES: &[PlatformBinary] = &[
     },
 ];
 
+static MARKDOWN_OXIDE_BINARIES: &[PlatformBinary] = &[
+    PlatformBinary {
+        triple: "aarch64-apple-darwin",
+        asset_template: "markdown-oxide-v{version}-aarch64-apple-darwin.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-apple-darwin",
+        asset_template: "markdown-oxide-v{version}-x86_64-apple-darwin.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-unknown-linux-gnu",
+        asset_template: "markdown-oxide-v{version}-x86_64-unknown-linux-gnu.tar.gz",
+        sha256: "TODO",
+    },
+    PlatformBinary {
+        triple: "x86_64-pc-windows-msvc",
+        asset_template: "markdown-oxide-v{version}-x86_64-pc-windows-gnu.zip",
+        sha256: "TODO",
+    },
+];
+
 pub static TOOLS: &[ToolSpec] = &[
     ToolSpec {
         id: "rumdl",
@@ -116,6 +140,29 @@ pub static TOOLS: &[ToolSpec] = &[
             ToolCapability::CodeActions,
             ToolCapability::WorkspaceSymbols,
             ToolCapability::InlayHints,
+        ],
+    },
+    ToolSpec {
+        id: "markdown-oxide",
+        display_name: "Markdown Oxide",
+        github_repo: "Feel-ix-343/markdown-oxide",
+        version: MARKDOWN_OXIDE_VERSION,
+        release_tag_template: "v{version}",
+        platform_binaries: MARKDOWN_OXIDE_BINARIES,
+        binary_name: "markdown-oxide",
+        default_args: &[],
+        capabilities: &[
+            ToolCapability::DocumentSync {
+                debounce_ms: 300,
+                skip_draft: false,
+            },
+            ToolCapability::Completion,
+            ToolCapability::Hover,
+            ToolCapability::References,
+            ToolCapability::Definition,
+            ToolCapability::Rename,
+            ToolCapability::CodeActions,
+            ToolCapability::WorkspaceSymbols,
         ],
     },
     ToolSpec {
