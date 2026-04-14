@@ -197,10 +197,14 @@
         },
       );
 
+      const { keymap: cm_keymap } = cm_view_mod;
+      const { indentWithTab } = await import("@codemirror/commands");
+
       const extensions = [
         basicSetup,
         markdown({ base: markdownLanguage, codeLanguages: languages }),
         ...lint_ext.create_lint_extensions(),
+        cm_keymap.of([indentWithTab]),
         update_listener,
         EV.lineWrapping,
         EV.theme(build_source_editor_base_theme_spec()),
