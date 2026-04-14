@@ -282,14 +282,19 @@ mod tests {
     fn insert_and_search() {
         let mut idx = VectorIndex::new(8);
         let v1 = unit_vec(0.1, 8);
-        let v2 = unit_vec(0.9, 8);
+        let v2 = unit_vec(0.2, 8);
+        let v3 = unit_vec(0.5, 8);
+        let v4 = unit_vec(0.9, 8);
 
         idx.insert("a", v1.clone());
         idx.insert("b", v2.clone());
+        idx.insert("c", v3);
+        idx.insert("d", v4);
 
-        let results = idx.search(&v1, 2);
-        assert_eq!(results.len(), 2);
+        let results = idx.search(&v1, 4);
+        assert_eq!(results.len(), 4);
         assert_eq!(results[0].0, "a");
+        assert_eq!(results[1].0, "b");
     }
 
     #[test]

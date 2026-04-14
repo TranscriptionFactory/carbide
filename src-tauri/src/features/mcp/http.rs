@@ -456,7 +456,7 @@ mod tests {
     }
 
     async fn response_json(resp: axum::response::Response) -> serde_json::Value {
-        let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
         serde_json::from_slice(&body).unwrap()
     }
 
