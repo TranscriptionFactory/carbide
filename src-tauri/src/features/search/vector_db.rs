@@ -239,9 +239,9 @@ pub fn remove_block_embeddings(conn: &Connection, path: &str) -> Result<(), Stri
 }
 
 pub fn get_block_hashes(conn: &Connection, path: &str) -> HashMap<String, String> {
-    let mut stmt = match conn.prepare(
-        "SELECT heading_id, content_hash FROM block_embeddings WHERE path = ?1",
-    ) {
+    let mut stmt = match conn
+        .prepare("SELECT heading_id, content_hash FROM block_embeddings WHERE path = ?1")
+    {
         Ok(s) => s,
         Err(_) => return HashMap::new(),
     };
@@ -272,12 +272,12 @@ pub fn remove_block_embeddings_except(
         placeholders.join(", ")
     );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> =
-        vec![Box::new(path.to_string())];
+    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(path.to_string())];
     for id in keep_heading_ids {
         params_vec.push(Box::new(id.to_string()));
     }
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+        params_vec.iter().map(|p| p.as_ref()).collect();
     stmt.execute(params_refs.as_slice())
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -779,7 +779,13 @@ mod tests {
         let mean = mean_pool_normalize(&vecs);
         let sim_v1: f32 = mean.iter().zip(v1.iter()).map(|(a, b)| a * b).sum();
         let sim_v2: f32 = mean.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
-        assert!(sim_v1 < 0.99, "composed vec must differ from block-1 alone: {sim_v1}");
-        assert!(sim_v2 < 0.99, "composed vec must differ from block-2 alone: {sim_v2}");
+        assert!(
+            sim_v1 < 0.99,
+            "composed vec must differ from block-1 alone: {sim_v1}"
+        );
+        assert!(
+            sim_v2 < 0.99,
+            "composed vec must differ from block-2 alone: {sim_v2}"
+        );
     }
 }

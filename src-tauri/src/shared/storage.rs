@@ -199,7 +199,6 @@ fn url_decode(input: &str) -> String {
 
 const EMBEDDED_SDK: &str = include_str!("../features/plugin/sdk/carbide_plugin_api.js");
 
-
 fn resolve_active_vault_path(app: &AppHandle) -> Option<String> {
     let store = load_store(app).ok()?;
     let vault_id = store.last_vault_id.as_ref()?;
