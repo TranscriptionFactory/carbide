@@ -196,6 +196,8 @@ export function create_app_context(input: {
         ai: stores.ai,
         ui: stores.ui,
       }),
+    input.ports.tag,
+    input.ports.bases,
   );
 
   const editor_callbacks: EditorServiceCallbacks = {
