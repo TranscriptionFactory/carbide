@@ -390,7 +390,10 @@ export function create_prosemirror_editor_port(args?: {
             return parts.join("\n");
           }
           const wrap = schema.topNodeType.create(null, slice.content);
-          return serialize_markdown(wrap);
+          const md = serialize_markdown(wrap);
+          return md.replace(/&#x([0-9A-Fa-f]+);/g, (_match, hex) =>
+            String.fromCharCode(parseInt(hex, 16)),
+          );
         },
       });
 

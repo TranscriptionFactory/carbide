@@ -19,7 +19,10 @@ function clipboard_text_serializer(slice: Slice): string {
     return parts.join("\n");
   }
   const wrap = schema.topNodeType.create(null, slice.content);
-  return serialize_markdown(wrap);
+  const md = serialize_markdown(wrap);
+  return md.replace(/&#x([0-9A-Fa-f]+);/g, (_match, hex) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  );
 }
 
 describe("clipboardTextSerializer", () => {
@@ -53,5 +56,18 @@ describe("clipboardTextSerializer", () => {
     const slice = new Slice(Fragment.from([para, code]), 0, 0);
     const result = clipboard_text_serializer(slice);
     expect(result).toContain("```");
+  });
+
+  it("decodes HTML character references in clipboard text", () => {
+    const bold_text = schema.text(" word ", [schema.marks.strong.create()]);
+    const para = schema.nodes.paragraph.create(null, [
+      schema.text("before"),
+      bold_text,
+      schema.text("after"),
+    ]);
+    const slice = new Slice(Fragment.from(para), 0, 0);
+    const result = clipboard_text_serializer(slice);
+    expect(result).not.toContain("&#x20;");
+    expect(result).not.toContain("&#x");
   });
 });

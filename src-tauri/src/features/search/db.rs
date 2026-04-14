@@ -3174,6 +3174,115 @@ mod tests {
     }
 
     #[test]
+    fn query_bases_filter_by_not_contains_property() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C no-prop"), "body").expect("c");
+        insert_prop(&conn, "q/a.md", "desc", "hello world", "string");
+        insert_prop(&conn, "q/b.md", "desc", "goodbye", "string");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("desc", "not_contains", "hello")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 2);
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert!(!paths.contains(&"q/a.md"));
+    }
+
+    #[test]
+    fn query_bases_filter_by_not_contains_direct_col() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/alpha.md", "Alpha Note"), "body").expect("a");
+        upsert_note(&conn, &note("q/beta.md", "Beta Note"), "body").expect("b");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("title", "not_contains", "Alpha")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/beta.md");
+    }
+
+    #[test]
+    fn query_bases_filter_tag_neq() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "body").expect("c");
+        insert_tag(&conn, "q/a.md", "rust", 0, "frontmatter");
+        insert_tag(&conn, "q/b.md", "python", 0, "frontmatter");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("tag", "neq", "rust")], vec![], 100, 0),
+        )
+        .expect("query");
+        assert_eq!(result.total, 2);
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert!(!paths.contains(&"q/a.md"));
+    }
+
+    #[test]
+    fn query_bases_filter_tag_contains() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        insert_tag(&conn, "q/a.md", "programming/rust", 0, "frontmatter");
+        insert_tag(&conn, "q/b.md", "cooking", 0, "frontmatter");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("tag", "contains", "programming")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_tag_not_contains() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "body").expect("c");
+        insert_tag(&conn, "q/a.md", "programming/rust", 0, "frontmatter");
+        insert_tag(&conn, "q/b.md", "cooking", 0, "frontmatter");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("tag", "not_contains", "programming")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 2);
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert!(!paths.contains(&"q/a.md"));
+    }
+
+    #[test]
     fn query_bases_sort_by_property_asc() {
         let conn = open_mem_db();
         upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
@@ -3471,6 +3580,42 @@ mod tests {
         .expect("query");
         assert_eq!(result.total, 1);
         assert_eq!(result.rows[0].note.path, "fts/a.md");
+    }
+
+    #[test]
+    fn query_bases_filter_content_not_contains() {
+        let conn = open_mem_db();
+        upsert_note(
+            &conn,
+            &note("fts/a.md", "Alpha"),
+            "The quick brown fox jumps over the lazy dog",
+        )
+        .expect("a");
+        upsert_note(
+            &conn,
+            &note("fts/b.md", "Beta"),
+            "Rust programming language is fast and safe",
+        )
+        .expect("b");
+        upsert_note(
+            &conn,
+            &note("fts/c.md", "Gamma"),
+            "The lazy cat sleeps all day",
+        )
+        .expect("c");
+
+        let result = query_bases(
+            &conn,
+            make_query(
+                vec![filter("content", "not_contains", "lazy")],
+                vec![],
+                100,
+                0,
+            ),
+        )
+        .expect("query");
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "fts/b.md");
     }
 
     #[test]
@@ -4529,17 +4674,32 @@ pub fn query_bases(
     for filter in &query.filters {
         if filter.property == "content" {
             let fts_query = escape_fts_query(&filter.value);
+            let negated = filter.operator == "not_contains";
+            let inop = if negated { "NOT IN" } else { "IN" };
             where_clauses.push(format!(
-                "notes.path IN (SELECT path FROM notes_fts WHERE notes_fts MATCH ?{})",
+                "notes.path {} (SELECT path FROM notes_fts WHERE notes_fts MATCH ?{})",
+                inop,
                 params.len() + 1
             ));
             params.push(Box::new(fts_query));
         } else if filter.property == "tag" || filter.property == "tags" {
-            where_clauses.push(format!(
-                "notes.path IN (SELECT path FROM note_inline_tags WHERE tag = ?{})",
-                params.len() + 1
-            ));
-            params.push(Box::new(filter.value.clone()));
+            let negated = matches!(filter.operator.as_str(), "neq" | "not_contains");
+            let inop = if negated { "NOT IN" } else { "IN" };
+            if filter.operator == "contains" || filter.operator == "not_contains" {
+                where_clauses.push(format!(
+                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag LIKE ?{})",
+                    inop,
+                    params.len() + 1
+                ));
+                params.push(Box::new(format!("%{}%", filter.value)));
+            } else {
+                where_clauses.push(format!(
+                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag = ?{})",
+                    inop,
+                    params.len() + 1
+                ));
+                params.push(Box::new(filter.value.clone()));
+            }
         } else if is_task_agg_col(&filter.property) {
             let op = match filter.operator.as_str() {
                 "eq" => "=",
@@ -4558,13 +4718,14 @@ pub fn query_bases(
                 "eq" => "=",
                 "neq" => "!=",
                 "contains" => "LIKE",
+                "not_contains" => "NOT LIKE",
                 "gt" => ">",
                 "lt" => "<",
                 "gte" => ">=",
                 "lte" => "<=",
                 _ => "=",
             };
-            let val = if filter.operator == "contains" {
+            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
                 format!("%{}%", filter.value)
             } else {
                 filter.value.clone()
@@ -4581,13 +4742,14 @@ pub fn query_bases(
                 "eq" => "=",
                 "neq" => "!=",
                 "contains" => "LIKE",
+                "not_contains" => "NOT LIKE",
                 "gt" => ">",
                 "lt" => "<",
                 "gte" => ">=",
                 "lte" => "<=",
                 _ => "=",
             };
-            let val = if filter.operator == "contains" {
+            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
                 format!("%{}%", filter.value)
             } else {
                 filter.value.clone()
@@ -4599,6 +4761,13 @@ pub fn query_bases(
                     "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
                     params.len() + 1,
                     op,
+                    params.len() + 2
+                ));
+            } else if filter.operator == "not_contains" || filter.operator == "neq" {
+                where_clauses.push(format!(
+                    "notes.path NOT IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
+                    params.len() + 1,
+                    if filter.operator == "not_contains" { "LIKE" } else { "=" },
                     params.len() + 2
                 ));
             } else {

@@ -368,6 +368,10 @@
         oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
           on_query_change(e.currentTarget.value);
         }}
+        spellcheck="false"
+        autocorrect="off"
+        autocapitalize="off"
+        autocomplete="off"
         class="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       {#if is_searching}

@@ -103,6 +103,10 @@
           on_query_change(e.currentTarget.value);
         }}
         onkeydown={handle_keydown}
+        spellcheck="false"
+        autocorrect="off"
+        autocapitalize="off"
+        autocomplete="off"
       />
       {#if count_display}
         <span class="FindInFileBar__count">{count_display}</span>
@@ -138,6 +142,10 @@
             on_replace_text_change(e.currentTarget.value);
           }}
           onkeydown={handle_replace_keydown}
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          autocomplete="off"
         />
         <button
           class="FindInFileBar__action"

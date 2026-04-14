@@ -18,7 +18,7 @@
     { value: "eq", label: "=" },
     { value: "neq", label: "!=" },
     { value: "contains", label: "contains" },
-    { value: "matches", label: "matches" },
+    { value: "not_contains", label: "not contains" },
     { value: "gt", label: ">" },
     { value: "lt", label: "<" },
     { value: "gte", label: ">=" },
