@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
+use crate::shared::lsp_client::uri_utils;
 use crate::shared::lsp_client::{
     LspSessionStatus, RestartableConfig, RestartableLspClient, ServerNotification,
 };
@@ -262,7 +263,7 @@ fn handle_diagnostics(
     vault_path: &Path,
 ) {
     let uri = params["uri"].as_str().unwrap_or("");
-    let rel_path = uri_to_relative_path(uri, vault_path);
+    let rel_path = uri_utils::uri_to_relative_path(uri, vault_path);
 
     let diagnostics: Vec<CodeDiagnostic> = params["diagnostics"]
         .as_array()
@@ -305,45 +306,3 @@ fn parse_diagnostic(d: &serde_json::Value) -> Option<CodeDiagnostic> {
     })
 }
 
-fn uri_to_relative_path(uri: &str, vault_path: &Path) -> String {
-    let raw = uri.strip_prefix("file://").unwrap_or(uri);
-    let decoded = percent_decode(raw);
-    let abs = Path::new(&decoded);
-
-    if let Ok(rel) = abs.strip_prefix(vault_path) {
-        return rel.to_string_lossy().into_owned();
-    }
-    if let Ok(canon) = vault_path.canonicalize() {
-        if let Ok(rel) = abs.strip_prefix(&canon) {
-            return rel.to_string_lossy().into_owned();
-        }
-    }
-    decoded
-}
-
-fn percent_decode(input: &str) -> String {
-    let bytes = input.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
-                out.push(hi << 4 | lo);
-                i += 3;
-                continue;
-            }
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8(out).unwrap_or_else(|_| input.to_string())
-}
-
-fn hex_val(b: u8) -> Option<u8> {
-    match b {
-        b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'f' => Some(b - b'a' + 10),
-        b'A'..=b'F' => Some(b - b'A' + 10),
-        _ => None,
-    }
-}
