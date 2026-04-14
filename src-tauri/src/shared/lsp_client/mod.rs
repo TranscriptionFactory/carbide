@@ -1,4 +1,5 @@
 pub mod forwarding;
+pub mod provider;
 pub mod restartable;
 pub mod transport;
 pub mod types;
