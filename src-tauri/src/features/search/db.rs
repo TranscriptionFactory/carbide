@@ -1743,7 +1743,7 @@ pub fn rebuild_index(
     )
     .map_err(|e| e.to_string())?;
     conn.execute(
-        "DELETE FROM note_headings WHERE path NOT LIKE '@linked/%'",
+        "DELETE FROM note_headings WHERE note_path NOT LIKE '@linked/%'",
         [],
     )
     .map_err(|e| e.to_string())?;
@@ -4647,7 +4647,7 @@ pub fn query_bases(
     let params_len = params.len();
     let mut final_params = params;
     if let Some(sort) = query.sort.first() {
-        if !is_direct_col(&sort.property) {
+        if !is_direct_col(&sort.property) && !is_task_agg_col(&sort.property) {
             final_params.push(Box::new(sort.property.clone()));
         }
     }

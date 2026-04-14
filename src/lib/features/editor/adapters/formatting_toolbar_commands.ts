@@ -1,7 +1,9 @@
 import type { EditorView } from "prosemirror-view";
 import { toggleMark, setBlockType, wrapIn } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
-import { undo, redo } from "prosemirror-history";
+import { undo as pmUndo, redo as pmRedo } from "prosemirror-history";
+import { yUndoPluginKey, undo as yUndo, redo as yRedo } from "y-prosemirror";
+import type { EditorState } from "prosemirror-state";
 import type { MarkType, NodeType } from "prosemirror-model";
 import { schema } from "./markdown_pipeline";
 
@@ -34,6 +36,14 @@ export function get_active_marks(view: EditorView): Set<string> {
   return active;
 }
 
+function resolve_undo_redo(state: EditorState) {
+  const has_yjs = yUndoPluginKey.getState(state) !== undefined;
+  return {
+    undo: has_yjs ? yUndo : pmUndo,
+    redo: has_yjs ? yRedo : pmRedo,
+  };
+}
+
 function get_mark_type(name: string): MarkType | undefined {
   return schema.marks[name];
 }
@@ -47,6 +57,7 @@ function execute_command(
   view: EditorView,
 ): boolean {
   const { state, dispatch } = view;
+  const { undo, redo } = resolve_undo_redo(state);
 
   switch (command) {
     case "undo":
@@ -149,6 +160,7 @@ export function is_command_available(
   view: EditorView,
 ): boolean {
   const { state } = view;
+  const { undo, redo } = resolve_undo_redo(state);
 
   if (command === "undo") {
     try {
