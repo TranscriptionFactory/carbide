@@ -13,6 +13,7 @@ import {
   SMART_LINK_EDGE_PER_NOTE_LIMIT,
 } from "$lib/features/graph/domain/smart_link_edges";
 import type { SearchPort } from "$lib/features/search";
+import type { SearchService } from "$lib/features/search";
 import {
   extract_search_subgraph,
   compute_auto_expanded_ids,
@@ -35,6 +36,7 @@ export class GraphService {
   constructor(
     private readonly graph_port: GraphPort,
     private readonly search_port: SearchPort,
+    private readonly search_service: SearchService,
     private readonly vault_store: VaultStore,
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
@@ -367,10 +369,10 @@ export class GraphService {
     this.search_graph_store.update_query(tab_id, query);
 
     try {
-      const hits = await this.search_port.hybrid_search(
+      const { hits } = await this.search_service.run_search_pipeline(
         vault_id,
-        { raw: query, text: query, scope: "all" },
-        50,
+        query,
+        { limit: 50 },
       );
 
       let vault_snapshot = this.graph_store.vault_snapshot;

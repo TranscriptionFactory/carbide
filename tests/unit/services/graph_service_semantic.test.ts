@@ -5,6 +5,7 @@ import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import type { GraphPort, SemanticEdge } from "$lib/features/graph/ports";
 import type { SearchPort } from "$lib/features/search/ports";
+import type { SearchService } from "$lib/features/search";
 import type { VaultId } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
 
@@ -87,9 +88,14 @@ function setup(batch_edges?: SemanticEdge[]) {
 
   vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
 
+  const search_service = {
+    run_search_pipeline: vi.fn().mockResolvedValue({ hits: [] }),
+  } as unknown as SearchService;
+
   const service = new GraphService(
     graph_port,
     search_port,
+    search_service,
     vault_store,
     editor_store,
     graph_store,

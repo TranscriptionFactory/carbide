@@ -1,7 +1,7 @@
 # Implementation Plan: Omnisearch Incremental Unification
 
 **Date:** 2026-04-13 (revised 2026-04-14)
-**Status:** Phase 3 Complete — Phases 1-2 Pending
+**Status:** Phases 2-3 Complete — Phase 1 Pending
 **Derived from:** [2026-04-13_feature_harmony_report.md](./2026-04-13_feature_harmony_report.md)
 
 ---
@@ -139,7 +139,7 @@ When the user types a clause keyword prefix (e.g., `with`), show a subtle inline
 
 ---
 
-### Phase 2: Shared Search Pipeline for Graph
+### Phase 2: Shared Search Pipeline for Graph ✅ COMPLETED (2026-04-14)
 
 **Goal:** Eliminate duplicated orchestration in `GraphService.execute_search_graph()` by extracting a shared `run_hybrid_search_pipeline()` that both omnibar and graph search call.
 
@@ -207,6 +207,18 @@ This requires `GraphService` to depend on `SearchService` rather than directly o
 - `tests/search/search_pipeline.test.ts` (new)
 
 **Estimated scope:** ~60 lines of new logic, ~80 lines of tests.
+
+**Implementation notes (2026-04-14):**
+- Added `SearchPipelineResult = { hits: HybridSearchHit[] }` type to `search_service_result.ts`
+- Extracted `run_search_pipeline(vault_id, query, options?)` method on `SearchService` — parses query via `parse_search_query`, calls `hybrid_search` with the parsed `{ raw, text, scope }`
+- `search_omnibar` now calls `run_search_pipeline` internally instead of `search_port.hybrid_search` directly
+- `GraphService` constructor now accepts `SearchService` as a dependency (injected between `search_port` and `vault_store`)
+- `execute_search_graph` calls `search_service.run_search_pipeline(vault_id, query, { limit: 50 })` instead of constructing `SearchQueryInput` manually
+- Key behavior change: graph search now gets scope parsing for free — `title:react` in graph search scopes to titles (previously hardcoded `scope: "all"`)
+- `semantic_search_batch` and `semantic_search` calls remain on `GraphService` since they are graph-specific
+- DI wiring updated in `create_app_context.ts` — `search_service` (created at line 169) is passed to `GraphService` (created at line 549)
+- 7 new tests: 5 for `run_search_pipeline` (hits, scope propagation, custom limit, error propagation), 2 for graph→pipeline integration
+- All 3242 tests pass, `pnpm check` clean
 
 ---
 
