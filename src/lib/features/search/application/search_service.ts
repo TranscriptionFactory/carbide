@@ -520,7 +520,7 @@ export class SearchService {
       try {
         const hybrid_hits = await this.search_port.hybrid_search(
           vault_id,
-          parsed.text,
+          { raw: parsed.raw, text: parsed.text, scope: parsed.scope },
           20,
         );
         const items: OmnibarItem[] = hybrid_hits.map((hit) => ({

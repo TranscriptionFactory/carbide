@@ -2462,7 +2462,7 @@ pub fn semantic_search_batch(
 pub async fn hybrid_search(
     app: AppHandle,
     vault_id: String,
-    query: String,
+    query: SearchQueryInput,
     limit: Option<usize>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();

@@ -10,6 +10,7 @@ import type {
   HybridSearchHit,
   EmbeddingStatus,
   EmbeddingProgressEvent,
+  SearchQueryInput,
 } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { ExternalLink } from "$lib/features/links";
@@ -102,7 +103,7 @@ export interface SearchPort {
   ): Promise<SemanticSearchHit[]>;
   hybrid_search(
     vault_id: VaultId,
-    query: string,
+    query: SearchQueryInput,
     limit?: number,
   ): Promise<HybridSearchHit[]>;
   semantic_search_batch(

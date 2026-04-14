@@ -749,6 +749,58 @@ describe("SearchService", () => {
       });
     });
 
+    it("passes SearchQueryInput with scope to hybrid_search", async () => {
+      const hybrid_hit = make_note_hit("docs/react.md", 0.9);
+      const search_port = make_search_port({
+        hybrid_search_results: [hybrid_hit],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("title:react");
+
+      expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
+      const call_args = search_port.hybrid_search.mock.calls[0]!;
+      expect(call_args[1]).toMatchObject({
+        text: "react",
+        scope: "title",
+      });
+    });
+
+    it("passes scope 'all' for unscoped queries", async () => {
+      const hybrid_hit = make_note_hit("docs/notes.md", 0.9);
+      const search_port = make_search_port({
+        hybrid_search_results: [hybrid_hit],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("some query");
+
+      expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
+      const call_args = search_port.hybrid_search.mock.calls[0]!;
+      expect(call_args[1]).toMatchObject({
+        text: "some query",
+        scope: "all",
+      });
+    });
+
     it("falls back to FTS when hybrid search throws", async () => {
       const fts_results = [
         {
