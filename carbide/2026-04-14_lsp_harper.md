@@ -1,0 +1,7 @@
+| **Harper**   | Rust-based grammar checker, very fast, runs offline | Natural fit — grammar checking in a writing app. Rust binary, stdio LSP, same integration pattern. No network dependency.                                             |
+| **ltex-ls**  | LanguageTool-based grammar/spell/style checker      | More thorough than Harper (multilingual, style rules), but Java-based — heavier runtime, slower startup.                                                              |
+| **Vale LSP** | Prose linting (style, tone, consistency rules)      | Editorial style enforcement — "don't use passive voice", "use sentence case in headings". Config-driven via `.vale.ini`. More niche but powerful for serious writers. |
+
+**My recommendation**: **Harper** is the strongest candidate. It's Rust (consistent with your stack), fast, offline, and grammar/spell checking is a natural complement to wiki-link intelligence from Markdown Oxide. It would run as a second concurrent LSP — you already have this pattern with code_lsp running alongside markdown_lsp.
+
+ltex-ls is more capable linguistically but the Java dependency is a significant packaging/startup cost for a Tauri app. Vale is great but more specialized (editorial teams, docs-as-code) than general note-taking.
