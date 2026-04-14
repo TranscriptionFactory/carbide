@@ -10,11 +10,13 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
 
   if (ctx.events.on_markdown_lsp_hover) {
-    plugins.push(
-      create_lsp_hover_plugin({
-        on_hover: ctx.events.on_markdown_lsp_hover,
-      }),
-    );
+    const hover_input: Parameters<typeof create_lsp_hover_plugin>[0] = {
+      on_hover: ctx.events.on_markdown_lsp_hover,
+    };
+    if (ctx.events.on_markdown_lsp_hover_result) {
+      hover_input.on_hover_result = ctx.events.on_markdown_lsp_hover_result;
+    }
+    plugins.push(create_lsp_hover_plugin(hover_input));
   }
 
   if (ctx.events.on_markdown_lsp_definition) {

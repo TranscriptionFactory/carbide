@@ -387,6 +387,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
+    action_id: ACTION_IDS.lsp_show_hover,
+    key: "CmdOrCtrl+.",
+    phase: "capture",
+    label: "Show LSP Info",
+    description: "Open the LSP panel and show hover information",
+    category: "navigation",
+  },
+  {
     action_id: ACTION_IDS.lint_toggle_problems,
     key: "CmdOrCtrl+Shift+M",
     phase: "capture",

@@ -235,6 +235,9 @@ export function create_app_context(input: {
         return null;
       }
     },
+    on_markdown_lsp_hover_result: (result) => {
+      stores.lsp.set_hover(result);
+    },
     on_markdown_lsp_definition: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
       if (!vault_id || stores.markdown_lsp.status !== "running") return [];

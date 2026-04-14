@@ -83,7 +83,9 @@ function extract_wiki_query(text_before: string): ExtractedQuery | null {
   const hash_idx = after_open.indexOf("#");
   if (hash_idx !== -1) {
     const note_name = after_open.slice(0, hash_idx);
-    const heading_query = after_open.slice(hash_idx + 1);
+    const after_hash = after_open.slice(hash_idx + 1);
+    if (after_hash.startsWith("^")) return null;
+    const heading_query = after_hash;
     return {
       mode: "heading",
       query: after_open,

@@ -64,6 +64,9 @@ export type EditorServiceCallbacks = {
     line: number,
     character: number,
   ) => Promise<{ contents: string | null } | null>;
+  on_markdown_lsp_hover_result?: (
+    result: { contents: string; line: number; character: number } | null,
+  ) => void;
   on_markdown_lsp_definition?: (
     file_path: string,
     line: number,
@@ -790,6 +793,11 @@ export class EditorService {
         }
         return hover_cb(note.meta.path, line, character);
       };
+    }
+
+    if (this.callbacks.on_markdown_lsp_hover_result) {
+      events.on_markdown_lsp_hover_result =
+        this.callbacks.on_markdown_lsp_hover_result;
     }
 
     if (this.callbacks.on_markdown_lsp_definition) {

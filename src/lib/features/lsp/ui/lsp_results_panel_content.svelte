@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Sparkles, Play, CircleAlert } from "@lucide/svelte";
+  import { Sparkles, Play, CircleAlert, Info } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp";
@@ -13,19 +13,24 @@
 
   const code_actions = $derived(stores.lsp.code_actions);
   const diagnostics = $derived(stores.lsp.diagnostics);
+  const hover_content = $derived(stores.lsp.hover_content);
 
   const lsp_status = $derived(stores.markdown_lsp.status);
   const lsp_enabled = $derived(stores.ui.editor_settings.markdown_lsp_enabled);
   const effective_provider = $derived(stores.markdown_lsp.effective_provider);
   const capabilities = $derived(stores.markdown_lsp.capabilities);
 
-  type LspTab = "code_actions" | "diagnostics";
-  let active_tab = $state<LspTab>("code_actions");
+  const active_tab = $derived(stores.lsp.active_lsp_tab);
 
   const tab_counts = $derived({
     code_actions: code_actions.length,
     diagnostics: diagnostics.length,
+    hover: hover_content ? 1 : 0,
   });
+
+  function set_tab(tab: "code_actions" | "diagnostics" | "hover") {
+    stores.lsp.active_lsp_tab = tab;
+  }
 
   const PROVIDER_DISPLAY: Record<MarkdownLspProvider, string> = {
     iwes: "IWE",
@@ -121,7 +126,7 @@
         type="button"
         class="LspResults__tab"
         class:LspResults__tab--active={active_tab === "code_actions"}
-        onclick={() => (active_tab = "code_actions")}
+        onclick={() => set_tab("code_actions")}
       >
         <Sparkles class="LspResults__tab-icon" />
         Code Actions
@@ -133,12 +138,24 @@
         type="button"
         class="LspResults__tab"
         class:LspResults__tab--active={active_tab === "diagnostics"}
-        onclick={() => (active_tab = "diagnostics")}
+        onclick={() => set_tab("diagnostics")}
       >
         <CircleAlert class="LspResults__tab-icon" />
         Diagnostics
         {#if tab_counts.diagnostics > 0}
           <span class="LspResults__badge">{tab_counts.diagnostics}</span>
+        {/if}
+      </button>
+      <button
+        type="button"
+        class="LspResults__tab"
+        class:LspResults__tab--active={active_tab === "hover"}
+        onclick={() => set_tab("hover")}
+      >
+        <Info class="LspResults__tab-icon" />
+        Hover
+        {#if tab_counts.hover > 0}
+          <span class="LspResults__badge LspResults__badge--active"></span>
         {/if}
       </button>
     </div>
@@ -227,6 +244,19 @@
             </span>
           </div>
         {/each}
+      {/if}
+    {:else if active_tab === "hover"}
+      {#if hover_content}
+        <div class="LspResults__hover-content">
+          <div class="LspResults__hover-location">
+            Ln {hover_content.line + 1}, Col {hover_content.character + 1}
+          </div>
+          <pre class="LspResults__hover-text">{hover_content.contents}</pre>
+        </div>
+      {:else}
+        <div class="LspResults__empty">
+          Hover over an element to see LSP information.
+        </div>
       {/if}
     {/if}
   </div>
@@ -489,5 +519,34 @@
   :global(.LspResults__apply-btn > svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
+  }
+
+  .LspResults__badge--active {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    padding: 0;
+    border-radius: var(--radius-full, 9999px);
+    background-color: var(--primary);
+  }
+
+  .LspResults__hover-content {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .LspResults__hover-location {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    margin-bottom: var(--space-1);
+    font-feature-settings: "tnum" 1;
+  }
+
+  .LspResults__hover-text {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    font-family: var(--font-mono, monospace);
   }
 </style>

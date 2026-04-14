@@ -94,6 +94,9 @@ export type EditorEventHandlers = {
     line: number,
     character: number,
   ) => Promise<{ contents: string | null } | null>;
+  on_markdown_lsp_hover_result?: (
+    result: { contents: string; line: number; character: number } | null,
+  ) => void;
   on_markdown_lsp_definition?: (
     line: number,
     character: number,

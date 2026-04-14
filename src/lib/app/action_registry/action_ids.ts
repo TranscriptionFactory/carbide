@@ -312,6 +312,7 @@ export const ACTION_IDS = {
   lsp_code_action_resolve: "lsp.code_action_resolve",
   lsp_refresh_diagnostics: "lsp.refresh_diagnostics",
   lsp_toggle_results: "lsp.toggle_results",
+  lsp_show_hover: "lsp.show_hover",
 
   iwe_extract_section: "iwe.extract_section",
   iwe_extract_all: "iwe.extract_all",

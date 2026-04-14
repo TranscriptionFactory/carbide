@@ -21,6 +21,9 @@ export function create_lsp_hover_plugin(input: {
     line: number,
     character: number,
   ) => Promise<MarkdownLspHoverResult | null>;
+  on_hover_result?: (
+    result: { contents: string; line: number; character: number } | null,
+  ) => void;
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,
@@ -61,12 +64,16 @@ export function create_lsp_hover_plugin(input: {
         container.style.display = "none";
         container.textContent = "";
         active_pos = null;
+        input.on_hover_result?.(null);
       }
 
       function show(view: EditorView, pos: number, contents: string) {
         container.textContent = contents;
         container.style.display = "block";
         active_pos = pos;
+
+        const { line, character } = line_and_character_from_pos(view, pos);
+        input.on_hover_result?.({ contents, line, character });
 
         const rect = pos_to_dom_rect(view, pos, pos + 1);
         const virtual_el = { getBoundingClientRect: () => rect };
