@@ -38,4 +38,5 @@ export type {
   MarkdownLspEvent,
   IweConfigStatus,
   IweActionInfo,
+  LspProviderConfigStatus,
 } from "$lib/features/markdown_lsp/types";

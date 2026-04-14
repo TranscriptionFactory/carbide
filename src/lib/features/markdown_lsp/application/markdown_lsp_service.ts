@@ -4,6 +4,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
+  LspProviderConfigStatus,
   MarkdownLspCodeAction,
   MarkdownLspDiagnosticsEvent,
   MarkdownLspPrepareRenameResult,
@@ -602,6 +603,31 @@ export class MarkdownLspService {
       return true;
     } catch (e) {
       log.from_error("Failed to reset IWE config", e);
+      return false;
+    }
+  }
+
+  async lsp_config_status(
+    provider: string,
+  ): Promise<LspProviderConfigStatus | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    try {
+      return await this.port.lsp_config_status(vault_id, provider);
+    } catch (e) {
+      log.from_error("Failed to get LSP config status", e);
+      return null;
+    }
+  }
+
+  async lsp_config_reset(provider: string): Promise<boolean> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return false;
+    try {
+      await this.port.lsp_config_reset(vault_id, provider);
+      return true;
+    } catch (e) {
+      log.from_error("Failed to reset LSP config", e);
       return false;
     }
   }

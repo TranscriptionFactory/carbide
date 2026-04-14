@@ -11,7 +11,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
-use super::provider::resolve_markdown_lsp_startup;
+use super::provider::{provider_for, resolve_markdown_lsp_startup};
 use super::types::*;
 
 pub struct MarkdownLspState {
@@ -1318,6 +1318,50 @@ pub async fn iwe_config_reset(app: AppHandle, vault_id: String) -> Result<(), St
 
     log::info!("Reset IWE config at {}", config_path.display());
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn markdown_lsp_config_status(
+    app: AppHandle,
+    vault_id: String,
+    provider: MarkdownLspProvider,
+) -> Result<LspProviderConfigStatus, String> {
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let lsp_provider = provider_for(provider);
+
+    match lsp_provider.config_path(&vault_path) {
+        Some(path) => {
+            let exists = path.exists();
+            Ok(LspProviderConfigStatus {
+                has_config: true,
+                exists,
+                config_path: path.to_string_lossy().to_string(),
+            })
+        }
+        None => Ok(LspProviderConfigStatus {
+            has_config: false,
+            exists: false,
+            config_path: String::new(),
+        }),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn markdown_lsp_config_reset(
+    app: AppHandle,
+    vault_id: String,
+    provider: MarkdownLspProvider,
+) -> Result<(), String> {
+    let vault_mode = storage::vault_mode_for_id(&app, &vault_id)?;
+    if vault_mode == storage::VaultMode::Browse {
+        return Err("Config reset is only available in vault mode".to_string());
+    }
+
+    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let lsp_provider = provider_for(provider);
+    lsp_provider.reset_config(&app, &vault_path).await
 }
 
 struct ManagedTransform {

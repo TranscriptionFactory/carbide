@@ -76,7 +76,10 @@
     EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS,
     type MarkdownLspProvider,
   } from "$lib/shared/types/editor_settings";
-  import type { IweConfigStatus } from "$lib/features/markdown_lsp";
+  import type {
+    IweConfigStatus,
+    LspProviderConfigStatus,
+  } from "$lib/features/markdown_lsp";
   import type {
     AiProviderConfig,
     AiTransport,
@@ -126,6 +129,9 @@
     iwe_config_status: IweConfigStatus | null;
     on_iwe_open_config: () => void;
     on_iwe_reset_config: () => void;
+    lsp_config_status: LspProviderConfigStatus | null;
+    on_lsp_open_config: () => void;
+    on_lsp_reset_config: () => void;
     storage_stats: StorageStats | null;
     storage_loading: boolean;
     on_refresh_storage_stats: () => void;
@@ -187,6 +193,9 @@
     iwe_config_status,
     on_iwe_open_config,
     on_iwe_reset_config,
+    lsp_config_status,
+    on_lsp_open_config,
+    on_lsp_reset_config,
     storage_stats,
     storage_loading,
     on_refresh_storage_stats,
@@ -4051,18 +4060,15 @@
                   </button>
                 </div>
               </div>
+            {/if}
 
+            {#if lsp_config_status?.has_config}
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Config File</span>
                   <span class="SettingsDialog__description">
-                    {#if iwe_config_status?.exists}
-                      {iwe_config_status.action_count} action{iwe_config_status.action_count ===
-                      1
-                        ? ""
-                        : "s"} configured: {iwe_config_status.action_names.join(
-                        ", ",
-                      )}
+                    {#if lsp_config_status.exists}
+                      {lsp_config_status.config_path}
                     {:else}
                       No config file found — will be created on next LSP start
                     {/if}
@@ -4072,15 +4078,15 @@
                   <Button
                     variant="outline"
                     size="sm"
-                    onclick={on_iwe_open_config}
-                    disabled={!iwe_config_status?.exists}
+                    onclick={on_lsp_open_config}
+                    disabled={!lsp_config_status.exists}
                   >
                     Reveal Config
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onclick={on_iwe_reset_config}
+                    onclick={on_lsp_reset_config}
                   >
                     <RotateCcw class="size-3.5 mr-1" />
                     Reset to Defaults

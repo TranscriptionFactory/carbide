@@ -4,6 +4,7 @@ import type { MarkdownLspPort } from "$lib/features/markdown_lsp/ports";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
+  LspProviderConfigStatus,
   MarkdownLspCodeAction,
   MarkdownLspCompletionItem,
   MarkdownLspDiagnosticsEvent,
@@ -183,6 +184,18 @@ export function create_markdown_lsp_tauri_adapter(): MarkdownLspPort {
       tauri_invoke<void>("iwe_config_rewrite_provider", {
         vaultId: vault_id,
         providerConfig: provider_config,
+      }),
+
+    lsp_config_status: (vault_id, provider) =>
+      tauri_invoke<LspProviderConfigStatus>("markdown_lsp_config_status", {
+        vaultId: vault_id,
+        provider,
+      }),
+
+    lsp_config_reset: (vault_id, provider) =>
+      tauri_invoke<void>("markdown_lsp_config_reset", {
+        vaultId: vault_id,
+        provider,
       }),
 
     subscribe_diagnostics(

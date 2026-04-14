@@ -1,6 +1,7 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   IweConfigStatus,
+  LspProviderConfigStatus,
   MarkdownLspCodeAction,
   MarkdownLspCompletionItem,
   MarkdownLspDiagnosticsEvent,
@@ -115,4 +116,10 @@ export interface MarkdownLspPort {
     vault_id: string,
     provider_config: AiProviderConfig,
   ): Promise<void>;
+
+  lsp_config_status(
+    vault_id: string,
+    provider: string,
+  ): Promise<LspProviderConfigStatus>;
+  lsp_config_reset(vault_id: string, provider: string): Promise<void>;
 }

@@ -79,6 +79,12 @@ function create_mock_port() {
     }),
     iwe_config_reset: vi.fn().mockResolvedValue(undefined),
     iwe_config_rewrite_provider: vi.fn().mockResolvedValue(undefined),
+    lsp_config_status: vi.fn().mockResolvedValue({
+      has_config: false,
+      exists: false,
+      config_path: "",
+    }),
+    lsp_config_reset: vi.fn().mockResolvedValue(undefined),
   };
 
   return {

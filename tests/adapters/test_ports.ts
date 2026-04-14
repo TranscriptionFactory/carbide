@@ -182,6 +182,13 @@ export function create_test_ports(): Ports {
         }),
       iwe_config_reset: () => Promise.resolve(),
       iwe_config_rewrite_provider: () => Promise.resolve(),
+      lsp_config_status: () =>
+        Promise.resolve({
+          has_config: false,
+          exists: false,
+          config_path: "",
+        }),
+      lsp_config_reset: () => Promise.resolve(),
     },
 
     toolchain: {

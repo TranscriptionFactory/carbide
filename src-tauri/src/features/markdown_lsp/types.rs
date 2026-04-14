@@ -218,3 +218,10 @@ pub struct IweConfigStatus {
     pub action_names: Vec<String>,
     pub actions: Vec<IweActionInfo>,
 }
+
+#[derive(Debug, Serialize, Type)]
+pub struct LspProviderConfigStatus {
+    pub has_config: bool,
+    pub exists: bool,
+    pub config_path: String,
+}

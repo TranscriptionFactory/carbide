@@ -195,6 +195,8 @@ mod specta_export {
                 crate::features::markdown_lsp::service::iwe_config_status,
                 crate::features::markdown_lsp::service::iwe_config_reset,
                 crate::features::markdown_lsp::service::iwe_config_rewrite_provider,
+                crate::features::markdown_lsp::service::markdown_lsp_config_status,
+                crate::features::markdown_lsp::service::markdown_lsp_config_reset,
                 crate::features::search::service::tags_list_all,
                 crate::features::search::service::tags_get_notes_for_tag,
                 crate::features::search::service::tags_get_notes_for_tag_prefix,
