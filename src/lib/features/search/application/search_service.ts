@@ -33,11 +33,26 @@ import type { VaultId } from "$lib/shared/types/ids";
 import type { CachedHeading } from "$lib/features/metadata";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { PluginStore } from "$lib/features/plugin";
+import {
+  parse_query,
+  solve_query,
+  type QueryBackends,
+} from "$lib/features/query";
+import type { TagPort } from "$lib/features/tags";
+import type { BasesPort } from "$lib/features/bases";
 
 const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
 const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
+
+const STRUCTURED_KEYWORDS =
+  /(?:^|\s)(?:notes?|files?|folders?|named|with|in|linked\s+from|not)\s/i;
+const STRUCTURED_VALUE_SYNTAX = /(?:#\w|\/.*\/|\[\[)/;
+
+export function looks_structured(query: string): boolean {
+  return STRUCTURED_KEYWORDS.test(query) || STRUCTURED_VALUE_SYNTAX.test(query);
+}
 type CrossVaultSettledSearch = PromiseSettledResult<
   Awaited<ReturnType<SearchPort["search_notes"]>>
 >;
@@ -149,10 +164,22 @@ export class SearchService {
     private readonly index_port?: WorkspaceIndexPort,
     private readonly plugin_store?: PluginStore,
     private readonly build_context?: () => CommandContext,
+    private readonly tags_port?: TagPort,
+    private readonly bases_port?: BasesPort,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
     return this.vault_store.vault?.id ?? null;
+  }
+
+  private get_query_backends(): QueryBackends | null {
+    if (!this.index_port || !this.tags_port || !this.bases_port) return null;
+    return {
+      search: this.search_port,
+      index: this.index_port,
+      tags: this.tags_port,
+      bases: this.bases_port,
+    };
   }
 
   private start_operation(operation_key: string): void {
@@ -531,6 +558,33 @@ export class SearchService {
     }
 
     const vault_id = this.get_active_vault_id();
+
+    if (vault_id !== null && looks_structured(raw_query)) {
+      const backends = this.get_query_backends();
+      if (backends) {
+        const parse_result = parse_query(raw_query);
+        if (parse_result.ok) {
+          try {
+            const result = await solve_query(
+              vault_id,
+              parse_result.query,
+              backends,
+            );
+            const items: OmnibarItem[] = result.items.map((item, i) => ({
+              kind: "note" as const,
+              note: item.note,
+              score: result.items.length - i,
+            }));
+            return { domain: "notes", items };
+          } catch (error) {
+            log.warn("Structured query failed, falling back to hybrid", {
+              error: error_message(error),
+            });
+          }
+        }
+      }
+    }
+
     if ((semantic_enabled ?? true) && vault_id !== null) {
       try {
         const { hits } = await this.run_search_pipeline(vault_id, raw_query);

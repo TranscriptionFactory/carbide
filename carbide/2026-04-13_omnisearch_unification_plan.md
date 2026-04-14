@@ -1,7 +1,7 @@
 # Implementation Plan: Omnisearch Incremental Unification
 
 **Date:** 2026-04-13 (revised 2026-04-14)
-**Status:** Phases 2-3 Complete — Phase 1 Pending
+**Status:** All Phases Complete
 **Derived from:** [2026-04-13_feature_harmony_report.md](./2026-04-13_feature_harmony_report.md)
 
 ---
@@ -56,7 +56,7 @@ No new abstractions, no frontend fusion engine, no god-component. Each phase shi
 
 ## 3. Implementation Phases
 
-### Phase 1: Structured Queries in the Omnibar
+### Phase 1: Structured Queries in the Omnibar ✅ COMPLETED (2026-04-14)
 
 **Goal:** Let users type structured query syntax (`notes with #rust`, `named /regex/`, `in "Projects"`) directly in the omnibar, using the existing `query_parser` + `query_solver`.
 
@@ -136,6 +136,19 @@ When the user types a clause keyword prefix (e.g., `with`), show a subtle inline
 - `tests/search/omnibar_structured_query.test.ts` (new)
 
 **Estimated scope:** ~150 lines of new logic, ~100 lines of tests.
+
+**Implementation notes (2026-04-14):**
+- Added exported `looks_structured(query)` function using two regexes: one for clause/form keywords (`notes`, `with`, `named`, `in`, `linked from`, `not`), one for value syntax (`#tag`, `/regex/`, `[[wikilink]]`)
+- `SearchService` constructor extended with optional `tags_port: TagPort` and `bases_port: BasesPort` parameters
+- Added private `get_query_backends()` method that builds `QueryBackends` from the port fields (returns null if any port is missing)
+- `search_omnibar` now checks `looks_structured(raw_query)` → `parse_query(raw_query)` → `solve_query()` before falling through to hybrid search
+- Query results mapped to `OmnibarItem[]` with descending rank scores and `kind: "note"`
+- On structured query failure (parse error or solver error), silently falls back to hybrid/FTS path
+- DI wiring updated in `create_app_context.ts` — `input.ports.tag` and `input.ports.bases` passed to `SearchService`
+- Omnibar UI: added reactive `structured_hint` derived value that shows contextual syntax hints when typing clause keywords (e.g., `with #tag | with "text" | with property = value`)
+- Footer updated with static `notes with #tag` hint alongside existing scope hints
+- 11 new tests: 6 for `looks_structured()` (form prefixes, clause keywords, value syntax, plain text, commands, partial keywords), 5 for structured omnibar routing (solver routing, hybrid fallback, parse failure fallback, solver error fallback, command routing)
+- All 3253 tests pass, `pnpm check` clean, `pnpm lint` clean (no new violations)
 
 ---
 

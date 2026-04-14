@@ -133,6 +133,18 @@
   );
   const is_all_vaults = $derived(scope === "all_vaults");
   const show_scope_toggle = $derived(has_multiple_vaults && !is_command_mode);
+  const structured_hint = $derived.by(() => {
+    const q = query.trimStart().toLowerCase();
+    if (q.startsWith("notes ") || q.startsWith("note "))
+      return 'notes with #tag | named /regex/ | in "folder"';
+    if (q.startsWith("with ") || q === "with")
+      return 'with #tag | with "text" | with property = value';
+    if (q.startsWith("named ") || q === "named")
+      return 'named "title" | named /regex/';
+    if (q.startsWith("in ") || q === "in") return 'in "folder"';
+    if (q.startsWith("linked ")) return "linked from [[note]]";
+    return null;
+  });
 
   type VaultGroup = {
     vault_name: string;
@@ -634,7 +646,11 @@
     </div>
 
     <div class="Omnibar__footer">
-      {#if is_all_vaults}
+      {#if structured_hint}
+        <span class="Omnibar__hint Omnibar__hint--structured"
+          >{structured_hint}</span
+        >
+      {:else if is_all_vaults}
         <span class="Omnibar__hint"><kbd>↵</kbd> to open vault</span>
       {:else}
         <span class="Omnibar__hint"><kbd>&gt;</kbd> for commands</span>
@@ -642,6 +658,8 @@
         <span class="Omnibar__hint"
           ><kbd>title:</kbd> <kbd>path:</kbd> <kbd>content:</kbd></span
         >
+        <span class="Omnibar__hint-sep">·</span>
+        <span class="Omnibar__hint"><kbd>notes with #tag</kbd></span>
       {/if}
     </div>
   </Dialog.Content>
