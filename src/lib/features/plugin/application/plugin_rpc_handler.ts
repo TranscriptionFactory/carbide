@@ -932,7 +932,7 @@ export class PluginRpcHandler {
         const note_path = read_param_string(params, 0, "note path");
         return this.context.metadata.get_stats(note_path);
       }
-      case "getFileCache": {
+      case "get_file_cache": {
         const note_path = read_param_string(params, 0, "note path");
         return this.context.metadata.get_file_cache(note_path);
       }

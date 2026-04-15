@@ -1,0 +1,792 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="carbide-plugin-api.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 13px;
+        color: var(--foreground, #ccc);
+        background: var(--background, #1e1e1e);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        flex-wrap: wrap;
+        flex-shrink: 0;
+      }
+      .toolbar select {
+        padding: 4px 6px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.1);
+        color: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .toolbar button {
+        padding: 4px 8px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 4px;
+        background: transparent;
+        color: inherit;
+        font-size: 11px;
+        cursor: pointer;
+        transition: background 0.1s;
+        white-space: nowrap;
+      }
+      .toolbar button:hover {
+        background: rgba(128, 128, 128, 0.15);
+      }
+
+      .split-pane {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .pane + .pane {
+        border-left: 1px solid rgba(128, 128, 128, 0.2);
+      }
+      .pane-header {
+        padding: 4px 8px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.5;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        flex-shrink: 0;
+      }
+
+      #template-editor {
+        flex: 1;
+        width: 100%;
+        resize: none;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 8px;
+        outline: none;
+        tab-size: 2;
+      }
+
+      #preview-output {
+        flex: 1;
+        padding: 8px;
+        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-y: auto;
+      }
+      #preview-output.error {
+        color: #f87171;
+        font-style: italic;
+      }
+
+      .bottom-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border-top: 1px solid rgba(128, 128, 128, 0.2);
+        flex-shrink: 0;
+      }
+      .bottom-bar button {
+        padding: 5px 12px;
+        border: 1px solid rgba(100, 140, 255, 0.4);
+        border-radius: 4px;
+        background: rgba(100, 140, 255, 0.15);
+        color: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .bottom-bar button:hover {
+        background: rgba(100, 140, 255, 0.25);
+      }
+      .status {
+        font-size: 11px;
+        opacity: 0.5;
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <select id="example-select">
+        <option value="">— Examples —</option>
+        <option value="meeting">Meeting Notes</option>
+        <option value="journal">Daily Journal</option>
+        <option value="literature">Literature Note</option>
+      </select>
+      <button data-insert="{{current_note.name}}">Title</button>
+      <button data-insert='{{date "YYYY-MM-DD"}}'>Date</button>
+      <button data-insert='{{time "HH:mm"}}'>Time</button>
+      <button data-insert="{{selection.text}}">Selection</button>
+      <button data-insert="{{#if condition}}\n\n{{/if}}">If</button>
+      <button data-insert="{{#each items}}\n  {{this}}\n{{/each}}">Each</button>
+      <button data-insert="{{#unless condition}}\n\n{{/unless}}">Unless</button>
+    </div>
+
+    <div class="split-pane">
+      <div class="pane">
+        <div class="pane-header">Template</div>
+        <textarea id="template-editor" spellcheck="false"></textarea>
+      </div>
+      <div class="pane">
+        <div class="pane-header">Preview</div>
+        <div id="preview-output"></div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <button id="btn-insert">Insert into Note</button>
+      <span class="status" id="status-text">Ready</span>
+    </div>
+
+    <script>
+      // ─── Lightweight Handlebars-compatible template engine ───────────────
+      // Supports: {{expr}}, {{helper args}}, {{#if}}, {{#unless}}, {{#each}},
+      //           {{else}}, {{> partial}}, dot-path resolution, string literals
+      const TemplateEngine = (() => {
+        const helpers = {};
+        const partials = {};
+
+        function register_helper(name, fn) {
+          helpers[name] = fn;
+        }
+        function register_partial(name, text) {
+          partials[name] = text;
+        }
+
+        function resolve(path, ctx, root) {
+          if (path === "this" || path === ".") return ctx;
+          if (path === "@index") return ctx["@index"];
+          if (path === "@key") return ctx["@key"];
+          const parts = path.split(".");
+          let val = ctx;
+          for (const p of parts) {
+            if (val == null) return undefined;
+            val = val[p];
+          }
+          if (val === undefined && ctx !== root) {
+            val = root;
+            for (const p of parts) {
+              if (val == null) return undefined;
+              val = val[p];
+            }
+          }
+          return val;
+        }
+
+        function parse_args(raw, ctx, root) {
+          const args = [];
+          const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+          let m;
+          while ((m = re.exec(raw)) !== null) {
+            if (m[1] !== undefined) args.push(m[1]);
+            else if (m[2] !== undefined) args.push(m[2]);
+            else {
+              const token = m[3];
+              if (token === "true") args.push(true);
+              else if (token === "false") args.push(false);
+              else if (/^-?\d+(\.\d+)?$/.test(token)) args.push(Number(token));
+              else args.push(resolve(token, ctx, root));
+            }
+          }
+          return args;
+        }
+
+        function find_block_end(tokens, i, open_tag) {
+          let depth = 1;
+          for (let j = i; j < tokens.length; j++) {
+            const t = tokens[j];
+            if (t.type === "block_open" && t.name === open_tag) depth++;
+            else if (t.type === "block_close" && t.name === open_tag) {
+              depth--;
+              if (depth === 0) return j;
+            }
+          }
+          return tokens.length;
+        }
+
+        function find_else(tokens, start, end, block_name) {
+          let depth = 0;
+          for (let j = start; j < end; j++) {
+            const t = tokens[j];
+            if (t.type === "block_open" && t.name === block_name) depth++;
+            else if (t.type === "block_close" && t.name === block_name) depth--;
+            else if (t.type === "else" && depth === 0) return j;
+          }
+          return -1;
+        }
+
+        function tokenize(template) {
+          const tokens = [];
+          const re = /\{\{(.*?)\}\}/gs;
+          let last = 0;
+          let m;
+          while ((m = re.exec(template)) !== null) {
+            if (m.index > last) {
+              tokens.push({
+                type: "text",
+                value: template.slice(last, m.index),
+              });
+            }
+            const content = m[1].trim();
+            if (content.startsWith("#if ")) {
+              tokens.push({
+                type: "block_open",
+                name: "if",
+                expr: content.slice(4).trim(),
+              });
+            } else if (content.startsWith("#unless ")) {
+              tokens.push({
+                type: "block_open",
+                name: "unless",
+                expr: content.slice(8).trim(),
+              });
+            } else if (content.startsWith("#each ")) {
+              tokens.push({
+                type: "block_open",
+                name: "each",
+                expr: content.slice(6).trim(),
+              });
+            } else if (content === "else") {
+              tokens.push({ type: "else" });
+            } else if (content === "/if") {
+              tokens.push({ type: "block_close", name: "if" });
+            } else if (content === "/unless") {
+              tokens.push({ type: "block_close", name: "unless" });
+            } else if (content === "/each") {
+              tokens.push({ type: "block_close", name: "each" });
+            } else if (content.startsWith("> ")) {
+              tokens.push({ type: "partial", name: content.slice(2).trim() });
+            } else {
+              tokens.push({ type: "expr", value: content });
+            }
+            last = m.index + m[0].length;
+          }
+          if (last < template.length) {
+            tokens.push({ type: "text", value: template.slice(last) });
+          }
+          return tokens;
+        }
+
+        function render_tokens(tokens, start, end, ctx, root) {
+          let out = "";
+          let i = start;
+          while (i < end) {
+            const t = tokens[i];
+            if (t.type === "text") {
+              out += t.value;
+              i++;
+            } else if (t.type === "expr") {
+              out += render_expr(t.value, ctx, root);
+              i++;
+            } else if (t.type === "partial") {
+              const src = partials[t.name];
+              if (src) out += render(src, ctx, root);
+              i++;
+            } else if (t.type === "block_open") {
+              const close_idx = find_block_end(tokens, i + 1, t.name);
+              const else_idx = find_else(tokens, i + 1, close_idx, t.name);
+              const body_end = else_idx >= 0 ? else_idx : close_idx;
+              const alt_start = else_idx >= 0 ? else_idx + 1 : close_idx;
+
+              if (t.name === "if") {
+                const val = resolve(t.expr, ctx, root);
+                if (is_truthy(val)) {
+                  out += render_tokens(tokens, i + 1, body_end, ctx, root);
+                } else {
+                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
+                }
+              } else if (t.name === "unless") {
+                const val = resolve(t.expr, ctx, root);
+                if (!is_truthy(val)) {
+                  out += render_tokens(tokens, i + 1, body_end, ctx, root);
+                } else {
+                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
+                }
+              } else if (t.name === "each") {
+                const collection = resolve(t.expr, ctx, root);
+                if (Array.isArray(collection)) {
+                  collection.forEach((item, idx) => {
+                    const child =
+                      typeof item === "object" && item !== null
+                        ? { ...item, "@index": idx }
+                        : { ".": item, this: item, "@index": idx };
+                    out += render_tokens(tokens, i + 1, body_end, child, root);
+                  });
+                } else if (collection && typeof collection === "object") {
+                  for (const [key, val] of Object.entries(collection)) {
+                    const child =
+                      typeof val === "object" && val !== null
+                        ? { ...val, "@key": key }
+                        : { ".": val, this: val, "@key": key };
+                    out += render_tokens(tokens, i + 1, body_end, child, root);
+                  }
+                } else {
+                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
+                }
+              }
+              i = close_idx + 1;
+            } else {
+              i++;
+            }
+          }
+          return out;
+        }
+
+        function render_expr(expr, ctx, root) {
+          const parts = [];
+          const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+          let m;
+          while ((m = re.exec(expr)) !== null) {
+            if (m[1] !== undefined) parts.push({ type: "string", value: m[1] });
+            else if (m[2] !== undefined)
+              parts.push({ type: "string", value: m[2] });
+            else parts.push({ type: "token", value: m[3] });
+          }
+          if (parts.length === 0) return "";
+
+          const first = parts[0];
+          if (first.type === "token" && helpers[first.value]) {
+            const args = parts
+              .slice(1)
+              .map((p) =>
+                p.type === "string"
+                  ? p.value
+                  : (resolve(p.value, ctx, root) ?? p.value),
+              );
+            const result = helpers[first.value](...args);
+            return result == null ? "" : String(result);
+          }
+
+          if (parts.length === 1 && first.type === "token") {
+            const val = resolve(first.value, ctx, root);
+            return val == null ? "" : escape_html(String(val));
+          }
+
+          return escape_html(String(resolve(expr.trim(), ctx, root) ?? ""));
+        }
+
+        function is_truthy(val) {
+          if (Array.isArray(val)) return val.length > 0;
+          return !!val;
+        }
+
+        function escape_html(str) {
+          return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        }
+
+        function render(template, ctx, root) {
+          root = root || ctx;
+          const tokens = tokenize(template);
+          return render_tokens(tokens, 0, tokens.length, ctx, root);
+        }
+
+        function compile(template) {
+          const tokens = tokenize(template);
+          return function (ctx) {
+            return render_tokens(tokens, 0, tokens.length, ctx, ctx);
+          };
+        }
+
+        return { register_helper, register_partial, render, compile };
+      })();
+
+      // ─── Custom helpers ─────────────────────────────────────────────────
+
+      const DATE_TOKENS = {
+        YYYY: (d) => String(d.getFullYear()),
+        YY: (d) => String(d.getFullYear()).slice(-2),
+        MM: (d) => String(d.getMonth() + 1).padStart(2, "0"),
+        DD: (d) => String(d.getDate()).padStart(2, "0"),
+        HH: (d) => String(d.getHours()).padStart(2, "0"),
+        mm: (d) => String(d.getMinutes()).padStart(2, "0"),
+        ss: (d) => String(d.getSeconds()).padStart(2, "0"),
+        ddd: (d) =>
+          ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()],
+        dddd: (d) =>
+          [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ][d.getDay()],
+        MMMM: (d) =>
+          [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ][d.getMonth()],
+        MMM: (d) =>
+          [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ][d.getMonth()],
+      };
+
+      function format_date(fmt) {
+        const now = new Date();
+        let result = fmt || "YYYY-MM-DD";
+        const sorted_keys = Object.keys(DATE_TOKENS).sort(
+          (a, b) => b.length - a.length,
+        );
+        for (const key of sorted_keys) {
+          result = result.replaceAll(key, DATE_TOKENS[key](now));
+        }
+        return result;
+      }
+
+      TemplateEngine.register_helper("date", (fmt) =>
+        format_date(fmt || "YYYY-MM-DD"),
+      );
+      TemplateEngine.register_helper("time", (fmt) =>
+        format_date(fmt || "HH:mm"),
+      );
+
+      TemplateEngine.register_helper("eq", (a, b) => (a == b ? "true" : ""));
+      TemplateEngine.register_helper("ne", (a, b) => (a != b ? "true" : ""));
+      TemplateEngine.register_helper("gt", (a, b) => (a > b ? "true" : ""));
+      TemplateEngine.register_helper("gte", (a, b) => (a >= b ? "true" : ""));
+      TemplateEngine.register_helper("lt", (a, b) => (a < b ? "true" : ""));
+      TemplateEngine.register_helper("lte", (a, b) => (a <= b ? "true" : ""));
+
+      TemplateEngine.register_helper("uppercase", (s) =>
+        s ? String(s).toUpperCase() : "",
+      );
+      TemplateEngine.register_helper("lowercase", (s) =>
+        s ? String(s).toLowerCase() : "",
+      );
+      TemplateEngine.register_helper("truncate", (s, len) => {
+        if (!s) return "";
+        const str = String(s);
+        const n = Number(len) || 50;
+        return str.length > n ? str.slice(0, n) + "..." : str;
+      });
+      TemplateEngine.register_helper("slugify", (s) => {
+        if (!s) return "";
+        return String(s)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+      });
+      TemplateEngine.register_helper("default", (val, fallback) =>
+        val != null && val !== "" ? val : fallback,
+      );
+
+      // ─── Built-in example templates ─────────────────────────────────────
+
+      const EXAMPLES = {
+        meeting: `# {{date "YYYY-MM-DD"}} — {{default current_note.name "Meeting Notes"}}
+
+**Date:** {{date "dddd, MMMM DD, YYYY"}}
+**Time:** {{time "HH:mm"}}
+{{#if fileCache.frontmatter.attendees}}
+**Attendees:** {{fileCache.frontmatter.attendees}}
+{{/if}}
+
+## Agenda
+{{#if selection.text}}
+{{selection.text}}
+{{else}}
+- [ ] Item 1
+- [ ] Item 2
+{{/if}}
+
+## Discussion
+
+## Action Items
+- [ ]
+
+## Notes
+`,
+
+        journal: `# {{date "dddd, MMMM DD, YYYY"}}
+
+{{#if fileCache.frontmatter.mood}}
+**Mood:** {{fileCache.frontmatter.mood}}
+{{/if}}
+
+## Morning Reflection
+
+
+## Today's Goals
+- [ ]
+
+## Notes
+
+
+{{#if backlinks}}
+## Linked from
+{{#each backlinks}}
+- [[{{this.path}}]]
+{{/each}}
+{{/if}}
+`,
+
+        literature: `# {{default current_note.name "Literature Note"}}
+
+**Source:** {{default fileCache.frontmatter.source "—"}}
+**Author:** {{default fileCache.frontmatter.author "—"}}
+**Date read:** {{date "YYYY-MM-DD"}}
+{{#if fileCache.frontmatter.tags}}
+**Tags:** {{fileCache.frontmatter.tags}}
+{{/if}}
+
+## Summary
+{{#if selection.text}}
+> {{selection.text}}
+{{else}}
+
+{{/if}}
+
+## Key Ideas
+1.
+
+## Quotes
+
+
+## Connections
+{{#if backlinks}}
+{{#each backlinks}}
+- [[{{this.path}}]]
+{{/each}}
+{{/if}}
+`,
+      };
+
+      // ─── Context management ─────────────────────────────────────────────
+
+      let cached_context = null;
+      let context_stale = true;
+
+      async function gather_context() {
+        if (cached_context && !context_stale) return cached_context;
+
+        const ctx = {
+          current_note: { path: "", name: "Untitled" },
+          selection: { text: "" },
+          fileCache: { frontmatter: {}, tags: [], headings: [], links: [] },
+          backlinks: [],
+          date: format_date("YYYY-MM-DD"),
+          time: format_date("HH:mm"),
+        };
+
+        try {
+          const [info, selection] = await Promise.all([
+            carbide.editor.getInfo().catch(() => null),
+            carbide.editor.getSelection().catch(() => ""),
+          ]);
+
+          if (info) {
+            ctx.current_note = {
+              path: info.path,
+              name: info.name.replace(/\.md$/, ""),
+            };
+          }
+          ctx.selection = { text: selection || "" };
+
+          if (info?.path) {
+            const [fc, bl] = await Promise.all([
+              carbide.metadata.getFileCache(info.path).catch(() => null),
+              carbide.metadata.getBacklinks(info.path).catch(() => []),
+            ]);
+            if (fc) {
+              ctx.fileCache = {
+                frontmatter: fc.frontmatter || {},
+                tags: fc.tags || [],
+                headings: fc.headings || [],
+                links: fc.links || [],
+                stats: fc.stats || {},
+              };
+            }
+            ctx.backlinks = bl || [];
+          }
+        } catch (e) {
+          console.warn("[smart-templates] context gather error:", e);
+        }
+
+        cached_context = ctx;
+        context_stale = false;
+        return ctx;
+      }
+
+      function mark_context_stale() {
+        context_stale = true;
+      }
+
+      // ─── Preview rendering ──────────────────────────────────────────────
+
+      const editor_el = document.getElementById("template-editor");
+      const preview_el = document.getElementById("preview-output");
+      const status_el = document.getElementById("status-text");
+      let debounce_timer = null;
+      let last_rendered = "";
+
+      function schedule_preview() {
+        clearTimeout(debounce_timer);
+        status_el.textContent = "Typing...";
+        debounce_timer = setTimeout(render_preview, 1000);
+      }
+
+      async function render_preview() {
+        const source = editor_el.value;
+        if (!source.trim()) {
+          preview_el.textContent = "";
+          preview_el.classList.remove("error");
+          status_el.textContent = "Ready";
+          last_rendered = "";
+          return;
+        }
+
+        try {
+          status_el.textContent = "Rendering...";
+          const ctx = await gather_context();
+          const result = TemplateEngine.render(source, ctx);
+          preview_el.textContent = result;
+          preview_el.classList.remove("error");
+          last_rendered = result;
+          status_el.textContent = "Preview updated";
+        } catch (e) {
+          preview_el.textContent = "Template error: " + e.message;
+          preview_el.classList.add("error");
+          status_el.textContent = "Error";
+          last_rendered = "";
+        }
+      }
+
+      editor_el.addEventListener("input", schedule_preview);
+
+      // ─── Toolbar: snippet insertion ─────────────────────────────────────
+
+      document.querySelectorAll("[data-insert]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const snippet = btn.dataset.insert;
+          const start = editor_el.selectionStart;
+          const end = editor_el.selectionEnd;
+          const val = editor_el.value;
+          editor_el.value = val.slice(0, start) + snippet + val.slice(end);
+          const cursor = start + snippet.length;
+          editor_el.setSelectionRange(cursor, cursor);
+          editor_el.focus();
+          schedule_preview();
+        });
+      });
+
+      // ─── Toolbar: example selector ──────────────────────────────────────
+
+      document
+        .getElementById("example-select")
+        .addEventListener("change", (e) => {
+          const key = e.target.value;
+          if (key && EXAMPLES[key]) {
+            editor_el.value = EXAMPLES[key];
+            schedule_preview();
+          }
+          e.target.value = "";
+        });
+
+      // ─── Insert into note ───────────────────────────────────────────────
+
+      document
+        .getElementById("btn-insert")
+        .addEventListener("click", async () => {
+          if (!last_rendered) {
+            await render_preview();
+          }
+          if (last_rendered) {
+            try {
+              await carbide.editor.replaceSelection(last_rendered);
+              status_el.textContent = "Inserted!";
+            } catch (e) {
+              status_el.textContent = "Insert failed: " + e.message;
+            }
+          }
+        });
+
+      // ─── Plugin lifecycle ───────────────────────────────────────────────
+
+      carbide.onload(async () => {
+        carbide.commands.register({
+          id: "smart-templates:open-panel",
+          label: "Open Smart Templates",
+          description: "Open the template editor panel",
+          keywords: ["template", "handlebars", "snippet", "dynamic"],
+        });
+
+        carbide.ui.addSidebarPanel({
+          id: "smart-templates:panel",
+          label: "Smart Templates",
+          icon: "blocks",
+        });
+
+        carbide.events.on("active-file-changed", () => {
+          mark_context_stale();
+          schedule_preview();
+        });
+
+        carbide.events.on("editor-selection-changed", () => {
+          mark_context_stale();
+          if (editor_el.value.includes("selection")) {
+            schedule_preview();
+          }
+        });
+
+        editor_el.value = EXAMPLES.meeting;
+        schedule_preview();
+      });
+    </script>
+  </body>
+</html>

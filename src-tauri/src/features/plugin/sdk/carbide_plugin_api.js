@@ -71,6 +71,7 @@
     },
 
     editor: {
+      getInfo: () => _rpc("editor.get_info"),
       getValue: () => _rpc("editor.get_value"),
       getSelection: () => _rpc("editor.get_selection"),
       replaceSelection: (text) => _rpc("editor.replace_selection", text),
