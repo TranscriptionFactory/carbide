@@ -21,6 +21,7 @@ export type TabEditorSnapshot = {
   scroll_top: number;
   cursor: CursorInfo | null;
   cursor_offset: number;
+  markdown_cursor_offset: number;
 };
 
 export type ClosedTabEntry = {

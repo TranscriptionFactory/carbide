@@ -143,11 +143,13 @@ describe("TabService", () => {
         scroll_top: 0,
         cursor: alpha_cursor,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
       tab_store.set_snapshot(beta, {
         scroll_top: 0,
         cursor: beta_cursor,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
 
       await service.save_tabs();
@@ -346,6 +348,7 @@ describe("TabService", () => {
         scroll_top: 0,
         cursor: alpha_cursor,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
       expect(tab_store.get_snapshot(as_note_path("docs/beta.md"))).toBeNull();
     });

@@ -100,10 +100,17 @@ export async function capture_active_tab_snapshot(
   }
 
   const cursor = stores.editor.cursor;
+  const mode = stores.editor.editor_mode;
+  const markdown_cursor_offset =
+    mode === "source" && !stores.editor.split_view
+      ? stores.editor.cursor_offset
+      : services.editor.get_cursor_markdown_offset();
+
   stores.tab.set_snapshot(active_id, {
     scroll_top: services.editor.get_scroll_top(),
     cursor,
     cursor_offset: stores.editor.cursor_offset,
+    markdown_cursor_offset,
   });
 
   const open_note = stores.editor.open_note;
@@ -138,6 +145,14 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   stores.ui.clear_selected_items();
 
   const snapshot = stores.tab.get_snapshot(active_tab.id);
+
+  if (snapshot) {
+    stores.editor.set_pending_cursor_restore({
+      markdown_cursor_offset: snapshot.markdown_cursor_offset,
+      source_cursor_offset: snapshot.cursor_offset,
+      scroll_top: snapshot.scroll_top,
+    });
+  }
 
   const cached = stores.tab.get_cached_note(active_tab.id);
   if (cached) {

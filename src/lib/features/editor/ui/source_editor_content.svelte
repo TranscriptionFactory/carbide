@@ -293,6 +293,8 @@
 
     if (store_timer !== null) {
       clearTimeout(store_timer);
+    }
+    if (view) {
       (mounted_markdown_change ?? on_markdown_change)(get_content());
     }
 

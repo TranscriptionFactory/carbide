@@ -64,6 +64,7 @@ export function create_editor_sync_reactor(
       const mode = editor_store.editor_mode;
       if (mode === "source" && !editor_store.split_view) {
         editor_service.set_active_note(open_note);
+        editor_store.consume_pending_cursor_restore();
         return;
       }
 
@@ -72,6 +73,13 @@ export function create_editor_sync_reactor(
         last_note_id: previous_note_id,
       });
       editor_service.open_buffer(open_note, restore_policy);
+
+      const pending = editor_store.consume_pending_cursor_restore();
+      if (pending && pending.markdown_cursor_offset > 0) {
+        editor_service.set_cursor_from_markdown_offset(
+          pending.markdown_cursor_offset,
+        );
+      }
     });
   });
 }

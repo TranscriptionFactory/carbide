@@ -117,6 +117,7 @@ export class TabService {
         scroll_top: 0,
         cursor: persisted_tab.cursor,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
     }
   }

@@ -152,7 +152,9 @@
         {#key open_note.meta.id}
           <SourceEditor
             initial_markdown={open_note.markdown}
-            initial_cursor_offset={stores.editor.cursor_offset}
+            initial_cursor_offset={stores.editor.cursor_offset ||
+              stores.editor.pending_cursor_restore?.source_cursor_offset ||
+              0}
             initial_scroll_fraction={stores.editor.scroll_fraction}
             show_line_numbers={stores.ui.editor_settings
               .source_editor_line_numbers}

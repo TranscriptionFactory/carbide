@@ -112,6 +112,71 @@ describe("EditorStore", () => {
     expect(store.scroll_fraction).toBe(0);
   });
 
+  it("pending_cursor_restore survives set_open_note", () => {
+    const store = new EditorStore();
+    const note1 = create_test_note("docs/note1", "note1");
+    const note2 = create_test_note("docs/note2", "note2");
+
+    store.set_open_note(create_open_note_state(note1));
+    store.set_pending_cursor_restore({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+
+    store.set_open_note(create_open_note_state(note2));
+
+    expect(store.pending_cursor_restore).toEqual({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+  });
+
+  it("consume_pending_cursor_restore returns value and clears", () => {
+    const store = new EditorStore();
+    store.set_pending_cursor_restore({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+
+    const result = store.consume_pending_cursor_restore();
+
+    expect(result).toEqual({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+    expect(store.pending_cursor_restore).toBeNull();
+  });
+
+  it("clear_open_note clears pending_cursor_restore", () => {
+    const store = new EditorStore();
+    store.set_pending_cursor_restore({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+
+    store.clear_open_note();
+
+    expect(store.pending_cursor_restore).toBeNull();
+  });
+
+  it("reset clears pending_cursor_restore", () => {
+    const store = new EditorStore();
+    store.set_pending_cursor_restore({
+      markdown_cursor_offset: 42,
+      source_cursor_offset: 10,
+      scroll_top: 100,
+    });
+
+    store.reset();
+
+    expect(store.pending_cursor_restore).toBeNull();
+  });
+
   it("tracks and clears selection for the open note", () => {
     const store = new EditorStore();
     const note = create_test_note("docs/note", "note");
