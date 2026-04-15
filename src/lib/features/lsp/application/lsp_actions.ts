@@ -104,9 +104,7 @@ export function register_lsp_actions(input: {
     id: ACTION_IDS.lsp_show_hover,
     label: "Show LSP Hover",
     execute: () => {
-      ui_store.bottom_panel_open = true;
-      ui_store.bottom_panel_tab = "lsp_results";
-      lsp_store.active_lsp_tab = "hover";
+      input.editor_service.trigger_hover_at_cursor();
     },
   });
 }
