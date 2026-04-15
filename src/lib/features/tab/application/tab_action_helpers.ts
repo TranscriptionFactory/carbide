@@ -94,10 +94,7 @@ export async function capture_active_tab_snapshot(
   const active_id = stores.tab.active_tab_id;
   if (!active_id) return;
 
-  const flushed = services.editor.flush();
-  if (flushed) {
-    stores.editor.set_markdown(flushed.note_id, flushed.markdown);
-  }
+  services.editor.flush();
 
   const cursor = stores.editor.cursor;
   const mode = stores.editor.editor_mode;

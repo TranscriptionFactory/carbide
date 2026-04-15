@@ -17,6 +17,7 @@
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
+  import type { NoteId } from "$lib/shared/types/ids";
   import type { EditorView } from "@codemirror/view";
   import type { Diagnostic } from "$lib/features/diagnostics";
 
@@ -60,6 +61,8 @@
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
   let mounted_markdown_change: ((markdown: string) => void) | null = null;
+  let tracked_note_id: NoteId | null = null;
+  let mounted_note_id: NoteId | undefined;
 
   function get_content(): string {
     return view?.state.doc.toString() ?? "";
@@ -113,6 +116,11 @@
 
   $effect.pre(() => {
     if (!view_mounted || !view) return;
+    const current_note_id = stores.editor.open_note?.meta.id ?? null;
+    if (current_note_id !== tracked_note_id) {
+      tracked_note_id = current_note_id;
+      last_applied_markdown = null;
+    }
     const store_markdown =
       stores.editor.open_note?.markdown ?? initial_markdown;
     const current_content = untrack(() => get_content());
@@ -221,10 +229,11 @@
       extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
       last_applied_markdown = initial_markdown;
-      const mounted_note_id = stores.editor.open_note?.meta.id;
-      mounted_markdown_change = mounted_note_id
+      mounted_note_id = stores.editor.open_note?.meta.id;
+      const captured_note_id = mounted_note_id;
+      mounted_markdown_change = captured_note_id
         ? (md: string) =>
-            stores.editor.set_markdown(mounted_note_id, as_markdown_text(md))
+            stores.editor.set_markdown(captured_note_id, as_markdown_text(md))
         : on_markdown_change;
 
       view = new EV({
@@ -300,7 +309,10 @@
 
     stores.editor.clear_source_content_getter();
 
-    on_destroy?.({ cursor_offset, scroll_fraction });
+    const note_changed = stores.editor.open_note?.meta.id !== mounted_note_id;
+    if (!note_changed) {
+      on_destroy?.({ cursor_offset, scroll_fraction });
+    }
 
     clearTimeout(outline_timer);
     view?.destroy();

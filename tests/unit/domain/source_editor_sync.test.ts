@@ -79,4 +79,33 @@ describe("sync_source_editor_markdown", () => {
       applied_markdown: "hello",
     });
   });
+
+  it("forces content update when applied_markdown is reset to null (note change)", () => {
+    expect(
+      sync_source_editor_markdown({
+        content: "old note content",
+        applied_markdown: null,
+        next_markdown: "new note content",
+      }),
+    ).toEqual({
+      content: "new note content",
+      applied_markdown: "new note content",
+    });
+  });
+
+  it("applies content even when old content matches applied_markdown after null reset", () => {
+    const result = sync_source_editor_markdown({
+      content: "note A",
+      applied_markdown: null,
+      next_markdown: "note B",
+    });
+    expect(result.content).toBe("note B");
+
+    const no_op = sync_source_editor_markdown({
+      content: "note B",
+      applied_markdown: "note B",
+      next_markdown: "note B",
+    });
+    expect(no_op.content).toBe("note B");
+  });
 });
