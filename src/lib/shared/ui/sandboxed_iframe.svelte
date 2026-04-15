@@ -8,6 +8,7 @@
     class?: string;
     visible?: boolean;
     on_message: (data: unknown) => void;
+    on_load?: () => void;
   }
 
   let {
@@ -19,6 +20,7 @@
     class: class_name = "",
     visible = false,
     on_message,
+    on_load,
   }: Props = $props();
 
   let iframe_element: HTMLIFrameElement | null = $state(null);
@@ -53,4 +55,5 @@
   {...{ csp } as any}
   class={class_name}
   aria-hidden={!visible}
+  onload={on_load}
 ></iframe>

@@ -10,6 +10,7 @@
   let { plugin_id, vault_path, on_message }: Props = $props();
 
   let sandboxed_iframe: SandboxedIframe | undefined = $state();
+  let should_activate = $state(false);
 
   const src = $derived(
     `carbide-plugin://${plugin_id}/index.html?vault=${encodeURIComponent(vault_path)}`,
@@ -43,16 +44,19 @@
 
   $effect(() => {
     if (!sandboxed_iframe) return;
-
-    const timer = setTimeout(() => {
-      post_message({ method: "lifecycle.activate", params: [] });
-    }, 0);
+    should_activate = true;
 
     return () => {
-      clearTimeout(timer);
+      should_activate = false;
       post_message({ method: "lifecycle.deactivate", params: [] });
     };
   });
+
+  function handle_iframe_load() {
+    if (should_activate) {
+      post_message({ method: "lifecycle.activate", params: [] });
+    }
+  }
 
   export function post_message(message: any) {
     sandboxed_iframe?.post_message(message);
@@ -65,5 +69,6 @@
   origin={expected_origin}
   title="Plugin: {plugin_id}"
   {on_message}
+  on_load={handle_iframe_load}
   class="w-0 h-0 hidden"
 />

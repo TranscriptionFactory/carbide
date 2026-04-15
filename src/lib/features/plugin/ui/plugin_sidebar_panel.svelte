@@ -20,6 +20,7 @@
   const expected_origin = $derived(`carbide-plugin://${plugin_id}`);
 
   let sandboxed_iframe: SandboxedIframe | undefined = $state();
+  let should_activate = $state(false);
 
   $effect(() => {
     if (!sandboxed_iframe || !plugin_id) return;
@@ -28,21 +29,25 @@
       sandboxed_iframe?.post_message(msg);
     });
 
-    const timer = setTimeout(() => {
-      sandboxed_iframe?.post_message({
-        method: "lifecycle.activate",
-        params: [],
-      });
-    }, 0);
+    should_activate = true;
 
     return () => {
-      clearTimeout(timer);
+      should_activate = false;
       sandboxed_iframe?.post_message({
         method: "lifecycle.deactivate",
         params: [],
       });
     };
   });
+
+  function handle_iframe_load() {
+    if (should_activate) {
+      sandboxed_iframe?.post_message({
+        method: "lifecycle.activate",
+        params: [],
+      });
+    }
+  }
 
   $effect(() => {
     if (!plugin_id) return;
@@ -91,6 +96,7 @@
         origin={expected_origin}
         title="Plugin: {plugin_id}"
         {on_message}
+        on_load={handle_iframe_load}
         visible={true}
         class="w-full h-full border-0"
       />
