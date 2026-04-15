@@ -50,6 +50,7 @@ import {
   restore_heading_folds,
 } from "$lib/features/editor/extensions";
 import { heading_fold_plugin_key } from "$lib/features/editor/adapters/heading_fold_plugin";
+import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import type {
   ResolveAssetUrlForVault,
   CiteSuggestionItem,
@@ -619,6 +620,7 @@ export function create_prosemirror_editor_port(args?: {
             view.state.doc.content.size,
             new_doc.content,
           );
+          tr.setMeta(SKIP_FRONTMATTER_GUARD, true);
           suppress_change_echo = true;
           try {
             view.dispatch(tr);

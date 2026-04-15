@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { EditorState, TextSelection } from "prosemirror-state";
 import { schema } from "$lib/features/editor/adapters/schema";
-import { create_frontmatter_guard_plugin } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
+import {
+  create_frontmatter_guard_plugin,
+  SKIP_FRONTMATTER_GUARD,
+} from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 
 function make_state_with_frontmatter(body_text: string) {
   const fm = schema.nodes.frontmatter.create(null, schema.text("title: Test"));
@@ -66,6 +69,23 @@ describe("frontmatter guard plugin", () => {
       new_doc_content.content,
     );
     tr.setMeta("addToHistory", false);
+    const next = state.apply(tr);
+    expect(next.doc.firstChild?.type.name).toBe("paragraph");
+  });
+
+  it("allows undoable full-doc replacement with SKIP_FRONTMATTER_GUARD", () => {
+    const state = make_state_with_frontmatter("hello");
+    const para = schema.nodes.paragraph.create(
+      null,
+      schema.text("replaced by lint"),
+    );
+    const new_doc_content = schema.nodes.doc.create(null, [para]);
+    const tr = state.tr.replaceWith(
+      0,
+      state.doc.content.size,
+      new_doc_content.content,
+    );
+    tr.setMeta(SKIP_FRONTMATTER_GUARD, true);
     const next = state.apply(tr);
     expect(next.doc.firstChild?.type.name).toBe("paragraph");
   });
