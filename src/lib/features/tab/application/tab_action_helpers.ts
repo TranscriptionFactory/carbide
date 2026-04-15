@@ -343,6 +343,13 @@ export async function close_tab_immediate(
 
   const was_active = stores.tab.active_tab_id === tab_id;
   stores.tab.close_tab(tab_id);
+  const no_tabs_remain = !stores.tab.has_tabs;
+
+  if (no_tabs_remain) {
+    stores.editor.clear_open_note();
+    stores.outline.clear();
+  }
+
   if (tab.kind === "note") {
     services.editor.close_buffer?.(tab.note_path);
   }
@@ -350,7 +357,7 @@ export async function close_tab_immediate(
     stores.graph.set_view_mode("neighborhood");
   }
 
-  if (was_active) {
+  if (!no_tabs_remain && was_active) {
     await open_active_tab_note(input);
   }
 }
