@@ -7,6 +7,12 @@ import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { EditorMode } from "$lib/shared/types/editor";
 
+export type PendingCursorRestore = {
+  markdown_cursor_offset: number;
+  source_cursor_offset: number;
+  scroll_top: number;
+};
+
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.1;
@@ -24,9 +30,20 @@ export class EditorStore {
   source_content_getter: (() => string) | null = null;
   zoom = $state(1.0);
   pending_heading_fragment = $state<string | null>(null);
+  pending_cursor_restore = $state<PendingCursorRestore | null>(null);
 
   set_pending_heading_fragment(fragment: string | null) {
     this.pending_heading_fragment = fragment;
+  }
+
+  set_pending_cursor_restore(restore: PendingCursorRestore) {
+    this.pending_cursor_restore = restore;
+  }
+
+  consume_pending_cursor_restore(): PendingCursorRestore | null {
+    const r = this.pending_cursor_restore;
+    this.pending_cursor_restore = null;
+    return r;
   }
 
   set_source_content_getter(fn: () => string) {
@@ -51,6 +68,7 @@ export class EditorStore {
     this.cursor = null;
     this.last_saved_at = null;
     this.selection = null;
+    this.pending_cursor_restore = null;
   }
 
   set_markdown(note_id: NoteId, markdown: OpenNoteState["markdown"]) {
@@ -204,5 +222,6 @@ export class EditorStore {
     this.scroll_fraction = 0;
     this.selection = null;
     this.source_content_getter = null;
+    this.pending_cursor_restore = null;
   }
 }

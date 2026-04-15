@@ -275,6 +275,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
           scroll_top: entry.scroll_top,
           cursor: entry.cursor,
           cursor_offset: 0,
+          markdown_cursor_offset: 0,
         });
       }
 

@@ -113,6 +113,7 @@ function create_tab_actions_harness() {
     editor: {
       flush: vi.fn().mockReturnValue(null),
       get_scroll_top: vi.fn().mockReturnValue(0),
+      get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
       set_scroll_top: vi.fn(),
       close_buffer: vi.fn(),
     },

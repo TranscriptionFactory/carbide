@@ -173,6 +173,7 @@ describe("TabStore", () => {
         scroll_top: 100,
         cursor: null,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
 
       store.close_tab("a.md");
@@ -285,6 +286,7 @@ describe("TabStore", () => {
         scroll_top: 50,
         cursor: null,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
 
       store.close_all_tabs();
@@ -500,6 +502,7 @@ describe("TabStore", () => {
         scroll_top: 42,
         cursor: null,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
 
       store.update_tab_path(np("old.md"), np("new.md"));
@@ -908,6 +911,7 @@ describe("TabStore", () => {
         scroll_top: 50,
         cursor: null,
         cursor_offset: 0,
+        markdown_cursor_offset: 0,
       });
       store.push_closed_history({
         kind: "note",
