@@ -1,11 +1,28 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { Search, BookOpen, Plug, PlugZap, Link } from "@lucide/svelte";
+  import {
+    Search,
+    BookOpen,
+    Plug,
+    PlugZap,
+    Link,
+    List,
+    Layers,
+    FolderTree,
+    Folder,
+    ChevronRight,
+    ChevronDown,
+  } from "@lucide/svelte";
   import { format_authors, extract_year } from "../domain/csl_utils";
   import { match_query } from "../domain/csl_utils";
   import type { CslItem, LinkedNoteInfo } from "../types";
   import LinkedSourceManager from "./linked_source_manager.svelte";
+  import {
+    group_by_source,
+    build_tree,
+    type TreeNode,
+  } from "../domain/view_mode_helpers";
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
@@ -21,12 +38,33 @@
   let searching = $state(false);
   let destroyed = false;
 
+  let view_mode = $state<"flat" | "by_source" | "tree">("by_source");
+  let all_linked_notes = $state<LinkedNoteInfo[]>([]);
+  let collapsed_sections = $state(new Set<string>());
+  let collapsed_tree_nodes = $state(new Set<string>());
+
   const has_connected_extensions = $derived(
     ref_store.get_connected_extensions().length > 0,
   );
   const has_extensions = $derived(
     ref_service.get_registered_extensions().length > 0,
   );
+
+  const grouped_notes = $derived(group_by_source(all_linked_notes));
+  const tree_nodes = $derived(build_tree(all_linked_notes));
+
+  async function load_all_linked_notes() {
+    if (destroyed) return;
+    try {
+      all_linked_notes = await ref_service.query_all_linked_notes();
+    } catch {
+      all_linked_notes = [];
+    }
+  }
+
+  onMount(() => {
+    load_all_linked_notes();
+  });
 
   function debounced_search(q: string) {
     if (debounce_timer) clearTimeout(debounce_timer);
@@ -116,6 +154,20 @@
     }
   }
 
+  function toggle_section(key: string) {
+    const next = new Set(collapsed_sections);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    collapsed_sections = next;
+  }
+
+  function toggle_tree_node(path: string) {
+    const next = new Set(collapsed_tree_nodes);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    collapsed_tree_nodes = next;
+  }
+
   onDestroy(() => {
     if (debounce_timer) clearTimeout(debounce_timer);
     destroyed = true;
@@ -126,21 +178,55 @@
   <div class="CitationPicker__header">
     <div class="flex items-center justify-between px-3 py-2 border-b">
       <h2 class="text-sm font-semibold">References</h2>
-      {#if has_extensions}
-        <button
-          class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
-          onclick={test_connections}
-          title={has_connected_extensions
-            ? "Extensions connected"
-            : "Click to test extension connections"}
-        >
-          {#if has_connected_extensions}
-            <PlugZap class="w-3 h-3 text-green-500" />
-          {:else}
-            <Plug class="w-3 h-3 text-muted-foreground" />
-          {/if}
-        </button>
-      {/if}
+      <div class="flex items-center gap-1">
+        {#if has_extensions}
+          <button
+            class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
+            onclick={test_connections}
+            title={has_connected_extensions
+              ? "Extensions connected"
+              : "Click to test extension connections"}
+          >
+            {#if has_connected_extensions}
+              <PlugZap class="w-3 h-3 text-green-500" />
+            {:else}
+              <Plug class="w-3 h-3 text-muted-foreground" />
+            {/if}
+          </button>
+        {/if}
+        <div class="flex items-center rounded border overflow-hidden">
+          <button
+            class="px-1.5 py-0.5 hover:bg-muted transition-colors {view_mode ===
+            'flat'
+              ? 'bg-muted'
+              : ''}"
+            onclick={() => (view_mode = "flat")}
+            title="Flat list"
+          >
+            <List class="w-3 h-3 text-muted-foreground" />
+          </button>
+          <button
+            class="px-1.5 py-0.5 hover:bg-muted transition-colors border-x {view_mode ===
+            'by_source'
+              ? 'bg-muted'
+              : ''}"
+            onclick={() => (view_mode = "by_source")}
+            title="Group by source"
+          >
+            <Layers class="w-3 h-3 text-muted-foreground" />
+          </button>
+          <button
+            class="px-1.5 py-0.5 hover:bg-muted transition-colors {view_mode ===
+            'tree'
+              ? 'bg-muted'
+              : ''}"
+            onclick={() => (view_mode = "tree")}
+            title="Tree view"
+          >
+            <FolderTree class="w-3 h-3 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
     </div>
     <div class="relative px-3 py-2">
       <Search
@@ -157,7 +243,7 @@
   </div>
 
   <div class="CitationPicker__content">
-    {#if !query.trim() && ref_store.library_items.length === 0}
+    {#if !query.trim() && ref_store.library_items.length === 0 && all_linked_notes.length === 0}
       <div class="text-center py-8 px-4 text-muted-foreground">
         <BookOpen class="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p class="text-sm">No references yet.</p>
@@ -167,7 +253,7 @@
       <div class="text-center py-4 text-muted-foreground">
         <p class="text-sm">Searching...</p>
       </div>
-    {:else}
+    {:else if query.trim()}
       {#if local_results.length > 0}
         <div class="px-3 pt-2">
           <p class="text-xs text-muted-foreground font-medium mb-1">Library</p>
@@ -235,13 +321,13 @@
         {/each}
       {/each}
 
-      {#if query.trim() && local_results.length === 0 && linked_results.length === 0 && extension_results.length === 0 && !searching}
+      {#if local_results.length === 0 && linked_results.length === 0 && extension_results.length === 0 && !searching}
         <div class="text-center py-4 text-muted-foreground">
           <p class="text-sm">No results found.</p>
         </div>
       {/if}
-
-      {#if !query.trim() && ref_store.library_items.length > 0}
+    {:else if view_mode === "by_source"}
+      {#if ref_store.library_items.length > 0}
         <div class="px-3 pt-2">
           <p class="text-xs text-muted-foreground font-medium mb-1">
             Library ({ref_store.library_items.length})
@@ -258,6 +344,162 @@
             </div>
             <div class="text-xs text-muted-foreground truncate">
               {format_item_line(item)}
+            </div>
+          </button>
+        {/each}
+      {/if}
+
+      {#each [...grouped_notes.entries()] as [source_id, notes] (source_id)}
+        {@const is_collapsed = collapsed_sections.has(source_id)}
+        <button
+          class="w-full flex items-center gap-1 px-3 pt-2 pb-1 text-left"
+          onclick={() => toggle_section(source_id)}
+        >
+          {#if is_collapsed}
+            <ChevronRight class="w-3 h-3 text-muted-foreground shrink-0" />
+          {:else}
+            <ChevronDown class="w-3 h-3 text-muted-foreground shrink-0" />
+          {/if}
+          <p class="text-xs text-muted-foreground font-medium">
+            {source_id} ({notes.length})
+          </p>
+        </button>
+        {#if !is_collapsed}
+          {#each notes as note (note.path)}
+            <button
+              class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+              onclick={() => open_file(note.external_file_path)}
+              title="Open linked file"
+            >
+              <div class="flex items-center gap-1.5">
+                <Link class="w-3 h-3 text-muted-foreground shrink-0" />
+                <span class="text-sm font-medium truncate">{note.title}</span>
+              </div>
+              <div class="text-xs text-muted-foreground truncate">
+                {format_linked_note_line(note)}
+              </div>
+            </button>
+          {/each}
+        {/if}
+      {/each}
+    {:else if view_mode === "tree"}
+      {#if ref_store.library_items.length > 0}
+        <div class="px-3 pt-2">
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            Library ({ref_store.library_items.length})
+          </p>
+        </div>
+        {#each ref_store.library_items as item (item.id)}
+          <button
+            class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+            onclick={() => insert(item)}
+            title="Insert [@{item.id}]"
+          >
+            <div class="text-sm font-medium truncate">
+              {item.title ?? item.id}
+            </div>
+            <div class="text-xs text-muted-foreground truncate">
+              {format_item_line(item)}
+            </div>
+          </button>
+        {/each}
+      {/if}
+      {#snippet render_tree_nodes(nodes: TreeNode[], depth: number)}
+        {#each nodes as node (node.path + node.name)}
+          {#if node.note}
+            <button
+              class="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors"
+              style="padding-left: {12 + depth * 16}px"
+              onclick={() => open_file(node.note!.external_file_path)}
+              title="Open linked file"
+            >
+              <div class="flex items-center gap-1.5">
+                <Link class="w-3 h-3 text-muted-foreground shrink-0" />
+                <span class="text-sm font-medium truncate"
+                  >{node.note.title}</span
+                >
+              </div>
+              <div
+                class="text-xs text-muted-foreground truncate"
+                style="padding-left: 18px"
+              >
+                {format_linked_note_line(node.note)}
+              </div>
+            </button>
+          {:else}
+            {@const is_collapsed = collapsed_tree_nodes.has(
+              node.path + node.name,
+            )}
+            <button
+              class="w-full flex items-center gap-1 py-1 hover:bg-muted transition-colors text-left"
+              style="padding-left: {12 + depth * 16}px"
+              onclick={() => toggle_tree_node(node.path + node.name)}
+            >
+              {#if is_collapsed}
+                <ChevronRight class="w-3 h-3 text-muted-foreground shrink-0" />
+              {:else}
+                <ChevronDown class="w-3 h-3 text-muted-foreground shrink-0" />
+              {/if}
+              <Folder class="w-3 h-3 text-muted-foreground shrink-0" />
+              <span class="text-xs font-medium text-muted-foreground"
+                >{node.name}</span
+              >
+            </button>
+            {#if !is_collapsed && node.children}
+              {@render render_tree_nodes(node.children, depth + 1)}
+            {/if}
+          {/if}
+        {/each}
+      {/snippet}
+      {#if tree_nodes.length > 0}
+        <div class="px-3 pt-2">
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            Linked Sources
+          </p>
+        </div>
+        {@render render_tree_nodes(tree_nodes, 0)}
+      {/if}
+    {:else}
+      {#if ref_store.library_items.length > 0}
+        <div class="px-3 pt-2">
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            Library ({ref_store.library_items.length})
+          </p>
+        </div>
+        {#each ref_store.library_items as item (item.id)}
+          <button
+            class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+            onclick={() => insert(item)}
+            title="Insert [@{item.id}]"
+          >
+            <div class="text-sm font-medium truncate">
+              {item.title ?? item.id}
+            </div>
+            <div class="text-xs text-muted-foreground truncate">
+              {format_item_line(item)}
+            </div>
+          </button>
+        {/each}
+      {/if}
+
+      {#if all_linked_notes.length > 0}
+        <div class="px-3 pt-2">
+          <p class="text-xs text-muted-foreground font-medium mb-1">
+            Linked Sources ({all_linked_notes.length})
+          </p>
+        </div>
+        {#each all_linked_notes as note (note.path)}
+          <button
+            class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+            onclick={() => open_file(note.external_file_path)}
+            title="Open linked file"
+          >
+            <div class="flex items-center gap-1.5">
+              <Link class="w-3 h-3 text-muted-foreground shrink-0" />
+              <span class="text-sm font-medium truncate">{note.title}</span>
+            </div>
+            <div class="text-xs text-muted-foreground truncate">
+              {format_linked_note_line(note)}
             </div>
           </button>
         {/each}
