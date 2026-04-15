@@ -585,6 +585,7 @@ export function create_prosemirror_editor_port(args?: {
             old_end,
             new Slice(slice, 0, 0),
           );
+          tr.setMeta("addToHistory", false);
           suppress_change_echo = true;
           try {
             view.dispatch(tr);
@@ -707,9 +708,15 @@ export function create_prosemirror_editor_port(args?: {
               ? v.state.selection
               : null;
 
-          const saved_entry = should_reuse_cache
+          const raw_saved_entry = should_reuse_cache
             ? buffer_map.get(next_config.note_path)
             : null;
+          const saved_entry =
+            raw_saved_entry &&
+            raw_saved_entry.markdown ===
+              normalize_markdown(next_config.initial_markdown)
+              ? raw_saved_entry
+              : null;
           if (saved_entry && !ydoc_manager) {
             v.updateState(saved_entry.state);
             current_markdown = saved_entry.markdown;

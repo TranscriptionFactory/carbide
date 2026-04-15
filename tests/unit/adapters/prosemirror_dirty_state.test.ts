@@ -178,6 +178,9 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
     session.insert_text_at_cursor("edited ");
     expect(on_dirty).toHaveBeenCalledWith(true);
 
+    // Capture A's markdown before switching away (the store would do this)
+    const note_a_markdown = on_markdown.mock.calls.at(-1)?.[0] as string;
+
     // Switch to note B (save A's buffer, open B fresh)
     session.open_buffer({
       note_path: "b.md",
@@ -188,11 +191,11 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
 
     on_dirty.mockClear();
 
-    // Switch back to note A (restore from cache)
+    // Switch back to note A — pass the edited markdown as the store would
     session.open_buffer({
       note_path: "a.md",
       vault_id: null,
-      initial_markdown: "note A content\n",
+      initial_markdown: note_a_markdown,
       restore_policy: "reuse_cache",
     });
 
@@ -204,6 +207,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
 
   it("buffer restore after mark_clean shows clean state", async () => {
     const on_dirty = vi.fn();
+    const on_markdown = vi.fn();
     const port = create_prosemirror_editor_port();
     const root = document.createElement("div");
     document.body.appendChild(root);
@@ -215,7 +219,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       note_path: "a.md",
       vault_id: null,
       events: {
-        on_markdown_change: vi.fn(),
+        on_markdown_change: on_markdown,
         on_dirty_state_change: on_dirty,
         on_cursor_change: vi.fn(),
         on_selection_change: vi.fn(),
@@ -225,6 +229,9 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
     // Edit and save note A
     session.insert_text_at_cursor("edited ");
     session.mark_clean();
+
+    // Capture A's markdown before switching away
+    const note_a_markdown = on_markdown.mock.calls.at(-1)?.[0] as string;
 
     // Switch to B
     session.open_buffer({
@@ -236,16 +243,65 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
 
     on_dirty.mockClear();
 
-    // Switch back to A
+    // Switch back to A — pass the edited markdown as the store would
     session.open_buffer({
       note_path: "a.md",
       vault_id: null,
-      initial_markdown: "note A content\n",
+      initial_markdown: note_a_markdown,
       restore_policy: "reuse_cache",
     });
 
     // Should be clean since we mark_clean'd after edit
     expect(on_dirty).toHaveBeenCalledWith(false);
+
+    session.destroy();
+  });
+
+  it("cache invalidation when source-mode edits change markdown externally", async () => {
+    const on_dirty = vi.fn();
+    const on_markdown = vi.fn();
+    const port = create_prosemirror_editor_port();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    container = root;
+
+    const session = await port.start_session({
+      root,
+      initial_markdown: "original content\n",
+      note_path: "a.md",
+      vault_id: null,
+      events: {
+        on_markdown_change: on_markdown,
+        on_dirty_state_change: on_dirty,
+        on_cursor_change: vi.fn(),
+        on_selection_change: vi.fn(),
+      },
+    });
+
+    // Switch to note B (caches A's ProseMirror state with "original content")
+    session.open_buffer({
+      note_path: "b.md",
+      vault_id: null,
+      initial_markdown: "note B content\n",
+      restore_policy: "reuse_cache",
+    });
+
+    on_markdown.mockClear();
+
+    // Switch back to A with different initial_markdown (simulates source-mode edit)
+    const source_edited = "source edited content\n";
+    session.open_buffer({
+      note_path: "a.md",
+      vault_id: null,
+      initial_markdown: source_edited,
+      restore_policy: "reuse_cache",
+    });
+
+    // Cache should be invalidated — on_markdown_change should receive the
+    // source-edited content, not the stale cached "original content"
+    expect(on_markdown).toHaveBeenCalledWith(
+      expect.stringContaining("source edited content"),
+    );
 
     session.destroy();
   });
