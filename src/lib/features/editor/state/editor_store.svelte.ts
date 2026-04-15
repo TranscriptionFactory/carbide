@@ -65,6 +65,7 @@ export class EditorStore {
 
   clear_open_note() {
     this.open_note = null;
+    this.editor_mode = "visual";
     this.cursor = null;
     this.last_saved_at = null;
     this.selection = null;

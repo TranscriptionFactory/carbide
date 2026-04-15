@@ -86,6 +86,19 @@ describe("EditorStore", () => {
     expect(store.last_saved_at).toBeNull();
   });
 
+  it("resets editor_mode to visual on clear_open_note", () => {
+    const store = new EditorStore();
+    const note = create_test_note("docs/note", "note");
+
+    store.set_open_note(create_open_note_state(note));
+    store.set_editor_mode("source");
+    expect(store.editor_mode).toBe("source");
+
+    store.clear_open_note();
+
+    expect(store.editor_mode).toBe("visual");
+  });
+
   it("clears last_saved_at on reset", () => {
     const store = new EditorStore();
     const note = create_test_note("docs/note", "note");
