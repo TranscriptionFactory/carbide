@@ -325,6 +325,32 @@ describe("register_tab_actions", () => {
       expect(stores.outline.headings).toHaveLength(0);
     });
 
+    it("clears open_note when closing the last tab", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_close, "a.md");
+
+      expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.editor.open_note).toBeNull();
+      expect(stores.editor.editor_mode).toBe("visual");
+    });
+
+    it("clears open_note even when close_buffer throws", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+      services.editor.close_buffer.mockImplementation(() => {
+        throw new Error("simulated close_buffer failure");
+      });
+
+      await registry.execute(ACTION_IDS.tab_close, "a.md").catch(() => {});
+
+      expect(stores.tab.tabs).toHaveLength(0);
+      expect(stores.editor.open_note).toBeNull();
+    });
+
     it("shows confirmation dialog for dirty tab", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
