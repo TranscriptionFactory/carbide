@@ -132,6 +132,7 @@ export type EditorSettings = {
   file_tree_style: FileTreeStyle;
   file_tree_show_blurb: boolean;
   file_tree_blurb_position: FileTreeBlurbPosition;
+  file_tree_show_linked_sources: boolean;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -231,6 +232,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   file_tree_style: "airy_minimal",
   file_tree_show_blurb: false,
   file_tree_blurb_position: "caption",
+  file_tree_show_linked_sources: true,
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,

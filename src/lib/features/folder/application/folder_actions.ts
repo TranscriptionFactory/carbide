@@ -635,7 +635,9 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         stores.notes.reset_notes_and_folders();
 
         await load_folder(input, "");
-        await inject_linked_source_folders(input);
+        if (input.stores.ui.editor_settings.file_tree_show_linked_sources) {
+          await inject_linked_source_folders(input);
+        }
         const non_root = Array.from(loaded_paths).filter(
           (path) => path !== "" && !is_linked_note_path(path),
         );

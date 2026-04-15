@@ -255,6 +255,8 @@ export async function load_linked_source_folder(
 export async function inject_linked_source_folders(
   input: ActionRegistrationInput,
 ): Promise<void> {
+  if (!input.stores.ui.editor_settings.file_tree_show_linked_sources) return;
+
   const sources = input.stores.reference.linked_sources.filter(
     (s) => s.enabled,
   );

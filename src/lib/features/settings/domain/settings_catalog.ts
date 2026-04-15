@@ -272,6 +272,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "file_tree_show_linked_sources",
+    label: "Show Linked Sources in File Tree",
+    description:
+      "Show the @linked folder in the file explorer. When hidden, linked sources are still accessible from the References panel.",
+    category: "Navigation",
+    keywords: [
+      "file",
+      "tree",
+      "linked",
+      "sources",
+      "folder",
+      "reference",
+      "explorer",
+    ],
+  },
+  {
     key: "max_open_tabs",
     label: "Max Open Tabs",
     description: "Maximum number of tabs that can be open at once",
