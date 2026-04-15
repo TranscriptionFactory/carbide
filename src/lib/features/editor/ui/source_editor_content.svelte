@@ -114,12 +114,58 @@
     }, 300);
   }
 
+  function restore_cursor_and_scroll() {
+    if (!view) return;
+    const pending = stores.editor.pending_cursor_restore;
+    const cursor_offset = pending?.source_cursor_offset ?? 0;
+    if (cursor_offset > 0) {
+      const clamped = Math.min(cursor_offset, view.state.doc.length);
+      view.dispatch({
+        selection: { anchor: clamped },
+        scrollIntoView: false,
+      });
+    } else {
+      view.dispatch({
+        selection: { anchor: 0 },
+        scrollIntoView: false,
+      });
+    }
+
+    const scroll_fraction = stores.editor.scroll_fraction;
+    if (scroll_fraction > 0) {
+      requestAnimationFrame(() => {
+        if (!view) return;
+        const scroller = editor_root?.querySelector(".cm-scroller");
+        if (!scroller) return;
+        const max_scroll = scroller.scrollHeight - scroller.clientHeight;
+        if (max_scroll > 0) {
+          scroller.scrollTop = Math.round(scroll_fraction * max_scroll);
+        }
+      });
+    }
+
+    on_cursor_change(compute_cursor_info());
+  }
+
   $effect.pre(() => {
     if (!view_mounted || !view) return;
     const current_note_id = stores.editor.open_note?.meta.id ?? null;
-    if (current_note_id !== tracked_note_id) {
+    const is_note_switch = current_note_id !== tracked_note_id;
+    if (is_note_switch) {
       tracked_note_id = current_note_id;
       last_applied_markdown = null;
+
+      if (store_timer !== null) {
+        clearTimeout(store_timer);
+        store_timer = null;
+      }
+
+      if (current_note_id) {
+        mounted_note_id = current_note_id;
+        const captured_id = current_note_id;
+        mounted_markdown_change = (md: string) =>
+          stores.editor.set_markdown(captured_id, as_markdown_text(md));
+      }
     }
     const store_markdown =
       stores.editor.open_note?.markdown ?? initial_markdown;
@@ -132,6 +178,9 @@
 
     if (next_state.content === current_content) {
       last_applied_markdown = next_state.applied_markdown;
+      if (is_note_switch) {
+        restore_cursor_and_scroll();
+      }
       return;
     }
 
@@ -142,6 +191,10 @@
       changes: { from: 0, to: doc.length, insert: next_state.content },
     });
     dispatching_from_store = false;
+
+    if (is_note_switch) {
+      restore_cursor_and_scroll();
+    }
 
     on_selection_change?.(compute_selection_snapshot());
     if (on_outline_change) {

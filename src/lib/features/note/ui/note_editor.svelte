@@ -149,34 +149,29 @@
         </EditorContextMenu>
       </div>
       {#if editor_mode === "source"}
-        {#key open_note.meta.id}
-          <SourceEditor
-            initial_markdown={open_note.markdown}
-            initial_cursor_offset={stores.editor.cursor_offset ||
-              stores.editor.pending_cursor_restore?.source_cursor_offset ||
-              0}
-            initial_scroll_fraction={stores.editor.scroll_fraction}
-            show_line_numbers={stores.ui.editor_settings
-              .source_editor_line_numbers}
-            on_markdown_change={(md) =>
-              stores.editor.set_markdown(
-                open_note.meta.id,
-                as_markdown_text(md),
-              )}
-            on_dirty_change={(dirty) =>
-              stores.editor.set_dirty(open_note.meta.id, dirty)}
-            on_cursor_change={(cursor) =>
-              stores.editor.set_cursor(open_note.meta.id, cursor)}
-            on_selection_change={(selection) =>
-              stores.editor.set_selection(open_note.meta.id, selection)}
-            on_outline_change={(headings) =>
-              stores.outline?.set_headings(headings, open_note.meta.path)}
-            on_destroy={(state) => {
-              stores.editor.set_cursor_offset(state.cursor_offset);
-              stores.editor.set_scroll_fraction(state.scroll_fraction);
-            }}
-          />
-        {/key}
+        <SourceEditor
+          initial_markdown={open_note.markdown}
+          initial_cursor_offset={stores.editor.cursor_offset ||
+            stores.editor.pending_cursor_restore?.source_cursor_offset ||
+            0}
+          initial_scroll_fraction={stores.editor.scroll_fraction}
+          show_line_numbers={stores.ui.editor_settings
+            .source_editor_line_numbers}
+          on_markdown_change={(md) =>
+            stores.editor.set_markdown(open_note.meta.id, as_markdown_text(md))}
+          on_dirty_change={(dirty) =>
+            stores.editor.set_dirty(open_note.meta.id, dirty)}
+          on_cursor_change={(cursor) =>
+            stores.editor.set_cursor(open_note.meta.id, cursor)}
+          on_selection_change={(selection) =>
+            stores.editor.set_selection(open_note.meta.id, selection)}
+          on_outline_change={(headings) =>
+            stores.outline?.set_headings(headings, open_note.meta.path)}
+          on_destroy={(state) => {
+            stores.editor.set_cursor_offset(state.cursor_offset);
+            stores.editor.set_scroll_fraction(state.scroll_fraction);
+          }}
+        />
       {/if}
     {/if}
   {:else}
