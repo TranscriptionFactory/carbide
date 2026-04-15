@@ -1326,6 +1326,21 @@
               </div>
             {/if}
 
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Show Linked Sources</span>
+                <span class="SettingsDialog__description">
+                  Show the @linked folder in the file explorer
+                </span>
+              </div>
+              <Switch.Root
+                checked={editor_settings.file_tree_show_linked_sources}
+                onCheckedChange={(v: boolean) => {
+                  update("file_tree_show_linked_sources", v);
+                }}
+              />
+            </div>
+
             <div class="space-y-4 border-t pt-4">
               <div
                 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"

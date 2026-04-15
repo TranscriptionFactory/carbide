@@ -276,7 +276,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Show Linked Sources in File Tree",
     description:
       "Show the @linked folder in the file explorer. When hidden, linked sources are still accessible from the References panel.",
-    category: "Navigation",
+    category: "Layout",
     keywords: [
       "file",
       "tree",
@@ -787,7 +787,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Vim-Style Navigation",
     description:
       "Use vim keybindings (hjkl, gg, G) for navigating the file tree, tabs, and outline panels",
-    category: "Navigation",
+    category: "Hotkeys",
     keywords: ["vim", "navigation", "keyboard", "keybinding", "hjkl", "modal"],
   },
   {
