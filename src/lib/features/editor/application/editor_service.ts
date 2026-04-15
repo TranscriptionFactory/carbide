@@ -199,6 +199,10 @@ export class EditorService {
     this.editor_store.session_revision++;
   }
 
+  set_active_note(note: OpenNoteState): void {
+    this.active_note = note;
+  }
+
   open_buffer(
     note: OpenNoteState,
     restore_policy: BufferRestorePolicy = "reuse_cache",

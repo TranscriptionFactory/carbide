@@ -15,6 +15,7 @@
   } from "$lib/features/editor/ui/source_editor_theme";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import { as_markdown_text } from "$lib/shared/types/ids";
 
   import type { EditorView } from "@codemirror/view";
   import type { Diagnostic } from "$lib/features/diagnostics";
@@ -220,7 +221,11 @@
       extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
       last_applied_markdown = initial_markdown;
-      mounted_markdown_change = on_markdown_change;
+      const mounted_note_id = stores.editor.open_note?.meta.id;
+      mounted_markdown_change = mounted_note_id
+        ? (md: string) =>
+            stores.editor.set_markdown(mounted_note_id, as_markdown_text(md))
+        : on_markdown_change;
 
       view = new EV({
         doc: initial_markdown,

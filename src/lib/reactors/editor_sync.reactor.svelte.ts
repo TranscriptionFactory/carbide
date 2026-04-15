@@ -60,6 +60,13 @@ export function create_editor_sync_reactor(
       last_buffer_id = open_note.buffer_id;
 
       if (!should_open) return;
+
+      const mode = editor_store.editor_mode;
+      if (mode === "source" && !editor_store.split_view) {
+        editor_service.set_active_note(open_note);
+        return;
+      }
+
       const restore_policy = resolve_editor_sync_restore_policy({
         open_note_id: open_note.meta.id,
         last_note_id: previous_note_id,
