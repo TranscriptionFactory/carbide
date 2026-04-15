@@ -62,6 +62,8 @@ export type CommandId =
   | "update_embeddings"
   | "rebuild_embeddings"
   | "open_search_graph"
+  | "document_toggle_source"
+  | "paste_html_as_markdown"
   | (string & {});
 
 export type CommandIcon =

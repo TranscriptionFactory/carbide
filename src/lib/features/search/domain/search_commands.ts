@@ -543,4 +543,20 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "terminal",
     when: (ctx) => ctx.is_html_document,
   },
+  {
+    id: "paste_html_as_markdown",
+    label: "Paste HTML as Markdown",
+    description: "Read HTML from clipboard and insert it as converted markdown",
+    keywords: [
+      "html",
+      "markdown",
+      "paste",
+      "convert",
+      "clipboard",
+      "import",
+      "turndown",
+    ],
+    icon: "file-down",
+    when: (ctx) => ctx.has_open_note,
+  },
 ];

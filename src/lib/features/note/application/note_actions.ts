@@ -494,6 +494,33 @@ export function register_note_actions(input: ActionRegistrationInput) {
         await services.clipboard.copy_open_note_markdown();
       },
     });
+
+    registry.register({
+      id: ACTION_IDS.note_paste_html_as_markdown,
+      label: "Paste HTML as Markdown",
+      execute: async () => {
+        try {
+          const items = await navigator.clipboard.read();
+          let html = "";
+          for (const item of items) {
+            if (item.types.includes("text/html")) {
+              const blob = await item.getType("text/html");
+              html = await blob.text();
+              break;
+            }
+          }
+          if (!html) {
+            toast.error("No HTML found in clipboard");
+            return;
+          }
+          const { html_to_markdown } = await import("$lib/shared/html");
+          const markdown = html_to_markdown(html).replace(/\r\n/g, "\n");
+          services.editor.insert_text(markdown);
+        } catch (e) {
+          toast.error(`Failed to paste HTML: ${String(e)}`);
+        }
+      },
+    });
   }
 
   function register_image_actions() {
