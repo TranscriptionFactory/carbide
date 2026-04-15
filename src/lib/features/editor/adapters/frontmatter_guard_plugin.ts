@@ -1,6 +1,8 @@
 import { Plugin, TextSelection } from "prosemirror-state";
 import type { Node as PmNode } from "prosemirror-model";
 
+export const SKIP_FRONTMATTER_GUARD = "skip_frontmatter_guard";
+
 function is_inside_frontmatter(state: {
   selection: {
     $from: {
@@ -36,6 +38,7 @@ export function create_frontmatter_guard_plugin(): Plugin {
       if (!doc_has_frontmatter(state.doc)) return true;
       if (doc_has_frontmatter(tr.doc)) return true;
       if (tr.getMeta("addToHistory") === false) return true;
+      if (tr.getMeta(SKIP_FRONTMATTER_GUARD) === true) return true;
       return false;
     },
 
