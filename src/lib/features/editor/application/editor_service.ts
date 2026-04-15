@@ -405,6 +405,10 @@ export class EditorService {
     this.session?.focus();
   }
 
+  trigger_hover_at_cursor(): void {
+    this.session?.trigger_hover_at_cursor?.();
+  }
+
   close_buffer(note_path: NotePath) {
     this.session?.close_buffer(note_path);
   }

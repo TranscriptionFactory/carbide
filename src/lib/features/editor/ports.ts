@@ -69,6 +69,7 @@ export type EditorSession = {
     status: "todo" | "doing" | "done",
   ) => boolean;
   set_toolbar_visibility?: (mode: ToolbarVisibility) => void;
+  trigger_hover_at_cursor?: () => void;
 };
 
 export type EditorEventHandlers = {

@@ -4,7 +4,11 @@ import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { MarkdownLspHoverResult } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
-const lsp_hover_plugin_key = new PluginKey("lsp-hover");
+type LspHoverPluginState = {
+  trigger_at_pos: (pos: number) => void;
+};
+
+const lsp_hover_plugin_key = new PluginKey<LspHoverPluginState>("lsp-hover");
 
 function pos_to_dom_rect(view: EditorView, from: number, to: number): DOMRect {
   const start = view.coordsAtPos(from);
@@ -14,6 +18,11 @@ function pos_to_dom_rect(view: EditorView, from: number, to: number): DOMRect {
   const left = Math.min(start.left, end.left);
   const right = Math.max(start.right, end.right);
   return new DOMRect(left, top, right - left, bottom - top);
+}
+
+export function trigger_lsp_hover(view: EditorView, pos: number): void {
+  const plugin_state = lsp_hover_plugin_key.getState(view.state);
+  plugin_state?.trigger_at_pos(pos);
 }
 
 export function create_lsp_hover_plugin(input: {
@@ -27,6 +36,14 @@ export function create_lsp_hover_plugin(input: {
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,
+    state: {
+      init(): LspHoverPluginState {
+        return { trigger_at_pos: () => {} };
+      },
+      apply(_tr, value): LspHoverPluginState {
+        return value;
+      },
+    },
     view(editor_view) {
       let hover_timeout: ReturnType<typeof setTimeout> | null = null;
       let active_pos: number | null = null;
@@ -87,6 +104,25 @@ export function create_lsp_hover_plugin(input: {
         });
       }
 
+      function trigger_at_pos(pos: number) {
+        const { line, character } = line_and_character_from_pos(
+          editor_view,
+          pos,
+        );
+        void input.on_hover(line, character).then((result) => {
+          if (!result?.contents) {
+            if (!hovering_tooltip) hide();
+            return;
+          }
+          show(editor_view, pos, result.contents);
+        });
+      }
+
+      const plugin_state = lsp_hover_plugin_key.getState(editor_view.state);
+      if (plugin_state) {
+        plugin_state.trigger_at_pos = trigger_at_pos;
+      }
+
       async function on_mousemove(event: MouseEvent) {
         if (hover_timeout) clearTimeout(hover_timeout);
 
@@ -101,18 +137,7 @@ export function create_lsp_hover_plugin(input: {
         if (pos === active_pos) return;
 
         hover_timeout = setTimeout(() => {
-          const { line, character } = line_and_character_from_pos(
-            editor_view,
-            pos,
-          );
-
-          void input.on_hover(line, character).then((result) => {
-            if (!result?.contents) {
-              if (!hovering_tooltip) hide();
-              return;
-            }
-            show(editor_view, pos, result.contents);
-          });
+          trigger_at_pos(pos);
         }, 350);
       }
 

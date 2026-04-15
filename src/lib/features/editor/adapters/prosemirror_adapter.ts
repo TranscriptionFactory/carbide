@@ -57,6 +57,7 @@ import type {
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
+import { trigger_lsp_hover } from "./lsp_hover_plugin";
 
 const log = create_logger("prosemirror_adapter");
 
@@ -1021,6 +1022,11 @@ export function create_prosemirror_editor_port(args?: {
         },
         set_toolbar_visibility(mode: ToolbarVisibility) {
           toolbar_config.toolbar_visibility = mode;
+        },
+        trigger_hover_at_cursor() {
+          if (!view) return;
+          const { from } = view.state.selection;
+          trigger_lsp_hover(view, from);
         },
       };
 
