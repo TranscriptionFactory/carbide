@@ -1,4 +1,5 @@
 import { Plugin, TextSelection } from "prosemirror-state";
+import type { Node as PmNode } from "prosemirror-model";
 
 function is_inside_frontmatter(state: {
   selection: {
@@ -17,7 +18,6 @@ function is_inside_frontmatter(state: {
 
 function first_body_position(doc: {
   firstChild: { type: { name: string }; nodeSize: number } | null;
-  resolve: (pos: number) => unknown;
 }): number {
   const first = doc.firstChild;
   if (first && first.type.name === "frontmatter") {
@@ -26,16 +26,40 @@ function first_body_position(doc: {
   return 1;
 }
 
+function doc_has_frontmatter(doc: PmNode): boolean {
+  return doc.firstChild?.type.name === "frontmatter";
+}
+
 export function create_frontmatter_guard_plugin(): Plugin {
   return new Plugin({
-    appendTransaction(_transactions, _oldState, newState) {
-      if (!is_inside_frontmatter(newState)) return null;
+    filterTransaction(tr, state) {
+      if (!doc_has_frontmatter(state.doc)) return true;
+      if (doc_has_frontmatter(tr.doc)) return true;
+      if (tr.getMeta("addToHistory") === false) return true;
+      return false;
+    },
 
-      const pos = first_body_position(newState.doc);
-      const $pos = newState.doc.resolve(
-        Math.min(pos, newState.doc.content.size),
-      );
-      return newState.tr.setSelection(TextSelection.near($pos));
+    appendTransaction(_transactions, _oldState, newState) {
+      if (is_inside_frontmatter(newState)) {
+        const pos = first_body_position(newState.doc);
+        const $pos = newState.doc.resolve(
+          Math.min(pos, newState.doc.content.size),
+        );
+        return newState.tr.setSelection(TextSelection.near($pos));
+      }
+
+      if (doc_has_frontmatter(newState.doc)) {
+        const { from, to } = newState.selection;
+        const body_start = first_body_position(newState.doc);
+        if (from < body_start && to >= body_start) {
+          const clipped_from = Math.min(body_start, newState.doc.content.size);
+          const $from = newState.doc.resolve(clipped_from);
+          const $to = newState.doc.resolve(to);
+          return newState.tr.setSelection(TextSelection.between($from, $to));
+        }
+      }
+
+      return null;
     },
   });
 }
