@@ -963,7 +963,7 @@ describe("PluginRpcHandler", () => {
       expect(response.error).toMatch(/Missing metadata:read permission/);
     });
 
-    it("metadata.getFileCache returns composite cache when metadata:read is granted", async () => {
+    it("metadata.get_file_cache returns composite cache when metadata:read is granted", async () => {
       grant_permissions("metadata:read");
       const metadata = make_metadata_backend();
       ctx.context.metadata = metadata;
@@ -971,7 +971,7 @@ describe("PluginRpcHandler", () => {
       const manifest = make_manifest(["metadata:read"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "m-fc1",
-        method: "metadata.getFileCache",
+        method: "metadata.get_file_cache",
         params: ["notes/target.md"],
       });
 
@@ -984,14 +984,14 @@ describe("PluginRpcHandler", () => {
       expect(metadata.get_file_cache).toHaveBeenCalledWith("notes/target.md");
     });
 
-    it("metadata.getFileCache blocks when metadata:read is not granted", async () => {
+    it("metadata.get_file_cache blocks when metadata:read is not granted", async () => {
       grant_permissions();
       ctx.context.metadata = make_metadata_backend();
 
       const manifest = make_manifest(["metadata:read"]);
       const response = await handler.handle_request(PLUGIN_ID, manifest, {
         id: "m-fc2",
-        method: "metadata.getFileCache",
+        method: "metadata.get_file_cache",
         params: ["notes/target.md"],
       });
 

@@ -1,0 +1,18 @@
+{
+  "id": "smart-templates",
+  "name": "Smart Templates",
+  "version": "0.1.0",
+  "author": "Carbide Community",
+  "description": "Context-aware dynamic templates with Handlebars, live preview, and one-click insertion.",
+  "api_version": "1",
+  "permissions": [
+    "editor:read",
+    "editor:modify",
+    "metadata:read",
+    "search:read",
+    "events:subscribe",
+    "commands:register",
+    "ui:panel"
+  ],
+  "activation_events": ["on_startup"]
+}
