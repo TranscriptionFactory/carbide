@@ -67,6 +67,11 @@
   );
 
   const duplicate_names = $derived(duplicate_vault_names(recent_vaults));
+  const selection_description = $derived(
+    hide_choose_vault_button
+      ? "Select from recent vault locations."
+      : "Open a vault, browse a folder, or select from recent locations",
+  );
 
   $effect(() => {
     selected_vault_index = clamp_vault_selection(
@@ -207,7 +212,7 @@
           Select Vault
         </h2>
         <p class="text-sm text-muted-foreground">
-          Open a vault, browse a folder, or select from recent locations
+          {selection_description}
         </p>
       </div>
     </div>
@@ -220,9 +225,7 @@
     <Card.Root>
       <Card.Header>
         <Card.Title>Select Vault</Card.Title>
-        <Card.Description
-          >Open a vault, browse a folder, or select from recent locations</Card.Description
-        >
+        <Card.Description>{selection_description}</Card.Description>
       </Card.Header>
       <Card.Content>
         <div class="VaultPanel__body">

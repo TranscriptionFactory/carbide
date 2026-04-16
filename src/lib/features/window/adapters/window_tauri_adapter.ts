@@ -2,6 +2,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { WindowPort } from "$lib/features/window/ports";
 import type { WindowInit } from "$lib/features/window/domain/window_types";
 import { compute_title } from "$lib/features/window/domain/window_types";
+import { is_mobile_tauri } from "$lib/shared/utils/detect_platform";
 
 function build_url(init: WindowInit): string {
   const params = new URLSearchParams();
@@ -25,6 +26,12 @@ function window_size(init: WindowInit): { width: number; height: number } {
 export function create_window_tauri_adapter(): WindowPort {
   return {
     async open_window(init: WindowInit): Promise<void> {
+      if (is_mobile_tauri) {
+        throw new Error(
+          "Opening additional windows is not available on mobile.",
+        );
+      }
+
       const label = `${init.kind}-${String(Date.now())}`;
       const { width, height } = window_size(init);
       const webview = new WebviewWindow(label, {
