@@ -4,8 +4,8 @@
   "version": "1.21.0",
   "identifier": "com.carbide.desktop",
   "build": {
-    "beforeDevCommand": "sh ./scripts/frontend-dev.sh",
-    "beforeBuildCommand": "sh ./scripts/frontend-build.sh",
+    "beforeDevCommand": "sh -c 'if [ -f ./src-tauri/scripts/frontend-dev.sh ]; then exec sh ./src-tauri/scripts/frontend-dev.sh; else exec sh ./scripts/frontend-dev.sh; fi'",
+    "beforeBuildCommand": "sh -c 'if [ -f ./src-tauri/scripts/frontend-build.sh ]; then exec sh ./src-tauri/scripts/frontend-build.sh; else exec sh ./scripts/frontend-build.sh; fi'",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
