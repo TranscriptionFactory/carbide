@@ -69,6 +69,10 @@ fn claude_desktop_config_path() -> PathBuf {
         let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".into());
         PathBuf::from(appdata).join("Claude/claude_desktop_config.json")
     }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        home_dir().join(".config/Claude/claude_desktop_config.json")
+    }
 }
 
 fn build_mcp_server_entry(token: &str) -> serde_json::Value {
