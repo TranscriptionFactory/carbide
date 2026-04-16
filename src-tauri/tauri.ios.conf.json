@@ -1,3 +1,6 @@
 {
-  "identifier": "com.carbide.ios"
+  "identifier": "com.carbide.ios",
+  "bundle": {
+    "externalBin": []
+  }
 }

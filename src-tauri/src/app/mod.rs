@@ -1,3 +1,4 @@
+#[cfg(desktop)]
 pub mod menu;
 
 use crate::features;
@@ -6,6 +7,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::Manager;
+#[cfg(desktop)]
 use tauri_plugin_window_state::StateFlags;
 
 include!(concat!(env!("OUT_DIR"), "/icon_stamp.rs"));
@@ -33,6 +35,7 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
         let _ = app_handle.emit("file-open", &path_clone);
     });
 
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -118,21 +121,26 @@ pub fn run() {
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(features::mcp::http::HttpServerState::default())
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            log::info!("Second instance launched with args: {:?}", args);
-            for arg in args.iter().skip(1) {
-                if arg == "--restart-markdown-lsp" {
-                    let _ = app.emit("markdown-lsp-restart-requested", ());
-                    return;
-                }
-                if !arg.starts_with('-') {
-                    handle_file_open(app, arg.clone());
-                    break;
-                }
-            }
-        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        log::info!("Second instance launched with args: {:?}", args);
+        for arg in args.iter().skip(1) {
+            if arg == "--restart-markdown-lsp" {
+                let _ = app.emit("markdown-lsp-restart-requested", ());
+                return;
+            }
+            if !arg.starts_with('-') {
+                handle_file_open(app, arg.clone());
+                break;
+            }
+        }
+    }));
+
+    #[cfg(not(desktop))]
+    let builder = builder;
 
     #[cfg(not(target_os = "ios"))]
     let builder = builder.plugin(tauri_plugin_pty::init());
@@ -140,9 +148,12 @@ pub fn run() {
     #[cfg(target_os = "ios")]
     let builder = builder;
 
-    builder
+    let builder = builder
         .plugin(log_builder.build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(
@@ -163,10 +174,13 @@ pub fn run() {
                 }
             });
 
-            // STT init removed — archived on archive/stt-main
-
             Ok(())
-        })
+        });
+
+    #[cfg(not(desktop))]
+    let builder = builder.setup(|_app| Ok(()));
+
+    builder
         .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
             features::ai::service::ai_execute_cli,
