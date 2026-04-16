@@ -4,8 +4,8 @@
   "version": "1.21.0",
   "identifier": "com.carbide.desktop",
   "build": {
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
+    "beforeDevCommand": "sh ./scripts/frontend-dev.sh",
+    "beforeBuildCommand": "sh ./scripts/frontend-build.sh",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
