@@ -1,6 +1,7 @@
 fn main() {
     ensure_default_icon();
     emit_icon_rerun();
+    emit_ios_link_settings();
     println!(
         "cargo:rustc-env=TARGET_TRIPLE={}",
         std::env::var("TARGET").unwrap()
@@ -8,6 +9,16 @@ fn main() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-env=CARGO_MANIFEST_DIR={}", manifest_dir);
     tauri_build::build()
+}
+
+fn emit_ios_link_settings() {
+    let target = std::env::var("TARGET").unwrap_or_default();
+    if !target.contains("apple-ios") {
+        return;
+    }
+
+    println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=iconv");
 }
 
 fn ensure_default_icon() {
