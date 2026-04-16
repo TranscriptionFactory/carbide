@@ -52,12 +52,16 @@
     IweConfigStatus,
     LspProviderConfigStatus,
   } from "$lib/features/markdown_lsp";
+  import { is_mobile_tauri } from "$lib/shared/utils/detect_platform";
 
   type Props = {
     hide_choose_vault_button?: boolean;
   };
 
   let { hide_choose_vault_button = false }: Props = $props();
+  const hide_choose_vault_cta = $derived(
+    hide_choose_vault_button || is_mobile_tauri,
+  );
 
   const { stores, action_registry, ports } = use_app_context();
 
@@ -268,7 +272,7 @@
         ACTION_IDS.vault_remove_from_registry,
         vault_id,
       )}
-    {hide_choose_vault_button}
+    hide_choose_vault_button={hide_choose_vault_cta}
   />
 
   <VaultDashboardDialog

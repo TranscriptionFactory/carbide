@@ -46,6 +46,7 @@ import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reacto
 // import { create_stt_settings_sync_reactor } from "$lib/reactors/stt_settings_sync.reactor.svelte";
 // import { create_stt_init_reactor } from "$lib/reactors/stt_init.reactor.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { is_mobile_tauri } from "$lib/shared/utils/detect_platform";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
 import type { OpStore } from "$lib/app";
@@ -220,7 +221,12 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_window_title_reactor(
       context.vault_store,
       context.tab_store,
-      (title) => void getCurrentWindow().setTitle(title),
+      (title) => {
+        if (is_mobile_tauri) {
+          return;
+        }
+        void getCurrentWindow().setTitle(title);
+      },
     ),
     create_file_open_reactor(
       (file_path) =>

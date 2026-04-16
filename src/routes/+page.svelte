@@ -8,6 +8,7 @@
   import { AppShell, ViewerShell } from "$lib/app";
   import { parse_window_init } from "$lib/features/window";
   import { to_editor_slash_commands } from "$lib/features/plugin";
+  import { is_mobile_tauri } from "$lib/shared/utils/detect_platform";
 
   const url_params = new URLSearchParams(window.location.search);
   const vault_path_param = url_params.get("vault_path");
@@ -49,6 +50,10 @@
   let destroyed = false;
 
   onMount(() => {
+    if (is_mobile_tauri) {
+      return;
+    }
+
     const unlisten_promise = getCurrentWindow().onCloseRequested(() => {
       if (!destroyed) {
         destroyed = true;

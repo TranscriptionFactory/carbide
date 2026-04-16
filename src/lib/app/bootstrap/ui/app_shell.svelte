@@ -8,6 +8,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { VaultId } from "$lib/shared/types/ids";
+  import { is_mobile_tauri } from "$lib/shared/utils/detect_platform";
 
   type Props = {
     hide_choose_vault_button?: boolean;
@@ -44,6 +45,9 @@
 
   const vault_selection_loading = $derived(
     stores.ui.startup.status === "loading" || stores.ui.change_vault.is_loading,
+  );
+  const hide_choose_vault_cta = $derived(
+    hide_choose_vault_button || is_mobile_tauri,
   );
 
   const keyboard = use_keyboard_shortcuts({
@@ -100,7 +104,7 @@
           vault_id,
         );
       }}
-      {hide_choose_vault_button}
+      hide_choose_vault_button={hide_choose_vault_cta}
     />
   </div>
 {:else}
@@ -109,7 +113,7 @@
   </main>
 {/if}
 
-<AppShellDialogs {hide_choose_vault_button} />
+<AppShellDialogs hide_choose_vault_button={hide_choose_vault_cta} />
 
 <svelte:window
   onclick={external_links.handle_click}
