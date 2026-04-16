@@ -1,21 +1,33 @@
-use candle_core::{Device, Tensor};
-use candle_nn::VarBuilder;
-use candle_transformers::models::bert::{BertModel, Config, DTYPE};
-use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
+
+#[cfg(not(target_os = "ios"))]
+use candle_core::{Device, Tensor};
+#[cfg(not(target_os = "ios"))]
+use candle_nn::VarBuilder;
+#[cfg(not(target_os = "ios"))]
+use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+#[cfg(not(target_os = "ios"))]
+use hf_hub::api::sync::ApiBuilder;
+#[cfg(not(target_os = "ios"))]
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
 
+#[cfg(not(target_os = "ios"))]
 const MODEL_ID: &str = "Snowflake/snowflake-arctic-embed-xs";
 
+#[cfg(not(target_os = "ios"))]
 pub struct EmbeddingService {
     model: BertModel,
     tokenizer: Tokenizer,
     device: Device,
 }
 
+#[cfg(target_os = "ios")]
+pub struct EmbeddingService;
+
+#[cfg(not(target_os = "ios"))]
 impl EmbeddingService {
     pub fn new(cache_dir: PathBuf) -> Result<Self, String> {
         let device = {
@@ -184,6 +196,25 @@ impl EmbeddingService {
             .collect::<Result<_, _>>()?;
 
         Ok(vecs)
+    }
+}
+
+#[cfg(target_os = "ios")]
+impl EmbeddingService {
+    pub fn new(_cache_dir: PathBuf) -> Result<Self, String> {
+        Err("Embeddings are unavailable on iOS".to_string())
+    }
+
+    pub fn embed_one(&self, _text: &str) -> Result<Vec<f32>, String> {
+        Err("Embeddings are unavailable on iOS".to_string())
+    }
+
+    pub fn embed_batch(
+        &self,
+        _texts: &[&str],
+        _cancel: Option<&AtomicBool>,
+    ) -> Result<Vec<Vec<f32>>, String> {
+        Err("Embeddings are unavailable on iOS".to_string())
     }
 }
 
