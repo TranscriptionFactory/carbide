@@ -7,6 +7,7 @@ import type {
 } from "$lib/features/editor/ports";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
+import type { Diagnostic } from "$lib/features/diagnostics";
 import {
   match_query,
   format_authors,
@@ -154,6 +155,9 @@ export class EditorService {
   private host_root: HTMLDivElement | null = null;
   private active_note: OpenNoteState | null = null;
   private session_generation = 0;
+  private native_link_hover_enabled = true;
+  private native_wiki_suggest_enabled = true;
+  private native_link_click_enabled = true;
 
   constructor(
     private readonly editor_port: EditorPort,
@@ -451,6 +455,29 @@ export class EditorService {
 
   set_spellcheck(enabled: boolean) {
     this.session?.set_spellcheck?.(enabled);
+  }
+
+  async set_native_feature_flags(flags: {
+    native_link_hover_enabled: boolean;
+    native_wiki_suggest_enabled: boolean;
+    native_link_click_enabled: boolean;
+  }) {
+    const changed =
+      this.native_link_hover_enabled !== flags.native_link_hover_enabled ||
+      this.native_wiki_suggest_enabled !== flags.native_wiki_suggest_enabled ||
+      this.native_link_click_enabled !== flags.native_link_click_enabled;
+
+    this.native_link_hover_enabled = flags.native_link_hover_enabled;
+    this.native_wiki_suggest_enabled = flags.native_wiki_suggest_enabled;
+    this.native_link_click_enabled = flags.native_link_click_enabled;
+
+    if (changed && this.is_mounted()) {
+      await this.recreate_session();
+    }
+  }
+
+  update_visual_editor_diagnostics(diagnostics: Diagnostic[]) {
+    this.session?.update_diagnostics?.(diagnostics);
   }
 
   toggle_heading_fold(pos?: number) {
@@ -946,6 +973,9 @@ export class EditorService {
       note_path: active_note.meta.path,
       vault_id: this.vault_store.vault?.id ?? null,
       events: this.create_session_events(generation),
+      native_link_hover_enabled: this.native_link_hover_enabled,
+      native_wiki_suggest_enabled: this.native_wiki_suggest_enabled,
+      native_link_click_enabled: this.native_link_click_enabled,
     });
 
     if (!this.is_generation_current(generation)) {

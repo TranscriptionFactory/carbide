@@ -28,7 +28,10 @@ export function create_wiki_link_extension(
     );
   }
 
-  if (ctx.events.on_internal_link_click) {
+  if (
+    ctx.events.on_internal_link_click &&
+    ctx.native_link_click_enabled !== false
+  ) {
     plugins.push(
       create_wiki_link_click_prose_plugin({
         on_internal_link_click: ctx.events.on_internal_link_click,
@@ -37,7 +40,10 @@ export function create_wiki_link_extension(
     );
   }
 
-  if (ctx.events.on_wiki_suggest_query) {
+  if (
+    ctx.events.on_wiki_suggest_query &&
+    ctx.native_wiki_suggest_enabled !== false
+  ) {
     wiki_suggest_config = {
       on_query: ctx.events.on_wiki_suggest_query,
       on_dismiss: () => {},

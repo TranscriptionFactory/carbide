@@ -742,6 +742,55 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["marksman", "iwes", "lsp", "binary", "path", "executable"],
   },
   {
+    key: "native_link_hover_enabled",
+    label: "Native Link Hover",
+    description:
+      "Show native link tooltip (URL preview, edit/remove) on hover. Disable to avoid conflicts with LSP hover",
+    category: "Toolchain",
+    keywords: [
+      "link",
+      "hover",
+      "tooltip",
+      "native",
+      "lsp",
+      "conflict",
+      "toggle",
+    ],
+  },
+  {
+    key: "native_wiki_suggest_enabled",
+    label: "Native Wiki Suggest",
+    description:
+      "Show native [[ wiki-link suggest dropdown. Disable to avoid conflicts with LSP completion",
+    category: "Toolchain",
+    keywords: [
+      "wiki",
+      "suggest",
+      "completion",
+      "native",
+      "lsp",
+      "conflict",
+      "toggle",
+    ],
+  },
+  {
+    key: "native_link_click_enabled",
+    label: "Native Link Navigation",
+    description:
+      "Handle wiki-link clicks natively. Disable to let LSP go-to-definition handle navigation instead",
+    category: "Toolchain",
+    keywords: [
+      "link",
+      "click",
+      "navigation",
+      "native",
+      "lsp",
+      "conflict",
+      "toggle",
+      "go-to-definition",
+    ],
+  },
+  {
     key: "reference_enabled",
     label: "Enable References",
     description:

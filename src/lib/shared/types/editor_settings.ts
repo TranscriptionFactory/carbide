@@ -164,6 +164,9 @@ export type EditorSettings = {
   // stt_ai_cleanup_prompt: string;
   embedding_note_enabled: boolean;
   embedding_block_enabled: boolean;
+  native_link_hover_enabled: boolean;
+  native_wiki_suggest_enabled: boolean;
+  native_link_click_enabled: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -265,6 +268,9 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   //   "Clean up this dictated text. Fix grammar, remove filler words, maintain the speaker's intent and tone.",
   embedding_note_enabled: true,
   embedding_block_enabled: true,
+  native_link_hover_enabled: true,
+  native_wiki_suggest_enabled: true,
+  native_link_click_enabled: true,
 };
 
 export const SETTINGS_KEY = "editor" as const;

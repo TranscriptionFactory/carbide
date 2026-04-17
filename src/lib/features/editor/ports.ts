@@ -7,6 +7,7 @@ import type {
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
+import type { Diagnostic } from "$lib/features/diagnostics";
 
 export type WikiQueryEvent =
   | { kind: "note"; query: string }
@@ -70,6 +71,7 @@ export type EditorSession = {
   ) => boolean;
   set_toolbar_visibility?: (mode: ToolbarVisibility) => void;
   trigger_hover_at_cursor?: () => void;
+  update_diagnostics?: (diagnostics: Diagnostic[]) => void;
 };
 
 export type EditorEventHandlers = {
@@ -176,6 +178,9 @@ export type EditorSessionConfig = {
   vault_id: VaultId | null;
   events: EditorEventHandlers;
   spellcheck?: boolean;
+  native_link_hover_enabled?: boolean;
+  native_wiki_suggest_enabled?: boolean;
+  native_link_click_enabled?: boolean;
 };
 
 export interface EditorPort {
