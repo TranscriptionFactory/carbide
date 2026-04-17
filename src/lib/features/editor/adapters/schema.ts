@@ -366,6 +366,70 @@ const details_content: NodeSpec = {
   },
 };
 
+const callout: NodeSpec = {
+  group: "block",
+  content: "callout_title callout_body",
+  defining: true,
+  attrs: {
+    callout_type: { default: "note" },
+    foldable: { default: false },
+    default_folded: { default: false },
+  },
+  parseDOM: [
+    {
+      tag: "div[data-callout]",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          callout_type: dom.dataset["calloutType"] || "note",
+          foldable: dom.dataset["foldable"] === "true",
+          default_folded: dom.dataset["defaultFolded"] === "true",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "div",
+      {
+        "data-callout": "",
+        "data-callout-type": node.attrs["callout_type"] as string,
+        "data-foldable": String(node.attrs["foldable"]),
+        "data-default-folded": String(node.attrs["default_folded"]),
+        class: `callout-block callout-block--${node.attrs["callout_type"] as string}`,
+      },
+      0,
+    ];
+  },
+};
+
+const callout_title: NodeSpec = {
+  content: "inline*",
+  defining: true,
+  isolating: true,
+  parseDOM: [{ tag: "div[data-callout-title]" }],
+  toDOM() {
+    return [
+      "div",
+      { "data-callout-title": "", class: "callout-block__title" },
+      0,
+    ];
+  },
+};
+
+const callout_body: NodeSpec = {
+  content: "block+",
+  defining: true,
+  parseDOM: [{ tag: "div[data-callout-body]" }],
+  toDOM() {
+    return [
+      "div",
+      { "data-callout-body": "", class: "callout-block__body" },
+      0,
+    ];
+  },
+};
+
 const file_embed: NodeSpec = {
   group: "block",
   atom: true,
@@ -700,6 +764,9 @@ export const schema = new Schema({
     details_block,
     details_summary,
     details_content,
+    callout,
+    callout_title,
+    callout_body,
     excalidraw_embed,
     file_embed,
     "image-block": image_block,

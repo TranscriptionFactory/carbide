@@ -7,6 +7,7 @@ import { create_image_extension } from "./image_extension";
 import { create_table_extension } from "./table_extension";
 import { create_task_list_extension } from "./task_list_extension";
 import { create_details_extension } from "./details_extension";
+import { create_callout_extension } from "./callout_extension";
 import { create_heading_extension } from "./heading_extension";
 import { create_marks_extension } from "./marks_extension";
 import { create_link_extension } from "./link_extension";
@@ -38,6 +39,7 @@ export function assemble_extensions(
     create_code_block_extension(),
     create_math_extension(),
     create_details_extension(),
+    create_callout_extension(),
     create_table_extension(),
     create_image_extension(ctx),
     create_marks_extension(),

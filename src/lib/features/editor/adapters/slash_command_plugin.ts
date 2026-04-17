@@ -160,6 +160,32 @@ function make_blockquote_insert() {
   };
 }
 
+function make_callout_insert(callout_type: string) {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const callout = state.schema.nodes["callout"];
+    const callout_title = state.schema.nodes["callout_title"];
+    const callout_body = state.schema.nodes["callout_body"];
+    const para = state.schema.nodes["paragraph"];
+    if (!callout || !callout_title || !callout_body || !para) return;
+
+    const title_text =
+      callout_type.charAt(0).toUpperCase() + callout_type.slice(1);
+    const $pos = state.doc.resolve(from);
+    const node = callout.create({ callout_type }, [
+      callout_title.create(null, state.schema.text(title_text)),
+      callout_body.create(null, para.create()),
+    ]);
+    const tr = state.tr.replaceWith($pos.before(), $pos.after(), node);
+    const sel = TextSelection.findFrom(
+      tr.doc.resolve($pos.before() + 2 + title_text.length + 1),
+      1,
+    );
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 function make_list_insert(list_type_name: string) {
   return (view: EditorView, from: number) => {
     const { state } = view;
@@ -426,8 +452,48 @@ export function create_commands(): SlashCommand[] {
       label: "Blockquote",
       description: "Indented quote or callout",
       icon: "❝",
-      keywords: ["quote", "blockquote", "callout", "cite"],
+      keywords: ["quote", "blockquote", "cite"],
       insert: make_blockquote_insert(),
+    },
+    {
+      id: "callout-note",
+      label: "Note Callout",
+      description: "Informational callout block",
+      icon: "📝",
+      keywords: ["callout", "admonition", "note", "info"],
+      insert: make_callout_insert("note"),
+    },
+    {
+      id: "callout-warning",
+      label: "Warning Callout",
+      description: "Warning or caution callout",
+      icon: "⚠️",
+      keywords: ["callout", "warning", "caution", "alert"],
+      insert: make_callout_insert("warning"),
+    },
+    {
+      id: "callout-tip",
+      label: "Tip Callout",
+      description: "Helpful tip or hint",
+      icon: "💡",
+      keywords: ["callout", "tip", "hint", "suggestion"],
+      insert: make_callout_insert("tip"),
+    },
+    {
+      id: "callout-important",
+      label: "Important Callout",
+      description: "Important information callout",
+      icon: "📌",
+      keywords: ["callout", "important", "critical"],
+      insert: make_callout_insert("important"),
+    },
+    {
+      id: "callout-example",
+      label: "Example Callout",
+      description: "Example or illustration callout",
+      icon: "🧪",
+      keywords: ["callout", "example", "demo"],
+      insert: make_callout_insert("example"),
     },
     {
       id: "divider",
