@@ -36,6 +36,7 @@ export function create_wiki_link_extension(
       create_wiki_link_click_prose_plugin({
         on_internal_link_click: ctx.events.on_internal_link_click,
         on_external_link_click: ctx.events.on_external_link_click ?? (() => {}),
+        on_anchor_link_click: ctx.events.on_anchor_link_click,
       }),
     );
   }

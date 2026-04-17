@@ -209,6 +209,15 @@ export function create_app_context(input: {
       }),
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),
+    on_anchor_link_click: (fragment) => {
+      const heading = stores.outline.find_heading_by_fragment(fragment);
+      if (heading) {
+        void action_registry.execute(
+          ACTION_IDS.outline_scroll_to_heading,
+          heading.pos,
+        );
+      }
+    },
     on_image_paste_requested: (note_id, note_path, image) =>
       void action_registry.execute(ACTION_IDS.note_request_image_paste, {
         note_id,
@@ -223,34 +232,75 @@ export function create_app_context(input: {
       }),
     on_markdown_lsp_hover: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.markdown_lsp.status !== "running") return null;
-      try {
-        return await input.ports.markdown_lsp.hover(
-          vault_id,
-          file_path,
-          line,
-          character,
-        );
-      } catch {
-        return null;
+      if (!vault_id) return null;
+      if (stores.markdown_lsp.status === "running") {
+        try {
+          const result = await input.ports.markdown_lsp.hover(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+          if (result.contents != null) return result;
+        } catch {
+          /* fall through to code lsp */
+        }
       }
+      if (code_lsp_service.is_running_for_path(file_path)) {
+        try {
+          return await code_lsp_service.hover(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+        } catch {
+          return null;
+        }
+      }
+      return null;
     },
     on_markdown_lsp_hover_result: (result) => {
       stores.lsp.set_hover(result);
     },
     on_markdown_lsp_definition: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
-      try {
-        return await input.ports.markdown_lsp.definition(
-          vault_id,
-          file_path,
-          line,
-          character,
-        );
-      } catch {
-        return [];
+      if (!vault_id) return [];
+      if (stores.markdown_lsp.status === "running") {
+        try {
+          const results = await input.ports.markdown_lsp.definition(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+          if (results.length > 0) return results;
+        } catch {
+          /* fall through to code lsp */
+        }
       }
+      if (code_lsp_service.is_running_for_path(file_path)) {
+        try {
+          const locations = await code_lsp_service.definition(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+          return locations.map((loc) => ({
+            uri: loc.uri,
+            range: {
+              start_line: loc.range.start_line,
+              start_character: loc.range.start_character,
+              end_line: loc.range.end_line,
+              end_character: loc.range.end_character,
+            },
+          }));
+        } catch {
+          return [];
+        }
+      }
+      return [];
     },
     on_markdown_lsp_definition_navigate: (uri: string) => {
       const vault_path = stores.vault.vault?.path;
@@ -270,17 +320,39 @@ export function create_app_context(input: {
       stores.markdown_lsp.completion_trigger_characters,
     on_markdown_lsp_completion: async (file_path, line, character) => {
       const vault_id = stores.vault.vault?.id;
-      if (!vault_id || stores.markdown_lsp.status !== "running") return [];
-      try {
-        return await input.ports.markdown_lsp.completion(
-          vault_id,
-          file_path,
-          line,
-          character,
-        );
-      } catch {
-        return [];
+      if (!vault_id) return [];
+      const results: Array<{
+        label: string;
+        detail: string | null;
+        insert_text: string | null;
+      }> = [];
+      if (stores.markdown_lsp.status === "running") {
+        try {
+          const md_items = await input.ports.markdown_lsp.completion(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+          results.push(...md_items);
+        } catch {
+          /* ignore */
+        }
       }
+      if (code_lsp_service.is_running_for_path(file_path)) {
+        try {
+          const code_items = await code_lsp_service.completion(
+            vault_id,
+            file_path,
+            line,
+            character,
+          );
+          results.push(...code_items);
+        } catch {
+          /* ignore */
+        }
+      }
+      return results;
     },
     on_markdown_lsp_inlay_hints: async (file_path) => {
       const vault_id = stores.vault.vault?.id;
@@ -361,6 +433,31 @@ export function create_app_context(input: {
                 ? "Markdown Oxide"
                 : "Marksman";
           all_actions.push(...md_lsp_actions.map((a) => ({ ...a, source })));
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (vault_id && code_lsp_service.is_running_for_path(file_path)) {
+        try {
+          const code_actions = await code_lsp_service.code_actions(
+            vault_id,
+            file_path,
+            start_line,
+            start_character,
+            end_line,
+            end_character,
+            [],
+          );
+          all_actions.push(
+            ...code_actions.map((a) => ({
+              title: a.title,
+              kind: a.kind,
+              data: a.data !== null ? String(a.data) : null,
+              raw_json: a.raw_json !== null ? String(a.raw_json) : "",
+              source: "Code LSP",
+            })),
+          );
         } catch {
           /* ignore */
         }

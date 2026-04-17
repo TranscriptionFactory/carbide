@@ -307,6 +307,7 @@ export function create_wiki_link_click_prose_plugin(input: {
     source: InternalLinkSource,
   ) => void;
   on_external_link_click: (url: string) => void;
+  on_anchor_link_click?: ((fragment: string) => void) | undefined;
   base_note_path?: string;
 }) {
   function anchor_from_event(event: MouseEvent): HTMLAnchorElement | null {
@@ -340,6 +341,14 @@ export function create_wiki_link_click_prose_plugin(input: {
 
           if (is_external_url(href)) {
             input.on_external_link_click(href);
+            return true;
+          }
+
+          if (href.startsWith("#") && input.on_anchor_link_click) {
+            const fragment = decodeURIComponent(href.slice(1));
+            if (fragment) {
+              input.on_anchor_link_click(fragment);
+            }
             return true;
           }
 

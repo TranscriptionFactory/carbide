@@ -50,6 +50,7 @@ export type EditorServiceCallbacks = {
     source: InternalLinkSource,
   ) => void;
   on_external_link_click: (url: string) => void;
+  on_anchor_link_click?: (fragment: string) => void;
   on_image_paste_requested: (
     note_id: NoteId,
     note_path: NotePath,
@@ -758,6 +759,12 @@ export class EditorService {
         if (!this.is_generation_current(generation)) return;
         this.callbacks.on_external_link_click(url);
       },
+      on_anchor_link_click: this.callbacks.on_anchor_link_click
+        ? (fragment: string) => {
+            if (!this.is_generation_current(generation)) return;
+            this.callbacks.on_anchor_link_click?.(fragment);
+          }
+        : undefined,
       on_image_paste_requested: (image: PastedImagePayload) => {
         this.with_active_note_identity(generation, (id, path) => {
           this.callbacks.on_image_paste_requested(id, path, image);

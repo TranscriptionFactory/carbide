@@ -59,14 +59,21 @@ describe("create_wiki_link_click_prose_plugin", () => {
   function setup(base_note_path = "folder/current.md") {
     const on_internal_link_click = vi.fn();
     const on_external_link_click = vi.fn();
+    const on_anchor_link_click = vi.fn();
 
     const plugin = create_wiki_link_click_prose_plugin({
       base_note_path,
       on_internal_link_click,
       on_external_link_click,
+      on_anchor_link_click,
     });
 
-    return { plugin, on_internal_link_click, on_external_link_click };
+    return {
+      plugin,
+      on_internal_link_click,
+      on_external_link_click,
+      on_anchor_link_click,
+    };
   }
 
   function invoke_dom_click(
@@ -329,7 +336,7 @@ describe("create_wiki_link_click_prose_plugin", () => {
       expect(on_internal_link_click).not.toHaveBeenCalled();
     });
 
-    it("rejects href that is only a fragment", () => {
+    it("does not fire internal link for fragment-only href", () => {
       const { plugin, on_internal_link_click } = setup();
       const { event } = create_mouse_event("#section");
 
@@ -345,6 +352,47 @@ describe("create_wiki_link_click_prose_plugin", () => {
       invoke_dom_click(plugin, event);
 
       expect(on_internal_link_click).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("anchor links", () => {
+    it("fires anchor callback for fragment-only href", () => {
+      const { plugin, on_anchor_link_click } = setup();
+      const { event, prevent_default } = create_mouse_event("#section");
+
+      invoke_dom_click(plugin, event);
+
+      expect(prevent_default).toHaveBeenCalled();
+      expect(on_anchor_link_click).toHaveBeenCalledWith("section");
+    });
+
+    it("decodes percent-encoded fragments", () => {
+      const { plugin, on_anchor_link_click } = setup();
+      const { event } = create_mouse_event("#my%20heading");
+
+      invoke_dom_click(plugin, event);
+
+      expect(on_anchor_link_click).toHaveBeenCalledWith("my heading");
+    });
+
+    it("does not fire anchor callback for empty fragment", () => {
+      const { plugin, on_anchor_link_click } = setup();
+      const { event } = create_mouse_event("#");
+
+      invoke_dom_click(plugin, event);
+
+      expect(on_anchor_link_click).not.toHaveBeenCalled();
+    });
+
+    it("does not fire internal or external callbacks for anchor links", () => {
+      const { plugin, on_internal_link_click, on_external_link_click } =
+        setup();
+      const { event } = create_mouse_event("#heading");
+
+      invoke_dom_click(plugin, event);
+
+      expect(on_internal_link_click).not.toHaveBeenCalled();
+      expect(on_external_link_click).not.toHaveBeenCalled();
     });
   });
 });
