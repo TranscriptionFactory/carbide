@@ -50,6 +50,12 @@ import {
   restore_heading_folds,
 } from "$lib/features/editor/extensions";
 import { heading_fold_plugin_key } from "$lib/features/editor/adapters/heading_fold_plugin";
+import {
+  create_turn_into_command,
+  duplicate_block as duplicate_block_cmd,
+  delete_block as delete_block_cmd,
+} from "$lib/features/editor/adapters/block_transforms";
+import type { TurnIntoTarget } from "$lib/features/editor/adapters/block_transforms";
 import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import type {
   ResolveAssetUrlForVault,
@@ -1015,6 +1021,22 @@ export function create_prosemirror_editor_port(args?: {
         },
         expand_all_heading_folds() {
           run_view_action((v) => expand_all_headings(v));
+        },
+        turn_into(target: string, attrs?: Record<string, unknown>) {
+          const v = view;
+          if (!v) return;
+          const cmd = create_turn_into_command(target as TurnIntoTarget, attrs);
+          cmd(v.state, v.dispatch);
+        },
+        duplicate_block() {
+          const v = view;
+          if (!v) return;
+          duplicate_block_cmd(v.state, v.dispatch);
+        },
+        delete_block() {
+          const v = view;
+          if (!v) return;
+          delete_block_cmd(v.state, v.dispatch);
         },
         update_task_checkbox(
           line_number: number,

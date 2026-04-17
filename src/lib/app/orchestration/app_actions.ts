@@ -571,4 +571,65 @@ export function register_app_actions(input: ActionRegistrationInput) {
       }
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_paragraph,
+    label: "Turn Into Paragraph",
+    execute: () => services.editor.turn_into("paragraph"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_heading_1,
+    label: "Turn Into Heading 1",
+    execute: () => services.editor.turn_into("heading", { level: 1 }),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_heading_2,
+    label: "Turn Into Heading 2",
+    execute: () => services.editor.turn_into("heading", { level: 2 }),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_heading_3,
+    label: "Turn Into Heading 3",
+    execute: () => services.editor.turn_into("heading", { level: 3 }),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_blockquote,
+    label: "Turn Into Blockquote",
+    execute: () => services.editor.turn_into("blockquote"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_bullet_list,
+    label: "Turn Into Bullet List",
+    execute: () => services.editor.turn_into("bullet_list"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_ordered_list,
+    label: "Turn Into Ordered List",
+    execute: () => services.editor.turn_into("ordered_list"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_todo_list,
+    label: "Turn Into Todo List",
+    execute: () => services.editor.turn_into("todo_list"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_code_block,
+    label: "Turn Into Code Block",
+    execute: () => services.editor.turn_into("code_block"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_turn_into_callout,
+    label: "Turn Into Callout",
+    execute: () => services.editor.turn_into("callout"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_duplicate_block,
+    label: "Duplicate Block",
+    execute: () => services.editor.duplicate_block(),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_delete_block,
+    label: "Delete Block",
+    execute: () => services.editor.delete_block(),
+  });
 }

@@ -14,6 +14,21 @@
       stores.markdown_lsp.status === "running",
   );
 
+  const turn_into_items = [
+    { id: ACTION_IDS.editor_turn_into_paragraph, label: "Paragraph" },
+    { id: ACTION_IDS.editor_turn_into_heading_1, label: "Heading 1" },
+    { id: ACTION_IDS.editor_turn_into_heading_2, label: "Heading 2" },
+    { id: ACTION_IDS.editor_turn_into_heading_3, label: "Heading 3" },
+    { separator: true },
+    { id: ACTION_IDS.editor_turn_into_blockquote, label: "Blockquote" },
+    { id: ACTION_IDS.editor_turn_into_bullet_list, label: "Bullet List" },
+    { id: ACTION_IDS.editor_turn_into_ordered_list, label: "Ordered List" },
+    { id: ACTION_IDS.editor_turn_into_todo_list, label: "Todo List" },
+    { separator: true },
+    { id: ACTION_IDS.editor_turn_into_code_block, label: "Code Block" },
+    { id: ACTION_IDS.editor_turn_into_callout, label: "Callout" },
+  ] as const;
+
   const refactor_items = [
     { id: ACTION_IDS.iwe_extract_section, label: "Extract Section" },
     { id: ACTION_IDS.iwe_extract_all, label: "Extract All Subsections" },
@@ -46,7 +61,34 @@
   </ContextMenu.Trigger>
   <ContextMenu.Portal>
     <ContextMenu.Content>
+      <ContextMenu.Sub>
+        <ContextMenu.SubTrigger>Turn Into</ContextMenu.SubTrigger>
+        <ContextMenu.SubContent>
+          {#each turn_into_items as item}
+            {#if "separator" in item}
+              <ContextMenu.Separator />
+            {:else}
+              <ContextMenu.Item onSelect={() => execute(item.id)}>
+                {item.label}
+              </ContextMenu.Item>
+            {/if}
+          {/each}
+        </ContextMenu.SubContent>
+      </ContextMenu.Sub>
+      <ContextMenu.Item
+        onSelect={() => execute(ACTION_IDS.editor_duplicate_block)}
+      >
+        Duplicate
+        <span class="ml-auto text-xs text-muted-foreground">⇧⌘D</span>
+      </ContextMenu.Item>
+      <ContextMenu.Separator />
+      <ContextMenu.Item
+        onSelect={() => execute(ACTION_IDS.editor_delete_block)}
+      >
+        Delete
+      </ContextMenu.Item>
       {#if is_iwe}
+        <ContextMenu.Separator />
         <ContextMenu.Sub>
           <ContextMenu.SubTrigger>Refactor</ContextMenu.SubTrigger>
           <ContextMenu.SubContent>

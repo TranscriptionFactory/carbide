@@ -20,6 +20,10 @@ import { create_frontmatter_guard_plugin } from "../adapters/frontmatter_guard_p
 import { create_typography_prose_plugin } from "../adapters/typography_plugin";
 import { create_outline_prose_plugin } from "../adapters/outline_plugin";
 import { create_block_input_rules_prose_plugin } from "../adapters/block_input_rules_plugin";
+import {
+  create_turn_into_command,
+  duplicate_block,
+} from "../adapters/block_transforms";
 import type { EditorExtension, PluginContext } from "./types";
 
 export function create_core_extension(ctx: PluginContext): EditorExtension {
@@ -96,6 +100,16 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
       ...(strikethrough_mark_type
         ? { "Mod-Shift-x": toggleMark(strikethrough_mark_type) }
         : {}),
+    }),
+  );
+
+  plugins.push(
+    keymap({
+      "Mod-Shift-0": create_turn_into_command("paragraph"),
+      "Mod-Shift-1": create_turn_into_command("heading", { level: 1 }),
+      "Mod-Shift-2": create_turn_into_command("heading", { level: 2 }),
+      "Mod-Shift-3": create_turn_into_command("heading", { level: 3 }),
+      "Mod-Shift-d": duplicate_block,
     }),
   );
 
