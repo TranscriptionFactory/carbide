@@ -32,6 +32,40 @@ pub enum CodeLspStatus {
     Error { message: String },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CodeLspHoverResult {
+    pub contents: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CodeLspRange {
+    pub start_line: u32,
+    pub start_character: u32,
+    pub end_line: u32,
+    pub end_character: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CodeLspLocation {
+    pub uri: String,
+    pub range: CodeLspRange,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CodeLspCompletionItem {
+    pub label: String,
+    pub detail: Option<String>,
+    pub insert_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CodeLspCodeAction {
+    pub title: String,
+    pub kind: Option<String>,
+    pub data: Option<String>,
+    pub raw_json: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodeLspEvent {

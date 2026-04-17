@@ -19,6 +19,7 @@
   const lsp_enabled = $derived(stores.ui.editor_settings.markdown_lsp_enabled);
   const effective_provider = $derived(stores.markdown_lsp.effective_provider);
   const capabilities = $derived(stores.markdown_lsp.capabilities);
+  const code_lsp_statuses = $derived(stores.code_lsp.server_statuses);
 
   const active_tab = $derived(stores.lsp.active_lsp_tab);
 
@@ -192,6 +193,22 @@
           <span class="LspResults__cap-badge">{label}</span>
         {/each}
       {/if}
+    {/if}
+    {#if code_lsp_statuses.size > 0}
+      <span class="LspResults__cap-divider"></span>
+      {#each [...code_lsp_statuses.entries()] as [lang, status]}
+        <span
+          class="LspResults__status-dot"
+          style:background-color={status === "running"
+            ? "var(--success, #22c55e)"
+            : status === "starting"
+              ? "var(--warning, var(--chart-4))"
+              : status === "error" || status === "unavailable"
+                ? "var(--destructive)"
+                : "var(--muted-foreground)"}
+        ></span>
+        <span class="LspResults__status-text">{lang} &middot; {status}</span>
+      {/each}
     {/if}
   </div>
 

@@ -93,6 +93,28 @@ pub fn build_lsp_config(
                 },
                 "publishDiagnostics": {
                     "relatedInformation": false
+                },
+                "hover": {
+                    "dynamicRegistration": false,
+                    "contentFormat": ["plaintext", "markdown"]
+                },
+                "completion": {
+                    "dynamicRegistration": false,
+                    "completionItem": {
+                        "snippetSupport": false,
+                        "documentationFormat": ["plaintext"]
+                    }
+                },
+                "definition": {
+                    "dynamicRegistration": false
+                },
+                "codeAction": {
+                    "dynamicRegistration": false,
+                    "codeActionLiteralSupport": {
+                        "codeActionKind": {
+                            "valueSet": ["", "quickfix", "refactor", "source"]
+                        }
+                    }
                 }
             }
         }),

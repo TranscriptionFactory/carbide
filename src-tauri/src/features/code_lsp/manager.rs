@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 
 use crate::shared::lsp_client::uri_utils;
 use crate::shared::lsp_client::{
-    LspSessionStatus, RestartableConfig, RestartableLspClient, ServerNotification,
+    LspRequestHandle, LspSessionStatus, RestartableConfig, RestartableLspClient, ServerNotification,
 };
 
 use super::language_config::{build_lsp_config, ext_to_language_id, find_binary, find_server_spec};
@@ -15,6 +15,7 @@ use super::types::*;
 struct LanguageSession {
     client: RestartableLspClient,
     open_files: Vec<String>,
+    file_versions: HashMap<String, i32>,
 }
 
 pub struct CodeLspManager {
@@ -77,7 +78,61 @@ impl CodeLspManager {
         if !session.open_files.contains(&rel_path.to_string()) {
             session.open_files.push(rel_path.to_string());
         }
+        session.file_versions.insert(rel_path.to_string(), 1);
         Ok(())
+    }
+
+    pub async fn did_change(&mut self, rel_path: &str, content: &str) -> Result<(), String> {
+        let ext = Path::new(rel_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+
+        let language_id = match ext_to_language_id(ext) {
+            Some(id) => id,
+            None => return Ok(()),
+        };
+
+        let uri = self.file_uri(rel_path);
+        let session = match self.sessions.get_mut(language_id) {
+            Some(s) => s,
+            None => return Ok(()),
+        };
+
+        let version = session
+            .file_versions
+            .entry(rel_path.to_string())
+            .and_modify(|v| *v += 1)
+            .or_insert(2);
+        let version = *version;
+
+        session
+            .client
+            .send_notification(
+                "textDocument/didChange",
+                serde_json::json!({
+                    "textDocument": { "uri": uri, "version": version },
+                    "contentChanges": [{ "text": content }]
+                }),
+            )
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn request_handle_for(&self, rel_path: &str) -> Option<LspRequestHandle> {
+        let ext = Path::new(rel_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+
+        let language_id = ext_to_language_id(ext)?;
+        self.sessions
+            .get(language_id)
+            .map(|s| s.client.request_handle())
+    }
+
+    pub fn file_uri_for(&self, rel_path: &str) -> String {
+        self.file_uri(rel_path)
     }
 
     pub async fn close_file(&mut self, rel_path: &str) -> Result<(), String> {
@@ -130,7 +185,9 @@ impl CodeLspManager {
             self.vault_id
         );
 
-        let root_uri = format!("file://{}", self.vault_path.display());
+        let root_uri = tauri::Url::from_file_path(&self.vault_path)
+            .map(|u| u.to_string())
+            .unwrap_or_else(|_| format!("file://{}", self.vault_path.display()));
         let lsp_config = build_lsp_config(
             spec,
             &binary_path,
@@ -172,6 +229,7 @@ impl CodeLspManager {
             LanguageSession {
                 client,
                 open_files: Vec::new(),
+                file_versions: HashMap::new(),
             },
         );
 
@@ -205,8 +263,7 @@ impl CodeLspManager {
     }
 
     fn file_uri(&self, rel_path: &str) -> String {
-        let abs = self.vault_path.join(rel_path);
-        format!("file://{}", abs.display())
+        uri_utils::file_uri(&self.vault_path, rel_path)
     }
 }
 

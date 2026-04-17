@@ -1,3 +1,32 @@
+export type CodeLspHoverResult = {
+  contents: string | null;
+};
+
+export type CodeLspRange = {
+  start_line: number;
+  start_character: number;
+  end_line: number;
+  end_character: number;
+};
+
+export type CodeLspLocation = {
+  uri: string;
+  range: CodeLspRange;
+};
+
+export type CodeLspCompletionItem = {
+  label: string;
+  detail: string | null;
+  insert_text: string | null;
+};
+
+export type CodeLspCodeAction = {
+  title: string;
+  kind: string | null;
+  data: unknown | null;
+  raw_json: unknown | null;
+};
+
 export type CodeDiagnostic = {
   line: number;
   column: number;
