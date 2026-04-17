@@ -20,6 +20,7 @@ const DRAGGABLE_TYPES = new Set([
   "math_block",
   "file_embed",
   "excalidraw_embed",
+  "callout",
 ]);
 
 export function detect_draggable_blocks(doc: ProseNode): DraggableBlock[] {
