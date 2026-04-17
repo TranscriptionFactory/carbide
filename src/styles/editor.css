@@ -2453,3 +2453,25 @@
   user-select: none;
   pointer-events: none;
 }
+
+/* --- Inline diagnostic decorations (ProseMirror visual editor) --- */
+
+.diagnostic-error {
+  text-decoration: wavy underline var(--destructive);
+  text-underline-offset: 3px;
+}
+
+.diagnostic-warning {
+  text-decoration: wavy underline oklch(0.75 0.15 85);
+  text-underline-offset: 3px;
+}
+
+.diagnostic-info {
+  text-decoration: wavy underline var(--primary);
+  text-underline-offset: 3px;
+}
+
+.diagnostic-hint {
+  text-decoration: wavy underline var(--muted-foreground);
+  text-underline-offset: 3px;
+}

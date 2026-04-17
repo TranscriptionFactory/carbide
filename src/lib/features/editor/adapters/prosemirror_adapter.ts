@@ -59,6 +59,8 @@ import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_exte
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
+import type { Diagnostic } from "$lib/features/diagnostics";
+import { update_prosemirror_diagnostics } from "./diagnostics_decoration_plugin";
 
 const log = create_logger("prosemirror_adapter");
 
@@ -262,6 +264,10 @@ export function create_prosemirror_editor_port(args?: {
           resolve_asset_url_for_vault,
           load_svg_preview: load_svg_preview_fn,
           use_yjs: !!ydoc_manager,
+          native_link_hover_enabled: config.native_link_hover_enabled ?? true,
+          native_wiki_suggest_enabled:
+            config.native_wiki_suggest_enabled ?? true,
+          native_link_click_enabled: config.native_link_click_enabled ?? true,
         },
         toolbar_config,
         slash_config,
@@ -1036,6 +1042,10 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           const { from } = view.state.selection;
           trigger_lsp_hover(view, from);
+        },
+        update_diagnostics(diagnostics: Diagnostic[]) {
+          if (!view) return;
+          update_prosemirror_diagnostics(view, diagnostics);
         },
       };
 

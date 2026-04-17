@@ -42,6 +42,7 @@ import { create_linked_source_tree_reactor } from "$lib/reactors/linked_source_t
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
+import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 // STT removed — archived on archive/stt-main
 // import { create_stt_settings_sync_reactor } from "$lib/reactors/stt_settings_sync.reactor.svelte";
 // import { create_stt_init_reactor } from "$lib/reactors/stt_init.reactor.svelte";
@@ -345,6 +346,10 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_diagnostics_active_file_reactor(
       context.editor_store,
       context.diagnostics_store,
+    ),
+    create_visual_editor_diagnostics_reactor(
+      context.diagnostics_store,
+      context.editor_service,
     ),
     create_code_lsp_document_sync_reactor(
       context.document_store,

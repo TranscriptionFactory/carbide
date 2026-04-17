@@ -23,6 +23,17 @@ export function create_editor_appearance_reactor(
           ui_store.editor_settings.editor_toolbar_visibility,
         );
       });
+
+      $effect(() => {
+        void editor_service.set_native_feature_flags({
+          native_link_hover_enabled:
+            ui_store.editor_settings.native_link_hover_enabled,
+          native_wiki_suggest_enabled:
+            ui_store.editor_settings.native_wiki_suggest_enabled,
+          native_link_click_enabled:
+            ui_store.editor_settings.native_link_click_enabled,
+        });
+      });
     }
   });
 }

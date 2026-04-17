@@ -21,6 +21,7 @@ import { create_toolbar_extension } from "./toolbar_extension";
 import type { ToolbarConfig } from "./toolbar_extension";
 import { create_image_context_menu_extension } from "./image_context_menu_extension";
 import { create_block_drag_handle_extension } from "./block_drag_handle_extension";
+import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_decoration_plugin";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -40,7 +41,7 @@ export function assemble_extensions(
     create_table_extension(),
     create_image_extension(ctx),
     create_marks_extension(),
-    create_link_extension(),
+    create_link_extension(ctx),
     create_heading_extension(),
     create_task_list_extension(),
     create_find_extension(),
@@ -52,6 +53,7 @@ export function assemble_extensions(
     create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
+    { plugins: [create_diagnostics_decoration_plugin()] },
   ];
 
   const plugins: Plugin[] = [];
