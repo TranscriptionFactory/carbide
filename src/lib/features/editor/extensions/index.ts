@@ -23,6 +23,7 @@ import type { ToolbarConfig } from "./toolbar_extension";
 import { create_image_context_menu_extension } from "./image_context_menu_extension";
 import { create_block_drag_handle_extension } from "./block_drag_handle_extension";
 import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_decoration_plugin";
+import { create_block_selection_plugin } from "../adapters/block_selection_plugin";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -55,6 +56,7 @@ export function assemble_extensions(
     create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
+    { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin()] },
   ];
 
@@ -107,3 +109,8 @@ export {
   file_embed_plugin_key,
 } from "./embed_extension";
 export type { ToolbarConfig } from "./toolbar_extension";
+export {
+  block_selection_plugin_key,
+  get_block_selection,
+  clear_block_selection,
+} from "../adapters/block_selection_plugin";

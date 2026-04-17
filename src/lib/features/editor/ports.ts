@@ -76,6 +76,15 @@ export type EditorSession = {
   turn_into?: (target: string, attrs?: Record<string, unknown>) => void;
   duplicate_block?: () => void;
   delete_block?: () => void;
+  batch_turn_into?: (
+    target: string,
+    attrs: Record<string, unknown> | undefined,
+    positions: Set<number>,
+  ) => void;
+  batch_duplicate?: (positions: Set<number>) => void;
+  batch_delete?: (positions: Set<number>) => void;
+  get_block_selection?: () => Set<number>;
+  clear_block_selection?: () => void;
 };
 
 export type EditorEventHandlers = {

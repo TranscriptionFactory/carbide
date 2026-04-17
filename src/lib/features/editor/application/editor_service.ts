@@ -509,6 +509,30 @@ export class EditorService {
     this.session?.delete_block?.();
   }
 
+  batch_turn_into(
+    target: string,
+    attrs: Record<string, unknown> | undefined,
+    positions: Set<number>,
+  ) {
+    this.session?.batch_turn_into?.(target, attrs, positions);
+  }
+
+  batch_duplicate(positions: Set<number>) {
+    this.session?.batch_duplicate?.(positions);
+  }
+
+  batch_delete(positions: Set<number>) {
+    this.session?.batch_delete?.(positions);
+  }
+
+  get_block_selection(): Set<number> {
+    return this.session?.get_block_selection?.() ?? new Set();
+  }
+
+  clear_block_selection() {
+    this.session?.clear_block_selection?.();
+  }
+
   update_task_checkbox(
     line_number: number,
     status: "todo" | "doing" | "done",

@@ -54,8 +54,15 @@ import {
   create_turn_into_command,
   duplicate_block as duplicate_block_cmd,
   delete_block as delete_block_cmd,
+  batch_turn_into as batch_turn_into_cmd,
+  batch_duplicate as batch_duplicate_cmd,
+  batch_delete as batch_delete_cmd,
 } from "$lib/features/editor/adapters/block_transforms";
 import type { TurnIntoTarget } from "$lib/features/editor/adapters/block_transforms";
+import {
+  get_block_selection,
+  clear_block_selection,
+} from "$lib/features/editor/adapters/block_selection_plugin";
 import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import type {
   ResolveAssetUrlForVault,
@@ -1037,6 +1044,41 @@ export function create_prosemirror_editor_port(args?: {
           const v = view;
           if (!v) return;
           delete_block_cmd(v.state, v.dispatch);
+        },
+        batch_turn_into(
+          target: string,
+          attrs: Record<string, unknown> | undefined,
+          positions: Set<number>,
+        ) {
+          const v = view;
+          if (!v) return;
+          batch_turn_into_cmd(
+            target as TurnIntoTarget,
+            attrs,
+            positions,
+            v.state,
+            v.dispatch,
+          );
+        },
+        batch_duplicate(positions: Set<number>) {
+          const v = view;
+          if (!v) return;
+          batch_duplicate_cmd(positions, v.state, v.dispatch);
+        },
+        batch_delete(positions: Set<number>) {
+          const v = view;
+          if (!v) return;
+          batch_delete_cmd(positions, v.state, v.dispatch);
+        },
+        get_block_selection() {
+          const v = view;
+          if (!v) return new Set<number>();
+          return get_block_selection(v.state);
+        },
+        clear_block_selection() {
+          const v = view;
+          if (!v) return;
+          clear_block_selection(v);
         },
         update_task_checkbox(
           line_number: number,

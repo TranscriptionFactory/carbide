@@ -2647,6 +2647,19 @@
   pointer-events: none;
 }
 
+/* --- Multi-block selection --- */
+.block-selected {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  outline: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
+  border-radius: 2px;
+}
+
+/* --- Content-visibility chunking for large documents --- */
+.ProseMirror > *:not(.ProseMirror-selectednode) {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 3rem;
+}
+
 /* --- Inline diagnostic decorations (ProseMirror visual editor) --- */
 
 .diagnostic-error {

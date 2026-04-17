@@ -327,3 +327,210 @@ export function delete_block(state: EditorState, dispatch?: Dispatch): boolean {
   dispatch(tr.scrollIntoView());
   return true;
 }
+
+export function batch_turn_into(
+  target: TurnIntoTarget,
+  attrs: Record<string, unknown> | undefined,
+  positions: Set<number>,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  if (positions.size === 0) return false;
+  if (!dispatch) return true;
+  const sorted = [...positions].sort((a, b) => b - a);
+  let tr = state.tr;
+  for (const pos of sorted) {
+    const node = tr.doc.nodeAt(pos);
+    if (!node) continue;
+    const end = pos + node.nodeSize;
+    const block = { pos, node, end };
+    const replacement = build_turn_into_replacement(target, attrs, block);
+    if (replacement) {
+      tr = tr.replaceWith(pos, end, Fragment.from(replacement));
+    }
+  }
+  tr.setSelection(
+    TextSelection.create(
+      tr.doc,
+      Math.min(sorted[sorted.length - 1]! + 1, tr.doc.content.size - 1),
+    ),
+  );
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+export function batch_duplicate(
+  positions: Set<number>,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  if (positions.size === 0) return false;
+  if (!dispatch) return true;
+  const sorted = [...positions].sort((a, b) => b - a);
+  const tr = state.tr;
+  for (const pos of sorted) {
+    const node = tr.doc.nodeAt(pos);
+    if (!node) continue;
+    const end = pos + node.nodeSize;
+    if (node.type.name === "heading") {
+      const ranges = compute_heading_ranges(tr.doc);
+      const range = ranges.find((r) => r.heading_pos === pos);
+      if (range) {
+        const content = tr.doc.slice(range.heading_pos, range.body_end);
+        tr.insert(range.body_end, content.content);
+        continue;
+      }
+    }
+    const content = tr.doc.slice(pos, end);
+    tr.insert(end, content.content);
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+export function batch_delete(
+  positions: Set<number>,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  if (positions.size === 0) return false;
+  if (!dispatch) return true;
+  const sorted = [...positions].sort((a, b) => b - a);
+  const tr = state.tr;
+  for (const pos of sorted) {
+    const node = tr.doc.nodeAt(pos);
+    if (!node) continue;
+    if (tr.doc.childCount <= 1) {
+      const empty_para = schema.nodes.paragraph.create();
+      tr.replaceWith(pos, pos + node.nodeSize, empty_para);
+      break;
+    }
+    tr.delete(pos, pos + node.nodeSize);
+  }
+  const cursor = Math.max(1, Math.min(tr.doc.content.size - 1, 1));
+  tr.setSelection(TextSelection.create(tr.doc, cursor));
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function build_turn_into_replacement(
+  target: TurnIntoTarget,
+  attrs: Record<string, unknown> | undefined,
+  block: { pos: number; node: ProseNode; end: number },
+): ProseNode[] | null {
+  const node = block.node;
+  const current_name = node.type.name;
+
+  if (target === "paragraph") {
+    if (current_name === "paragraph") return null;
+    if (is_wrapped_block(node)) {
+      const paras = unwrap_to_textblocks(node).map((tb) =>
+        schema.nodes.paragraph.create(null, tb.content),
+      );
+      return paras.length > 0 ? paras : [schema.nodes.paragraph.create()];
+    }
+    return [schema.nodes.paragraph.create(null, collect_inline_content(node))];
+  }
+
+  if (target === "heading") {
+    const level = (attrs?.level as number) ?? 1;
+    if (current_name === "heading" && node.attrs["level"] === level)
+      return null;
+    if (is_wrapped_block(node)) {
+      const tbs = unwrap_to_textblocks(node);
+      const first = tbs[0];
+      const heading = schema.nodes.heading.create(
+        { level, id: "" },
+        first ? first.content : undefined,
+      );
+      const rest = tbs
+        .slice(1)
+        .map((tb) => schema.nodes.paragraph.create(null, tb.content));
+      return [heading, ...rest];
+    }
+    return [
+      schema.nodes.heading.create(
+        { level, id: "" },
+        collect_inline_content(node),
+      ),
+    ];
+  }
+
+  if (target === "blockquote") {
+    if (current_name === "blockquote") return null;
+    if (is_list_node(node)) {
+      const paras = unwrap_to_textblocks(node).map((tb) =>
+        schema.nodes.paragraph.create(null, tb.content),
+      );
+      return [schema.nodes.blockquote.create(null, paras)];
+    }
+    const para = node.isTextblock
+      ? schema.nodes.paragraph.create(null, node.content)
+      : schema.nodes.paragraph.create(null, collect_inline_content(node));
+    return [schema.nodes.blockquote.create(null, [para])];
+  }
+
+  if (target === "bullet_list" || target === "ordered_list") {
+    const list_type =
+      target === "bullet_list"
+        ? schema.nodes.bullet_list
+        : schema.nodes.ordered_list;
+    if (current_name === target) return null;
+    if (is_wrapped_block(node)) {
+      const items = unwrap_to_textblocks(node).map((tb) =>
+        schema.nodes.list_item.create(null, [
+          schema.nodes.paragraph.create(null, tb.content),
+        ]),
+      );
+      return [list_type.create(null, items)];
+    }
+    const item = schema.nodes.list_item.create(null, [
+      schema.nodes.paragraph.create(null, collect_inline_content(node)),
+    ]);
+    return [list_type.create(null, [item])];
+  }
+
+  if (target === "todo_list") {
+    if (current_name === "bullet_list" && has_checked_items(node)) return null;
+    const tbs = is_wrapped_block(node) ? unwrap_to_textblocks(node) : [node];
+    const items = tbs.map((tb) =>
+      schema.nodes.list_item.create(
+        { checked: false, listType: "bullet", label: "•" },
+        [
+          schema.nodes.paragraph.create(
+            null,
+            tb.isTextblock ? tb.content : collect_inline_content(tb),
+          ),
+        ],
+      ),
+    );
+    return [schema.nodes.bullet_list.create(null, items)];
+  }
+
+  if (target === "code_block") {
+    if (current_name === "code_block") return null;
+    const text = node.textContent;
+    return [
+      schema.nodes.code_block.create(
+        { language: "" },
+        text ? schema.text(text) : undefined,
+      ),
+    ];
+  }
+
+  if (target === "callout") {
+    if (current_name === "callout") return null;
+    const inline = collect_inline_content(node);
+    const title = schema.nodes.callout_title.create(null);
+    const body_para = schema.nodes.paragraph.create(null, inline);
+    const body = schema.nodes.callout_body.create(null, [body_para]);
+    return [
+      schema.nodes.callout.create(
+        { callout_type: "note", foldable: false, default_folded: false },
+        [title, body],
+      ),
+    ];
+  }
+
+  return null;
+}
