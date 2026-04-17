@@ -497,6 +497,18 @@ export class EditorService {
     this.session?.expand_all_heading_folds?.();
   }
 
+  turn_into(target: string, attrs?: Record<string, unknown>) {
+    this.session?.turn_into?.(target, attrs);
+  }
+
+  duplicate_block() {
+    this.session?.duplicate_block?.();
+  }
+
+  delete_block() {
+    this.session?.delete_block?.();
+  }
+
   update_task_checkbox(
     line_number: number,
     status: "todo" | "doing" | "done",

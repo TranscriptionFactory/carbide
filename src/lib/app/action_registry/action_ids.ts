@@ -163,6 +163,19 @@ export const ACTION_IDS = {
   editor_fold_collapse_all: "editor.fold.collapse_all",
   editor_fold_expand_all: "editor.fold.expand_all",
 
+  editor_turn_into_paragraph: "editor.turn_into.paragraph",
+  editor_turn_into_heading_1: "editor.turn_into.heading_1",
+  editor_turn_into_heading_2: "editor.turn_into.heading_2",
+  editor_turn_into_heading_3: "editor.turn_into.heading_3",
+  editor_turn_into_blockquote: "editor.turn_into.blockquote",
+  editor_turn_into_bullet_list: "editor.turn_into.bullet_list",
+  editor_turn_into_ordered_list: "editor.turn_into.ordered_list",
+  editor_turn_into_todo_list: "editor.turn_into.todo_list",
+  editor_turn_into_code_block: "editor.turn_into.code_block",
+  editor_turn_into_callout: "editor.turn_into.callout",
+  editor_duplicate_block: "editor.duplicate_block",
+  editor_delete_block: "editor.delete_block",
+
   outline_scroll_to_heading: "outline.scroll_to_heading",
 
   find_in_file_toggle: "find_in_file.toggle",
