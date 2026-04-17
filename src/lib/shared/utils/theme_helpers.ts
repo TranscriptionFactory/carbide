@@ -48,7 +48,7 @@ export const MONO_FONT_OPTIONS = [
   { value: "JetBrains Mono", label: "JetBrains Mono" },
   { value: "Fira Code", label: "Fira Code" },
   { value: "SF Mono", label: "SF Mono" },
-  { value: "Cascadia Code", label: "Cascadia Code" },
+  { value: "Cascadia Code", label: "Cascadia Code (system)" },
   { value: "Source Code Pro", label: "Source Code Pro" },
   { value: "IBM Plex Mono", label: "IBM Plex Mono" },
   { value: "Consolas", label: "Consolas" },
