@@ -403,33 +403,56 @@ Use `@vitest-environment jsdom`.
 
 ---
 
-## Implementation Order
+## Implementation Status
 
-```
-Step 1-7: Phase 2.5 (Block Ops)           ~1.5-2 days
-    ↓
-Step 1-2: Phase 2.6 (Chunking)            ~0.5 day (can start earlier, independent)
-    ↓
-Step 1-6: Phase 2.7 (Multi-Select)        ~2-3 days
-```
+### Phase 2.5 — DONE (commit `e6bbb850` on `feat/block-ops`)
 
-Phase 2.6 is independent and can ship any time. Phase 2.7 depends on Phase 2.5 (extends its functions with batch support).
+All 7 steps completed:
+
+1. **`block_transforms.ts`** — Created at `src/lib/features/editor/adapters/block_transforms.ts`. Uses direct transaction construction (not command chaining) for wrapped→unwrapped conversions. `unwrap_to_textblocks()` + `replace_block_with()` pattern avoids fragile lift-then-setBlockType command composition.
+2. **Action IDs** — 12 new IDs added to `action_ids.ts` (`editor_turn_into_*`, `editor_duplicate_block`, `editor_delete_block`).
+3. **Service/session wiring** — `EditorService.turn_into/duplicate_block/delete_block` → ports type → `prosemirror_adapter.ts` session methods.
+4. **App actions** — All 12 registered in `register_app_actions`.
+5. **Context menu** — Turn Into submenu (with separators grouping related items), Duplicate (⇧⌘D hint), Delete (with separator). Block ops above IWE-gated Refactor submenu.
+6. **Keymaps** — `Mod-Shift-0/1/2/3` (paragraph, H1/2/3), `Mod-Shift-d` (duplicate) in `core_extension.ts`.
+7. **Tests** — 19 tests covering turn_into (13), duplicate (5), delete (4). All passing.
+
+**Design decisions:**
+- Wrapped block conversions (blockquote/list → anything) use manual `replaceWith` transactions instead of `lift()` + `setBlockType()` command composition. This avoids the fundamental ProseMirror limitation where chaining commands requires intermediate state application that breaks single-transaction undo semantics.
+- `todo_list` is `bullet_list > list_item({ checked: false })` (no separate node type).
+- `callout` conversion places original content in `callout_body > paragraph`, leaves `callout_title` empty.
+
+### Phase 2.6 — TODO (independent, can be done in any order)
+
+Steps from plan above. 3 lines of CSS in `src/styles/editor.css`.
+
+### Phase 2.7 — TODO (depends on Phase 2.5)
+
+Steps from plan above. Key files to create/edit:
+- `src/lib/features/editor/adapters/block_selection_plugin.ts` (NEW)
+- `src/lib/features/editor/extensions/index.ts` (wire plugin)
+- `src/lib/features/editor/adapters/block_transforms.ts` (add `positions?` param for batch ops)
+- `src/lib/features/editor/ui/editor_context_menu.svelte` (multi-select badge + pass positions)
+- `src/styles/editor.css` (`.block-selected` style)
+- `tests/unit/adapters/block_selection_plugin.test.ts` (NEW)
+- Also update `editor_service.ts`, `ports.ts`, `prosemirror_adapter.ts` to pass positions through
 
 ---
 
 ## Files Summary
 
-| File | Action | Phase |
-|---|---|---|
-| `src/lib/features/editor/adapters/block_transforms.ts` | NEW | 2.5, 2.7 |
-| `src/lib/app/action_registry/action_ids.ts` | EDIT | 2.5 |
-| `src/lib/app/orchestration/app_actions.ts` | EDIT | 2.5 |
-| `src/lib/features/editor/application/editor_service.ts` | EDIT | 2.5 |
-| Editor session file (where `toggle_heading_fold` lives) | EDIT | 2.5 |
-| `src/lib/features/editor/ui/editor_context_menu.svelte` | EDIT | 2.5, 2.7 |
-| `src/lib/features/editor/extensions/core_extension.ts` | EDIT | 2.5 |
-| `tests/unit/adapters/block_transforms.test.ts` | NEW | 2.5, 2.7 |
-| `src/styles/editor.css` | EDIT | 2.6, 2.7 |
-| `src/lib/features/editor/adapters/block_selection_plugin.ts` | NEW | 2.7 |
-| `src/lib/features/editor/extensions/index.ts` | EDIT | 2.7 |
-| `tests/unit/adapters/block_selection_plugin.test.ts` | NEW | 2.7 |
+| File | Action | Phase | Status |
+|---|---|---|---|
+| `src/lib/features/editor/adapters/block_transforms.ts` | NEW | 2.5, 2.7 | 2.5 done |
+| `src/lib/app/action_registry/action_ids.ts` | EDIT | 2.5 | done |
+| `src/lib/app/orchestration/app_actions.ts` | EDIT | 2.5 | done |
+| `src/lib/features/editor/application/editor_service.ts` | EDIT | 2.5 | done |
+| `src/lib/features/editor/adapters/prosemirror_adapter.ts` | EDIT | 2.5 | done |
+| `src/lib/features/editor/ports.ts` | EDIT | 2.5 | done |
+| `src/lib/features/editor/ui/editor_context_menu.svelte` | EDIT | 2.5, 2.7 | 2.5 done |
+| `src/lib/features/editor/extensions/core_extension.ts` | EDIT | 2.5 | done |
+| `tests/unit/adapters/block_transforms.test.ts` | NEW | 2.5, 2.7 | 2.5 done |
+| `src/styles/editor.css` | EDIT | 2.6, 2.7 | TODO |
+| `src/lib/features/editor/adapters/block_selection_plugin.ts` | NEW | 2.7 | TODO |
+| `src/lib/features/editor/extensions/index.ts` | EDIT | 2.7 | TODO |
+| `tests/unit/adapters/block_selection_plugin.test.ts` | NEW | 2.7 | TODO |
