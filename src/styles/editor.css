@@ -323,8 +323,8 @@
 
 .block-drag-handle {
   position: absolute;
-  left: -0.5rem;
-  width: 1.25rem;
+  left: -1.75rem;
+  width: auto;
   height: 1.5rem;
   cursor: grab;
   opacity: 0;
@@ -332,6 +332,7 @@
   display: none;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   user-select: none;
   pointer-events: auto;
   border-radius: var(--radius-sm, 3px);
@@ -366,6 +367,46 @@
   cursor: grabbing;
 }
 
+.block-drag-handle__insert {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.1s ease;
+}
+
+.block-drag-handle__insert::before,
+.block-drag-handle__insert::after {
+  content: "";
+  position: absolute;
+  background: var(--muted-foreground);
+  border-radius: 1px;
+}
+
+.block-drag-handle__insert::before {
+  width: 8px;
+  height: 1.5px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.block-drag-handle__insert::after {
+  width: 1.5px;
+  height: 8px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.block-drag-handle__insert:hover {
+  opacity: 1;
+  background: var(--background-surface-2, oklch(0.95 0 0));
+}
+
 .block-drag-handle__grip {
   width: 8px;
   height: 14px;
@@ -376,6 +417,12 @@
   );
   background-size: 4px 4px;
   background-position: 0 1px;
+}
+
+/* Focus mode: hide handles while typing */
+.typing-focus .block-drag-handle {
+  opacity: 0 !important;
+  pointer-events: none;
 }
 
 /* ============================================
