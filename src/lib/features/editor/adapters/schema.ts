@@ -374,6 +374,7 @@ const callout: NodeSpec = {
     callout_type: { default: "note" },
     foldable: { default: false },
     default_folded: { default: false },
+    folded: { default: false },
   },
   parseDOM: [
     {

@@ -339,6 +339,7 @@ function convert_callout(node: AnyMdastNode): PmNode {
       callout_type: data.callout_type || "note",
       foldable: data.foldable ?? false,
       default_folded: data.default_folded ?? false,
+      folded: data.default_folded ?? false,
     },
     [pm_title, pm_body],
   );

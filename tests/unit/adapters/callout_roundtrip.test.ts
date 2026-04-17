@@ -175,4 +175,53 @@ describe("callout markdown roundtrip", () => {
     expect(callout?.type.name).toBe("callout");
     expect(callout?.child(1)?.childCount).toBeGreaterThan(0);
   });
+
+  it("foldable callout has folded attr matching default_folded on parse", () => {
+    const folded_input = "> [!danger]- Watch out\n> Danger zone.";
+    const doc_folded = parse_markdown(folded_input);
+    const callout_folded = doc_folded.firstChild;
+    expect(callout_folded?.attrs["foldable"]).toBe(true);
+    expect(callout_folded?.attrs["default_folded"]).toBe(true);
+    expect(callout_folded?.attrs["folded"]).toBe(true);
+
+    const open_input = "> [!tip]+\n> A helpful tip.";
+    const doc_open = parse_markdown(open_input);
+    const callout_open = doc_open.firstChild;
+    expect(callout_open?.attrs["foldable"]).toBe(true);
+    expect(callout_open?.attrs["default_folded"]).toBe(false);
+    expect(callout_open?.attrs["folded"]).toBe(false);
+  });
+
+  it("non-foldable callout has folded: false regardless", () => {
+    const input = "> [!note]\n> Simple note.";
+    const doc = parse_markdown(input);
+    const callout = doc.firstChild;
+    expect(callout?.attrs["foldable"]).toBe(false);
+    expect(callout?.attrs["folded"]).toBe(false);
+  });
+
+  it("folded attr is not serialized to markdown", () => {
+    const callout = schema.nodes.callout.create(
+      {
+        callout_type: "tip",
+        foldable: true,
+        default_folded: true,
+        folded: false,
+      },
+      [
+        schema.nodes.callout_title.create(null, schema.text("Tip")),
+        schema.nodes.callout_body.create(null, [
+          schema.nodes.paragraph.create(null, schema.text("Content")),
+        ]),
+      ],
+    );
+    const doc = schema.nodes.doc.create(null, [callout]);
+    const output = serialize_markdown(doc).trim();
+    expect(output).toContain("[!tip]-");
+    expect(output).not.toContain("folded");
+
+    const reparsed = parse_markdown(output);
+    const reparsed_callout = reparsed.firstChild;
+    expect(reparsed_callout?.attrs["default_folded"]).toBe(true);
+  });
 });

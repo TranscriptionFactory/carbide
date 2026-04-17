@@ -20,6 +20,8 @@ const CALLOUT_ICONS: Record<string, string> = {
   important: "message-circle-warning",
 };
 
+const CHEVRON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+
 function icon_svg(name: string): string {
   const icons: Record<string, string> = {
     pencil: `<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>`,
@@ -53,6 +55,7 @@ class CalloutBlockView implements NodeView {
   contentDOM: HTMLElement;
   private node: ProseNode;
   private icon_el: HTMLElement;
+  private toggle_el: HTMLElement | null = null;
 
   constructor(
     node: ProseNode,
@@ -62,23 +65,51 @@ class CalloutBlockView implements NodeView {
     this.node = node;
     const callout_type = (node.attrs["callout_type"] as string) || "note";
     const canonical = canonical_callout_type(callout_type);
+    const foldable = node.attrs["foldable"] as boolean;
+    const folded = node.attrs["folded"] as boolean;
 
     this.dom = document.createElement("div");
     this.dom.className = `callout-block callout-block--${canonical}`;
+    if (folded) this.dom.classList.add("callout-block--folded");
     this.dom.dataset["callout"] = "";
     this.dom.dataset["calloutType"] = canonical;
+
+    const header = document.createElement("div");
+    header.className = "callout-block__header";
 
     this.icon_el = document.createElement("span");
     this.icon_el.className = "callout-block__icon";
     this.icon_el.contentEditable = "false";
     this.icon_el.innerHTML = icon_svg(get_icon_for_type(callout_type));
 
+    header.appendChild(this.icon_el);
+
+    if (foldable) {
+      this.toggle_el = document.createElement("span");
+      this.toggle_el.className = "callout-block__toggle";
+      this.toggle_el.contentEditable = "false";
+      this.toggle_el.innerHTML = CHEVRON_SVG;
+      this.toggle_el.addEventListener("click", this.handle_toggle);
+      header.appendChild(this.toggle_el);
+    }
+
     this.contentDOM = document.createElement("div");
     this.contentDOM.className = "callout-block__content";
 
-    this.dom.appendChild(this.icon_el);
+    this.dom.appendChild(header);
     this.dom.appendChild(this.contentDOM);
   }
+
+  private handle_toggle = () => {
+    const pos = this.getPos();
+    if (pos == null) return;
+    const folded = !this.node.attrs["folded"];
+    const tr = this.view.state.tr.setNodeMarkup(pos, null, {
+      ...this.node.attrs,
+      folded,
+    });
+    this.view.dispatch(tr);
+  };
 
   update(updated: ProseNode): boolean {
     if (updated.type.name !== "callout") return false;
@@ -87,6 +118,9 @@ class CalloutBlockView implements NodeView {
     const canonical = canonical_callout_type(callout_type);
 
     this.dom.className = `callout-block callout-block--${canonical}`;
+    if (updated.attrs["folded"]) {
+      this.dom.classList.add("callout-block--folded");
+    }
     this.dom.dataset["calloutType"] = canonical;
     this.icon_el.innerHTML = icon_svg(get_icon_for_type(callout_type));
     return true;
@@ -95,6 +129,7 @@ class CalloutBlockView implements NodeView {
   stopEvent(event: Event): boolean {
     const target = event.target;
     if (!(target instanceof Node)) return false;
+    if (this.toggle_el?.contains(target)) return true;
     return this.icon_el.contains(target);
   }
 
@@ -102,7 +137,9 @@ class CalloutBlockView implements NodeView {
     return false;
   }
 
-  destroy() {}
+  destroy() {
+    this.toggle_el?.removeEventListener("click", this.handle_toggle);
+  }
 }
 
 export function create_callout_view_prose_plugin(): Plugin {
