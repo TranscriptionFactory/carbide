@@ -114,15 +114,29 @@ function make_heading_insert(level: number) {
   };
 }
 
+function find_last_code_block_language(
+  doc: import("prosemirror-model").Node,
+): string {
+  let last_language = "";
+  doc.descendants((node) => {
+    if (node.type.name === "code_block" && node.attrs["language"]) {
+      last_language = node.attrs["language"] as string;
+    }
+    return true;
+  });
+  return last_language;
+}
+
 function make_code_block_insert() {
   return (view: EditorView, from: number) => {
     const { state } = view;
     const code_type = state.schema.nodes["code_block"];
     if (!code_type) return;
+    const language = find_last_code_block_language(state.doc);
     const cursor = state.selection.from;
     const tr = state.tr
       .delete(from, cursor)
-      .setBlockType(from, from, code_type, { language: "" });
+      .setBlockType(from, from, code_type, { language });
     view.dispatch(tr.scrollIntoView());
   };
 }

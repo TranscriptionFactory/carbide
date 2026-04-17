@@ -81,6 +81,12 @@ export const parse_processor = unified()
   .use(remark_highlight)
   .use(remark_details);
 
+export const fallback_parse_processor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkFrontmatter, ["yaml"])
+  .use(remarkGemoji);
+
 export const stringify_processor = unified()
   .use(remarkStringify, stringify_options)
   .use(remarkGfm)

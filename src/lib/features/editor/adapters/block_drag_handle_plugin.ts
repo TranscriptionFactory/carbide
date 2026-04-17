@@ -11,6 +11,7 @@ import { compute_heading_ranges } from "./heading_fold_plugin";
 const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
 
 const HIDE_DELAY_MS = 150;
+const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
 
 function resolve_top_level_block(
   view: EditorView,
@@ -41,11 +42,31 @@ function create_handle_element(): HTMLDivElement {
   handle.setAttribute("aria-label", "Drag to reorder block");
   handle.setAttribute("role", "button");
 
+  const insert_btn = document.createElement("div");
+  insert_btn.className = "block-drag-handle__insert";
+  insert_btn.setAttribute("aria-label", "Insert block below");
+  insert_btn.setAttribute("role", "button");
+  handle.appendChild(insert_btn);
+
   const grip = document.createElement("div");
   grip.className = "block-drag-handle__grip";
   handle.appendChild(grip);
 
   return handle;
+}
+
+function insert_paragraph_below(view: EditorView, block_pos: number) {
+  const node = view.state.doc.nodeAt(block_pos);
+  if (!node) return;
+
+  const insert_pos = block_pos + node.nodeSize;
+  const paragraph = view.state.schema.nodes["paragraph"]?.create();
+  if (!paragraph) return;
+
+  const tr = view.state.tr.insert(insert_pos, paragraph);
+  tr.setSelection(TextSelection.create(tr.doc, insert_pos + 1));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
 }
 
 function compute_drag_range(
@@ -105,9 +126,15 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     view(editor_view: EditorView) {
       const overlay = create_overlay_element();
       const handle = create_handle_element();
+      const insert_btn = handle.querySelector(
+        ".block-drag-handle__insert",
+      ) as HTMLElement;
       let current_block_pos: number | null = null;
       let is_dragging = false;
       let hide_timer: ReturnType<typeof setTimeout> | null = null;
+
+      let keystroke_count = 0;
+      let focus_mode_active = false;
 
       const editor_dom = editor_view.dom;
 
@@ -129,6 +156,26 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         if (hide_timer !== null) {
           clearTimeout(hide_timer);
           hide_timer = null;
+        }
+      }
+
+      function enter_focus_mode() {
+        if (focus_mode_active) return;
+        focus_mode_active = true;
+        editor_dom.classList.add("typing-focus");
+      }
+
+      function exit_focus_mode() {
+        if (!focus_mode_active) return;
+        focus_mode_active = false;
+        keystroke_count = 0;
+        editor_dom.classList.remove("typing-focus");
+      }
+
+      function on_keydown() {
+        keystroke_count++;
+        if (keystroke_count >= FOCUS_MODE_KEYSTROKE_THRESHOLD) {
+          enter_focus_mode();
         }
       }
 
@@ -184,6 +231,8 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       }
 
       function on_mousemove(event: MouseEvent) {
+        exit_focus_mode();
+
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
 
@@ -231,6 +280,14 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         }
       }
 
+      function on_insert_click(event: MouseEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (current_block_pos !== null) {
+          insert_paragraph_below(editor_view, current_block_pos);
+        }
+      }
+
       function on_dragstart(event: DragEvent) {
         if (current_block_pos === null) return;
 
@@ -274,8 +331,10 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
       editor_dom.addEventListener("mousemove", on_mousemove);
       editor_dom.addEventListener("mouseleave", on_mouseleave);
+      editor_dom.addEventListener("keydown", on_keydown);
       handle.addEventListener("mouseenter", on_handle_mouseenter);
       handle.addEventListener("mouseleave", on_handle_mouseleave);
+      insert_btn.addEventListener("mousedown", on_insert_click);
       handle.addEventListener("dragstart", on_dragstart);
       handle.addEventListener("dragend", on_dragend);
 
@@ -296,10 +355,13 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
         destroy() {
           cancel_pending_hide();
+          exit_focus_mode();
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
+          editor_dom.removeEventListener("keydown", on_keydown);
           handle.removeEventListener("mouseenter", on_handle_mouseenter);
           handle.removeEventListener("mouseleave", on_handle_mouseleave);
+          insert_btn.removeEventListener("mousedown", on_insert_click);
           handle.removeEventListener("dragstart", on_dragstart);
           handle.removeEventListener("dragend", on_dragend);
           overlay.remove();
