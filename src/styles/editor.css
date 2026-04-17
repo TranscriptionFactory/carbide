@@ -1204,6 +1204,105 @@
 }
 
 /* ============================================
+   CALLOUT BLOCKS
+   ============================================ */
+
+.callout-block {
+  position: relative;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-top: calc(var(--editor-spacing) * 0.5);
+  margin-bottom: calc(var(--editor-spacing) * 0.75);
+  border-radius: 0.375rem;
+  border-left: 3px solid var(--callout-color, var(--border));
+  background: color-mix(
+    in oklch,
+    var(--callout-color, var(--muted)) 8%,
+    var(--background)
+  );
+}
+
+.callout-block__icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  color: var(--callout-color, var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.callout-block__icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.callout-block__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.callout-block__title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--callout-color, var(--foreground));
+  margin-bottom: 0.25rem;
+}
+
+.callout-block__body > :first-child {
+  margin-top: 0;
+}
+
+.callout-block__body > :last-child {
+  margin-bottom: 0;
+}
+
+.callout-block--note {
+  --callout-color: oklch(0.65 0.15 250);
+}
+.callout-block--abstract {
+  --callout-color: oklch(0.65 0.12 190);
+}
+.callout-block--info {
+  --callout-color: oklch(0.65 0.15 250);
+}
+.callout-block--todo {
+  --callout-color: oklch(0.65 0.15 250);
+}
+.callout-block--tip {
+  --callout-color: oklch(0.65 0.12 170);
+}
+.callout-block--success {
+  --callout-color: oklch(0.65 0.15 145);
+}
+.callout-block--question {
+  --callout-color: oklch(0.7 0.12 80);
+}
+.callout-block--warning {
+  --callout-color: oklch(0.75 0.15 65);
+}
+.callout-block--failure {
+  --callout-color: oklch(0.6 0.18 25);
+}
+.callout-block--danger {
+  --callout-color: oklch(0.6 0.2 25);
+}
+.callout-block--bug {
+  --callout-color: oklch(0.6 0.18 25);
+}
+.callout-block--example {
+  --callout-color: oklch(0.65 0.15 300);
+}
+.callout-block--quote {
+  --callout-color: var(--muted-foreground);
+}
+.callout-block--important {
+  --callout-color: oklch(0.65 0.12 170);
+}
+
+/* ============================================
    MILKDOWN IMAGE BLOCK COMPONENT
    ============================================ */
 

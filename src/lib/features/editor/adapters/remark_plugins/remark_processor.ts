@@ -8,6 +8,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkGemoji from "remark-gemoji";
 import { remark_highlight, highlight_to_markdown } from "./remark_highlight";
 import { remark_details, details_to_markdown } from "./remark_details";
+import { remark_callout, callout_to_markdown } from "./remark_callout";
 
 type StringifyState = {
   enter: (s: string) => () => void;
@@ -67,6 +68,7 @@ const stringify_options: StringifyOptions = {
   handlers: {
     ...highlight_to_markdown,
     ...details_to_markdown,
+    ...callout_to_markdown,
     table: table_handler,
     wikiEmbed: wiki_embed_handler,
   } as unknown as StringifyOptions["handlers"],
@@ -79,7 +81,8 @@ export const parse_processor = unified()
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkGemoji)
   .use(remark_highlight)
-  .use(remark_details);
+  .use(remark_details)
+  .use(remark_callout);
 
 export const fallback_parse_processor = unified()
   .use(remarkParse)

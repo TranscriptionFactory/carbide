@@ -49,36 +49,51 @@ Low-effort, high-polish improvements. No architectural changes.
 
 ---
 
-## Phase 2: Callout Blocks (2-3 days)
+## Phase 2: Callout Blocks — COMPLETED (2026-04-17)
 
 Obsidian-compatible callout syntax support.
 
-### 2.1 Remark Plugin
+### 2.1 Remark Plugin — DONE
 **New file:** `src/lib/features/editor/adapters/remark_plugins/remark_callout.ts`
 
-- Parse blockquote with `[!type]` first line → callout MDAST node
-- Types: note, tip, warning, caution, important, abstract, info, todo, example, quote, bug, danger, failure, success, question
-- Preserve foldable state (`+` = open, `-` = closed)
-- Serialize back to `> [!type]` syntax
+- `remark_callout` plugin transforms blockquotes with `[!type]` first line → `callout` MDAST nodes with `calloutTitle` + `calloutBody` children
+- 28 supported types: note, abstract, summary, tldr, info, todo, tip, hint, important, success, check, done, question, help, faq, warning, caution, attention, failure, fail, missing, danger, error, bug, example, quote, cite
+- Canonical type normalization (e.g., `tldr` → `abstract`, `caution` → `warning`)
+- Preserves foldable state (`+` = open, `-` = closed) and custom titles
+- `callout_to_markdown` serializer: outputs `> [!type]` blockquote syntax with body lines prefixed by `>`
+- `parse_callout_directive()` and `format_callout_directive()` utility functions exported for reuse
 
-### 2.2 ProseMirror Node
+### 2.2 ProseMirror Node — DONE
 **Files:** `schema.ts`, `mdast_to_pm.ts`, `pm_to_mdast.ts`
 
-- Add `callout` node type to schema: `{ type: string, foldable: boolean, folded: boolean } → block+`
-- MDAST → PM: convert callout nodes to callout blocks
-- PM → MDAST: serialize back to blockquote with `[!type]` marker
+- Added `callout` node type to schema: attrs `{ callout_type, foldable, default_folded }`, content `callout_title callout_body`
+- Added `callout_title` (inline content, isolating) and `callout_body` (block+ content) helper nodes
+- `convert_callout()` in mdast_to_pm: converts callout MDAST → PM callout node with title inline and body blocks
+- `convert_block_node` case in pm_to_mdast: serializes back to callout MDAST with data attrs and children
 
-### 2.3 Editor Extension
-**New file:** `src/lib/features/editor/extensions/callout_extension.ts`
+### 2.3 Editor Extension — DONE
+**Files:** `callout_view_plugin.ts`, `callout_extension.ts`, `extensions/index.ts`, `editor.css`
 
-- Node view with colored left border (type-dependent color)
-- Icon per callout type (from lucide)
-- Fold/unfold toggle if foldable
-- Input rule: typing `> [!note]` converts blockquote to callout
+- `CalloutBlockView` node view: renders callout with icon + content DOM container
+- Lucide SVG icons per canonical type (14 icons: pencil, clipboard-list, info, circle-check, flame, check, circle-help, triangle-alert, x, zap, bug, list, quote, message-circle-warning)
+- CSS: colored left border + tinted background per type using `--callout-color` custom property (OKLCH colors)
+- Title rendered bold with type color, body content below
+- Wired into `assemble_extensions()` via `create_callout_extension()`
 
-### 2.4 Slash Command
-- Add callout variants to slash command registry
-- Keywords: "callout", "admonition", "note", "warning", "tip"
+### 2.4 Slash Command — DONE
+**Files:** `slash_command_plugin.ts`
+
+- Added `make_callout_insert(callout_type)` factory function
+- 5 callout slash commands: Note, Warning, Tip, Important, Example
+- Keywords include "callout", "admonition", and type-specific terms
+- Insert creates callout with pre-filled title, cursor positioned in body
+
+### 2.5 Tests — DONE
+**File:** `tests/unit/adapters/callout_roundtrip.test.ts` (18 tests)
+
+- Directive parsing: basic note, custom title, foldable open/closed, unknown types, non-callout text
+- Directive formatting: basic, custom title, foldable
+- Markdown roundtrip: basic parse, custom title, roundtrip serialization, foldable state preservation, regular blockquote passthrough, direct schema construction, multi-paragraph body, empty body
 
 ---
 

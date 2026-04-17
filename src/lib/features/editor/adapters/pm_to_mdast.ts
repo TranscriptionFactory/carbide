@@ -247,6 +247,28 @@ function convert_block_node(node: PmNode): MdastNode | null {
     case "details_content":
       return null;
 
+    case "callout": {
+      const callout_type = (node.attrs["callout_type"] as string) || "note";
+      const foldable = (node.attrs["foldable"] as boolean) || false;
+      const default_folded = (node.attrs["default_folded"] as boolean) || false;
+      const title = node.child(0);
+      const body = node.child(1);
+      const title_inline = convert_pm_inline(title);
+      const body_children = convert_children(body);
+      return {
+        type: "callout",
+        data: { callout_type, foldable, default_folded },
+        children: [
+          { type: "calloutTitle", children: title_inline },
+          { type: "calloutBody", children: body_children },
+        ],
+      };
+    }
+
+    case "callout_title":
+    case "callout_body":
+      return null;
+
     case "excalidraw_embed": {
       const src = (node.attrs["src"] as string) || "";
       return { type: "wikiEmbed", value: `![[${src}]]` };

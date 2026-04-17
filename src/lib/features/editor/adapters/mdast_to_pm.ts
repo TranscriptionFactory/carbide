@@ -174,6 +174,10 @@ function convert_block(node: AnyMdastNode): PmNode | null {
       return convert_details(node);
     }
 
+    case "callout": {
+      return convert_callout(node);
+    }
+
     case "html": {
       return null;
     }
@@ -299,6 +303,45 @@ function convert_details(node: AnyMdastNode): PmNode {
   );
 
   return schema.nodes.details_block.create({ open }, [pm_summary, pm_content]);
+}
+
+function convert_callout(node: AnyMdastNode): PmNode {
+  const data =
+    (node.data as {
+      callout_type?: string;
+      title?: string;
+      foldable?: boolean;
+      default_folded?: boolean;
+    }) ?? {};
+  const children = node.children as AnyMdastNode[];
+
+  const title_node = children[0];
+  const body_node = children[1];
+
+  const title_inline = title_node ? convert_inline(title_node) : [];
+  const pm_title = schema.nodes.callout_title.create(
+    null,
+    title_inline.length > 0 ? title_inline : undefined,
+  );
+
+  let body_children: PmNode[] = [];
+  if (body_node) {
+    body_children = convert_blocks(body_node.children as AnyMdastNode[]);
+  }
+  if (body_children.length === 0) {
+    body_children = [schema.nodes.paragraph.create()];
+  }
+
+  const pm_body = schema.nodes.callout_body.create(null, body_children);
+
+  return schema.nodes.callout.create(
+    {
+      callout_type: data.callout_type || "note",
+      foldable: data.foldable ?? false,
+      default_folded: data.default_folded ?? false,
+    },
+    [pm_title, pm_body],
+  );
 }
 
 function convert_blocks(nodes: AnyMdastNode[]): PmNode[] {
