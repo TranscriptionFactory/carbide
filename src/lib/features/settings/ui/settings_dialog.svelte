@@ -4077,6 +4077,59 @@
               </div>
             {/if}
 
+            <h3 class="SettingsDialog__section-subheader">
+              LSP Feature Toggles
+            </h3>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Native Link Hover</span>
+                <span class="SettingsDialog__description"
+                  >Show native link tooltip on hover. Disable to use only LSP
+                  hover.</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.native_link_hover_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("native_link_hover_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Native Wiki Suggest</span>
+                <span class="SettingsDialog__description"
+                  >Show native [[ wiki-link dropdown. Disable to use only LSP
+                  completion.</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.native_wiki_suggest_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("native_wiki_suggest_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Native Link Navigation</span
+                >
+                <span class="SettingsDialog__description"
+                  >Handle link clicks natively. Disable to use LSP
+                  go-to-definition.</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.native_link_click_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("native_link_click_enabled", v);
+                }}
+              />
+            </div>
+
             {#if lsp_config_status?.has_config}
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">

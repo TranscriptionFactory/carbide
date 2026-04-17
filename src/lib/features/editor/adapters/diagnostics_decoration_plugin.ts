@@ -134,7 +134,19 @@ export function create_diagnostics_decoration_plugin(): Plugin {
       }
 
       function show_tooltip(view: EditorView, pos: number, message: string) {
-        tooltip_el.textContent = message;
+        tooltip_el.innerHTML = "";
+        const lsp_header = document.createElement("span");
+        lsp_header.style.fontSize = "10px";
+        lsp_header.style.textTransform = "uppercase";
+        lsp_header.style.letterSpacing = "0.05em";
+        lsp_header.style.color = "var(--muted-foreground)";
+        lsp_header.style.display = "block";
+        lsp_header.style.marginBottom = "4px";
+        lsp_header.textContent = "LSP";
+        tooltip_el.appendChild(lsp_header);
+        const msg_body = document.createElement("span");
+        msg_body.textContent = message;
+        tooltip_el.appendChild(msg_body);
         tooltip_el.style.display = "block";
 
         const coords = view.coordsAtPos(pos);

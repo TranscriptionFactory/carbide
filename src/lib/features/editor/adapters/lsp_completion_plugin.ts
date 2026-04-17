@@ -66,6 +66,11 @@ function render_items(
       row.appendChild(detail);
     }
 
+    const badge = document.createElement("span");
+    badge.className = "LspCompletion__badge";
+    badge.textContent = "LSP";
+    row.appendChild(badge);
+
     row.addEventListener("mousedown", (e) => {
       e.preventDefault();
       on_select(i);

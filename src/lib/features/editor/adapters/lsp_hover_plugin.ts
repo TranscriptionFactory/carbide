@@ -85,7 +85,19 @@ export function create_lsp_hover_plugin(input: {
       }
 
       function show(view: EditorView, pos: number, contents: string) {
-        container.textContent = contents;
+        container.innerHTML = "";
+        const header = document.createElement("span");
+        header.style.fontSize = "10px";
+        header.style.textTransform = "uppercase";
+        header.style.letterSpacing = "0.05em";
+        header.style.color = "var(--muted-foreground)";
+        header.style.display = "block";
+        header.style.marginBottom = "4px";
+        header.textContent = "LSP";
+        container.appendChild(header);
+        const body = document.createElement("span");
+        body.textContent = contents;
+        container.appendChild(body);
         container.style.display = "block";
         active_pos = pos;
 
