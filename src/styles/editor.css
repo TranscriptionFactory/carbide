@@ -2654,11 +2654,12 @@
   border-radius: 2px;
 }
 
-/* --- Content-visibility chunking for large documents --- */
-.ProseMirror > *:not(.ProseMirror-selectednode) {
-  content-visibility: auto;
-  contain-intrinsic-block-size: auto 3rem;
-}
+/* --- Content-visibility chunking for large documents ---
+   NOTE: content-visibility:auto on direct children caused newly-created
+   blocks (after Enter) to render invisible until a full re-layout
+   (e.g. toggling source↔visual). Disabled until we can scope it to
+   only far-offscreen blocks or use IntersectionObserver instead.
+*/
 
 /* --- Inline diagnostic decorations (ProseMirror visual editor) --- */
 
