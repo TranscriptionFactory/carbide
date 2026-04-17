@@ -8,6 +8,7 @@
     VaultGraphRenderer,
     type EdgeHoverInfo,
   } from "$lib/features/graph/domain/vault_graph_renderer";
+  import { compute_degradation_profile } from "$lib/features/graph/domain/graph_degrade";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
   import { rule_chip_label } from "$lib/features/smart_links";
@@ -111,7 +112,13 @@
   }
 
   function feed_graph(r: VaultGraphRenderer, snap: VaultGraphSnapshot) {
-    r.set_graph(plain_nodes(snap), plain_edges(snap));
+    const edges = plain_edges(snap);
+    r.set_graph(plain_nodes(snap), edges);
+
+    const profile = compute_degradation_profile(
+      snap.nodes.length,
+      edges.length,
+    );
 
     if (worker) {
       worker.postMessage({ type: "stop" });
@@ -143,6 +150,12 @@
         r.update_positions(positions);
       }
     };
+    if (profile.is_degraded) {
+      w.postMessage({
+        type: "tick_budget",
+        ticks: profile.simulation_tick_cap,
+      });
+    }
     const has_search_meta = snap.nodes.some((n) => n.kind != null);
     w.postMessage({
       type: "init",
@@ -151,7 +164,7 @@
         kind: n.kind,
         group: n.group,
       })),
-      edges: plain_edges(snap),
+      edges,
       force_params,
       grouping: has_search_meta
         ? {

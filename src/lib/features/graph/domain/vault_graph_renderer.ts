@@ -18,6 +18,11 @@ import type {
   SmartLinkEdge,
   SmartLinkRuleMatchInfo,
 } from "$lib/features/graph/ports";
+import {
+  compute_degradation_profile,
+  sample_edges,
+  type DegradationProfile,
+} from "$lib/features/graph/domain/graph_degrade";
 
 const LOD_FULL_ZOOM = 0.6;
 const LOD_MEDIUM_ZOOM = 0.3;
@@ -35,6 +40,7 @@ type NodeEntry = {
   label: Text;
   x: number;
   y: number;
+  degree: number;
   kind?: "hit" | "neighbor";
   score?: number;
   group?: string;
@@ -90,6 +96,13 @@ export class VaultGraphRenderer {
   private raf_id = 0;
   private edges_dirty = true;
   private last_lod_tier = -1;
+  private degrade_profile: DegradationProfile = {
+    level: 1,
+    is_degraded: false,
+    edge_render_limit: Infinity,
+    simulation_tick_cap: 300,
+    label_visible_min_zoom: 0,
+  };
 
   on_node_click: (id: string) => void = () => {};
   on_node_hover: (id: string | null) => void = () => {};
@@ -214,6 +227,12 @@ export class VaultGraphRenderer {
     this.edges_dirty = true;
     this.has_search_meta = nodes.some((n) => n.kind != null);
 
+    const degree_map = new Map<string, number>();
+    for (const edge of edges) {
+      degree_map.set(edge.source, (degree_map.get(edge.source) ?? 0) + 1);
+      degree_map.set(edge.target, (degree_map.get(edge.target) ?? 0) + 1);
+    }
+
     for (const node of nodes) {
       const c = new C();
       c.position.set(0, 0);
@@ -275,6 +294,7 @@ export class VaultGraphRenderer {
         label,
         x: 0,
         y: 0,
+        degree: degree_map.get(node.id) ?? 0,
       };
       if (node.kind != null) entry.kind = node.kind;
       if (node.score != null) entry.score = node.score;
@@ -282,7 +302,21 @@ export class VaultGraphRenderer {
       this.node_map.set(node.id, entry);
     }
 
+    this.degrade_profile = compute_degradation_profile(
+      nodes.length,
+      edges.length,
+    );
     this.request_render();
+  }
+
+  set_degradation_profile(profile: DegradationProfile): void {
+    this.degrade_profile = profile;
+    this.edges_dirty = true;
+    this.request_render();
+  }
+
+  get degradation_profile(): DegradationProfile {
+    return this.degrade_profile;
   }
 
   update_positions(positions: Map<string, { x: number; y: number }>): void {
@@ -476,30 +510,53 @@ export class VaultGraphRenderer {
     const is_dimmed =
       this.filter_set !== null && !this.filter_set.has(entry.id);
 
+    const degree_scale = this.degrade_profile.is_degraded
+      ? Math.min(6, 2.2 + Math.sqrt(Math.max(entry.degree, 1)) * 0.7) /
+        NODE_RADIUS
+      : 1;
+    const scaled = base_scale * degree_scale;
+
     if (is_dimmed) {
       entry.circle.tint = this.colors.node;
       entry.circle.alpha = 0.15;
-      entry.circle.scale.set(base_scale);
+      entry.circle.scale.set(scaled);
     } else if (is_selected) {
       entry.circle.tint = this.colors.primary;
       entry.circle.alpha = 1;
-      entry.circle.scale.set(base_scale * 1.8);
+      entry.circle.scale.set(scaled * 1.8);
     } else if (is_hovered) {
       entry.circle.tint = this.colors.primary;
       entry.circle.alpha = 1;
-      entry.circle.scale.set(base_scale * 1.5);
+      entry.circle.scale.set(scaled * 1.5);
     } else if (is_connected) {
       entry.circle.tint = this.colors.primary;
       entry.circle.alpha = 1;
-      entry.circle.scale.set(base_scale);
+      entry.circle.scale.set(scaled);
     } else {
       entry.circle.tint = this.colors.node;
       entry.circle.alpha = 1;
-      entry.circle.scale.set(base_scale);
+      entry.circle.scale.set(scaled);
     }
 
-    entry.label.visible =
-      is_hovered || is_selected || (show_labels && is_connected);
+    const min_zoom = this.degrade_profile.label_visible_min_zoom;
+    if (is_hovered || is_selected) {
+      entry.label.visible = true;
+      entry.label.alpha = 1;
+    } else if (show_labels && is_connected) {
+      entry.label.visible = true;
+      entry.label.alpha = 1;
+    } else if (min_zoom > 0) {
+      const z = this.zoom;
+      const label_opacity = Math.max(
+        0,
+        Math.min(1, (z - (min_zoom - 0.2)) / 0.4),
+      );
+      entry.label.visible = label_opacity > 0;
+      entry.label.alpha = label_opacity;
+    } else {
+      entry.label.visible = show_labels;
+      entry.label.alpha = 1;
+    }
   }
 
   private apply_search_visual(
@@ -659,7 +716,20 @@ export class VaultGraphRenderer {
     const normal: EdgeEndpoints[] = [];
     const highlighted: EdgeEndpoints[] = [];
 
-    for (const edge of this.edge_defs) {
+    const priority_ids = new Set(
+      [this.selected_id, this.hovered_id].filter(
+        (id): id is string => id != null,
+      ),
+    );
+    const effective_edges = this.degrade_profile.is_degraded
+      ? sample_edges(
+          this.edge_defs,
+          this.degrade_profile.edge_render_limit,
+          priority_ids,
+        )
+      : this.edge_defs;
+
+    for (const edge of effective_edges) {
       const src = this.node_map.get(edge.source);
       const tgt = this.node_map.get(edge.target);
       if (!src || !tgt) continue;

@@ -62,6 +62,7 @@ type OutboundMessage =
 let simulation: Simulation<WorkerNode, WorkerEdge> | null = null;
 let nodes: WorkerNode[] = [];
 let node_ids: string[] = [];
+let tick_cap: number | null = null;
 
 function compute_tick_budget(node_count: number): number {
   return Math.max(50, Math.min(Math.round(node_count * 0.5), 500));
@@ -193,7 +194,7 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
 
   simulation = sim;
 
-  const budget = compute_tick_budget(nodes.length);
+  const budget = tick_cap ?? compute_tick_budget(nodes.length);
   for (let i = 0; i < budget; i++) {
     simulation.tick();
     if (simulation.alpha() < 0.001) break;
@@ -238,6 +239,9 @@ self.onmessage = (event: MessageEvent<InboundMessage>) => {
   switch (msg.type) {
     case "init":
       handle_init(msg);
+      break;
+    case "tick_budget":
+      tick_cap = msg.ticks;
       break;
     case "reheat":
       handle_reheat(msg.alpha);
