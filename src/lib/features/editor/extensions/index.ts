@@ -57,7 +57,7 @@ export function assemble_extensions(
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
     { plugins: [create_block_selection_plugin()] },
-    { plugins: [create_diagnostics_decoration_plugin()] },
+    { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
   ];
 
   const plugins: Plugin[] = [];

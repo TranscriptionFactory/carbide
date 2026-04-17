@@ -2,7 +2,8 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { computePosition, offset, flip, shift } from "@floating-ui/dom";
 import type { Diagnostic } from "$lib/features/diagnostics";
-import { offset_for_line_character } from "./lsp_plugin_utils";
+import { lsp_pos_to_prose_pos } from "./lsp_plugin_utils";
+import { render_lsp_markdown } from "./lsp_tooltip_renderer";
 
 export const diagnostics_decoration_plugin_key = new PluginKey<DecorationSet>(
   "diagnostics_decoration",
@@ -18,34 +19,33 @@ const SEVERITY_CLASS: Record<string, string> = {
 function build_decorations(
   view: EditorView,
   diagnostics: Diagnostic[],
+  get_markdown: () => string,
 ): DecorationSet {
   if (diagnostics.length === 0) return DecorationSet.empty;
 
   const doc = view.state.doc;
-  const doc_text = doc.textBetween(0, doc.content.size, "\n");
+  const markdown = get_markdown();
   const decorations: Decoration[] = [];
 
   for (const diag of diagnostics) {
-    const from_offset = offset_for_line_character(
-      doc_text,
-      diag.line,
-      diag.column,
-    );
-    const to_offset = offset_for_line_character(
-      doc_text,
+    const from = lsp_pos_to_prose_pos(doc, markdown, diag.line, diag.column);
+    const to_raw = lsp_pos_to_prose_pos(
+      doc,
+      markdown,
       diag.end_line,
       diag.end_column,
     );
 
-    const from = Math.min(from_offset + 1, doc.content.size);
-    let to = Math.min(to_offset + 1, doc.content.size);
-    if (to <= from) to = Math.min(from + 1, doc.content.size);
+    const from_clamped = Math.min(Math.max(from, 1), doc.content.size);
+    let to_clamped = Math.min(Math.max(to_raw, 1), doc.content.size);
+    if (to_clamped <= from_clamped)
+      to_clamped = Math.min(from_clamped + 1, doc.content.size);
 
     const css_class = SEVERITY_CLASS[diag.severity] ?? "diagnostic-info";
     decorations.push(
       Decoration.inline(
-        from,
-        to,
+        from_clamped,
+        to_clamped,
         { class: css_class },
         {
           diagnostic_message: diag.message,
@@ -58,20 +58,29 @@ function build_decorations(
   return DecorationSet.create(doc, decorations);
 }
 
+let diagnostics_get_markdown: (() => string) | null = null;
+
 export function update_prosemirror_diagnostics(
   view: EditorView,
   diagnostics: Diagnostic[],
 ) {
-  const deco_set = build_decorations(view, diagnostics);
+  const get_md = diagnostics_get_markdown ?? (() => "");
+  const deco_set = build_decorations(view, diagnostics, get_md);
   view.dispatch(
     view.state.tr.setMeta(diagnostics_decoration_plugin_key, deco_set),
   );
 }
 
-export function create_diagnostics_decoration_plugin(): Plugin {
+export function create_diagnostics_decoration_plugin(
+  get_markdown?: () => string,
+): Plugin {
   let tooltip: HTMLDivElement | null = null;
   let hover_timeout: ReturnType<typeof setTimeout> | null = null;
   let hovering_tooltip = false;
+
+  if (get_markdown) {
+    diagnostics_get_markdown = get_markdown;
+  }
 
   return new Plugin({
     key: diagnostics_decoration_plugin_key,
@@ -130,7 +139,7 @@ export function create_diagnostics_decoration_plugin(): Plugin {
       function hide_tooltip() {
         if (hovering_tooltip) return;
         tooltip_el.style.display = "none";
-        tooltip_el.textContent = "";
+        tooltip_el.innerHTML = "";
       }
 
       function show_tooltip(view: EditorView, pos: number, message: string) {
@@ -144,8 +153,9 @@ export function create_diagnostics_decoration_plugin(): Plugin {
         lsp_header.style.marginBottom = "4px";
         lsp_header.textContent = "LSP";
         tooltip_el.appendChild(lsp_header);
-        const msg_body = document.createElement("span");
-        msg_body.textContent = message;
+        const msg_body = document.createElement("div");
+        msg_body.className = "lsp-hover-content";
+        msg_body.innerHTML = render_lsp_markdown(message);
         tooltip_el.appendChild(msg_body);
         tooltip_el.style.display = "block";
 

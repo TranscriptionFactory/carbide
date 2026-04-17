@@ -48,6 +48,7 @@ export function create_lsp_code_action_plugin(input: {
       ) => Promise<LspAction[]>)
     | undefined;
   on_lsp_resolve?: ((action: LspAction) => void) | undefined;
+  get_markdown: () => string;
 }): Plugin {
   let current_actions: MarkdownLspCodeAction[] = [];
   let current_lsp_actions: LspAction[] | null = null;
@@ -102,8 +103,9 @@ export function create_lsp_code_action_plugin(input: {
   function fetch_and_show_lsp(view: EditorView) {
     if (!input.on_lsp_code_actions) return;
     const { from, to } = view.state.selection;
-    const from_coords = line_and_character_from_pos(view, from);
-    const to_coords = line_and_character_from_pos(view, to);
+    const markdown = input.get_markdown();
+    const from_coords = line_and_character_from_pos(view, from, markdown);
+    const to_coords = line_and_character_from_pos(view, to, markdown);
 
     void input
       .on_lsp_code_actions(
@@ -200,8 +202,9 @@ export function create_lsp_code_action_plugin(input: {
   function fetch_and_show(view: EditorView) {
     current_lsp_actions = null;
     const { from, to } = view.state.selection;
-    const from_coords = line_and_character_from_pos(view, from);
-    const to_coords = line_and_character_from_pos(view, to);
+    const markdown = input.get_markdown();
+    const from_coords = line_and_character_from_pos(view, from, markdown);
+    const to_coords = line_and_character_from_pos(view, to, markdown);
 
     void input
       .on_code_actions(
@@ -295,11 +298,6 @@ export function create_lsp_code_action_plugin(input: {
           if (sel.from !== prev_sel.from || sel.to !== prev_sel.to) {
             hide_dropdown();
             current_lsp_actions = null;
-            view.dispatch(
-              view.state.tr.setMeta(lsp_code_action_plugin_key, {
-                type: "clear",
-              }),
-            );
           }
         },
         destroy() {

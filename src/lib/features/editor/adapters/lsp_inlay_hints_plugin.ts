@@ -3,13 +3,17 @@ import type { EditorState } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { MarkdownLspInlayHint } from "$lib/features/markdown_lsp";
-import { offset_for_line_character } from "./lsp_plugin_utils";
+import { lsp_pos_to_prose_pos } from "./lsp_plugin_utils";
 
 const lsp_inlay_hints_plugin_key = new PluginKey<DecorationSet>(
   "lsp-inlay-hints",
 );
 
-function apply_hints(view: EditorView, hints: MarkdownLspInlayHint[]) {
+function apply_hints(
+  view: EditorView,
+  hints: MarkdownLspInlayHint[],
+  get_markdown: () => string,
+) {
   if (hints.length === 0) {
     view.dispatch(
       view.state.tr.setMeta(lsp_inlay_hints_plugin_key, DecorationSet.empty),
@@ -18,22 +22,23 @@ function apply_hints(view: EditorView, hints: MarkdownLspInlayHint[]) {
   }
 
   const doc = view.state.doc;
-  const doc_text = doc.textBetween(0, doc.content.size, "\n");
+  const markdown = get_markdown();
   const decorations: Decoration[] = [];
 
   for (const hint of hints) {
-    const text_offset = offset_for_line_character(
-      doc_text,
+    const pos = lsp_pos_to_prose_pos(
+      doc,
+      markdown,
       hint.position_line,
       hint.position_character,
     );
-    const pos = Math.min(text_offset + 1, doc.content.size);
+    const clamped = Math.min(Math.max(pos, 1), doc.content.size);
 
     const widget = document.createElement("span");
     widget.className = "lsp-inlay-hint";
     widget.textContent = hint.label;
 
-    decorations.push(Decoration.widget(pos, widget, { side: 1 }));
+    decorations.push(Decoration.widget(clamped, widget, { side: 1 }));
   }
 
   const deco_set = DecorationSet.create(doc, decorations);
@@ -42,6 +47,7 @@ function apply_hints(view: EditorView, hints: MarkdownLspInlayHint[]) {
 
 export function create_lsp_inlay_hints_plugin(input: {
   on_inlay_hints: () => Promise<MarkdownLspInlayHint[]>;
+  get_markdown: () => string;
 }): Plugin {
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let fetch_in_flight = false;
@@ -71,7 +77,7 @@ export function create_lsp_inlay_hints_plugin(input: {
 
     view(editor_view) {
       void input.on_inlay_hints().then((hints) => {
-        apply_hints(editor_view, hints);
+        apply_hints(editor_view, hints, input.get_markdown);
       });
 
       return {
@@ -83,7 +89,7 @@ export function create_lsp_inlay_hints_plugin(input: {
               fetch_in_flight = true;
               void input.on_inlay_hints().then((hints) => {
                 fetch_in_flight = false;
-                apply_hints(view, hints);
+                apply_hints(view, hints, input.get_markdown);
               });
             }, 1000);
           }

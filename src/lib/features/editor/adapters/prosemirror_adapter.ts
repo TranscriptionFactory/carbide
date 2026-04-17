@@ -274,6 +274,7 @@ export function create_prosemirror_editor_port(args?: {
           events,
           get_note_path: () => current_note_path,
           get_vault_id: () => current_vault_id,
+          get_markdown: () => current_markdown,
           resolve_asset_url_for_vault,
           load_svg_preview: load_svg_preview_fn,
           use_yjs: !!ydoc_manager,

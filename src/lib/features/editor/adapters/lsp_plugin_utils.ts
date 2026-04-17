@@ -1,39 +1,56 @@
 import type { EditorView } from "prosemirror-view";
-
-export function count_newlines_before(text: string): number {
-  let count = 0;
-  for (let i = 0; i < text.length; i++) {
-    if (text.charCodeAt(i) === 10) count++;
-  }
-  return count;
-}
+import type { Node as ProseNode } from "prosemirror-model";
+import {
+  prose_cursor_to_md_offset,
+  md_offset_to_prose_pos,
+} from "./cursor_offset_mapper";
 
 export function line_and_character_from_pos(
   view: EditorView,
   pos: number,
+  markdown: string,
 ): { line: number; character: number } {
   const doc = view.state.doc;
-  const clamped = Math.min(pos, doc.content.size);
-  const text_before = doc.textBetween(0, clamped, "\n");
-  const line = count_newlines_before(text_before);
-  const last_newline = text_before.lastIndexOf("\n");
-  const character =
-    last_newline === -1
-      ? text_before.length
-      : text_before.length - last_newline - 1;
+  const md_offset = prose_cursor_to_md_offset(doc, pos, markdown);
+  return line_character_from_md_offset(markdown, md_offset);
+}
+
+export function line_character_from_md_offset(
+  markdown: string,
+  md_offset: number,
+): { line: number; character: number } {
+  let line = 0;
+  let last_newline = -1;
+  for (let i = 0; i < md_offset && i < markdown.length; i++) {
+    if (markdown.charCodeAt(i) === 10) {
+      line++;
+      last_newline = i;
+    }
+  }
+  const character = md_offset - last_newline - 1;
   return { line, character };
 }
 
-export function offset_for_line_character(
-  text: string,
+export function md_offset_from_line_character(
+  markdown: string,
   line: number,
   character: number,
 ): number {
   let current_line = 0;
   let i = 0;
-  while (current_line < line && i < text.length) {
-    if (text.charCodeAt(i) === 10) current_line++;
+  while (current_line < line && i < markdown.length) {
+    if (markdown.charCodeAt(i) === 10) current_line++;
     i++;
   }
-  return Math.min(i + character, text.length);
+  return Math.min(i + character, markdown.length);
+}
+
+export function lsp_pos_to_prose_pos(
+  doc: ProseNode,
+  markdown: string,
+  line: number,
+  character: number,
+): number {
+  const md_offset = md_offset_from_line_character(markdown, line, character);
+  return md_offset_to_prose_pos(doc, md_offset, markdown);
 }

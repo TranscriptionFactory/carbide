@@ -11,6 +11,7 @@ export type PluginContext = {
   events: EditorEventHandlers;
   get_note_path: () => string;
   get_vault_id: () => VaultId | null;
+  get_markdown: () => string;
   resolve_asset_url_for_vault: ResolveAssetUrlForVault | null;
   load_svg_preview?:
     | ((vault_id: string, path: string) => Promise<string | null>)

@@ -1,4 +1,5 @@
 import { Plugin, PluginKey } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import type { MarkdownLspLocation } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
@@ -8,6 +9,8 @@ export function create_lsp_definition_plugin(input: {
     character: number,
   ) => Promise<MarkdownLspLocation[]>;
   on_navigate: (uri: string) => void;
+  on_no_definition?: () => void;
+  get_markdown: () => string;
 }): Plugin {
   return new Plugin({
     key: new PluginKey("lsp-definition"),
@@ -21,20 +24,41 @@ export function create_lsp_definition_plugin(input: {
           const pos_result = view.posAtCoords(coords);
           if (!pos_result) return false;
 
+          const markdown = input.get_markdown();
           const { line, character } = line_and_character_from_pos(
             view,
             pos_result.pos,
+            markdown,
           );
 
           event.preventDefault();
 
           void input.on_definition(line, character).then((locations) => {
-            if (locations.length === 0) return;
+            if (locations.length === 0) {
+              input.on_no_definition?.();
+              return;
+            }
             const first = locations[0];
             if (first) input.on_navigate(first.uri);
           });
 
           return true;
+        },
+        keydown: (view: EditorView, event: KeyboardEvent) => {
+          if (event.key === "Meta" || event.key === "Control") {
+            view.dom.classList.add("lsp-definition-active");
+          }
+          return false;
+        },
+        keyup: (view: EditorView, event: KeyboardEvent) => {
+          if (event.key === "Meta" || event.key === "Control") {
+            view.dom.classList.remove("lsp-definition-active");
+          }
+          return false;
+        },
+        blur: (view: EditorView) => {
+          view.dom.classList.remove("lsp-definition-active");
+          return false;
         },
       },
     },

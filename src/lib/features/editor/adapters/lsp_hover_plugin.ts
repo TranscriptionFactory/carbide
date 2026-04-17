@@ -3,6 +3,7 @@ import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { MarkdownLspHoverResult } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
+import { render_lsp_markdown } from "./lsp_tooltip_renderer";
 
 type LspHoverPluginState = {
   trigger_at_pos: (pos: number) => void;
@@ -33,6 +34,7 @@ export function create_lsp_hover_plugin(input: {
   on_hover_result?: (
     result: { contents: string; line: number; character: number } | null,
   ) => void;
+  get_markdown: () => string;
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,
@@ -48,12 +50,13 @@ export function create_lsp_hover_plugin(input: {
       let hover_timeout: ReturnType<typeof setTimeout> | null = null;
       let active_pos: number | null = null;
       let hovering_tooltip = false;
+      let hover_gen = 0;
 
       const container = document.createElement("div");
       container.className = "lsp-hover-tooltip";
       container.style.display = "none";
       container.style.position = "fixed";
-      container.style.zIndex = "9999";
+      container.style.zIndex = "9998";
       container.style.maxWidth = "400px";
       container.style.padding = "8px 12px";
       container.style.borderRadius = "6px";
@@ -79,9 +82,19 @@ export function create_lsp_hover_plugin(input: {
       function hide() {
         if (hovering_tooltip) return;
         container.style.display = "none";
-        container.textContent = "";
+        container.innerHTML = "";
         active_pos = null;
         input.on_hover_result?.(null);
+      }
+
+      function has_diagnostic_at_pos(pos: number): boolean {
+        const diag_el = document.querySelector(".diagnostic-tooltip");
+        if (!diag_el || (diag_el as HTMLElement).style.display === "none")
+          return false;
+        const deco_set = editor_view.state.doc;
+        void deco_set;
+        void pos;
+        return true;
       }
 
       function show(view: EditorView, pos: number, contents: string) {
@@ -95,13 +108,19 @@ export function create_lsp_hover_plugin(input: {
         header.style.marginBottom = "4px";
         header.textContent = "LSP";
         container.appendChild(header);
-        const body = document.createElement("span");
-        body.textContent = contents;
+        const body = document.createElement("div");
+        body.className = "lsp-hover-content";
+        body.innerHTML = render_lsp_markdown(contents);
         container.appendChild(body);
         container.style.display = "block";
         active_pos = pos;
 
-        const { line, character } = line_and_character_from_pos(view, pos);
+        const markdown = input.get_markdown();
+        const { line, character } = line_and_character_from_pos(
+          view,
+          pos,
+          markdown,
+        );
         input.on_hover_result?.({ contents, line, character });
 
         const rect = pos_to_dom_rect(view, pos, pos + 1);
@@ -117,13 +136,25 @@ export function create_lsp_hover_plugin(input: {
       }
 
       function trigger_at_pos(pos: number) {
+        const gen = ++hover_gen;
+        const markdown = input.get_markdown();
         const { line, character } = line_and_character_from_pos(
           editor_view,
           pos,
+          markdown,
         );
         void input.on_hover(line, character).then((result) => {
+          if (gen !== hover_gen) return;
           if (!result?.contents) {
             if (!hovering_tooltip) hide();
+            return;
+          }
+          if (has_diagnostic_at_pos(pos)) {
+            input.on_hover_result?.({
+              contents: result.contents,
+              line,
+              character,
+            });
             return;
           }
           show(editor_view, pos, result.contents);
@@ -155,6 +186,7 @@ export function create_lsp_hover_plugin(input: {
 
       function on_mouseleave() {
         if (hover_timeout) clearTimeout(hover_timeout);
+        hover_gen++;
         setTimeout(() => {
           if (!hovering_tooltip) hide();
         }, 100);

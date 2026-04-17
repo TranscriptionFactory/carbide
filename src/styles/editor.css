@@ -2682,3 +2682,61 @@
   text-decoration: wavy underline var(--muted-foreground);
   text-underline-offset: 3px;
 }
+
+/* ============================================
+   LSP HOVER CONTENT (RENDERED MARKDOWN)
+   ============================================ */
+
+.lsp-hover-content {
+  white-space: normal;
+}
+
+.lsp-hover-content p {
+  margin: 0 0 0.4em;
+}
+
+.lsp-hover-content p:last-child {
+  margin-bottom: 0;
+}
+
+.lsp-hover-content code {
+  font-size: 0.9em;
+  background: var(--muted);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+}
+
+.lsp-hover-content pre {
+  margin: 0.4em 0;
+  padding: 0.5em;
+  background: var(--muted);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+
+.lsp-hover-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.lsp-hover-content a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.lsp-hover-content ul,
+.lsp-hover-content ol {
+  margin: 0.3em 0;
+  padding-left: 1.4em;
+}
+
+/* ============================================
+   GO-TO-DEFINITION VISUAL FEEDBACK
+   ============================================ */
+
+.lsp-definition-active .wiki-link,
+.lsp-definition-active a[href] {
+  cursor: pointer;
+  text-decoration: underline;
+}

@@ -8,10 +8,12 @@ import type { EditorExtension, PluginContext } from "./types";
 
 export function create_lsp_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
+  const get_markdown = ctx.get_markdown;
 
   if (ctx.events.on_markdown_lsp_hover) {
     const hover_input: Parameters<typeof create_lsp_hover_plugin>[0] = {
       on_hover: ctx.events.on_markdown_lsp_hover,
+      get_markdown,
     };
     if (ctx.events.on_markdown_lsp_hover_result) {
       hover_input.on_hover_result = ctx.events.on_markdown_lsp_hover_result;
@@ -25,6 +27,7 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
         on_definition: ctx.events.on_markdown_lsp_definition,
         on_navigate:
           ctx.events.on_markdown_lsp_definition_navigate ?? (() => {}),
+        get_markdown,
       }),
     );
   }
@@ -36,6 +39,7 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
         get_trigger_characters:
           ctx.events.get_markdown_lsp_completion_trigger_characters ??
           (() => []),
+        get_markdown,
       }),
     );
   }
@@ -44,6 +48,7 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
     plugins.push(
       create_lsp_inlay_hints_plugin({
         on_inlay_hints: ctx.events.on_markdown_lsp_inlay_hints,
+        get_markdown,
       }),
     );
   }
@@ -56,6 +61,7 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
           ctx.events.on_markdown_lsp_code_action_resolve ?? (() => {}),
         on_lsp_code_actions: ctx.events.on_lsp_code_actions,
         on_lsp_resolve: ctx.events.on_lsp_code_action_resolve,
+        get_markdown,
       }),
     );
   }

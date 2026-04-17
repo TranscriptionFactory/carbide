@@ -108,6 +108,7 @@ export function create_lsp_completion_plugin(input: {
     character: number,
   ) => Promise<MarkdownLspCompletionItem[]>;
   get_trigger_characters: () => string[];
+  get_markdown: () => string;
 }): Plugin<LspCompletionState> {
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
@@ -238,9 +239,11 @@ export function create_lsp_completion_plugin(input: {
             if (debounce_timer) clearTimeout(debounce_timer);
             debounce_timer = setTimeout(() => {
               const pos = view.state.selection.from;
+              const markdown = input.get_markdown();
               const { line, character } = line_and_character_from_pos(
                 view,
                 pos,
+                markdown,
               );
               void input.on_completion(line, character).then((items) => {
                 if (!get_state(view).active) return;
