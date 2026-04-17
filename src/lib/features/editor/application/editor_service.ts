@@ -414,6 +414,10 @@ export class EditorService {
     this.session?.focus();
   }
 
+  scroll_cursor_into_view() {
+    this.session?.scroll_cursor_into_view?.();
+  }
+
   trigger_hover_at_cursor(): void {
     this.session?.trigger_hover_at_cursor?.();
   }

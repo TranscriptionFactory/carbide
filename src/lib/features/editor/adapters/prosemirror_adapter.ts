@@ -872,6 +872,11 @@ export function create_prosemirror_editor_port(args?: {
         focus() {
           view?.focus();
         },
+
+        scroll_cursor_into_view() {
+          if (!view) return;
+          view.dispatch(view.state.tr.scrollIntoView());
+        },
         set_wiki_suggestions(
           items: Array<{
             title: string;

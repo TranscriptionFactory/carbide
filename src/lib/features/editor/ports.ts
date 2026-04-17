@@ -35,6 +35,7 @@ export type EditorSession = {
   mark_clean: (saved_content?: string) => void;
   is_dirty: () => boolean;
   focus: () => void;
+  scroll_cursor_into_view?: () => void;
   set_wiki_suggestions?: (
     items: Array<{
       title: string;

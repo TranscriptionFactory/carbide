@@ -379,6 +379,13 @@ export function register_app_actions(input: ActionRegistrationInput) {
       }
 
       editor_store.toggle_editor_mode();
+
+      if (current === "source") {
+        requestAnimationFrame(() => {
+          services.editor.focus();
+          services.editor.scroll_cursor_into_view();
+        });
+      }
     },
   });
 
