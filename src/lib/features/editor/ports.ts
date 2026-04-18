@@ -6,6 +6,10 @@ import type {
 } from "$lib/shared/types/editor";
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import type {
+  AtPaletteCategory,
+  AtPaletteItem,
+} from "$lib/features/editor/adapters/at_palette_types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 
@@ -52,6 +56,10 @@ export type EditorSession = {
   ) => void;
   set_tag_suggestions?: (items: Array<{ tag: string; count: number }>) => void;
   set_cite_suggestions?: (items: CiteSuggestionItem[]) => void;
+  set_at_palette_suggestions?: (
+    category: AtPaletteCategory,
+    items: AtPaletteItem[],
+  ) => void;
   open_buffer: (config: BufferConfig) => void;
   rename_buffer: (old_note_path: string, new_note_path: string) => void;
   close_buffer: (note_path: string) => void;
@@ -106,6 +114,14 @@ export type EditorEventHandlers = {
   on_tag_suggest_query?: (query: string) => void;
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
+  on_at_palette_note_query?: (query: string) => void;
+  on_at_palette_heading_query?: (
+    note_name: string | null,
+    heading_query: string,
+  ) => void;
+  on_at_palette_tag_query?: (query: string) => void;
+  on_at_palette_cite_query?: (query: string) => void;
+  on_at_palette_command_execute?: (command_id: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
   on_markdown_lsp_hover?: (
     line: number,

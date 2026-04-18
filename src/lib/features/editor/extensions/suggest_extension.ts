@@ -3,7 +3,6 @@ import {
   create_slash_command_prose_plugin,
   type SlashCommandConfig,
 } from "../adapters/slash_command_plugin";
-import { create_date_suggest_prose_plugin } from "../adapters/date_suggest_plugin";
 import {
   set_tag_suggestions,
   create_tag_suggest_prose_plugin,
@@ -19,6 +18,13 @@ import {
   create_image_suggest_prose_plugin,
   type ImageSuggestPluginConfig,
 } from "../adapters/image_suggest_plugin";
+import {
+  set_at_palette_suggestions,
+  create_at_palette_prose_plugin,
+  type AtPalettePluginConfig,
+} from "../adapters/at_palette_plugin";
+import type { AtPaletteCommandItem } from "../adapters/at_palette_types";
+import { COMMANDS_REGISTRY } from "$lib/features/search";
 import type { EditorExtension, PluginContext } from "./types";
 
 export function create_suggest_extension(
@@ -35,7 +41,24 @@ export function create_suggest_extension(
       ) => Plugin
     )(slash_config),
   );
-  plugins.push((create_date_suggest_prose_plugin as () => Plugin)());
+
+  const at_palette_config: AtPalettePluginConfig = {
+    on_note_query: ctx.events.on_at_palette_note_query,
+    on_heading_query: ctx.events.on_at_palette_heading_query,
+    on_tag_query: ctx.events.on_at_palette_tag_query,
+    on_cite_query: ctx.events.on_at_palette_cite_query,
+    on_cite_accept: ctx.events.on_cite_accept,
+    on_command_execute: ctx.events.on_at_palette_command_execute,
+    get_commands: (): AtPaletteCommandItem[] =>
+      COMMANDS_REGISTRY.map((cmd) => ({
+        category: "commands" as const,
+        id: cmd.id,
+        label: cmd.label,
+        description: cmd.description,
+        icon: cmd.icon,
+      })),
+  };
+  plugins.push(create_at_palette_prose_plugin(at_palette_config) as Plugin);
 
   if (ctx.events.on_image_suggest_query) {
     image_suggest_config = {
@@ -77,5 +100,10 @@ export function create_suggest_extension(
   };
 }
 
-export { set_tag_suggestions, set_cite_suggestions, set_image_suggestions };
+export {
+  set_tag_suggestions,
+  set_cite_suggestions,
+  set_image_suggestions,
+  set_at_palette_suggestions,
+};
 export type { CiteSuggestionItem } from "../adapters/cite_suggest_plugin";

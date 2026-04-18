@@ -102,6 +102,7 @@ export {
   set_tag_suggestions,
   set_cite_suggestions,
   set_image_suggestions,
+  set_at_palette_suggestions,
 } from "./suggest_extension";
 export type { CiteSuggestionItem } from "./suggest_extension";
 export {
