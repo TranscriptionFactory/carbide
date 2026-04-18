@@ -181,19 +181,22 @@
           image_map,
           col_x,
           col_w,
+          font_scale,
         ) {
+          const fs = font_scale || 1;
           const x = col_x !== undefined ? col_x : MARGIN;
           const w = col_w !== undefined ? col_w : CONTENT_W;
+          const body_size = FONT_SIZES.body * fs;
           let text_parts = [];
           for (const t of tokens) {
             if (t.type === "image" && image_map.has(t.href)) {
               if (text_parts.length > 0) {
                 const joined = text_parts.join("");
+                doc.setFontSize(body_size);
                 const lines = doc.splitTextToSize(joined, w);
                 for (const line of lines) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   doc.text(line, x, cursor.y);
-                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                  cursor.y += body_size * LINE_HEIGHT_FACTOR * 0.352778;
                 }
                 text_parts = [];
               }
@@ -211,38 +214,46 @@
           if (text_parts.length > 0) {
             const joined = text_parts.join("");
             if (joined.trim()) {
+              doc.setFontSize(body_size);
               const lines = doc.splitTextToSize(joined, w);
               for (const line of lines) {
-                if (cursor.y > PAGE_H - MARGIN) break;
                 doc.text(line, x, cursor.y);
-                cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                cursor.y += body_size * LINE_HEIGHT_FACTOR * 0.352778;
               }
             }
           }
         }
 
-        function render_tokens(doc, tokens, cursor, image_map, col_x, col_w) {
+        function render_tokens(
+          doc,
+          tokens,
+          cursor,
+          image_map,
+          col_x,
+          col_w,
+          font_scale,
+        ) {
+          const fs = font_scale || 1;
           for (const token of tokens) {
-            if (cursor.y > PAGE_H - MARGIN) break;
-
             switch (token.type) {
               case "heading": {
-                const size = FONT_SIZES["h" + token.depth] || FONT_SIZES.body;
+                const size =
+                  (FONT_SIZES["h" + token.depth] || FONT_SIZES.body) * fs;
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(size);
                 const lines = doc.splitTextToSize(token.text, col_w);
                 for (const line of lines) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   doc.text(line, col_x, cursor.y);
                   cursor.y += size * LINE_HEIGHT_FACTOR * 0.352778;
                 }
-                cursor.y += 4;
+                cursor.y += 4 * fs;
                 break;
               }
 
               case "paragraph": {
+                const body_size = FONT_SIZES.body * fs;
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(FONT_SIZES.body);
+                doc.setFontSize(body_size);
                 if (
                   token.tokens &&
                   token.tokens.some((t) => t.type === "image")
@@ -254,8 +265,9 @@
                     image_map,
                     col_x,
                     col_w,
+                    fs,
                   );
-                  cursor.y += 3;
+                  cursor.y += 3 * fs;
                   break;
                 }
                 const text = token.text
@@ -264,117 +276,123 @@
                   .replace(/`(.*?)`/g, "$1");
                 const lines = doc.splitTextToSize(text, col_w);
                 for (const line of lines) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   doc.text(line, col_x, cursor.y);
-                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                  cursor.y += body_size * LINE_HEIGHT_FACTOR * 0.352778;
                 }
-                cursor.y += 3;
+                cursor.y += 3 * fs;
                 break;
               }
 
               case "list": {
+                const body_size = FONT_SIZES.body * fs;
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(FONT_SIZES.body);
+                doc.setFontSize(body_size);
                 const indent = 8;
                 for (const item of token.items) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   const text = item.text
                     .replace(/\*\*(.*?)\*\*/g, "$1")
                     .replace(/\*(.*?)\*/g, "$1")
                     .replace(/`(.*?)`/g, "$1");
                   const lines = doc.splitTextToSize(text, col_w - indent);
                   for (let i = 0; i < lines.length; i++) {
-                    if (cursor.y > PAGE_H - MARGIN) break;
                     if (i === 0) {
                       doc.text(BULLET, col_x, cursor.y);
                     }
                     doc.text(lines[i], col_x + indent, cursor.y);
-                    cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                    cursor.y += body_size * LINE_HEIGHT_FACTOR * 0.352778;
                   }
                 }
-                cursor.y += 3;
+                cursor.y += 3 * fs;
                 break;
               }
 
               case "code": {
+                const code_size = FONT_SIZES.code * fs;
                 doc.setFont("courier", "normal");
-                doc.setFontSize(FONT_SIZES.code);
+                doc.setFontSize(code_size);
                 const code_lines = token.text.split("\n");
                 const block_height =
                   code_lines.length *
-                    FONT_SIZES.code *
+                    code_size *
                     LINE_HEIGHT_FACTOR *
                     0.352778 +
-                  6;
-                if (cursor.y + block_height <= PAGE_H - MARGIN) {
-                  doc.setFillColor(240, 240, 240);
-                  doc.rect(
-                    col_x - 2,
-                    cursor.y - FONT_SIZES.code * 0.352778,
-                    col_w + 4,
-                    block_height,
-                    "F",
-                  );
-                }
-                cursor.y += 2;
+                  6 * fs;
+                doc.setFillColor(240, 240, 240);
+                doc.rect(
+                  col_x - 2,
+                  cursor.y - code_size * 0.352778,
+                  col_w + 4,
+                  block_height,
+                  "F",
+                );
+                cursor.y += 2 * fs;
                 for (const cl of code_lines) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   const trimmed_lines = doc.splitTextToSize(
                     cl || " ",
                     col_w - 4,
                   );
                   for (const tl of trimmed_lines) {
-                    if (cursor.y > PAGE_H - MARGIN) break;
                     doc.text(tl, col_x + 2, cursor.y);
-                    cursor.y += FONT_SIZES.code * LINE_HEIGHT_FACTOR * 0.352778;
+                    cursor.y += code_size * LINE_HEIGHT_FACTOR * 0.352778;
                   }
                 }
-                cursor.y += 5;
+                cursor.y += 5 * fs;
                 doc.setFont("helvetica", "normal");
                 break;
               }
 
               case "blockquote": {
+                const body_size = FONT_SIZES.body * fs;
                 doc.setFont("helvetica", "italic");
-                doc.setFontSize(FONT_SIZES.body);
+                doc.setFontSize(body_size);
                 const bq_text = token.tokens
                   ? token.tokens.map((t) => t.text || "").join(" ")
                   : token.text || "";
                 const bq_lines = doc.splitTextToSize(bq_text, col_w - 10);
                 doc.setDrawColor(180, 180, 180);
                 const bq_height =
-                  bq_lines.length *
-                  FONT_SIZES.body *
-                  LINE_HEIGHT_FACTOR *
-                  0.352778;
+                  bq_lines.length * body_size * LINE_HEIGHT_FACTOR * 0.352778;
                 doc.line(
                   col_x + 3,
-                  cursor.y - FONT_SIZES.body * 0.352778 + 2,
+                  cursor.y - body_size * 0.352778 + 2,
                   col_x + 3,
-                  cursor.y - FONT_SIZES.body * 0.352778 + 2 + bq_height,
+                  cursor.y - body_size * 0.352778 + 2 + bq_height,
                 );
                 for (const bl of bq_lines) {
-                  if (cursor.y > PAGE_H - MARGIN) break;
                   doc.text(bl, col_x + 8, cursor.y);
-                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                  cursor.y += body_size * LINE_HEIGHT_FACTOR * 0.352778;
                 }
-                cursor.y += 3;
+                cursor.y += 3 * fs;
                 doc.setFont("helvetica", "normal");
                 break;
               }
 
               case "space":
-                cursor.y += 4;
+                cursor.y += 4 * fs;
                 break;
             }
           }
         }
 
-        function render_slide(doc, tokens, cursor, image_map) {
-          render_tokens(doc, tokens, cursor, image_map, MARGIN, CONTENT_W);
+        function render_slide(doc, tokens, cursor, image_map, font_scale) {
+          render_tokens(
+            doc,
+            tokens,
+            cursor,
+            image_map,
+            MARGIN,
+            CONTENT_W,
+            font_scale,
+          );
         }
 
-        function render_column_slide(doc, slide_md, cursor, image_map) {
+        function render_column_slide(
+          doc,
+          slide_md,
+          cursor,
+          image_map,
+          font_scale,
+        ) {
           const layout = parse_layout(slide_md);
           if (!layout) return false;
 
@@ -387,6 +405,7 @@
               image_map,
               MARGIN,
               CONTENT_W,
+              font_scale,
             );
           }
 
@@ -396,15 +415,26 @@
           const usable_w = CONTENT_W - total_gap;
 
           let col_x = MARGIN;
+          let max_col_y = col_top;
           for (const section of layout.sections) {
             const frac = layout.fractions[section.name];
             const col_w = usable_w * frac;
             const col_cursor = { y: col_top };
             const col_tokens = marked.lexer(section.content);
-            render_tokens(doc, col_tokens, col_cursor, image_map, col_x, col_w);
+            render_tokens(
+              doc,
+              col_tokens,
+              col_cursor,
+              image_map,
+              col_x,
+              col_w,
+              font_scale,
+            );
+            if (col_cursor.y > max_col_y) max_col_y = col_cursor.y;
             col_x += col_w + COL_GAP;
           }
 
+          cursor.y = max_col_y;
           return true;
         }
 
@@ -488,6 +518,14 @@
                 ? await preload_images(all_hrefs, info.path)
                 : new Map();
 
+            const measure_doc = new jsPDF({
+              orientation: "landscape",
+              unit: "mm",
+              format: "a4",
+            });
+            const MIN_SCALE = 0.5;
+            const available_h = PAGE_H - MARGIN - (MARGIN + 10);
+
             for (let i = 0; i < all_tokens.length; i++) {
               if (i > 0) doc.addPage();
 
@@ -495,15 +533,43 @@
               if (i === 0 && is_title_slide(tokens)) {
                 render_title_slide(doc, tokens);
               } else {
-                const cursor = { y: MARGIN + 10 };
+                const start_y = MARGIN + 10;
+                let font_scale = 1;
+
+                const measure_cursor = { y: start_y };
+                const is_col = parse_layout(slides_normalized[i]) !== null;
+                if (is_col) {
+                  render_column_slide(
+                    measure_doc,
+                    slides_normalized[i],
+                    measure_cursor,
+                    image_map,
+                    1,
+                  );
+                } else {
+                  render_slide(
+                    measure_doc,
+                    tokens,
+                    measure_cursor,
+                    image_map,
+                    1,
+                  );
+                }
+                const content_h = measure_cursor.y - start_y;
+                if (content_h > available_h) {
+                  font_scale = Math.max(MIN_SCALE, available_h / content_h);
+                }
+
+                const cursor = { y: start_y };
                 const handled = render_column_slide(
                   doc,
                   slides_normalized[i],
                   cursor,
                   image_map,
+                  font_scale,
                 );
                 if (!handled) {
-                  render_slide(doc, tokens, cursor, image_map);
+                  render_slide(doc, tokens, cursor, image_map, font_scale);
                 }
               }
             }
