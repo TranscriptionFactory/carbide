@@ -8,7 +8,6 @@
     Search,
     Sparkles,
     Target,
-    X,
   } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -164,13 +163,6 @@
       >
         <RefreshCw size={14} />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onclick={() => void action_registry.execute(ACTION_IDS.graph_close)}
-      >
-        <X size={14} />
-      </Button>
     </div>
   </div>
 
@@ -309,12 +301,16 @@
     font-size: var(--text-sm);
     font-weight: 700;
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .GraphPanel__actions {
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    flex-shrink: 0;
   }
 
   .GraphPanel__toolbar {
