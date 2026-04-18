@@ -25,6 +25,7 @@ function make_context(network_fetch = vi.fn()) {
         create_note: vi.fn(),
         write_note: vi.fn(),
         delete_note: vi.fn(),
+        read_asset: vi.fn(),
       },
       editor: {
         apply_ai_output: vi.fn(),

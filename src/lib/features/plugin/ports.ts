@@ -111,7 +111,9 @@ export interface PluginInfo {
   error?: string;
 }
 
-export type DiscoveredPlugin = Pick<PluginInfo, "manifest" | "path">;
+export type DiscoveredPlugin = Pick<PluginInfo, "manifest" | "path"> & {
+  source: string;
+};
 
 export type PluginFsEvent = {
   type: "plugin_changed";

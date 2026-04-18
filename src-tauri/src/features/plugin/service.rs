@@ -10,19 +10,35 @@ impl PluginService {
         Self
     }
 
-    pub fn discover(&self, vault_path: &Path) -> Result<Vec<PluginInfo>> {
-        let plugins_dir = plugins_dir(vault_path);
+    pub fn discover(&self, vault_path: &Path, home_dir: &Path) -> Result<Vec<PluginInfo>> {
+        let mut plugins_by_id = std::collections::HashMap::<String, PluginInfo>::new();
 
-        log::info!("Plugin discovery: looking in {}", plugins_dir.display());
-
-        if !plugins_dir.exists() {
-            log::info!("Plugin discovery: directory does not exist");
-            return Ok(Vec::new());
+        let user_dir = user_plugins_dir(home_dir);
+        if user_dir.exists() {
+            log::info!("Plugin discovery: scanning user dir {}", user_dir.display());
+            for info in self.discover_from_dir(&user_dir, "user")? {
+                plugins_by_id.insert(info.manifest.id.clone(), info);
+            }
         }
 
+        let vault_dir = vault_plugins_dir(vault_path);
+        if vault_dir.exists() {
+            log::info!(
+                "Plugin discovery: scanning vault dir {}",
+                vault_dir.display()
+            );
+            for info in self.discover_from_dir(&vault_dir, "local")? {
+                plugins_by_id.insert(info.manifest.id.clone(), info);
+            }
+        }
+
+        Ok(plugins_by_id.into_values().collect())
+    }
+
+    fn discover_from_dir(&self, dir: &Path, source: &str) -> Result<Vec<PluginInfo>> {
         let mut plugins = Vec::new();
 
-        for entry in fs::read_dir(&plugins_dir).context("Failed to read plugins directory")? {
+        for entry in fs::read_dir(dir).context("Failed to read plugins directory")? {
             let entry = entry?;
             let path = entry.path();
 
@@ -31,6 +47,7 @@ impl PluginService {
                     plugins.push(PluginInfo {
                         manifest,
                         path: path.to_string_lossy().into_owned(),
+                        source: source.to_string(),
                     });
                 }
             }
@@ -39,22 +56,42 @@ impl PluginService {
         Ok(plugins)
     }
 
-    pub fn validate_plugin(&self, vault_path: &Path, plugin_id: &str) -> Result<PluginInfo> {
-        let plugin_dir = plugins_dir(vault_path).join(plugin_id);
-
-        if !plugin_dir.exists() {
-            anyhow::bail!("Plugin directory not found: {}", plugin_dir.display());
+    pub fn validate_plugin(
+        &self,
+        vault_path: &Path,
+        home_dir: &Path,
+        plugin_id: &str,
+    ) -> Result<PluginInfo> {
+        let vault_dir = vault_plugins_dir(vault_path).join(plugin_id);
+        if vault_dir.exists() {
+            let manifest = self.load_manifest(&vault_dir).context(format!(
+                "Failed to load manifest for plugin '{}'",
+                plugin_id
+            ))?;
+            return Ok(PluginInfo {
+                manifest,
+                path: vault_dir.to_string_lossy().into_owned(),
+                source: "local".to_string(),
+            });
         }
 
-        let manifest = self.load_manifest(&plugin_dir).context(format!(
-            "Failed to load manifest for plugin '{}'",
-            plugin_id
-        ))?;
+        let user_dir = user_plugins_dir(home_dir).join(plugin_id);
+        if user_dir.exists() {
+            let manifest = self.load_manifest(&user_dir).context(format!(
+                "Failed to load manifest for plugin '{}'",
+                plugin_id
+            ))?;
+            return Ok(PluginInfo {
+                manifest,
+                path: user_dir.to_string_lossy().into_owned(),
+                source: "user".to_string(),
+            });
+        }
 
-        Ok(PluginInfo {
-            manifest,
-            path: plugin_dir.to_string_lossy().into_owned(),
-        })
+        anyhow::bail!(
+            "Plugin directory not found for '{}' in vault or user plugins",
+            plugin_id
+        );
     }
 
     fn load_manifest(&self, plugin_dir: &Path) -> Option<PluginManifest> {
@@ -74,6 +111,10 @@ impl PluginService {
     }
 }
 
-fn plugins_dir(vault_path: &Path) -> PathBuf {
+fn vault_plugins_dir(vault_path: &Path) -> PathBuf {
     vault_path.join(".carbide").join("plugins")
+}
+
+pub fn user_plugins_dir(home_dir: &Path) -> PathBuf {
+    home_dir.join(".carbide").join("plugins")
 }
