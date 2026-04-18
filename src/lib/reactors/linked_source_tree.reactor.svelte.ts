@@ -2,6 +2,7 @@ import type { ReferenceStore } from "$lib/features/reference";
 import type { NotesStore } from "$lib/features/note";
 import type { VaultStore } from "$lib/features/vault";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import { untrack } from "svelte";
 
 export function create_linked_source_tree_reactor(
   vault_store: VaultStore,
@@ -17,7 +18,7 @@ export function create_linked_source_tree_reactor(
       const show = ui_store.editor_settings.file_tree_show_linked_sources;
 
       if (!show) {
-        notes_store.remove_folder("@linked");
+        untrack(() => notes_store.remove_folder("@linked"));
         return;
       }
 
@@ -29,9 +30,11 @@ export function create_linked_source_tree_reactor(
         folder_paths.push(`@linked/${source.name}`);
       }
 
-      for (const path of folder_paths) {
-        notes_store.add_folder_path(path);
-      }
+      untrack(() => {
+        for (const path of folder_paths) {
+          notes_store.add_folder_path(path);
+        }
+      });
     });
   });
 }
