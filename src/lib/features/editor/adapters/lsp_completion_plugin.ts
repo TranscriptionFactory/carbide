@@ -11,6 +11,7 @@ import {
 } from "./suggest_dropdown_utils";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import { wiki_suggest_plugin_key } from "./wiki_suggest_plugin";
+import { at_palette_plugin_key } from "./at_palette_plugin";
 
 export const lsp_completion_plugin_key = new PluginKey<LspCompletionState>(
   "lsp-completion",
@@ -89,6 +90,7 @@ function trigger_context(
 ): { query: string; from: number } | null {
   if (trigger_chars.length === 0) return null;
   if (wiki_suggest_plugin_key.getState(view.state)?.active) return null;
+  if (at_palette_plugin_key.getState(view.state)?.active) return null;
   const { $from } = view.state.selection;
   if (!$from.parent.isTextblock || $from.parent.type.name === "code_block") {
     return null;

@@ -8,7 +8,7 @@ import { VaultService } from "$lib/features/vault";
 import { NoteService } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
-import { SearchService } from "$lib/features/search";
+import { SearchService, COMMAND_TO_ACTION_ID } from "$lib/features/search";
 import { build_command_context } from "$lib/features/search/domain/build_command_context";
 import {
   EditorService,
@@ -201,6 +201,12 @@ export function create_app_context(input: {
   );
 
   const editor_callbacks: EditorServiceCallbacks = {
+    on_command_execute: (command_id: string) => {
+      const action_id = COMMAND_TO_ACTION_ID[command_id];
+      if (action_id) {
+        void action_registry.execute(action_id);
+      }
+    },
     on_internal_link_click: (raw_path, base_note_path, source) =>
       void action_registry.execute(ACTION_IDS.note_open_wiki_link, {
         raw_path,

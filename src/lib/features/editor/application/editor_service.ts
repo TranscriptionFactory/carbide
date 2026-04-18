@@ -6,6 +6,7 @@ import type {
   WikiQueryEvent,
 } from "$lib/features/editor/ports";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import {
@@ -44,6 +45,7 @@ function note_name_from_path(path: string): string {
 }
 
 export type EditorServiceCallbacks = {
+  on_command_execute?: (command_id: string) => void;
   on_internal_link_click: (
     raw_path: string,
     base_note_path: string,
@@ -765,6 +767,117 @@ export class EditorService {
     }
   }
 
+  private handle_at_palette_note_query(
+    generation: number,
+    query: string,
+  ): void {
+    if (!this.is_generation_current(generation)) return;
+    const search_service = this.search_service;
+    if (!search_service) return;
+
+    void search_service.suggest_wiki_links(query).then((result) => {
+      if (!this.is_generation_current(generation)) return;
+      if (result.status === "stale" || result.status !== "success") {
+        this.session?.set_at_palette_suggestions?.("notes", []);
+        return;
+      }
+      const items: AtPaletteItem[] = this.map_wiki_suggestions(
+        result.results,
+      ).map((r) => ({
+        category: "notes" as const,
+        title: r.title,
+        path: r.path,
+        kind: r.kind,
+        ref_count: r.ref_count,
+      }));
+      this.session?.set_at_palette_suggestions?.("notes", items);
+    });
+  }
+
+  private handle_at_palette_heading_query(
+    generation: number,
+    note_name: string | null,
+    heading_query: string,
+  ): void {
+    if (!this.is_generation_current(generation)) return;
+    const search_service = this.search_service;
+    if (!search_service) return;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    const resolve_path = async (): Promise<string | null> => {
+      if (note_name === null) return this.get_active_note_path();
+      const source_path = this.get_active_note_path();
+      if (!source_path) return null;
+      return search_service.resolve_wiki_link(source_path, note_name);
+    };
+
+    void resolve_path().then(async (resolved_path) => {
+      if (!resolved_path || !this.is_generation_current(generation)) {
+        this.session?.set_at_palette_suggestions?.("headings", []);
+        return;
+      }
+      const headings = await search_service.get_note_headings(
+        vault_id,
+        resolved_path,
+      );
+      if (!this.is_generation_current(generation)) return;
+
+      const query_lower = heading_query.toLowerCase();
+      const note_path = resolved_path;
+      const items: AtPaletteItem[] = headings
+        .filter((h) => h.text.toLowerCase().includes(query_lower))
+        .map((h) => ({
+          category: "headings" as const,
+          text: h.text,
+          level: h.level,
+          note_path,
+        }));
+      this.session?.set_at_palette_suggestions?.("headings", items);
+    });
+  }
+
+  private handle_at_palette_tag_query(generation: number, query: string): void {
+    if (!this.is_generation_current(generation)) return;
+    const tag_port = this.tag_port;
+    if (!tag_port) return;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    void tag_port.list_all_tags(vault_id).then((tags) => {
+      if (!this.is_generation_current(generation)) return;
+      const lower_query = query.toLowerCase();
+      const items: AtPaletteItem[] = tags
+        .filter((t) => t.tag.toLowerCase().startsWith(lower_query))
+        .map((t) => ({
+          category: "tags" as const,
+          tag: t.tag,
+          count: t.count,
+        }));
+      this.session?.set_at_palette_suggestions?.("tags", items);
+    });
+  }
+
+  private handle_at_palette_cite_query(query: string): void {
+    const reference_store = this.reference_store;
+    if (!reference_store) return;
+
+    const all = reference_store.library_items;
+    const items: AtPaletteItem[] = [];
+    for (const item of all) {
+      if (query && !match_query(item, query)) continue;
+      items.push({
+        category: "references" as const,
+        citekey: item.id,
+        title: item.title ?? "",
+        authors: format_authors(item.author),
+        year: String(extract_year(item) ?? ""),
+      });
+      if (items.length >= 20) break;
+    }
+    this.session?.set_at_palette_suggestions?.("references", items);
+  }
+
   private create_session_events(generation: number): EditorSessionEvents {
     const events: EditorSessionEvents = {
       on_markdown_change: (markdown: string) => {
@@ -841,6 +954,31 @@ export class EditorService {
       };
       events.on_cite_accept = (citekey: string) => {
         this.handle_cite_accept(citekey);
+      };
+    }
+
+    if (this.search_service || this.tag_port || this.reference_store) {
+      events.on_at_palette_note_query = (query: string) => {
+        this.handle_at_palette_note_query(generation, query);
+      };
+      events.on_at_palette_heading_query = (
+        note_name: string | null,
+        heading_query: string,
+      ) => {
+        this.handle_at_palette_heading_query(
+          generation,
+          note_name,
+          heading_query,
+        );
+      };
+      events.on_at_palette_tag_query = (query: string) => {
+        this.handle_at_palette_tag_query(generation, query);
+      };
+      events.on_at_palette_cite_query = (query: string) => {
+        this.handle_at_palette_cite_query(query);
+      };
+      events.on_at_palette_command_execute = (command_id: string) => {
+        this.callbacks.on_command_execute?.(command_id);
       };
     }
 

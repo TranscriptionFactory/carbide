@@ -44,6 +44,7 @@ import {
   set_image_suggestions,
   set_tag_suggestions,
   set_cite_suggestions,
+  set_at_palette_suggestions,
   toggle_heading_fold,
   collapse_all_headings,
   expand_all_headings,
@@ -917,6 +918,13 @@ export function create_prosemirror_editor_port(args?: {
         set_cite_suggestions(items: CiteSuggestionItem[]) {
           if (!view) return;
           set_cite_suggestions(view, items);
+        },
+        set_at_palette_suggestions(
+          category: Parameters<typeof set_at_palette_suggestions>[1],
+          items: Parameters<typeof set_at_palette_suggestions>[2],
+        ) {
+          if (!view) return;
+          set_at_palette_suggestions(view, category, items);
         },
         update_find_state(query: string, selected_index: number): number {
           let match_count = 0;
