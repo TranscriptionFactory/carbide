@@ -23,6 +23,7 @@
   import BlocksIcon from "@lucide/svelte/icons/blocks";
   import MaximizeIcon from "@lucide/svelte/icons/maximize";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import NetworkIcon from "@lucide/svelte/icons/network";
   import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
@@ -95,6 +96,7 @@
     on_selected_index_change: (index: number) => void;
     on_scope_change: (scope: OmnibarScope) => void;
     on_confirm: (item: OmnibarItem) => void;
+    on_view_as_graph: (query: string) => void;
   };
 
   let {
@@ -114,6 +116,7 @@
     on_selected_index_change,
     on_scope_change,
     on_confirm,
+    on_view_as_graph,
   }: Props = $props();
 
   let input_ref: HTMLInputElement | null = $state(null);
@@ -264,6 +267,10 @@
     }
     return map;
   });
+
+  const can_view_as_graph = $derived(
+    has_query && !is_command_mode && !is_all_vaults && items.length > 0,
+  );
 
   const show_recent_header = $derived(
     !has_query && !is_command_mode && !is_all_vaults && recent_notes.length > 0,
@@ -661,6 +668,15 @@
         <span class="Omnibar__hint-sep">·</span>
         <span class="Omnibar__hint"><kbd>notes with #tag</kbd></span>
       {/if}
+      {#if can_view_as_graph}
+        <button
+          class="Omnibar__graph-action"
+          onclick={() => on_view_as_graph(query)}
+        >
+          <NetworkIcon />
+          <span>View as graph</span>
+        </button>
+      {/if}
     </div>
   </Dialog.Content>
 </Dialog.Root>
@@ -1056,6 +1072,31 @@
 
   .Omnibar__hint-sep {
     color: var(--muted-foreground);
+  }
+
+  .Omnibar__graph-action {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: var(--space-0-5) var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    border-radius: var(--radius-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  .Omnibar__graph-action:hover {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  :global(.Omnibar__graph-action svg) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
   }
 
   @keyframes spin {

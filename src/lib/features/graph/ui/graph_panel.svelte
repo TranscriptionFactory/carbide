@@ -5,6 +5,7 @@
     Link,
     Maximize2,
     RefreshCw,
+    Search,
     Sparkles,
     Target,
     X,
@@ -78,7 +79,7 @@
       {:else if snapshot}
         <h2 class="GraphPanel__title">{snapshot.center.title}</h2>
       {:else}
-        <h2 class="GraphPanel__title">Graph</h2>
+        <h2 class="GraphPanel__title">Neighborhood</h2>
       {/if}
     </div>
 
@@ -137,6 +138,15 @@
           )}
       >
         <Link size={14} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        title="Search graph"
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.search_graph_open)}
+      >
+        <Search size={14} />
       </Button>
       <Button
         variant="ghost"

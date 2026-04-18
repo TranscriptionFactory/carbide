@@ -602,6 +602,10 @@
     void action_registry.execute(ACTION_IDS.omnibar_set_scope, scope)}
   on_confirm={(item: OmnibarItem) =>
     void action_registry.execute(ACTION_IDS.omnibar_confirm_item, item)}
+  on_view_as_graph={(query: string) => {
+    void action_registry.execute(ACTION_IDS.omnibar_close);
+    void action_registry.execute(ACTION_IDS.search_graph_open, { query });
+  }}
 />
 
 <ImagePasteDialog
