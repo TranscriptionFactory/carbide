@@ -73,6 +73,7 @@
     editor: {
       getInfo: () => _rpc("editor.get_info"),
       getValue: () => _rpc("editor.get_value"),
+      setValue: (text) => _rpc("editor.set_value", text),
       getSelection: () => _rpc("editor.get_selection"),
       replaceSelection: (text) => _rpc("editor.replace_selection", text),
     },
@@ -80,6 +81,8 @@
     commands: {
       register: (opts) => _rpc("commands.register", opts),
       remove: (id) => _rpc("commands.remove", id),
+      registerSlash: (opts) => _rpc("commands.register_slash", opts),
+      removeSlash: (id) => _rpc("commands.remove_slash", id),
     },
 
     ui: {
@@ -141,6 +144,12 @@
 
     ai: {
       execute: (opts) => _rpc("ai.execute", opts),
+    },
+
+    mcp: {
+      listTools: () => _rpc("mcp.list_tools"),
+      callTool: (name, args) => _rpc("mcp.call_tool", name, args),
+      registerTool: (definition) => _rpc("mcp.register_tool", definition),
     },
   };
 })();
