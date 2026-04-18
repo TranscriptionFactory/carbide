@@ -289,6 +289,8 @@
             stores.editor.set_markdown(captured_note_id, as_markdown_text(md))
         : on_markdown_change;
 
+      const captured_cursor_offset = initial_cursor_offset;
+
       view = new EV({
         doc: initial_markdown,
         extensions,
@@ -296,15 +298,15 @@
       });
       view_mounted = true;
 
-      if (initial_cursor_offset > 0) {
-        const clamped = Math.min(initial_cursor_offset, view.state.doc.length);
+      if (captured_cursor_offset > 0) {
+        const clamped = Math.min(captured_cursor_offset, view.state.doc.length);
         view.dispatch({
           selection: { anchor: clamped },
           scrollIntoView: true,
         });
       }
 
-      if (initial_cursor_offset <= 0 && initial_scroll_fraction > 0) {
+      if (captured_cursor_offset <= 0 && initial_scroll_fraction > 0) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (!view) return;
