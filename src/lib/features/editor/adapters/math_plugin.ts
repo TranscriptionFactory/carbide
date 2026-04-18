@@ -115,6 +115,21 @@ export function create_math_view_prose_plugin(): Plugin {
         math_block: (node, view, get_pos) =>
           new MathBlockNodeView(node, view, get_pos),
       },
+      handleDoubleClickOn(view, _pos, node, nodePos) {
+        if (node.type.name !== "math_inline") return false;
+        const content = node.textContent;
+        const raw = `$${content}$`;
+        const start = nodePos;
+        const end = nodePos + node.nodeSize;
+        const tr = view.state.tr.replaceWith(
+          start,
+          end,
+          view.state.schema.text(raw),
+        );
+        tr.setSelection(TextSelection.create(tr.doc, start + raw.length - 1));
+        view.dispatch(tr);
+        return true;
+      },
     },
   });
 }

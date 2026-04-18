@@ -36,6 +36,7 @@ export function assemble_extensions(
   slash_config?: SlashCommandConfig,
 ): AssembledExtensions {
   const extensions: EditorExtension[] = [
+    create_heading_extension(),
     create_core_extension(ctx),
     create_code_block_extension(),
     create_math_extension(),
@@ -45,7 +46,6 @@ export function assemble_extensions(
     create_image_extension(ctx),
     create_marks_extension(),
     create_link_extension(ctx),
-    create_heading_extension(),
     create_task_list_extension(),
     create_find_extension(),
     create_wiki_link_extension(ctx),
