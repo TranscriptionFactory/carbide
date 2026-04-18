@@ -265,6 +265,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.reference_store,
       context.notes_store,
+      context.ui_store,
     ),
     create_task_sync_reactor(
       context.vault_store,
