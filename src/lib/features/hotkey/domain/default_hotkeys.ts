@@ -388,7 +388,7 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
   },
   {
     action_id: ACTION_IDS.lsp_show_hover,
-    key: "CmdOrCtrl+.",
+    key: "CmdOrCtrl+;",
     phase: "capture",
     label: "Show LSP Info",
     description: "Open the LSP panel and show hover information",

@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { computePosition, offset, flip, shift } from "@floating-ui/dom";
-import type { Diagnostic } from "$lib/features/diagnostics";
+import type { Diagnostic, DiagnosticSource } from "$lib/features/diagnostics";
 import { lsp_pos_to_prose_pos } from "./lsp_plugin_utils";
 import { render_lsp_markdown } from "./lsp_tooltip_renderer";
 
@@ -50,6 +50,7 @@ function build_decorations(
         {
           diagnostic_message: diag.message,
           diagnostic_severity: diag.severity,
+          diagnostic_source: diag.source,
         },
       ),
     );
@@ -142,7 +143,23 @@ export function create_diagnostics_decoration_plugin(
         tooltip_el.innerHTML = "";
       }
 
-      function show_tooltip(view: EditorView, pos: number, message: string) {
+      function source_label(source: DiagnosticSource | undefined): string {
+        if (!source) return "Diagnostic";
+        if (source === "lint") return "Lint";
+        if (source === "markdown_lsp") return "Markdown LSP";
+        if (source === "code_lsp") return "Code LSP";
+        if (source === "ast") return "AST";
+        if (source === "plugin") return "Plugin";
+        if (source.startsWith("plugin:")) return source.slice("plugin:".length);
+        return "Diagnostic";
+      }
+
+      function show_tooltip(
+        view: EditorView,
+        pos: number,
+        message: string,
+        label: string,
+      ) {
         tooltip_el.innerHTML = "";
         const lsp_header = document.createElement("span");
         lsp_header.style.fontSize = "10px";
@@ -151,7 +168,7 @@ export function create_diagnostics_decoration_plugin(
         lsp_header.style.color = "var(--muted-foreground)";
         lsp_header.style.display = "block";
         lsp_header.style.marginBottom = "4px";
-        lsp_header.textContent = "LSP";
+        lsp_header.textContent = label;
         tooltip_el.appendChild(lsp_header);
         const msg_body = document.createElement("div");
         msg_body.className = "lsp-hover-content";
@@ -202,15 +219,28 @@ export function create_diagnostics_decoration_plugin(
             return;
           }
 
-          const messages = decos_at_pos
-            .map(
-              (d) =>
-                (d.spec as { diagnostic_message?: string })?.diagnostic_message,
-            )
+          const specs = decos_at_pos.map(
+            (d) =>
+              d.spec as {
+                diagnostic_message?: string;
+                diagnostic_source?: DiagnosticSource;
+              },
+          );
+          const messages = specs
+            .map((s) => s.diagnostic_message)
             .filter(Boolean);
 
           if (messages.length > 0) {
-            show_tooltip(editor_view, pos_result.pos, messages.join("\n\n"));
+            const sources = [
+              ...new Set(specs.map((s) => source_label(s.diagnostic_source))),
+            ];
+            const label = sources.join(" / ");
+            show_tooltip(
+              editor_view,
+              pos_result.pos,
+              messages.join("\n\n"),
+              label,
+            );
           } else {
             if (!hovering_tooltip) hide_tooltip();
           }
