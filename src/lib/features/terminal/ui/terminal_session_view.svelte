@@ -279,6 +279,7 @@
       cursorBlink: stores.ui.editor_settings.terminal_cursor_blink,
       cursorStyle: stores.ui.editor_settings.terminal_cursor_style,
       scrollback: stores.ui.editor_settings.terminal_scrollback,
+      macOptionIsMeta: true,
       theme: build_xterm_theme(),
     });
 

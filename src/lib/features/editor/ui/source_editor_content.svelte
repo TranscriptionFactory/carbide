@@ -300,11 +300,11 @@
         const clamped = Math.min(initial_cursor_offset, view.state.doc.length);
         view.dispatch({
           selection: { anchor: clamped },
-          scrollIntoView: false,
+          scrollIntoView: true,
         });
       }
 
-      if (initial_scroll_fraction > 0) {
+      if (initial_cursor_offset <= 0 && initial_scroll_fraction > 0) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (!view) return;
