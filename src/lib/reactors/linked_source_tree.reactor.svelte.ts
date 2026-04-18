@@ -12,6 +12,7 @@ export function create_linked_source_tree_reactor(
   return $effect.root(() => {
     $effect(() => {
       if (!vault_store.active_vault_id) return;
+      if (!ui_store.editor_settings_loaded) return;
 
       const show = ui_store.editor_settings.file_tree_show_linked_sources;
 
