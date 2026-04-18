@@ -8,26 +8,34 @@ use crate::features::plugin::service::PluginService;
 use crate::features::plugin::settings::PluginSettings;
 use crate::features::plugin::types::PluginInfo;
 use std::path::Path;
-use tauri::{command, State};
+use tauri::{command, AppHandle, Manager, State};
+
+fn resolve_home_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path().home_dir().map_err(|e| e.to_string())
+}
 
 #[command]
 pub async fn plugin_discover(
+    app: AppHandle,
     vault_path: String,
     state: State<'_, PluginService>,
 ) -> Result<Vec<PluginInfo>, String> {
+    let home_dir = resolve_home_dir(&app)?;
     state
-        .discover(Path::new(&vault_path))
+        .discover(Path::new(&vault_path), &home_dir)
         .map_err(|e| e.to_string())
 }
 
 #[command]
 pub async fn plugin_load(
+    app: AppHandle,
     vault_path: String,
     plugin_id: String,
     state: State<'_, PluginService>,
 ) -> Result<PluginInfo, String> {
+    let home_dir = resolve_home_dir(&app)?;
     state
-        .validate_plugin(Path::new(&vault_path), &plugin_id)
+        .validate_plugin(Path::new(&vault_path), &home_dir, &plugin_id)
         .map_err(|e| e.to_string())
 }
 

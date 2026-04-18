@@ -14,6 +14,7 @@ const FS_METHODS = new Set([
   "vault.modify",
   "vault.delete",
   "vault.list",
+  "export.save_binary",
 ]);
 
 const DEFAULT_TIMEOUT_MS = 5_000;

@@ -57,4 +57,5 @@ pub struct PluginManifest {
 pub struct PluginInfo {
     pub manifest: PluginManifest,
     pub path: String,
+    pub source: String,
 }

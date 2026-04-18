@@ -269,10 +269,10 @@ export class PluginService {
 
     let settings_changed = false;
 
-    for (const { manifest, path } of discovered) {
+    for (const { manifest, path, source } of discovered) {
       const sync_result = this.settings_service?.sync_manifest_entry(
         manifest,
-        "local",
+        source,
       );
 
       settings_changed = settings_changed || (sync_result?.changed ?? false);

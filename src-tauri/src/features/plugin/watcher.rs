@@ -1,12 +1,13 @@
+use crate::features::plugin::service::user_plugins_dir;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use specta::Type;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
 pub struct PluginWatcherState {
@@ -28,11 +29,16 @@ fn is_watched_file(name: &str) -> bool {
     matches!(name, "manifest.json" | "main.js" | "index.html")
 }
 
-fn extract_plugin_id(path: &Path, plugins_root: &Path) -> Option<String> {
-    let rel = path.strip_prefix(plugins_root).ok()?;
-    rel.components()
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+fn extract_plugin_id_from_roots(path: &Path, roots: &[PathBuf]) -> Option<String> {
+    for root in roots {
+        if let Ok(rel) = path.strip_prefix(root) {
+            return rel
+                .components()
+                .next()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned());
+        }
+    }
+    None
 }
 
 fn with_runtime_lock<T>(
@@ -86,10 +92,38 @@ pub fn watch_plugins(
     log::info!("Watching plugins vault_path={}", vault_path);
     stop_active_runtime(&state)?;
 
-    let plugins_root = Path::new(&vault_path).join(".carbide").join("plugins");
-    if !plugins_root.exists() {
+    let vault_plugins_root = Path::new(&vault_path).join(".carbide").join("plugins");
+    let user_plugins_root = app
+        .path()
+        .home_dir()
+        .ok()
+        .map(|h| user_plugins_dir(&h));
+
+    let mut watch_roots: Vec<PathBuf> = Vec::new();
+
+    if vault_plugins_root.exists() {
+        match vault_plugins_root.canonicalize() {
+            Ok(canon) => watch_roots.push(canon),
+            Err(e) => log::warn!("Failed to canonicalize vault plugins dir: {}", e),
+        }
+    }
+
+    if let Some(ref user_root) = user_plugins_root {
+        if user_root.exists() {
+            match user_root.canonicalize() {
+                Ok(canon) => {
+                    if !watch_roots.contains(&canon) {
+                        watch_roots.push(canon);
+                    }
+                }
+                Err(e) => log::warn!("Failed to canonicalize user plugins dir: {}", e),
+            }
+        }
+    }
+
+    if watch_roots.is_empty() {
         log::debug!(
-            "Plugin watcher skipped for vault_path={} because plugins dir is missing",
+            "Plugin watcher skipped for vault_path={} because no plugins dirs exist",
             vault_path
         );
         if let Ok(mut current) = state.current_vault_path.lock() {
@@ -97,13 +131,10 @@ pub fn watch_plugins(
         }
         return Ok(());
     }
-    let plugins_root_canon = plugins_root
-        .canonicalize()
-        .map_err(|e| format!("plugins dir not found: {e}"))?;
 
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let app_handle = app.clone();
-    let root = plugins_root_canon.clone();
+    let roots = watch_roots.clone();
 
     std::thread::spawn(move || {
         let (tx, rx) = mpsc::sync_channel::<Result<notify::Event, notify::Error>>(512);
@@ -121,9 +152,10 @@ pub fn watch_plugins(
             }
         };
 
-        if let Err(e) = watcher.watch(&root, RecursiveMode::Recursive) {
-            log::error!("Failed to watch plugins dir {}: {}", root.display(), e);
-            return;
+        for root in &roots {
+            if let Err(e) = watcher.watch(root, RecursiveMode::Recursive) {
+                log::error!("Failed to watch plugins dir {}: {}", root.display(), e);
+            }
         }
 
         let mut last_emitted: HashMap<String, Instant> = HashMap::new();
@@ -171,7 +203,7 @@ pub fn watch_plugins(
                     continue;
                 }
 
-                let Some(plugin_id) = extract_plugin_id(&abs, &root) else {
+                let Some(plugin_id) = extract_plugin_id_from_roots(&abs, &roots) else {
                     continue;
                 };
 

@@ -38,6 +38,7 @@ type PluginRpcNoteService = {
   create_note(note_path: string, markdown: string): Promise<unknown>;
   write_note(note_path: string, markdown: string): Promise<unknown>;
   delete_note(note_path: string): Promise<unknown>;
+  read_asset(asset_path: string): Promise<{ data: string; mime_type: string }>;
 };
 
 type PluginRpcEditorService = {
@@ -138,6 +139,14 @@ export type PluginRpcAiBackend = {
   }): Promise<{ success: boolean; output: string; error: string | null }>;
 };
 
+type PluginRpcExportBackend = {
+  save_binary(
+    data: number[],
+    default_filename: string,
+    filters?: { name: string; extensions: string[] }[],
+  ): Promise<{ success: boolean; path: string | null }>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -180,6 +189,7 @@ export type PluginRpcContext = {
   network?: PluginRpcNetworkBackend;
   ai?: PluginRpcAiBackend;
   mcp?: PluginRpcMcpBackend;
+  export?: PluginRpcExportBackend;
 };
 
 const SIDEBAR_ICON_COMPONENTS = {
@@ -582,6 +592,8 @@ export class PluginRpcHandler {
         return this.handle_ai(plugin_id, action, params);
       case "mcp":
         return this.handle_mcp(plugin_id, action, params);
+      case "export":
+        return this.handle_export(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -614,6 +626,10 @@ export class PluginRpcHandler {
         );
       case "list":
         return this.context.stores.notes.notes.map((n) => n.path);
+      case "read_asset":
+        return this.context.services.note.read_asset(
+          read_param_string(params, 0, "asset path"),
+        );
       default:
         throw new Error(`Unknown vault action: ${action}`);
     }
@@ -1105,6 +1121,41 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown network action: ${action}`);
+    }
+  }
+  private async handle_export(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "export:save");
+
+    if (!this.context.export) {
+      throw new Error("Export backend not initialized");
+    }
+
+    switch (action) {
+      case "save_binary": {
+        const data = params[0];
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid data: expected number array");
+        }
+        const default_filename = read_param_string(
+          params,
+          1,
+          "default filename",
+        );
+        const filters = params[2] as
+          | { name: string; extensions: string[] }[]
+          | undefined;
+        return this.context.export.save_binary(
+          data as number[],
+          default_filename,
+          filters,
+        );
+      }
+      default:
+        throw new Error(`Unknown export action: ${action}`);
     }
   }
 }

@@ -4,14 +4,19 @@
   let _onload_cb = null;
   let _onunload_cb = null;
 
+  const _LONG_TIMEOUT_PREFIXES = ["export.", "vault."];
+
   function _rpc(method, ...params) {
     const id = crypto.randomUUID();
     window.parent.postMessage({ id, method, params }, "*");
+    const timeout = _LONG_TIMEOUT_PREFIXES.some((p) => method.startsWith(p))
+      ? 30000
+      : 5000;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         _pending.delete(id);
         reject(new Error(`RPC timeout: ${method}`));
-      }, 5000);
+      }, timeout);
       _pending.set(id, {
         resolve: (v) => {
           clearTimeout(timer);
@@ -68,6 +73,7 @@
       modify: (path, content) => _rpc("vault.modify", path, content),
       delete: (path) => _rpc("vault.delete", path),
       list: () => _rpc("vault.list"),
+      readAsset: (path) => _rpc("vault.read_asset", path),
     },
 
     editor: {
@@ -150,6 +156,11 @@
       listTools: () => _rpc("mcp.list_tools"),
       callTool: (name, args) => _rpc("mcp.call_tool", name, args),
       registerTool: (definition) => _rpc("mcp.register_tool", definition),
+    },
+
+    export: {
+      saveBinary: (data, defaultFilename, filters) =>
+        _rpc("export.save_binary", data, defaultFilename, filters),
     },
   };
 })();

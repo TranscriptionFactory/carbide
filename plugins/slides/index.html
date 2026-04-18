@@ -1,0 +1,520 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="carbide-plugin-api.js"></script>
+    <script src="vendor/marked.min.js"></script>
+    <script src="vendor/jspdf.umd.min.js"></script>
+  </head>
+  <body>
+    <script>
+      (function () {
+        const { jsPDF } = window.jspdf;
+
+        const PAGE_W = 297;
+        const PAGE_H = 210;
+        const MARGIN = 30;
+        const CONTENT_W = PAGE_W - MARGIN * 2;
+
+        const FONT_SIZES = { h1: 36, h2: 28, h3: 22, body: 16, code: 14 };
+        const LINE_HEIGHT_FACTOR = 1.4;
+        const BULLET = "\u2022";
+        const COL_GAP = 8;
+
+        function parse_layout(md) {
+          const directive_re = /\{\{\s*(left|middle|right)(?:\s*#\s*([\d.]+))?\s*\}\}/g;
+          const directives = [];
+          let match;
+          while ((match = directive_re.exec(md)) !== null) {
+            directives.push({
+              name: match[1],
+              fraction: match[2] ? parseFloat(match[2]) : null,
+              index: match.index,
+              end: match.index + match[0].length,
+            });
+          }
+
+          if (directives.length === 0) return null;
+
+          const names = directives.map((d) => d.name);
+          const has_left = names.includes("left");
+          const has_right = names.includes("right");
+          const has_middle = names.includes("middle");
+
+          if (has_middle && (!has_left || !has_right)) return null;
+          if (!has_left || !has_right) return null;
+
+          const sections = [];
+          for (let i = 0; i < directives.length; i++) {
+            const start = directives[i].end;
+            const end =
+              i + 1 < directives.length ? directives[i + 1].index : md.length;
+            sections.push({
+              name: directives[i].name,
+              fraction: directives[i].fraction,
+              content: md.slice(start, end).trim(),
+            });
+          }
+
+          const preamble = md.slice(0, directives[0].index).trim();
+
+          let fractions;
+          if (has_middle) {
+            fractions = { left: 1 / 3, middle: 1 / 3, right: 1 / 3 };
+          } else {
+            const left_d = directives.find((d) => d.name === "left");
+            const right_d = directives.find((d) => d.name === "right");
+            const left_f = left_d && left_d.fraction ? left_d.fraction : 0.5;
+            const right_f =
+              right_d && right_d.fraction ? right_d.fraction : 1 - left_f;
+            fractions = { left: left_f, right: right_f };
+          }
+
+          return { preamble, sections, fractions };
+        }
+
+        function strip_frontmatter(md) {
+          const match = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+          return match ? md.slice(match[0].length) : md;
+        }
+
+        function split_slides(md) {
+          const stripped = strip_frontmatter(md);
+          return stripped
+            .split(/\n---\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+
+        function resolve_relative_path(note_path, src) {
+          if (src.startsWith("/")) return src;
+          const dir = note_path.substring(0, note_path.lastIndexOf("/") + 1);
+          const parts = (dir + src).split("/");
+          const resolved = [];
+          for (const p of parts) {
+            if (p === "..") resolved.pop();
+            else if (p !== "." && p !== "") resolved.push(p);
+          }
+          return resolved.join("/");
+        }
+
+        function collect_image_hrefs(slides_tokens) {
+          const hrefs = new Set();
+          for (const tokens of slides_tokens) {
+            for (const token of tokens) {
+              if (token.type === "paragraph" && token.tokens) {
+                for (const t of token.tokens) {
+                  if (t.type === "image") hrefs.add(t.href);
+                }
+              }
+            }
+          }
+          return [...hrefs];
+        }
+
+        async function preload_images(hrefs, note_path) {
+          const map = new Map();
+          const results = await Promise.allSettled(
+            hrefs.map(async (href) => {
+              const vault_path = resolve_relative_path(note_path, href);
+              const asset = await carbide.vault.readAsset(vault_path);
+              map.set(href, asset);
+            }),
+          );
+          return map;
+        }
+
+        function render_image(doc, cursor, image_data, col_x, col_w) {
+          const x = col_x !== undefined ? col_x : MARGIN;
+          const max_w = col_w !== undefined ? col_w : CONTENT_W;
+          const format = image_data.mime_type.includes("png") ? "PNG" : "JPEG";
+          const data_uri =
+            "data:" + image_data.mime_type + ";base64," + image_data.data;
+          const props = doc.getImageProperties(data_uri);
+          const scale = Math.min(max_w / props.width, 1);
+          const w = props.width * scale;
+          const h = props.height * scale;
+          const max_h = PAGE_H - MARGIN - cursor.y;
+          const final_scale = h > max_h ? max_h / h : 1;
+          const fw = w * final_scale;
+          const fh = h * final_scale;
+          if (fh > 0 && cursor.y + fh <= PAGE_H - MARGIN) {
+            doc.addImage(data_uri, format, x, cursor.y, fw, fh);
+            cursor.y += fh + 4;
+          }
+        }
+
+        function render_paragraph_tokens(
+          doc,
+          cursor,
+          tokens,
+          image_map,
+          col_x,
+          col_w,
+        ) {
+          const x = col_x !== undefined ? col_x : MARGIN;
+          const w = col_w !== undefined ? col_w : CONTENT_W;
+          let text_parts = [];
+          for (const t of tokens) {
+            if (t.type === "image" && image_map.has(t.href)) {
+              if (text_parts.length > 0) {
+                const joined = text_parts.join("");
+                const lines = doc.splitTextToSize(joined, w);
+                for (const line of lines) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  doc.text(line, x, cursor.y);
+                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                }
+                text_parts = [];
+              }
+              render_image(doc, cursor, image_map.get(t.href), x, w);
+            } else {
+              const raw = t.text || t.raw || "";
+              text_parts.push(
+                raw
+                  .replace(/\*\*(.*?)\*\*/g, "$1")
+                  .replace(/\*(.*?)\*/g, "$1")
+                  .replace(/`(.*?)`/g, "$1"),
+              );
+            }
+          }
+          if (text_parts.length > 0) {
+            const joined = text_parts.join("");
+            if (joined.trim()) {
+              const lines = doc.splitTextToSize(joined, w);
+              for (const line of lines) {
+                if (cursor.y > PAGE_H - MARGIN) break;
+                doc.text(line, x, cursor.y);
+                cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+              }
+            }
+          }
+        }
+
+        function render_tokens(doc, tokens, cursor, image_map, col_x, col_w) {
+          for (const token of tokens) {
+            if (cursor.y > PAGE_H - MARGIN) break;
+
+            switch (token.type) {
+              case "heading": {
+                const size = FONT_SIZES["h" + token.depth] || FONT_SIZES.body;
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(size);
+                const lines = doc.splitTextToSize(token.text, col_w);
+                for (const line of lines) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  doc.text(line, col_x, cursor.y);
+                  cursor.y += size * LINE_HEIGHT_FACTOR * 0.352778;
+                }
+                cursor.y += 4;
+                break;
+              }
+
+              case "paragraph": {
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(FONT_SIZES.body);
+                if (
+                  token.tokens &&
+                  token.tokens.some((t) => t.type === "image")
+                ) {
+                  render_paragraph_tokens(
+                    doc,
+                    cursor,
+                    token.tokens,
+                    image_map,
+                    col_x,
+                    col_w,
+                  );
+                  cursor.y += 3;
+                  break;
+                }
+                const text = token.text
+                  .replace(/\*\*(.*?)\*\*/g, "$1")
+                  .replace(/\*(.*?)\*/g, "$1")
+                  .replace(/`(.*?)`/g, "$1");
+                const lines = doc.splitTextToSize(text, col_w);
+                for (const line of lines) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  doc.text(line, col_x, cursor.y);
+                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                }
+                cursor.y += 3;
+                break;
+              }
+
+              case "list": {
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(FONT_SIZES.body);
+                const indent = 8;
+                for (const item of token.items) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  const text = item.text
+                    .replace(/\*\*(.*?)\*\*/g, "$1")
+                    .replace(/\*(.*?)\*/g, "$1")
+                    .replace(/`(.*?)`/g, "$1");
+                  const lines = doc.splitTextToSize(text, col_w - indent);
+                  for (let i = 0; i < lines.length; i++) {
+                    if (cursor.y > PAGE_H - MARGIN) break;
+                    if (i === 0) {
+                      doc.text(BULLET, col_x, cursor.y);
+                    }
+                    doc.text(lines[i], col_x + indent, cursor.y);
+                    cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                  }
+                }
+                cursor.y += 3;
+                break;
+              }
+
+              case "code": {
+                doc.setFont("courier", "normal");
+                doc.setFontSize(FONT_SIZES.code);
+                const code_lines = token.text.split("\n");
+                const block_height =
+                  code_lines.length *
+                    FONT_SIZES.code *
+                    LINE_HEIGHT_FACTOR *
+                    0.352778 +
+                  6;
+                if (cursor.y + block_height <= PAGE_H - MARGIN) {
+                  doc.setFillColor(240, 240, 240);
+                  doc.rect(
+                    col_x - 2,
+                    cursor.y - FONT_SIZES.code * 0.352778,
+                    col_w + 4,
+                    block_height,
+                    "F",
+                  );
+                }
+                cursor.y += 2;
+                for (const cl of code_lines) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  const trimmed_lines = doc.splitTextToSize(
+                    cl || " ",
+                    col_w - 4,
+                  );
+                  for (const tl of trimmed_lines) {
+                    if (cursor.y > PAGE_H - MARGIN) break;
+                    doc.text(tl, col_x + 2, cursor.y);
+                    cursor.y += FONT_SIZES.code * LINE_HEIGHT_FACTOR * 0.352778;
+                  }
+                }
+                cursor.y += 5;
+                doc.setFont("helvetica", "normal");
+                break;
+              }
+
+              case "blockquote": {
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(FONT_SIZES.body);
+                const bq_text = token.tokens
+                  ? token.tokens.map((t) => t.text || "").join(" ")
+                  : token.text || "";
+                const bq_lines = doc.splitTextToSize(bq_text, col_w - 10);
+                doc.setDrawColor(180, 180, 180);
+                const bq_height =
+                  bq_lines.length *
+                  FONT_SIZES.body *
+                  LINE_HEIGHT_FACTOR *
+                  0.352778;
+                doc.line(
+                  col_x + 3,
+                  cursor.y - FONT_SIZES.body * 0.352778 + 2,
+                  col_x + 3,
+                  cursor.y - FONT_SIZES.body * 0.352778 + 2 + bq_height,
+                );
+                for (const bl of bq_lines) {
+                  if (cursor.y > PAGE_H - MARGIN) break;
+                  doc.text(bl, col_x + 8, cursor.y);
+                  cursor.y += FONT_SIZES.body * LINE_HEIGHT_FACTOR * 0.352778;
+                }
+                cursor.y += 3;
+                doc.setFont("helvetica", "normal");
+                break;
+              }
+
+              case "space":
+                cursor.y += 4;
+                break;
+            }
+          }
+        }
+
+        function render_slide(doc, tokens, cursor, image_map) {
+          render_tokens(doc, tokens, cursor, image_map, MARGIN, CONTENT_W);
+        }
+
+        function render_column_slide(doc, slide_md, cursor, image_map) {
+          const layout = parse_layout(slide_md);
+          if (!layout) return false;
+
+          if (layout.preamble) {
+            const preamble_tokens = marked.lexer(layout.preamble);
+            render_tokens(
+              doc,
+              preamble_tokens,
+              cursor,
+              image_map,
+              MARGIN,
+              CONTENT_W,
+            );
+          }
+
+          const col_top = cursor.y;
+          const num_cols = layout.sections.length;
+          const total_gap = COL_GAP * (num_cols - 1);
+          const usable_w = CONTENT_W - total_gap;
+
+          let col_x = MARGIN;
+          for (const section of layout.sections) {
+            const frac = layout.fractions[section.name];
+            const col_w = usable_w * frac;
+            const col_cursor = { y: col_top };
+            const col_tokens = marked.lexer(section.content);
+            render_tokens(doc, col_tokens, col_cursor, image_map, col_x, col_w);
+            col_x += col_w + COL_GAP;
+          }
+
+          return true;
+        }
+
+        function is_title_slide(tokens) {
+          return (
+            tokens.length >= 1 &&
+            tokens[0].type === "heading" &&
+            tokens[0].depth === 1
+          );
+        }
+
+        function render_title_slide(doc, tokens) {
+          const heading = tokens[0];
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(FONT_SIZES.h1);
+          const lines = doc.splitTextToSize(heading.text, CONTENT_W);
+          const total_h =
+            lines.length * FONT_SIZES.h1 * LINE_HEIGHT_FACTOR * 0.352778;
+          let y = (PAGE_H - total_h) / 2 + FONT_SIZES.h1 * 0.352778;
+          for (const line of lines) {
+            const w = doc.getTextWidth(line);
+            doc.text(line, (PAGE_W - w) / 2, y);
+            y += FONT_SIZES.h1 * LINE_HEIGHT_FACTOR * 0.352778;
+          }
+
+          if (tokens.length > 1) {
+            const subtitle_tokens = tokens
+              .slice(1)
+              .filter((t) => t.type !== "space");
+            if (
+              subtitle_tokens.length > 0 &&
+              subtitle_tokens[0].type === "paragraph"
+            ) {
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(FONT_SIZES.h3);
+              const sub_lines = doc.splitTextToSize(
+                subtitle_tokens[0].text,
+                CONTENT_W,
+              );
+              y += 8;
+              for (const sl of sub_lines) {
+                const sw = doc.getTextWidth(sl);
+                doc.text(sl, (PAGE_W - sw) / 2, y);
+                y += FONT_SIZES.h3 * LINE_HEIGHT_FACTOR * 0.352778;
+              }
+            }
+          }
+        }
+
+        async function export_slides() {
+          try {
+            const [markdown, info] = await Promise.all([
+              carbide.editor.getValue(),
+              carbide.editor.getInfo(),
+            ]);
+
+            if (!markdown || !markdown.trim()) {
+              carbide.ui.showNotice("No content to export");
+              return;
+            }
+
+            const slides = split_slides(markdown);
+            if (slides.length === 0) {
+              carbide.ui.showNotice("No slides found (split on ---)");
+              return;
+            }
+
+            const doc = new jsPDF({
+              orientation: "landscape",
+              unit: "mm",
+              format: "a4",
+            });
+
+            const all_tokens = slides.map((s) => marked.lexer(s));
+            const hrefs = collect_image_hrefs(all_tokens);
+            const image_map =
+              hrefs.length > 0
+                ? await preload_images(hrefs, info.path)
+                : new Map();
+
+            for (let i = 0; i < all_tokens.length; i++) {
+              if (i > 0) doc.addPage();
+
+              const tokens = all_tokens[i];
+              if (i === 0 && is_title_slide(tokens)) {
+                render_title_slide(doc, tokens);
+              } else {
+                const cursor = { y: MARGIN + 10 };
+                const handled = render_column_slide(
+                  doc,
+                  slides[i],
+                  cursor,
+                  image_map,
+                );
+                if (!handled) {
+                  render_slide(doc, tokens, cursor, image_map);
+                }
+              }
+            }
+
+            const buf = doc.output("arraybuffer");
+            const bytes = Array.from(new Uint8Array(buf));
+            const name =
+              info && info.name ? info.name.replace(/\.[^.]+$/, "") : "slides";
+
+            const result = await carbide.export.saveBinary(
+              bytes,
+              name + "-slides.pdf",
+              [{ name: "PDF", extensions: ["pdf"] }],
+            );
+
+            if (result.success) {
+              carbide.ui.showNotice("Slides exported successfully");
+            }
+          } catch (err) {
+            carbide.ui.showNotice("Export failed: " + (err.message || err));
+          }
+        }
+
+        carbide.onload(async () => {
+          await carbide.commands.register({
+            id: "export-slides",
+            label: "Export as Slides",
+            description: "Export the current note as a slide deck PDF",
+            icon: "presentation",
+            keywords: ["slides", "pdf", "presentation", "deck", "export"],
+          });
+
+          window.addEventListener("message", (event) => {
+            const msg = event.data;
+            if (
+              msg &&
+              msg.method === "command.execute" &&
+              msg.params?.[0] === "slides:export-slides"
+            ) {
+              export_slides();
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

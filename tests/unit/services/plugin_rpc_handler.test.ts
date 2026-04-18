@@ -40,6 +40,8 @@ function make_context() {
     register_settings_tab: vi.fn(),
   };
 
+  const read_asset = vi.fn();
+
   const context: PluginRpcContext = {
     services: {
       note: {
@@ -47,6 +49,7 @@ function make_context() {
         create_note,
         write_note,
         delete_note,
+        read_asset,
       },
       editor: {
         apply_ai_output,
@@ -68,6 +71,7 @@ function make_context() {
     create_note,
     write_note,
     delete_note,
+    read_asset,
     apply_ai_output,
     get_ai_context,
   };
@@ -149,6 +153,28 @@ describe("PluginRpcHandler", () => {
       });
 
       expect(response.error).toMatch(/Missing fs:write permission/);
+    });
+
+    it("reads asset via vault.read_asset", async () => {
+      grant_permissions("fs:read");
+      ctx.read_asset.mockResolvedValue({
+        data: "aGVsbG8=",
+        mime_type: "image/png",
+      });
+
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v4",
+        method: "vault.read_asset",
+        params: ["assets/image.png"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual({
+        data: "aGVsbG8=",
+        mime_type: "image/png",
+      });
+      expect(ctx.read_asset).toHaveBeenCalledWith("assets/image.png");
     });
   });
 
@@ -1419,6 +1445,86 @@ describe("PluginRpcHandler", () => {
       expect(ctx.plugin.unregister_slash_command).toHaveBeenCalledWith(
         `${PLUGIN_ID}:cite`,
       );
+    });
+  });
+
+  describe("export.*", () => {
+    function add_export_backend() {
+      const save_binary = vi.fn().mockResolvedValue({
+        success: true,
+        path: "/tmp/slides.pdf",
+      });
+      ctx.context.export = { save_binary };
+      return { save_binary };
+    }
+
+    it("rejects without export:save permission", async () => {
+      grant_permissions();
+      add_export_backend();
+      const manifest = make_manifest(["export:save"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e1",
+        method: "export.save_binary",
+        params: [[1, 2, 3], "test.pdf"],
+      });
+
+      expect(response.error).toMatch(/Missing export:save permission/);
+    });
+
+    it("calls save_binary with correct params", async () => {
+      grant_permissions("export:save");
+      const { save_binary } = add_export_backend();
+      const manifest = make_manifest(["export:save"]);
+
+      const data = [0x25, 0x50, 0x44, 0x46];
+      const filters = [{ name: "PDF", extensions: ["pdf"] }];
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e2",
+        method: "export.save_binary",
+        params: [data, "slides.pdf", filters],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(save_binary).toHaveBeenCalledWith(data, "slides.pdf", filters);
+      expect(response.result).toEqual({
+        success: true,
+        path: "/tmp/slides.pdf",
+      });
+    });
+
+    it("works without filters param", async () => {
+      grant_permissions("export:save");
+      const { save_binary } = add_export_backend();
+      const manifest = make_manifest(["export:save"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e3",
+        method: "export.save_binary",
+        params: [[1, 2, 3], "output.bin"],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(save_binary).toHaveBeenCalledWith(
+        [1, 2, 3],
+        "output.bin",
+        undefined,
+      );
+    });
+
+    it("rejects unknown export actions", async () => {
+      grant_permissions("export:save");
+      add_export_backend();
+      const manifest = make_manifest(["export:save"]);
+
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "e4",
+        method: "export.unknown",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Unknown export action/);
     });
   });
 });

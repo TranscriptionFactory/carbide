@@ -1,0 +1,21 @@
+{
+  "id": "slides",
+  "name": "Slides Export",
+  "version": "0.1.0",
+  "author": "Carbide",
+  "description": "Export markdown notes as slide deck PDFs, splitting on horizontal rules (---)",
+  "api_version": "1",
+  "permissions": ["editor:read", "export:save", "commands:register", "fs:read"],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "slash_commands": [
+      {
+        "id": "export-slides",
+        "name": "Export as Slides",
+        "description": "Export the current note as a slide deck PDF",
+        "icon": "presentation",
+        "keywords": ["slides", "pdf", "presentation", "deck", "export"]
+      }
+    ]
+  }
+}

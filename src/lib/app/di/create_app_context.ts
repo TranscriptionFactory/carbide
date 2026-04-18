@@ -822,6 +822,27 @@ export function create_app_context(input: {
           if (!note) throw new Error("Note not found");
           return note_service.delete_note(note);
         },
+        async read_asset(asset_path) {
+          const vault = stores.vault.vault;
+          if (!vault) throw new Error("No active vault");
+          const url = await input.ports.assets.resolve_asset_url(
+            vault.id,
+            asset_path as import("$lib/shared/types/ids").AssetPath,
+          );
+          const response = await fetch(url);
+          if (!response.ok)
+            throw new Error(`Failed to fetch asset: ${asset_path}`);
+          const mime_type =
+            response.headers.get("content-type") ?? "application/octet-stream";
+          const buffer = await response.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (const byte of bytes) {
+            binary += String.fromCharCode(byte);
+          }
+          const data = btoa(binary);
+          return { data, mime_type };
+        },
       },
       editor: editor_service,
       plugin: plugin_service,
@@ -893,6 +914,20 @@ export function create_app_context(input: {
     },
     network: {
       fetch: plugin_http_fetch,
+    },
+    export: {
+      async save_binary(data, default_filename, filters) {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { invoke } = await import("@tauri-apps/api/core");
+        const file_path = await save({
+          title: "Save file",
+          defaultPath: default_filename,
+          filters: filters ?? [{ name: "All files", extensions: ["*"] }],
+        });
+        if (!file_path) return { success: false, path: null };
+        await invoke("write_bytes_to_path", { path: file_path, data });
+        return { success: true, path: file_path };
+      },
     },
     ai: {
       async execute(input) {

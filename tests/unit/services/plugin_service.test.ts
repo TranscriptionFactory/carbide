@@ -89,6 +89,7 @@ describe("PluginService", () => {
       {
         manifest: make_manifest({ id: "my-plugin", name: "My Plugin" }),
         path: "/vault/.carbide/plugins/my-plugin",
+        source: "local",
       },
     ];
     vi.mocked(host.discover).mockResolvedValueOnce(discovered);
@@ -120,6 +121,7 @@ describe("PluginService", () => {
           permissions: ["editor:read", "commands:register"],
         }),
         path: "/vault/.carbide/plugins/my-plugin",
+        source: "local",
       },
     ]);
 
@@ -157,6 +159,7 @@ describe("PluginService", () => {
           },
         }),
         path: "/vault/.carbide/plugins/auto-tag",
+        source: "local",
       },
     ]);
 
@@ -255,6 +258,7 @@ describe("PluginService", () => {
           create_note: vi.fn(),
           write_note: vi.fn(),
           delete_note: vi.fn(),
+          read_asset: vi.fn(),
         },
         editor: {
           apply_ai_output: vi.fn(),

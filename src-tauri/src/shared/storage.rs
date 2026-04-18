@@ -261,7 +261,23 @@ pub fn handle_plugin_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response
     };
 
     let vault_root = std::path::Path::new(&vault_path);
-    let plugin_dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
+    let vault_plugin_dir = vault_root.join(".carbide").join("plugins").join(plugin_id);
+
+    let plugin_dir = if vault_plugin_dir.exists() {
+        vault_plugin_dir
+    } else {
+        match app.path().home_dir() {
+            Ok(home) => {
+                let user_dir = home.join(".carbide").join("plugins").join(plugin_id);
+                if user_dir.exists() {
+                    user_dir
+                } else {
+                    vault_plugin_dir
+                }
+            }
+            Err(_) => vault_plugin_dir,
+        }
+    };
 
     let canonical_plugin_dir = match plugin_dir.canonicalize() {
         Ok(p) => p,
