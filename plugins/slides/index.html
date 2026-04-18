@@ -22,7 +22,8 @@
         const COL_GAP = 8;
 
         function parse_layout(md) {
-          const directive_re = /\{\{\s*(left|middle|right)(?:\s*#\s*([\d.]+))?\s*\}\}/g;
+          const directive_re =
+            /\{\{\s*(left|middle|right)(?:\s*#\s*([\d.]+))?\s*\}\}/g;
           const directives = [];
           let match;
           while ((match = directive_re.exec(md)) !== null) {
@@ -73,6 +74,15 @@
           return { preamble, sections, fractions };
         }
 
+        function normalize_wiki_images(md) {
+          return md.replace(/!\[\[([^\]]+)\]\]/g, (_, inner) => {
+            const parts = inner.split("|");
+            const path = parts[0].trim();
+            const alt = parts[1] ? parts[1].trim() : "";
+            return "![" + alt + "](" + path + ")";
+          });
+        }
+
         function strip_frontmatter(md) {
           const match = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
           return match ? md.slice(match[0].length) : md;
@@ -98,7 +108,7 @@
           return resolved.join("/");
         }
 
-        function collect_image_hrefs(slides_tokens) {
+        function collect_image_hrefs_from_tokens(slides_tokens) {
           const hrefs = new Set();
           for (const tokens of slides_tokens) {
             for (const token of tokens) {
@@ -109,16 +119,36 @@
               }
             }
           }
-          return [...hrefs];
+          return hrefs;
+        }
+
+        function collect_wiki_image_hrefs(slides_md) {
+          const hrefs = new Set();
+          const re = /!\[\[([^\]]+)\]\]/g;
+          let match;
+          for (const md of slides_md) {
+            while ((match = re.exec(md)) !== null) {
+              hrefs.add(match[1].split("|")[0].trim());
+            }
+            re.lastIndex = 0;
+          }
+          return hrefs;
         }
 
         async function preload_images(hrefs, note_path) {
           const map = new Map();
-          const results = await Promise.allSettled(
-            hrefs.map(async (href) => {
+          await Promise.allSettled(
+            [...hrefs].map(async (href) => {
               const vault_path = resolve_relative_path(note_path, href);
-              const asset = await carbide.vault.readAsset(vault_path);
-              map.set(href, asset);
+              try {
+                const asset = await carbide.vault.readAsset(vault_path);
+                map.set(href, asset);
+              } catch (_) {
+                try {
+                  const asset = await carbide.vault.readAsset(href);
+                  map.set(href, asset);
+                } catch (_) {}
+              }
             }),
           );
           return map;
@@ -448,11 +478,14 @@
               format: "a4",
             });
 
-            const all_tokens = slides.map((s) => marked.lexer(s));
-            const hrefs = collect_image_hrefs(all_tokens);
+            const slides_normalized = slides.map(normalize_wiki_images);
+            const all_tokens = slides_normalized.map((s) => marked.lexer(s));
+            const token_hrefs = collect_image_hrefs_from_tokens(all_tokens);
+            const wiki_hrefs = collect_wiki_image_hrefs(slides);
+            const all_hrefs = new Set([...token_hrefs, ...wiki_hrefs]);
             const image_map =
-              hrefs.length > 0
-                ? await preload_images(hrefs, info.path)
+              all_hrefs.size > 0
+                ? await preload_images(all_hrefs, info.path)
                 : new Map();
 
             for (let i = 0; i < all_tokens.length; i++) {
@@ -465,7 +498,7 @@
                 const cursor = { y: MARGIN + 10 };
                 const handled = render_column_slide(
                   doc,
-                  slides[i],
+                  slides_normalized[i],
                   cursor,
                   image_map,
                 );
