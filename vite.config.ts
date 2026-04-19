@@ -21,6 +21,10 @@ function manual_chunks(id: string): string | undefined {
     return "mermaid";
   }
 
+  if (id.includes("@excalidraw/excalidraw")) {
+    return "excalidraw";
+  }
+
   if (id.includes("pdfkit")) {
     return "pdfkit";
   }
