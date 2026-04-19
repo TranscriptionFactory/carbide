@@ -3829,6 +3829,25 @@
             {/if}
 
             <div class="SettingsDialog__section-divider"></div>
+            <h3 class="SettingsDialog__section-subheader">Diagnostics</h3>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Show Diagnostics</span>
+                <span class="SettingsDialog__description"
+                  >Display inline diagnostic decorations (squiggles, underlines)
+                  from the linter and LSP in the editor</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.diagnostics_display_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("diagnostics_display_enabled", v);
+                }}
+              />
+            </div>
+
+            <div class="SettingsDialog__section-divider"></div>
             <h3 class="SettingsDialog__section-subheader">
               Markdown Linting (rumdl)
             </h3>
