@@ -180,7 +180,7 @@
   $effect(() => {
     const is_open = stores.ui.settings_dialog.open;
     const category = stores.ui.settings_dialog.active_category;
-    if (is_open && category === "misc") {
+    if (is_open && category === "storage") {
       void fetch_storage_stats();
     }
   });

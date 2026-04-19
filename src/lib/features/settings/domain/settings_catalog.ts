@@ -158,7 +158,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "show_vault_dashboard_on_open",
     label: "Show Vault Dashboard on Open",
     description: "Open vault dashboard automatically when switching vaults",
-    category: "Misc",
+    category: "Storage",
     keywords: ["vault", "dashboard", "overview", "open", "startup", "switch"],
   },
   {
@@ -221,7 +221,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "File Tree Style",
     description:
       "Visual style for the file explorer sidebar: default, airy_minimal, compact, macos_finder, or refined",
-    category: "Layout",
+    category: "Sidebar",
     keywords: [
       "file",
       "tree",
@@ -243,7 +243,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Show File Blurb",
     description:
       "Display a secondary line on file tree rows with a note description or preview",
-    category: "Layout",
+    category: "Sidebar",
     keywords: [
       "file",
       "tree",
@@ -260,7 +260,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Blurb Position",
     description:
       "Whether the blurb appears as a caption below the filename or as the heading above it",
-    category: "Layout",
+    category: "Sidebar",
     keywords: [
       "file",
       "tree",
@@ -276,7 +276,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Show Linked Sources in File Tree",
     description:
       "Show the @linked folder in the file explorer. When hidden, linked sources are still accessible from the References panel.",
-    category: "Layout",
+    category: "Sidebar",
     keywords: [
       "file",
       "tree",
@@ -291,70 +291,70 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "max_open_tabs",
     label: "Max Open Tabs",
     description: "Maximum number of tabs that can be open at once",
-    category: "Layout",
+    category: "Sidebar",
     keywords: ["tabs", "limit", "max", "open", "performance", "editor"],
   },
   {
     key: "editor_max_width_ch",
     label: "Editor Max Width",
     description: "Maximum line width for the editor content in characters",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "width", "line length", "layout", "readability"],
   },
   {
     key: "editor_selection_color",
     label: "Selection Color",
     description: "Override the editor selection highlight color",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "selection", "highlight", "color", "appearance"],
   },
   {
     key: "editor_heading_spacing_density",
     label: "Heading Spacing",
     description: "Controls vertical spacing around headings in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "heading", "spacing", "density", "readability"],
   },
   {
     key: "editor_paragraph_spacing_density",
     label: "Paragraph Spacing",
     description: "Controls paragraph spacing density in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "paragraph", "spacing", "density", "readability"],
   },
   {
     key: "editor_list_spacing_density",
     label: "List Spacing",
     description: "Controls list spacing density in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "list", "spacing", "density", "readability"],
   },
   {
     key: "editor_code_block_padding",
     label: "Code Block Padding",
     description: "Controls padding inside editor code blocks",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "code", "block", "padding", "appearance"],
   },
   {
     key: "editor_code_block_radius",
     label: "Code Block Radius",
     description: "Controls corner radius for editor code blocks",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "code", "block", "radius", "appearance"],
   },
   {
     key: "editor_code_block_wrap",
     label: "Code Block Wrap",
     description: "Wrap long lines in code blocks instead of horizontal scroll",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "code", "block", "wrap", "scroll", "overflow"],
   },
   {
     key: "source_editor_line_numbers",
     label: "Source Editor Line Numbers",
     description: "Show line numbers in the source editor gutter",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "source", "line", "numbers", "gutter"],
   },
   {
@@ -362,7 +362,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Toolbar Visibility",
     description:
       "Controls when the formatting toolbar appears: on text selection, always visible, or hidden",
-    category: "Layout",
+    category: "Editor",
     keywords: [
       "toolbar",
       "formatting",
@@ -379,7 +379,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Heading Markers",
     description:
       "Show markdown heading level markers (e.g. ##) before headings in the visual editor",
-    category: "Layout",
+    category: "Editor",
     keywords: [
       "heading",
       "marker",
@@ -396,7 +396,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Block Drag Handle",
     description:
       "Show a drag handle in the left gutter to reorder blocks by dragging",
-    category: "Layout",
+    category: "Editor",
     keywords: ["drag", "handle", "block", "reorder", "move", "grip", "gutter"],
   },
   {
@@ -404,14 +404,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     label: "Block Drag Handle Visibility",
     description:
       "Control when the block drag handle is visible: on hover or always",
-    category: "Layout",
+    category: "Editor",
     keywords: ["drag", "handle", "visibility", "hover", "always", "show"],
   },
   {
     key: "editor_spellcheck",
     label: "Spell Check",
     description: "Enable browser-native spell checking in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: [
       "spell",
       "spellcheck",
@@ -426,35 +426,35 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "editor_table_spacing_density",
     label: "Table Spacing",
     description: "Controls cell padding and density in editor tables",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "table", "spacing", "density", "padding", "cell"],
   },
   {
     key: "editor_blockquote_padding",
     label: "Blockquote Padding",
     description: "Controls padding inside editor blockquotes",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "blockquote", "quote", "padding", "appearance"],
   },
   {
     key: "editor_blockquote_border_width",
     label: "Blockquote Border Width",
     description: "Controls the border width used for editor blockquotes",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "blockquote", "quote", "border", "width"],
   },
   {
     key: "editor_link_underline_style",
     label: "Link Underline Style",
     description: "Controls how links are underlined in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: ["editor", "link", "underline", "style", "appearance"],
   },
   {
     key: "editor_divider_style",
     label: "Divider Style",
     description: "Controls how horizontal rules are displayed in the editor",
-    category: "Layout",
+    category: "Editor",
     keywords: [
       "editor",
       "divider",
@@ -791,6 +791,24 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "diagnostics_display_enabled",
+    label: "Show Diagnostics",
+    description:
+      "Display inline diagnostic decorations (squiggles, underlines) from the linter and LSP in the editor",
+    category: "Toolchain",
+    keywords: [
+      "diagnostics",
+      "squiggles",
+      "underline",
+      "lint",
+      "lsp",
+      "display",
+      "decorations",
+      "warnings",
+      "errors",
+    ],
+  },
+  {
     key: "reference_enabled",
     label: "Enable References",
     description:
@@ -871,5 +889,58 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "performance",
       "battery",
     ],
+  },
+  {
+    key: "editor_divider_thickness_px",
+    label: "Divider Thickness",
+    description: "Line thickness in pixels for horizontal rules",
+    category: "Editor",
+    keywords: ["editor", "divider", "thickness", "pixels", "hr", "rule"],
+  },
+  {
+    key: "editor_divider_color",
+    label: "Divider Color",
+    description:
+      "Custom color for horizontal rules (leave empty for theme default)",
+    category: "Editor",
+    keywords: ["editor", "divider", "color", "hr", "rule", "custom"],
+  },
+  {
+    key: "editor_divider_spacing",
+    label: "Divider Spacing",
+    description: "Vertical spacing above and below horizontal rules",
+    category: "Editor",
+    keywords: ["editor", "divider", "spacing", "density", "hr", "rule"],
+  },
+  {
+    key: "outline_mode",
+    label: "Outline Position",
+    description:
+      "Show outline as a floating panel over the editor or in the sidebar rail",
+    category: "Sidebar",
+    keywords: ["outline", "position", "floating", "sidebar", "rail", "panel"],
+  },
+  {
+    key: "terminal_background_color",
+    label: "Terminal Background Color",
+    description:
+      "Custom background color for the terminal (leave empty for theme default)",
+    category: "Terminal",
+    keywords: ["terminal", "background", "color", "custom", "theme"],
+  },
+  {
+    key: "terminal_foreground_color",
+    label: "Terminal Foreground Color",
+    description:
+      "Custom foreground (text) color for the terminal (leave empty for theme default)",
+    category: "Terminal",
+    keywords: ["terminal", "foreground", "text", "color", "custom", "theme"],
+  },
+  {
+    key: "mcp_enabled",
+    label: "Enable MCP",
+    description: "Enable Model Context Protocol server connections",
+    category: "MCP",
+    keywords: ["mcp", "model", "context", "protocol", "enable", "disable"],
   },
 ];

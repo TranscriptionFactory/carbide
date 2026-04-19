@@ -8,12 +8,13 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import PaletteIcon from "@lucide/svelte/icons/palette";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
-  import LayoutIcon from "@lucide/svelte/icons/layout-template";
+  import TypeIcon from "@lucide/svelte/icons/type";
+  import PanelLeftIcon from "@lucide/svelte/icons/panel-left";
   import FolderIcon from "@lucide/svelte/icons/folder";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import SlidersIcon from "@lucide/svelte/icons/sliders-horizontal";
+  import HardDriveIcon from "@lucide/svelte/icons/hard-drive";
   import BrainIcon from "@lucide/svelte/icons/brain";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
@@ -450,8 +451,8 @@
     icon: typeof PaletteIcon;
   }[] = [
     { id: "theme", label: "Theme", icon: PaletteIcon },
-    { id: "ai", label: "AI", icon: SparklesIcon },
-    { id: "layout", label: "Layout", icon: LayoutIcon },
+    { id: "editor", label: "Editor", icon: TypeIcon },
+    { id: "sidebar", label: "Sidebar", icon: PanelLeftIcon },
     { id: "files", label: "Files", icon: FolderIcon },
     { id: "git", label: "Git", icon: GitBranchIcon },
     { id: "documents", label: "Documents", icon: FileTextIcon },
@@ -459,9 +460,10 @@
     { id: "graph", label: "Graph", icon: NetworkIcon },
     { id: "semantic", label: "Semantic", icon: BrainIcon },
     // { id: "speech", label: "Speech", icon: MicIcon },
+    { id: "ai", label: "AI", icon: SparklesIcon },
     { id: "mcp", label: "MCP", icon: CableIcon },
-    { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "toolchain", label: "Tools", icon: WrenchIcon },
+    { id: "storage", label: "Storage", icon: HardDriveIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
   ];
 
@@ -1091,50 +1093,10 @@
               </div>
             </div>
           </div>
-        {:else if active_category === "layout"}
-          <h2 class="SettingsDialog__content-header">Layout</h2>
+        {:else if active_category === "sidebar"}
+          <h2 class="SettingsDialog__content-header">Sidebar</h2>
 
           <div class="SettingsDialog__section-content">
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Editor Max Width</span>
-                <span class="SettingsDialog__description"
-                  >Maximum line width for the editor content (in characters)</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Slider
-                  type="single"
-                  value={editor_settings.editor_max_width_ch}
-                  onValueChange={(v: number | undefined) => {
-                    if (v !== undefined) {
-                      update("editor_max_width_ch", v);
-                    }
-                  }}
-                  min={60}
-                  max={140}
-                  step={5}
-                  class="w-32"
-                />
-                <span class="text-sm tabular-nums w-10"
-                  >{editor_settings.editor_max_width_ch}ch</span
-                >
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "editor_max_width_ch",
-                      DEFAULT_EDITOR_SETTINGS.editor_max_width_ch,
-                    )}
-                  disabled={editor_settings.editor_max_width_ch ===
-                    DEFAULT_EDITOR_SETTINGS.editor_max_width_ch}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.editor_max_width_ch)}ch)`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Max Open Tabs</span>
@@ -1203,39 +1165,6 @@
                 <Select.Content>
                   <Select.Item value="rail">Sidebar</Select.Item>
                   <Select.Item value="floating">Floating</Select.Item>
-                </Select.Content>
-              </Select.Root>
-            </div>
-
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Toolbar Visibility</span>
-                <span class="SettingsDialog__description"
-                  >When the formatting toolbar appears in the visual editor</span
-                >
-              </div>
-              <Select.Root
-                type="single"
-                value={editor_settings.editor_toolbar_visibility}
-                onValueChange={(v: string | undefined) => {
-                  if (v)
-                    update("editor_toolbar_visibility", v as ToolbarVisibility);
-                }}
-              >
-                <Select.Trigger class="w-32">
-                  <span data-slot="select-value"
-                    >{EDITOR_TOOLBAR_VISIBILITY_OPTIONS.find(
-                      (o) =>
-                        o.value === editor_settings.editor_toolbar_visibility,
-                    )?.label ?? "On Selection"}</span
-                  >
-                </Select.Trigger>
-                <Select.Content>
-                  {#each EDITOR_TOOLBAR_VISIBILITY_OPTIONS as option (option.value)}
-                    <Select.Item value={option.value}
-                      >{option.label}</Select.Item
-                    >
-                  {/each}
                 </Select.Content>
               </Select.Root>
             </div>
@@ -1339,6 +1268,84 @@
                   update("file_tree_show_linked_sources", v);
                 }}
               />
+            </div>
+          </div>
+        {:else if active_category === "editor"}
+          <h2 class="SettingsDialog__content-header">Editor</h2>
+
+          <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Editor Max Width</span>
+                <span class="SettingsDialog__description"
+                  >Maximum line width for the editor content (in characters)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.editor_max_width_ch}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update("editor_max_width_ch", v);
+                    }
+                  }}
+                  min={60}
+                  max={140}
+                  step={5}
+                  class="w-32"
+                />
+                <span class="text-sm tabular-nums w-10"
+                  >{editor_settings.editor_max_width_ch}ch</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "editor_max_width_ch",
+                      DEFAULT_EDITOR_SETTINGS.editor_max_width_ch,
+                    )}
+                  disabled={editor_settings.editor_max_width_ch ===
+                    DEFAULT_EDITOR_SETTINGS.editor_max_width_ch}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.editor_max_width_ch)}ch)`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Toolbar Visibility</span>
+                <span class="SettingsDialog__description"
+                  >When the formatting toolbar appears in the visual editor</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.editor_toolbar_visibility}
+                onValueChange={(v: string | undefined) => {
+                  if (v)
+                    update("editor_toolbar_visibility", v as ToolbarVisibility);
+                }}
+              >
+                <Select.Trigger class="w-32">
+                  <span data-slot="select-value"
+                    >{EDITOR_TOOLBAR_VISIBILITY_OPTIONS.find(
+                      (o) =>
+                        o.value === editor_settings.editor_toolbar_visibility,
+                    )?.label ?? "On Selection"}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  {#each EDITOR_TOOLBAR_VISIBILITY_OPTIONS as option (option.value)}
+                    <Select.Item value={option.value}
+                      >{option.label}</Select.Item
+                    >
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
 
             <div class="space-y-4 border-t pt-4">
@@ -3586,8 +3593,8 @@
               on_refresh_models={on_stt_refresh_models}
             />
           </div> -->
-        {:else if active_category === "misc"}
-          <h2 class="SettingsDialog__content-header">Misc</h2>
+        {:else if active_category === "storage"}
+          <h2 class="SettingsDialog__content-header">Storage</h2>
 
           <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">

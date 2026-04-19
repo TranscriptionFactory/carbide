@@ -9,7 +9,8 @@ import {
 export type SettingsCategory =
   | "theme"
   | "ai"
-  | "layout"
+  | "editor"
+  | "sidebar"
   | "files"
   | "git"
   | "documents"
@@ -18,7 +19,7 @@ export type SettingsCategory =
   | "semantic"
   | "mcp"
   // | "speech"
-  | "misc"
+  | "storage"
   | "toolchain"
   | "hotkeys";
 
@@ -167,6 +168,7 @@ export type EditorSettings = {
   native_link_hover_enabled: boolean;
   native_wiki_suggest_enabled: boolean;
   native_link_click_enabled: boolean;
+  diagnostics_display_enabled: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -271,6 +273,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   native_link_hover_enabled: true,
   native_wiki_suggest_enabled: true,
   native_link_click_enabled: true,
+  diagnostics_display_enabled: true,
 };
 
 export const SETTINGS_KEY = "editor" as const;
