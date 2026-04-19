@@ -154,8 +154,15 @@ type MermaidState = {
   is_preview: boolean;
   preview_container: HTMLElement;
   toggle_btn: HTMLButtonElement;
+  canvas_btn?: HTMLButtonElement | undefined;
   render_timer: ReturnType<typeof setTimeout> | undefined;
   last_rendered_content: string;
+};
+
+export type CodeBlockViewCallbacks = {
+  on_convert_mermaid_to_excalidraw?:
+    | ((code: string, view: EditorView, pos: number) => void)
+    | undefined;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -330,6 +337,7 @@ class CodeBlockView implements NodeView {
     private node: ProseNode,
     private view: EditorView,
     private get_pos: () => number | undefined,
+    private callbacks?: CodeBlockViewCallbacks,
   ) {
     this.current_language = (node.attrs.language as string) ?? "";
 
@@ -420,12 +428,35 @@ class CodeBlockView implements NodeView {
     });
 
     this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
+
+    let canvas_btn: HTMLButtonElement | undefined;
+    if (this.callbacks?.on_convert_mermaid_to_excalidraw) {
+      canvas_btn = document.createElement("button");
+      canvas_btn.className = "mermaid-canvas-btn";
+      canvas_btn.type = "button";
+      canvas_btn.textContent = "Canvas";
+      canvas_btn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const pos = this.get_pos();
+        if (pos != null) {
+          this.callbacks!.on_convert_mermaid_to_excalidraw!(
+            this.node.textContent,
+            this.view,
+            pos,
+          );
+        }
+      });
+      this.toolbar.insertBefore(canvas_btn, this.toolbar.lastChild);
+    }
+
     this.dom.appendChild(preview_container);
 
     this.mermaid = {
       is_preview: true,
       preview_container,
       toggle_btn,
+      canvas_btn,
       render_timer: undefined,
       last_rendered_content: this.node.textContent,
     };
@@ -465,6 +496,7 @@ class CodeBlockView implements NodeView {
     clearTimeout(this.mermaid.render_timer);
     this.mermaid.preview_container.remove();
     this.mermaid.toggle_btn.remove();
+    this.mermaid.canvas_btn?.remove();
     this.mermaid = null;
     this.pre.style.display = "";
   }
@@ -578,13 +610,15 @@ class CodeBlockView implements NodeView {
 
 export const code_block_view_plugin_key = new PluginKey("code-block-view");
 
-export function create_code_block_view_prose_plugin(): Plugin {
+export function create_code_block_view_prose_plugin(
+  callbacks?: CodeBlockViewCallbacks,
+): Plugin {
   return new Plugin({
     key: code_block_view_plugin_key,
     props: {
       nodeViews: {
         code_block: (node, view, get_pos) =>
-          new CodeBlockView(node, view, get_pos),
+          new CodeBlockView(node, view, get_pos, callbacks),
       },
       handleDOMEvents: {
         keydown(view, event) {

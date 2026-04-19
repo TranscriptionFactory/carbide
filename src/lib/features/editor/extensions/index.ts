@@ -38,7 +38,7 @@ export function assemble_extensions(
   const extensions: EditorExtension[] = [
     create_heading_extension(),
     create_core_extension(ctx),
-    create_code_block_extension(),
+    create_code_block_extension(ctx),
     create_math_extension(),
     create_details_extension(),
     create_callout_extension(),

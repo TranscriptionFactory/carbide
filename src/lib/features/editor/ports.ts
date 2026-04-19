@@ -199,6 +199,7 @@ export type EditorEventHandlers = {
     raw_json: string;
     source: string;
   }) => void;
+  on_mermaid_to_excalidraw?: (code: string) => Promise<string | null>;
 };
 
 export type EditorSessionConfig = {
