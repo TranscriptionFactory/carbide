@@ -606,9 +606,13 @@
               {@const command_key = action_id
                 ? action_id_to_key.get(action_id)
                 : undefined}
+              {@const is_plugin = item.command.id.includes(":")}
               <div class="Omnibar__item-row">
                 <span class="Omnibar__item-icon"><IconComponent /></span>
                 <span class="Omnibar__item-title">{item.command.label}</span>
+                {#if is_plugin}
+                  <span class="Omnibar__badge">Plugin</span>
+                {/if}
                 {#if command_key}
                   <span class="Omnibar__item-shortcut"
                     ><HotkeyKey hotkey={command_key} /></span
