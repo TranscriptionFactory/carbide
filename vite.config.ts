@@ -70,7 +70,12 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["d3-force"],
+    include: [
+      "d3-force",
+      "vite-plugin-node-polyfills/shims/buffer",
+      "vite-plugin-node-polyfills/shims/global",
+      "vite-plugin-node-polyfills/shims/process",
+    ],
   },
   ssr: {
     noExternal: ["d3-force"],
