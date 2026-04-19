@@ -93,6 +93,10 @@ import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_rec
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
+import {
+  note_name_from_path,
+  parent_folder_path,
+} from "$lib/shared/utils/path";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -474,6 +478,20 @@ export function create_app_context(input: {
     },
     on_lsp_code_action_resolve: (action) => {
       void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
+    },
+    on_mermaid_to_excalidraw: async (vault_id, note_path, code) => {
+      const { convert_mermaid_to_excalidraw } =
+        await import("$lib/features/editor/domain/mermaid_to_excalidraw");
+      const scene = await convert_mermaid_to_excalidraw(code);
+      const name = note_name_from_path(note_path);
+      const folder = parent_folder_path(note_path);
+      const file_path = `${folder ? folder + "/" : ""}${name}-diagram-${String(Date.now())}.excalidraw`;
+      await input.ports.canvas.write_file(
+        vault_id,
+        file_path,
+        JSON.stringify(scene, null, 2),
+      );
+      return file_path;
     },
   };
 

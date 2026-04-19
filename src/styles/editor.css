@@ -880,7 +880,8 @@
   font-style: italic;
 }
 
-.mermaid-toggle-btn {
+.mermaid-toggle-btn,
+.mermaid-canvas-btn {
   font-size: var(--text-xs);
   color: var(--muted-foreground);
   background: transparent;
@@ -893,7 +894,8 @@
     color var(--duration-fast) var(--ease-default);
 }
 
-.mermaid-toggle-btn:hover {
+.mermaid-toggle-btn:hover,
+.mermaid-canvas-btn:hover {
   background: color-mix(in oklch, var(--foreground) 10%, transparent);
   color: var(--foreground);
 }

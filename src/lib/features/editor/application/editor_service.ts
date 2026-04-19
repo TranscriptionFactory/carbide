@@ -144,6 +144,11 @@ export type EditorServiceCallbacks = {
     raw_json: string;
     source: string;
   }) => void;
+  on_mermaid_to_excalidraw?: (
+    vault_id: string,
+    note_path: string,
+    code: string,
+  ) => Promise<string | null>;
 };
 
 type EditorFlushResult = {
@@ -1135,6 +1140,17 @@ export class EditorService {
     if (this.callbacks.on_lsp_code_action_resolve) {
       events.on_lsp_code_action_resolve =
         this.callbacks.on_lsp_code_action_resolve;
+    }
+
+    if (this.callbacks.on_mermaid_to_excalidraw) {
+      const mermaid_cb = this.callbacks.on_mermaid_to_excalidraw;
+      events.on_mermaid_to_excalidraw = (code: string) => {
+        const note = this.active_note;
+        const vid = this.vault_store.active_vault_id;
+        if (!note || !vid || !this.is_generation_current(generation))
+          return Promise.resolve(null);
+        return mermaid_cb(vid, note.meta.path, code);
+      };
     }
 
     return events;

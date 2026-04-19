@@ -63,11 +63,9 @@ type CrossVaultAggregation = {
 };
 
 function score_command(query: string, command: CommandDefinition): number {
-  return fuzzy_score_fields(query, [
-    command.label,
-    ...command.keywords,
-    command.description,
-  ]);
+  const fields = [command.label, ...command.keywords, command.description];
+  if (command.id.includes(":")) fields.push("plugin");
+  return fuzzy_score_fields(query, fields);
 }
 
 function score_setting(query: string, setting: SettingDefinition): number {
@@ -646,12 +644,16 @@ export class SearchService {
       return [];
     }
 
-    const md_path = normalized.endsWith(".md")
-      ? normalized
-      : `${normalized}.md`;
-    const folder_note = `${md_path.slice(0, -3)}/${note_name_from_path(md_path)}.md`;
+    const leaf = normalized.split("/").at(-1) ?? normalized;
+    const has_ext = leaf.includes(".");
+    const md_path = has_ext ? normalized : `${normalized}.md`;
+    const candidates = [md_path];
+    if (md_path.endsWith(".md")) {
+      const folder_note = `${md_path.slice(0, -3)}/${note_name_from_path(md_path)}.md`;
+      candidates.push(folder_note);
+    }
 
-    return [...new Set([md_path, folder_note])];
+    return [...new Set(candidates)];
   }
 
   private async resolve_indexed_note_path(

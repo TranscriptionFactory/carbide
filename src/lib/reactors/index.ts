@@ -351,6 +351,7 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_visual_editor_diagnostics_reactor(
       context.diagnostics_store,
       context.editor_service,
+      context.ui_store,
     ),
     create_code_lsp_document_sync_reactor(
       context.document_store,

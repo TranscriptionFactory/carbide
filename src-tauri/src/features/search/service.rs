@@ -2741,7 +2741,8 @@ pub fn resolve_wiki_link(source_path: String, raw_target: String) -> Option<Stri
     if cleaned.is_empty() {
         return None;
     }
-    let with_ext = if cleaned.ends_with(".md") {
+    let leaf = cleaned.rsplit('/').next().unwrap_or(cleaned);
+    let with_ext = if leaf.contains('.') {
         cleaned.to_string()
     } else {
         format!("{cleaned}.md")
@@ -2892,7 +2893,8 @@ fn resolve_wiki_link_target(target: &str, source_path: &str) -> Option<String> {
     if cleaned.is_empty() {
         return None;
     }
-    let with_ext = if cleaned.ends_with(".md") {
+    let leaf = cleaned.rsplit('/').next().unwrap_or(cleaned);
+    let with_ext = if leaf.contains('.') {
         cleaned.to_string()
     } else {
         format!("{cleaned}.md")
@@ -2993,5 +2995,23 @@ mod tests {
         );
         assert!(!result.changed);
         assert_eq!(result.markdown, md);
+    }
+
+    #[test]
+    fn resolve_wiki_link_preserves_non_md_extension() {
+        let result = resolve_wiki_link("notes/index.md".into(), "diagram.excalidraw".into());
+        assert_eq!(result.as_deref(), Some("diagram.excalidraw"));
+    }
+
+    #[test]
+    fn resolve_wiki_link_appends_md_when_no_extension() {
+        let result = resolve_wiki_link("notes/index.md".into(), "my-note".into());
+        assert_eq!(result.as_deref(), Some("my-note.md"));
+    }
+
+    #[test]
+    fn resolve_wiki_link_keeps_md_extension() {
+        let result = resolve_wiki_link("notes/index.md".into(), "my-note.md".into());
+        assert_eq!(result.as_deref(), Some("my-note.md"));
     }
 }

@@ -206,7 +206,11 @@
 
   $effect(() => {
     if (!view_mounted || !view) return;
-    const diagnostics = stores.diagnostics.active_diagnostics;
+    const display_enabled =
+      stores.ui.editor_settings.diagnostics_display_enabled;
+    const diagnostics = display_enabled
+      ? stores.diagnostics.active_diagnostics
+      : [];
     if (diagnostics === prev_diagnostics) return;
     prev_diagnostics = diagnostics;
 
