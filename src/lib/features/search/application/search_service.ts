@@ -63,11 +63,9 @@ type CrossVaultAggregation = {
 };
 
 function score_command(query: string, command: CommandDefinition): number {
-  return fuzzy_score_fields(query, [
-    command.label,
-    ...command.keywords,
-    command.description,
-  ]);
+  const fields = [command.label, ...command.keywords, command.description];
+  if (command.id.includes(":")) fields.push("plugin");
+  return fuzzy_score_fields(query, fields);
 }
 
 function score_setting(query: string, setting: SettingDefinition): number {
