@@ -174,19 +174,6 @@ export function create_ai_menu_plugin(
         return DecorationSet.create(state.doc, decos);
       },
 
-      handleKeyDown(view, event) {
-        if (
-          (event.metaKey || event.ctrlKey) &&
-          event.key === "j" &&
-          !event.shiftKey &&
-          !event.altKey
-        ) {
-          event.preventDefault();
-          dispatch_ai_menu(view, { action: "open" });
-          return true;
-        }
-        return false;
-      },
     },
 
     view(editor_view: EditorView) {

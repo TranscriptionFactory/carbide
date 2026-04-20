@@ -410,6 +410,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Open a search graph tab to visualize search results",
     category: "navigation",
   },
+  {
+    action_id: ACTION_IDS.ai_open_inline_menu,
+    key: "CmdOrCtrl+Shift+I",
+    phase: "capture",
+    label: "Inline AI",
+    description: "Open the inline AI menu at the cursor",
+    category: "general",
+  },
   // STT removed — archived on archive/stt-main
   // {
   //   action_id: ACTION_IDS.stt_toggle_recording,
