@@ -8,6 +8,21 @@
 
 A local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Notes are stored as plain Markdown files organized into vaults.
 
+## Why Carbide
+
+- **Local-first, Git-aware**: Vaults stay on disk with optional auto-commit and conflict-safe atomic writes. Everything flows through a single action registry so shortcuts, menus, and UI all share the same behavior.
+- **Hybrid search + graph**: SQLite FTS, semantic embeddings (candle), and graph edges combine for fast recall with meaningful context. Omnibar, graph view, and search graph share the same pipeline.
+- **AI that fits your workflow**: Inline commands, Intelligent Writing Engine (IWE) LSP features, and configurable providers with vault-context prompts — all opt-in and observable.
+- **Programmable surface**: Plugin sandbox, toolchain manager, and command palette exposed through typed actions. Hooks for search, diagnostics, slash commands, and workspace events.
+- **Onboarding that respects expertise**: First-run welcome guide, vault dashboard, and help dialog surface the critical paths without hiding advanced controls.
+
+## Documentation
+
+- [Getting started](docs/getting_started.md) — first-run flow, core actions, and quick links.
+- [Architecture](docs/architecture.md) — decision tree and layering rules.
+- [Plugin how-to](docs/plugin_howto.md) — build and ship plugins.
+- [Markdown syntax guide](docs/markdown-syntax-guide.md) — supported syntax and embeds.
+
 ---
 
 ## Installation
@@ -53,6 +68,13 @@ Built-in auto-updater applies updates on startup.
 ---
 
 ## Features
+
+### Workflow & Orchestration
+
+- Single action registry powers UI, menus, shortcuts, and Tauri menus for deterministic behavior across surfaces.
+- Omnibar and command palette unify note search, commands, and cross-vault actions with semantic rankings.
+- Vault dashboard summarizes recents, tasks, and git status; first-run welcome guide highlights core paths.
+- Git-aware workflows: optional auto-commit on save, tab-close guards, and restore/version history dialogs.
 
 ### Editor
 

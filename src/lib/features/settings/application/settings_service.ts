@@ -20,6 +20,18 @@ import { create_logger } from "$lib/shared/utils/logger";
 const log = create_logger("settings_service");
 
 const RECENT_COMMAND_IDS_KEY = "recent_command_ids";
+const WELCOME_STATE_KEY = "welcome_state_v1";
+export const WELCOME_STATE_VERSION = 1;
+
+export type WelcomeState = {
+  seen_version: number;
+  dismissed_at_ms: number | null;
+};
+
+const DEFAULT_WELCOME_STATE: WelcomeState = {
+  seen_version: 0,
+  dismissed_at_ms: null,
+};
 
 function sanitize_vault_scoped_settings(value: unknown): {
   settings: Record<string, unknown> | null;
@@ -33,6 +45,24 @@ function sanitize_vault_scoped_settings(value: unknown): {
   const had_global_keys =
     Object.keys(cleaned).length < Object.keys(record).length;
   return { settings: cleaned, had_global_keys };
+}
+
+function parse_welcome_state(value: unknown): WelcomeState {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_WELCOME_STATE };
+  }
+  const record = value as Record<string, unknown>;
+  const seen_version =
+    typeof record.seen_version === "number" &&
+    Number.isFinite(record.seen_version)
+      ? record.seen_version
+      : 0;
+  const dismissed_at_ms =
+    typeof record.dismissed_at_ms === "number" &&
+    Number.isFinite(record.dismissed_at_ms)
+      ? record.dismissed_at_ms
+      : null;
+  return { seen_version, dismissed_at_ms };
 }
 
 export class SettingsService {
@@ -154,6 +184,32 @@ export class SettingsService {
         status: "failed",
         error: message,
       };
+    }
+  }
+
+  async load_welcome_state(): Promise<WelcomeState> {
+    try {
+      const stored =
+        await this.settings_port.get_setting<unknown>(WELCOME_STATE_KEY);
+      return parse_welcome_state(stored);
+    } catch (error) {
+      log.error("Load welcome state failed", {
+        error: error_message(error),
+      });
+      return { ...DEFAULT_WELCOME_STATE };
+    }
+  }
+
+  async mark_welcome_seen(): Promise<void> {
+    try {
+      await this.settings_port.set_setting(WELCOME_STATE_KEY, {
+        seen_version: WELCOME_STATE_VERSION,
+        dismissed_at_ms: this.now_ms(),
+      });
+    } catch (error) {
+      log.error("Save welcome state failed", {
+        error: error_message(error),
+      });
     }
   }
 
