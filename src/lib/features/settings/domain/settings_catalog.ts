@@ -563,6 +563,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "ai_inline_commands",
+    label: "Inline AI Commands",
+    description:
+      "Custom commands shown in the inline AI menu (Cmd+Shift+I). Override built-in commands or add new ones.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "inline",
+      "command",
+      "custom",
+      "menu",
+      "prompt",
+      "continue",
+      "summarize",
+    ],
+  },
+  {
     key: "ai_default_provider_id",
     label: "Default Provider",
     description:

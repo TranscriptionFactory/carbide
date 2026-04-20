@@ -72,8 +72,12 @@ export function create_slash_command_provider(): SlashCommandProvider {
   };
 }
 
+import type { AiInlineCommand } from "$lib/features/ai";
+
 export type AiInlineHandler = {
   execute: ((payload: { command_id?: string; prompt?: string }) => void) | null;
+  get_commands: (() => AiInlineCommand[]) | null;
+  on_open_settings: (() => void) | null;
 };
 
 export function create_prod_ports(): Ports & {
@@ -105,7 +109,11 @@ export function create_prod_ports(): Ports & {
   const plugin_settings = new PluginSettingsTauriAdapter();
   const canvas = create_canvas_tauri_adapter();
   const slash_command_provider = create_slash_command_provider();
-  const ai_inline_handler: AiInlineHandler = { execute: null };
+  const ai_inline_handler: AiInlineHandler = {
+    execute: null,
+    get_commands: null,
+    on_open_settings: null,
+  };
 
   return {
     slash_command_provider,
@@ -129,6 +137,8 @@ export function create_prod_ports(): Ports & {
       },
       ai_inline_config: {
         on_execute: (payload) => ai_inline_handler.execute?.(payload),
+        get_commands: () => ai_inline_handler.get_commands?.() ?? [],
+        on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
     }),
     clipboard,

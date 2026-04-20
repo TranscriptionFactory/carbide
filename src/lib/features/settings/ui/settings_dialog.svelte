@@ -85,6 +85,11 @@
     AiProviderConfig,
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
+  import {
+    BUILTIN_INLINE_COMMANDS,
+    resolve_inline_commands,
+    type AiInlineCommand,
+  } from "$lib/features/ai";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import { slide } from "svelte/transition";
@@ -402,6 +407,63 @@
     providers[idx] = providers[target]!;
     providers[target] = tmp;
     update("ai_providers", providers);
+  }
+
+  let resolved_inline_commands = $derived(
+    resolve_inline_commands(editor_settings.ai_inline_commands),
+  );
+
+  let editing_inline_command_id = $state<string | null>(null);
+
+  let new_inline_command = $state<{
+    id: string;
+    label: string;
+    description: string;
+    system_prompt: string;
+    use_selection: boolean;
+  } | null>(null);
+
+  function update_inline_command(
+    id: string,
+    updates: Partial<AiInlineCommand>,
+  ) {
+    const user_commands = [...editor_settings.ai_inline_commands];
+    const idx = user_commands.findIndex((c) => c.id === id);
+    if (idx >= 0) {
+      user_commands[idx] = Object.assign({}, user_commands[idx], updates);
+    } else {
+      const builtin = BUILTIN_INLINE_COMMANDS.find((c) => c.id === id);
+      if (builtin) {
+        user_commands.push(Object.assign({}, builtin, updates));
+      }
+    }
+    update("ai_inline_commands", user_commands);
+  }
+
+  function drop_inline_command(id: string) {
+    const user_commands = editor_settings.ai_inline_commands.filter(
+      (c) => c.id !== id,
+    );
+    update("ai_inline_commands", user_commands);
+    if (editing_inline_command_id === id) editing_inline_command_id = null;
+  }
+
+  function add_inline_command() {
+    if (!new_inline_command) return;
+    const trimmed_id = new_inline_command.id.trim();
+    if (!trimmed_id || !new_inline_command.label.trim()) return;
+    if (resolved_inline_commands.some((c) => c.id === trimmed_id)) return;
+    const cmd: AiInlineCommand = {
+      id: trimmed_id,
+      label: new_inline_command.label.trim(),
+      description: new_inline_command.description.trim(),
+      system_prompt: new_inline_command.system_prompt.trim(),
+      use_selection: new_inline_command.use_selection,
+      is_builtin: false,
+    };
+    const user_commands = [...editor_settings.ai_inline_commands, cmd];
+    update("ai_inline_commands", user_commands);
+    new_inline_command = null;
   }
 
   const pdf_zoom_options: { value: DocumentPdfZoomMode; label: string }[] = [
@@ -1039,6 +1101,249 @@
                   disabled={ai_settings_disabled}
                 >
                   Add Provider
+                </Button>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Inline Commands</span>
+                  <span class="SettingsDialog__description">
+                    Commands shown in the inline AI menu (Cmd+Shift+I). Override
+                    built-ins or add custom commands.
+                  </span>
+                </div>
+              </div>
+
+              {#each resolved_inline_commands as cmd (cmd.id)}
+                {@const is_overridden = editor_settings.ai_inline_commands.some(
+                  (c) => c.id === cmd.id,
+                )}
+                <div class="rounded-md border p-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <span class="text-sm font-medium">{cmd.label}</span>
+                      {#if cmd.is_builtin}
+                        <span
+                          class="ml-2 text-[10px] text-muted-foreground uppercase tracking-wider"
+                          >built-in</span
+                        >
+                      {/if}
+                      {#if is_overridden && cmd.is_builtin}
+                        <span
+                          class="ml-1 text-[10px] text-amber-500 uppercase tracking-wider"
+                          >modified</span
+                        >
+                      {/if}
+                      <div class="text-xs text-muted-foreground">
+                        {cmd.description}
+                        <span class="ml-1 opacity-60"
+                          >({cmd.use_selection ? "selection" : "cursor"} mode)</span
+                        >
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() =>
+                          (editing_inline_command_id =
+                            editing_inline_command_id === cmd.id
+                              ? null
+                              : cmd.id)}
+                        disabled={ai_settings_disabled}
+                      >
+                        {editing_inline_command_id === cmd.id ? "Done" : "Edit"}
+                      </Button>
+                      {#if is_overridden && cmd.is_builtin}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => drop_inline_command(cmd.id)}
+                          disabled={ai_settings_disabled}
+                        >
+                          Reset
+                        </Button>
+                      {/if}
+                      {#if !cmd.is_builtin}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => drop_inline_command(cmd.id)}
+                          disabled={ai_settings_disabled}
+                        >
+                          Remove
+                        </Button>
+                      {/if}
+                    </div>
+                  </div>
+
+                  {#if editing_inline_command_id === cmd.id}
+                    <div class="space-y-2 border-t pt-2">
+                      <div class="flex items-center gap-2">
+                        <span class="w-24 text-xs text-muted-foreground"
+                          >Label</span
+                        >
+                        <Input
+                          type="text"
+                          value={cmd.label}
+                          class="flex-1"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_inline_command(cmd.id, {
+                              label: e.currentTarget.value,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="w-24 text-xs text-muted-foreground"
+                          >Description</span
+                        >
+                        <Input
+                          type="text"
+                          value={cmd.description}
+                          class="flex-1"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_inline_command(cmd.id, {
+                              description: e.currentTarget.value,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-start gap-2">
+                        <span class="w-24 text-xs text-muted-foreground mt-2"
+                          >System Prompt</span
+                        >
+                        <textarea
+                          class="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm min-h-[60px] resize-y"
+                          value={cmd.system_prompt}
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLTextAreaElement },
+                          ) =>
+                            update_inline_command(cmd.id, {
+                              system_prompt: e.currentTarget.value,
+                            })}
+                        ></textarea>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="w-24 text-xs text-muted-foreground"
+                          >Selection mode</span
+                        >
+                        <Switch.Root
+                          checked={cmd.use_selection}
+                          onCheckedChange={(v: boolean) =>
+                            update_inline_command(cmd.id, {
+                              use_selection: v,
+                            })}
+                          disabled={ai_settings_disabled}
+                        />
+                        <span class="text-xs text-muted-foreground">
+                          {cmd.use_selection
+                            ? "Uses selected text"
+                            : "Uses cursor context"}
+                        </span>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+
+              {#if new_inline_command}
+                <div class="rounded-md border border-dashed p-3 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground">ID</span>
+                    <Input
+                      type="text"
+                      bind:value={new_inline_command.id}
+                      class="flex-1"
+                      placeholder="my_command"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground">Label</span
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_inline_command.label}
+                      class="flex-1"
+                      placeholder="My Command"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground"
+                      >Description</span
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_inline_command.description}
+                      class="flex-1"
+                      placeholder="What this command does"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="w-24 text-xs text-muted-foreground mt-2"
+                      >System Prompt</span
+                    >
+                    <textarea
+                      class="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm min-h-[60px] resize-y"
+                      bind:value={new_inline_command.system_prompt}
+                      placeholder="Instructions for the AI model"
+                      disabled={ai_settings_disabled}
+                    ></textarea>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground"
+                      >Selection mode</span
+                    >
+                    <Switch.Root
+                      bind:checked={new_inline_command.use_selection}
+                      disabled={ai_settings_disabled}
+                    />
+                    <span class="text-xs text-muted-foreground">
+                      {new_inline_command.use_selection
+                        ? "Uses selected text"
+                        : "Uses cursor context"}
+                    </span>
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onclick={() => (new_inline_command = null)}>Cancel</Button
+                    >
+                    <Button
+                      size="sm"
+                      onclick={add_inline_command}
+                      disabled={!new_inline_command.id.trim() ||
+                        !new_inline_command.label.trim() ||
+                        !new_inline_command.system_prompt.trim()}>Add</Button
+                    >
+                  </div>
+                </div>
+              {:else}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() =>
+                    (new_inline_command = {
+                      id: "",
+                      label: "",
+                      description: "",
+                      system_prompt: "",
+                      use_selection: false,
+                    })}
+                  disabled={ai_settings_disabled}
+                >
+                  Add Command
                 </Button>
               {/if}
             </div>

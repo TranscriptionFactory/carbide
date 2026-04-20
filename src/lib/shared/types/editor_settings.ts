@@ -2,6 +2,7 @@ import {
   BUILTIN_PROVIDER_PRESETS,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
+import type { AiInlineCommand } from "$lib/shared/types/ai_inline_command";
 
 // STT removed — archived on archive/stt-main
 // export type SttInsertMode = "cursor" | "new_line" | "new_block";
@@ -112,6 +113,7 @@ export type EditorSettings = {
   terminal_scrollback: number;
   ai_enabled: boolean;
   ai_providers: AiProviderConfig[];
+  ai_inline_commands: AiInlineCommand[];
   ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
   document_pdf_default_zoom: DocumentPdfZoomMode;
@@ -216,6 +218,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   terminal_scrollback: 1000,
   ai_enabled: true,
   ai_providers: BUILTIN_PROVIDER_PRESETS,
+  ai_inline_commands: [],
   ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
   document_pdf_default_zoom: "fit_width",
@@ -379,6 +382,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "terminal_scrollback",
   "ai_enabled",
   "ai_providers",
+  "ai_inline_commands",
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
   "iwe_ai_provider_id",
