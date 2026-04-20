@@ -15,7 +15,7 @@ import { create_test_terminal_adapter } from "./test_terminal_adapter";
 import { create_test_window_adapter } from "./test_window_adapter";
 import { create_test_watcher_adapter } from "./test_watcher_adapter";
 import { create_test_graph_adapter } from "./test_graph_adapter";
-import type { AiPort } from "$lib/features/ai";
+import type { AiPort, AiStreamPort } from "$lib/features/ai";
 
 function create_test_ai_adapter(): AiPort {
   return {
@@ -26,6 +26,16 @@ function create_test_ai_adapter(): AiPort {
         output: "",
         error: null,
       }),
+  };
+}
+
+function create_test_ai_stream_adapter(): AiStreamPort {
+  return {
+    stream_text: () =>
+      (async function* () {
+        yield { type: "done" as const };
+      })(),
+    abort: () => {},
   };
 }
 
@@ -65,6 +75,7 @@ export function create_test_ports(): Ports {
     window: create_test_window_adapter(),
     watcher: create_test_watcher_adapter(),
     ai: create_test_ai_adapter(),
+    ai_stream: create_test_ai_stream_adapter(),
     graph: create_test_graph_adapter(),
     bases: {
       list_properties: () => Promise.resolve([]),

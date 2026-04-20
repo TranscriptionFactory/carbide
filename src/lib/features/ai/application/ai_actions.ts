@@ -365,6 +365,40 @@ export function register_ai_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.ai_open_inline_menu,
+    label: "Open Inline AI Menu",
+    execute: () => {
+      if (!ensure_ai_enabled()) return;
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_execute_inline,
+    label: "Execute Inline AI",
+    execute: () => {
+      if (!ensure_ai_enabled()) return;
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_accept_inline,
+    label: "Accept Inline AI Result",
+    execute: () => {},
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_reject_inline,
+    label: "Reject Inline AI Result",
+    execute: () => {},
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_close_inline_menu,
+    label: "Close Inline AI Menu",
+    execute: () => {},
+  });
+
+  registry.register({
     id: ACTION_IDS.ai_generate_description,
     label: "Generate Description with AI",
     execute: async (payload: unknown) => {

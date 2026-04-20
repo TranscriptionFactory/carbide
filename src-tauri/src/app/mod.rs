@@ -116,6 +116,7 @@ pub fn run() {
         .manage(features::code_lsp::CodeLspState::default())
         .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
+        .manage(features::ai::stream::AiStreamState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(features::mcp::http::HttpServerState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -163,6 +164,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
             features::ai::service::ai_execute_cli,
+            features::ai::stream::ai_stream_start,
+            features::ai::stream::ai_stream_abort,
             features::pipeline::service::pipeline_execute,
             features::vault::service::open_vault,
             features::vault::service::open_vault_by_id,

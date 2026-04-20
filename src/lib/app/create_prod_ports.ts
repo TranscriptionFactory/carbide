@@ -26,7 +26,10 @@ import { create_document_tauri_adapter } from "$lib/features/document";
 import { create_terminal_tauri_adapter } from "$lib/features/terminal";
 import { create_window_tauri_adapter } from "$lib/features/window";
 import { create_watcher_tauri_adapter } from "$lib/features/watcher";
-import { create_ai_tauri_adapter } from "$lib/features/ai";
+import {
+  create_ai_tauri_adapter,
+  create_ai_stream_adapter,
+} from "$lib/features/ai";
 import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_task_tauri_adapter } from "$lib/features/task";
@@ -85,6 +88,7 @@ export function create_prod_ports(): Ports & {
   const git = create_git_tauri_adapter();
   const watcher = create_watcher_tauri_adapter();
   const ai = create_ai_tauri_adapter();
+  const ai_stream = create_ai_stream_adapter();
   const graph = create_graph_remark_adapter(notes, async (vault_id, path) => {
     const result = await commands.readVaultFile(vault_id, path);
     if (result.status === "ok") return result.data;
@@ -125,6 +129,7 @@ export function create_prod_ports(): Ports & {
     window: create_window_tauri_adapter(),
     watcher,
     ai,
+    ai_stream,
     graph,
     bases,
     task,

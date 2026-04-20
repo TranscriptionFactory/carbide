@@ -750,6 +750,14 @@ const highlight: MarkSpec = {
   },
 };
 
+const ai_generated: MarkSpec = {
+  inclusive: true,
+  parseDOM: [{ tag: "span[data-ai-generated]" }],
+  toDOM() {
+    return ["span", { "data-ai-generated": "", class: "ai-generated" }, 0];
+  },
+};
+
 export const schema = new Schema({
   nodes: {
     doc,
@@ -788,5 +796,6 @@ export const schema = new Schema({
     link,
     strikethrough,
     highlight,
+    ai_generated,
   },
 });

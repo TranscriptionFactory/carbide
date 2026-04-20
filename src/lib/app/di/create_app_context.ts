@@ -667,7 +667,11 @@ export function create_app_context(input: {
     stores.search_graph,
   );
 
-  const ai_service = new AiService(input.ports.ai, stores.vault);
+  const ai_service = new AiService(
+    input.ports.ai,
+    stores.vault,
+    input.ports.ai_stream,
+  );
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);
 

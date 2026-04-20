@@ -1,14 +1,25 @@
 # Phase 3: Inline AI Menu + Streaming — Implementation Plan
 
-**Date:** 2026-04-17
+**Date:** 2026-04-17 (updated 2026-04-19)
 **Reference:** `carbide/research/mdit_comparison.md`, `carbide/plans/2026-04-17_mdit_port_plan.md`
-**Reference:** `carbide/research/mdit_comparison.md`
-**MDit Code** `/Users/abir/src/KBM_Notes/mdit`
+**MDit Code:** `/Users/abir/src/KBM_Notes/mdit`
+
 ---
 
 ## Context
 
 Phase 1 (quick wins) and Phase 2 (callout blocks) of the mdit port are complete. Phase 3 is the highest-value item: bringing AI from sidebar-only to inline editing flow with streaming text insertion. Currently, Carbide's AI is panel-based with no streaming — the `AiPort.execute()` interface returns full output after completion. The mdit reference app uses Vercel AI SDK with React/Plate.js for inline AI with real-time streaming.
+
+### Current AI Architecture (as of 2026-04-19)
+
+- **Port**: `AiPort` in `src/lib/features/ai/ports.ts` — `check_cli()` + `execute()` (non-streaming)
+- **Adapter**: `ai_tauri_adapter.ts` — wraps `tauri_invoke("ai_check_cli")` and `tauri_invoke("ai_execute_cli")`
+- **Service**: `AiService` in `application/ai_service.ts` — takes `AiPort` + `VaultStore`, builds prompts, calls `ai_port.execute()`
+- **Actions**: `ai_actions.ts` — panel-based dialog actions (`ai.open_assistant`, `ai.execute`, `ai.apply_result`, etc.)
+- **State**: `AiStore` in `state/ai_store.svelte.ts` — dialog state management
+- **Rust**: `src-tauri/src/features/ai/service.rs` — `ai_check_cli` + `ai_execute_cli` commands, registered in `src-tauri/src/app/mod.rs:163-165`
+- **DI**: `AiPort` wired via `src/lib/app/di/app_ports.ts` → `create_app_context.ts`
+- **Types**: `AiProviderConfig` lives in `$lib/shared/types/ai_provider_config.ts` (shared); other AI types in `domain/ai_types.ts`
 
 ## Scope
 
@@ -54,10 +65,13 @@ The TypeScript adapter wraps this into `AsyncIterable<AiStreamChunk>` using an a
 
 ### New Port: `AiStreamPort`
 
+Extends the existing AI feature — new files alongside current ones:
+
 ```
 src/lib/features/ai/
-├── ports.ts                          # Add AiStreamPort interface
+├── ports.ts                          # ADD AiStreamPort interface (alongside existing AiPort)
 ├── adapters/
+│   ├── ai_tauri_adapter.ts          # EXISTING: non-streaming adapter
 │   └── ai_stream_adapter.ts         # NEW: Tauri event → AsyncIterable adapter
 ├── domain/
 │   ├── ai_stream_types.ts           # NEW: Streaming domain types
@@ -67,11 +81,11 @@ src/lib/features/ai/
 ```ts
 interface AiStreamPort {
   stream_text(input: AiStreamRequest): AsyncIterable<AiStreamChunk>;
-  abort(): void;
+  abort(request_id: string): void;
 }
 
 type AiStreamRequest = {
-  provider: AiProviderConfig;
+  provider_config: AiProviderConfig;  // from $lib/shared/types/ai_provider_config
   system_prompt: string;
   messages: AiMessage[];
   model?: string;
@@ -105,8 +119,8 @@ async function* stream_text(input: AiStreamRequest): AsyncIterable<AiStreamChunk
   }
 }
 
-abort() {
-  void tauri_invoke("ai_stream_abort", { requestId: this.current_request_id });
+abort(request_id: string) {
+  void tauri_invoke("ai_stream_abort", { requestId: request_id });
 }
 ```
 
@@ -118,10 +132,11 @@ abort() {
 src-tauri/src/features/ai/
 ├── service.rs                        # EDIT: Add ai_stream_start, ai_stream_abort commands
 ├── stream.rs                         # NEW: Streaming execution (CLI + future API)
+├── mod.rs                            # EDIT: Export stream module
 ```
 
 **`ai_stream_start`** command:
-1. Validates input (same checks as existing `ai_execute_cli`)
+1. Validates input (same checks as existing `ai_execute_cli` in `service.rs`)
 2. Spawns a `tokio::task` that:
    - For CLI transport: runs `Command` with piped stdout, reads via `BufReader::lines()`, emits each line as `{ type: "text", text }` via `app.emit(&format!("ai:chunk:{request_id}"), chunk)`
    - For API transport (future): uses `reqwest` streaming response, parses SSE, emits text deltas
@@ -220,6 +235,8 @@ src/lib/features/editor/extensions/
 ├── ai_inline_extension.ts           # NEW: thin wiring into assemble_extensions()
 ```
 
+Follows the `EditorExtension` pattern from `extensions/types.ts`. Registered in `assemble_extensions()` in `extensions/index.ts` alongside the other extensions.
+
 ---
 
 ## Streaming Flow
@@ -254,7 +271,9 @@ src/lib/features/editor/extensions/
 ## Service Layer
 
 ```ts
-// In ai_service.ts — new method
+// In ai_service.ts — new method (AiService already takes AiPort via constructor DI)
+// Add ai_stream_port as second port dependency
+
 async *stream_inline(input: AiInlineRequest): AsyncGenerator<AiStreamChunk> {
   const joiner = new MarkdownJoiner();
   const prompt = build_ai_prompt({ mode: input.mode, ... });
@@ -278,7 +297,7 @@ The service owns the MarkdownJoiner lifecycle — the port yields raw chunks, th
 
 ## Actions
 
-New actions in `ai_actions.ts`:
+New action IDs to add to `src/lib/app/action_registry/action_ids.ts` (existing AI actions are at lines 260-271):
 
 | Action ID | Purpose |
 |---|---|
@@ -287,6 +306,8 @@ New actions in `ai_actions.ts`:
 | `ai.accept_inline` | Accept AI text, remove marks |
 | `ai.reject_inline` | Reject AI text, restore snapshot |
 | `ai.close_inline_menu` | Close menu without accepting |
+
+Registered in `ai_actions.ts` alongside the existing panel-based actions.
 
 ---
 
@@ -301,27 +322,30 @@ New actions in `ai_actions.ts`:
 | `src-tauri/src/features/ai/stream.rs` | Rust streaming execution (BufReader line-by-line + event emit) |
 | `src/lib/features/editor/adapters/ai_menu_plugin.ts` | ProseMirror plugin (keymap, state, decorations) |
 | `src/lib/features/editor/ui/ai_inline_menu.svelte` | Floating menu UI component |
-| `src/lib/features/editor/extensions/ai_inline_extension.ts` | Extension wiring |
-| `tests/unit/adapters/ai_menu_plugin.test.ts` | Plugin tests |
-| `tests/unit/adapters/ai_stream.test.ts` | Streaming adapter tests |
+| `src/lib/features/editor/extensions/ai_inline_extension.ts` | Extension wiring (returns `EditorExtension`) |
 | `tests/unit/domain/markdown_joiner.test.ts` | MarkdownJoiner tests |
+| `tests/unit/adapters/ai_stream.test.ts` | Streaming adapter tests |
+| `tests/unit/adapters/ai_menu_plugin.test.ts` | Plugin tests |
 
 ## Files to Modify
 
 | File | Change |
 |---|---|
-| `src/lib/features/ai/ports.ts` | Add `AiStreamPort` interface |
-| `src/lib/features/ai/index.ts` | Re-export new types |
-| `src/lib/features/ai/application/ai_service.ts` | Add `stream_inline()` method + `ai_stream_port` dep + MarkdownJoiner |
-| `src/lib/features/ai/application/ai_actions.ts` | Register new inline AI actions |
+| `src/lib/features/ai/ports.ts` | Add `AiStreamPort` interface (keep existing `AiPort`) |
+| `src/lib/features/ai/index.ts` | Re-export `AiStreamPort`, new types, `create_ai_stream_adapter` |
+| `src/lib/features/ai/application/ai_service.ts` | Add `ai_stream_port: AiStreamPort` to constructor, add `stream_inline()` method |
+| `src/lib/features/ai/application/ai_actions.ts` | Register 5 new inline AI actions (alongside existing panel actions) |
 | `src/lib/features/ai/domain/ai_prompt_builder.ts` | Add inline AI prompt templates |
 | `src/lib/features/editor/adapters/schema.ts` | Add `ai_generated` mark spec |
-| `src/lib/features/editor/extensions/index.ts` | Register `create_ai_inline_extension()` |
-| `src/lib/app/di/create_app_context.ts` | Wire `AiStreamPort` adapter |
+| `src/lib/features/editor/extensions/index.ts` | Add `create_ai_inline_extension()` to `assemble_extensions()` array |
+| `src/lib/app/action_registry/action_ids.ts` | Add 5 new action IDs (after existing AI IDs at line ~271) |
+| `src/lib/app/di/app_ports.ts` | Add `ai_stream: AiStreamPort` to ports type |
+| `src/lib/app/di/create_app_context.ts` | Wire `AiStreamPort` adapter, pass to `AiService` constructor |
 | `src/styles/editor.css` | AI highlight + cursor animation styles |
-| `src-tauri/src/features/ai/service.rs` | Register `ai_stream_start`, `ai_stream_abort` commands |
-| `src-tauri/src/features/ai/mod.rs` | Export stream module |
-| `src-tauri/src/app/mod.rs` | Register new commands in builder |
+| `src-tauri/src/features/ai/service.rs` | Add `ai_stream_start`, `ai_stream_abort` commands |
+| `src-tauri/src/features/ai/mod.rs` | Export `stream` module |
+| `src-tauri/src/app/mod.rs` | Register new commands in `invoke_handler` (line ~163) |
+| `src-tauri/src/tests/mod.rs` | Register new commands in test builder (line ~154) |
 
 ## No New Dependencies
 
@@ -334,9 +358,11 @@ Zero new npm or Cargo packages. Uses existing Tauri event infrastructure (`AppHa
 - `suggest_dropdown_utils.ts` — `create_cursor_anchor`, `position_suggest_dropdown`, `mount_dropdown`, `destroy_dropdown`, `attach_outside_dismiss`
 - `floating_toolbar_utils.ts` — additional floating UI patterns
 - `build_ai_prompt()` from `ai_prompt_builder.ts` — XML prompt construction
-- `AiProviderConfig`, `AiProviderId` types from `ai_types.ts` — reuse for stream adapter config
+- `AiProviderConfig` from `$lib/shared/types/ai_provider_config` — reuse for stream adapter config
+- `AiTransport`, `AiProviderId` types from `domain/ai_types.ts` — transport config for stream adapter
 - `slash_command_plugin.ts` — reference for ProseMirror plugin + dropdown pattern
 - `callout_view_plugin.ts` — reference for node view with custom rendering
+- `ai_tauri_adapter.ts` — reference for `tauri_invoke` pattern + `AiPort` implementation
 
 ---
 
@@ -344,17 +370,17 @@ Zero new npm or Cargo packages. Uses existing Tauri event infrastructure (`AppHa
 
 1. **Types + Port** — `ai_stream_types.ts`, `AiStreamPort` in `ports.ts`
 2. **AsyncQueue utility** — `async_queue.ts` (event → AsyncIterable bridge)
-3. **Rust streaming** — `stream.rs` with `ai_stream_start` / `ai_stream_abort` commands, register in `app/mod.rs`
+3. **Rust streaming** — `stream.rs` with `ai_stream_start` / `ai_stream_abort` commands, register in `app/mod.rs` and `tests/mod.rs`
 4. **Stream Adapter** — `ai_stream_adapter.ts` wrapping Tauri events into `AsyncIterable`
 5. **MarkdownJoiner** — `markdown_joiner.ts` + tests (pure domain logic, testable in isolation)
-6. **Schema** — Add `ai_generated` mark to ProseMirror schema
+6. **Schema** — Add `ai_generated` mark to ProseMirror schema in `adapters/schema.ts`
 7. **Plugin** — `ai_menu_plugin.ts` with keymap, state, decorations
 8. **Menu UI** — `ai_inline_menu.svelte` floating component
-9. **Extension** — `ai_inline_extension.ts` wiring
-10. **Service** — `stream_inline()` in `ai_service.ts` (composes stream port + MarkdownJoiner)
-11. **Actions** — Register inline AI actions
-12. **DI** — Wire in `create_app_context.ts`
-13. **CSS** — AI highlight + animation styles
+9. **Extension** — `ai_inline_extension.ts` wiring, add to `assemble_extensions()` in `extensions/index.ts`
+10. **Service** — `stream_inline()` in `ai_service.ts` (add `AiStreamPort` dep, compose with MarkdownJoiner)
+11. **Actions** — Add action IDs to `action_ids.ts`, register inline AI actions in `ai_actions.ts`
+12. **DI** — Wire `AiStreamPort` in `app_ports.ts` + `create_app_context.ts`
+13. **CSS** — AI highlight + animation styles in `src/styles/editor.css`
 14. **Tests** — Plugin behavior + streaming adapter + MarkdownJoiner
 
 ---
