@@ -8,6 +8,7 @@
   import { AppShell, ViewerShell, ACTION_IDS } from "$lib/app";
   import { parse_window_init } from "$lib/features/window";
   import { to_editor_slash_commands } from "$lib/features/plugin";
+  import { resolve_inline_commands } from "$lib/features/ai";
 
   const url_params = new URLSearchParams(window.location.search);
   const vault_path_param = url_params.get("vault_path");
@@ -46,6 +47,12 @@
 
   ports.ai_inline_handler.execute = (p) =>
     void app.action_registry.execute(ACTION_IDS.ai_execute_inline, p);
+
+  ports.ai_inline_handler.get_commands = () =>
+    resolve_inline_commands(app.stores.ui.editor_settings.ai_inline_commands);
+
+  ports.ai_inline_handler.on_open_settings = () =>
+    void app.action_registry.execute(ACTION_IDS.settings_open, "ai");
 
   provide_app_context(app);
 

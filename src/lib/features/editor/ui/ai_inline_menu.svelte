@@ -1,70 +1,45 @@
 <script lang="ts">
-  import { ArrowUp, Check, X, RotateCcw, Loader2 } from "@lucide/svelte";
+  import {
+    ArrowUp,
+    Check,
+    X,
+    RotateCcw,
+    Loader2,
+    Settings,
+  } from "@lucide/svelte";
   import type { AiMenuMode } from "../adapters/ai_menu_plugin";
+  import type { AiInlineCommand } from "$lib/features/ai";
 
   interface Props {
     mode: AiMenuMode;
     streaming: boolean;
+    commands: AiInlineCommand[];
     on_submit: (prompt: string) => void;
     on_command: (command_id: string) => void;
     on_accept: () => void;
     on_reject: () => void;
     on_close: () => void;
+    on_open_settings?: () => void;
   }
 
   let {
     mode,
     streaming,
+    commands,
     on_submit,
     on_command,
     on_accept,
     on_reject,
     on_close,
+    on_open_settings,
   }: Props = $props();
 
   let prompt_text = $state("");
 
-  type CommandItem = { id: string; label: string; description: string };
-
-  const cursor_commands: CommandItem[] = [
-    {
-      id: "continue",
-      label: "Continue writing",
-      description: "Extend from cursor",
-    },
-    { id: "summarize", label: "Summarize", description: "Summarize the note" },
-    {
-      id: "expand",
-      label: "Expand",
-      description: "Elaborate on surrounding text",
-    },
-  ];
-
-  const selection_commands: CommandItem[] = [
-    {
-      id: "improve",
-      label: "Improve writing",
-      description: "Improve clarity and style",
-    },
-    {
-      id: "simplify",
-      label: "Simplify",
-      description: "Make simpler and shorter",
-    },
-    {
-      id: "fix_grammar",
-      label: "Fix grammar",
-      description: "Fix spelling and grammar",
-    },
-    {
-      id: "translate",
-      label: "Translate",
-      description: "Translate to another language",
-    },
-  ];
-
-  let commands = $derived(
-    mode === "selection_command" ? selection_commands : cursor_commands,
+  let filtered_commands = $derived(
+    mode === "selection_command"
+      ? commands.filter((c) => c.use_selection)
+      : commands.filter((c) => !c.use_selection),
   );
 
   function handle_keydown(e: KeyboardEvent) {
@@ -139,7 +114,7 @@
       </button>
     </div>
     <div class="AiInlineMenu__commands">
-      {#each commands as cmd (cmd.id)}
+      {#each filtered_commands as cmd (cmd.id)}
         <button
           type="button"
           class="AiInlineMenu__command"
@@ -150,5 +125,17 @@
         </button>
       {/each}
     </div>
+    {#if on_open_settings}
+      <div class="AiInlineMenu__footer">
+        <button
+          type="button"
+          class="AiInlineMenu__settings-btn"
+          onclick={on_open_settings}
+          title="Configure inline commands"
+        >
+          <Settings size={12} />
+        </button>
+      </div>
+    {/if}
   {/if}
 </div>

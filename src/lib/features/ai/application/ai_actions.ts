@@ -22,6 +22,7 @@ import {
   reject_ai_inline,
 } from "$lib/features/editor";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import { resolve_inline_commands } from "$lib/features/ai/domain/ai_inline_commands";
 import type { EditorView } from "prosemirror-view";
 
 export function register_ai_actions(
@@ -58,9 +59,7 @@ export function register_ai_actions(
   ): Promise<AiProviderConfig | null> {
     let providers = get_providers();
     if (transport_kind) {
-      providers = providers.filter(
-        (p) => p.transport.kind === transport_kind,
-      );
+      providers = providers.filter((p) => p.transport.kind === transport_kind);
     }
     const settings = input.stores.ui.editor_settings;
     const default_id = settings.ai_default_provider_id;
@@ -454,10 +453,14 @@ export function register_ai_actions(
       }
 
       const resolved_command = command_id ?? (prompt ? "custom" : "continue");
+      const commands = resolve_inline_commands(
+        input.stores.ui.editor_settings.ai_inline_commands,
+      );
       const ctx = extract_inline_context(view);
       const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
         command_id: resolved_command,
         context_text: ctx.context_text,
+        commands,
       };
       if (prompt) prompt_input.custom_prompt = prompt;
       if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;

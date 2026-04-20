@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as PmNode } from "prosemirror-model";
 import { mount, unmount } from "svelte";
+import { BUILTIN_INLINE_COMMANDS, type AiInlineCommand } from "$lib/features/ai";
 import AiInlineMenu from "../ui/ai_inline_menu.svelte";
 import {
   create_cursor_anchor,
@@ -51,6 +52,8 @@ export type AiMenuMeta =
 
 export type AiMenuPluginConfig = {
   on_execute: (payload: { command_id?: string; prompt?: string }) => void;
+  get_commands?: () => AiInlineCommand[];
+  on_open_settings?: () => void;
 };
 
 function get_meta(tr: Transaction): AiMenuMeta | undefined {
@@ -173,7 +176,6 @@ export function create_ai_menu_plugin(
 
         return DecorationSet.create(state.doc, decos);
       },
-
     },
 
     view(editor_view: EditorView) {
@@ -195,11 +197,14 @@ export function create_ai_menu_plugin(
           return;
         }
         if (svelte_app) unmount(svelte_app);
+        const commands = config?.get_commands?.() ?? BUILTIN_INLINE_COMMANDS;
+        const open_settings = config?.on_open_settings;
         svelte_app = mount(AiInlineMenu, {
           target: container,
           props: {
             mode: state.mode,
             streaming: state.streaming,
+            commands,
             on_submit: (prompt: string) => config?.on_execute?.({ prompt }),
             on_command: (id: string) =>
               config?.on_execute?.({ command_id: id }),
@@ -207,6 +212,7 @@ export function create_ai_menu_plugin(
               dispatch_ai_menu(editor_view, { action: "accept" }),
             on_reject: () => reject_ai_inline(editor_view),
             on_close: () => dispatch_ai_menu(editor_view, { action: "close" }),
+            ...(open_settings ? { on_open_settings: open_settings } : {}),
           },
         });
         prev_mode = state.mode;
