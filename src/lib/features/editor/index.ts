@@ -34,3 +34,9 @@ export {
   normalize_markdown_line_breaks,
 } from "$lib/features/editor/domain/markdown_line_breaks";
 export { parse_to_mdast } from "$lib/features/editor/adapters/markdown_pipeline";
+export {
+  ai_menu_plugin_key,
+  dispatch_ai_menu,
+  get_ai_menu_state,
+  reject_ai_inline,
+} from "$lib/features/editor/adapters/ai_menu_plugin";

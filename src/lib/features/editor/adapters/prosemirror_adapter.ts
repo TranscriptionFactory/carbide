@@ -71,6 +71,7 @@ import type {
 } from "$lib/features/editor/extensions";
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
+import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
 import type { Diagnostic } from "$lib/features/diagnostics";
@@ -219,11 +220,13 @@ export function create_prosemirror_editor_port(args?: {
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
+  ai_inline_config?: AiMenuPluginConfig;
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
   const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
   const ydoc_manager = args?.ydoc_manager ?? null;
   const slash_config = args?.slash_config;
+  const ai_inline_config = args?.ai_inline_config;
 
   return {
     start_session: (config) => {
@@ -286,6 +289,7 @@ export function create_prosemirror_editor_port(args?: {
         },
         toolbar_config,
         slash_config,
+        ai_inline_config,
       );
 
       // --- Yjs integration ---
@@ -1124,6 +1128,9 @@ export function create_prosemirror_editor_port(args?: {
         update_diagnostics(diagnostics: Diagnostic[]) {
           if (!view) return;
           update_prosemirror_diagnostics(view, diagnostics);
+        },
+        get_view() {
+          return view;
         },
       };
 

@@ -81,6 +81,7 @@ export type EditorSession = {
   set_toolbar_visibility?: (mode: ToolbarVisibility) => void;
   trigger_hover_at_cursor?: () => void;
   update_diagnostics?: (diagnostics: Diagnostic[]) => void;
+  get_view?: () => import("prosemirror-view").EditorView | null;
   turn_into?: (target: string, attrs?: Record<string, unknown>) => void;
   duplicate_block?: () => void;
   delete_block?: () => void;

@@ -179,6 +179,10 @@ export class EditorService {
     return this.host_root !== null && this.session !== null;
   }
 
+  get_editor_view(): import("prosemirror-view").EditorView | null {
+    return this.session?.get_view?.() ?? null;
+  }
+
   async mount(args: {
     root: HTMLDivElement;
     note: OpenNoteState;

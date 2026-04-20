@@ -70,3 +70,54 @@ export function build_ai_prompt(input: {
     section("user_instructions", user_prompt),
   ].join("\n\n");
 }
+
+const INLINE_SYSTEM_PROMPTS: Record<string, string> = {
+  continue:
+    "Continue writing naturally from where the text ends. Match the tone and style. Output only the continuation text.",
+  summarize:
+    "Write a concise summary of the following text. Output only the summary.",
+  expand:
+    "Expand and elaborate on the following text. Output only the expanded text.",
+  improve:
+    "Improve the clarity and style of the following text. Output only the improved text.",
+  simplify:
+    "Simplify the following text. Make it shorter and clearer. Output only the simplified text.",
+  fix_grammar:
+    "Fix spelling and grammar errors in the following text. Output only the corrected text.",
+  translate:
+    "Translate the following text to English. Output only the translation.",
+};
+
+const SELECTION_COMMANDS = new Set([
+  "improve",
+  "simplify",
+  "fix_grammar",
+  "translate",
+]);
+
+export function build_ai_inline_prompt(input: {
+  command_id: string;
+  custom_prompt?: string;
+  context_text: string;
+  selection_text?: string;
+}): { system_prompt: string; user_prompt: string } {
+  const { command_id, custom_prompt, context_text, selection_text } = input;
+
+  if (command_id === "custom") {
+    return {
+      system_prompt: custom_prompt ?? "Follow the user's instructions.",
+      user_prompt: selection_text || context_text,
+    };
+  }
+
+  const system_prompt =
+    INLINE_SYSTEM_PROMPTS[command_id] ??
+    "Follow the user's instructions. Output only the result.";
+
+  const user_prompt =
+    SELECTION_COMMANDS.has(command_id) && selection_text
+      ? selection_text
+      : context_text;
+
+  return { system_prompt, user_prompt };
+}

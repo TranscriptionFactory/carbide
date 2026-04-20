@@ -3,6 +3,15 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as PmNode } from "prosemirror-model";
+import { mount, unmount } from "svelte";
+import AiInlineMenu from "../ui/ai_inline_menu.svelte";
+import {
+  create_cursor_anchor,
+  position_suggest_dropdown,
+  mount_dropdown,
+  destroy_dropdown,
+  attach_outside_dismiss,
+} from "./suggest_dropdown_utils";
 
 export const ai_menu_plugin_key = new PluginKey<AiMenuState>("ai-inline-menu");
 
@@ -40,6 +49,10 @@ export type AiMenuMeta =
   | { action: "accept" }
   | { action: "reject" };
 
+export type AiMenuPluginConfig = {
+  on_execute: (payload: { command_id?: string; prompt?: string }) => void;
+};
+
 function get_meta(tr: Transaction): AiMenuMeta | undefined {
   return tr.getMeta(ai_menu_plugin_key) as AiMenuMeta | undefined;
 }
@@ -52,7 +65,25 @@ export function get_ai_menu_state(state: EditorState): AiMenuState {
   return ai_menu_plugin_key.getState(state) ?? EMPTY_STATE;
 }
 
-export function create_ai_menu_plugin(): Plugin<AiMenuState> {
+export function reject_ai_inline(view: EditorView): void {
+  const state = get_ai_menu_state(view.state);
+  if (state.original_doc) {
+    const tr = view.state.tr.replaceWith(
+      0,
+      view.state.doc.content.size,
+      state.original_doc.content,
+    );
+    tr.setMeta("addToHistory", false);
+    tr.setMeta(ai_menu_plugin_key, { action: "reject" });
+    view.dispatch(tr);
+  } else {
+    dispatch_ai_menu(view, { action: "reject" });
+  }
+}
+
+export function create_ai_menu_plugin(
+  config?: AiMenuPluginConfig,
+): Plugin<AiMenuState> {
   return new Plugin<AiMenuState>({
     key: ai_menu_plugin_key,
 
@@ -156,6 +187,83 @@ export function create_ai_menu_plugin(): Plugin<AiMenuState> {
         }
         return false;
       },
+    },
+
+    view(editor_view: EditorView) {
+      const container = document.createElement("div");
+      container.className = "AiInlineMenuWrapper";
+      mount_dropdown(container);
+
+      let svelte_app: ReturnType<typeof mount> | null = null;
+      let prev_open = false;
+      let prev_mode: AiMenuMode | null = null;
+      let prev_streaming: boolean | null = null;
+
+      function ensure_menu(state: AiMenuState) {
+        if (
+          svelte_app &&
+          prev_mode === state.mode &&
+          prev_streaming === state.streaming
+        ) {
+          return;
+        }
+        if (svelte_app) unmount(svelte_app);
+        svelte_app = mount(AiInlineMenu, {
+          target: container,
+          props: {
+            mode: state.mode,
+            streaming: state.streaming,
+            on_submit: (prompt: string) => config?.on_execute?.({ prompt }),
+            on_command: (id: string) =>
+              config?.on_execute?.({ command_id: id }),
+            on_accept: () =>
+              dispatch_ai_menu(editor_view, { action: "accept" }),
+            on_reject: () => reject_ai_inline(editor_view),
+            on_close: () => dispatch_ai_menu(editor_view, { action: "close" }),
+          },
+        });
+        prev_mode = state.mode;
+        prev_streaming = state.streaming;
+      }
+
+      const detach_dismiss = attach_outside_dismiss(
+        container,
+        editor_view.dom,
+        () => {
+          const s = get_ai_menu_state(editor_view.state);
+          if (s.open && !s.streaming) {
+            dispatch_ai_menu(editor_view, { action: "close" });
+          }
+        },
+      );
+
+      return {
+        update(view: EditorView) {
+          const state = get_ai_menu_state(view.state);
+          if (state.open) {
+            const needs_position = !prev_open;
+            ensure_menu(state);
+            container.style.display = "block";
+            if (needs_position) {
+              const anchor = create_cursor_anchor(view);
+              position_suggest_dropdown(container, anchor);
+            }
+          } else if (prev_open) {
+            container.style.display = "none";
+            if (svelte_app) {
+              unmount(svelte_app);
+              svelte_app = null;
+            }
+            prev_mode = null;
+            prev_streaming = null;
+          }
+          prev_open = state.open;
+        },
+        destroy() {
+          if (svelte_app) unmount(svelte_app);
+          destroy_dropdown(container, detach_dismiss);
+        },
+      };
     },
   });
 }

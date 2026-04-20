@@ -72,8 +72,13 @@ export function create_slash_command_provider(): SlashCommandProvider {
   };
 }
 
+export type AiInlineHandler = {
+  execute: ((payload: { command_id?: string; prompt?: string }) => void) | null;
+};
+
 export function create_prod_ports(): Ports & {
   slash_command_provider: SlashCommandProvider;
+  ai_inline_handler: AiInlineHandler;
 } {
   const assets = create_assets_tauri_adapter();
   const vault = create_vault_tauri_adapter();
@@ -100,9 +105,11 @@ export function create_prod_ports(): Ports & {
   const plugin_settings = new PluginSettingsTauriAdapter();
   const canvas = create_canvas_tauri_adapter();
   const slash_command_provider = create_slash_command_provider();
+  const ai_inline_handler: AiInlineHandler = { execute: null };
 
   return {
     slash_command_provider,
+    ai_inline_handler,
     vault,
     notes,
     index,
@@ -119,6 +126,9 @@ export function create_prod_ports(): Ports & {
       ydoc_manager: create_ydoc_manager(),
       slash_config: {
         get_plugin_commands: () => slash_command_provider.get_plugin_commands(),
+      },
+      ai_inline_config: {
+        on_execute: (payload) => ai_inline_handler.execute?.(payload),
       },
     }),
     clipboard,

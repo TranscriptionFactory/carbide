@@ -5,7 +5,7 @@
   import { create_app_context } from "$lib/app/di/create_app_context";
   import { provide_app_context } from "$lib/app/context/app_context.svelte";
   import { as_vault_path } from "$lib/shared/types/ids";
-  import { AppShell, ViewerShell } from "$lib/app";
+  import { AppShell, ViewerShell, ACTION_IDS } from "$lib/app";
   import { parse_window_init } from "$lib/features/window";
   import { to_editor_slash_commands } from "$lib/features/plugin";
 
@@ -43,6 +43,9 @@
         app.stores.plugin.plugins.get(plugin_id)?.manifest.name ?? plugin_id,
     ),
   );
+
+  ports.ai_inline_handler.execute = (p) =>
+    void app.action_registry.execute(ACTION_IDS.ai_execute_inline, p);
 
   provide_app_context(app);
 

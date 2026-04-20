@@ -25,6 +25,7 @@ import { create_block_drag_handle_extension } from "./block_drag_handle_extensio
 import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_decoration_plugin";
 import { create_block_selection_plugin } from "../adapters/block_selection_plugin";
 import { create_ai_inline_extension } from "./ai_inline_extension";
+import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -35,6 +36,7 @@ export function assemble_extensions(
   ctx: PluginContext,
   toolbar_config: ToolbarConfig,
   slash_config?: SlashCommandConfig,
+  ai_inline_config?: AiMenuPluginConfig,
 ): AssembledExtensions {
   const extensions: EditorExtension[] = [
     create_heading_extension(),
@@ -57,7 +59,7 @@ export function assemble_extensions(
     create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
-    create_ai_inline_extension(),
+    create_ai_inline_extension(ai_inline_config),
     { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
   ];
@@ -124,4 +126,5 @@ export {
   type AiMenuState,
   type AiMenuMode,
   type AiMenuMeta,
+  type AiMenuPluginConfig,
 } from "../adapters/ai_menu_plugin";

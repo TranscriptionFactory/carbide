@@ -15,6 +15,14 @@ import {
   type NoteId,
   type NotePath,
 } from "$lib/shared/types/ids";
+import {
+  dispatch_ai_menu,
+  get_ai_menu_state,
+  ai_menu_plugin_key,
+  reject_ai_inline,
+} from "$lib/features/editor";
+import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import type { EditorView } from "prosemirror-view";
 
 export function register_ai_actions(
   input: ActionRegistrationInput & {
@@ -43,6 +51,21 @@ export function register_ai_actions(
 
   function get_provider(id: string): AiProviderConfig | undefined {
     return find_provider(get_providers(), id);
+  }
+
+  async function resolve_provider(): Promise<AiProviderConfig | null> {
+    const providers = get_providers();
+    const settings = input.stores.ui.editor_settings;
+    const default_id = settings.ai_default_provider_id;
+    if (default_id === "auto") {
+      const auto = await resolve_auto_ai_backend({
+        providers,
+        check_availability: async (cfg) =>
+          await ai_service.check_availability(cfg),
+      });
+      return auto ?? null;
+    }
+    return get_provider(default_id) ?? null;
   }
 
   async function refresh_cli_status(provider_id: string, revision: number) {
@@ -364,38 +387,136 @@ export function register_ai_actions(
     },
   });
 
+  function get_inline_view(): EditorView | null {
+    return services.editor.get_editor_view();
+  }
+
+  function extract_inline_context(view: EditorView): {
+    context_text: string;
+    selection_text?: string;
+  } {
+    const MAX_CONTEXT = 4000;
+    const { from, to } = view.state.selection;
+    const doc = view.state.doc;
+    const has_selection = from !== to;
+    if (has_selection) {
+      const ctx_start = Math.max(0, from - MAX_CONTEXT);
+      const ctx_end = Math.min(doc.content.size, to + MAX_CONTEXT);
+      return {
+        context_text: doc.textBetween(ctx_start, ctx_end, "\n", "\n"),
+        selection_text: doc.textBetween(from, to, "\n", "\n"),
+      };
+    }
+    const before_start = Math.max(0, from - MAX_CONTEXT);
+    return {
+      context_text: doc.textBetween(before_start, from, "\n", "\n"),
+    };
+  }
+
   registry.register({
     id: ACTION_IDS.ai_open_inline_menu,
     label: "Open Inline AI Menu",
     execute: () => {
       if (!ensure_ai_enabled()) return;
+      const view = get_inline_view();
+      if (!view) return;
+      dispatch_ai_menu(view, { action: "open" });
     },
   });
 
   registry.register({
     id: ACTION_IDS.ai_execute_inline,
     label: "Execute Inline AI",
-    execute: () => {
+    execute: async (payload: unknown) => {
       if (!ensure_ai_enabled()) return;
+      const view = get_inline_view();
+      if (!view) return;
+
+      const p = payload as { command_id?: string; prompt?: string } | undefined;
+      const command_id = p?.command_id;
+      const prompt = p?.prompt;
+
+      const state = get_ai_menu_state(view.state);
+      if (!state.open || state.streaming) return;
+
+      const config = await resolve_provider();
+      if (!config) {
+        toast.error("No AI provider available");
+        return;
+      }
+
+      const resolved_command = command_id ?? (prompt ? "custom" : "continue");
+      const ctx = extract_inline_context(view);
+      const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
+        command_id: resolved_command,
+        context_text: ctx.context_text,
+      };
+      if (prompt) prompt_input.custom_prompt = prompt;
+      if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
+      const prompts = build_ai_inline_prompt(prompt_input);
+
+      const anchor_pos = view.state.selection.from;
+      dispatch_ai_menu(view, { action: "start_stream", anchor_pos });
+
+      try {
+        for await (const chunk of ai_service.stream_inline({
+          provider_config: config,
+          system_prompt: prompts.system_prompt,
+          user_prompt: prompts.user_prompt,
+        })) {
+          if (chunk.type === "text") {
+            const current_state = get_ai_menu_state(view.state);
+            if (!current_state.open) return;
+            const insert_pos = current_state.ai_range_to;
+            const tr = view.state.tr.insertText(chunk.text, insert_pos);
+            tr.setMeta("addToHistory", false);
+            tr.setMeta(ai_menu_plugin_key, {
+              action: "stream_text",
+              text: chunk.text,
+            });
+            view.dispatch(tr);
+          } else if (chunk.type === "error") {
+            toast.error(chunk.error);
+            dispatch_ai_menu(view, { action: "close" });
+            return;
+          }
+        }
+        dispatch_ai_menu(view, { action: "stream_done" });
+      } catch (err) {
+        toast.error(error_message(err));
+        dispatch_ai_menu(view, { action: "close" });
+      }
     },
   });
 
   registry.register({
     id: ACTION_IDS.ai_accept_inline,
     label: "Accept Inline AI Result",
-    execute: () => {},
+    execute: () => {
+      const view = get_inline_view();
+      if (!view) return;
+      dispatch_ai_menu(view, { action: "accept" });
+    },
   });
 
   registry.register({
     id: ACTION_IDS.ai_reject_inline,
     label: "Reject Inline AI Result",
-    execute: () => {},
+    execute: () => {
+      const view = get_inline_view();
+      if (!view) return;
+      reject_ai_inline(view);
+    },
   });
 
   registry.register({
     id: ACTION_IDS.ai_close_inline_menu,
     label: "Close Inline AI Menu",
-    execute: () => {},
+    execute: () => {
+      const view = get_inline_view();
+      if (!view) return;
+      dispatch_ai_menu(view, { action: "close" });
+    },
   });
 
   registry.register({
