@@ -53,8 +53,15 @@ export function register_ai_actions(
     return find_provider(get_providers(), id);
   }
 
-  async function resolve_provider(): Promise<AiProviderConfig | null> {
-    const providers = get_providers();
+  async function resolve_provider(
+    transport_kind?: "cli" | "api",
+  ): Promise<AiProviderConfig | null> {
+    let providers = get_providers();
+    if (transport_kind) {
+      providers = providers.filter(
+        (p) => p.transport.kind === transport_kind,
+      );
+    }
     const settings = input.stores.ui.editor_settings;
     const default_id = settings.ai_default_provider_id;
     if (default_id === "auto") {
@@ -65,7 +72,8 @@ export function register_ai_actions(
       });
       return auto ?? null;
     }
-    return get_provider(default_id) ?? null;
+    const match = providers.find((p) => p.id === default_id);
+    return match ?? null;
   }
 
   async function refresh_cli_status(provider_id: string, revision: number) {
@@ -439,9 +447,9 @@ export function register_ai_actions(
       const state = get_ai_menu_state(view.state);
       if (!state.open || state.streaming) return;
 
-      const config = await resolve_provider();
+      const config = await resolve_provider("cli");
       if (!config) {
-        toast.error("No AI provider available");
+        toast.error("No CLI AI provider available");
         return;
       }
 
