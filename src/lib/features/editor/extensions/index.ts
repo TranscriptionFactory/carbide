@@ -24,6 +24,7 @@ import { create_image_context_menu_extension } from "./image_context_menu_extens
 import { create_block_drag_handle_extension } from "./block_drag_handle_extension";
 import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_decoration_plugin";
 import { create_block_selection_plugin } from "../adapters/block_selection_plugin";
+import { create_ai_inline_extension } from "./ai_inline_extension";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -56,6 +57,7 @@ export function assemble_extensions(
     create_toolbar_extension(toolbar_config),
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
+    create_ai_inline_extension(),
     { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
   ];
@@ -115,3 +117,11 @@ export {
   get_block_selection,
   clear_block_selection,
 } from "../adapters/block_selection_plugin";
+export {
+  ai_menu_plugin_key,
+  get_ai_menu_state,
+  dispatch_ai_menu,
+  type AiMenuState,
+  type AiMenuMode,
+  type AiMenuMeta,
+} from "../adapters/ai_menu_plugin";

@@ -150,9 +150,11 @@ mod specta_export {
                 // Watcher commands (2)
                 crate::features::watcher::service::watch_vault,
                 crate::features::watcher::service::unwatch_vault,
-                // AI commands (2)
+                // AI commands (4)
                 crate::features::ai::service::ai_check_cli,
                 crate::features::ai::service::ai_execute_cli,
+                crate::features::ai::stream::ai_stream_start,
+                crate::features::ai::stream::ai_stream_abort,
                 // Canvas commands (4)
                 crate::features::canvas::extract_canvas_links,
                 crate::features::canvas::extract_canvas_text,

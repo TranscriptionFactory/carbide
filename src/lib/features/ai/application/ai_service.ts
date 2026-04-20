@@ -1,6 +1,6 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import type { VaultStore } from "$lib/features/vault";
-import type { AiPort } from "$lib/features/ai/ports";
+import type { AiPort, AiStreamPort } from "$lib/features/ai/ports";
 import type {
   AiDialogContext,
   AiExecutionResult,
@@ -9,6 +9,8 @@ import type {
 } from "$lib/features/ai/domain/ai_types";
 import { provider_command } from "$lib/features/ai/domain/ai_types";
 import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import type { AiStreamChunk } from "$lib/features/ai/domain/ai_stream_types";
+import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 
 const log = create_logger("ai_service");
 
@@ -16,6 +18,7 @@ export class AiService {
   constructor(
     private readonly ai_port: AiPort,
     private readonly vault_store: VaultStore,
+    private readonly ai_stream_port?: AiStreamPort,
   ) {}
 
   async check_availability(config: AiProviderConfig): Promise<boolean> {
@@ -68,5 +71,33 @@ export class AiService {
           ? null
           : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : "edit the note"}`),
     };
+  }
+
+  async *stream_inline(input: {
+    provider_config: AiProviderConfig;
+    system_prompt: string;
+    user_prompt: string;
+  }): AsyncGenerator<AiStreamChunk> {
+    if (!this.ai_stream_port) {
+      yield { type: "error", error: "Streaming is not available" };
+      return;
+    }
+
+    const joiner = new MarkdownJoiner();
+
+    for await (const chunk of this.ai_stream_port.stream_text({
+      provider_config: input.provider_config,
+      system_prompt: input.system_prompt,
+      messages: [{ role: "user", content: input.user_prompt }],
+    })) {
+      if (chunk.type === "text") {
+        const text = joiner.process_chunk(chunk.text);
+        if (text) yield { type: "text", text };
+      } else {
+        const remaining = joiner.flush();
+        if (remaining) yield { type: "text", text: remaining };
+        yield chunk;
+      }
+    }
   }
 }

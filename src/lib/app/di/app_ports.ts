@@ -10,7 +10,7 @@ import type { DocumentPort } from "$lib/features/document";
 import type { TerminalPort } from "$lib/features/terminal";
 import type { WindowPort } from "$lib/features/window";
 import type { WatcherPort } from "$lib/features/watcher";
-import type { AiPort } from "$lib/features/ai";
+import type { AiPort, AiStreamPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
 import type { TaskPort } from "$lib/features/task";
@@ -51,6 +51,7 @@ export type Ports = {
   window: WindowPort;
   watcher: WatcherPort;
   ai: AiPort;
+  ai_stream: AiStreamPort;
   graph: GraphPort;
   bases: BasesPort;
   task: TaskPort;

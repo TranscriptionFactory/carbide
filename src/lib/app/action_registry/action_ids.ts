@@ -269,6 +269,11 @@ export const ACTION_IDS = {
   ai_apply_result: "ai.apply_result",
   ai_clear_result: "ai.clear_result",
   ai_generate_description: "ai.generate_description",
+  ai_open_inline_menu: "ai.open_inline_menu",
+  ai_execute_inline: "ai.execute_inline",
+  ai_accept_inline: "ai.accept_inline",
+  ai_reject_inline: "ai.reject_inline",
+  ai_close_inline_menu: "ai.close_inline_menu",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",
