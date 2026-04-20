@@ -181,7 +181,7 @@ async fn run_streaming_cli(
     tokio::select! {
         _ = async {
             while let Ok(Some(line)) = reader.next_line().await {
-                let cleaned = pipeline::strip_ansi(&line);
+                let cleaned = pipeline::clean_cli_output(&line);
                 if !cleaned.is_empty() {
                     let _ = app.emit(event_name, AiStreamEvent::Text { text: cleaned });
                 }
