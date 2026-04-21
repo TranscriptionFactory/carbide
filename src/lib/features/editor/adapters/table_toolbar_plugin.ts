@@ -293,7 +293,14 @@ export function create_table_toolbar_prose_plugin(): Plugin {
 
   return new Plugin({
     key: table_toolbar_plugin_key,
-    view() {
+    view(view) {
+      function on_blur(e: FocusEvent) {
+        const related = e.relatedTarget as Node | null;
+        if (toolbar_el?.contains(related)) return;
+        remove_toolbar();
+      }
+      view.dom.addEventListener("focusout", on_blur);
+
       return {
         update(view) {
           const { $from } = view.state.selection;
@@ -341,6 +348,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
           );
         },
         destroy() {
+          view.dom.removeEventListener("focusout", on_blur);
           remove_toolbar();
         },
       };
