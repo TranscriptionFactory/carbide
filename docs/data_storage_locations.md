@@ -53,3 +53,11 @@
 
 - Asset caches: vault (128 MB), plugins (64 MB), excalidraw (32 MB) — LRU eviction
 - HNSW vector index (reconstructed from SQLite on load)
+
+## Cross-platform notes
+
+Paths mirror Tauri's conventions:
+
+- **Windows**: `%AppData%\\Roaming\\com.carbide.desktop\\` for config and `AppData\\Local\\com.carbide.desktop\\` for caches.
+- **Linux**: `~/.config/com.carbide.desktop/` for config and `~/.cache/com.carbide.desktop/` for caches.
+- Per-vault layout under `<VAULT>/.carbide/` is identical across platforms.

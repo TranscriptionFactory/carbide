@@ -3,6 +3,7 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { as_note_path, as_vault_path } from "$lib/shared/types/ids";
+import { WELCOME_STATE_VERSION } from "$lib/features/settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import { set_load_state, set_pagination } from "$lib/features/folder";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
@@ -243,6 +244,19 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
   set_startup_idle(input);
 }
 
+async function maybe_open_welcome_dialog(input: ActionRegistrationInput) {
+  if (input.default_mount_config.window_kind === "viewer") {
+    return;
+  }
+
+  const state = await input.services.settings.load_welcome_state();
+  if (state.seen_version >= WELCOME_STATE_VERSION) {
+    return;
+  }
+
+  input.stores.ui.welcome_dialog = { open: true };
+}
+
 async function check_for_update_silently() {
   if (!is_tauri) return null;
   try {
@@ -318,7 +332,10 @@ export function register_app_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.app_mounted,
     label: "App Mounted",
-    execute: async () => execute_app_mounted(input),
+    execute: async () => {
+      await execute_app_mounted(input);
+      await maybe_open_welcome_dialog(input);
+    },
   });
 
   registry.register({

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { SettingsService } from "$lib/features/settings/application/settings_service";
+import {
+  SettingsService,
+  WELCOME_STATE_VERSION,
+} from "$lib/features/settings/application/settings_service";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { as_vault_id } from "$lib/shared/types/ids";
@@ -11,6 +14,7 @@ const VAULT_ID = as_vault_id("vault-a");
 function make_service(overrides: {
   vault_get?: unknown;
   global_get?: (key: string) => unknown;
+  now_ms?: () => number;
 }) {
   const vault_settings_port = {
     get_vault_setting: vi.fn().mockResolvedValue(overrides.vault_get ?? null),
@@ -31,7 +35,7 @@ function make_service(overrides: {
     settings_port as never,
     vault_store,
     op_store,
-    () => 1,
+    overrides.now_ms ?? (() => 1),
   );
   return { service, vault_settings_port, settings_port };
 }
@@ -253,5 +257,40 @@ describe("SettingsService", () => {
       "ignored_folders",
       expect.anything(),
     );
+  });
+
+  it("loads welcome state with defaults when missing", async () => {
+    const { service } = make_service({ global_get: () => null });
+
+    const state = await service.load_welcome_state();
+
+    expect(state).toEqual({ seen_version: 0, dismissed_at_ms: null });
+  });
+
+  it("loads stored welcome state when available", async () => {
+    const { service } = make_service({
+      global_get: (key) =>
+        key === "welcome_state_v1"
+          ? { seen_version: 2, dismissed_at_ms: 42 }
+          : null,
+    });
+
+    const state = await service.load_welcome_state();
+
+    expect(state).toEqual({ seen_version: 2, dismissed_at_ms: 42 });
+  });
+
+  it("marks welcome as seen with version and timestamp", async () => {
+    const timestamp = 9876;
+    const { service, settings_port } = make_service({
+      now_ms: () => timestamp,
+    });
+
+    await service.mark_welcome_seen();
+
+    expect(settings_port.set_setting).toHaveBeenCalledWith("welcome_state_v1", {
+      seen_version: WELCOME_STATE_VERSION,
+      dismissed_at_ms: timestamp,
+    });
   });
 });

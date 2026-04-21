@@ -1,5 +1,9 @@
 export { register_settings_actions } from "$lib/features/settings/application/settings_actions";
-export { SettingsService } from "$lib/features/settings/application/settings_service";
+export {
+  SettingsService,
+  WELCOME_STATE_VERSION,
+  type WelcomeState,
+} from "$lib/features/settings/application/settings_service";
 export type {
   SettingsPort,
   StoragePort,

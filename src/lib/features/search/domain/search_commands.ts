@@ -559,4 +559,11 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "file-down",
     when: (ctx) => ctx.has_open_note,
   },
+  {
+    id: "open_welcome",
+    label: "Open Welcome",
+    description: "Show the welcome onboarding dialog",
+    keywords: ["welcome", "onboarding", "getting started", "first run", "help"],
+    icon: "sparkles",
+  },
 ];

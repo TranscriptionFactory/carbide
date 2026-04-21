@@ -131,6 +131,9 @@ export const ACTION_IDS = {
   graph_open_as_tab: "graph.open_as_tab",
   graph_load_hierarchy: "graph.load_hierarchy",
 
+  welcome_open: "welcome.open",
+  welcome_close: "welcome.close",
+
   search_graph_open: "search_graph.open",
   search_graph_execute: "search_graph.execute",
   search_graph_select_node: "search_graph.select_node",

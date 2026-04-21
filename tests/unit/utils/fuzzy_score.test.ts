@@ -144,4 +144,35 @@ describe("fuzzy_score_fields", () => {
     const score = fuzzy_score_fields("zen", ["Toggle Zen Mode", "zenith"]);
     expect(score).toBeGreaterThan(0);
   });
+
+  it("matches multi-word query in any order", () => {
+    const fields = ["Open Welcome", "welcome", "onboarding"];
+    expect(fuzzy_score_fields("welcome open", fields)).toBeGreaterThan(0);
+    expect(fuzzy_score_fields("open welcome", fields)).toBeGreaterThan(0);
+  });
+
+  it("returns 0 when one word in multi-word query has no match", () => {
+    expect(fuzzy_score_fields("open zzz", ["Open Welcome"])).toBe(0);
+  });
+
+  it("multi-word score is sum of individual word scores", () => {
+    const fields = ["Toggle Zen Mode", "zen", "focus"];
+    const combined = fuzzy_score_fields("toggle zen", fields);
+    const word1 = fuzzy_score_fields("toggle", fields);
+    const word2 = fuzzy_score_fields("zen", fields);
+    expect(combined).toBe(word1 + word2);
+  });
+
+  it("single-word query behaves as before", () => {
+    const fields = ["Settings", "preferences", "config"];
+    const single = fuzzy_score_fields("set", fields);
+    const multi = fuzzy_score_multi("set", fields);
+    expect(single).toBe(multi?.score ?? 0);
+  });
+
+  it("is case-insensitive for multi-word queries", () => {
+    const fields = ["Open Welcome"];
+    expect(fuzzy_score_fields("WELCOME OPEN", fields)).toBeGreaterThan(0);
+    expect(fuzzy_score_fields("Welcome Open", fields)).toBeGreaterThan(0);
+  });
 });

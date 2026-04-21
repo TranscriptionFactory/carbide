@@ -28,6 +28,7 @@
   } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
+  import WelcomeDialog from "$lib/app/bootstrap/ui/welcome_dialog.svelte";
   import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
@@ -63,6 +64,11 @@
 
   const has_vault = $derived(stores.vault.vault !== null);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
+
+  const ai_configured = $derived(
+    stores.ui.settings_dialog.current_settings.ai_enabled &&
+      stores.ui.settings_dialog.current_settings.ai_providers.length > 0,
+  );
 
   const vault_dashboard_open = $derived(
     is_vault_mode && stores.ui.vault_dashboard.open,
@@ -706,6 +712,22 @@
 <QuickCaptureDialog
   open={stores.ui.quick_capture_open}
   on_open_change={(open) => (stores.ui.quick_capture_open = open)}
+/>
+
+<WelcomeDialog
+  open={stores.ui.welcome_dialog.open}
+  {has_vault}
+  {ai_configured}
+  on_close={() => void action_registry.execute(ACTION_IDS.welcome_close)}
+  on_choose_vault={() => void action_registry.execute(ACTION_IDS.vault_choose)}
+  on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
+  on_open_settings={(category) =>
+    void action_registry.execute(ACTION_IDS.settings_open, category)}
+  on_open_omnibar={() => void action_registry.execute(ACTION_IDS.omnibar_open)}
+  on_open_docs={(url) =>
+    void action_registry.execute(ACTION_IDS.shell_open_url, url)}
+  on_open_dashboard={() =>
+    void action_registry.execute(ACTION_IDS.ui_open_vault_dashboard)}
 />
 
 <HelpDialog
