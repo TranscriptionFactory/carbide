@@ -303,7 +303,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     background:
       radial-gradient(
         circle at 20% 20%,
