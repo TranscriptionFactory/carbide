@@ -14,7 +14,7 @@
   import { HotkeyKey } from "$lib/features/hotkey";
 
   const highlighted_shortcuts = [
-    { label: "Omnifind", key: "CmdOrCtrl+O" },
+    { label: "Omnibar (search)", key: "CmdOrCtrl+O" },
     { label: "Command Palette", key: "CmdOrCtrl+Shift+P" },
     { label: "Search Graph", key: "CmdOrCtrl+Alt+G" },
     { label: "Settings", key: "CmdOrCtrl+," },
@@ -47,6 +47,17 @@
     on_open_docs,
     on_open_dashboard,
   }: Props = $props();
+
+  const built_in_features = [
+    "Integrated Terminal",
+    "Git & Version History",
+    "Plugins",
+    "Bases (databases)",
+    "Markdown LSP",
+    "Linting & Diagnostics",
+    "Canvas (Excalidraw)",
+    "Task Management",
+  ] as const;
 
   const docs_links = [
     {
@@ -242,6 +253,15 @@
             </Button>
           </div>
         </section>
+      </div>
+
+      <div class="WelcomeDialog__features">
+        <p class="WelcomeDialog__features-label">Also built in</p>
+        <div class="WelcomeDialog__features-pills">
+          {#each built_in_features as feature (feature)}
+            <span class="WelcomeDialog__feature-pill">{feature}</span>
+          {/each}
+        </div>
       </div>
 
       <Separator />
@@ -551,6 +571,35 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .WelcomeDialog__features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .WelcomeDialog__features-label {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    letter-spacing: 0.02em;
+  }
+
+  .WelcomeDialog__features-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .WelcomeDialog__feature-pill {
+    padding: var(--space-1) var(--space-2);
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: var(--text-sm);
   }
 
   .WelcomeDialog__footer {
