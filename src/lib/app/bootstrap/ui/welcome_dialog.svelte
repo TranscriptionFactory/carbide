@@ -49,13 +49,16 @@
   }: Props = $props();
 
   const built_in_features = [
+    "Semantic Search",
+    "Inline AI",
+    "Action Registry",
     "Integrated Terminal",
     "Git & Version History",
     "Plugins",
-    "Bases (databases)",
+    "Bases",
     "Markdown LSP",
     "Linting & Diagnostics",
-    "Canvas (Excalidraw)",
+    "Canvas",
     "Task Management",
   ] as const;
 
@@ -110,12 +113,6 @@
               workflows.
             </p>
           </div>
-        </div>
-        <div class="WelcomeDialog__chips">
-          <span>Hybrid FTS + embeddings + graph</span>
-          <span>Action registry for every interaction</span>
-          <span>Programmable plugins & toolchain</span>
-          <span>AI inline commands with vault context</span>
         </div>
       </div>
 
@@ -269,13 +266,7 @@
       <div class="WelcomeDialog__footer">
         <div class="WelcomeDialog__footer-left">
           <span class="WelcomeDialog__footer-icon"><BookOpen /></span>
-          <div>
-            <p class="WelcomeDialog__footer-title">Dig deeper</p>
-            <p class="WelcomeDialog__footer-copy">
-              Quick references for the decision tree, plugin system, and
-              workflows.
-            </p>
-          </div>
+          <p class="WelcomeDialog__footer-title">Dig deeper</p>
         </div>
         <div class="WelcomeDialog__footer-actions">
           {#each docs_links as link (link.url)}
@@ -311,7 +302,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    gap: var(--space-4);
     background:
       radial-gradient(
         circle at 20% 20%,
@@ -355,8 +346,8 @@
   .WelcomeDialog__hero {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-4);
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
     background:
       linear-gradient(135deg, var(--interactive-bg), transparent 40%),
@@ -417,21 +408,6 @@
     color: var(--interactive);
   }
 
-  .WelcomeDialog__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .WelcomeDialog__chips span {
-    padding: var(--space-1) var(--space-2);
-    border-radius: 999px;
-    border: 1px solid var(--interactive-bg);
-    background: color-mix(in srgb, var(--interactive-bg) 50%, transparent);
-    color: var(--interactive);
-    font-size: var(--text-sm);
-  }
-
   .WelcomeDialog__grid {
     display: grid;
     gap: var(--space-3);
@@ -439,13 +415,13 @@
   }
 
   .WelcomeDialog__card {
-    padding: var(--space-4);
+    padding: var(--space-3);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     background: var(--card);
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-2);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
     transition: opacity 200ms;
   }
@@ -628,11 +604,6 @@
   .WelcomeDialog__footer-title {
     margin: 0;
     font-weight: 600;
-  }
-
-  .WelcomeDialog__footer-copy {
-    margin: var(--space-1) 0 0;
-    color: var(--muted-foreground);
   }
 
   .WelcomeDialog__footer-actions {
