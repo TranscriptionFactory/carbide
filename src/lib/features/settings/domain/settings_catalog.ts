@@ -875,6 +875,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["vim", "navigation", "keyboard", "keybinding", "hjkl", "modal"],
   },
   {
+    key: "embedding_model_id",
+    label: "Embedding Model",
+    description:
+      "BERT-architecture model used to generate note and block embeddings. Changing the model clears existing embeddings and re-indexes.",
+    category: "Semantic",
+    keywords: [
+      "embedding",
+      "model",
+      "arctic",
+      "bge",
+      "minilm",
+      "semantic",
+      "vector",
+    ],
+  },
+  {
     key: "embedding_note_enabled",
     label: "Note Embedding",
     description:

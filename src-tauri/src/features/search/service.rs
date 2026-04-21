@@ -7,6 +7,7 @@ use crate::features::search::model::{
     SearchScope, SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
+use crate::features::settings::service as settings_service;
 use crate::features::vault_settings::service::get_vault_setting_value;
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
@@ -21,6 +22,25 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
+
+fn resolve_embedding_model_id(app: &AppHandle) -> String {
+    settings_service::load_settings(app)
+        .ok()
+        .and_then(|store| store.settings.get("embedding_model_id").cloned())
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| "snowflake-arctic-embed-xs".to_string())
+}
+
+fn short_id_to_hf_repo(short_id: &str) -> &str {
+    match short_id {
+        "snowflake-arctic-embed-xs" => "Snowflake/snowflake-arctic-embed-xs",
+        "snowflake-arctic-embed-s" => "Snowflake/snowflake-arctic-embed-s",
+        "snowflake-arctic-embed-m" => "Snowflake/snowflake-arctic-embed-m",
+        "bge-small-en-v1.5" => "BAAI/bge-small-en-v1.5",
+        "all-MiniLM-L6-v2" => "sentence-transformers/all-MiniLM-L6-v2",
+        _ => "Snowflake/snowflake-arctic-embed-xs",
+    }
+}
 
 fn set_current_thread_to_background_qos() {
     #[cfg(target_os = "macos")]
@@ -900,7 +920,9 @@ fn embed_note_on_save(
 ) {
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
+    let short_id = resolve_embedding_model_id(app_handle);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = match embedding_state.get_or_init(cache_dir, hf_repo, app_handle) {
         Ok(m) => m,
         Err(_) => return,
     };
@@ -1362,7 +1384,9 @@ fn handle_embed_batch(
     // embedding_note_enabled). If both disabled, returns immediately.
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let model = match embedding_state.get_or_init(cache_dir, app_handle) {
+    let short_id = resolve_embedding_model_id(app_handle);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = match embedding_state.get_or_init(cache_dir, hf_repo, app_handle) {
         Ok(m) => m,
         Err(e) => {
             log::warn!("embed_batch: model unavailable: {e}");
@@ -1409,16 +1433,16 @@ fn handle_embed_batch(
     }
 
     let model_version = vector_db::get_model_version(conn);
-    if model_version.as_deref() != Some(vector_db::MODEL_VERSION) {
+    if model_version.as_deref() != Some(&short_id) {
         log::info!(
             "embedding model version changed ({:?} -> {}), re-embedding all",
             model_version,
-            vector_db::MODEL_VERSION
+            short_id
         );
         if let Err(e) = vector_db::clear_all_embeddings(conn) {
             log::warn!("embed_batch: clear for model upgrade failed: {e}");
         }
-        if let Err(e) = vector_db::set_model_version(conn, vector_db::MODEL_VERSION) {
+        if let Err(e) = vector_db::set_model_version(conn, &short_id) {
             log::warn!("embed_batch: failed to update model version: {e}");
         }
         if let Ok(mut ni) = note_index.write() {
@@ -2314,7 +2338,9 @@ pub fn semantic_search(
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
-    let model = embedding_state.get_or_init(cache_dir, &app)?;
+    let short_id = resolve_embedding_model_id(&app);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
     let query_vec = model.embed_one(&query)?;
     let limit = limit.unwrap_or(20);
 
@@ -2473,7 +2499,9 @@ pub async fn hybrid_search(
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
-    let model = embedding_state.get_or_init(cache_dir, &app)?;
+    let short_id = resolve_embedding_model_id(&app);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
     let limit = limit.unwrap_or(20);
 
     let (read_conn, ni) = {

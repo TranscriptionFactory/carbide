@@ -8,8 +8,6 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
 
-const MODEL_ID: &str = "Snowflake/snowflake-arctic-embed-xs";
-
 pub struct EmbeddingService {
     model: BertModel,
     tokenizer: Tokenizer,
@@ -17,7 +15,7 @@ pub struct EmbeddingService {
 }
 
 impl EmbeddingService {
-    pub fn new(cache_dir: PathBuf) -> Result<Self, String> {
+    pub fn new(cache_dir: PathBuf, model_id: &str) -> Result<Self, String> {
         let device = {
             #[cfg(target_os = "macos")]
             {
@@ -43,7 +41,7 @@ impl EmbeddingService {
             .with_progress(false)
             .build()
             .map_err(|e| format!("HF API init failed: {e}"))?;
-        let repo = api.model(MODEL_ID.to_string());
+        let repo = api.model(model_id.to_string());
 
         let config_path = repo
             .get("config.json")
@@ -188,15 +186,13 @@ impl EmbeddingService {
 }
 
 pub struct EmbeddingServiceState {
-    inner: Mutex<Option<Arc<EmbeddingService>>>,
-    initialized: AtomicBool,
+    inner: Mutex<Option<(String, Arc<EmbeddingService>)>>,
 }
 
 impl Default for EmbeddingServiceState {
     fn default() -> Self {
         Self {
             inner: Mutex::new(None),
-            initialized: AtomicBool::new(false),
         }
     }
 }
@@ -205,21 +201,23 @@ impl EmbeddingServiceState {
     pub fn get_or_init(
         &self,
         cache_dir: PathBuf,
+        model_id: &str,
         app_handle: &AppHandle,
     ) -> Result<Arc<EmbeddingService>, String> {
         let mut guard = self.inner.lock().map_err(|e| e.to_string())?;
-        if let Some(ref service) = *guard {
-            return Ok(Arc::clone(service));
+        if let Some((ref loaded_id, ref service)) = *guard {
+            if loaded_id == model_id {
+                return Ok(Arc::clone(service));
+            }
+            log::info!("Embedding model changed: {loaded_id} -> {model_id}, reinitializing");
         }
-        let service = EmbeddingService::new(cache_dir).map_err(|e| {
-            log::error!("Failed to load embedding model: {e}");
+        let service = EmbeddingService::new(cache_dir, model_id).map_err(|e| {
+            log::error!("Failed to load embedding model {model_id}: {e}");
             e
         })?;
         let arc = Arc::new(service);
-        *guard = Some(Arc::clone(&arc));
-        if !self.initialized.swap(true, Ordering::SeqCst) {
-            let _ = app_handle.emit("embedding_model_loaded", ());
-        }
+        *guard = Some((model_id.to_string(), Arc::clone(&arc)));
+        let _ = app_handle.emit("embedding_model_loaded", ());
         Ok(arc)
     }
 
@@ -227,6 +225,6 @@ impl EmbeddingServiceState {
         self.inner
             .lock()
             .ok()
-            .and_then(|g| g.as_ref().map(Arc::clone))
+            .and_then(|g| g.as_ref().map(|(_, s)| Arc::clone(s)))
     }
 }
