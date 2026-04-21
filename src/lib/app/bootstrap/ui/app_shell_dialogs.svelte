@@ -65,6 +65,11 @@
   const has_vault = $derived(stores.vault.vault !== null);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
+  const ai_configured = $derived(
+    stores.ui.settings_dialog.current_settings.ai_enabled &&
+      stores.ui.settings_dialog.current_settings.ai_providers.length > 0,
+  );
+
   const vault_dashboard_open = $derived(
     is_vault_mode && stores.ui.vault_dashboard.open,
   );
@@ -712,6 +717,7 @@
 <WelcomeDialog
   open={stores.ui.welcome_dialog.open}
   {has_vault}
+  {ai_configured}
   on_close={() => void action_registry.execute(ACTION_IDS.welcome_close)}
   on_choose_vault={() => void action_registry.execute(ACTION_IDS.vault_choose)}
   on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}

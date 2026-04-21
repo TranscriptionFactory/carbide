@@ -9,10 +9,13 @@
   import Search from "@lucide/svelte/icons/search";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import Gauge from "@lucide/svelte/icons/gauge";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import X from "@lucide/svelte/icons/x";
 
   type Props = {
     open: boolean;
     has_vault: boolean;
+    ai_configured: boolean;
     on_close: () => void;
     on_choose_vault: () => void;
     on_open_help: () => void;
@@ -25,6 +28,7 @@
   let {
     open,
     has_vault,
+    ai_configured,
     on_close,
     on_choose_vault,
     on_open_help,
@@ -33,6 +37,9 @@
     on_open_docs,
     on_open_dashboard,
   }: Props = $props();
+
+  const vault_done = $derived(has_vault);
+  const ai_done = $derived(ai_configured);
 
   const docs_links = [
     {
@@ -53,8 +60,16 @@
 </script>
 
 <Dialog.Root {open} onOpenChange={handle_open_change}>
-  <Dialog.Content class="WelcomeDialogShell">
+  <Dialog.Content class="WelcomeDialogShell" showCloseButton={false}>
     <div class="WelcomeDialog">
+      <button
+        class="WelcomeDialog__close"
+        onclick={on_close}
+        aria-label="Close"
+      >
+        <X />
+      </button>
+
       <Dialog.Header class="sr-only">
         <Dialog.Title>Welcome to Carbide</Dialog.Title>
         <Dialog.Description>
@@ -99,7 +114,15 @@
               <FolderOpen />
             </div>
             <div>
-              <p class="WelcomeDialog__card-kicker">Step 1</p>
+              {#if vault_done}
+                <p
+                  class="WelcomeDialog__card-kicker WelcomeDialog__card-kicker--done"
+                >
+                  <CircleCheck size={14} /> Done
+                </p>
+              {:else}
+                <p class="WelcomeDialog__card-kicker">Step 1</p>
+              {/if}
               <h3>Anchor a vault</h3>
             </div>
           </div>
@@ -108,7 +131,13 @@
             the paths you use daily and surface them in the dashboard.
           </p>
           <div class="WelcomeDialog__actions">
-            <Button size="sm" onclick={on_choose_vault}>Choose a vault</Button>
+            <Button
+              size="sm"
+              variant={has_vault ? "secondary" : "default"}
+              onclick={on_choose_vault}
+            >
+              Choose a vault
+            </Button>
             {#if has_vault}
               <Button variant="secondary" size="sm" onclick={on_open_dashboard}>
                 Open vault dashboard
@@ -117,7 +146,10 @@
           </div>
         </section>
 
-        <section class="WelcomeDialog__card">
+        <section
+          class="WelcomeDialog__card"
+          class:WelcomeDialog__card--gated={!has_vault}
+        >
           <div class="WelcomeDialog__card-header">
             <div
               class="WelcomeDialog__card-icon WelcomeDialog__card-icon--amber"
@@ -129,6 +161,9 @@
               <h3>Command everything</h3>
             </div>
           </div>
+          {#if !has_vault}
+            <p class="WelcomeDialog__card-gate-label">Open a vault first</p>
+          {/if}
           <p class="WelcomeDialog__card-body">
             The omnibar and hotkeys drive every action: open notes, run
             commands, or jump between tabs. The help sheet lists defaults and
@@ -145,7 +180,10 @@
           </div>
         </section>
 
-        <section class="WelcomeDialog__card">
+        <section
+          class="WelcomeDialog__card"
+          class:WelcomeDialog__card--gated={!has_vault}
+        >
           <div class="WelcomeDialog__card-header">
             <div
               class="WelcomeDialog__card-icon WelcomeDialog__card-icon--purple"
@@ -153,10 +191,21 @@
               <Bot />
             </div>
             <div>
-              <p class="WelcomeDialog__card-kicker">Step 3</p>
+              {#if ai_done}
+                <p
+                  class="WelcomeDialog__card-kicker WelcomeDialog__card-kicker--done"
+                >
+                  <CircleCheck size={14} /> Done
+                </p>
+              {:else}
+                <p class="WelcomeDialog__card-kicker">Step 3</p>
+              {/if}
               <h3>Wire up AI & graph</h3>
             </div>
           </div>
+          {#if !has_vault}
+            <p class="WelcomeDialog__card-gate-label">Open a vault first</p>
+          {/if}
           <p class="WelcomeDialog__card-body">
             Enable inline AI commands, semantic search, and graph semantics.
             Tune providers, embeddings, and diagnostics before you start
@@ -222,9 +271,11 @@
   }
 
   .WelcomeDialog {
+    position: relative;
     width: min(960px, 90vw);
     max-width: min(960px, 90vw);
     max-height: 90vh;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
@@ -244,6 +295,28 @@
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
     padding: var(--space-5);
     border-radius: var(--radius-lg);
+  }
+
+  .WelcomeDialog__close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 150ms;
+    z-index: 1;
+  }
+
+  .WelcomeDialog__close:hover {
+    opacity: 1;
   }
 
   .WelcomeDialog__hero {
@@ -341,6 +414,12 @@
     flex-direction: column;
     gap: var(--space-3);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    transition: opacity 200ms;
+  }
+
+  .WelcomeDialog__card--gated {
+    opacity: 0.45;
+    pointer-events: none;
   }
 
   .WelcomeDialog__card-header {
@@ -383,6 +462,20 @@
     font-size: var(--text-sm);
     color: var(--muted-foreground);
     letter-spacing: 0.02em;
+  }
+
+  .WelcomeDialog__card-kicker--done {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--interactive);
+  }
+
+  .WelcomeDialog__card-gate-label {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--muted-foreground);
+    font-style: italic;
   }
 
   .WelcomeDialog__card h3 {
