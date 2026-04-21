@@ -4,14 +4,25 @@ pub mod settings;
 pub mod types;
 pub mod watcher;
 
-use crate::features::plugin::service::PluginService;
+use crate::features::plugin::service::{install_bundled_plugins, PluginService};
 use crate::features::plugin::settings::PluginSettings;
 use crate::features::plugin::types::PluginInfo;
 use std::path::Path;
 use tauri::{command, AppHandle, Manager, State};
+use tauri::path::BaseDirectory;
 
 fn resolve_home_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().home_dir().map_err(|e| e.to_string())
+}
+
+#[command]
+pub async fn plugin_install_bundled(app: AppHandle) -> Result<Vec<String>, String> {
+    let resource_dir = app
+        .path()
+        .resolve("", BaseDirectory::Resource)
+        .map_err(|e| e.to_string())?;
+    let home_dir = resolve_home_dir(&app)?;
+    install_bundled_plugins(&resource_dir, &home_dir).map_err(|e| e.to_string())
 }
 
 #[command]

@@ -114,6 +114,7 @@ function make_host_port() {
 
   return {
     port: {
+      install_bundled: vi.fn().mockResolvedValue([]),
       discover: vi.fn().mockResolvedValue([]),
       load: vi.fn().mockResolvedValue(undefined),
       unload,

@@ -121,6 +121,7 @@ export type PluginFsEvent = {
 };
 
 export interface PluginHostPort {
+  install_bundled(this: void): Promise<string[]>;
   discover(this: void, vault_path: string): Promise<DiscoveredPlugin[]>;
   load(this: void, vault_path: string, id: string): Promise<void>;
   unload(this: void, id: string): Promise<void>;

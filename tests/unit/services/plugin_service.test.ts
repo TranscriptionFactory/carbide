@@ -17,6 +17,7 @@ import type { RpcRequest } from "$lib/features/plugin/application/plugin_rpc_han
 
 function create_mock_host(): PluginHostPort {
   return {
+    install_bundled: vi.fn().mockResolvedValue([]),
     discover: vi.fn().mockResolvedValue([] as DiscoveredPlugin[]),
     load: vi.fn().mockResolvedValue(undefined),
     unload: vi.fn().mockResolvedValue(undefined),

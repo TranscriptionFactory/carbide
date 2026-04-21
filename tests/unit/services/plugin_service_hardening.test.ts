@@ -101,6 +101,7 @@ function make_store(plugin_id = "plugin-a"): TestStore {
 
 function make_host_port(): PluginHostPort {
   return {
+    install_bundled: vi.fn().mockResolvedValue([]),
     discover: vi.fn().mockResolvedValue([]),
     load: vi.fn().mockResolvedValue(undefined),
     unload: vi.fn().mockResolvedValue(undefined),

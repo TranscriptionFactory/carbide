@@ -93,6 +93,7 @@ export function create_test_ports(): Ports {
       createTask: () => Promise.resolve(),
     },
     plugin: {
+      install_bundled: () => Promise.resolve([]),
       discover: () => Promise.resolve([]),
       load: () => Promise.resolve(),
       unload: () => Promise.resolve(),
