@@ -2216,14 +2216,6 @@ pub fn get_all_graph_edges_chunked(
 fn escape_fts_query(query: &str) -> String {
     query
         .split_whitespace()
-        .map(|term| format!("\"{}\"", term.replace('"', "")))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn escape_fts_prefix_query(query: &str) -> String {
-    query
-        .split_whitespace()
         .filter_map(|term| {
             let clean: String = term
                 .chars()
@@ -2237,6 +2229,8 @@ fn escape_fts_prefix_query(query: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
+
+
 
 fn like_contains_pattern(query: &str) -> String {
     let escaped = query
@@ -2368,7 +2362,7 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
         return Ok(Vec::new());
     }
 
-    let escaped = escape_fts_prefix_query(trimmed);
+    let escaped = escape_fts_query(trimmed);
     if escaped.is_empty() {
         return Ok(Vec::new());
     }
