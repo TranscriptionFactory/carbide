@@ -222,16 +222,31 @@ export function create_ai_menu_plugin(
         prev_streaming = state.streaming;
       }
 
+      function dismiss_menu() {
+        const s = get_ai_menu_state(editor_view.state);
+        if (!s.open) return;
+        if (s.original_doc) {
+          reject_ai_inline(editor_view);
+        } else {
+          dispatch_ai_menu(editor_view, { action: "close" });
+        }
+      }
+
       const detach_dismiss = attach_outside_dismiss(
         container,
         editor_view.dom,
-        () => {
-          const s = get_ai_menu_state(editor_view.state);
-          if (s.open && !s.streaming) {
-            dispatch_ai_menu(editor_view, { action: "close" });
-          }
-        },
+        dismiss_menu,
       );
+
+      const on_keydown = (e: KeyboardEvent) => {
+        const s = get_ai_menu_state(editor_view.state);
+        if (s.open && e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          dismiss_menu();
+        }
+      };
+      document.addEventListener("keydown", on_keydown, true);
 
       return {
         update(view: EditorView) {
@@ -256,6 +271,7 @@ export function create_ai_menu_plugin(
           prev_open = state.open;
         },
         destroy() {
+          document.removeEventListener("keydown", on_keydown, true);
           if (svelte_app) unmount(svelte_app);
           destroy_dropdown(container, detach_dismiss);
         },
