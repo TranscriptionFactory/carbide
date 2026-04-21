@@ -265,29 +265,12 @@ function create_toolbar_dom(view: EditorView): {
   return { el: toolbar, align_btns, layout_btns };
 }
 
-function update_alignment_buttons(
-  align_btns: AlignmentButtonRefs,
-  current: ColumnAlignment,
+function update_toggle_buttons(
+  btns: Map<string, HTMLButtonElement>,
+  current: string,
 ): void {
-  for (const [value, btn] of align_btns) {
-    if (value === current) {
-      btn.classList.add("active");
-    } else {
-      btn.classList.remove("active");
-    }
-  }
-}
-
-function update_layout_buttons(
-  layout_btns: LayoutButtonRefs,
-  current: TableLayout,
-): void {
-  for (const [value, btn] of layout_btns) {
-    if (value === current) {
-      btn.classList.add("active");
-    } else {
-      btn.classList.remove("active");
-    }
+  for (const [value, btn] of btns) {
+    btn.classList.toggle("active", value === current);
   }
 }
 
@@ -338,12 +321,12 @@ export function create_table_toolbar_prose_plugin(): Plugin {
 
           if (align_btn_refs) {
             const current_align = get_current_column_alignment(view);
-            update_alignment_buttons(align_btn_refs, current_align);
+            update_toggle_buttons(align_btn_refs, current_align);
           }
 
           if (layout_btn_refs) {
             const current_layout = get_table_layout(view);
-            update_layout_buttons(layout_btn_refs, current_layout);
+            update_toggle_buttons(layout_btn_refs, current_layout);
           }
 
           void compute_floating_position(table_dom, toolbar_el, "top").then(
