@@ -64,6 +64,7 @@ export type CommandId =
   | "open_search_graph"
   | "document_toggle_source"
   | "paste_html_as_markdown"
+  | "open_welcome"
   | (string & {});
 
 export type CommandIcon =

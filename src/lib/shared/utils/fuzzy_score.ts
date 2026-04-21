@@ -172,5 +172,15 @@ export function fuzzy_score_multi(
 }
 
 export function fuzzy_score_fields(query: string, fields: string[]): number {
-  return fuzzy_score_multi(query, fields)?.score ?? 0;
+  const words = query.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length <= 1) {
+    return fuzzy_score_multi(query, fields)?.score ?? 0;
+  }
+  let total = 0;
+  for (const word of words) {
+    const score = fuzzy_score_multi(word, fields)?.score ?? 0;
+    if (score <= 0) return 0;
+    total += score;
+  }
+  return total;
 }

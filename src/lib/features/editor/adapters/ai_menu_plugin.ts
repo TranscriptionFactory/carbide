@@ -4,7 +4,10 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as PmNode } from "prosemirror-model";
 import { mount, unmount } from "svelte";
-import { BUILTIN_INLINE_COMMANDS, type AiInlineCommand } from "$lib/features/ai";
+import {
+  BUILTIN_INLINE_COMMANDS,
+  type AiInlineCommand,
+} from "$lib/features/ai";
 import AiInlineMenu from "../ui/ai_inline_menu.svelte";
 import {
   create_cursor_anchor,

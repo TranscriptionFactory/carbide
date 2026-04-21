@@ -68,6 +68,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   rename_note: ACTION_IDS.note_request_rename,
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
   update_embeddings: ACTION_IDS.vault_update_embeddings,
+  open_welcome: ACTION_IDS.welcome_open,
   rebuild_embeddings: ACTION_IDS.vault_rebuild_embeddings,
   open_search_graph: ACTION_IDS.search_graph_open,
   document_toggle_source: ACTION_IDS.document_toggle_source,

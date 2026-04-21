@@ -1,11 +1,7 @@
 use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
 
-// Version token: incrementing this string triggers clear_all_embeddings on startup,
-// atomically wiping both note_embeddings and block_embeddings. Bump whenever
-// max_length, model weights, or composition strategy changes. (ref: DL-004)
-pub const MODEL_VERSION: &str = "snowflake-arctic-embed-xs-v2";
-pub const _EMBEDDING_DIMS: usize = 384;
+pub const DEFAULT_MODEL_VERSION: &str = "snowflake-arctic-embed-xs";
 
 pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
@@ -38,13 +34,7 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
 
     conn.execute(
         "INSERT OR IGNORE INTO embedding_meta (key, value) VALUES ('model_version', ?1)",
-        params![MODEL_VERSION],
-    )
-    .map_err(|e| e.to_string())?;
-
-    conn.execute(
-        "INSERT OR IGNORE INTO embedding_meta (key, value) VALUES ('dimensions', '384')",
-        [],
+        params![DEFAULT_MODEL_VERSION],
     )
     .map_err(|e| e.to_string())?;
 
