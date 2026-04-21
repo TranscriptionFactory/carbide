@@ -8,8 +8,11 @@ import { VaultService } from "$lib/features/vault";
 import { NoteService } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
-import { SearchService, COMMAND_TO_ACTION_ID } from "$lib/features/search";
-import { build_command_context } from "$lib/features/search/domain/build_command_context";
+import {
+  SearchService,
+  COMMAND_TO_ACTION_ID,
+  build_command_context,
+} from "$lib/features/search";
 import {
   EditorService,
   type EditorServiceCallbacks,

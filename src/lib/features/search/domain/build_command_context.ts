@@ -1,9 +1,9 @@
 import type { CommandContext } from "$lib/features/search/types/command_context";
-import type { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
-import type { GitStore } from "$lib/features/git/state/git_store.svelte";
-import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
+import type { EditorStore } from "$lib/features/editor";
+import type { GitStore } from "$lib/features/git";
+import type { AiStore } from "$lib/features/ai";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
-import type { TabStore } from "$lib/features/tab/state/tab_store.svelte";
+import type { TabStore } from "$lib/features/tab";
 
 type ContextStores = {
   editor: EditorStore;
