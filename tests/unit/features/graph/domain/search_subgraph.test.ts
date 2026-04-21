@@ -215,6 +215,50 @@ describe("extract_search_subgraph", () => {
     expect(result.nodes[0]!.score).toBe(0.75);
   });
 
+  it("threads metadata fields through to nodes", () => {
+    const hits: SearchSubgraphHit[] = [
+      {
+        path: "note.md",
+        title: "Note",
+        score: 1,
+        date_created_ms: 1000,
+        date_modified_ms: 2000,
+        source: "vault",
+        extension: "markdown",
+      },
+      {
+        path: "paper.pdf",
+        title: "Paper",
+        score: 0.8,
+        date_created_ms: 3000,
+        date_modified_ms: 4000,
+        source: "linked",
+        extension: "pdf",
+      },
+    ];
+    const vault = make_vault(
+      [
+        { path: "note.md", title: "Note" },
+        { path: "paper.pdf", title: "Paper" },
+      ],
+      [],
+    );
+
+    const result = extract_search_subgraph(hits, vault);
+
+    const note_node = result.nodes.find((n) => n.path === "note.md")!;
+    expect(note_node.date_created_ms).toBe(1000);
+    expect(note_node.date_modified_ms).toBe(2000);
+    expect(note_node.source).toBe("vault");
+    expect(note_node.extension).toBe("markdown");
+
+    const paper_node = result.nodes.find((n) => n.path === "paper.pdf")!;
+    expect(paper_node.date_created_ms).toBe(3000);
+    expect(paper_node.date_modified_ms).toBe(4000);
+    expect(paper_node.source).toBe("linked");
+    expect(paper_node.extension).toBe("pdf");
+  });
+
   it("handles empty hits gracefully", () => {
     const vault = make_vault([{ path: "a.md", title: "A" }], []);
 
@@ -391,6 +435,41 @@ describe("merge_expansion_into_snapshot", () => {
     expect(wiki_edges).toHaveLength(1);
     expect(wiki_edges[0]!.source).toBe("a.md");
     expect(wiki_edges[0]!.target).toBe("b.md");
+  });
+
+  it("threads metadata into merged nodes", () => {
+    const existing = extract_search_subgraph(
+      [{ path: "a.md", title: "A", score: 1 }],
+      make_vault([{ path: "a.md", title: "A" }], []),
+    );
+
+    const new_hits: SearchSubgraphHit[] = [
+      {
+        path: "b.pdf",
+        title: "B",
+        score: 0.5,
+        date_created_ms: 5000,
+        date_modified_ms: 6000,
+        source: "linked",
+        extension: "pdf",
+      },
+    ];
+
+    const vault = make_vault(
+      [
+        { path: "a.md", title: "A" },
+        { path: "b.pdf", title: "B" },
+      ],
+      [],
+    );
+
+    const merged = merge_expansion_into_snapshot(existing, new_hits, vault);
+
+    const b_node = merged.nodes.find((n) => n.path === "b.pdf")!;
+    expect(b_node.date_created_ms).toBe(5000);
+    expect(b_node.date_modified_ms).toBe(6000);
+    expect(b_node.source).toBe("linked");
+    expect(b_node.extension).toBe("pdf");
   });
 
   it("recomputes stats correctly", () => {
