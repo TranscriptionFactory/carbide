@@ -11,6 +11,16 @@
   import Gauge from "@lucide/svelte/icons/gauge";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import X from "@lucide/svelte/icons/x";
+  import { HotkeyKey } from "$lib/features/hotkey";
+
+  const highlighted_shortcuts = [
+    { label: "Open Notes", key: "CmdOrCtrl+O" },
+    { label: "Command Palette", key: "CmdOrCtrl+Shift+P" },
+    { label: "Search Graph", key: "CmdOrCtrl+Alt+G" },
+    { label: "Settings", key: "CmdOrCtrl+," },
+    { label: "Help", key: "F1" },
+    { label: "Create Note", key: "CmdOrCtrl+N" },
+  ] as const;
 
   type Props = {
     open: boolean;
@@ -158,17 +168,27 @@
             <p class="WelcomeDialog__card-gate-label">Open a vault first</p>
           {/if}
           <p class="WelcomeDialog__card-body">
-            The omnibar and hotkeys drive every action: open notes, run
-            commands, or jump between tabs. The help sheet lists defaults and
-            search syntax.
+            The omnibar and hotkeys drive every action. Type
+            <kbd class="WelcomeDialog__inline-kbd">{">"}</kbd> in the omnibar for
+            commands.
           </p>
+          <div class="WelcomeDialog__shortcut-list">
+            {#each highlighted_shortcuts as shortcut (shortcut.key)}
+              <div class="WelcomeDialog__shortcut-row">
+                <span class="WelcomeDialog__shortcut-label"
+                  >{shortcut.label}</span
+                >
+                <HotkeyKey hotkey={shortcut.key} />
+              </div>
+            {/each}
+          </div>
           <div class="WelcomeDialog__actions">
             <Button variant="secondary" size="sm" onclick={on_open_omnibar}>
               <span class="WelcomeDialog__inline-icon"><Search /></span>
               Open omnibar
             </Button>
             <Button variant="ghost" size="sm" onclick={on_open_help}>
-              View shortcuts
+              All shortcuts
             </Button>
           </div>
         </section>
@@ -480,6 +500,43 @@
     margin: 0;
     color: var(--muted-foreground);
     line-height: 1.5;
+  }
+
+  .WelcomeDialog__shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .WelcomeDialog__shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+  }
+
+  .WelcomeDialog__shortcut-label {
+    font-size: var(--text-sm);
+    color: var(--muted-foreground);
+  }
+
+  :global(.WelcomeDialog__inline-kbd) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6em;
+    height: 1.6em;
+    padding: 0 var(--space-1);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.85em;
+    font-weight: 500;
+    color: var(--foreground);
+    background-color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 0 var(--border);
+    vertical-align: baseline;
   }
 
   .WelcomeDialog__actions {
