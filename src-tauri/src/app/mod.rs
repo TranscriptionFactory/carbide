@@ -272,6 +272,7 @@ pub fn run() {
             features::git::service::git_push_with_upstream,
             features::vault::service::resolve_file_to_vault,
             features::vault::service::refresh_note_count,
+            features::plugin::plugin_install_bundled,
             features::plugin::plugin_discover,
             features::plugin::plugin_load,
             features::plugin::plugin_unload,

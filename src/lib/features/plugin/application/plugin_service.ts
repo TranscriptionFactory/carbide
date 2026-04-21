@@ -322,6 +322,7 @@ export class PluginService {
   }
 
   async initialize_active_vault() {
+    await this.host_port.install_bundled();
     await this.settings_service?.load();
     await this.discover();
     await this.activate_matching("on_startup");

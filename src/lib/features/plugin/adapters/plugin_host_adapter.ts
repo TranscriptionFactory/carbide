@@ -6,6 +6,15 @@ import { create_logger } from "$lib/shared/utils/logger";
 const log = create_logger("plugin_host_adapter");
 
 export class PluginHostAdapter implements PluginHostPort {
+  async install_bundled(): Promise<string[]> {
+    try {
+      return await invoke<string[]>("plugin_install_bundled");
+    } catch (e) {
+      log.from_error("Failed to install bundled plugins:", e);
+      return [];
+    }
+  }
+
   async discover(vault_path: string): Promise<DiscoveredPlugin[]> {
     try {
       return await invoke<DiscoveredPlugin[]>("plugin_discover", {
