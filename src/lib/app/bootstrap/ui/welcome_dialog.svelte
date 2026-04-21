@@ -14,7 +14,7 @@
   import { HotkeyKey } from "$lib/features/hotkey";
 
   const highlighted_shortcuts = [
-    { label: "Open Notes", key: "CmdOrCtrl+O" },
+    { label: "Omnifind", key: "CmdOrCtrl+O" },
     { label: "Command Palette", key: "CmdOrCtrl+Shift+P" },
     { label: "Search Graph", key: "CmdOrCtrl+Alt+G" },
     { label: "Settings", key: "CmdOrCtrl+," },
