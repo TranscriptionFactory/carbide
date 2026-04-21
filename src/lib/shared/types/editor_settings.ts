@@ -67,6 +67,44 @@ export type FileTreeStyle =
 export type FileTreeBlurbPosition = "caption" | "heading";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
+export type EmbeddingModelId =
+  | "snowflake-arctic-embed-xs"
+  | "snowflake-arctic-embed-s"
+  | "snowflake-arctic-embed-m"
+  | "bge-small-en-v1.5"
+  | "all-MiniLM-L6-v2";
+
+export const EMBEDDING_MODEL_OPTIONS: {
+  value: EmbeddingModelId;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "snowflake-arctic-embed-xs",
+    label: "Arctic Embed XS",
+    description: "384 dims, ~30 MB",
+  },
+  {
+    value: "snowflake-arctic-embed-s",
+    label: "Arctic Embed S",
+    description: "384 dims, ~130 MB",
+  },
+  {
+    value: "snowflake-arctic-embed-m",
+    label: "Arctic Embed M",
+    description: "768 dims, ~440 MB",
+  },
+  {
+    value: "bge-small-en-v1.5",
+    label: "BGE Small EN v1.5",
+    description: "384 dims, ~130 MB",
+  },
+  {
+    value: "all-MiniLM-L6-v2",
+    label: "MiniLM L6 v2",
+    description: "384 dims, ~90 MB",
+  },
+];
 
 export type EditorSettings = {
   attachment_folder: string;
@@ -165,6 +203,7 @@ export type EditorSettings = {
   // stt_streaming_enabled: boolean;
   // stt_ai_cleanup_enabled: boolean;
   // stt_ai_cleanup_prompt: string;
+  embedding_model_id: EmbeddingModelId;
   embedding_note_enabled: boolean;
   embedding_block_enabled: boolean;
   native_link_hover_enabled: boolean;
@@ -271,6 +310,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   // stt_ai_cleanup_enabled: false,
   // stt_ai_cleanup_prompt:
   //   "Clean up this dictated text. Fix grammar, remove filler words, maintain the speaker's intent and tone.",
+  embedding_model_id: "snowflake-arctic-embed-xs",
   embedding_note_enabled: true,
   embedding_block_enabled: true,
   native_link_hover_enabled: true,
@@ -416,6 +456,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   // "stt_streaming_enabled",
   // "stt_ai_cleanup_enabled",
   // "stt_ai_cleanup_prompt",
+  "embedding_model_id",
   "embedding_note_enabled",
   "embedding_block_enabled",
 ] as const;

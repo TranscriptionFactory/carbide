@@ -75,7 +75,9 @@
     EDITOR_DIVIDER_STYLE_OPTIONS,
     EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
     EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS,
+    EMBEDDING_MODEL_OPTIONS,
     type MarkdownLspProvider,
+    type EmbeddingModelId,
   } from "$lib/shared/types/editor_settings";
   import type {
     IweConfigStatus,
@@ -3651,6 +3653,57 @@
           <h2 class="SettingsDialog__content-header">Semantic</h2>
 
           <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Embedding Model</span>
+                <span class="SettingsDialog__description"
+                  >BERT-architecture model for note and block embeddings.
+                  Changing the model clears existing embeddings and re-indexes.</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.embedding_model_id}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("embedding_model_id", v as EmbeddingModelId);
+                  }}
+                >
+                  <Select.Trigger class="w-48">
+                    <span data-slot="select-value">
+                      {EMBEDDING_MODEL_OPTIONS.find(
+                        (o) => o.value === editor_settings.embedding_model_id,
+                      )?.label ?? editor_settings.embedding_model_id}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each EMBEDDING_MODEL_OPTIONS as opt (opt.value)}
+                      <Select.Item value={opt.value}
+                        >{opt.label}
+                        <span class="text-muted-foreground ml-1"
+                          >({opt.description})</span
+                        ></Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "embedding_model_id",
+                      DEFAULT_EDITOR_SETTINGS.embedding_model_id,
+                    )}
+                  disabled={editor_settings.embedding_model_id ===
+                    DEFAULT_EDITOR_SETTINGS.embedding_model_id}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.embedding_model_id})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Note Embedding</span>
