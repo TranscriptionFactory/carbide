@@ -559,9 +559,26 @@ const table: NodeSpec = {
   group: "block",
   tableRole: "table",
   isolating: true,
-  parseDOM: [{ tag: "table" }],
-  toDOM() {
-    return ["table", ["tbody", 0]];
+  attrs: {
+    layout: { default: "auto" },
+  },
+  parseDOM: [
+    {
+      tag: "table",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          layout: dom.classList.contains("table-fixed-layout")
+            ? "fixed"
+            : "auto",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const layout = node.attrs["layout"] as string;
+    const cls = layout === "fixed" ? "table-fixed-layout" : "table-auto-layout";
+    return ["table", { class: cls }, ["tbody", 0]];
   },
 };
 

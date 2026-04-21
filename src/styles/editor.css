@@ -988,8 +988,7 @@
    ============================================ */
 
 .ProseMirror table {
-  width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
   margin-top: calc(var(--editor-spacing) * 0.75);
@@ -1000,6 +999,16 @@
   border: 1px solid var(--editor-table-border);
   font-size: 0.95em;
   display: table;
+}
+
+.ProseMirror table.table-fixed-layout {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.ProseMirror table.table-auto-layout {
+  width: auto;
+  table-layout: auto;
 }
 
 .ProseMirror th,
