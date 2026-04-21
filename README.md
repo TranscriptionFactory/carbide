@@ -46,6 +46,17 @@ Download pre-built binaries from the [Releases](https://github.com/Transcription
 
 Built-in auto-updater applies updates on startup.
 
+
+### macOS GateKeeper 
+
+Mac users will see **"Carbide is damaged and cannot be opened"** because carbide isn't signed with an Apple App-store registered developer key ($100/year). Run this command in Terminal:
+
+```bash
+xattr -cr /Applications/carbide.app
+```
+
+This removes the quarantine attribute that macOS adds to unsigned apps. After running this command, you can open Carbide normally. Alternatively, open settings, go to privacy & security and click 'open' in the 'Security' section. Thanks, [github/zouwei](https://github.com/zouwei) for the idea to put this here. 
+
 ---
 
 ## Tech Stack
