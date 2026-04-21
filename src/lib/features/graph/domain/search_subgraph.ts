@@ -12,6 +12,10 @@ export type SearchSubgraphHit = {
   title: string;
   snippet?: string;
   score?: number;
+  date_created_ms?: number;
+  date_modified_ms?: number;
+  source?: string;
+  extension?: string;
 };
 
 export type SearchSubgraphOptions = {
@@ -68,6 +72,12 @@ export function extract_search_subgraph(
     };
     if (hit.snippet !== undefined) node.snippet = hit.snippet;
     if (hit.score !== undefined) node.score = hit.score;
+    if (hit.date_created_ms !== undefined)
+      node.date_created_ms = hit.date_created_ms;
+    if (hit.date_modified_ms !== undefined)
+      node.date_modified_ms = hit.date_modified_ms;
+    if (hit.source !== undefined) node.source = hit.source;
+    if (hit.extension !== undefined) node.extension = hit.extension;
     nodes.push(node);
   }
   for (const [path] of sorted_neighbors) {
@@ -181,6 +191,12 @@ export function merge_expansion_into_snapshot(
     };
     if (hit.snippet !== undefined) node.snippet = hit.snippet;
     if (hit.score !== undefined) node.score = hit.score;
+    if (hit.date_created_ms !== undefined)
+      node.date_created_ms = hit.date_created_ms;
+    if (hit.date_modified_ms !== undefined)
+      node.date_modified_ms = hit.date_modified_ms;
+    if (hit.source !== undefined) node.source = hit.source;
+    if (hit.extension !== undefined) node.extension = hit.extension;
     nodes.push(node);
     existing_paths.add(hit.path);
   }

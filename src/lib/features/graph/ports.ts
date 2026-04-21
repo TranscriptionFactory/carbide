@@ -84,6 +84,10 @@ export type SearchGraphNode = {
   kind: SearchGraphNodeKind;
   snippet?: string;
   score?: number;
+  date_created_ms?: number;
+  date_modified_ms?: number;
+  source?: string;
+  extension?: string;
 };
 
 export type SearchGraphEdgeType = "wiki" | "semantic" | "smart_link";

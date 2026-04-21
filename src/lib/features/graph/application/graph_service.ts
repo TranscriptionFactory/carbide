@@ -386,8 +386,12 @@ export class GraphService {
           path: h.note.path,
           title: h.note.title,
           score: h.score,
+          date_created_ms: h.note.ctime_ms,
+          date_modified_ms: h.note.mtime_ms,
         };
         if (h.snippet) hit.snippet = h.snippet;
+        if (h.note.source !== undefined) hit.source = h.note.source;
+        if (h.note.file_type != null) hit.extension = h.note.file_type;
         return hit;
       });
 
