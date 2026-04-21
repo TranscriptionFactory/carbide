@@ -52,14 +52,15 @@
     "Semantic Search",
     "Inline AI",
     "Action Registry",
-    "Integrated Terminal",
-    "Git & Version History",
+    "Terminal",
+    "Git & Versioning",
     "Plugins",
-    "Bases",
+    "Databases",
     "Markdown LSP",
-    "Linting & Diagnostics",
+    "Diagnostics",
+    "Mermaid Diagrams",
     "Canvas",
-    "Task Management",
+    "Tasks & Kanban",
   ] as const;
 
   const docs_links = [
