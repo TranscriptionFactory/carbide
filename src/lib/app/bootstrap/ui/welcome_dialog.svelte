@@ -38,9 +38,6 @@
     on_open_dashboard,
   }: Props = $props();
 
-  const vault_done = $derived(has_vault);
-  const ai_done = $derived(ai_configured);
-
   const docs_links = [
     {
       label: "Getting started guide",
@@ -62,13 +59,9 @@
 <Dialog.Root {open} onOpenChange={handle_open_change}>
   <Dialog.Content class="WelcomeDialogShell" showCloseButton={false}>
     <div class="WelcomeDialog">
-      <button
-        class="WelcomeDialog__close"
-        onclick={on_close}
-        aria-label="Close"
-      >
+      <Dialog.Close class="WelcomeDialog__close" aria-label="Close">
         <X />
-      </button>
+      </Dialog.Close>
 
       <Dialog.Header class="sr-only">
         <Dialog.Title>Welcome to Carbide</Dialog.Title>
@@ -114,7 +107,7 @@
               <FolderOpen />
             </div>
             <div>
-              {#if vault_done}
+              {#if has_vault}
                 <p
                   class="WelcomeDialog__card-kicker WelcomeDialog__card-kicker--done"
                 >
@@ -191,7 +184,7 @@
               <Bot />
             </div>
             <div>
-              {#if ai_done}
+              {#if ai_configured}
                 <p
                   class="WelcomeDialog__card-kicker WelcomeDialog__card-kicker--done"
                 >
@@ -297,7 +290,7 @@
     border-radius: var(--radius-lg);
   }
 
-  .WelcomeDialog__close {
+  :global(.WelcomeDialog__close) {
     position: absolute;
     top: var(--space-3);
     right: var(--space-3);
@@ -315,7 +308,7 @@
     z-index: 1;
   }
 
-  .WelcomeDialog__close:hover {
+  :global(.WelcomeDialog__close:hover) {
     opacity: 1;
   }
 
