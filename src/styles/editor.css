@@ -1006,11 +1006,6 @@
   table-layout: fixed;
 }
 
-.ProseMirror table.table-auto-layout {
-  width: auto;
-  table-layout: auto;
-}
-
 .ProseMirror th,
 .ProseMirror td {
   padding: var(
