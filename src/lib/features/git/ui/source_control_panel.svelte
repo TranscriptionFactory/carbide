@@ -129,7 +129,11 @@
         {#if staged_open}
           <div class="SourceControlPanel__file-list">
             {#each staged_files as file (file.path)}
-              <ChangeCard {file} is_staged={true} on_toggle_stage={toggle_stage} />
+              <ChangeCard
+                {file}
+                is_staged={true}
+                on_toggle_stage={toggle_stage}
+              />
             {/each}
           </div>
         {/if}
@@ -164,7 +168,11 @@
       {#if changes_open}
         <div class="SourceControlPanel__file-list">
           {#each unstaged_files as file (file.path)}
-            <ChangeCard {file} is_staged={false} on_toggle_stage={toggle_stage} />
+            <ChangeCard
+              {file}
+              is_staged={false}
+              on_toggle_stage={toggle_stage}
+            />
           {/each}
           {#if unstaged_files.length === 0}
             <div class="SourceControlPanel__empty">No unstaged changes</div>
@@ -329,7 +337,8 @@
     transition: opacity var(--duration-fast) var(--ease-default);
   }
 
-  .SourceControlPanel__section-header:hover .SourceControlPanel__section-action {
+  .SourceControlPanel__section-header:hover
+    .SourceControlPanel__section-action {
     opacity: 1;
   }
 

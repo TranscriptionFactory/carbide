@@ -29,7 +29,8 @@ export type ThemeLayoutVariant =
   | "spotlight"
   | "cockpit"
   | "theater"
-  | "triptych";
+  | "triptych"
+  | "lattice";
 
 export type Theme = {
   id: string;
@@ -1224,6 +1225,48 @@ export const BUILTIN_TRIPTYCH_DARK: Theme = {
   },
 };
 
+export const BUILTIN_LATTICE_LIGHT: Theme = {
+  id: "lattice-light",
+  name: "Lattice Light",
+  color_scheme: "light",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "lattice",
+  accent_hue: 190,
+  accent_chroma: 0.08,
+  font_family_sans: "Geist",
+  font_family_mono: "Geist Mono",
+  token_overrides: {
+    "--background": "oklch(0.98 0.004 190)",
+    "--card": "oklch(1 0 0)",
+    "--background-surface-2": "oklch(0.96 0.005 190)",
+    "--border": "oklch(0.89 0.008 190)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.45 0.08 190)",
+  },
+};
+
+export const BUILTIN_LATTICE_DARK: Theme = {
+  id: "lattice-dark",
+  name: "Lattice Dark",
+  color_scheme: "dark",
+  is_builtin: true,
+  ...SHARED_DEFAULTS,
+  layout_variant: "lattice",
+  accent_hue: 190,
+  accent_chroma: 0.08,
+  font_family_sans: "Geist",
+  font_family_mono: "Geist Mono",
+  token_overrides: {
+    "--background": "oklch(0.14 0.004 190)",
+    "--card": "oklch(0.18 0.005 190)",
+    "--background-surface-2": "oklch(0.16 0.005 190)",
+    "--border": "oklch(0.23 0.008 190)",
+    "--radius": "0.375rem",
+    "--primary": "oklch(0.65 0.08 190)",
+  },
+};
+
 export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_NORDIC_LIGHT,
   BUILTIN_NORDIC_DARK,
@@ -1255,6 +1298,8 @@ export const BUILTIN_THEMES: readonly Theme[] = [
   BUILTIN_THEATER_DARK,
   BUILTIN_TRIPTYCH_LIGHT,
   BUILTIN_TRIPTYCH_DARK,
+  BUILTIN_LATTICE_LIGHT,
+  BUILTIN_LATTICE_DARK,
 ];
 
 export const AVAILABLE_SHIKI_THEMES = {

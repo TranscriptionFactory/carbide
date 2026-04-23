@@ -22,6 +22,7 @@
   import { TagPanel } from "$lib/features/tags";
   import { SourceControlPanel } from "$lib/features/git";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
+  import LatticeTitleBar from "$lib/app/bootstrap/ui/lattice_title_bar.svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
@@ -71,6 +72,7 @@
   const is_cockpit = $derived(layout_variant === "cockpit");
   const is_theater = $derived(layout_variant === "theater");
   const is_triptych = $derived(layout_variant === "triptych");
+  const is_lattice = $derived(layout_variant === "lattice");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -254,6 +256,7 @@
     class:WorkspaceLayout--cockpit={is_cockpit}
     class:WorkspaceLayout--theater={is_theater}
     class:WorkspaceLayout--triptych={is_triptych}
+    class:WorkspaceLayout--lattice={is_lattice}
     data-sidebar-open={stores.ui.sidebar_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
@@ -287,6 +290,19 @@
       }
     }}
   >
+    {#if is_lattice && !zen_mode}
+      <LatticeTitleBar
+        vault_name={stores.vault.vault?.name ?? ""}
+        note_title={stores.editor.open_note?.meta.title ?? null}
+        branch={stores.git.branch}
+        on_branch_click={() => {
+          void action_registry.execute(
+            ACTION_IDS.ui_set_sidebar_view,
+            "source_control",
+          );
+        }}
+      />
+    {/if}
     <div class="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {#if !zen_mode}
         <ActivityBar
@@ -985,6 +1001,11 @@
               <ContextRail />
             </div>
           {/if}
+          {#if is_lattice && !zen_mode && is_vault_mode}
+            <div class="WorkspaceLayout__lattice-right-panel">
+              <SourceControlPanel />
+            </div>
+          {/if}
         </Resizable.PaneGroup>
       </Sidebar.Provider>
     </div>
@@ -1169,5 +1190,12 @@
     width: 36px;
     flex-shrink: 0;
     overflow: visible;
+  }
+
+  .WorkspaceLayout__lattice-right-panel {
+    width: 360px;
+    flex-shrink: 0;
+    border-inline-start: 1px solid var(--border);
+    overflow: hidden;
   }
 </style>
