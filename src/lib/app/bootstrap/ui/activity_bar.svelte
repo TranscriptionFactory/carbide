@@ -116,7 +116,8 @@
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.source_control}
         onclick={() => on_open_view(SIDEBAR_VIEWS.source_control)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.source_control}
+        aria-pressed={sidebar_open &&
+          active_view === SIDEBAR_VIEWS.source_control}
         aria-label="Source Control"
       >
         <GitBranch class="ActivityBar__icon" />

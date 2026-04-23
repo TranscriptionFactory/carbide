@@ -75,7 +75,10 @@ export function register_tag_actions(
     id: ACTION_IDS.tags_toggle_panel,
     label: "Toggle Tags Panel",
     execute: () => {
-      if (ui_store.sidebar_open && ui_store.sidebar_view === SIDEBAR_VIEWS.tags) {
+      if (
+        ui_store.sidebar_open &&
+        ui_store.sidebar_view === SIDEBAR_VIEWS.tags
+      ) {
         ui_store.toggle_sidebar();
       } else {
         ui_store.set_sidebar_view(SIDEBAR_VIEWS.tags);

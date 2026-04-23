@@ -33,7 +33,10 @@ export function register_graph_actions(
 
   function close_graph(options: GraphCloseOptions = {}) {
     graph_service.close_panel();
-    if (!options.preserve_context_rail && stores.ui.sidebar_view === SIDEBAR_VIEWS.graph) {
+    if (
+      !options.preserve_context_rail &&
+      stores.ui.sidebar_view === SIDEBAR_VIEWS.graph
+    ) {
       stores.ui.sidebar_view = SIDEBAR_VIEWS.explorer;
     }
   }

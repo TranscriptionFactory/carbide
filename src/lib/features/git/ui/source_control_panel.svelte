@@ -138,11 +138,7 @@
     >
       <div class="SourceControlPanel__file-list">
         {#each unstaged_files as file (file.path)}
-          <ChangeCard
-            {file}
-            is_staged={false}
-            on_toggle_stage={toggle_stage}
-          />
+          <ChangeCard {file} is_staged={false} on_toggle_stage={toggle_stage} />
         {/each}
         {#if unstaged_files.length === 0}
           <div class="SourceControlPanel__empty">No unstaged changes</div>

@@ -6,9 +6,9 @@
     title: string;
     count?: number;
     open: boolean;
-    action_label?: string;
+    action_label?: string | undefined;
     on_toggle: () => void;
-    on_action?: () => void;
+    on_action?: (() => void) | undefined;
     children: Snippet;
   };
 
