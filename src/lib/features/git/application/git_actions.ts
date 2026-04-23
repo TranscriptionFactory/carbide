@@ -516,4 +516,40 @@ export function register_git_actions(input: ActionRegistrationInput) {
       }
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.git_open_diff,
+    label: "View File Diff",
+    execute: async (payload: unknown) => {
+      const record = (payload ?? {}) as Record<string, unknown>;
+      const file_path =
+        typeof record.file_path === "string" ? record.file_path : null;
+      const is_staged =
+        typeof record.is_staged === "boolean" ? record.is_staged : false;
+      if (!file_path) return;
+
+      stores.ui.diff_viewer_dialog = { open: true, file_path, is_staged };
+      stores.git.is_loading_working_diff = true;
+
+      try {
+        const diff = await services.git.get_working_diff(file_path);
+        stores.git.set_working_diff(file_path, diff);
+      } catch {
+        stores.git.set_working_diff(file_path, null);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_close_diff,
+    label: "Close File Diff",
+    execute: () => {
+      stores.ui.diff_viewer_dialog = {
+        open: false,
+        file_path: null,
+        is_staged: false,
+      };
+      stores.git.clear_working_diff();
+    },
+  });
 }

@@ -590,6 +590,15 @@ pub(crate) fn git_diff_working(
 
 #[tauri::command]
 #[specta::specta]
+pub fn git_diff_working_tree(
+    vault_path: String,
+    file_path: Option<String>,
+) -> Result<GitDiff, String> {
+    git_diff_working(&vault_path, file_path.as_deref())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn git_show_file_at_commit(
     vault_path: String,
     file_path: String,

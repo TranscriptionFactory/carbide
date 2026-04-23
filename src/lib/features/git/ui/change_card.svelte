@@ -10,9 +10,10 @@
     file: GitFileStatus;
     is_staged: boolean;
     on_toggle_stage: (path: string) => void;
+    on_view_diff: (path: string) => void;
   };
 
-  let { file, is_staged, on_toggle_stage }: Props = $props();
+  let { file, is_staged, on_toggle_stage, on_view_diff }: Props = $props();
 
   const filename = $derived(note_name_from_path(file.path));
   const folder = $derived(parent_folder_path(file.path));
@@ -30,43 +31,50 @@
   );
 </script>
 
-<button
-  type="button"
+<div
   class="ChangeCard"
   class:ChangeCard--modified={file.status === "modified"}
   class:ChangeCard--added={file.status === "added" ||
     file.status === "untracked"}
   class:ChangeCard--deleted={file.status === "deleted"}
   class:ChangeCard--conflicted={file.status === "conflicted"}
-  onclick={() => on_toggle_stage(file.path)}
-  aria-label="{is_staged ? 'Unstage' : 'Stage'} {file.path}"
+  role="group"
 >
-  <span class="ChangeCard__status">{status_label}</span>
-  <span class="ChangeCard__name">{filename}</span>
-  {#if folder}
-    <span class="ChangeCard__folder">{folder}</span>
-  {/if}
-  <span class="ChangeCard__toggle">
+  <button
+    type="button"
+    class="ChangeCard__main"
+    onclick={() => on_view_diff(file.path)}
+    aria-label="View diff for {file.path}"
+  >
+    <span class="ChangeCard__status">{status_label}</span>
+    <span class="ChangeCard__name">{filename}</span>
+    {#if folder}
+      <span class="ChangeCard__folder">{folder}</span>
+    {/if}
+  </button>
+  <button
+    type="button"
+    class="ChangeCard__toggle"
+    onclick={() => on_toggle_stage(file.path)}
+    aria-label="{is_staged ? 'Unstage' : 'Stage'} {file.path}"
+  >
     {#if is_staged}
       <Minus class="ChangeCard__icon" />
     {:else}
       <Plus class="ChangeCard__icon" />
     {/if}
-  </span>
-</button>
+  </button>
+</div>
 
 <style>
   .ChangeCard {
     display: flex;
     align-items: center;
-    gap: var(--space-1-5);
     width: 100%;
-    padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
     border-inline-start: 2px solid transparent;
     font-size: var(--text-xs);
     color: var(--foreground);
-    text-align: start;
     transition: background-color var(--duration-fast) var(--ease-default);
   }
 
@@ -88,6 +96,18 @@
 
   .ChangeCard--conflicted {
     border-inline-start-color: var(--destructive);
+  }
+
+  .ChangeCard__main {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-1) var(--space-2);
+    text-align: start;
+    color: inherit;
+    font-size: inherit;
   }
 
   .ChangeCard__status {
@@ -122,7 +142,9 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    padding: var(--space-1) var(--space-2);
     opacity: 0.5;
+    color: inherit;
   }
 
   .ChangeCard:hover .ChangeCard__toggle {

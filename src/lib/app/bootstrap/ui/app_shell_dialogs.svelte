@@ -25,6 +25,7 @@
     VersionHistoryDialog,
     CheckpointDialog,
     AddRemoteDialog,
+    DiffViewerDialog,
   } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
@@ -707,6 +708,17 @@
     void action_registry.execute(ACTION_IDS.git_confirm_add_remote)}
   on_cancel={() =>
     void action_registry.execute(ACTION_IDS.git_cancel_add_remote)}
+/>
+
+<DiffViewerDialog
+  open={stores.ui.diff_viewer_dialog.open}
+  file_path={stores.ui.diff_viewer_dialog.file_path}
+  is_staged={stores.ui.diff_viewer_dialog.is_staged}
+  is_loading={stores.git.is_loading_working_diff}
+  diff={stores.git.working_diff}
+  on_close={() => void action_registry.execute(ACTION_IDS.git_close_diff)}
+  on_toggle_stage={(path) =>
+    void action_registry.execute(ACTION_IDS.git_toggle_stage, path)}
 />
 
 <QuickCaptureDialog

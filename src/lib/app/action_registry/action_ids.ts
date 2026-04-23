@@ -239,6 +239,8 @@ export const ACTION_IDS = {
   git_unstage_all: "git.unstage_all",
   git_toggle_stage: "git.toggle_stage",
   git_commit_staged: "git.commit_staged",
+  git_open_diff: "git.open_diff",
+  git_close_diff: "git.close_diff",
 
   theme_load: "theme.load",
   theme_switch: "theme.switch",
