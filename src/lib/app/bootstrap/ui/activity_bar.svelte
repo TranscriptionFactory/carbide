@@ -19,14 +19,7 @@
     active_view: SidebarView;
     is_vault_mode: boolean;
     dynamic_views?: DynamicSidebarView[];
-    on_open_explorer: () => void;
-    on_open_dashboard: () => void;
-    on_open_starred: () => void;
-    on_open_graph: () => void;
-    on_open_tasks: () => void;
-    on_open_tags: () => void;
-    on_open_source_control: () => void;
-    on_open_dynamic: (id: string) => void;
+    on_open_view: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
   };
@@ -36,14 +29,7 @@
     active_view,
     is_vault_mode,
     dynamic_views = [],
-    on_open_explorer,
-    on_open_dashboard,
-    on_open_starred,
-    on_open_graph,
-    on_open_tasks,
-    on_open_tags,
-    on_open_source_control,
-    on_open_dynamic,
+    on_open_view,
     on_open_help,
     on_open_settings,
   }: Props = $props();
@@ -56,7 +42,7 @@
       class="ActivityBar__button"
       class:ActivityBar__button--active={sidebar_open &&
         active_view === SIDEBAR_VIEWS.explorer}
-      onclick={on_open_explorer}
+      onclick={() => on_open_view(SIDEBAR_VIEWS.explorer)}
       aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.explorer}
       aria-label="Explorer"
     >
@@ -69,7 +55,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.starred}
-        onclick={on_open_starred}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.starred)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.starred}
         aria-label="Starred"
       >
@@ -81,7 +67,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.dashboard}
-        onclick={on_open_dashboard}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.dashboard)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.dashboard}
         aria-label="Dashboard"
       >
@@ -93,7 +79,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.tasks}
-        onclick={on_open_tasks}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.tasks)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tasks}
         aria-label="Tasks"
       >
@@ -105,7 +91,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.tags}
-        onclick={on_open_tags}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.tags)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tags}
         aria-label="Tags"
       >
@@ -117,7 +103,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.graph}
-        onclick={on_open_graph}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.graph)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.graph}
         aria-label="Graph"
       >
@@ -129,7 +115,7 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.source_control}
-        onclick={on_open_source_control}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.source_control)}
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.source_control}
         aria-label="Source Control"
       >
@@ -142,7 +128,7 @@
           class="ActivityBar__button"
           class:ActivityBar__button--active={sidebar_open &&
             active_view === view.id}
-          onclick={() => on_open_dynamic(view.id)}
+          onclick={() => on_open_view(view.id)}
           aria-pressed={sidebar_open && active_view === view.id}
           aria-label={view.label}
         >
