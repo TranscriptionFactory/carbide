@@ -4,13 +4,8 @@
   import ChangeCard from "./change_card.svelte";
   import CheckpointHistory from "./checkpoint_history.svelte";
   import CommitComposer from "./commit_composer.svelte";
-  import {
-    ChevronDown,
-    ChevronRight,
-    GitBranch,
-    ArrowDown,
-    ArrowUp,
-  } from "@lucide/svelte";
+  import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
+  import { GitBranch, ArrowDown, ArrowUp } from "@lucide/svelte";
   import { onMount } from "svelte";
 
   const { stores, action_registry } = use_app_context();
@@ -113,108 +108,60 @@
 
   <div class="SourceControlPanel__scroll">
     {#if staged_files.length > 0}
-      <div class="SourceControlPanel__section">
-        <div class="SourceControlPanel__section-header">
-          <button
-            type="button"
-            class="SourceControlPanel__section-toggle"
-            onclick={() => (staged_open = !staged_open)}
-          >
-            {#if staged_open}
-              <ChevronDown class="SourceControlPanel__chevron" />
-            {:else}
-              <ChevronRight class="SourceControlPanel__chevron" />
-            {/if}
-            <span>Staged ({staged_files.length})</span>
-          </button>
-          <button
-            type="button"
-            class="SourceControlPanel__section-action"
-            onclick={unstage_all}
-            aria-label="Unstage all"
-          >
-            Unstage All
-          </button>
-        </div>
-        {#if staged_open}
-          <div class="SourceControlPanel__file-list">
-            {#each staged_files as file (file.path)}
-              <ChangeCard
-                {file}
-                is_staged={true}
-                on_toggle_stage={toggle_stage}
-              />
-            {/each}
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    <div class="SourceControlPanel__section">
-      <div class="SourceControlPanel__section-header">
-        <button
-          type="button"
-          class="SourceControlPanel__section-toggle"
-          onclick={() => (changes_open = !changes_open)}
-        >
-          {#if changes_open}
-            <ChevronDown class="SourceControlPanel__chevron" />
-          {:else}
-            <ChevronRight class="SourceControlPanel__chevron" />
-          {/if}
-          <span>Changes ({unstaged_files.length})</span>
-        </button>
-        {#if unstaged_files.length > 0}
-          <button
-            type="button"
-            class="SourceControlPanel__section-action"
-            onclick={stage_all}
-            aria-label="Stage all"
-          >
-            Stage All
-          </button>
-        {/if}
-      </div>
-      {#if changes_open}
+      <CollapsibleSection
+        title="Staged"
+        count={staged_files.length}
+        open={staged_open}
+        action_label="Unstage All"
+        on_toggle={() => (staged_open = !staged_open)}
+        on_action={unstage_all}
+      >
         <div class="SourceControlPanel__file-list">
-          {#each unstaged_files as file (file.path)}
+          {#each staged_files as file (file.path)}
             <ChangeCard
               {file}
-              is_staged={false}
+              is_staged={true}
               on_toggle_stage={toggle_stage}
             />
           {/each}
-          {#if unstaged_files.length === 0}
-            <div class="SourceControlPanel__empty">No unstaged changes</div>
-          {/if}
         </div>
-      {/if}
-    </div>
+      </CollapsibleSection>
+    {/if}
 
-    <div class="SourceControlPanel__section">
-      <div class="SourceControlPanel__section-header">
-        <button
-          type="button"
-          class="SourceControlPanel__section-toggle"
-          onclick={open_history}
-        >
-          {#if history_open}
-            <ChevronDown class="SourceControlPanel__chevron" />
-          {:else}
-            <ChevronRight class="SourceControlPanel__chevron" />
-          {/if}
-          <span>Checkpoints</span>
-        </button>
+    <CollapsibleSection
+      title="Changes"
+      count={unstaged_files.length}
+      open={changes_open}
+      action_label={unstaged_files.length > 0 ? "Stage All" : undefined}
+      on_toggle={() => (changes_open = !changes_open)}
+      on_action={unstaged_files.length > 0 ? stage_all : undefined}
+    >
+      <div class="SourceControlPanel__file-list">
+        {#each unstaged_files as file (file.path)}
+          <ChangeCard
+            {file}
+            is_staged={false}
+            on_toggle_stage={toggle_stage}
+          />
+        {/each}
+        {#if unstaged_files.length === 0}
+          <div class="SourceControlPanel__empty">No unstaged changes</div>
+        {/if}
       </div>
-      {#if history_open}
-        <CheckpointHistory
-          commits={stores.git.history}
-          has_more={stores.git.has_more_history}
-          is_loading_more={stores.git.is_loading_more_history}
-          on_load_more={load_more_history}
-        />
-      {/if}
-    </div>
+    </CollapsibleSection>
+
+    <CollapsibleSection
+      title="Checkpoints"
+      open={history_open}
+      on_toggle={open_history}
+    >
+      <CheckpointHistory
+        commits={stores.git.history}
+        has_more={stores.git.has_more_history}
+        is_loading_more={stores.git.is_loading_more_history}
+        on_load_more={load_more_history}
+      />
+    </CollapsibleSection>
   </div>
 
   <CommitComposer
@@ -302,54 +249,6 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-  }
-
-  .SourceControlPanel__section {
-    border-block-end: 1px solid var(--border);
-  }
-
-  .SourceControlPanel__section-header {
-    display: flex;
-    align-items: center;
-    padding-inline-end: var(--space-2);
-    transition: background-color var(--duration-fast) var(--ease-default);
-  }
-
-  .SourceControlPanel__section-header:hover {
-    background-color: var(--accent);
-  }
-
-  .SourceControlPanel__section-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    flex: 1;
-    padding: var(--space-1-5) var(--space-2);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--foreground);
-    text-align: start;
-  }
-
-  :global(.SourceControlPanel__chevron) {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    opacity: 0.5;
-  }
-
-  .SourceControlPanel__section-action {
-    margin-inline-start: auto;
-    font-size: var(--text-2xs);
-    font-weight: 400;
-    color: var(--interactive);
-    opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-default);
-  }
-
-  .SourceControlPanel__section-header:hover
-    .SourceControlPanel__section-action {
-    opacity: 1;
   }
 
   .SourceControlPanel__file-list {
