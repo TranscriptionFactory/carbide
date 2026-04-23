@@ -1001,11 +1001,6 @@
               <ContextRail />
             </div>
           {/if}
-          {#if is_lattice && !zen_mode && is_vault_mode}
-            <div class="WorkspaceLayout__lattice-right-panel">
-              <SourceControlPanel />
-            </div>
-          {/if}
         </Resizable.PaneGroup>
       </Sidebar.Provider>
     </div>
@@ -1190,12 +1185,5 @@
     width: 36px;
     flex-shrink: 0;
     overflow: visible;
-  }
-
-  .WorkspaceLayout__lattice-right-panel {
-    width: 360px;
-    flex-shrink: 0;
-    border-inline-start: 1px solid var(--border);
-    overflow: hidden;
   }
 </style>
