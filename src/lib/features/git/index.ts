@@ -8,10 +8,11 @@ export { default as VersionHistoryDialog } from "$lib/features/git/ui/version_hi
 export { default as CheckpointDialog } from "$lib/features/git/ui/checkpoint_dialog.svelte";
 export { default as AddRemoteDialog } from "$lib/features/git/ui/add_remote_dialog.svelte";
 export { default as SourceControlPanel } from "$lib/features/git/ui/source_control_panel.svelte";
-export type {
-  GitSyncStatus,
-  GitStatus,
-  GitCommit,
-  GitDiff,
-  GitRemoteResult,
+export {
+  CHECKPOINT_PREFIX,
+  type GitSyncStatus,
+  type GitStatus,
+  type GitCommit,
+  type GitDiff,
+  type GitRemoteResult,
 } from "$lib/features/git/types/git";

@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { GitCommit } from "$lib/features/git/types/git";
+  import {
+    type GitCommit,
+    CHECKPOINT_PREFIX,
+  } from "$lib/features/git/types/git";
 
   type Props = {
     commits: GitCommit[];
@@ -65,7 +68,7 @@
   }
 
   function is_checkpoint(message: string): boolean {
-    return message.startsWith("Checkpoint:");
+    return message.startsWith(CHECKPOINT_PREFIX);
   }
 </script>
 

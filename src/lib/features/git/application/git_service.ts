@@ -4,6 +4,7 @@ import type { GitStore } from "$lib/features/git/state/git_store.svelte";
 import type { OpStore } from "$lib/app";
 import type { GitPullStrategy } from "$lib/shared/types/editor_settings";
 import type { VaultPath } from "$lib/shared/types/ids";
+import { CHECKPOINT_PREFIX } from "$lib/features/git/types/git";
 import { error_message } from "$lib/shared/utils/error_message";
 
 type CommitRunResult =
@@ -267,7 +268,7 @@ export class GitService {
 
   async create_checkpoint(description: string): Promise<GitCheckpointResult> {
     return this.serialize(async () => {
-      const message = `Checkpoint: ${description}`;
+      const message = `${CHECKPOINT_PREFIX} ${description}`;
       const result = await this.run_commit("git.checkpoint", message, null);
       if (result.status === "no_repo") {
         return { status: "no_repo" } as const;

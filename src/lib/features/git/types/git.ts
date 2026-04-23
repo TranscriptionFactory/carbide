@@ -36,6 +36,8 @@ export type GitCommit = {
   message: string;
 };
 
+export const CHECKPOINT_PREFIX = "Checkpoint:";
+
 export type GitDiffLine = {
   type: "context" | "addition" | "deletion";
   content: string;

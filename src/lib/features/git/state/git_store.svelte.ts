@@ -79,10 +79,12 @@ export class GitStore {
 
     if (files) {
       this.changed_files = files;
-      const current_paths = new Set(files.map((f) => f.path));
-      for (const path of this.staged_paths) {
-        if (!current_paths.has(path)) {
-          this.staged_paths.delete(path);
+      if (this.staged_paths.size > 0) {
+        const current_paths = new Set(files.map((f) => f.path));
+        for (const path of this.staged_paths) {
+          if (!current_paths.has(path)) {
+            this.staged_paths.delete(path);
+          }
         }
       }
     }

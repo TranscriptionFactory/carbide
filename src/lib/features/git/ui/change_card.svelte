@@ -1,6 +1,10 @@
 <script lang="ts">
   import type { GitFileStatus } from "$lib/features/git/types/git";
-  import { Plus, Minus, Check } from "@lucide/svelte";
+  import { Plus, Minus } from "@lucide/svelte";
+  import {
+    note_name_from_path,
+    parent_folder_path,
+  } from "$lib/shared/utils/path";
 
   type Props = {
     file: GitFileStatus;
@@ -10,13 +14,8 @@
 
   let { file, is_staged, on_toggle_stage }: Props = $props();
 
-  const filename = $derived(
-    file.path.split("/").pop()?.replace(/\.md$/, "") ?? file.path,
-  );
-  const folder = $derived(() => {
-    const parts = file.path.split("/");
-    return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
-  });
+  const filename = $derived(note_name_from_path(file.path));
+  const folder = $derived(parent_folder_path(file.path));
 
   const status_label = $derived(
     file.status === "modified"
@@ -44,8 +43,8 @@
 >
   <span class="ChangeCard__status">{status_label}</span>
   <span class="ChangeCard__name">{filename}</span>
-  {#if folder()}
-    <span class="ChangeCard__folder">{folder()}</span>
+  {#if folder}
+    <span class="ChangeCard__folder">{folder}</span>
   {/if}
   <span class="ChangeCard__toggle">
     {#if is_staged}

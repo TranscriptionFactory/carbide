@@ -23,17 +23,20 @@
   const unstaged_files = $derived(stores.git.unstaged_files);
   const changed_files = $derived(stores.git.changed_files);
 
-  const stat_additions = $derived(
-    changed_files.filter(
-      (f) => f.status === "added" || f.status === "untracked",
-    ).length,
-  );
-  const stat_deletions = $derived(
-    changed_files.filter((f) => f.status === "deleted").length,
-  );
+  const stats = $derived.by(() => {
+    let additions = 0;
+    let deletions = 0;
+    for (const f of changed_files) {
+      if (f.status === "added" || f.status === "untracked") additions++;
+      else if (f.status === "deleted") deletions++;
+    }
+    return { additions, deletions };
+  });
+
+  let history_loaded = false;
 
   function toggle_stage(path: string) {
-    stores.git.toggle_stage(path);
+    void action_registry.execute(ACTION_IDS.git_toggle_stage, path);
   }
 
   function stage_all() {
@@ -52,9 +55,16 @@
     void action_registry.execute(ACTION_IDS.git_load_more_history);
   }
 
+  function open_history() {
+    history_open = !history_open;
+    if (history_open && !history_loaded) {
+      history_loaded = true;
+      void action_registry.execute(ACTION_IDS.git_open_history);
+    }
+  }
+
   onMount(() => {
     void action_registry.execute(ACTION_IDS.git_refresh_status);
-    void action_registry.execute(ACTION_IDS.git_open_history);
   });
 </script>
 
@@ -89,14 +99,14 @@
     <span class="SourceControlPanel__stat">
       {staged_files.length} staged
     </span>
-    {#if stat_additions > 0}
+    {#if stats.additions > 0}
       <span class="SourceControlPanel__stat SourceControlPanel__stat--add">
-        +{stat_additions}
+        +{stats.additions}
       </span>
     {/if}
-    {#if stat_deletions > 0}
+    {#if stats.deletions > 0}
       <span class="SourceControlPanel__stat SourceControlPanel__stat--del">
-        −{stat_deletions}
+        −{stats.deletions}
       </span>
     {/if}
   </div>
@@ -186,7 +196,7 @@
         <button
           type="button"
           class="SourceControlPanel__section-toggle"
-          onclick={() => (history_open = !history_open)}
+          onclick={open_history}
         >
           {#if history_open}
             <ChevronDown class="SourceControlPanel__chevron" />

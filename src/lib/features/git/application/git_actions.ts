@@ -466,6 +466,16 @@ export function register_git_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.git_toggle_stage,
+    label: "Toggle Stage File",
+    execute: (path: unknown) => {
+      if (typeof path === "string") {
+        stores.git.toggle_stage(path);
+      }
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.git_stage_all,
     label: "Stage All Files",
     execute: () => {
