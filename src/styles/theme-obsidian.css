@@ -1,0 +1,96 @@
+/* ============================================
+   OBSIDIAN LAYOUT OVERRIDES
+   Deep violet/purple with grain, glow, and glass
+   ============================================ */
+
+[data-layout-variant="obsidian"] .WorkspaceLayout--obsidian {
+  position: relative;
+  isolation: isolate;
+
+  /* Radial gradient glow background */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 30% 20%,
+        oklch(0.22 0.08 285 / 0.5) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 75% 70%,
+        oklch(0.18 0.06 310 / 0.4) 0%,
+        transparent 70%
+      ),
+      oklch(0.13 0.018 275);
+    pointer-events: none;
+  }
+
+  /* Grain / dot-grid texture overlay */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 4px 4px;
+    pointer-events: none;
+  }
+
+  /* Glass sidebar panels */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="1"] {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background-color: oklch(0.22 0.02 275 / 0.55);
+    border-radius: var(--radius);
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane][order="3"] {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .ContextRail {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background-color: oklch(0.22 0.02 275 / 0.55);
+  }
+
+  /* Glass editor/inset area */
+  [data-slot="sidebar-inset"] {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Activity bar glass effect */
+  .ActivityBar {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background-color: oklch(0.17 0.018 275 / 0.7);
+  }
+
+  /* Tab bar glass */
+  .TabBar {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background-color: oklch(0.22 0.02 275 / 0.55);
+  }
+
+  /* Status bar glass */
+  .StatusBar {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background-color: oklch(0.17 0.018 275 / 0.7);
+  }
+
+  /* Panel rounded corners */
+  .SidebarPanel {
+    border-radius: var(--radius);
+  }
+}
