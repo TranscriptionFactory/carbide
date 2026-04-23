@@ -208,347 +208,330 @@
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col">
-  <div class="border-b px-4 py-3">
-    <h2 class="text-base font-semibold">{title}</h2>
-    <p class="mt-1 text-sm text-muted-foreground">{description_text}</p>
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+    <Select.Root
+      type="single"
+      value={provider_id}
+      onValueChange={(value: string | undefined) => {
+        if (value) on_provider_change(value);
+      }}
+    >
+      <Select.Trigger id="ai-provider" class="w-36">
+        <span data-slot="select-value"
+          >{provider_config?.name ?? provider_id}</span
+        >
+      </Select.Trigger>
+      <Select.Content>
+        {#each providers as p (p.id)}
+          <Select.Item value={p.id}>{p.name}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+
+    <Button
+      variant={mode === "edit" ? "default" : "outline"}
+      size="sm"
+      onclick={() => on_mode_change("edit")}
+    >
+      Edit
+    </Button>
+    <Button
+      variant={mode === "ask" ? "default" : "outline"}
+      size="sm"
+      onclick={() => on_mode_change("ask")}
+    >
+      Ask
+    </Button>
+
+    <div class="h-4 w-px bg-border"></div>
+
+    <Button
+      variant={target === "selection" ? "default" : "outline"}
+      size="sm"
+      disabled={!selection_available}
+      onclick={() => on_target_change("selection")}
+    >
+      Selection
+    </Button>
+    <Button
+      variant={target === "full_note" ? "default" : "outline"}
+      size="sm"
+      onclick={() => on_target_change("full_note")}
+    >
+      Full Note
+    </Button>
+
+    <span class="ml-auto truncate text-sm text-muted-foreground">
+      {description_text}
+    </span>
   </div>
 
-  <div class="flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-4 py-4">
-    <div class="space-y-2">
-      <label class="text-sm font-medium" for="ai-provider"> Backend </label>
-      <Select.Root
-        type="single"
-        value={provider_id}
-        onValueChange={(value: string | undefined) => {
-          if (value) on_provider_change(value);
-        }}
-      >
-        <Select.Trigger id="ai-provider" class="w-48">
-          <span data-slot="select-value"
-            >{provider_config?.name ?? provider_id}</span
-          >
-        </Select.Trigger>
-        <Select.Content>
-          {#each providers as p (p.id)}
-            <Select.Item value={p.id}>{p.name}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+  <!-- Status banners -->
+  {#if cli_status === "checking"}
+    <div class="border-b bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      Checking for {provider_config?.name ?? "CLI"}…
     </div>
-
-    <div class="space-y-2">
-      <p class="text-sm font-medium">Mode</p>
-      <div class="flex flex-wrap gap-2">
-        <Button
-          variant={mode === "edit" ? "default" : "outline"}
-          size="sm"
-          onclick={() => on_mode_change("edit")}
-        >
-          Edit
-        </Button>
-        <Button
-          variant={mode === "ask" ? "default" : "outline"}
-          size="sm"
-          onclick={() => on_mode_change("ask")}
-        >
-          Ask
-        </Button>
-      </div>
-    </div>
-
-    <div class="space-y-2">
-      <p class="text-sm font-medium">Scope</p>
-      <div class="flex flex-wrap gap-2">
-        <Button
-          variant={target === "selection" ? "default" : "outline"}
-          disabled={!selection_available}
-          onclick={() => on_target_change("selection")}
-        >
-          Selection
-        </Button>
-        <Button
-          variant={target === "full_note" ? "default" : "outline"}
-          onclick={() => on_target_change("full_note")}
-        >
-          Full Note
-        </Button>
-      </div>
-    </div>
-
-    {#if cli_status === "checking"}
-      <div
-        class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
-      >
-        Checking for {provider_config?.name ?? "CLI"}…
-      </div>
-    {:else if cli_status === "unavailable"}
-      <div
-        class="rounded-md border border-orange-500/40 bg-orange-500/10 p-3 text-sm text-orange-700 dark:text-orange-400"
-      >
-        <p class="font-medium">{provider_config?.name ?? "CLI"} not found</p>
-        {#if provider_config?.install_url}
-          <p>
-            Install it from
-            <a
-              class="font-medium underline underline-offset-4"
-              href={provider_config.install_url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {provider_config.install_url}
-            </a>
-            and restart Carbide.
-          </p>
-        {/if}
-      </div>
-    {:else if cli_status === "error"}
-      <div
-        class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-      >
-        {cli_error ?? `Failed to check ${provider_config?.name ?? "CLI"}.`}
-      </div>
-    {/if}
-
+  {:else if cli_status === "unavailable"}
     <div
-      class="space-y-3 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+      class="border-b border-orange-500/40 bg-orange-500/10 px-3 py-2 text-sm text-orange-700 dark:text-orange-400"
     >
-      <div class="flex flex-wrap items-start justify-between gap-2">
-        <div class="min-w-0 flex-1 space-y-1">
-          <p>
-            Sending the
-            <span class="font-medium text-foreground">
-              {target === "selection" ? "selected text" : "full note"}
-            </span>
-            to {provider_config?.name ?? "AI"}.
-          </p>
-          <p class="text-xs">
-            {context_preview.note_label}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="shrink-0 whitespace-nowrap"
-          onclick={() => (context_preview_open = !context_preview_open)}
+      <span class="font-medium">{provider_config?.name ?? "CLI"} not found</span
+      >
+      {#if provider_config?.install_url}
+        — Install from
+        <a
+          class="font-medium underline underline-offset-4"
+          href={provider_config.install_url}
+          rel="noreferrer"
+          target="_blank"
         >
-          {context_preview_open ? "Hide Payload" : "Show Payload"}
-        </Button>
-      </div>
-      <div class="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-        <div class="rounded-md border bg-background/60 px-2 py-1">
-          <span class="font-medium text-foreground"
-            >{context_preview.scope_label}</span
-          >
-        </div>
-        <div class="rounded-md border bg-background/60 px-2 py-1">
-          <span class="font-medium text-foreground"
-            >{context_preview.line_count}</span
-          >
-          lines
-        </div>
-        <div class="rounded-md border bg-background/60 px-2 py-1">
-          <span class="font-medium text-foreground"
-            >{context_preview.char_count}</span
-          >
-          chars
-        </div>
-      </div>
-      {#if !context_preview_open && target === "selection" && selection_preview}
-        <p
-          class="line-clamp-4 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
-        >
-          {selection_preview}
-        </p>
-      {/if}
-      {#if context_preview_open}
-        <div class="space-y-2">
-          <p class="text-xs font-medium text-foreground">
-            {context_preview.payload_label}
-          </p>
-          <textarea
-            class="min-h-40 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
-            readonly
-            value={original_text}
-          ></textarea>
-        </div>
+          {provider_config.install_url}
+        </a>
       {/if}
     </div>
+  {:else if cli_status === "error"}
+    <div
+      class="border-b border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+    >
+      {cli_error ?? `Failed to check ${provider_config?.name ?? "CLI"}.`}
+    </div>
+  {/if}
 
-    {#if history_turns.length > 0}
-      <div class="space-y-3">
-        <div class="text-sm font-medium">Session History</div>
-        <div class="max-h-64 space-y-3 overflow-y-auto pr-1">
-          {#each history_turns as turn (turn.id)}
-            <div class="space-y-2 rounded-md border bg-muted/20 p-3">
-              <div class="text-xs font-medium text-muted-foreground">
-                You ·
-                {turn.mode === "ask" ? "Ask" : "Edit"} ·
-                {turn.target === "selection" ? "Selection" : "Full Note"} ·
-                {providers.find((p) => p.id === turn.provider_id)?.name ??
-                  turn.provider_id}
-              </div>
-              <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
-              <div class="text-xs font-medium text-muted-foreground">
-                Assistant
-              </div>
-              {#if turn.status === "pending"}
-                <p class="text-sm text-muted-foreground">
-                  {turn.mode === "ask" ? "Thinking…" : "Generating draft…"}
-                </p>
-              {:else if turn.result?.success}
-                <p
-                  class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
-                >
-                  {turn.result.output}
-                </p>
-              {:else}
-                <p class="whitespace-pre-wrap text-sm text-destructive">
-                  {turn.result?.error ?? "Assistant run failed."}
-                </p>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <div class="space-y-2">
-      <label class="text-sm font-medium" for="ai-prompt">
-        {is_ask_mode ? "Question" : "Instructions"}
-      </label>
+  <!-- Two-column main area -->
+  <div class="flex flex-1 min-h-0">
+    <!-- Left column: prompt + actions -->
+    <div class="flex w-80 shrink-0 flex-col border-r">
       <textarea
         id="ai-prompt"
-        class="min-h-36 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        class="flex-1 resize-none border-0 bg-background p-3 text-sm focus:outline-none"
         placeholder={is_ask_mode
-          ? "Ask a question about the note…"
-          : "Describe how you want to edit the note…"}
+          ? "Ask a question about the note… (⌘↵ to run)"
+          : "Describe how you want to edit the note… (⌘↵ to run)"}
         value={prompt}
         oninput={(event) => on_prompt_change(event.currentTarget.value)}
         onkeydown={handle_prompt_keydown}
         disabled={is_executing || cli_status === "unavailable"}
       ></textarea>
-      <p class="text-xs text-muted-foreground">Press Cmd/Ctrl+Enter to run.</p>
+      <div class="flex flex-wrap items-center gap-2 border-t px-3 py-2">
+        <Button variant="ghost" size="sm" onclick={on_close}
+          >{close_label}</Button
+        >
+        {#if result}
+          <Button variant="ghost" size="sm" onclick={on_clear_result}>
+            {result_is_answer ? "Dismiss" : "Dismiss Draft"}
+          </Button>
+        {/if}
+        {#if result?.success && result_is_answer}
+          <Button variant="ghost" size="sm" onclick={copy_result}>
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        {/if}
+        <div class="flex-1"></div>
+        {#if result?.success && !result_is_answer}
+          <Button
+            size="sm"
+            onclick={apply_current_selection}
+            disabled={draft_diff ? selected_hunk_ids.length === 0 : false}
+          >
+            {#if partial_selection_active}
+              Apply Selected
+            {:else}
+              {target === "selection" ? "Apply to Selection" : "Replace Note"}
+            {/if}
+          </Button>
+        {/if}
+        <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
+          {#if is_executing}
+            Running…
+          {:else if result}
+            {is_ask_mode ? "Ask Again" : "Refine Draft"}
+          {:else}
+            {is_ask_mode ? "Ask" : "Generate Draft"}
+          {/if}
+        </Button>
+      </div>
     </div>
 
-    {#if result}
-      {#if result.success}
-        {#if result_is_answer}
-          <div class="space-y-3">
-            <div
-              class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
-            >
-              Answer from
-              <span class="ml-1 text-foreground">
-                {provider_config?.name ?? "AI"}
-              </span>
-            </div>
-            <div
-              class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
-            >
-              {result.output}
-            </div>
-          </div>
-        {:else}
-          <div class="space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
+    <!-- Right column: context preview / result -->
+    <div class="flex min-w-0 flex-1 flex-col overflow-y-auto p-3">
+      {#if result}
+        {#if result.success}
+          {#if result_is_answer}
+            <div class="space-y-3">
               <div
-                class="min-w-0 flex-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+                class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
               >
-                Review the generated content before applying it to the note.
+                Answer from
                 <span class="ml-1 text-foreground">
-                  Backend: {provider_config?.name ?? "AI"}
+                  {provider_config?.name ?? "AI"}
                 </span>
               </div>
-              {#if draft_diff}
-                <div class="flex shrink-0 items-center gap-2 text-xs">
-                  <span
-                    class="rounded-md border px-2 py-1 text-emerald-700 dark:text-emerald-400"
-                  >
-                    +{draft_diff.additions}
-                  </span>
-                  <span class="rounded-md border px-2 py-1 text-destructive">
-                    -{draft_diff.deletions}
+              <div
+                class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
+              >
+                {result.output}
+              </div>
+            </div>
+          {:else}
+            <div class="space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div
+                  class="min-w-0 flex-1 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+                >
+                  Review the generated content before applying.
+                  <span class="ml-1 text-foreground">
+                    Backend: {provider_config?.name ?? "AI"}
                   </span>
                 </div>
-              {/if}
-            </div>
-            {#if draft_diff && draft_diff.hunks.length > 1}
-              <div
-                class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
-              >
-                Select the change groups you want to apply. Unselected hunks
-                keep the original note content.
+                {#if draft_diff}
+                  <div class="flex shrink-0 items-center gap-2 text-xs">
+                    <span
+                      class="rounded-md border px-2 py-1 text-emerald-700 dark:text-emerald-400"
+                    >
+                      +{draft_diff.additions}
+                    </span>
+                    <span class="rounded-md border px-2 py-1 text-destructive">
+                      -{draft_diff.deletions}
+                    </span>
+                  </div>
+                {/if}
               </div>
-            {/if}
-            <AiDiffView
-              diff={draft_diff}
-              {selected_hunk_ids}
-              on_toggle_hunk={draft_diff && draft_diff.hunks.length > 1
-                ? toggle_hunk
-                : undefined}
-              on_select_all={draft_diff && draft_diff.hunks.length > 1
-                ? select_all_hunks
-                : undefined}
-              on_clear_selection={draft_diff && draft_diff.hunks.length > 1
-                ? clear_hunk_selection
-                : undefined}
-            />
-            <textarea
-              class="min-h-80 w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
-              readonly
-              value={selected_output ?? result.output}
-            ></textarea>
+              {#if draft_diff && draft_diff.hunks.length > 1}
+                <div
+                  class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
+                >
+                  Select the change groups you want to apply. Unselected hunks
+                  keep the original note content.
+                </div>
+              {/if}
+              <AiDiffView
+                diff={draft_diff}
+                {selected_hunk_ids}
+                on_toggle_hunk={draft_diff && draft_diff.hunks.length > 1
+                  ? toggle_hunk
+                  : undefined}
+                on_select_all={draft_diff && draft_diff.hunks.length > 1
+                  ? select_all_hunks
+                  : undefined}
+                on_clear_selection={draft_diff && draft_diff.hunks.length > 1
+                  ? clear_hunk_selection
+                  : undefined}
+              />
+            </div>
+          {/if}
+        {:else}
+          <div
+            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {result.error ?? `${provider_config?.name ?? "AI"} failed.`}
+          </div>
+        {/if}
+
+        {#if history_turns.length > 0}
+          <div class="mt-4 space-y-3">
+            <div class="text-sm font-medium">Session History</div>
+            <div class="space-y-3">
+              {#each history_turns as turn (turn.id)}
+                <div class="space-y-2 rounded-md border bg-muted/20 p-3">
+                  <div class="text-xs font-medium text-muted-foreground">
+                    You ·
+                    {turn.mode === "ask" ? "Ask" : "Edit"} ·
+                    {turn.target === "selection" ? "Selection" : "Full Note"} ·
+                    {providers.find((p) => p.id === turn.provider_id)?.name ??
+                      turn.provider_id}
+                  </div>
+                  <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
+                  <div class="text-xs font-medium text-muted-foreground">
+                    Assistant
+                  </div>
+                  {#if turn.status === "pending"}
+                    <p class="text-sm text-muted-foreground">
+                      {turn.mode === "ask" ? "Thinking…" : "Generating draft…"}
+                    </p>
+                  {:else if turn.result?.success}
+                    <p
+                      class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+                    >
+                      {turn.result.output}
+                    </p>
+                  {:else}
+                    <p class="whitespace-pre-wrap text-sm text-destructive">
+                      {turn.result?.error ?? "Assistant run failed."}
+                    </p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
           </div>
         {/if}
       {:else}
+        <!-- Context preview (no result yet) -->
         <div
-          class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          class="space-y-3 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
         >
-          {result.error ?? `${provider_config?.name ?? "AI"} failed.`}
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0 flex-1 space-y-1">
+              <p>
+                Sending the
+                <span class="font-medium text-foreground">
+                  {target === "selection" ? "selected text" : "full note"}
+                </span>
+                to {provider_config?.name ?? "AI"}.
+              </p>
+              <p class="text-xs">
+                {context_preview.note_label}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="shrink-0 whitespace-nowrap"
+              onclick={() => (context_preview_open = !context_preview_open)}
+            >
+              {context_preview_open ? "Hide Payload" : "Show Payload"}
+            </Button>
+          </div>
+          <div class="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+            <div class="rounded-md border bg-background/60 px-2 py-1">
+              <span class="font-medium text-foreground"
+                >{context_preview.scope_label}</span
+              >
+            </div>
+            <div class="rounded-md border bg-background/60 px-2 py-1">
+              <span class="font-medium text-foreground"
+                >{context_preview.line_count}</span
+              >
+              lines
+            </div>
+            <div class="rounded-md border bg-background/60 px-2 py-1">
+              <span class="font-medium text-foreground"
+                >{context_preview.char_count}</span
+              >
+              chars
+            </div>
+          </div>
+          {#if !context_preview_open && target === "selection" && selection_preview}
+            <p
+              class="line-clamp-4 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+            >
+              {selection_preview}
+            </p>
+          {/if}
+          {#if context_preview_open}
+            <div class="space-y-2">
+              <p class="text-xs font-medium text-foreground">
+                {context_preview.payload_label}
+              </p>
+              <textarea
+                class="min-h-40 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                readonly
+                value={original_text}
+              ></textarea>
+            </div>
+          {/if}
         </div>
       {/if}
-    {/if}
-  </div>
-
-  <div class="flex flex-col gap-2 border-t px-4 py-3">
-    <div class="flex flex-wrap justify-end gap-2">
-      {#if result}
-        <Button variant="outline" size="sm" onclick={on_clear_result}>
-          {result_is_answer ? "Dismiss" : "Dismiss Draft"}
-        </Button>
-      {/if}
-      <Button variant="outline" size="sm" onclick={on_close}
-        >{close_label}</Button
-      >
-      {#if result?.success && result_is_answer}
-        <Button variant="outline" size="sm" onclick={copy_result}>
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      {/if}
-    </div>
-    <div class="flex flex-wrap justify-end gap-2">
-      {#if result?.success && !result_is_answer}
-        <Button
-          size="sm"
-          onclick={apply_current_selection}
-          disabled={draft_diff ? selected_hunk_ids.length === 0 : false}
-        >
-          {#if partial_selection_active}
-            Apply Selected Changes
-          {:else}
-            {target === "selection" ? "Apply to Selection" : "Replace Note"}
-          {/if}
-        </Button>
-      {/if}
-      <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
-        {#if is_executing}
-          Running {provider_config?.name ?? "AI"}…
-        {:else if result}
-          {is_ask_mode ? "Ask Again" : "Refine Draft"}
-        {:else}
-          {is_ask_mode ? "Ask" : "Generate Draft"}
-        {/if}
-      </Button>
     </div>
   </div>
 </div>
