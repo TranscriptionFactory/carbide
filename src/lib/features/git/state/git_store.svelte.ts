@@ -2,7 +2,9 @@ import type {
   GitSyncStatus,
   GitCommit,
   GitDiff,
+  GitFileStatus,
 } from "$lib/features/git/types/git";
+import { SvelteSet } from "svelte/reactivity";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 
 export class GitStore {
@@ -30,6 +32,17 @@ export class GitStore {
   selected_file_content = $state<string | null>(null);
   is_loading_diff = $state(false);
 
+  changed_files = $state<GitFileStatus[]>([]);
+  staged_paths = $state(new SvelteSet<string>());
+
+  get staged_files() {
+    return this.changed_files.filter((f) => this.staged_paths.has(f.path));
+  }
+
+  get unstaged_files() {
+    return this.changed_files.filter((f) => !this.staged_paths.has(f.path));
+  }
+
   private readonly history_cache = new LruCache<
     string,
     {
@@ -53,6 +66,7 @@ export class GitStore {
     remote_url: string | null,
     ahead: number,
     behind: number,
+    files?: GitFileStatus[],
   ) {
     this.branch = branch;
     this.is_dirty = is_dirty;
@@ -62,6 +76,42 @@ export class GitStore {
     this.remote_url = remote_url;
     this.ahead = ahead;
     this.behind = behind;
+
+    if (files) {
+      this.changed_files = files;
+      const current_paths = new Set(files.map((f) => f.path));
+      for (const path of this.staged_paths) {
+        if (!current_paths.has(path)) {
+          this.staged_paths.delete(path);
+        }
+      }
+    }
+  }
+
+  stage_file(path: string) {
+    this.staged_paths.add(path);
+  }
+
+  unstage_file(path: string) {
+    this.staged_paths.delete(path);
+  }
+
+  stage_all() {
+    for (const f of this.changed_files) {
+      this.staged_paths.add(f.path);
+    }
+  }
+
+  unstage_all() {
+    this.staged_paths.clear();
+  }
+
+  toggle_stage(path: string) {
+    if (this.staged_paths.has(path)) {
+      this.staged_paths.delete(path);
+    } else {
+      this.staged_paths.add(path);
+    }
   }
 
   set_enabled(enabled: boolean) {
@@ -196,6 +246,8 @@ export class GitStore {
     this.sync_status = "idle";
     this.last_commit_time = null;
     this.error = null;
+    this.changed_files = [];
+    this.staged_paths = new SvelteSet<string>();
     this.clear_history();
     this.history_cache.clear();
   }

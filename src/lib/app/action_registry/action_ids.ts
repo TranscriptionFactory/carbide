@@ -233,6 +233,11 @@ export const ACTION_IDS = {
   git_update_remote_url: "git.update_remote_url",
   git_confirm_add_remote: "git.confirm_add_remote",
   git_cancel_add_remote: "git.cancel_add_remote",
+  git_stage_file: "git.stage_file",
+  git_unstage_file: "git.unstage_file",
+  git_stage_all: "git.stage_all",
+  git_unstage_all: "git.unstage_all",
+  git_commit_staged: "git.commit_staged",
 
   theme_load: "theme.load",
   theme_switch: "theme.switch",

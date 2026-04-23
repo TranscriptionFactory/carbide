@@ -444,4 +444,66 @@ export function register_git_actions(input: ActionRegistrationInput) {
       close_add_remote_dialog();
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.git_stage_file,
+    label: "Stage File",
+    execute: (path: unknown) => {
+      if (typeof path === "string") {
+        stores.git.stage_file(path);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_unstage_file,
+    label: "Unstage File",
+    execute: (path: unknown) => {
+      if (typeof path === "string") {
+        stores.git.unstage_file(path);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_stage_all,
+    label: "Stage All Files",
+    execute: () => {
+      stores.git.stage_all();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_unstage_all,
+    label: "Unstage All Files",
+    execute: () => {
+      stores.git.unstage_all();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_commit_staged,
+    label: "Commit Staged Files",
+    execute: async (payload: unknown) => {
+      const record = (payload ?? {}) as Record<string, unknown>;
+      const message =
+        typeof record.message === "string" ? record.message.trim() : "";
+      if (!message) return;
+
+      const staged = Array.from(stores.git.staged_paths);
+      if (staged.length === 0) return;
+
+      const toast_id = toast.loading("Committing staged files...");
+      const result = await services.git.commit_staged(message, staged);
+      if (result.status === "committed") {
+        toast.success("Committed successfully", { id: toast_id });
+      } else if (result.status === "skipped") {
+        toast.info("Nothing to commit", { id: toast_id });
+      } else if (result.status === "failed") {
+        toast.error(result.error, { id: toast_id });
+      } else {
+        toast.error("No git repository found", { id: toast_id });
+      }
+    },
+  });
 }

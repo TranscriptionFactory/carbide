@@ -224,6 +224,7 @@ export class GitService {
         status.remote_url,
         status.ahead,
         status.behind,
+        status.files,
       );
       this.op_store.succeed("git.status");
     } catch (err) {
@@ -248,6 +249,20 @@ export class GitService {
 
   async commit_all() {
     return this.serialize(() => this.inner_commit_all());
+  }
+
+  async commit_staged(message: string, staged_paths: string[]) {
+    return this.serialize(async () => {
+      const result = await this.run_commit(
+        "git.commit_staged",
+        message,
+        staged_paths,
+      );
+      if (result.status === "committed") {
+        this.git_store.unstage_all();
+      }
+      return result;
+    });
   }
 
   async create_checkpoint(description: string): Promise<GitCheckpointResult> {
