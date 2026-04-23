@@ -115,14 +115,16 @@ export function register_ai_actions(
     const context = services.editor.get_ai_context();
     if (!context) {
       if (ai_store.dialog.open && ai_store.dialog.context) {
-        input.stores.ui.set_context_rail_tab("ai");
+        input.stores.ui.bottom_panel_tab = "ai";
+        input.stores.ui.bottom_panel_open = true;
         return;
       }
       toast.info("Open a note first to use AI editing");
       return;
     }
 
-    input.stores.ui.set_context_rail_tab("ai");
+    input.stores.ui.bottom_panel_tab = "ai";
+    input.stores.ui.bottom_panel_open = true;
 
     if (
       ai_store.dialog.open &&
@@ -205,10 +207,10 @@ export function register_ai_actions(
     dialog_revision += 1;
     ai_store.close_dialog();
     if (
-      input.stores.ui.context_rail_open &&
-      input.stores.ui.context_rail_tab === "ai"
+      input.stores.ui.bottom_panel_open &&
+      input.stores.ui.bottom_panel_tab === "ai"
     ) {
-      input.stores.ui.toggle_context_rail();
+      input.stores.ui.bottom_panel_open = false;
     }
   }
 

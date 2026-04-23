@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Terminal, CircleAlert, Search, Zap } from "@lucide/svelte";
+  import { Terminal, CircleAlert, Search, Zap, Bot } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -36,6 +36,7 @@
     import("$lib/features/query/ui/query_panel_content.svelte");
   const load_lsp_results = () =>
     import("$lib/features/lsp/ui/lsp_results_panel_content.svelte");
+  const load_ai = () => import("$lib/features/ai/ui/ai_assistant_panel.svelte");
 
   const query_result_count = $derived(stores.query.result?.total ?? 0);
 </script>
@@ -88,6 +89,15 @@
         <span class="BottomPanel__badge">{query_result_count}</span>
       {/if}
     </button>
+    <button
+      type="button"
+      class="BottomPanel__tab"
+      class:BottomPanel__tab--active={active_tab === "ai"}
+      onclick={() => set_tab("ai")}
+    >
+      <Bot class="BottomPanel__tab-icon" />
+      AI
+    </button>
     <div class="BottomPanel__spacer"></div>
     <button
       type="button"
@@ -117,6 +127,12 @@
         <mod.default />
       {:catch}
         <div class="BottomPanel__error">Failed to load panel</div>
+      {/await}
+    {:else if active_tab === "ai"}
+      {#await load_ai() then mod}
+        <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load AI panel</div>
       {/await}
     {:else}
       {#await load_problems() then mod}

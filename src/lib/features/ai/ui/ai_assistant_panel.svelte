@@ -18,7 +18,7 @@
   );
 
   function hide_panel() {
-    void action_registry.execute(ACTION_IDS.ui_toggle_context_rail);
+    stores.ui.bottom_panel_open = false;
   }
 
   function start_session() {

@@ -105,7 +105,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_execute);
 
     expect(ai_store.dialog.open).toBe(false);
-    expect(stores.ui.context_rail_open).toBe(false);
+    expect(stores.ui.bottom_panel_open).toBe(false);
     expect(ai_service.check_availability).not.toHaveBeenCalled();
     expect(ai_service.execute).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalledWith(
@@ -113,13 +113,13 @@ describe("register_ai_actions", () => {
     );
   });
 
-  it("opens the AI assistant inside the context rail", async () => {
+  it("opens the AI assistant in the bottom panel", async () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
 
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
-    expect(stores.ui.context_rail_open).toBe(true);
-    expect(stores.ui.context_rail_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_open).toBe(true);
+    expect(stores.ui.bottom_panel_tab).toBe("ai");
     expect(ai_store.dialog.open).toBe(true);
     expect(ai_service.check_availability).toHaveBeenCalledWith(
       expect.objectContaining({ id: "claude" }),
@@ -244,7 +244,7 @@ describe("register_ai_actions", () => {
     });
   });
 
-  it("reopens the rail without resetting the current note session", async () => {
+  it("reopens the bottom panel without resetting the current note session", async () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
     ai_service.execute = vi.fn().mockResolvedValue({
       success: true,
@@ -256,11 +256,11 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
     await registry.execute(ACTION_IDS.ai_execute);
 
-    stores.ui.toggle_context_rail();
+    stores.ui.bottom_panel_open = false;
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
-    expect(stores.ui.context_rail_open).toBe(true);
-    expect(stores.ui.context_rail_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_open).toBe(true);
+    expect(stores.ui.bottom_panel_tab).toBe("ai");
     expect(ai_store.dialog.prompt).toBe("Tighten this note");
     expect(ai_store.dialog.turns).toHaveLength(1);
     expect(ai_store.dialog.result).toEqual({
@@ -279,7 +279,7 @@ describe("register_ai_actions", () => {
 
     expect(ai_store.dialog.open).toBe(false);
     expect(ai_store.dialog.context).toBeNull();
-    expect(stores.ui.context_rail_open).toBe(false);
+    expect(stores.ui.bottom_panel_open).toBe(false);
   });
 
   it("applies a partial draft when the assistant provides an output override", async () => {

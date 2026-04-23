@@ -35,14 +35,13 @@ type SidebarView =
   | "graph"
   | "tasks"
   | (string & {});
-type ContextRailTab =
-  | "links"
-  | "outline"
-  | "ai"
-  | "graph"
-  | "tasks"
-  | "metadata";
-export type BottomPanelTab = "terminal" | "problems" | "lsp_results" | "query";
+type ContextRailTab = "links" | "outline" | "graph" | "tasks" | "metadata";
+export type BottomPanelTab =
+  | "terminal"
+  | "problems"
+  | "lsp_results"
+  | "query"
+  | "ai";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
