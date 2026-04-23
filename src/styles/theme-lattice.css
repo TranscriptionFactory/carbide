@@ -1,22 +1,14 @@
 /* ============================================
    LATTICE LAYOUT OVERRIDES
    ============================================
-   Integrated left rail tabs, right-side source
-   control panel, and chrome title bar. Activity
-   bar hidden; navigation via rail tabs in the
-   sidebar header.
+   Chrome title bar with breadcrumbs + branch.
+   Activity bar and sidebar remain standard.
    ============================================ */
 
 [data-layout-variant="lattice"] .WorkspaceLayout--lattice {
   --lattice-title-bar-height: 36px;
-  --lattice-left-rail-width: 260px;
-  --lattice-right-panel-width: 360px;
 
   position: relative;
-
-  .ActivityBar {
-    display: none;
-  }
 
   .LatticeTitleBar {
     position: relative;
