@@ -243,6 +243,14 @@
       );
     }
   });
+
+  function toggle_sidebar_view(view: string) {
+    if (stores.ui.sidebar_open && stores.ui.sidebar_view === view) {
+      void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+      return;
+    }
+    void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, view);
+  }
 </script>
 
 {#if stores.vault.vault}
@@ -315,95 +323,7 @@
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
           dynamic_views={stores.plugin.sidebar_views}
-          on_open_explorer={() => {
-            if (
-              stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === SIDEBAR_VIEWS.explorer
-            ) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "explorer",
-            );
-          }}
-          on_open_starred={() => {
-            if (
-              stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === SIDEBAR_VIEWS.starred
-            ) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "starred",
-            );
-          }}
-          on_open_dashboard={() => {
-            if (
-              stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard
-            ) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "dashboard",
-            );
-          }}
-          on_open_graph={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.graph) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "graph",
-            );
-          }}
-          on_open_tasks={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.tasks) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "tasks",
-            );
-          }}
-          on_open_tags={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.tags) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "tags",
-            );
-          }}
-          on_open_source_control={() => {
-            if (
-              stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === SIDEBAR_VIEWS.source_control
-            ) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(
-              ACTION_IDS.ui_set_sidebar_view,
-              "source_control",
-            );
-          }}
-          on_open_dynamic={(id) => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === id) {
-              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
-              return;
-            }
-            void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, id);
-          }}
+          on_open_view={toggle_sidebar_view}
           on_open_help={() =>
             void action_registry.execute(ACTION_IDS.help_open)}
           on_open_settings={() =>
