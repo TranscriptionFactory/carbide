@@ -254,7 +254,6 @@
     class:WorkspaceLayout--theater={is_theater}
     class:WorkspaceLayout--triptych={is_triptych}
     data-sidebar-open={stores.ui.sidebar_open}
-    data-context-rail-open={stores.ui.context_rail_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
       const target = e.target as HTMLElement;
@@ -294,19 +293,6 @@
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
           dynamic_views={stores.plugin.sidebar_views}
-          context_rail_open={stores.ui.context_rail_open}
-          on_toggle_context_rail={is_command_deck ||
-          is_grounded_heavy ||
-          is_hud ||
-          is_zen_deck ||
-          is_dashboard ||
-          is_spotlight ||
-          is_cockpit ||
-          is_theater ||
-          is_triptych
-            ? () =>
-                void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)
-            : undefined}
           on_open_explorer={() => {
             if (
               stores.ui.sidebar_open &&
@@ -970,16 +956,10 @@
               </Resizable.PaneGroup>
             </Sidebar.Inset>
           </Resizable.Pane>
-          {#if stores.ui.context_rail_open && !zen_mode}
-            <Resizable.Handle />
-            <Resizable.Pane
-              defaultSize={20}
-              minSize={12}
-              maxSize={35}
-              order={3}
-            >
+          {#if !zen_mode}
+            <div class="WorkspaceLayout__context-rail">
               <ContextRail />
-            </Resizable.Pane>
+            </div>
           {/if}
         </Resizable.PaneGroup>
       </Sidebar.Provider>
@@ -1158,5 +1138,12 @@
   :global(.StarredGroupLabel__icon) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
+  }
+
+  .WorkspaceLayout__context-rail {
+    position: relative;
+    width: 36px;
+    flex-shrink: 0;
+    overflow: visible;
   }
 </style>
