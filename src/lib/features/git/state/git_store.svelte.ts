@@ -35,12 +35,28 @@ export class GitStore {
   changed_files = $state<GitFileStatus[]>([]);
   staged_paths = $state(new SvelteSet<string>());
 
+  working_diff_path = $state<string | null>(null);
+  working_diff = $state<GitDiff | null>(null);
+  is_loading_working_diff = $state(false);
+
   get staged_files() {
     return this.changed_files.filter((f) => this.staged_paths.has(f.path));
   }
 
   get unstaged_files() {
     return this.changed_files.filter((f) => !this.staged_paths.has(f.path));
+  }
+
+  set_working_diff(path: string | null, diff: GitDiff | null) {
+    this.working_diff_path = path;
+    this.working_diff = diff;
+    this.is_loading_working_diff = false;
+  }
+
+  clear_working_diff() {
+    this.working_diff_path = null;
+    this.working_diff = null;
+    this.is_loading_working_diff = false;
   }
 
   private readonly history_cache = new LruCache<
@@ -250,6 +266,7 @@ export class GitStore {
     this.error = null;
     this.changed_files = [];
     this.staged_paths = new SvelteSet<string>();
+    this.clear_working_diff();
     this.clear_history();
     this.history_cache.clear();
   }

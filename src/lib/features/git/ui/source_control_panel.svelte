@@ -34,6 +34,13 @@
     void action_registry.execute(ACTION_IDS.git_toggle_stage, path);
   }
 
+  function view_diff(path: string, is_staged: boolean) {
+    void action_registry.execute(ACTION_IDS.git_open_diff, {
+      file_path: path,
+      is_staged,
+    });
+  }
+
   function stage_all() {
     void action_registry.execute(ACTION_IDS.git_stage_all);
   }
@@ -122,6 +129,7 @@
               {file}
               is_staged={true}
               on_toggle_stage={toggle_stage}
+              on_view_diff={(path) => view_diff(path, true)}
             />
           {/each}
         </div>
@@ -138,7 +146,12 @@
     >
       <div class="SourceControlPanel__file-list">
         {#each unstaged_files as file (file.path)}
-          <ChangeCard {file} is_staged={false} on_toggle_stage={toggle_stage} />
+          <ChangeCard
+            {file}
+            is_staged={false}
+            on_toggle_stage={toggle_stage}
+            on_view_diff={(path) => view_diff(path, false)}
+          />
         {/each}
         {#if unstaged_files.length === 0}
           <div class="SourceControlPanel__empty">No unstaged changes</div>

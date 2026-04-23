@@ -35,6 +35,13 @@ export function create_test_git_adapter(): GitPort {
         hunks: [],
       });
     },
+    diff_working() {
+      return Promise.resolve({
+        additions: 0,
+        deletions: 0,
+        hunks: [],
+      });
+    },
     show_file_at_commit() {
       return Promise.resolve("");
     },

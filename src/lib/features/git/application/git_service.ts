@@ -4,7 +4,7 @@ import type { GitStore } from "$lib/features/git/state/git_store.svelte";
 import type { OpStore } from "$lib/app";
 import type { GitPullStrategy } from "$lib/shared/types/editor_settings";
 import type { VaultPath } from "$lib/shared/types/ids";
-import { CHECKPOINT_PREFIX } from "$lib/features/git/types/git";
+import { CHECKPOINT_PREFIX, type GitDiff } from "$lib/features/git/types/git";
 import { error_message } from "$lib/shared/utils/error_message";
 
 type CommitRunResult =
@@ -362,6 +362,11 @@ export class GitService {
   async get_diff(commit_a: string, commit_b: string, file_path: string | null) {
     const vault_path = this.get_vault_path();
     return await this.git_port.diff(vault_path, commit_a, commit_b, file_path);
+  }
+
+  async get_working_diff(file_path: string | null): Promise<GitDiff> {
+    const vault_path = this.get_vault_path();
+    return await this.git_port.diff_working(vault_path, file_path);
   }
 
   async get_file_at_commit(file_path: string, commit_hash: string) {

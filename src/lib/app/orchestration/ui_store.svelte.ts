@@ -159,6 +159,12 @@ const INITIAL_ADD_REMOTE_DIALOG = {
   url: "",
 } as const;
 
+const INITIAL_DIFF_VIEWER_DIALOG = {
+  open: false,
+  file_path: null as string | null,
+  is_staged: false,
+} as const;
+
 const INITIAL_HOTKEY_RECORDER: HotkeyRecorderState = {
   open: false,
   action_id: null,
@@ -385,6 +391,12 @@ export class UIStore {
     url: string;
   }>({ ...INITIAL_ADD_REMOTE_DIALOG });
 
+  diff_viewer_dialog = $state<{
+    open: boolean;
+    file_path: string | null;
+    is_staged: boolean;
+  }>({ ...INITIAL_DIFF_VIEWER_DIALOG });
+
   vault_switcher_open = $state(false);
 
   tab_drag_active = $state(false);
@@ -575,6 +587,7 @@ export class UIStore {
     this.version_history_dialog = { ...INITIAL_VERSION_HISTORY_DIALOG };
     this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };
     this.add_remote_dialog = { ...INITIAL_ADD_REMOTE_DIALOG };
+    this.diff_viewer_dialog = { ...INITIAL_DIFF_VIEWER_DIALOG };
     this.vault_switcher_open = false;
     this.zen_mode = false;
     this.context_rail_open = false;

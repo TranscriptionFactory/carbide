@@ -261,6 +261,7 @@ pub fn run() {
             features::git::service::git_stage_and_commit,
             features::git::service::git_log,
             features::git::service::git_diff,
+            features::git::service::git_diff_working_tree,
             features::git::service::git_show_file_at_commit,
             features::git::service::git_restore_file,
             features::git::service::git_create_tag,

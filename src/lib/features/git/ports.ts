@@ -27,6 +27,10 @@ export interface GitPort {
     commit_b: string,
     file_path: string | null,
   ): Promise<GitDiff>;
+  diff_working(
+    vault_path: VaultPath,
+    file_path: string | null,
+  ): Promise<GitDiff>;
   show_file_at_commit(
     vault_path: VaultPath,
     file_path: string,

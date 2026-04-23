@@ -62,6 +62,12 @@ export function create_git_tauri_adapter(): GitPort {
         filePath: file_path,
       });
     },
+    async diff_working(vault_path: VaultPath, file_path: string | null) {
+      return await invoke_git<GitDiff>("git_diff_working_tree", {
+        vaultPath: vault_path,
+        filePath: file_path,
+      });
+    },
     async show_file_at_commit(
       vault_path: VaultPath,
       file_path: string,

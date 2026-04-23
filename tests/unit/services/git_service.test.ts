@@ -24,6 +24,9 @@ function create_mock_port() {
   const diff = vi
     .fn()
     .mockResolvedValue({ additions: 0, deletions: 0, hunks: [] });
+  const diff_working = vi
+    .fn()
+    .mockResolvedValue({ additions: 0, deletions: 0, hunks: [] });
   const show_file_at_commit = vi.fn().mockResolvedValue("file content");
   const restore_file = vi.fn().mockResolvedValue("def456");
   const create_tag = vi.fn().mockResolvedValue(undefined);
@@ -53,6 +56,7 @@ function create_mock_port() {
     stage_and_commit,
     log,
     diff,
+    diff_working,
     show_file_at_commit,
     restore_file,
     create_tag,
