@@ -79,7 +79,7 @@ export function register_canvas_actions(
       const default_name = format_note_name(template, new Date(Date.now()));
       stores.ui.create_canvas_dialog = {
         open: true,
-        folder_path: "assets/excalidraw",
+        folder_path: `${stores.ui.editor_settings.attachment_folder || ".assets"}/excalidraw`,
         canvas_name: default_name,
       };
     },
