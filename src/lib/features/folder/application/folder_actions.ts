@@ -1,5 +1,6 @@
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
   batch_clear_folder_filetree_state,
@@ -529,7 +530,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         const folder = parent_folder_path(note_path);
         stores.ui.set_selected_folder_path(folder);
         stores.ui.set_filetree_revealed_note_path(note_path);
-        stores.ui.set_sidebar_view("explorer");
+        stores.ui.set_sidebar_view(SIDEBAR_VIEWS.explorer);
       },
     });
 

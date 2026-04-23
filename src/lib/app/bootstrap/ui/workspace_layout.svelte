@@ -28,7 +28,7 @@
   import { flatten_filetree } from "$lib/features/folder";
   import { derive_starred_tree } from "$lib/features/folder";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { ACTION_IDS } from "$lib/app";
+  import { ACTION_IDS, SIDEBAR_VIEWS } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
   import {
     FilePlus,
@@ -224,18 +224,23 @@
 
   const sidebar_header_actions = $derived.by(() => {
     const view = stores.ui.sidebar_view;
-    if (is_vault_mode && view === "starred") return starred_header_actions;
-    if (is_vault_mode && view === "dashboard") return dashboard_header_actions;
+    if (is_vault_mode && view === SIDEBAR_VIEWS.starred)
+      return starred_header_actions;
+    if (is_vault_mode && view === SIDEBAR_VIEWS.dashboard)
+      return dashboard_header_actions;
     return explorer_header_actions;
   });
 
   $effect(() => {
     if (
       !is_vault_mode &&
-      (stores.ui.sidebar_view === "starred" ||
-        stores.ui.sidebar_view === "dashboard")
+      (stores.ui.sidebar_view === SIDEBAR_VIEWS.starred ||
+        stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard)
     ) {
-      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, "explorer");
+      void action_registry.execute(
+        ACTION_IDS.ui_set_sidebar_view,
+        SIDEBAR_VIEWS.explorer,
+      );
     }
   });
 </script>
@@ -298,7 +303,7 @@
         on_branch_click={() => {
           void action_registry.execute(
             ACTION_IDS.ui_set_sidebar_view,
-            "source_control",
+            SIDEBAR_VIEWS.source_control,
           );
         }}
       />
@@ -313,7 +318,7 @@
           on_open_explorer={() => {
             if (
               stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === "explorer"
+              stores.ui.sidebar_view === SIDEBAR_VIEWS.explorer
             ) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
@@ -326,7 +331,7 @@
           on_open_starred={() => {
             if (
               stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === "starred"
+              stores.ui.sidebar_view === SIDEBAR_VIEWS.starred
             ) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
@@ -339,7 +344,7 @@
           on_open_dashboard={() => {
             if (
               stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === "dashboard"
+              stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard
             ) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
@@ -350,7 +355,7 @@
             );
           }}
           on_open_graph={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === "graph") {
+            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.graph) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
             }
@@ -360,7 +365,7 @@
             );
           }}
           on_open_tasks={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === "tasks") {
+            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.tasks) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
             }
@@ -370,7 +375,7 @@
             );
           }}
           on_open_tags={() => {
-            if (stores.ui.sidebar_open && stores.ui.sidebar_view === "tags") {
+            if (stores.ui.sidebar_open && stores.ui.sidebar_view === SIDEBAR_VIEWS.tags) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
             }
@@ -382,7 +387,7 @@
           on_open_source_control={() => {
             if (
               stores.ui.sidebar_open &&
-              stores.ui.sidebar_view === "source_control"
+              stores.ui.sidebar_view === SIDEBAR_VIEWS.source_control
             ) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
               return;
@@ -421,11 +426,11 @@
                 <Sidebar.Header class="p-0">
                   <div class="SidebarHeader">
                     <div class="SidebarHeader__top">
-                      {#if stores.ui.sidebar_view === "starred"}
+                      {#if stores.ui.sidebar_view === SIDEBAR_VIEWS.starred}
                         <span class="SidebarHeader__title">Starred</span>
-                      {:else if stores.ui.sidebar_view === "dashboard"}
+                      {:else if stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard}
                         <span class="SidebarHeader__title">Dashboard</span>
-                      {:else if stores.ui.sidebar_view === "source_control"}
+                      {:else if stores.ui.sidebar_view === SIDEBAR_VIEWS.source_control}
                         <span class="SidebarHeader__title">Source Control</span>
                       {:else if stores.plugin.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
                         <span class="SidebarHeader__title">
@@ -520,7 +525,7 @@
                 </Sidebar.Header>
 
                 <Sidebar.Content class="overflow-hidden">
-                  {#if is_vault_mode && stores.ui.sidebar_view === "starred"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.starred}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VirtualFileTree
@@ -644,7 +649,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "dashboard"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <VaultDashboardPanel
@@ -689,7 +694,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "graph"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.graph}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <GraphPanel />
@@ -697,7 +702,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "tasks"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.tasks}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <TaskPanel />
@@ -705,7 +710,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "tags"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.tags}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <TagPanel />
@@ -713,7 +718,7 @@
                     </Sidebar.Group>
                   {/if}
 
-                  {#if is_vault_mode && stores.ui.sidebar_view === "source_control"}
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.source_control}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <SourceControlPanel />

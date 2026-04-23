@@ -11,16 +11,8 @@
     GitBranch,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
-
-  type SidebarView =
-    | "explorer"
-    | "dashboard"
-    | "starred"
-    | "graph"
-    | "tasks"
-    | "tags"
-    | "source_control"
-    | string;
+  import { SIDEBAR_VIEWS } from "$lib/app";
+  import type { SidebarView } from "$lib/app";
 
   type Props = {
     sidebar_open: boolean;
@@ -63,9 +55,9 @@
       type="button"
       class="ActivityBar__button"
       class:ActivityBar__button--active={sidebar_open &&
-        active_view === "explorer"}
+        active_view === SIDEBAR_VIEWS.explorer}
       onclick={on_open_explorer}
-      aria-pressed={sidebar_open && active_view === "explorer"}
+      aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.explorer}
       aria-label="Explorer"
     >
       <Files class="ActivityBar__icon" />
@@ -76,9 +68,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "starred"}
+          active_view === SIDEBAR_VIEWS.starred}
         onclick={on_open_starred}
-        aria-pressed={sidebar_open && active_view === "starred"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.starred}
         aria-label="Starred"
       >
         <Star class="ActivityBar__icon" />
@@ -88,9 +80,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "dashboard"}
+          active_view === SIDEBAR_VIEWS.dashboard}
         onclick={on_open_dashboard}
-        aria-pressed={sidebar_open && active_view === "dashboard"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.dashboard}
         aria-label="Dashboard"
       >
         <LayoutDashboard class="ActivityBar__icon" />
@@ -100,9 +92,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "tasks"}
+          active_view === SIDEBAR_VIEWS.tasks}
         onclick={on_open_tasks}
-        aria-pressed={sidebar_open && active_view === "tasks"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tasks}
         aria-label="Tasks"
       >
         <ListChecks class="ActivityBar__icon" />
@@ -112,9 +104,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "tags"}
+          active_view === SIDEBAR_VIEWS.tags}
         onclick={on_open_tags}
-        aria-pressed={sidebar_open && active_view === "tags"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tags}
         aria-label="Tags"
       >
         <Hash class="ActivityBar__icon" />
@@ -124,9 +116,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "graph"}
+          active_view === SIDEBAR_VIEWS.graph}
         onclick={on_open_graph}
-        aria-pressed={sidebar_open && active_view === "graph"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.graph}
         aria-label="Graph"
       >
         <Network class="ActivityBar__icon" />
@@ -136,9 +128,9 @@
         type="button"
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
-          active_view === "source_control"}
+          active_view === SIDEBAR_VIEWS.source_control}
         onclick={on_open_source_control}
-        aria-pressed={sidebar_open && active_view === "source_control"}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.source_control}
         aria-label="Source Control"
       >
         <GitBranch class="ActivityBar__icon" />

@@ -1,5 +1,6 @@
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { TagService } from "./tag_service";
 import type { TagStore } from "../state/tag_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
@@ -74,10 +75,10 @@ export function register_tag_actions(
     id: ACTION_IDS.tags_toggle_panel,
     label: "Toggle Tags Panel",
     execute: () => {
-      if (ui_store.sidebar_open && ui_store.sidebar_view === "tags") {
+      if (ui_store.sidebar_open && ui_store.sidebar_view === SIDEBAR_VIEWS.tags) {
         ui_store.toggle_sidebar();
       } else {
-        ui_store.set_sidebar_view("tags");
+        ui_store.set_sidebar_view(SIDEBAR_VIEWS.tags);
       }
     },
   });

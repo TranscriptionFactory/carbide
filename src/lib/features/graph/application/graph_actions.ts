@@ -1,5 +1,6 @@
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
 import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import {
@@ -32,8 +33,8 @@ export function register_graph_actions(
 
   function close_graph(options: GraphCloseOptions = {}) {
     graph_service.close_panel();
-    if (!options.preserve_context_rail && stores.ui.sidebar_view === "graph") {
-      stores.ui.sidebar_view = "explorer";
+    if (!options.preserve_context_rail && stores.ui.sidebar_view === SIDEBAR_VIEWS.graph) {
+      stores.ui.sidebar_view = SIDEBAR_VIEWS.explorer;
     }
   }
 
@@ -45,13 +46,13 @@ export function register_graph_actions(
       if (
         graph_store.panel_open &&
         stores.ui.sidebar_open &&
-        stores.ui.sidebar_view === "graph"
+        stores.ui.sidebar_view === SIDEBAR_VIEWS.graph
       ) {
         close_graph();
         return;
       }
 
-      stores.ui.set_sidebar_view("graph");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.graph);
       await graph_service.focus_active_note();
     },
   });
@@ -68,7 +69,7 @@ export function register_graph_actions(
     id: ACTION_IDS.graph_focus_active_note,
     label: "Focus Active Note in Graph",
     execute: async () => {
-      stores.ui.set_sidebar_view("graph");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.graph);
       await graph_service.focus_active_note();
     },
   });
@@ -151,8 +152,8 @@ export function register_graph_actions(
     label: "Open Vault Graph",
     execute: () => {
       graph_service.close_panel();
-      if (stores.ui.sidebar_view === "graph") {
-        stores.ui.sidebar_view = "explorer";
+      if (stores.ui.sidebar_view === SIDEBAR_VIEWS.graph) {
+        stores.ui.sidebar_view = SIDEBAR_VIEWS.explorer;
       }
 
       graph_store.set_view_mode("vault");
@@ -166,7 +167,7 @@ export function register_graph_actions(
     label: "Load IWE Hierarchy",
     execute: async (root_key?: unknown) => {
       graph_store.set_view_mode("hierarchy");
-      stores.ui.set_sidebar_view("graph");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.graph);
       await graph_service.load_hierarchy(
         typeof root_key === "string" ? root_key : null,
       );

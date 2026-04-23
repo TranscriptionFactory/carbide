@@ -1,4 +1,5 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { NotesStore } from "$lib/features/note";
@@ -233,7 +234,7 @@ export function register_vim_nav_actions(input: VimNavActionInput) {
     label: "Vim Nav: Focus Explorer",
     execute: () => {
       ui_store.sidebar_open = true;
-      ui_store.set_sidebar_view("explorer");
+      ui_store.set_sidebar_view(SIDEBAR_VIEWS.explorer);
       vim_nav_store.set_context("file_tree");
       requestAnimationFrame(() => {
         const el = document.querySelector<HTMLElement>(

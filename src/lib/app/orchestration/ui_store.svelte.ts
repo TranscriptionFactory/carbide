@@ -26,15 +26,9 @@ import type {
   HotkeyRecorderState,
 } from "$lib/features/hotkey";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import type { SidebarView } from "$lib/app/sidebar_views";
 
 type AsyncStatus = "idle" | "loading" | "error";
-type SidebarView =
-  | "explorer"
-  | "dashboard"
-  | "starred"
-  | "graph"
-  | "tasks"
-  | (string & {});
 type ContextRailTab = "links" | "outline" | "graph" | "tasks" | "metadata";
 export type BottomPanelTab =
   | "terminal"

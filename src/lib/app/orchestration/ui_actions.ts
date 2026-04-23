@@ -1,20 +1,14 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-
-type SidebarView =
-  | "explorer"
-  | "dashboard"
-  | "starred"
-  | "tasks"
-  | "graph"
-  | (string & {});
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
+import type { SidebarView } from "$lib/app/sidebar_views";
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();
-    if (!value) return "explorer";
+    if (!value) return SIDEBAR_VIEWS.explorer;
     return value;
   }
 
@@ -94,7 +88,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     execute: (view: unknown) => {
       const next_view = parse_sidebar_view(view);
       stores.ui.set_sidebar_view(next_view);
-      if (next_view === "dashboard") {
+      if (next_view === SIDEBAR_VIEWS.dashboard) {
         void services.vault.refresh_dashboard_stats();
       }
     },
