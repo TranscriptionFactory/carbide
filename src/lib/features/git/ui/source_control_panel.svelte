@@ -34,10 +34,9 @@
     void action_registry.execute(ACTION_IDS.git_toggle_stage, path);
   }
 
-  function view_diff(path: string, is_staged: boolean) {
+  function view_diff(path: string) {
     void action_registry.execute(ACTION_IDS.git_open_diff, {
       file_path: path,
-      is_staged,
     });
   }
 
@@ -129,7 +128,7 @@
               {file}
               is_staged={true}
               on_toggle_stage={toggle_stage}
-              on_view_diff={(path) => view_diff(path, true)}
+              on_view_diff={view_diff}
             />
           {/each}
         </div>
@@ -150,7 +149,7 @@
             {file}
             is_staged={false}
             on_toggle_stage={toggle_stage}
-            on_view_diff={(path) => view_diff(path, false)}
+            on_view_diff={view_diff}
           />
         {/each}
         {#if unstaged_files.length === 0}
