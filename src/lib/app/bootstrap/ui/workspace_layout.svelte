@@ -20,6 +20,7 @@
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
   import { TagPanel } from "$lib/features/tags";
+  import { SourceControlPanel } from "$lib/features/git";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
@@ -362,6 +363,19 @@
               "tags",
             );
           }}
+          on_open_source_control={() => {
+            if (
+              stores.ui.sidebar_open &&
+              stores.ui.sidebar_view === "source_control"
+            ) {
+              void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+              return;
+            }
+            void action_registry.execute(
+              ACTION_IDS.ui_set_sidebar_view,
+              "source_control",
+            );
+          }}
           on_open_dynamic={(id) => {
             if (stores.ui.sidebar_open && stores.ui.sidebar_view === id) {
               void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
@@ -395,6 +409,8 @@
                         <span class="SidebarHeader__title">Starred</span>
                       {:else if stores.ui.sidebar_view === "dashboard"}
                         <span class="SidebarHeader__title">Dashboard</span>
+                      {:else if stores.ui.sidebar_view === "source_control"}
+                        <span class="SidebarHeader__title">Source Control</span>
                       {:else if stores.plugin.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
                         <span class="SidebarHeader__title">
                           {stores.plugin.sidebar_views.find(
@@ -677,6 +693,14 @@
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <TagPanel />
+                      </Sidebar.GroupContent>
+                    </Sidebar.Group>
+                  {/if}
+
+                  {#if is_vault_mode && stores.ui.sidebar_view === "source_control"}
+                    <Sidebar.Group class="h-full">
+                      <Sidebar.GroupContent class="h-full">
+                        <SourceControlPanel />
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
                   {/if}
