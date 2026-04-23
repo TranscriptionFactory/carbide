@@ -29,6 +29,11 @@ function parse_commit_restore_payload(payload: unknown): CommitRestorePayload {
   };
 }
 
+function parse_open_diff_payload(payload: unknown): string | null {
+  const record = (payload ?? {}) as Record<string, unknown>;
+  return typeof record.file_path === "string" ? record.file_path : null;
+}
+
 export function register_git_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
   const history_page_size = 20;
@@ -521,21 +526,19 @@ export function register_git_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.git_open_diff,
     label: "View File Diff",
     execute: async (payload: unknown) => {
-      const record = (payload ?? {}) as Record<string, unknown>;
-      const file_path =
-        typeof record.file_path === "string" ? record.file_path : null;
-      const is_staged =
-        typeof record.is_staged === "boolean" ? record.is_staged : false;
+      const file_path = parse_open_diff_payload(payload);
       if (!file_path) return;
 
-      stores.ui.diff_viewer_dialog = { open: true, file_path, is_staged };
+      stores.ui.diff_viewer_dialog = { open: true, file_path };
       stores.git.is_loading_working_diff = true;
 
       try {
         const diff = await services.git.get_working_diff(file_path);
-        stores.git.set_working_diff(file_path, diff);
+        if (stores.ui.diff_viewer_dialog.file_path !== file_path) return;
+        stores.git.set_working_diff(diff);
       } catch {
-        stores.git.set_working_diff(file_path, null);
+        if (stores.ui.diff_viewer_dialog.file_path !== file_path) return;
+        stores.git.set_working_diff(null);
       }
     },
   });
@@ -547,7 +550,6 @@ export function register_git_actions(input: ActionRegistrationInput) {
       stores.ui.diff_viewer_dialog = {
         open: false,
         file_path: null,
-        is_staged: false,
       };
       stores.git.clear_working_diff();
     },

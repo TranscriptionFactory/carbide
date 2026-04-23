@@ -35,7 +35,6 @@ export class GitStore {
   changed_files = $state<GitFileStatus[]>([]);
   staged_paths = $state(new SvelteSet<string>());
 
-  working_diff_path = $state<string | null>(null);
   working_diff = $state<GitDiff | null>(null);
   is_loading_working_diff = $state(false);
 
@@ -47,14 +46,12 @@ export class GitStore {
     return this.changed_files.filter((f) => !this.staged_paths.has(f.path));
   }
 
-  set_working_diff(path: string | null, diff: GitDiff | null) {
-    this.working_diff_path = path;
+  set_working_diff(diff: GitDiff | null) {
     this.working_diff = diff;
     this.is_loading_working_diff = false;
   }
 
   clear_working_diff() {
-    this.working_diff_path = null;
     this.working_diff = null;
     this.is_loading_working_diff = false;
   }

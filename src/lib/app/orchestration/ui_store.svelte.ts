@@ -162,7 +162,6 @@ const INITIAL_ADD_REMOTE_DIALOG = {
 const INITIAL_DIFF_VIEWER_DIALOG = {
   open: false,
   file_path: null as string | null,
-  is_staged: false,
 } as const;
 
 const INITIAL_HOTKEY_RECORDER: HotkeyRecorderState = {
@@ -394,7 +393,6 @@ export class UIStore {
   diff_viewer_dialog = $state<{
     open: boolean;
     file_path: string | null;
-    is_staged: boolean;
   }>({ ...INITIAL_DIFF_VIEWER_DIALOG });
 
   vault_switcher_open = $state(false);

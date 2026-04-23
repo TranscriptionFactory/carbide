@@ -74,12 +74,8 @@
 
     <Dialog.Footer>
       {#if file_path}
-        <Button
-          variant="outline"
-          onclick={() => {
-            if (file_path) on_toggle_stage(file_path);
-          }}
-        >
+        {@const path = file_path}
+        <Button variant="outline" onclick={() => on_toggle_stage(path)}>
           {is_staged ? "Unstage" : "Stage"}
         </Button>
       {/if}

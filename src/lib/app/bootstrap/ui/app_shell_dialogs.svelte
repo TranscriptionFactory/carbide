@@ -713,7 +713,9 @@
 <DiffViewerDialog
   open={stores.ui.diff_viewer_dialog.open}
   file_path={stores.ui.diff_viewer_dialog.file_path}
-  is_staged={stores.ui.diff_viewer_dialog.is_staged}
+  is_staged={stores.ui.diff_viewer_dialog.file_path
+    ? stores.git.staged_paths.has(stores.ui.diff_viewer_dialog.file_path)
+    : false}
   is_loading={stores.git.is_loading_working_diff}
   diff={stores.git.working_diff}
   on_close={() => void action_registry.execute(ACTION_IDS.git_close_diff)}
