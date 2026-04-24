@@ -59,9 +59,9 @@
 /* Glass Effect Utilities */
 .ActivityBar {
   backdrop-filter: blur(20px);
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 [data-color-scheme="dark"] .ActivityBar {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: color-mix(in oklch, var(--foreground) 20%, transparent);
 }

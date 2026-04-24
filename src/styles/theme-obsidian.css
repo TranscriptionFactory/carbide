@@ -16,15 +16,15 @@
     background:
       radial-gradient(
         ellipse 80% 60% at 30% 20%,
-        oklch(0.22 0.08 285 / 0.5) 0%,
+        var(--accent-glow) 0%,
         transparent 70%
       ),
       radial-gradient(
         ellipse 60% 50% at 75% 70%,
-        oklch(0.18 0.06 310 / 0.4) 0%,
+        color-mix(in oklch, var(--accent-glow) 80%, transparent) 0%,
         transparent 70%
       ),
-      oklch(0.13 0.018 275);
+      var(--background);
     pointer-events: none;
   }
 
@@ -34,7 +34,10 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background-image: radial-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px);
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--foreground) 4%, transparent) 1px,
+      transparent 1px
+    );
     background-size: 4px 4px;
     pointer-events: none;
   }
@@ -45,7 +48,7 @@
     > [data-pane][order="1"] {
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    background-color: oklch(0.22 0.02 275 / 0.55);
+    background-color: var(--glass);
     border-radius: var(--radius);
   }
 
@@ -59,7 +62,7 @@
   .ContextRail {
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    background-color: oklch(0.22 0.02 275 / 0.55);
+    background-color: var(--glass);
   }
 
   /* Glass editor/inset area */
@@ -72,25 +75,51 @@
   .ActivityBar {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    background-color: oklch(0.17 0.018 275 / 0.7);
+    background-color: var(--glass-strong);
   }
 
   /* Tab bar glass */
   .TabBar {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    background-color: oklch(0.22 0.02 275 / 0.55);
+    background-color: var(--glass);
   }
 
   /* Status bar glass */
   .StatusBar {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    background-color: oklch(0.17 0.018 275 / 0.7);
+    background-color: var(--glass-strong);
   }
 
   /* Panel rounded corners */
   .SidebarPanel {
     border-radius: var(--radius);
+  }
+}
+
+/* Light-mode adjustments: lighter glow, darker grain dots */
+[data-color-scheme="light"][data-layout-variant="obsidian"]
+  .WorkspaceLayout--obsidian {
+  &::before {
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 30% 20%,
+        color-mix(in oklch, var(--accent-glow) 50%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 75% 70%,
+        color-mix(in oklch, var(--accent-glow) 30%, transparent) 0%,
+        transparent 70%
+      ),
+      var(--background);
+  }
+
+  &::after {
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    );
   }
 }

@@ -103,5 +103,5 @@
 
 /* Neon glow on active elements */
 .ActivityBar__button--active {
-  box-shadow: 0 0 8px oklch(0.72 0.2 300 / 40%);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
