@@ -1,20 +1,16 @@
-import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
-  create_cursor_anchor,
-  position_suggest_dropdown,
-  scroll_selected_into_view,
-  attach_outside_dismiss,
-  mount_dropdown,
-  destroy_dropdown,
-} from "./suggest_dropdown_utils";
+  create_suggest_prose_plugin,
+  type SuggestState,
+} from "./suggest_plugin_factory";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
 
-export const wiki_suggest_plugin_key = new PluginKey<WikiSuggestState>(
-  "wiki-suggest",
-);
+export const wiki_suggest_plugin_key = new PluginKey<
+  SuggestState<SuggestionItem>
+>("wiki-suggest");
 
 type NoteSuggestionItem = {
   kind: "existing" | "planned";
@@ -31,32 +27,12 @@ type HeadingSuggestionItem = {
 
 type SuggestionItem = NoteSuggestionItem | HeadingSuggestionItem;
 
-type WikiSuggestState = {
-  active: boolean;
-  query: string;
-  from: number;
-  items: SuggestionItem[];
-  selected_index: number;
-  mode: "note" | "heading";
-  note_name: string | null;
-};
-
 import type { WikiQueryEvent } from "$lib/features/editor/ports";
 
 export type WikiSuggestPluginConfig = {
   on_query: (event: WikiQueryEvent) => void;
   on_dismiss: () => void;
   base_note_path: string;
-};
-
-const EMPTY_STATE: WikiSuggestState = {
-  active: false,
-  query: "",
-  from: 0,
-  items: [],
-  selected_index: 0,
-  mode: "note",
-  note_name: null,
 };
 
 export function describe_suggestion_location(path: string): string {
@@ -96,12 +72,6 @@ function extract_wiki_query(text_before: string): ExtractedQuery | null {
   }
 
   return { mode: "note", query: after_open, offset: open_idx };
-}
-
-function create_dropdown(): HTMLElement {
-  const el = document.createElement("div");
-  el.className = "WikiSuggest";
-  return el;
 }
 
 function render_items(
@@ -171,347 +141,129 @@ function render_items(
   }
 }
 
+let current_mode: "note" | "heading" = "note";
+let current_note_name: string | null = null;
+
 export function create_wiki_suggest_prose_plugin(
   config: WikiSuggestPluginConfig,
-): Plugin<WikiSuggestState> {
-  let dropdown: HTMLElement | null = null;
-  let is_visible = false;
-  let debounce_timer: ReturnType<typeof setTimeout> | null = null;
-  let suppress_next_activation = false;
-  let dismissed_query: string | null = null;
-  let dismissed_from: number | null = null;
-  let detach_dismiss: (() => void) | null = null;
-
-  function get_state(view: EditorView): WikiSuggestState {
-    return wiki_suggest_plugin_key.getState(view.state) ?? EMPTY_STATE;
-  }
-
-  function show_dropdown(view: EditorView) {
-    if (!dropdown) return;
-    const anchor = create_cursor_anchor(view);
-    dropdown.style.display = "block";
-    is_visible = true;
-    position_suggest_dropdown(dropdown, anchor);
-  }
-
-  function hide_dropdown() {
-    if (!dropdown) return;
-    dropdown.style.display = "none";
-    is_visible = false;
-  }
-
-  function dismiss(view: EditorView, lock_query: boolean) {
-    if (debounce_timer) clearTimeout(debounce_timer);
-    debounce_timer = null;
-
-    const current = get_state(view);
-    if (!current.active && current.items.length === 0) return;
-
-    if (lock_query && current.active) {
-      dismissed_query = current.mode + ":" + current.query;
-      dismissed_from = current.from;
-    } else {
-      dismissed_query = null;
-      dismissed_from = null;
-    }
-
-    view.dispatch(view.state.tr.setMeta(wiki_suggest_plugin_key, EMPTY_STATE));
-    config.on_dismiss();
-    hide_dropdown();
-  }
-
-  function accept(view: EditorView, index: number) {
-    if (debounce_timer) clearTimeout(debounce_timer);
-    debounce_timer = null;
-
-    const state = get_state(view);
-    const item = state.items[index];
-    if (!item) return;
-
-    let replacement: string;
-    if (item.kind === "heading") {
-      const note_prefix = state.note_name ?? "";
-      replacement = note_prefix
-        ? `[[${note_prefix}#${item.text}]]`
-        : `[[#${item.text}]]`;
-    } else {
-      const target = format_wiki_display(item.path);
-      replacement = `[[${target}]]`;
-    }
-
-    const selection_from = view.state.selection.from;
-    const replace_to = Math.min(
-      selection_from + 2,
-      view.state.doc.content.size,
-    );
-    const tr = view.state.tr.replaceWith(
-      state.from,
-      replace_to,
-      view.state.schema.text(replacement),
-    );
-    tr.setSelection(
-      TextSelection.create(tr.doc, state.from + replacement.length),
-    );
-    tr.setMeta(wiki_suggest_plugin_key, EMPTY_STATE);
-    view.dispatch(tr);
-    view.focus();
-    suppress_next_activation = true;
-    dismissed_query = null;
-    dismissed_from = null;
-    config.on_dismiss();
-    hide_dropdown();
-  }
-
-  function sync_dropdown(view: EditorView, state: WikiSuggestState) {
-    if (!dropdown) return;
-
-    if (!state.active || state.items.length === 0) {
-      hide_dropdown();
-      return;
-    }
-
-    render_items(dropdown, state.items, state.selected_index, (i) => {
-      accept(view, i);
-    });
-
-    scroll_selected_into_view(dropdown, state.selected_index);
-
-    if (!is_visible || state.active) {
-      show_dropdown(view);
-    }
-  }
-
-  return new Plugin<WikiSuggestState>({
+) {
+  return create_suggest_prose_plugin<SuggestionItem>({
     key: wiki_suggest_plugin_key,
-
-    state: {
-      init: () => EMPTY_STATE,
-      apply(tr, prev) {
-        const meta = tr.getMeta(wiki_suggest_plugin_key) as
-          | WikiSuggestState
-          | { items: SuggestionItem[]; query?: string }
-          | undefined;
-        if (meta) {
-          if ("active" in meta) return meta;
-          if ("items" in meta) {
-            if (!prev.active) return prev;
-            return { ...prev, items: meta.items, selected_index: 0 };
-          }
-        }
-        return prev;
-      },
-    },
-
-    view(editor_view) {
-      dropdown = create_dropdown();
-      mount_dropdown(dropdown);
-      detach_dismiss = attach_outside_dismiss(dropdown, editor_view.dom, () =>
-        dismiss(editor_view, true),
-      );
-
+    class_name: "WikiSuggest",
+    extract(text_before) {
+      const result = extract_wiki_query(text_before);
+      if (!result) return null;
+      current_mode = result.mode;
+      current_note_name = result.mode === "heading" ? result.note_name : null;
       return {
-        update(view) {
-          const { state: editor_state } = view;
-          const plugin_state = get_state(view);
-
-          if (!editor_state.selection.empty) {
-            if (plugin_state.active) dismiss(view, false);
-            sync_dropdown(view, EMPTY_STATE);
-            return;
-          }
-
-          const $from = editor_state.selection.$from;
-          if (
-            !$from.parent.isTextblock ||
-            $from.parent.type.name === "code_block"
-          ) {
-            if (plugin_state.active) dismiss(view, false);
-            dismissed_query = null;
-            dismissed_from = null;
-            sync_dropdown(view, EMPTY_STATE);
-            return;
-          }
-
-          const text_in_block = $from.parent.textBetween(0, $from.parentOffset);
-          const result = extract_wiki_query(text_in_block);
-
-          if (!result) {
-            if (plugin_state.active) dismiss(view, false);
-            dismissed_query = null;
-            dismissed_from = null;
-            sync_dropdown(view, EMPTY_STATE);
-            return;
-          }
-
-          const prose_from = $from.start() + result.offset;
-          const dismiss_key = result.mode + ":" + result.query;
-
-          if (
-            dismissed_query !== null &&
-            dismissed_from !== null &&
-            dismiss_key === dismissed_query &&
-            prose_from === dismissed_from
-          ) {
-            if (plugin_state.active) dismiss(view, false);
-            sync_dropdown(view, EMPTY_STATE);
-            return;
-          }
-
-          dismissed_query = null;
-          dismissed_from = null;
-
-          if (suppress_next_activation) {
-            suppress_next_activation = false;
-            if (plugin_state.active) dismiss(view, false);
-            sync_dropdown(view, EMPTY_STATE);
-            return;
-          }
-
-          if (
-            result.query !== plugin_state.query ||
-            result.mode !== plugin_state.mode ||
-            !plugin_state.active
-          ) {
-            const keep_items =
-              plugin_state.active && result.mode === plugin_state.mode;
-            const new_state: WikiSuggestState = {
-              active: true,
-              query: result.query,
-              from: prose_from,
-              items: keep_items ? plugin_state.items : [],
-              selected_index: 0,
-              mode: result.mode,
-              note_name: result.mode === "heading" ? result.note_name : null,
-            };
-            view.dispatch(
-              view.state.tr.setMeta(wiki_suggest_plugin_key, new_state),
-            );
-
-            if (debounce_timer) clearTimeout(debounce_timer);
-            debounce_timer = setTimeout(() => {
-              if (result.mode === "heading") {
-                config.on_query({
-                  kind: "heading",
-                  note_name: result.note_name,
-                  heading_query: result.heading_query,
-                });
-              } else {
-                config.on_query({ kind: "note", query: result.query });
-              }
-            }, 50);
-          }
-
-          sync_dropdown(view, get_state(view));
-        },
-        destroy() {
-          destroy_dropdown(dropdown, detach_dismiss);
-          dropdown = null;
-          detach_dismiss = null;
-          is_visible = false;
-          if (debounce_timer) clearTimeout(debounce_timer);
-          debounce_timer = null;
-        },
+        query: result.query,
+        from_offset: result.offset,
+        dismiss_key: result.mode + ":" + result.query,
       };
     },
+    render_items,
+    accept(view, item, state) {
+      let replacement: string;
+      if (item.kind === "heading") {
+        const note_prefix = current_note_name ?? "";
+        replacement = note_prefix
+          ? `[[${note_prefix}#${item.text}]]`
+          : `[[#${item.text}]]`;
+      } else {
+        const target = format_wiki_display(item.path);
+        replacement = `[[${target}]]`;
+      }
 
-    props: {
-      handleKeyDown(view, event) {
-        const state = get_state(view);
-        if (!state.active || state.items.length === 0) return false;
-
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          event.stopPropagation();
-          const next = Math.min(
-            state.selected_index + 1,
-            state.items.length - 1,
-          );
-          view.dispatch(
-            view.state.tr.setMeta(wiki_suggest_plugin_key, {
-              ...state,
-              selected_index: next,
-            }),
-          );
-          sync_dropdown(view, { ...state, selected_index: next });
-          return true;
+      const selection_from = view.state.selection.from;
+      const replace_to = Math.min(
+        selection_from + 2,
+        view.state.doc.content.size,
+      );
+      const tr = view.state.tr.replaceWith(
+        state.from,
+        replace_to,
+        view.state.schema.text(replacement),
+      );
+      tr.setSelection(
+        TextSelection.create(tr.doc, state.from + replacement.length),
+      );
+      tr.setMeta(wiki_suggest_plugin_key, {
+        active: false,
+        query: "",
+        from: 0,
+        items: [],
+        selected_index: 0,
+      });
+      view.dispatch(tr);
+      view.focus();
+    },
+    on_query(query) {
+      const text_before_fake = "[[" + query;
+      const result = extract_wiki_query(text_before_fake);
+      if (!result) return;
+      if (result.mode === "heading") {
+        config.on_query({
+          kind: "heading",
+          note_name: result.note_name,
+          heading_query: result.heading_query,
+        });
+      } else {
+        config.on_query({ kind: "note", query: result.query });
+      }
+    },
+    on_dismiss: config.on_dismiss,
+    query_changed(prev, result) {
+      const new_mode = current_mode;
+      const old_mode_key = prev.query
+        ? prev.query.includes("#")
+          ? "heading"
+          : "note"
+        : "note";
+      return (
+        result.query !== prev.query || new_mode !== old_mode_key || !prev.active
+      );
+    },
+    handle_tab(view, state, accept_fn) {
+      if (current_mode === "heading") {
+        if (state.items.length >= 1) {
+          accept_fn(view, state.selected_index);
         }
+        return true;
+      }
 
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          event.stopPropagation();
-          const prev = Math.max(state.selected_index - 1, 0);
-          view.dispatch(
-            view.state.tr.setMeta(wiki_suggest_plugin_key, {
-              ...state,
-              selected_index: prev,
-            }),
-          );
-          sync_dropdown(view, { ...state, selected_index: prev });
-          return true;
-        }
+      if (state.items.length === 1) {
+        accept_fn(view, 0);
+        return true;
+      }
 
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.stopPropagation();
-          accept(view, state.selected_index);
-          return true;
-        }
+      const note_items = state.items.filter(
+        (item): item is NoteSuggestionItem => item.kind !== "heading",
+      );
+      const paths = note_items.map((item) =>
+        format_wiki_display(item.path).toLowerCase(),
+      );
+      const query_lower = state.query.toLowerCase();
+      const prefix = longest_common_prefix(paths);
 
-        if (event.key === "Tab" && !event.shiftKey) {
-          event.preventDefault();
-          event.stopPropagation();
+      if (prefix.length > query_lower.length) {
+        const completion = format_wiki_display(note_items[0]?.path ?? "").slice(
+          0,
+          prefix.length,
+        );
+        const insert_from = state.from + 2;
+        const insert_to = view.state.selection.from;
+        const tr = view.state.tr.replaceWith(
+          insert_from,
+          insert_to,
+          view.state.schema.text(completion),
+        );
+        tr.setSelection(
+          TextSelection.create(tr.doc, insert_from + completion.length),
+        );
+        view.dispatch(tr);
+      }
 
-          if (state.mode === "heading") {
-            if (state.items.length >= 1) {
-              accept(view, state.selected_index);
-            }
-            return true;
-          }
-
-          if (state.items.length === 1) {
-            accept(view, 0);
-            return true;
-          }
-
-          const note_items = state.items.filter(
-            (item): item is NoteSuggestionItem => item.kind !== "heading",
-          );
-          const paths = note_items.map((item) =>
-            format_wiki_display(item.path).toLowerCase(),
-          );
-          const query_lower = state.query.toLowerCase();
-          const prefix = longest_common_prefix(paths);
-
-          if (prefix.length > query_lower.length) {
-            const completion = format_wiki_display(
-              note_items[0]?.path ?? "",
-            ).slice(0, prefix.length);
-            const insert_from = state.from + 2;
-            const insert_to = view.state.selection.from;
-            const tr = view.state.tr.replaceWith(
-              insert_from,
-              insert_to,
-              view.state.schema.text(completion),
-            );
-            tr.setSelection(
-              TextSelection.create(tr.doc, insert_from + completion.length),
-            );
-            view.dispatch(tr);
-          }
-
-          return true;
-        }
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          dismiss(view, true);
-          sync_dropdown(view, EMPTY_STATE);
-          return true;
-        }
-
-        return false;
-      },
+      return true;
     },
   });
 }
