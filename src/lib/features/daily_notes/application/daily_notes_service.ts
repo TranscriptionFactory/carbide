@@ -39,7 +39,11 @@ export class DailyNotesService {
       // folder may already exist
     }
     try {
-      await this.notes_port.create_folder(vault.id, folder, String(date.getFullYear()));
+      await this.notes_port.create_folder(
+        vault.id,
+        folder,
+        String(date.getFullYear()),
+      );
     } catch {
       // folder may already exist
     }

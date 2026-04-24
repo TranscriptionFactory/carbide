@@ -93,8 +93,7 @@
         class:ActivityBar__button--active={sidebar_open &&
           active_view === SIDEBAR_VIEWS.daily_notes}
         onclick={() => on_open_view(SIDEBAR_VIEWS.daily_notes)}
-        aria-pressed={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.daily_notes}
+        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.daily_notes}
         aria-label="Daily Notes"
       >
         <CalendarDays class="ActivityBar__icon" />

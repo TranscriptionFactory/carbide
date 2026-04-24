@@ -19,10 +19,7 @@ const STRFTIME_TOKEN_REGEX: Record<string, string> = {
   "%S": "(?<S>\\d{2})",
 };
 
-function build_parse_regex(
-  folder: string,
-  name_format: string,
-): RegExp | null {
+function build_parse_regex(folder: string, name_format: string): RegExp | null {
   let pattern = name_format;
   for (const [token, group] of Object.entries(STRFTIME_TOKEN_REGEX)) {
     pattern = pattern.replaceAll(token, group);
