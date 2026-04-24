@@ -10,8 +10,8 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
-import { parse_task_query } from "$lib/features/task/parse_task_query";
-import type { Task, TaskQuery, TaskStatus } from "$lib/features/task/types";
+import { parse_task_query } from "$lib/features/task";
+import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
 
 export type TaskQueryCallbacks = {
   query_tasks: (query: TaskQuery) => Promise<Task[]>;
@@ -251,8 +251,7 @@ async function render_task_query_results(
   on_toggle: () => void,
 ): Promise<void> {
   if (!code.trim()) {
-    container.innerHTML =
-      '<div class="task-query-empty">Empty query</div>';
+    container.innerHTML = '<div class="task-query-empty">Empty query</div>';
     return;
   }
 
@@ -329,9 +328,9 @@ async function render_task_query_results(
         checkbox.addEventListener("change", (e) => {
           e.preventDefault();
           const new_status = next_task_status(task.status);
-          void callbacks.toggle_task({ ...task, status: new_status }).then(
-            on_toggle,
-          );
+          void callbacks
+            .toggle_task({ ...task, status: new_status })
+            .then(on_toggle);
         });
 
         const text_el = document.createElement("span");
@@ -355,8 +354,7 @@ async function render_task_query_results(
     }
   } catch (error: unknown) {
     log.error("Task query failed", { error });
-    container.innerHTML =
-      '<div class="task-query-error">Query failed</div>';
+    container.innerHTML = '<div class="task-query-error">Query failed</div>';
   }
 }
 

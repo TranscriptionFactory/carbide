@@ -73,8 +73,7 @@ import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_exte
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
 import type { TaskQueryCallbacks } from "$lib/features/editor/adapters/code_block_view_plugin";
-import type { TaskPort } from "$lib/features/task/ports";
-import type { TaskStatus } from "$lib/features/task/types";
+import type { TaskPort, TaskStatus } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
 import type { Diagnostic } from "$lib/features/diagnostics";
@@ -319,9 +318,12 @@ export function create_prosemirror_editor_port(args?: {
           native_wiki_suggest_enabled:
             config.native_wiki_suggest_enabled ?? true,
           native_link_click_enabled: config.native_link_click_enabled ?? true,
-          task_query_callbacks: task_port
-            ? build_task_query_callbacks(task_port, () => current_vault_id)
-            : undefined,
+          ...(task_port && {
+            task_query_callbacks: build_task_query_callbacks(
+              task_port,
+              () => current_vault_id,
+            ),
+          }),
         },
         toolbar_config,
         slash_config,

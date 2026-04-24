@@ -3,7 +3,7 @@ import type { EditorPort } from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
 import type { SlashCommandConfig } from "./slash_command_plugin";
 import type { AiMenuPluginConfig } from "./ai_menu_plugin";
-import type { TaskPort } from "$lib/features/task/ports";
+import type { TaskPort } from "$lib/features/task";
 
 type ResolveAssetUrlForVault = (
   vault_id: VaultId,

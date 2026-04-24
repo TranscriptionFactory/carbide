@@ -1,9 +1,4 @@
-import type {
-  TaskFilter,
-  TaskGrouping,
-  TaskQuery,
-  TaskSort,
-} from "./types";
+import type { TaskFilter, TaskGrouping, TaskQuery, TaskSort } from "./types";
 
 export type ParsedTaskQuery = {
   query: TaskQuery;
@@ -53,7 +48,14 @@ function parse_date_comparator(
 
 function parse_line(
   line: string,
-): { filter?: TaskFilter; sort?: TaskSort; grouping?: TaskGrouping; limit?: number } | string {
+):
+  | {
+      filter?: TaskFilter;
+      sort?: TaskSort;
+      grouping?: TaskGrouping;
+      limit?: number;
+    }
+  | string {
   const trimmed = line.trim();
 
   if (trimmed === "done") {
