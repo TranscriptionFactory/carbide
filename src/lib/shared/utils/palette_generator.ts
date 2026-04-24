@@ -1,4 +1,8 @@
-import type { Theme, ThemeColorScheme } from "$lib/shared/types/theme";
+import type {
+  Theme,
+  ThemeColorScheme,
+  SurfaceStyle,
+} from "$lib/shared/types/theme";
 
 export type GeneratedPalette = {
   editor_text_color: string;
@@ -107,6 +111,152 @@ const PALETTE_KEYS: (keyof GeneratedPalette)[] = [
   "highlight_bg",
   "highlight_text_color",
 ];
+
+export type UiTokenParams = {
+  surface_hue: number;
+  surface_chroma: number;
+  accent_hue: number;
+  accent_chroma: number;
+  scheme: ThemeColorScheme;
+  style: SurfaceStyle;
+};
+
+type TokenSpec = {
+  light_l: number;
+  dark_l: number;
+  source: "surface" | "accent" | "neutral";
+  alpha?: number;
+  glass_alpha?: number;
+};
+
+const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
+  "--background": { light_l: 0.985, dark_l: 0.18, source: "surface" },
+  "--foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
+  "--card": {
+    light_l: 0.985,
+    dark_l: 0.22,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--card-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
+  "--popover": {
+    light_l: 0.99,
+    dark_l: 0.22,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--popover-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
+  "--secondary": {
+    light_l: 0.965,
+    dark_l: 0.265,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--secondary-foreground": {
+    light_l: 0.25,
+    dark_l: 0.92,
+    source: "surface",
+  },
+  "--muted": {
+    light_l: 0.965,
+    dark_l: 0.265,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--muted-foreground": { light_l: 0.55, dark_l: 0.58, source: "surface" },
+  "--border": { light_l: 0.92, dark_l: 0.31, source: "surface" },
+  "--input": { light_l: 0.92, dark_l: 0.33, source: "surface" },
+  "--sidebar": {
+    light_l: 0.985,
+    dark_l: 0.19,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--sidebar-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
+  "--sidebar-border": { light_l: 0.94, dark_l: 0.28, source: "surface" },
+  "--background-surface-2": {
+    light_l: 0.965,
+    dark_l: 0.225,
+    source: "surface",
+    glass_alpha: 0.55,
+  },
+  "--background-surface-3": {
+    light_l: 0.94,
+    dark_l: 0.255,
+    source: "surface",
+  },
+  "--foreground-tertiary": {
+    light_l: 0.62,
+    dark_l: 0.55,
+    source: "surface",
+  },
+  "--border-strong": { light_l: 0.86, dark_l: 0.38, source: "surface" },
+  "--border-subtle": { light_l: 0.95, dark_l: 0.225, source: "surface" },
+  "--accent-hover": { light_l: 0.94, dark_l: 0.3, source: "surface" },
+  "--primary": { light_l: 0.48, dark_l: 0.68, source: "accent" },
+  "--primary-foreground": { light_l: 1.0, dark_l: 0.1, source: "neutral" },
+  "--interactive": { light_l: 0.48, dark_l: 0.68, source: "accent" },
+  "--interactive-hover": { light_l: 0.43, dark_l: 0.73, source: "accent" },
+  "--scrollbar-thumb": { light_l: 0.89, dark_l: 0.33, source: "surface" },
+  "--scrollbar-thumb-hover": {
+    light_l: 0.83,
+    dark_l: 0.4,
+    source: "surface",
+  },
+};
+
+function resolve_hc(
+  spec: TokenSpec,
+  params: UiTokenParams,
+): { h: number; c: number } {
+  switch (spec.source) {
+    case "surface":
+      return { h: params.surface_hue, c: params.surface_chroma };
+    case "accent":
+      return { h: params.accent_hue, c: params.accent_chroma };
+    case "neutral":
+      return { h: 0, c: 0 };
+  }
+}
+
+export function generate_ui_tokens(
+  params: UiTokenParams,
+): Record<string, string> {
+  const is_dark = params.scheme === "dark";
+  const is_glass = params.style === "glass";
+  const tokens: Record<string, string> = {};
+
+  for (const [key, spec] of Object.entries(UI_TOKEN_SPECS)) {
+    const l = is_dark ? spec.dark_l : spec.light_l;
+    const { h, c } = resolve_hc(spec, params);
+    const alpha = is_glass ? spec.glass_alpha : undefined;
+
+    if (alpha !== undefined) {
+      tokens[key] =
+        `oklch(${l.toFixed(3)} ${c.toFixed(4)} ${(h % 360).toFixed(1)} / ${alpha})`;
+    } else {
+      tokens[key] = oklch(l, c, h);
+    }
+  }
+
+  // --ring aliases --focus-ring which derives from accent
+  tokens["--ring"] = oklch(
+    is_dark ? 0.68 : 0.6,
+    is_dark ? 0.11 : 0.1,
+    params.accent_hue,
+  );
+
+  // --accent (shadcn) and --accent-foreground from accent scale
+  if (is_dark) {
+    tokens["--accent"] = oklch(0.32, 0.06, params.accent_hue);
+    tokens["--accent-foreground"] = oklch(0.88, 0.06, params.accent_hue);
+  } else {
+    tokens["--accent"] = oklch(0.94, 0.03, params.accent_hue);
+    tokens["--accent-foreground"] = oklch(0.37, 0.09, params.accent_hue);
+  }
+
+  return tokens;
+}
 
 export function apply_auto_palette(theme: Theme): Theme {
   if (!theme.auto_palette) return theme;
