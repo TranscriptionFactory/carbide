@@ -2,6 +2,10 @@ import type { Root, RootContent } from "mdast";
 import type { Plugin } from "unified";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import { remark_highlight } from "./remark_highlight";
+import { remark_callout } from "./remark_callout";
 
 const DETAILS_OPEN_RE = /^<details(\s[^>]*)?>$/i;
 const DETAILS_OPEN_WITH_SUMMARY_RE =
@@ -53,7 +57,12 @@ function is_self_contained_details(
 
 function parse_markdown_body(markdown: string): RootContent[] {
   if (!markdown.trim()) return [];
-  const p = unified().use(remarkParse);
+  const p = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remark_highlight)
+    .use(remark_callout);
   const tree = p.parse(markdown.trim());
   return tree.children as RootContent[];
 }
@@ -172,11 +181,7 @@ function transform_children(nodes: MdastNode[]): MdastNode[] {
         const current = nodes[i];
         if (!current) break;
         if (is_self_contained_details(current as unknown as RootContent)) {
-          if (depth === 1) {
-            collected.push(current);
-          } else {
-            collected.push(current);
-          }
+          collected.push(current);
           i++;
           continue;
         }

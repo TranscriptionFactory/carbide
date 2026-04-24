@@ -285,23 +285,17 @@ function convert_block_node(node: PmNode): MdastNode | null {
       return { type: "wikiEmbed", value: `![[${src}${fragment}]]` };
     }
 
-    case "image-block": {
-      return {
-        type: "image",
-        url: (node.attrs["src"] as string) || "",
-        alt:
-          (node.attrs["alt"] as string) ||
-          (node.attrs["caption"] as string) ||
-          "",
-        title: (node.attrs["title"] as string) || null,
-      };
-    }
-
+    case "image-block":
     case "image": {
+      const alt =
+        (node.attrs["alt"] as string) ||
+        (node.type.name === "image-block"
+          ? (node.attrs["caption"] as string) || ""
+          : "");
       return {
         type: "image",
         url: (node.attrs["src"] as string) || "",
-        alt: (node.attrs["alt"] as string) || "",
+        alt,
         title: (node.attrs["title"] as string) || null,
       };
     }
