@@ -210,6 +210,8 @@ export type EditorSettings = {
   native_wiki_suggest_enabled: boolean;
   native_link_click_enabled: boolean;
   diagnostics_display_enabled: boolean;
+  daily_notes_folder: string;
+  daily_note_name_format: string;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -317,6 +319,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   native_wiki_suggest_enabled: true,
   native_link_click_enabled: true,
   diagnostics_display_enabled: true,
+  daily_notes_folder: "Journal",
+  daily_note_name_format: "%Y-%m-%d",
 };
 
 export const SETTINGS_KEY = "editor" as const;

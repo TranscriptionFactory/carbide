@@ -6,6 +6,7 @@ export const SIDEBAR_VIEWS = {
   tasks: "tasks",
   tags: "tags",
   source_control: "source_control",
+  daily_notes: "daily_notes",
 } as const;
 
 export type SidebarView =

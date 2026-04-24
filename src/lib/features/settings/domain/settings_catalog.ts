@@ -976,4 +976,36 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     category: "MCP",
     keywords: ["mcp", "model", "context", "protocol", "enable", "disable"],
   },
+  {
+    key: "daily_notes_folder",
+    label: "Daily Notes Folder",
+    description:
+      "Folder for daily notes, organized by year. Notes are stored as {folder}/{year}/{name}.md",
+    category: "Files",
+    keywords: [
+      "daily",
+      "journal",
+      "diary",
+      "folder",
+      "path",
+      "notes",
+      "obsidian",
+    ],
+  },
+  {
+    key: "daily_note_name_format",
+    label: "Daily Note Name Format",
+    description:
+      "Filename format for daily notes using strftime tokens: %Y (year), %m (month), %d (day)",
+    category: "Files",
+    keywords: [
+      "daily",
+      "name",
+      "format",
+      "strftime",
+      "date",
+      "journal",
+      "template",
+    ],
+  },
 ];
