@@ -181,6 +181,14 @@ function migrate_theme(theme: Theme): Theme {
   if (typeof migrated.source_shiki_theme_dark !== "string") {
     migrated = { ...migrated, source_shiki_theme_dark: "" };
   }
+  if (typeof migrated.surface_hue !== "number") {
+    migrated = {
+      ...migrated,
+      surface_hue: 68,
+      surface_chroma: 0.008,
+      surface_style: "solid" as const,
+    };
+  }
   return migrated;
 }
 

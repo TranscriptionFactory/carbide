@@ -17,6 +17,8 @@ export type ThemeBlockquoteStyle = "default" | "minimal" | "accent-bar";
 
 export type ThemeCodeBlockStyle = "default" | "borderless" | "filled";
 
+export type SurfaceStyle = "solid" | "glass" | "transparent";
+
 export type ThemeLayoutVariant =
   | "default"
   | "monolith"
@@ -43,6 +45,9 @@ export type Theme = {
 
   accent_hue: number;
   accent_chroma: number;
+  surface_hue: number;
+  surface_chroma: number;
+  surface_style: SurfaceStyle;
   font_family_sans: string;
   font_family_mono: string;
 
@@ -92,6 +97,9 @@ const SHARED_DEFAULTS: Omit<
   layout_variant: "default",
   accent_hue: 155,
   accent_chroma: 0.11,
+  surface_hue: 68,
+  surface_chroma: 0.008,
+  surface_style: "solid",
   font_family_sans: "Inter",
   font_family_mono: "JetBrains Mono",
   font_size: 1.0,

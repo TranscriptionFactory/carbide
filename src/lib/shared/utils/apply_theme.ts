@@ -1,5 +1,8 @@
 import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
-import { apply_auto_palette } from "$lib/shared/utils/palette_generator";
+import {
+  apply_auto_palette,
+  generate_ui_tokens,
+} from "$lib/shared/utils/palette_generator";
 import { resolve_font_stack } from "$lib/shared/utils/theme_helpers";
 
 const SPACING_MAP: Record<string, string> = {
@@ -113,6 +116,18 @@ function build_token_entries(theme: Theme): [string, string][] {
     theme.graph_edge_semantic_color,
   );
   apply_optional(entries, "--graph-label", theme.graph_label_color);
+
+  const generated = generate_ui_tokens({
+    surface_hue: theme.surface_hue,
+    surface_chroma: theme.surface_chroma,
+    accent_hue: theme.accent_hue,
+    accent_chroma: theme.accent_chroma,
+    scheme: theme.color_scheme,
+    style: theme.surface_style,
+  });
+  for (const [key, value] of Object.entries(generated)) {
+    entries.push([key, value]);
+  }
 
   for (const [key, value] of Object.entries(theme.token_overrides)) {
     entries.push([key.startsWith("--") ? key : `--${key}`, value]);
