@@ -70,6 +70,10 @@ import {
 } from "$lib/features/toolchain";
 import { QueryService, register_query_actions } from "$lib/features/query";
 import { register_vim_nav_actions } from "$lib/features/vim_nav";
+import {
+  DailyNotesService,
+  register_daily_notes_actions,
+} from "$lib/features/daily_notes";
 import { set_log_entry_callback } from "$lib/shared/utils/logger";
 import {
   MetadataService,
@@ -717,6 +721,13 @@ export function create_app_context(input: {
     stores.op,
   );
 
+  const daily_notes_service = new DailyNotesService(
+    input.ports.notes,
+    stores.vault,
+    stores.notes,
+    now_ms,
+  );
+
   const reference_service = new ReferenceService(
     input.ports.reference_storage,
     stores.reference,
@@ -1157,6 +1168,8 @@ export function create_app_context(input: {
   register_task_actions(action_registry, task_service, stores.task, stores.ui);
 
   register_query_actions(action_registry, query_service, stores.ui);
+
+  register_daily_notes_actions(action_registry, daily_notes_service, stores.ui);
 
   // STT removed — archived on archive/stt-main
   // register_stt_actions({

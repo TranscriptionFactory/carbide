@@ -9,6 +9,7 @@
     ListChecks,
     Hash,
     GitBranch,
+    CalendarDays,
   } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
   import { SIDEBAR_VIEWS } from "$lib/app";
@@ -84,6 +85,19 @@
         aria-label="Tasks"
       >
         <ListChecks class="ActivityBar__icon" />
+      </button>
+
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === SIDEBAR_VIEWS.daily_notes}
+        onclick={() => on_open_view(SIDEBAR_VIEWS.daily_notes)}
+        aria-pressed={sidebar_open &&
+          active_view === SIDEBAR_VIEWS.daily_notes}
+        aria-label="Daily Notes"
+      >
+        <CalendarDays class="ActivityBar__icon" />
       </button>
 
       <button

@@ -21,6 +21,7 @@
   import { TaskPanel } from "$lib/features/task";
   import { TagPanel } from "$lib/features/tags";
   import { SourceControlPanel } from "$lib/features/git";
+  import { DailyNotesPanel } from "$lib/features/daily_notes";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import LatticeTitleBar from "$lib/app/bootstrap/ui/lattice_title_bar.svelte";
   import { SvelteSet } from "svelte/reactivity";
@@ -246,6 +247,14 @@
   });
 
   function toggle_sidebar_view(view: string) {
+    if (view === SIDEBAR_VIEWS.daily_notes) {
+      if (stores.ui.sidebar_open && stores.ui.sidebar_view === view) {
+        void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+        return;
+      }
+      void action_registry.execute(ACTION_IDS.daily_notes_open_today);
+      return;
+    }
     if (stores.ui.sidebar_open && stores.ui.sidebar_view === view) {
       void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
       return;
@@ -354,6 +363,8 @@
                         <span class="SidebarHeader__title">Dashboard</span>
                       {:else if stores.ui.sidebar_view === SIDEBAR_VIEWS.source_control}
                         <span class="SidebarHeader__title">Source Control</span>
+                      {:else if stores.ui.sidebar_view === SIDEBAR_VIEWS.daily_notes}
+                        <span class="SidebarHeader__title">Daily Notes</span>
                       {:else if stores.plugin.sidebar_views.find((v) => v.id === stores.ui.sidebar_view)}
                         <span class="SidebarHeader__title">
                           {stores.plugin.sidebar_views.find(
@@ -644,6 +655,14 @@
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">
                         <SourceControlPanel />
+                      </Sidebar.GroupContent>
+                    </Sidebar.Group>
+                  {/if}
+
+                  {#if is_vault_mode && stores.ui.sidebar_view === SIDEBAR_VIEWS.daily_notes}
+                    <Sidebar.Group class="h-full">
+                      <Sidebar.GroupContent class="h-full">
+                        <DailyNotesPanel />
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
                   {/if}
