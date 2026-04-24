@@ -255,6 +255,10 @@ export function generate_ui_tokens(
     tokens["--accent-foreground"] = oklch(0.37, 0.09, params.accent_hue);
   }
 
+  // --destructive always uses red hue 25
+  tokens["--destructive"] = oklch(is_dark ? 0.65 : 0.55, 0.22, 25);
+  tokens["--destructive-foreground"] = oklch(is_dark ? 0.1 : 1.0, 0, 0);
+
   return tokens;
 }
 

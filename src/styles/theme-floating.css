@@ -22,8 +22,8 @@
   --border-subtle: oklch(0.92 0 0);
 
   /* Floating Overrides */
-  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 4px 6px -1px oklch(0 0 0 / 5%);
+  --shadow-md: 0 10px 15px -3px oklch(0 0 0 / 10%);
   --size-activity-bar: 3.5rem;
 }
 

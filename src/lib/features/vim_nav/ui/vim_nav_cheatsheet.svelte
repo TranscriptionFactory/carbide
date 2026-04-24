@@ -58,18 +58,18 @@
     justify-content: space-between;
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid hsl(var(--border));
+    border-bottom: 1px solid var(--border);
   }
 
   .VimNavCheatsheet__title {
     font-size: 1rem;
     font-weight: 600;
-    color: hsl(var(--foreground));
+    color: var(--foreground);
   }
 
   .VimNavCheatsheet__hint {
     font-size: 0.75rem;
-    color: hsl(var(--muted-foreground));
+    color: var(--muted-foreground);
   }
 
   .VimNavCheatsheet__hint kbd {
@@ -77,10 +77,10 @@
     padding: 0.1rem 0.35rem;
     font-size: 0.7rem;
     font-family: inherit;
-    border: 1px solid hsl(var(--border));
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: hsl(var(--muted));
-    color: hsl(var(--muted-foreground));
+    background: var(--muted);
+    color: var(--muted-foreground);
   }
 
   .VimNavCheatsheet__grid {
@@ -94,10 +94,10 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: hsl(var(--muted-foreground));
+    color: var(--muted-foreground);
     margin-bottom: 0.5rem;
     padding-bottom: 0.25rem;
-    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
   }
 
   .VimNavCheatsheet__bindings {
@@ -114,7 +114,7 @@
   }
 
   .VimNavCheatsheet__row:hover {
-    background: hsl(var(--muted) / 0.5);
+    background: color-mix(in oklch, var(--muted) 50%, transparent);
     border-radius: 4px;
   }
 
@@ -127,16 +127,16 @@
     font-size: 0.75rem;
     font-family: var(--font-mono, monospace);
     font-weight: 500;
-    border: 1px solid hsl(var(--border));
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: hsl(var(--muted));
-    color: hsl(var(--foreground));
+    background: var(--muted);
+    color: var(--foreground);
     white-space: nowrap;
     flex-shrink: 0;
   }
 
   .VimNavCheatsheet__label {
     font-size: 0.8rem;
-    color: hsl(var(--foreground) / 0.85);
+    color: color-mix(in oklch, var(--foreground) 85%, transparent);
   }
 </style>

@@ -502,11 +502,11 @@
   }
 
   :global(.DashboardPanel__task-icon--doing) {
-    color: var(--warning, hsl(38 92% 50%));
+    color: var(--warning, oklch(0.8 0.14 85));
   }
 
   :global(.DashboardPanel__task-icon--done) {
-    color: var(--success, hsl(142 71% 45%));
+    color: var(--success, oklch(0.65 0.2 150));
   }
 
   .DashboardPanel__task-count {
@@ -566,13 +566,21 @@
   }
 
   .DashboardPanel__git-indicator--clean {
-    background-color: hsl(142 71% 45% / 0.15);
-    color: var(--success, hsl(142 71% 45%));
+    background-color: color-mix(
+      in oklch,
+      var(--success, oklch(0.65 0.2 150)) 15%,
+      transparent
+    );
+    color: var(--success, oklch(0.65 0.2 150));
   }
 
   .DashboardPanel__git-indicator--dirty {
-    background-color: hsl(38 92% 50% / 0.15);
-    color: var(--warning, hsl(38 92% 50%));
+    background-color: color-mix(
+      in oklch,
+      var(--warning, oklch(0.8 0.14 85)) 15%,
+      transparent
+    );
+    color: var(--warning, oklch(0.8 0.14 85));
   }
 
   .DashboardPanel__git-pending {
