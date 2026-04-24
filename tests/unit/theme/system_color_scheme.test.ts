@@ -3,9 +3,6 @@ import {
   find_paired_theme_id,
   BUILTIN_THEMES,
   BUILTIN_NORDIC_DARK,
-  BUILTIN_NORDIC_LIGHT,
-  BUILTIN_PAPER_DARK,
-  BUILTIN_PAPER_LIGHT,
   type Theme,
 } from "$lib/shared/types/theme";
 
