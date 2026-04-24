@@ -50,12 +50,19 @@ export class DailyNotesService {
 
     const title = path.replace(/\.md$/, "").split("/").pop() ?? "";
     const markdown = build_daily_frontmatter(title, this.now_ms());
-    const note = await this.notes_port.create_note(
-      vault.id,
-      as_note_path(path),
-      as_markdown_text(markdown),
-    );
-    this.notes_store.add_note(note);
+    try {
+      const note = await this.notes_port.create_note(
+        vault.id,
+        as_note_path(path),
+        as_markdown_text(markdown),
+      );
+      this.notes_store.add_note(note);
+    } catch (e) {
+      if (String(e).includes("already exists")) {
+        return path;
+      }
+      throw e;
+    }
 
     return path;
   }

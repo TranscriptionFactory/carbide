@@ -98,4 +98,20 @@ describe("DailyNotesService", () => {
 
     expect(result).toBe("Journal/2026/2026-04-23.md");
   });
+
+  it("returns path when note exists on disk but not in store", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+    (notes_port.create_note as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("note already exists"),
+    );
+
+    const result = await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+    );
+
+    expect(result).toBe("Journal/2026/2026-04-23.md");
+  });
 });
