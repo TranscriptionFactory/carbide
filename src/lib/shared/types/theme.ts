@@ -135,28 +135,102 @@ const SHARED_DEFAULTS: Omit<
   auto_palette: true,
 };
 
-export const BUILTIN_NORDIC_LIGHT: Theme = {
-  id: "nordic-light",
-  name: "Nordic Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+export type ThemeBlueprint = {
+  base_name: string;
+  surface_hue: number;
+  surface_chroma: number;
+  accent_hue: number;
+  accent_chroma: number;
+  surface_style?: SurfaceStyle;
+  layout_variant?: ThemeLayoutVariant;
+  schemes?: "both" | "dark_only";
+  font_family_sans?: string;
+  font_family_mono?: string;
+  font_size?: number;
+  line_height?: number;
+  spacing?: ThemeSpacing;
+  heading_color?: ThemeHeadingColor;
+  heading_font_weight?: number;
+  bold_style?: ThemeBoldStyle;
+  blockquote_style?: ThemeBlockquoteStyle;
+  code_block_style?: ThemeCodeBlockStyle;
+  shiki_theme_dark?: string;
+  structural_overrides?: Record<string, string>;
+  color_overrides_light?: Record<string, string>;
+  color_overrides_dark?: Record<string, string>;
 };
 
-export const BUILTIN_NORDIC_DARK: Theme = {
-  id: "nordic-dark",
-  name: "Nordic Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+function to_kebab(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, "-");
+}
+
+export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
+  const schemes: ThemeColorScheme[] =
+    bp.schemes === "dark_only" ? ["dark"] : ["light", "dark"];
+  return schemes.map((scheme) => {
+    const token_overrides: Record<string, string> = {};
+    if (bp.structural_overrides)
+      Object.assign(token_overrides, bp.structural_overrides);
+    const color_ovr =
+      scheme === "dark" ? bp.color_overrides_dark : bp.color_overrides_light;
+    if (color_ovr) Object.assign(token_overrides, color_ovr);
+
+    return {
+      ...SHARED_DEFAULTS,
+      id: `${to_kebab(bp.base_name)}-${scheme}`,
+      name: `${bp.base_name} ${scheme === "dark" ? "Dark" : "Light"}`,
+      color_scheme: scheme,
+      is_builtin: true,
+      surface_hue: bp.surface_hue,
+      surface_chroma: bp.surface_chroma,
+      surface_style: bp.surface_style ?? "solid",
+      accent_hue: bp.accent_hue,
+      accent_chroma: bp.accent_chroma,
+      ...(bp.layout_variant !== undefined && {
+        layout_variant: bp.layout_variant,
+      }),
+      ...(bp.font_family_sans !== undefined && {
+        font_family_sans: bp.font_family_sans,
+      }),
+      ...(bp.font_family_mono !== undefined && {
+        font_family_mono: bp.font_family_mono,
+      }),
+      ...(bp.font_size !== undefined && { font_size: bp.font_size }),
+      ...(bp.line_height !== undefined && { line_height: bp.line_height }),
+      ...(bp.spacing !== undefined && { spacing: bp.spacing }),
+      ...(bp.heading_color !== undefined && {
+        heading_color: bp.heading_color,
+      }),
+      ...(bp.heading_font_weight !== undefined && {
+        heading_font_weight: bp.heading_font_weight,
+      }),
+      ...(bp.bold_style !== undefined && { bold_style: bp.bold_style }),
+      ...(bp.blockquote_style !== undefined && {
+        blockquote_style: bp.blockquote_style,
+      }),
+      ...(bp.code_block_style !== undefined && {
+        code_block_style: bp.code_block_style,
+      }),
+      ...(bp.shiki_theme_dark !== undefined && {
+        shiki_theme_dark: bp.shiki_theme_dark,
+      }),
+      token_overrides,
+    };
+  });
+}
+
+const BP_NORDIC: ThemeBlueprint = {
+  base_name: "Nordic",
+  surface_hue: 68,
+  surface_chroma: 0.008,
+  accent_hue: 155,
+  accent_chroma: 0.11,
 };
 
-export const BUILTIN_BRUTALIST_LIGHT: Theme = {
-  id: "brutalist-light",
-  name: "Brutalist Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_BRUTALIST: ThemeBlueprint = {
+  base_name: "Brutalist",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 30,
   accent_chroma: 0.18,
   font_family_sans: "SF Mono",
@@ -165,8 +239,16 @@ export const BUILTIN_BRUTALIST_LIGHT: Theme = {
   blockquote_style: "minimal",
   code_block_style: "borderless",
   spacing: "compact",
-  token_overrides: {
+  structural_overrides: {
     "--radius": "0",
+    "--shadow-xs": "none",
+    "--shadow-sm": "none",
+    "--shadow-md": "none",
+    "--shadow-lg": "none",
+    "--border-width-default": "2px",
+    "--scrollbar-width": "8px",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.97 0 0)",
     "--foreground": "oklch(0.1 0 0)",
     "--card": "oklch(1 0 0)",
@@ -198,33 +280,10 @@ export const BUILTIN_BRUTALIST_LIGHT: Theme = {
     "--interactive-bg-hover": "oklch(0.88 0 0)",
     "--focus-ring": "oklch(0.85 0.18 30)",
     "--selection-bg": "oklch(0.88 0.1 30)",
-    "--shadow-xs": "none",
-    "--shadow-sm": "none",
-    "--shadow-md": "none",
-    "--shadow-lg": "none",
-    "--border-width-default": "2px",
-    "--scrollbar-width": "8px",
     "--scrollbar-thumb": "oklch(0.1 0 0)",
     "--scrollbar-thumb-hover": "oklch(0.85 0.18 30)",
   },
-};
-
-export const BUILTIN_BRUTALIST_DARK: Theme = {
-  id: "brutalist-dark",
-  name: "Brutalist Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  accent_hue: 30,
-  accent_chroma: 0.2,
-  font_family_sans: "SF Mono",
-  heading_font_weight: 800,
-  bold_style: "heavier",
-  blockquote_style: "minimal",
-  code_block_style: "borderless",
-  spacing: "compact",
-  token_overrides: {
-    "--radius": "0",
+  color_overrides_dark: {
     "--background": "oklch(0.11 0 0)",
     "--foreground": "oklch(0.95 0 0)",
     "--card": "oklch(0.15 0 0)",
@@ -256,29 +315,24 @@ export const BUILTIN_BRUTALIST_DARK: Theme = {
     "--interactive-bg-hover": "oklch(0.23 0 0)",
     "--focus-ring": "oklch(0.7 0.2 30)",
     "--selection-bg": "oklch(0.28 0.08 30)",
-    "--shadow-xs": "none",
-    "--shadow-sm": "none",
-    "--shadow-md": "none",
-    "--shadow-lg": "none",
-    "--border-width-default": "2px",
     "--scrollbar-thumb": "oklch(0.95 0 0)",
     "--scrollbar-thumb-hover": "oklch(0.7 0.2 30)",
   },
 };
 
-export const BUILTIN_NEON_LIGHT: Theme = {
-  id: "neon-light",
-  name: "Neon Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_NEON: ThemeBlueprint = {
+  base_name: "Neon",
+  surface_hue: 280,
+  surface_chroma: 0.015,
   accent_hue: 300,
   accent_chroma: 0.25,
   heading_color: "primary",
   bold_style: "color-accent",
   code_block_style: "filled",
-  token_overrides: {
+  structural_overrides: {
     "--radius": "0.375rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.99 0 0)",
     "--foreground": "oklch(0.15 0 0)",
     "--card": "oklch(1 0 0)",
@@ -314,21 +368,7 @@ export const BUILTIN_NEON_LIGHT: Theme = {
     "--shadow-md": "0 4px 16px oklch(0.55 0.15 300 / 12%)",
     "--shadow-lg": "0 8px 32px oklch(0.55 0.15 300 / 15%)",
   },
-};
-
-export const BUILTIN_NEON_DARK: Theme = {
-  id: "neon-dark",
-  name: "Neon Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  accent_hue: 300,
-  accent_chroma: 0.25,
-  heading_color: "primary",
-  bold_style: "color-accent",
-  code_block_style: "filled",
-  token_overrides: {
-    "--radius": "0.375rem",
+  color_overrides_dark: {
     "--background": "oklch(0.09 0.015 280)",
     "--foreground": "oklch(0.92 0.01 280)",
     "--card": "oklch(0.13 0.02 280)",
@@ -368,12 +408,10 @@ export const BUILTIN_NEON_DARK: Theme = {
   },
 };
 
-export const BUILTIN_PAPER_LIGHT: Theme = {
-  id: "paper-light",
-  name: "Paper Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_PAPER: ThemeBlueprint = {
+  base_name: "Paper",
+  surface_hue: 55,
+  surface_chroma: 0.015,
   accent_hue: 45,
   accent_chroma: 0.08,
   font_size: 1.0625,
@@ -382,9 +420,11 @@ export const BUILTIN_PAPER_LIGHT: Theme = {
   heading_color: "primary",
   heading_font_weight: 600,
   blockquote_style: "accent-bar",
-  link_color: "hsl(25, 60%, 35%)",
-  token_overrides: {
+  structural_overrides: {
     "--radius": "0.25rem",
+  },
+  color_overrides_light: {
+    "--editor-link": "hsl(25, 60%, 35%)",
     "--background": "oklch(0.96 0.015 75)",
     "--foreground": "oklch(0.22 0.02 55)",
     "--card": "oklch(0.98 0.012 78)",
@@ -419,25 +459,8 @@ export const BUILTIN_PAPER_LIGHT: Theme = {
     "--scrollbar-thumb": "oklch(0.82 0.025 70)",
     "--scrollbar-thumb-hover": "oklch(0.75 0.03 65)",
   },
-};
-
-export const BUILTIN_PAPER_DARK: Theme = {
-  id: "paper-dark",
-  name: "Paper Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  accent_hue: 45,
-  accent_chroma: 0.1,
-  font_size: 1.0625,
-  line_height: 1.85,
-  spacing: "spacious",
-  heading_color: "primary",
-  heading_font_weight: 600,
-  blockquote_style: "accent-bar",
-  link_color: "hsl(25, 60%, 55%)",
-  token_overrides: {
-    "--radius": "0.25rem",
+  color_overrides_dark: {
+    "--editor-link": "hsl(25, 60%, 55%)",
     "--background": "oklch(0.19 0.015 55)",
     "--foreground": "oklch(0.9 0.015 75)",
     "--card": "oklch(0.23 0.015 55)",
@@ -474,15 +497,18 @@ export const BUILTIN_PAPER_DARK: Theme = {
   },
 };
 
-export const BUILTIN_FLOATING_LIGHT: Theme = {
-  id: "floating-light",
-  name: "Floating Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_FLOATING: ThemeBlueprint = {
+  base_name: "Floating",
+  surface_hue: 0,
+  surface_chroma: 0,
+  accent_hue: 250,
+  accent_chroma: 0.08,
   spacing: "spacious",
-  token_overrides: {
+  structural_overrides: {
     "--radius": "1rem",
+    "--size-activity-bar": "3.5rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.95 0 0)",
     "--foreground": "oklch(0.2 0 0)",
     "--card": "oklch(1 0 0)",
@@ -517,19 +543,8 @@ export const BUILTIN_FLOATING_LIGHT: Theme = {
     "--shadow-sm": "0 4px 6px -1px oklch(0 0 0 / 5%)",
     "--shadow-md": "0 10px 15px -3px oklch(0 0 0 / 10%)",
     "--shadow-lg": "0 20px 25px -5px oklch(0 0 0 / 12%)",
-    "--size-activity-bar": "3.5rem",
   },
-};
-
-export const BUILTIN_FLOATING_DARK: Theme = {
-  id: "floating-dark",
-  name: "Floating Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  spacing: "spacious",
-  token_overrides: {
-    "--radius": "1rem",
+  color_overrides_dark: {
     "--background": "oklch(0.15 0 0)",
     "--foreground": "oklch(0.95 0 0)",
     "--card": "oklch(0.21 0 0)",
@@ -564,18 +579,22 @@ export const BUILTIN_FLOATING_DARK: Theme = {
     "--shadow-sm": "0 4px 6px -1px oklch(0 0 0 / 15%)",
     "--shadow-md": "0 10px 15px -3px oklch(0 0 0 / 25%)",
     "--shadow-lg": "0 20px 25px -5px oklch(0 0 0 / 30%)",
-    "--size-activity-bar": "3.5rem",
   },
 };
 
-export const BUILTIN_GLASS_LIGHT: Theme = {
-  id: "glass-light",
-  name: "Glass Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  token_overrides: {
+const BP_GLASS: ThemeBlueprint = {
+  base_name: "Glass",
+  surface_hue: 0,
+  surface_chroma: 0,
+  accent_hue: 250,
+  accent_chroma: 0.1,
+  surface_style: "glass",
+  structural_overrides: {
     "--radius": "0.75rem",
+    "--size-activity-bar": "3rem",
+    "--size-activity-icon": "1.25rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.97 0 0)",
     "--foreground": "oklch(0.145 0 0)",
     "--card": "oklch(1 0 0 / 80%)",
@@ -608,19 +627,8 @@ export const BUILTIN_GLASS_LIGHT: Theme = {
     "--focus-ring": "oklch(0.55 0.12 250)",
     "--selection-bg": "oklch(0.85 0.05 250 / 40%)",
     "--shadow-lg": "0 10px 30px -5px oklch(0 0 0 / 10%)",
-    "--size-activity-bar": "3rem",
-    "--size-activity-icon": "1.25rem",
   },
-};
-
-export const BUILTIN_GLASS_DARK: Theme = {
-  id: "glass-dark",
-  name: "Glass Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  token_overrides: {
-    "--radius": "0.75rem",
+  color_overrides_dark: {
     "--background": "oklch(0.13 0 0)",
     "--foreground": "oklch(0.985 0 0)",
     "--card": "oklch(0.15 0 0 / 80%)",
@@ -653,22 +661,31 @@ export const BUILTIN_GLASS_DARK: Theme = {
     "--focus-ring": "oklch(0.7 0.1 250)",
     "--selection-bg": "oklch(0.33 0.06 250 / 40%)",
     "--shadow-lg": "0 10px 30px -5px oklch(0 0 0 / 25%)",
-    "--size-activity-bar": "3rem",
-    "--size-activity-icon": "1.25rem",
   },
 };
 
-export const BUILTIN_DENSE_LIGHT: Theme = {
-  id: "dense-light",
-  name: "Dense Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_DENSE: ThemeBlueprint = {
+  base_name: "Dense",
+  surface_hue: 0,
+  surface_chroma: 0,
+  accent_hue: 250,
+  accent_chroma: 0.15,
   spacing: "compact",
   font_size: 0.9375,
   line_height: 1.6,
-  token_overrides: {
+  structural_overrides: {
     "--radius": "0.25rem",
+    "--size-activity-bar": "2.25rem",
+    "--size-activity-icon": "1rem",
+    "--size-touch-sm": "1.5rem",
+    "--size-touch": "1.75rem",
+    "--size-tree-row": "1.625rem",
+    "--size-status-bar": "1.375rem",
+    "--text-xs": "0.625rem",
+    "--text-sm": "0.75rem",
+    "--text-base": "0.8125rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0 0)",
     "--foreground": "oklch(0.15 0 0)",
     "--card": "oklch(1 0 0)",
@@ -700,29 +717,8 @@ export const BUILTIN_DENSE_LIGHT: Theme = {
     "--interactive-bg-hover": "oklch(0.93 0 0)",
     "--focus-ring": "oklch(0.55 0.15 250)",
     "--selection-bg": "oklch(0.9 0.06 250)",
-    "--size-activity-bar": "2.25rem",
-    "--size-activity-icon": "1rem",
-    "--size-touch-sm": "1.5rem",
-    "--size-touch": "1.75rem",
-    "--size-tree-row": "1.625rem",
-    "--size-status-bar": "1.375rem",
-    "--text-xs": "0.625rem",
-    "--text-sm": "0.75rem",
-    "--text-base": "0.8125rem",
   },
-};
-
-export const BUILTIN_DENSE_DARK: Theme = {
-  id: "dense-dark",
-  name: "Dense Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  spacing: "compact",
-  font_size: 0.9375,
-  line_height: 1.6,
-  token_overrides: {
-    "--radius": "0.25rem",
+  color_overrides_dark: {
     "--background": "oklch(0.19 0 0)",
     "--foreground": "oklch(0.95 0 0)",
     "--card": "oklch(0.17 0 0)",
@@ -754,26 +750,22 @@ export const BUILTIN_DENSE_DARK: Theme = {
     "--interactive-bg-hover": "oklch(0.28 0 0)",
     "--focus-ring": "oklch(0.65 0.2 250)",
     "--selection-bg": "oklch(0.28 0.08 250)",
-    "--size-activity-bar": "2.25rem",
-    "--size-activity-icon": "1rem",
-    "--size-touch-sm": "1.5rem",
-    "--size-touch": "1.75rem",
-    "--size-tree-row": "1.625rem",
-    "--size-status-bar": "1.375rem",
-    "--text-xs": "0.625rem",
-    "--text-sm": "0.75rem",
-    "--text-base": "0.8125rem",
   },
 };
 
-export const BUILTIN_LINEAR_LIGHT: Theme = {
-  id: "linear-light",
-  name: "Linear Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  token_overrides: {
+const BP_LINEAR: ThemeBlueprint = {
+  base_name: "Linear",
+  surface_hue: 0,
+  surface_chroma: 0,
+  accent_hue: 0,
+  accent_chroma: 0,
+  structural_overrides: {
     "--radius": "0.5rem",
+    "--border-width-default": "1px",
+    "--size-activity-bar": "2.5rem",
+    "--size-activity-icon": "1.125rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(1 0 0)",
     "--foreground": "oklch(0.145 0 0)",
     "--card": "oklch(1 0 0)",
@@ -805,24 +797,12 @@ export const BUILTIN_LINEAR_LIGHT: Theme = {
     "--interactive-bg-hover": "oklch(0.96 0 0)",
     "--focus-ring": "oklch(0.5 0 0)",
     "--selection-bg": "oklch(0.94 0 0)",
-    "--border-width-default": "1px",
     "--shadow-sm":
       "0 1px 2px color-mix(in oklch, oklch(0 0 0) 5%, transparent)",
     "--shadow-md":
       "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 7%, transparent)",
-    "--size-activity-bar": "2.5rem",
-    "--size-activity-icon": "1.125rem",
   },
-};
-
-export const BUILTIN_LINEAR_DARK: Theme = {
-  id: "linear-dark",
-  name: "Linear Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  token_overrides: {
-    "--radius": "0.5rem",
+  color_overrides_dark: {
     "--background": "oklch(0.15 0 0)",
     "--foreground": "oklch(0.985 0 0)",
     "--card": "oklch(0.17 0 0)",
@@ -854,86 +834,67 @@ export const BUILTIN_LINEAR_DARK: Theme = {
     "--interactive-bg-hover": "oklch(0.25 0 0)",
     "--focus-ring": "oklch(0.6 0 0)",
     "--selection-bg": "oklch(0.25 0 0)",
-    "--border-width-default": "1px",
     "--shadow-sm":
       "0 1px 2px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
     "--shadow-md":
       "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
-    "--size-activity-bar": "2.5rem",
-    "--size-activity-icon": "1.125rem",
   },
 };
 
-export const BUILTIN_MONOLITH_LIGHT: Theme = {
-  id: "monolith-light",
-  name: "Monolith Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
+const BP_MONOLITH: ThemeBlueprint = {
+  base_name: "Monolith",
+  surface_hue: 80,
+  surface_chroma: 0.005,
+  accent_hue: 60,
+  accent_chroma: 0.02,
   layout_variant: "monolith",
   font_family_sans: "Newsreader",
-  font_family_mono: "JetBrains Mono",
   font_size: 1.125,
   line_height: 1.8,
   spacing: "spacious",
-  token_overrides: {
+  structural_overrides: {
+    "--radius": "0.75rem",
+    "--editor-max-width": "70ch",
+    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
+    "--font-mono": '"JetBrains Mono", monospace',
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0.005 80)",
     "--foreground": "oklch(0.25 0.01 60)",
     "--card": "oklch(1 0 0 / 80%)",
     "--primary": "oklch(0.3 0.02 60)",
     "--muted": "oklch(0.95 0.005 80)",
     "--border": "oklch(0 0 0 / 5%)",
-    "--radius": "0.75rem",
     "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 8%)",
-    "--editor-max-width": "70ch",
-    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
-    "--font-mono": '"JetBrains Mono", monospace',
   },
-};
-
-export const BUILTIN_MONOLITH_DARK: Theme = {
-  id: "monolith-dark",
-  name: "Monolith Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "monolith",
-  font_family_sans: "Newsreader",
-  font_family_mono: "JetBrains Mono",
-  font_size: 1.125,
-  line_height: 1.8,
-  spacing: "spacious",
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.12 0 0)",
     "--foreground": "oklch(0.85 0 0)",
     "--card": "oklch(0.15 0 0 / 80%)",
     "--primary": "oklch(0.9 0 0)",
     "--muted": "oklch(0.18 0 0)",
     "--border": "oklch(1 0 0 / 5%)",
-    "--radius": "0.75rem",
     "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 50%)",
-    "--editor-max-width": "70ch",
-    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
-    "--font-mono": '"JetBrains Mono", monospace',
   },
 };
 
-export const BUILTIN_WORKBENCH_LIGHT: Theme = {
-  id: "workbench-light",
-  name: "Workbench Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "workbench",
+const BP_WORKBENCH: ThemeBlueprint = {
+  base_name: "Workbench",
+  surface_hue: 250,
+  surface_chroma: 0.01,
   accent_hue: 25,
   accent_chroma: 0.2,
-  token_overrides: {
+  layout_variant: "workbench",
+  structural_overrides: {
+    "--radius": "0.25rem",
+    "--border-width-default": "2px",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.9 0.01 250)",
     "--foreground": "oklch(0.2 0.01 250)",
     "--card": "oklch(0.94 0.01 250)",
     "--muted": "oklch(0.85 0.01 250)",
     "--border": "oklch(0.75 0.01 250)",
-    "--radius": "0.25rem",
     "--primary": "oklch(0.6 0.2 25)",
     "--sidebar": "oklch(0.88 0.01 250)",
     "--sidebar-border": "oklch(0.7 0.01 250)",
@@ -942,353 +903,271 @@ export const BUILTIN_WORKBENCH_LIGHT: Theme = {
       "0 4px 6px -1px oklch(0 0 0 / 10%), 0 2px 4px -1px oklch(0 0 0 / 6%)",
     "--shadow-lg":
       "0 10px 15px -3px oklch(0 0 0 / 10%), 0 4px 6px -2px oklch(0 0 0 / 5%)",
-    "--border-width-default": "2px",
   },
-};
-
-export const BUILTIN_WORKBENCH_DARK: Theme = {
-  id: "workbench-dark",
-  name: "Workbench Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "workbench",
-  accent_hue: 25,
-  accent_chroma: 0.2,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.18 0.01 250)",
     "--foreground": "oklch(0.9 0.01 250)",
     "--card": "oklch(0.21 0.01 250)",
     "--muted": "oklch(0.15 0.01 250)",
     "--border": "oklch(0.25 0.01 250)",
-    "--radius": "0.25rem",
     "--primary": "oklch(0.7 0.2 25)",
     "--sidebar": "oklch(0.16 0.01 250)",
     "--sidebar-border": "oklch(0.1 0.01 250)",
     "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 40%)",
     "--shadow-md": "0 4px 6px -1px oklch(0 0 0 / 40%)",
     "--shadow-lg": "0 10px 15px -3px oklch(0 0 0 / 50%)",
-    "--border-width-default": "2px",
   },
 };
 
-export const BUILTIN_COMMAND_DECK_LIGHT: Theme = {
-  id: "command-deck-light",
-  name: "Command Deck Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "command_deck",
+const BP_COMMAND_DECK: ThemeBlueprint = {
+  base_name: "Command Deck",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 200,
   accent_chroma: 0.15,
-  token_overrides: {
+  layout_variant: "command_deck",
+  structural_overrides: {
+    "--radius": "0.5rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0 0)",
     "--card": "oklch(1 0 0)",
     "--border": "oklch(0.9 0 0)",
-    "--radius": "0.5rem",
     "--primary": "oklch(0.5 0.15 200)",
   },
-};
-
-export const BUILTIN_COMMAND_DECK_DARK: Theme = {
-  id: "command-deck-dark",
-  name: "Command Deck Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "command_deck",
-  accent_hue: 200,
-  accent_chroma: 0.15,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.13 0 0)",
     "--card": "oklch(0.17 0 0)",
     "--border": "oklch(0.2 0 0)",
-    "--radius": "0.5rem",
     "--primary": "oklch(0.7 0.15 200)",
   },
 };
 
-export const BUILTIN_GROUNDED_HEAVY_DARK: Theme = {
-  id: "grounded-heavy-dark",
-  name: "Grounded Heavy Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "grounded_heavy",
+const BP_GROUNDED_HEAVY: ThemeBlueprint = {
+  base_name: "Grounded Heavy",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 240,
   accent_chroma: 0.12,
-  token_overrides: {
+  layout_variant: "grounded_heavy",
+  schemes: "dark_only",
+  structural_overrides: {
+    "--radius": "0.75rem",
+  },
+  color_overrides_dark: {
     "--background": "oklch(0.1 0 0)",
     "--card": "oklch(0.14 0.01 240)",
     "--border": "oklch(0.22 0.01 240)",
-    "--radius": "0.75rem",
     "--primary": "oklch(0.65 0.12 240)",
   },
 };
 
-export const BUILTIN_HUD_DARK: Theme = {
-  id: "hud-dark",
-  name: "HUD Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "hud",
+const BP_HUD: ThemeBlueprint = {
+  base_name: "HUD",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 280,
   accent_chroma: 0.15,
-  token_overrides: {
+  layout_variant: "hud",
+  schemes: "dark_only",
+  structural_overrides: {
+    "--radius": "1rem",
+  },
+  color_overrides_dark: {
     "--background": "oklch(0.11 0 0)",
     "--card": "oklch(0.15 0 0 / 0.8)",
     "--border": "oklch(0.2 0 0 / 0.5)",
-    "--radius": "1rem",
     "--primary": "oklch(0.7 0.15 280)",
   },
 };
 
-export const BUILTIN_ZEN_DECK_DARK: Theme = {
-  id: "zen-deck-dark",
-  name: "Zen Deck Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "zen_deck",
+const BP_ZEN_DECK: ThemeBlueprint = {
+  base_name: "Zen Deck",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 180,
   accent_chroma: 0.05,
-  token_overrides: {
+  layout_variant: "zen_deck",
+  schemes: "dark_only",
+  structural_overrides: {
+    "--radius": "2rem",
+  },
+  color_overrides_dark: {
     "--background": "oklch(0.05 0 0)",
     "--card": "oklch(0.1 0 0 / 0.9)",
     "--border": "oklch(0.15 0 0)",
-    "--radius": "2rem",
     "--primary": "oklch(0.6 0.05 180)",
   },
 };
 
-export const BUILTIN_DASHBOARD_DARK: Theme = {
-  id: "dashboard-dark",
-  name: "Dashboard Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "dashboard",
+const BP_DASHBOARD: ThemeBlueprint = {
+  base_name: "Dashboard",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 220,
   accent_chroma: 0.1,
-  token_overrides: {
+  layout_variant: "dashboard",
+  schemes: "dark_only",
+  structural_overrides: {
+    "--radius": "0.5rem",
+  },
+  color_overrides_dark: {
     "--background": "oklch(0.13 0 0)",
     "--card": "oklch(0.15 0.02 220)",
     "--border": "oklch(0.18 0.02 220)",
-    "--radius": "0.5rem",
     "--primary": "oklch(0.6 0.15 220)",
   },
 };
 
-export const BUILTIN_SPOTLIGHT_LIGHT: Theme = {
-  id: "spotlight-light",
-  name: "Spotlight Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "spotlight",
+const BP_SPOTLIGHT: ThemeBlueprint = {
+  base_name: "Spotlight",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 210,
   accent_chroma: 0.06,
-  token_overrides: {
+  layout_variant: "spotlight",
+  structural_overrides: {
+    "--radius": "1rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0 0)",
     "--card": "oklch(1 0 0)",
     "--border": "oklch(0 0 0 / 8%)",
-    "--radius": "1rem",
     "--primary": "oklch(0.45 0.06 210)",
     "--shadow-md":
       "0 8px 24px -4px oklch(0 0 0 / 8%), 0 2px 8px -2px oklch(0 0 0 / 4%)",
   },
-};
-
-export const BUILTIN_SPOTLIGHT_DARK: Theme = {
-  id: "spotlight-dark",
-  name: "Spotlight Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "spotlight",
-  accent_hue: 210,
-  accent_chroma: 0.06,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.09 0 0)",
     "--card": "oklch(0.15 0 0)",
     "--border": "oklch(1 0 0 / 8%)",
-    "--radius": "1rem",
     "--primary": "oklch(0.7 0.06 210)",
     "--shadow-md":
       "0 8px 24px -4px oklch(0 0 0 / 30%), 0 2px 8px -2px oklch(0 0 0 / 20%)",
   },
 };
 
-export const BUILTIN_COCKPIT_LIGHT: Theme = {
-  id: "cockpit-light",
-  name: "Cockpit Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "cockpit",
+const BP_COCKPIT: ThemeBlueprint = {
+  base_name: "Cockpit",
+  surface_hue: 170,
+  surface_chroma: 0.005,
   accent_hue: 170,
   accent_chroma: 0.12,
-  token_overrides: {
+  layout_variant: "cockpit",
+  structural_overrides: {
+    "--radius": "0.375rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.97 0.005 170)",
     "--card": "oklch(0.99 0.003 170)",
     "--border": "oklch(0.9 0.008 170)",
-    "--radius": "0.375rem",
     "--primary": "oklch(0.48 0.12 170)",
   },
-};
-
-export const BUILTIN_COCKPIT_DARK: Theme = {
-  id: "cockpit-dark",
-  name: "Cockpit Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "cockpit",
-  accent_hue: 170,
-  accent_chroma: 0.12,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.13 0.005 170)",
     "--card": "oklch(0.17 0.005 170)",
     "--border": "oklch(0.22 0.005 170)",
-    "--radius": "0.375rem",
     "--primary": "oklch(0.65 0.12 170)",
   },
 };
 
-export const BUILTIN_THEATER_LIGHT: Theme = {
-  id: "theater-light",
-  name: "Theater Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "theater",
+const BP_THEATER: ThemeBlueprint = {
+  base_name: "Theater",
+  surface_hue: 0,
+  surface_chroma: 0,
   accent_hue: 260,
   accent_chroma: 0.1,
-  token_overrides: {
+  layout_variant: "theater",
+  structural_overrides: {
+    "--radius": "0.75rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.99 0 0)",
     "--card": "oklch(1 0 0)",
     "--border": "oklch(0 0 0 / 6%)",
-    "--radius": "0.75rem",
     "--primary": "oklch(0.5 0.1 260)",
     "--interactive": "oklch(0.5 0.12 260)",
   },
-};
-
-export const BUILTIN_THEATER_DARK: Theme = {
-  id: "theater-dark",
-  name: "Theater Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "theater",
-  accent_hue: 260,
-  accent_chroma: 0.1,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.08 0 0)",
     "--card": "oklch(0.13 0 0)",
     "--border": "oklch(1 0 0 / 6%)",
-    "--radius": "0.75rem",
     "--primary": "oklch(0.7 0.1 260)",
     "--interactive": "oklch(0.7 0.12 260)",
   },
 };
 
-export const BUILTIN_TRIPTYCH_LIGHT: Theme = {
-  id: "triptych-light",
-  name: "Triptych Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "triptych",
+const BP_TRIPTYCH: ThemeBlueprint = {
+  base_name: "Triptych",
+  surface_hue: 145,
+  surface_chroma: 0.003,
   accent_hue: 145,
   accent_chroma: 0.1,
-  token_overrides: {
+  layout_variant: "triptych",
+  structural_overrides: {
+    "--radius": "0.25rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0.003 145)",
     "--card": "oklch(1 0 0)",
     "--background-surface-2": "oklch(0.96 0.005 145)",
     "--background-surface-3": "oklch(0.94 0.008 145)",
     "--border": "oklch(0.88 0.01 145)",
-    "--radius": "0.25rem",
     "--primary": "oklch(0.45 0.1 145)",
   },
-};
-
-export const BUILTIN_TRIPTYCH_DARK: Theme = {
-  id: "triptych-dark",
-  name: "Triptych Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "triptych",
-  accent_hue: 145,
-  accent_chroma: 0.1,
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.15 0.003 145)",
     "--card": "oklch(0.18 0.005 145)",
     "--background-surface-2": "oklch(0.17 0.005 145)",
     "--background-surface-3": "oklch(0.20 0.008 145)",
     "--border": "oklch(0.25 0.008 145)",
-    "--radius": "0.25rem",
     "--primary": "oklch(0.65 0.1 145)",
   },
 };
 
-export const BUILTIN_LATTICE_LIGHT: Theme = {
-  id: "lattice-light",
-  name: "Lattice Light",
-  color_scheme: "light",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "lattice",
+const BP_LATTICE: ThemeBlueprint = {
+  base_name: "Lattice",
+  surface_hue: 190,
+  surface_chroma: 0.004,
   accent_hue: 190,
   accent_chroma: 0.08,
+  layout_variant: "lattice",
   font_family_sans: "Geist",
   font_family_mono: "Geist Mono",
-  token_overrides: {
+  structural_overrides: {
+    "--radius": "0.375rem",
+  },
+  color_overrides_light: {
     "--background": "oklch(0.98 0.004 190)",
     "--card": "oklch(1 0 0)",
     "--background-surface-2": "oklch(0.96 0.005 190)",
     "--border": "oklch(0.89 0.008 190)",
-    "--radius": "0.375rem",
     "--primary": "oklch(0.45 0.08 190)",
   },
-};
-
-export const BUILTIN_LATTICE_DARK: Theme = {
-  id: "lattice-dark",
-  name: "Lattice Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "lattice",
-  accent_hue: 190,
-  accent_chroma: 0.08,
-  font_family_sans: "Geist",
-  font_family_mono: "Geist Mono",
-  token_overrides: {
+  color_overrides_dark: {
     "--background": "oklch(0.14 0.004 190)",
     "--card": "oklch(0.18 0.005 190)",
     "--background-surface-2": "oklch(0.16 0.005 190)",
     "--border": "oklch(0.23 0.008 190)",
-    "--radius": "0.375rem",
     "--primary": "oklch(0.65 0.08 190)",
   },
 };
 
-export const BUILTIN_OBSIDIAN_DARK: Theme = {
-  id: "obsidian-dark",
-  name: "Obsidian Dark",
-  color_scheme: "dark",
-  is_builtin: true,
-  ...SHARED_DEFAULTS,
-  layout_variant: "obsidian",
+const BP_OBSIDIAN: ThemeBlueprint = {
+  base_name: "Obsidian",
+  surface_hue: 275,
+  surface_chroma: 0.018,
   accent_hue: 285,
   accent_chroma: 0.19,
-  font_family_sans: "Inter",
-  font_family_mono: "JetBrains Mono",
-  shiki_theme_dark: "github-dark",
-  token_overrides: {
+  surface_style: "glass",
+  layout_variant: "obsidian",
+  schemes: "both",
+  structural_overrides: {
+    "--radius": "0.875rem",
+    "--shadow-md": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
+    "--shadow-lg": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
+  },
+  color_overrides_dark: {
     "--background": "oklch(0.13 0.018 275)",
     "--foreground": "oklch(0.96 0.008 280)",
     "--card": "oklch(0.24 0.022 275 / 0.7)",
@@ -1319,48 +1198,45 @@ export const BUILTIN_OBSIDIAN_DARK: Theme = {
     "--selection-bg":
       "color-mix(in oklch, oklch(0.78 0.19 285) 30%, transparent)",
     "--accent-hover": "oklch(1 0 0 / 0.04)",
-    "--radius": "0.875rem",
-    "--shadow-md": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
-    "--shadow-lg": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
     "--scrollbar-thumb": "oklch(1 0 0 / 0.12)",
   },
 };
 
-export const BUILTIN_THEMES: readonly Theme[] = [
-  BUILTIN_NORDIC_LIGHT,
-  BUILTIN_NORDIC_DARK,
-  BUILTIN_BRUTALIST_LIGHT,
-  BUILTIN_BRUTALIST_DARK,
-  BUILTIN_NEON_LIGHT,
-  BUILTIN_NEON_DARK,
-  BUILTIN_PAPER_LIGHT,
-  BUILTIN_PAPER_DARK,
-  BUILTIN_FLOATING_LIGHT,
-  BUILTIN_FLOATING_DARK,
-  BUILTIN_GLASS_LIGHT,
-  BUILTIN_GLASS_DARK,
-  BUILTIN_DENSE_LIGHT,
-  BUILTIN_DENSE_DARK,
-  BUILTIN_LINEAR_LIGHT,
-  BUILTIN_LINEAR_DARK,
-  BUILTIN_WORKBENCH_LIGHT,
-  BUILTIN_WORKBENCH_DARK,
-  BUILTIN_COMMAND_DECK_LIGHT,
-  BUILTIN_COMMAND_DECK_DARK,
-  BUILTIN_HUD_DARK,
-  BUILTIN_DASHBOARD_DARK,
-  BUILTIN_SPOTLIGHT_LIGHT,
-  BUILTIN_SPOTLIGHT_DARK,
-  BUILTIN_COCKPIT_LIGHT,
-  BUILTIN_COCKPIT_DARK,
-  BUILTIN_THEATER_LIGHT,
-  BUILTIN_THEATER_DARK,
-  BUILTIN_TRIPTYCH_LIGHT,
-  BUILTIN_TRIPTYCH_DARK,
-  BUILTIN_LATTICE_LIGHT,
-  BUILTIN_LATTICE_DARK,
-  BUILTIN_OBSIDIAN_DARK,
+const BLUEPRINTS: ThemeBlueprint[] = [
+  BP_NORDIC,
+  BP_BRUTALIST,
+  BP_NEON,
+  BP_PAPER,
+  BP_FLOATING,
+  BP_GLASS,
+  BP_DENSE,
+  BP_LINEAR,
+  BP_MONOLITH,
+  BP_WORKBENCH,
+  BP_COMMAND_DECK,
+  BP_GROUNDED_HEAVY,
+  BP_HUD,
+  BP_ZEN_DECK,
+  BP_DASHBOARD,
+  BP_SPOTLIGHT,
+  BP_COCKPIT,
+  BP_THEATER,
+  BP_TRIPTYCH,
+  BP_LATTICE,
+  BP_OBSIDIAN,
 ];
+
+export const BUILTIN_THEMES: readonly Theme[] =
+  BLUEPRINTS.flatMap(expand_blueprint);
+
+function find_builtin(id: string): Theme {
+  const found = BUILTIN_THEMES.find((t) => t.id === id);
+  if (!found) throw new Error(`Missing builtin theme: ${id}`);
+  return found;
+}
+
+export const BUILTIN_NORDIC_LIGHT: Theme = find_builtin("nordic-light");
+export const BUILTIN_NORDIC_DARK: Theme = find_builtin("nordic-dark");
 
 export const AVAILABLE_SHIKI_THEMES = {
   light: [
