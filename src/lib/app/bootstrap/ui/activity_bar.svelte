@@ -7,7 +7,7 @@
     CircleHelp,
     Network,
     ListChecks,
-    Hash,
+    Tags,
     GitBranch,
     CalendarDays,
   } from "@lucide/svelte";
@@ -108,7 +108,7 @@
         aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tags}
         aria-label="Tags"
       >
-        <Hash class="ActivityBar__icon" />
+        <Tags class="ActivityBar__icon" />
       </button>
 
       <button
