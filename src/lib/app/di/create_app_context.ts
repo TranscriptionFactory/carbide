@@ -95,7 +95,7 @@ import {
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PencilRuler, BookMarked, Table } from "@lucide/svelte";
+import { Blocks, PencilRuler, BookMarked, Database } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
@@ -169,7 +169,7 @@ export function create_app_context(input: {
   plugin_service.register_sidebar_view({
     id: "bases",
     label: "Bases",
-    icon: Table,
+    icon: Database,
     panel: BasesPanel,
   });
 
