@@ -1,8 +1,14 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
-import type { EditorState, Transaction } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode, NodeType } from "prosemirror-model";
 
 const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)\s]+)\)/;
+
+interface PromotionCandidate {
+  pos: number;
+  size: number;
+  src: string;
+}
 
 export function create_image_input_rule_prose_plugin(): Plugin {
   return new Plugin({
@@ -13,37 +19,83 @@ export function create_image_input_rule_prose_plugin(): Plugin {
       const image_block_type = newState.schema.nodes["image-block"];
       if (!image_block_type) return null;
 
-      const { $from } = newState.selection;
-      const parent = $from.parent;
-      if (!parent.isTextblock) return null;
+      const changed_ranges = collect_changed_ranges(transactions);
+      if (changed_ranges.length === 0) return null;
 
-      const para_pos = $from.before();
+      const from = Math.max(0, Math.min(...changed_ranges.map((r) => r.from)));
+      const to = Math.min(
+        newState.doc.content.size,
+        Math.max(...changed_ranges.map((r) => r.to)),
+      );
 
-      const inline_image = find_solo_inline_image(parent);
-      if (inline_image) {
-        return replace_paragraph_with_image_block(
-          newState,
-          para_pos,
-          parent.nodeSize,
-          String(inline_image.attrs.src),
-          image_block_type,
-        );
+      const candidates: PromotionCandidate[] = [];
+      newState.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type.name !== "paragraph") return;
+
+        const inline_image = find_solo_inline_image(node);
+        if (inline_image) {
+          candidates.push({
+            pos,
+            size: node.nodeSize,
+            src: String(inline_image.attrs.src),
+          });
+          return false;
+        }
+
+        const text_match = find_solo_image_text(node, node.content.size);
+        if (text_match) {
+          candidates.push({ pos, size: node.nodeSize, src: text_match.src });
+          return false;
+        }
+      });
+
+      if (candidates.length === 0) return null;
+
+      const tr = newState.tr;
+      for (let i = candidates.length - 1; i >= 0; i--) {
+        const c = candidates[i]!;
+        const mapped_pos = tr.mapping.map(c.pos);
+        const mapped_end = tr.mapping.map(c.pos + c.size);
+        const new_node = image_block_type.create({
+          src: c.src,
+          caption: "",
+          ratio: 1,
+        });
+        tr.replaceWith(mapped_pos, mapped_end, new_node);
       }
 
-      const text_match = find_solo_image_text(parent, $from.parentOffset);
-      if (text_match) {
-        return replace_paragraph_with_image_block(
-          newState,
-          para_pos,
-          parent.nodeSize,
-          text_match.src,
-          image_block_type,
-        );
+      const last = candidates[candidates.length - 1]!;
+      const after_pos = tr.mapping.map(last.pos) + 1;
+      const paragraph_type = newState.schema.nodes.paragraph;
+      if (after_pos >= tr.doc.content.size && paragraph_type) {
+        tr.insert(tr.doc.content.size, paragraph_type.create());
       }
 
-      return null;
+      const cursor_target = Math.min(after_pos, tr.doc.content.size);
+      tr.setSelection(
+        TextSelection.near(tr.doc.resolve(cursor_target), 1),
+      );
+
+      return tr;
     },
   });
+}
+
+function collect_changed_ranges(
+  transactions: readonly Transaction[],
+): Array<{ from: number; to: number }> {
+  const ranges: Array<{ from: number; to: number }> = [];
+  for (const t of transactions) {
+    t.steps.forEach((_step, i) => {
+      const map = t.mapping.maps[i];
+      if (map) {
+        map.forEach((_oldFrom, _oldTo, from, to) => {
+          ranges.push({ from, to });
+        });
+      }
+    });
+  }
+  return ranges;
 }
 
 function find_solo_inline_image(parent: ProseNode): ProseNode | null {
@@ -96,27 +148,4 @@ function find_solo_image_text(
   if (has_text_before || has_text_after) return null;
 
   return { src };
-}
-
-function replace_paragraph_with_image_block(
-  state: EditorState,
-  para_pos: number,
-  para_size: number,
-  src: string,
-  image_block_type: NodeType,
-): Transaction {
-  const tr = state.tr;
-  const para_end = para_pos + para_size;
-  const new_node = image_block_type.create({ src, caption: "", ratio: 1 });
-
-  tr.replaceWith(para_pos, para_end, new_node);
-
-  const after_pos = para_pos + new_node.nodeSize;
-  const paragraph_type = state.schema.nodes.paragraph;
-  if (after_pos >= tr.doc.content.size && paragraph_type) {
-    tr.insert(after_pos, paragraph_type.create());
-  }
-
-  tr.setSelection(TextSelection.near(tr.doc.resolve(after_pos), 1));
-  return tr;
 }

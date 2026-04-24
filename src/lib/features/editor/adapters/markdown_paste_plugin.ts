@@ -33,6 +33,15 @@ export function create_markdown_paste_prose_plugin(
 ): Plugin {
   return new Plugin({
     props: {
+      clipboardTextParser: (text, _$context, _plain, view) => {
+        if (!text.trim() || !view) return Slice.empty;
+        try {
+          const doc = parse_fn(text.replace(/\r\n/g, "\n"));
+          return new Slice(doc.content, 0, 0);
+        } catch {
+          return Slice.empty;
+        }
+      },
       handlePaste: (view, event) => {
         const editable = view.props.editable?.(view.state);
         const { clipboardData } = event;

@@ -96,6 +96,10 @@
   function on_blur() {
     setTimeout(() => {
       show_dropdown = false;
+      const clean = query.replace(/\/+$/, "");
+      if (clean !== value) {
+        on_change(clean);
+      }
     }, 150);
   }
 </script>

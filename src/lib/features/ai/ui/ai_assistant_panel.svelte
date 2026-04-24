@@ -31,10 +31,10 @@
     }
 
     const current_note = stores.editor.open_note;
-    if (
-      !current_note ||
-      session.context?.note_path !== current_note.meta.path
-    ) {
+    if (!current_note) return;
+
+    if (session.context?.note_path !== current_note.meta.path) {
+      start_session();
       return;
     }
 
@@ -48,7 +48,6 @@
       return;
     }
 
-    // Update the context with latest editor state
     void action_registry.execute(ACTION_IDS.ai_update_context, {
       note_path: current_note.meta.path,
       note_title: current_note.meta.title || current_note.meta.name,
