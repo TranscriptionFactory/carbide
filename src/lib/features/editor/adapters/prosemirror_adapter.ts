@@ -1127,7 +1127,11 @@ export function create_prosemirror_editor_port(args?: {
         },
         update_diagnostics(diagnostics: Diagnostic[]) {
           if (!view) return;
-          update_prosemirror_diagnostics(view, diagnostics);
+          update_prosemirror_diagnostics(
+            view,
+            diagnostics,
+            () => current_markdown,
+          );
         },
         get_view() {
           return view;

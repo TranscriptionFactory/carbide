@@ -59,14 +59,12 @@ function build_decorations(
   return DecorationSet.create(doc, decorations);
 }
 
-let diagnostics_get_markdown: (() => string) | null = null;
-
 export function update_prosemirror_diagnostics(
   view: EditorView,
   diagnostics: Diagnostic[],
+  get_markdown: () => string = () => "",
 ) {
-  const get_md = diagnostics_get_markdown ?? (() => "");
-  const deco_set = build_decorations(view, diagnostics, get_md);
+  const deco_set = build_decorations(view, diagnostics, get_markdown);
   view.dispatch(
     view.state.tr.setMeta(diagnostics_decoration_plugin_key, deco_set),
   );
@@ -78,10 +76,6 @@ export function create_diagnostics_decoration_plugin(
   let tooltip: HTMLDivElement | null = null;
   let hover_timeout: ReturnType<typeof setTimeout> | null = null;
   let hovering_tooltip = false;
-
-  if (get_markdown) {
-    diagnostics_get_markdown = get_markdown;
-  }
 
   return new Plugin({
     key: diagnostics_decoration_plugin_key,
