@@ -411,6 +411,9 @@ export const ACTION_IDS = {
 
   vault_update_embeddings: "vault.update_embeddings",
   vault_rebuild_embeddings: "vault.rebuild_embeddings",
+
+  daily_notes_open_today: "daily_notes.open_today",
+  daily_notes_open_date: "daily_notes.open_date",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];
