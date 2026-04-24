@@ -34,7 +34,7 @@ async function apply_opened_vault(
   });
 
   if (input.stores.vault.is_vault_mode) {
-    await input.registry.execute(ACTION_IDS.git_check_repo);
+    void input.registry.execute(ACTION_IDS.git_check_repo);
   }
 
   const persisted = await input.services.tab.load_tabs();

@@ -481,9 +481,11 @@ export class VaultService {
       };
     }
 
-    const recent_notes = await this.load_recent_notes(vault.id);
-    const starred_paths = await this.load_starred_paths(vault.id);
-    const editor_settings = await this.load_editor_settings(vault.id);
+    const [recent_notes, starred_paths, editor_settings] = await Promise.all([
+      this.load_recent_notes(vault.id),
+      this.load_starred_paths(vault.id),
+      this.load_editor_settings(vault.id),
+    ]);
 
     return {
       root_contents,
