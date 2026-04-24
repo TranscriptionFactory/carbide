@@ -357,6 +357,20 @@ function make_frontmatter_insert() {
   };
 }
 
+function make_task_query_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const code_type = state.schema.nodes["code_block"];
+    if (!code_type) return;
+    const cursor = state.selection.from;
+    const content = state.schema.text("not done\nsort by due_date");
+    const node = code_type.create({ language: "tasks" }, content);
+    const tr = state.tr.delete(from, cursor).insert(from, node);
+    tr.setSelection(TextSelection.create(tr.doc, from + 1));
+    view.dispatch(tr.scrollIntoView());
+  };
+}
+
 export function create_commands(): SlashCommand[] {
   return [
     {
@@ -446,6 +460,14 @@ export function create_commands(): SlashCommand[] {
       icon: "☐",
       keywords: ["task", "todo", "checkbox", "check", "list"],
       insert: make_todo_insert(),
+    },
+    {
+      id: "task-query",
+      label: "Task Query",
+      description: "Live query of tasks from your vault",
+      icon: "🔍",
+      keywords: ["task", "query", "filter", "search", "tasks"],
+      insert: make_task_query_insert(),
     },
     {
       id: "blockquote",
