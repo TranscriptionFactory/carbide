@@ -1,6 +1,7 @@
 import type { Plugin } from "prosemirror-state";
 import type { EditorEventHandlers } from "$lib/features/editor/ports";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
+import type { TaskQueryCallbacks } from "../adapters/code_block_view_plugin";
 
 export type ResolveAssetUrlForVault = (
   vault_id: VaultId,
@@ -20,6 +21,7 @@ export type PluginContext = {
   native_link_hover_enabled?: boolean;
   native_wiki_suggest_enabled?: boolean;
   native_link_click_enabled?: boolean;
+  task_query_callbacks?: TaskQueryCallbacks;
 };
 
 export type EditorExtension = {

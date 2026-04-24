@@ -72,6 +72,9 @@ import type {
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
+import type { TaskQueryCallbacks } from "$lib/features/editor/adapters/code_block_view_plugin";
+import type { TaskPort } from "$lib/features/task/ports";
+import type { TaskStatus } from "$lib/features/task/types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
 import type { Diagnostic } from "$lib/features/diagnostics";
@@ -215,18 +218,48 @@ function create_markdown_change_plugin(
   });
 }
 
+const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
+  todo: "doing",
+  doing: "done",
+  done: "todo",
+};
+
+function build_task_query_callbacks(
+  port: TaskPort,
+  get_vault_id: () => VaultId | null,
+): TaskQueryCallbacks {
+  return {
+    async query_tasks(query) {
+      const vid = get_vault_id();
+      if (!vid) return [];
+      return port.queryTasks(vid, query);
+    },
+    async toggle_task(task) {
+      const vid = get_vault_id();
+      if (!vid) return;
+      await port.updateTaskState(vid, {
+        path: task.path,
+        line_number: task.line_number,
+        status: NEXT_STATUS[task.status],
+      });
+    },
+  };
+}
+
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
+  task_port?: TaskPort;
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
   const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
   const ydoc_manager = args?.ydoc_manager ?? null;
   const slash_config = args?.slash_config;
   const ai_inline_config = args?.ai_inline_config;
+  const task_port = args?.task_port;
 
   return {
     start_session: (config) => {
@@ -286,6 +319,9 @@ export function create_prosemirror_editor_port(args?: {
           native_wiki_suggest_enabled:
             config.native_wiki_suggest_enabled ?? true,
           native_link_click_enabled: config.native_link_click_enabled ?? true,
+          task_query_callbacks: task_port
+            ? build_task_query_callbacks(task_port, () => current_vault_id)
+            : undefined,
         },
         toolbar_config,
         slash_config,

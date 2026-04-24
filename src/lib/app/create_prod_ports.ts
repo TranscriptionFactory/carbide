@@ -140,6 +140,7 @@ export function create_prod_ports(): Ports & {
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
+      task_port: task,
     }),
     clipboard,
     shell,

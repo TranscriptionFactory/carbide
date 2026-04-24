@@ -3,6 +3,7 @@ import type { EditorPort } from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
 import type { SlashCommandConfig } from "./slash_command_plugin";
 import type { AiMenuPluginConfig } from "./ai_menu_plugin";
+import type { TaskPort } from "$lib/features/task/ports";
 
 type ResolveAssetUrlForVault = (
   vault_id: VaultId,
@@ -15,6 +16,7 @@ export function create_lazy_editor_port(args?: {
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
+  task_port?: TaskPort;
 }): EditorPort {
   let port_promise: Promise<EditorPort> | null = null;
 
