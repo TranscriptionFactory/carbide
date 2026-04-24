@@ -107,6 +107,24 @@ describe("apply_theme", () => {
     expect(store.get("--custom-var")).toBe("test-value");
   });
 
+  it("token_overrides beat generated UI tokens", () => {
+    const custom = {
+      ...BUILTIN_NORDIC_DARK,
+      is_builtin: false,
+      id: "custom-override",
+      token_overrides: { "--background": "oklch(0.99 0 0)" },
+    };
+    apply_theme(custom);
+    expect(store.get("--background")).toBe("oklch(0.99 0 0)");
+  });
+
+  it("sets generated UI tokens from surface params", () => {
+    apply_theme(BUILTIN_NORDIC_DARK);
+    expect(store.get("--background")).toContain("oklch(");
+    expect(store.get("--primary")).toContain("oklch(");
+    expect(store.get("--border")).toContain("oklch(");
+  });
+
   it("sets heading weight and bold weight tokens", () => {
     apply_theme(BUILTIN_NORDIC_DARK);
     expect(store.get("--editor-heading-weight")).toBe("500");
