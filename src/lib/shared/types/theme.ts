@@ -424,7 +424,7 @@ const BP_PAPER: ThemeBlueprint = {
     "--radius": "0.25rem",
   },
   color_overrides_light: {
-    "--editor-link": "hsl(25, 60%, 35%)",
+    "--editor-link": "oklch(0.45 0.1 55)",
     "--background": "oklch(0.96 0.015 75)",
     "--foreground": "oklch(0.22 0.02 55)",
     "--card": "oklch(0.98 0.012 78)",
@@ -460,7 +460,7 @@ const BP_PAPER: ThemeBlueprint = {
     "--scrollbar-thumb-hover": "oklch(0.75 0.03 65)",
   },
   color_overrides_dark: {
-    "--editor-link": "hsl(25, 60%, 55%)",
+    "--editor-link": "oklch(0.62 0.1 55)",
     "--background": "oklch(0.19 0.015 55)",
     "--foreground": "oklch(0.9 0.015 75)",
     "--card": "oklch(0.23 0.015 55)",

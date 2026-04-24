@@ -28,7 +28,7 @@
   --border-subtle: oklch(0 0 0 / 5%);
 
   /* Structural Overrides */
-  --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 30px -5px oklch(0 0 0 / 10%);
   --size-activity-bar: 3rem;
   --size-activity-icon: 1.25rem;
 }
