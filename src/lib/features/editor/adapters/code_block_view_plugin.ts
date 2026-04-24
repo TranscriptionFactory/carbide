@@ -10,6 +10,13 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
+import { parse_task_query } from "$lib/features/task/parse_task_query";
+import type { Task, TaskQuery, TaskStatus } from "$lib/features/task/types";
+
+export type TaskQueryCallbacks = {
+  query_tasks: (query: TaskQuery) => Promise<Task[]>;
+  toggle_task: (task: Task) => Promise<void>;
+};
 
 const log = create_logger("code_block_view");
 
@@ -158,6 +165,15 @@ type MermaidState = {
   last_rendered_content: string;
 };
 
+type TaskQueryState = {
+  is_preview: boolean;
+  preview_container: HTMLElement;
+  toggle_btn: HTMLButtonElement;
+  render_timer: ReturnType<typeof setTimeout> | undefined;
+  last_rendered_content: string;
+  callbacks: TaskQueryCallbacks;
+};
+
 function mermaid_cache_key(code: string): string {
   const theme =
     document.documentElement.getAttribute("data-color-scheme") === "dark"
@@ -210,6 +226,137 @@ async function render_mermaid_preview(
   } catch (error: unknown) {
     log.error("Mermaid render failed", { error });
     container.innerHTML = '<div class="mermaid-error">Invalid diagram</div>';
+  }
+}
+
+function next_task_status(status: TaskStatus): TaskStatus {
+  const cycle: Record<TaskStatus, TaskStatus> = {
+    todo: "doing",
+    doing: "done",
+    done: "todo",
+  };
+  return cycle[status];
+}
+
+function file_name_from_path(path: string): string {
+  const parts = path.split("/");
+  const name = parts[parts.length - 1] ?? path;
+  return name.replace(/\.md$/, "");
+}
+
+async function render_task_query_results(
+  code: string,
+  container: HTMLElement,
+  callbacks: TaskQueryCallbacks,
+  on_toggle: () => void,
+): Promise<void> {
+  if (!code.trim()) {
+    container.innerHTML =
+      '<div class="task-query-empty">Empty query</div>';
+    return;
+  }
+
+  const parsed = parse_task_query(code);
+
+  if (parsed.errors.length > 0) {
+    container.innerHTML = `<div class="task-query-error">${parsed.errors.map((e) => `<div>${e}</div>`).join("")}</div>`;
+    return;
+  }
+
+  try {
+    const tasks = await callbacks.query_tasks(parsed.query);
+
+    if (tasks.length === 0) {
+      container.innerHTML =
+        '<div class="task-query-empty">No matching tasks</div>';
+      return;
+    }
+
+    container.innerHTML = "";
+
+    type GroupMap = Map<string, Task[]>;
+    let groups: GroupMap;
+    if (parsed.grouping === "none") {
+      groups = new Map([["", tasks]]);
+    } else {
+      groups = new Map();
+      for (const task of tasks) {
+        let key: string;
+        switch (parsed.grouping) {
+          case "status":
+            key = task.status;
+            break;
+          case "note":
+            key = file_name_from_path(task.path);
+            break;
+          case "section":
+            key = task.section ?? "(no section)";
+            break;
+          case "due_date":
+            key = task.due_date ?? "(no due date)";
+            break;
+          default:
+            key = "";
+        }
+        let group = groups.get(key);
+        if (!group) {
+          group = [];
+          groups.set(key, group);
+        }
+        group.push(task);
+      }
+    }
+
+    for (const [group_key, group_tasks] of groups) {
+      const group_el = document.createElement("div");
+      group_el.className = "task-query-group";
+
+      if (group_key) {
+        const header = document.createElement("div");
+        header.className = "task-query-group-header";
+        header.textContent = group_key;
+        group_el.appendChild(header);
+      }
+
+      for (const task of group_tasks) {
+        const item = document.createElement("div");
+        item.className = "task-query-item";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.status === "done";
+        checkbox.indeterminate = task.status === "doing";
+        checkbox.addEventListener("change", (e) => {
+          e.preventDefault();
+          const new_status = next_task_status(task.status);
+          void callbacks.toggle_task({ ...task, status: new_status }).then(
+            on_toggle,
+          );
+        });
+
+        const text_el = document.createElement("span");
+        text_el.className = "task-query-text";
+        if (task.status === "done") text_el.classList.add("task-query-done");
+        text_el.textContent = task.text;
+
+        const meta_el = document.createElement("span");
+        meta_el.className = "task-query-meta";
+        const parts: string[] = [file_name_from_path(task.path)];
+        if (task.due_date) parts.push(task.due_date);
+        meta_el.textContent = parts.join(" · ");
+
+        item.appendChild(checkbox);
+        item.appendChild(text_el);
+        item.appendChild(meta_el);
+        group_el.appendChild(item);
+      }
+
+      container.appendChild(group_el);
+    }
+  } catch (error: unknown) {
+    log.error("Task query failed", { error });
+    container.innerHTML =
+      '<div class="task-query-error">Query failed</div>';
   }
 }
 
@@ -321,6 +468,7 @@ class CodeBlockView implements NodeView {
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
+  private task_query: TaskQueryState | null = null;
   private current_language: string;
   private is_resizing = false;
   private cancel_resize: () => void;
@@ -330,6 +478,7 @@ class CodeBlockView implements NodeView {
     private node: ProseNode,
     private view: EditorView,
     private get_pos: () => number | undefined,
+    private task_query_callbacks?: TaskQueryCallbacks,
   ) {
     this.current_language = (node.attrs.language as string) ?? "";
 
@@ -386,6 +535,8 @@ class CodeBlockView implements NodeView {
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid();
+    } else if (this.current_language === "tasks" && this.task_query_callbacks) {
+      this.setup_task_query(this.task_query_callbacks);
     }
   }
 
@@ -469,6 +620,76 @@ class CodeBlockView implements NodeView {
     this.pre.style.display = "";
   }
 
+  private setup_task_query(callbacks: TaskQueryCallbacks) {
+    const preview_container = document.createElement("div");
+    preview_container.className = "task-query-results";
+
+    const toggle_btn = document.createElement("button");
+    toggle_btn.className = "mermaid-toggle-btn";
+    toggle_btn.type = "button";
+    toggle_btn.textContent = "Edit";
+    toggle_btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggle_task_query_preview();
+    });
+
+    this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
+    this.dom.appendChild(preview_container);
+
+    this.task_query = {
+      is_preview: true,
+      preview_container,
+      toggle_btn,
+      render_timer: undefined,
+      last_rendered_content: this.node.textContent,
+      callbacks,
+    };
+
+    this.pre.style.display = "none";
+    this.schedule_task_query_render();
+  }
+
+  private toggle_task_query_preview() {
+    if (!this.task_query) return;
+    this.task_query.is_preview = !this.task_query.is_preview;
+
+    if (this.task_query.is_preview) {
+      this.pre.style.display = "none";
+      this.task_query.preview_container.style.display = "";
+      this.task_query.toggle_btn.textContent = "Edit";
+      this.schedule_task_query_render();
+    } else {
+      this.pre.style.display = "";
+      this.task_query.preview_container.style.display = "none";
+      this.task_query.toggle_btn.textContent = "Preview";
+    }
+  }
+
+  private schedule_task_query_render() {
+    if (!this.task_query) return;
+    clearTimeout(this.task_query.render_timer);
+    this.task_query.render_timer = setTimeout(() => {
+      if (!this.task_query) return;
+      const code = this.node.textContent;
+      void render_task_query_results(
+        code,
+        this.task_query.preview_container,
+        this.task_query.callbacks,
+        () => this.schedule_task_query_render(),
+      );
+    }, 150);
+  }
+
+  private teardown_task_query() {
+    if (!this.task_query) return;
+    clearTimeout(this.task_query.render_timer);
+    this.task_query.preview_container.remove();
+    this.task_query.toggle_btn.remove();
+    this.task_query = null;
+    this.pre.style.display = "";
+  }
+
   private toggle_picker() {
     if (this.picker_el) {
       this.dismiss_picker();
@@ -524,9 +745,21 @@ class CodeBlockView implements NodeView {
     const old_lang = this.current_language;
 
     if (new_lang === "mermaid" && old_lang !== "mermaid") {
+      if (old_lang === "tasks") this.teardown_task_query();
       this.setup_mermaid();
     } else if (new_lang !== "mermaid" && old_lang === "mermaid") {
       this.teardown_mermaid();
+      if (new_lang === "tasks" && this.task_query_callbacks) {
+        this.setup_task_query(this.task_query_callbacks);
+      }
+    } else if (
+      new_lang === "tasks" &&
+      old_lang !== "tasks" &&
+      this.task_query_callbacks
+    ) {
+      this.setup_task_query(this.task_query_callbacks);
+    } else if (new_lang !== "tasks" && old_lang === "tasks") {
+      this.teardown_task_query();
     }
 
     if (new_lang !== this.current_language) {
@@ -549,6 +782,14 @@ class CodeBlockView implements NodeView {
       }
     }
 
+    if (this.task_query?.is_preview) {
+      const new_content = updated.textContent;
+      if (new_content !== this.task_query.last_rendered_content) {
+        this.task_query.last_rendered_content = new_content;
+        this.schedule_task_query_render();
+      }
+    }
+
     this.node = updated;
     return true;
   }
@@ -558,11 +799,18 @@ class CodeBlockView implements NodeView {
     if (!(event.target instanceof HTMLElement)) return false;
     return (
       event.target.closest(".code-block-toolbar") !== null ||
-      event.target.closest(".code-block-resize-handle") !== null
+      event.target.closest(".code-block-resize-handle") !== null ||
+      event.target.closest(".task-query-results") !== null
     );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
+    if (
+      this.task_query?.preview_container.contains(mutation.target) ||
+      this.mermaid?.preview_container.contains(mutation.target)
+    ) {
+      return true;
+    }
     if (!this.contentDOM.contains(mutation.target)) return true;
     return false;
   }
@@ -573,18 +821,23 @@ class CodeBlockView implements NodeView {
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);
     }
+    if (this.task_query) {
+      clearTimeout(this.task_query.render_timer);
+    }
   }
 }
 
 export const code_block_view_plugin_key = new PluginKey("code-block-view");
 
-export function create_code_block_view_prose_plugin(): Plugin {
+export function create_code_block_view_prose_plugin(
+  task_query_callbacks?: TaskQueryCallbacks,
+): Plugin {
   return new Plugin({
     key: code_block_view_plugin_key,
     props: {
       nodeViews: {
         code_block: (node, view, get_pos) =>
-          new CodeBlockView(node, view, get_pos),
+          new CodeBlockView(node, view, get_pos, task_query_callbacks),
       },
       handleDOMEvents: {
         keydown(view, event) {
