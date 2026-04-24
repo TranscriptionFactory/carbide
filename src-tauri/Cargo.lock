@@ -912,13 +912,7 @@ dependencies = [
 
 [[package]]
 name = "carbide-cli"
-<<<<<<< Updated upstream
 version = "1.25.0"
-||||||| Stash base
-version = "1.21.0"
-=======
-version = "1.22.0"
->>>>>>> Stashed changes
 dependencies = [
  "clap",
  "clap_complete",
