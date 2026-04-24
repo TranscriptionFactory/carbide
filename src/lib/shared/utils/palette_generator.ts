@@ -233,7 +233,7 @@ export function generate_ui_tokens(
 
     if (alpha !== undefined) {
       tokens[key] =
-        `oklch(${l.toFixed(3)} ${c.toFixed(4)} ${(h % 360).toFixed(1)} / ${alpha})`;
+        `oklch(${l.toFixed(3)} ${c.toFixed(4)} ${(h % 360).toFixed(1)} / ${String(alpha)})`;
     } else {
       tokens[key] = oklch(l, c, h);
     }

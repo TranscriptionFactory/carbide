@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   generate_palette,
   apply_auto_palette,
+  generate_ui_tokens,
+  type UiTokenParams,
 } from "$lib/shared/utils/palette_generator";
 import type { Theme } from "$lib/shared/types/theme";
 import { BUILTIN_NORDIC_DARK } from "$lib/shared/types/theme";
@@ -83,5 +85,78 @@ describe("apply_auto_palette", () => {
     const result = apply_auto_palette(theme);
     expect(result).not.toBe(theme);
     expect(theme.link_color).toBeNull();
+  });
+});
+
+const NORDIC_DARK_PARAMS: UiTokenParams = {
+  surface_hue: 68,
+  surface_chroma: 0.008,
+  accent_hue: 155,
+  accent_chroma: 0.11,
+  scheme: "dark",
+  style: "solid",
+};
+
+describe("generate_ui_tokens", () => {
+  it("produces expected tokens for Nordic dark defaults", () => {
+    const tokens = generate_ui_tokens(NORDIC_DARK_PARAMS);
+    expect(tokens["--background"]).toBe("oklch(0.180 0.0080 68.0)");
+    expect(tokens["--foreground"]).toBe("oklch(0.920 0.0080 68.0)");
+    expect(tokens["--card"]).toBe("oklch(0.220 0.0080 68.0)");
+    expect(tokens["--primary"]).toBe("oklch(0.680 0.1100 155.0)");
+    expect(tokens["--interactive"]).toBe("oklch(0.680 0.1100 155.0)");
+    expect(tokens["--interactive-hover"]).toBe("oklch(0.730 0.1100 155.0)");
+  });
+
+  it("produces light-scheme tokens with higher surface lightness", () => {
+    const tokens = generate_ui_tokens({
+      ...NORDIC_DARK_PARAMS,
+      scheme: "light",
+    });
+    expect(tokens["--background"]).toBe("oklch(0.985 0.0080 68.0)");
+    expect(tokens["--foreground"]).toBe("oklch(0.250 0.0080 68.0)");
+    expect(tokens["--primary"]).toBe("oklch(0.480 0.1100 155.0)");
+  });
+
+  it("adds alpha channels for glass style", () => {
+    const tokens = generate_ui_tokens({
+      ...NORDIC_DARK_PARAMS,
+      style: "glass",
+    });
+    expect(tokens["--card"]).toContain("/ 0.55)");
+    expect(tokens["--sidebar"]).toContain("/ 0.55)");
+    expect(tokens["--secondary"]).toContain("/ 0.55)");
+    expect(tokens["--muted"]).toContain("/ 0.55)");
+    expect(tokens["--background-surface-2"]).toContain("/ 0.55)");
+    expect(tokens["--background"]).not.toContain("/");
+    expect(tokens["--foreground"]).not.toContain("/");
+  });
+
+  it("uses accent params for accent-sourced tokens", () => {
+    const tokens = generate_ui_tokens({
+      surface_hue: 200,
+      surface_chroma: 0.02,
+      accent_hue: 300,
+      accent_chroma: 0.25,
+      scheme: "dark",
+      style: "solid",
+    });
+    expect(tokens["--primary"]).toContain("300.0");
+    expect(tokens["--primary"]).toContain("0.2500");
+    expect(tokens["--background"]).toContain("200.0");
+  });
+
+  it("uses neutral (0 chroma) for primary-foreground", () => {
+    const tokens = generate_ui_tokens(NORDIC_DARK_PARAMS);
+    expect(tokens["--primary-foreground"]).toBe("oklch(0.100 0.0000 0.0)");
+  });
+
+  it("generates ring, accent, and scrollbar tokens", () => {
+    const tokens = generate_ui_tokens(NORDIC_DARK_PARAMS);
+    expect(tokens["--ring"]).toContain("155.0");
+    expect(tokens["--accent"]).toContain("155.0");
+    expect(tokens["--accent-foreground"]).toContain("155.0");
+    expect(tokens["--scrollbar-thumb"]).toBeDefined();
+    expect(tokens["--scrollbar-thumb-hover"]).toBeDefined();
   });
 });
