@@ -3,9 +3,7 @@ import { EditorState, TextSelection } from "prosemirror-state";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_image_input_rule_prose_plugin } from "$lib/features/editor/adapters/image_input_rule_plugin";
 
-function make_state(
-  ...nodes: ReturnType<typeof para>[]
-): EditorState {
+function make_state(...nodes: ReturnType<typeof para>[]): EditorState {
   const plugin = create_image_input_rule_prose_plugin();
   const doc = schema.nodes.doc.create(null, nodes);
   return EditorState.create({ doc, plugins: [plugin] });

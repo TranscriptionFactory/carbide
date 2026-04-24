@@ -29,7 +29,7 @@ export function create_image_input_rule_prose_plugin(): Plugin {
       );
 
       const candidates: PromotionCandidate[] = [];
-      newState.doc.nodesBetween(from, to, (node, pos) => {
+      newState.doc.nodesBetween(from, to, (node, pos): boolean | void => {
         if (node.type.name !== "paragraph") return;
 
         const inline_image = find_solo_inline_image(node);
@@ -72,9 +72,7 @@ export function create_image_input_rule_prose_plugin(): Plugin {
       }
 
       const cursor_target = Math.min(after_pos, tr.doc.content.size);
-      tr.setSelection(
-        TextSelection.near(tr.doc.resolve(cursor_target), 1),
-      );
+      tr.setSelection(TextSelection.near(tr.doc.resolve(cursor_target), 1));
 
       return tr;
     },
