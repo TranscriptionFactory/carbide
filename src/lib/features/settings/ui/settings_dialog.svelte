@@ -2514,6 +2514,74 @@
               </div>
             </div>
             <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Daily Notes Folder</span>
+                <span class="SettingsDialog__description">
+                  Vault-relative folder where daily notes are stored
+                </span>
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  value={editor_settings.daily_notes_folder}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("daily_notes_folder", e.currentTarget.value);
+                  }}
+                  class="w-48"
+                  placeholder="e.g. Journal"
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "daily_notes_folder",
+                      DEFAULT_EDITOR_SETTINGS.daily_notes_folder,
+                    )}
+                  disabled={editor_settings.daily_notes_folder ===
+                    DEFAULT_EDITOR_SETTINGS.daily_notes_folder}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.daily_notes_folder})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Daily Note Name Format</span
+                >
+                <span class="SettingsDialog__description">
+                  Template using strftime tokens: %Y (year), %m (month), %d
+                  (day)
+                </span>
+              </div>
+              <div class="flex items-center gap-3">
+                <Input
+                  type="text"
+                  value={editor_settings.daily_note_name_format}
+                  oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+                    update("daily_note_name_format", e.currentTarget.value);
+                  }}
+                  class="w-48"
+                  placeholder="e.g. %Y-%m-%d"
+                />
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "daily_note_name_format",
+                      DEFAULT_EDITOR_SETTINGS.daily_note_name_format,
+                    )}
+                  disabled={editor_settings.daily_note_name_format ===
+                    DEFAULT_EDITOR_SETTINGS.daily_note_name_format}
+                  title={`Reset to default (${DEFAULT_EDITOR_SETTINGS.daily_note_name_format})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+            <div class="SettingsDialog__row">
               <span class="SettingsDialog__label">Attachment Folder</span>
               <Input
                 type="text"
