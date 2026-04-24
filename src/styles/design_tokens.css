@@ -120,6 +120,14 @@
   --accent: var(--teal-100);
   --accent-foreground: var(--teal-700);
 
+  /* V4 token aliases */
+  --fg-2: var(--muted-foreground);
+  --fg-3: var(--foreground-tertiary);
+  --glass: color-mix(in oklch, var(--card) 55%, transparent);
+  --glass-strong: var(--card);
+  --accent-glow: color-mix(in oklch, var(--primary) 30%, transparent);
+  --on-accent: var(--primary-foreground);
+
   /* ----------------------------------------
      SCROLLBAR
      ---------------------------------------- */
