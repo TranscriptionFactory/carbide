@@ -2,6 +2,8 @@
 
 Carbide provides several surfaces for finding and filtering information. All share the same underlying index (SQLite FTS5 + HNSW vector index) but expose different interaction paradigms.
 
+**Note on query systems**: The query language, Bases, and task queries are three independent systems. They don't share parsers, syntax, or types. The query language is a clause-based syntax for filtering *notes* by content, metadata, and links. Bases is a UI-driven filter builder for browsing vault frontmatter as a database. Task queries are a line-based DSL for filtering *tasks* (extracted `[ ]` items) by status, dates, and text. Each targets a different domain, even though all ultimately read from the same SQLite index.
+
 ## Omnibar
 
 **Shortcut**: `Cmd+K` / `Ctrl+K`
