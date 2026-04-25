@@ -6,7 +6,7 @@
 [data-layout-variant="drift"] .WorkspaceLayout--drift {
   --drift-gap: var(--space-3);
   --drift-dock-height: 3.5rem;
-  --drift-sidebar-width: 20rem;
+  --drift-sidebar-width: min(24rem, calc(100vw - var(--space-8)));
 
   position: relative;
   isolation: isolate;
@@ -112,14 +112,15 @@
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"] {
     position: relative;
+    overflow: hidden;
   }
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
     > [data-pane][order="1"] {
     position: absolute !important;
-    top: var(--drift-gap);
-    left: var(--drift-gap);
+    top: calc(var(--drift-gap) + var(--space-7));
+    left: calc(var(--drift-gap) + var(--space-4));
     bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2);
     width: var(--drift-sidebar-width) !important;
     min-width: var(--drift-sidebar-width) !important;
@@ -132,17 +133,18 @@
     -webkit-backdrop-filter: blur(24px);
     box-shadow: var(--shadow-lg);
     flex: none !important;
+    animation: drift-panel-enter var(--duration-normal) var(--ease-default);
   }
 
   /* Right sidebar: floating glass card */
-  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+  .WorkspaceLayout__context-rail {
     position: absolute !important;
-    top: var(--drift-gap);
-    right: var(--drift-gap);
+    top: calc(var(--drift-gap) + var(--space-7));
+    right: calc(var(--drift-gap) + var(--space-4));
     bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2);
-    width: var(--drift-sidebar-width) !important;
-    min-width: var(--drift-sidebar-width) !important;
-    max-width: var(--drift-sidebar-width) !important;
+    width: 3rem !important;
+    min-width: 3rem !important;
+    max-width: 3rem !important;
     z-index: 150;
     border-radius: var(--radius);
     border: 1px solid var(--border);
@@ -151,6 +153,7 @@
     -webkit-backdrop-filter: blur(24px);
     box-shadow: var(--shadow-lg);
     flex: none !important;
+    overflow: hidden;
   }
 
   .ContextRail {
@@ -215,6 +218,8 @@
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
     > [data-pane][order="2"] {
+    position: relative;
+    z-index: 1;
     width: 100% !important;
     flex: 1 1 100% !important;
     max-width: 100% !important;
@@ -228,11 +233,35 @@
     transition: all var(--duration-normal);
   }
 
-  [data-slot="sidebar-wrapper"]:has(
-      > [data-pane-group][data-direction="horizontal"] > [data-pane][order="1"]
-    )
-    [data-slot="sidebar-inset"] {
-    padding-left: calc(var(--drift-sidebar-width) + var(--drift-gap) * 2);
+  .NoteEditor {
+    margin-inline: auto;
+    width: min(100%, 96rem);
+  }
+
+  .NoteEditor__visual-wrapper,
+  .NoteEditor__split-container,
+  .NoteEditor__empty {
+    border-inline: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--background) 82%, transparent),
+        color-mix(in oklch, var(--background) 94%, transparent)
+      ),
+      color-mix(in oklch, var(--card) 50%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 4%, transparent);
+  }
+
+  @keyframes drift-panel-enter {
+    from {
+      opacity: 0;
+      transform: translateX(calc(var(--space-4) * -1)) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
   }
 }
 
