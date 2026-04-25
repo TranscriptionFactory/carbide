@@ -31,15 +31,7 @@
   );
 </script>
 
-<div
-  class="ChangeCard"
-  class:ChangeCard--modified={file.status === "modified"}
-  class:ChangeCard--added={file.status === "added" ||
-    file.status === "untracked"}
-  class:ChangeCard--deleted={file.status === "deleted"}
-  class:ChangeCard--conflicted={file.status === "conflicted"}
-  role="group"
->
+<div class="ChangeCard" role="group">
   <button
     type="button"
     class="ChangeCard__main"
@@ -72,7 +64,6 @@
     align-items: center;
     width: 100%;
     border-radius: var(--radius-sm);
-    border-inline-start: 2px solid transparent;
     font-size: var(--text-xs);
     color: var(--foreground);
     transition: background-color var(--duration-fast) var(--ease-default);
@@ -80,22 +71,6 @@
 
   .ChangeCard:hover {
     background-color: var(--accent);
-  }
-
-  .ChangeCard--modified {
-    border-inline-start-color: var(--warning);
-  }
-
-  .ChangeCard--added {
-    border-inline-start-color: var(--indicator-clean);
-  }
-
-  .ChangeCard--deleted {
-    border-inline-start-color: var(--destructive);
-  }
-
-  .ChangeCard--conflicted {
-    border-inline-start-color: var(--destructive);
   }
 
   .ChangeCard__main {
