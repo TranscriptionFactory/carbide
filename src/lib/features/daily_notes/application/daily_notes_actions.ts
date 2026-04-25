@@ -22,6 +22,7 @@ export function register_daily_notes_actions(
         settings.daily_notes_folder,
         settings.daily_note_name_format,
         new Date(),
+        settings.daily_note_subfolder_format,
       );
       if (path) {
         void registry.execute(ACTION_IDS.note_open, path);
@@ -39,6 +40,7 @@ export function register_daily_notes_actions(
         settings.daily_notes_folder,
         settings.daily_note_name_format,
         date,
+        settings.daily_note_subfolder_format,
       );
       if (path) {
         void registry.execute(ACTION_IDS.note_open, path);

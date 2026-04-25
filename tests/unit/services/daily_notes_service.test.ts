@@ -62,7 +62,7 @@ describe("DailyNotesService", () => {
     expect(result).toBeNull();
   });
 
-  it("creates note when it does not exist", async () => {
+  it("creates note with flat layout by default", async () => {
     const { service, vault_store } = make_service();
     vault_store.vault = create_test_vault();
 
@@ -72,15 +72,43 @@ describe("DailyNotesService", () => {
       new Date(2026, 3, 23),
     );
 
+    expect(result).toBe("Journal/2026-04-23.md");
+  });
+
+  it("creates note with year subfolder", async () => {
+    const { service, vault_store } = make_service();
+    vault_store.vault = create_test_vault();
+
+    const result = await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "year",
+    );
+
     expect(result).toBe("Journal/2026/2026-04-23.md");
+  });
+
+  it("creates note with year_month subfolder", async () => {
+    const { service, vault_store } = make_service();
+    vault_store.vault = create_test_vault();
+
+    const result = await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "year_month",
+    );
+
+    expect(result).toBe("Journal/2026/04/2026-04-23.md");
   });
 
   it("returns existing path without creating", async () => {
     const { service, vault_store, notes_store } = make_service();
     vault_store.vault = create_test_vault();
     notes_store.add_note({
-      id: "Journal/2026/2026-04-23.md" as NoteId,
-      path: "Journal/2026/2026-04-23.md" as NotePath,
+      id: "Journal/2026-04-23.md" as NoteId,
+      path: "Journal/2026-04-23.md" as NotePath,
       name: "2026-04-23",
       title: "2026-04-23",
       blurb: "",
@@ -96,7 +124,7 @@ describe("DailyNotesService", () => {
       new Date(2026, 3, 23),
     );
 
-    expect(result).toBe("Journal/2026/2026-04-23.md");
+    expect(result).toBe("Journal/2026-04-23.md");
   });
 
   it("returns path when note exists on disk but not in store", async () => {
@@ -112,6 +140,55 @@ describe("DailyNotesService", () => {
       new Date(2026, 3, 23),
     );
 
-    expect(result).toBe("Journal/2026/2026-04-23.md");
+    expect(result).toBe("Journal/2026-04-23.md");
+  });
+
+  it("creates year and month folders for year_month format", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+
+    await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "year_month",
+    );
+
+    const create_folder = notes_port.create_folder as ReturnType<typeof vi.fn>;
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "",
+      "Journal",
+    );
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "Journal",
+      "2026",
+    );
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "Journal/2026",
+      "04",
+    );
+  });
+
+  it("does not create year subfolder for flat format", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+
+    await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "none",
+    );
+
+    const create_folder = notes_port.create_folder as ReturnType<typeof vi.fn>;
+    expect(create_folder).toHaveBeenCalledTimes(1);
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "",
+      "Journal",
+    );
   });
 });

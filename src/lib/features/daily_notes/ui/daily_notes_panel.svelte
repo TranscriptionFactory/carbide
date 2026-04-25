@@ -17,9 +17,10 @@
     const settings = stores.ui.editor_settings;
     const folder = settings.daily_notes_folder;
     const format = settings.daily_note_name_format;
+    const subfolder = settings.daily_note_subfolder_format;
     const dates = new Set<string>();
     for (const note of stores.notes.notes) {
-      const d = parse_daily_note_date(folder, format, note.path);
+      const d = parse_daily_note_date(folder, format, note.path, subfolder);
       if (d) {
         dates.add(
           `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,

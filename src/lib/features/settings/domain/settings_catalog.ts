@@ -979,8 +979,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   {
     key: "daily_notes_folder",
     label: "Daily Notes Folder",
-    description:
-      "Folder for daily notes, organized by year. Notes are stored as {folder}/{year}/{name}.md",
+    description: "Root folder for daily notes",
     category: "Files",
     keywords: [
       "daily",
@@ -990,6 +989,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "path",
       "notes",
       "obsidian",
+    ],
+  },
+  {
+    key: "daily_note_subfolder_format",
+    label: "Daily Note Subfolder",
+    description:
+      "How to organize daily notes: flat, by year, or by year and month",
+    category: "Files",
+    keywords: [
+      "daily",
+      "notes",
+      "subfolder",
+      "folder",
+      "year",
+      "month",
+      "flat",
+      "organize",
     ],
   },
   {

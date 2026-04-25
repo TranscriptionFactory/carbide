@@ -54,6 +54,7 @@ export type TerminalFontWeight =
   | "800"
   | "900";
 export type TerminalCursorStyle = "block" | "underline" | "bar";
+export type DailyNoteSubfolderFormat = "none" | "year" | "year_month";
 export type PanelSide = "left" | "right";
 export type OutlineMode = "rail" | "floating";
 export type ToolbarVisibility = "always_show" | "always_hide";
@@ -212,6 +213,7 @@ export type EditorSettings = {
   diagnostics_display_enabled: boolean;
   daily_notes_folder: string;
   daily_note_name_format: string;
+  daily_note_subfolder_format: DailyNoteSubfolderFormat;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -321,6 +323,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   diagnostics_display_enabled: true,
   daily_notes_folder: "Journal",
   daily_note_name_format: "%Y-%m-%d",
+  daily_note_subfolder_format: "none",
 };
 
 export const SETTINGS_KEY = "editor" as const;

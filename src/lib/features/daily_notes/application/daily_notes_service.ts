@@ -3,6 +3,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { NotesStore } from "$lib/features/note";
 import { daily_note_path } from "$lib/features/daily_notes/domain/daily_note_path";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import type { DailyNoteSubfolderFormat } from "$lib/shared/types/editor_settings";
 
 function format_date_iso(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
@@ -25,11 +26,12 @@ export class DailyNotesService {
     folder: string,
     name_format: string,
     date: Date,
+    subfolder_format: DailyNoteSubfolderFormat = "none",
   ): Promise<string | null> {
     const vault = this.vault_store.vault;
     if (!vault) return null;
 
-    const path = daily_note_path(folder, name_format, date);
+    const path = daily_note_path(folder, name_format, date, subfolder_format);
     const existing = this.notes_store.notes.find((n) => n.path === path);
     if (existing) return path;
 
@@ -38,14 +40,29 @@ export class DailyNotesService {
     } catch {
       // folder may already exist
     }
-    try {
-      await this.notes_port.create_folder(
-        vault.id,
-        folder,
-        String(date.getFullYear()),
-      );
-    } catch {
-      // folder may already exist
+
+    if (subfolder_format === "year" || subfolder_format === "year_month") {
+      try {
+        await this.notes_port.create_folder(
+          vault.id,
+          folder,
+          String(date.getFullYear()),
+        );
+      } catch {
+        // folder may already exist
+      }
+    }
+
+    if (subfolder_format === "year_month") {
+      try {
+        await this.notes_port.create_folder(
+          vault.id,
+          `${folder}/${String(date.getFullYear())}`,
+          String(date.getMonth() + 1).padStart(2, "0"),
+        );
+      } catch {
+        // folder may already exist
+      }
     }
 
     const title = path.replace(/\.md$/, "").split("/").pop() ?? "";
