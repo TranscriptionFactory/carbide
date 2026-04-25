@@ -122,15 +122,12 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:has(> [data-slot="sidebar"]) {
-    position: absolute !important;
-    top: calc(var(--drift-gap) + var(--space-7));
-    left: calc(var(--drift-gap) + var(--space-4));
-    bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2);
-    width: var(--drift-sidebar-width) !important;
-    min-width: var(--drift-sidebar-width) !important;
-    max-width: var(--drift-sidebar-width) !important;
-    z-index: 150;
+    > [data-pane]:has([data-slot="sidebar"]) {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    z-index: 2;
     border-radius: calc(var(--radius) * 1.5);
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
     background:
@@ -143,11 +140,27 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow:
-      var(--shadow-lg),
-      0 18px 64px color-mix(in oklch, black 16%, transparent);
-    flex: none !important;
+      var(--shadow-md),
+      8px 0 40px color-mix(in oklch, black 10%, transparent);
     overflow: hidden;
-    animation: drift-panel-enter var(--duration-normal) var(--ease-default);
+    animation: drift-panel-enter var(--duration-fast) var(--ease-default);
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:has([data-slot="sidebar"])
+    [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:has([data-slot="sidebar"])
+    [data-slot="sidebar-inner"] {
+    position: static !important;
+    inset: auto !important;
+    height: 100% !important;
+    width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   /* Right sidebar: floating glass card */
@@ -244,9 +257,6 @@
     > [data-pane]:has([data-slot="sidebar-inset"]) {
     position: relative;
     z-index: 1;
-    width: 100% !important;
-    flex: 1 1 100% !important;
-    max-width: 100% !important;
     margin: 0 !important;
   }
 
