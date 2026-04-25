@@ -7,7 +7,6 @@
   --drift-gap: var(--space-3);
   --drift-dock-height: 3.5rem;
   --drift-sidebar-width: min(24rem, calc(100vw - var(--space-8)));
-  --drift-activity-center-shift: 0px;
 
   position: relative;
   isolation: isolate;
@@ -51,7 +50,7 @@
     position: fixed !important;
     top: auto !important;
     bottom: var(--drift-gap) !important;
-    left: calc(50% + var(--drift-activity-center-shift)) !important;
+    left: 50% !important;
     right: auto !important;
     width: max-content !important;
     max-width: calc(100vw - var(--space-8)) !important;
@@ -75,10 +74,6 @@
     -webkit-backdrop-filter: blur(24px);
     box-shadow: var(--shadow-lg);
     z-index: 220;
-  }
-
-  &[data-sidebar-open="true"] {
-    --drift-activity-center-shift: calc(12rem + var(--drift-gap));
   }
 
   .ActivityBar__section {
