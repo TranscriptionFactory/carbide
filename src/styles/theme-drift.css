@@ -46,21 +46,26 @@
     pointer-events: none;
   }
 
-  /* Activity bar: floating bottom-left pill */
   .ActivityBar {
-    position: absolute;
-    bottom: var(--drift-gap);
-    left: var(--drift-gap);
-    height: var(--drift-dock-height);
-    width: auto;
-    align-items: center;
-    justify-content: center;
-    flex-direction: row;
-    gap: var(--space-2);
-    padding-inline: var(--space-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-full);
-    background-color: var(--glass-strong);
+    position: absolute !important;
+    bottom: var(--drift-gap) !important;
+    left: 50% !important;
+    width: auto !important;
+    height: var(--drift-dock-height) !important;
+    min-width: 0 !important;
+    transform: translateX(-50%);
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: row !important;
+    gap: var(--space-1) !important;
+    padding: var(--space-1) var(--space-3) !important;
+    border: 1px solid color-mix(in oklch, var(--border) 72%, transparent) !important;
+    border-radius: var(--radius-full) !important;
+    background-color: color-mix(
+      in oklch,
+      var(--glass-strong) 86%,
+      transparent
+    ) !important;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow: var(--shadow-lg);
@@ -117,7 +122,7 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="1"] {
+    > [data-pane]:first-child:not(:last-child) {
     position: absolute !important;
     top: calc(var(--drift-gap) + var(--space-7));
     left: calc(var(--drift-gap) + var(--space-4));
@@ -126,13 +131,22 @@
     min-width: var(--drift-sidebar-width) !important;
     max-width: var(--drift-sidebar-width) !important;
     z-index: 150;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background-color: var(--glass);
+    border-radius: calc(var(--radius) * 1.5);
+    border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--glass) 92%, transparent),
+        color-mix(in oklch, var(--background) 78%, transparent)
+      ),
+      var(--glass);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    box-shadow: var(--shadow-lg);
+    box-shadow:
+      var(--shadow-lg),
+      0 18px 64px color-mix(in oklch, black 16%, transparent);
     flex: none !important;
+    overflow: hidden;
     animation: drift-panel-enter var(--duration-normal) var(--ease-default);
   }
 
@@ -165,7 +179,7 @@
   /* Editor inset: padding for floating chrome */
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:last-child
+    > [data-pane]:has([data-slot="sidebar-inset"])
     [data-slot="sidebar-inset"] {
     padding-bottom: calc(var(--drift-dock-height) + var(--space-8));
     background-color: var(--background);
@@ -177,17 +191,22 @@
     -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Status bar: floating bottom-right */
   .StatusBar {
-    position: absolute;
-    bottom: var(--drift-gap);
-    right: var(--drift-gap);
-    width: auto;
-    height: auto;
-    padding: var(--space-1-5) var(--space-3);
-    border: none;
-    border-radius: var(--radius-full);
-    background-color: var(--glass-strong);
+    position: absolute !important;
+    right: var(--drift-gap) !important;
+    bottom: var(--drift-gap) !important;
+    left: auto !important;
+    width: auto !important;
+    max-width: min(46rem, calc(100vw - var(--space-8))) !important;
+    height: var(--drift-dock-height) !important;
+    padding: var(--space-1) var(--space-3) !important;
+    border: 1px solid color-mix(in oklch, var(--border) 72%, transparent) !important;
+    border-radius: var(--radius-full) !important;
+    background-color: color-mix(
+      in oklch,
+      var(--glass-strong) 84%,
+      transparent
+    ) !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--shadow-md);
@@ -217,7 +236,7 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="2"] {
+    > [data-pane]:has([data-slot="sidebar-inset"]) {
     position: relative;
     z-index: 1;
     width: 100% !important;
@@ -235,7 +254,7 @@
 
   .NoteEditor {
     margin-inline: auto;
-    width: min(100%, 96rem);
+    width: min(100%, 76rem);
   }
 
   .NoteEditor__visual-wrapper,
