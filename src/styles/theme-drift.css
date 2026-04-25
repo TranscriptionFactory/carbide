@@ -122,7 +122,7 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:first-child:not(:last-child) {
+    > [data-pane]:has(> [data-slot="sidebar"]) {
     position: absolute !important;
     top: calc(var(--drift-gap) + var(--space-7));
     left: calc(var(--drift-gap) + var(--space-4));
@@ -194,10 +194,10 @@
   .StatusBar {
     position: absolute !important;
     right: var(--drift-gap) !important;
-    bottom: var(--drift-gap) !important;
+    bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2) !important;
     left: auto !important;
     width: auto !important;
-    max-width: min(46rem, calc(100vw - var(--space-8))) !important;
+    max-width: min(34rem, calc(100vw - var(--space-8))) !important;
     height: var(--drift-dock-height) !important;
     padding: var(--space-1) var(--space-3) !important;
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent) !important;
@@ -213,10 +213,15 @@
     opacity: 0.5;
     transition: opacity var(--duration-normal);
     z-index: 100;
+    overflow: hidden;
   }
 
   .StatusBar:hover {
     opacity: 1;
+  }
+
+  .StatusBar__section {
+    min-width: 0;
   }
 
   /* Panel rounded corners */
