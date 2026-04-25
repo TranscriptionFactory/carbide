@@ -2,7 +2,7 @@
 
 Carbide provides several surfaces for finding and filtering information. All share the same underlying index (SQLite FTS5 + HNSW vector index) but expose different interaction paradigms.
 
-**Note on query systems**: The query language, Bases, and task queries are three independent systems. They don't share parsers, syntax, or types. The query language is a clause-based syntax for filtering *notes* by content, metadata, and links. Bases is a UI-driven filter builder for browsing vault frontmatter as a database. Task queries are a line-based DSL for filtering *tasks* (extracted `[ ]` items) by status, dates, and text. Each targets a different domain, even though all ultimately read from the same SQLite index.
+**Note on query systems**: The query language, Bases, and task queries are three independent systems. They don't share parsers, syntax, or types. The query language is a clause-based syntax for filtering _notes_ by content, metadata, and links. Bases is a UI-driven filter builder for browsing vault frontmatter as a database. Task queries are a line-based DSL for filtering _tasks_ (extracted `[ ]` items) by status, dates, and text. Each targets a different domain, even though all ultimately read from the same SQLite index.
 
 ## Omnibar
 
@@ -12,6 +12,7 @@ The omnibar is the unified entry point for search, commands, and navigation. It 
 
 - **Plain text** → hybrid search (FTS + semantic, merged via Reciprocal Rank Fusion)
 - **Structured syntax** → detected automatically when input contains clause keywords (`with`, `named`, `in`, `linked from`) or value syntax (`#tag`, `/regex/`, `[[wikilink]]`), then parsed and evaluated via the query engine
+- **`?` prefix** → forwards the query to the dedicated query panel and executes it there (e.g. `?notes with #project`). Use this when you want richer result views (list, cards, feed) or to save the query for reuse. Inline structured queries show results in the omnibar dropdown; `?` opens the full panel instead
 - **Commands** → matched against the action registry
 - **Settings** → matched against available settings
 - **Wiki links** → suggests existing and planned link targets
