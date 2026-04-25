@@ -21,4 +21,5 @@ Carbide is a local-first knowledge studio built around Markdown vaults, semantic
 - **Architecture and decision tree**: See how features are composed and where to place new code in [`docs/architecture.md`](./architecture.md).
 - **Plugins and extension points**: Build or install plugins via [`docs/plugin_howto.md`](./plugin_howto.md) and `docs/example-plugins/`.
 - **Markdown & documents**: Reference the [`docs/markdown-syntax-guide.md`](./markdown-syntax-guide.md) for supported syntax, embeds, and PDF handling.
+- **Search & queries**: Explore the omnibar, query language, search graph, bases, and task queries in [`docs/search_and_queries.md`](./search_and_queries.md).
 - **Bases, references, and data**: Learn how structured queries and citations work in [`docs/bases_and_references.md`](./bases_and_references.md) and where Carbide stores data in [`docs/data_storage_locations.md`](./data_storage_locations.md).

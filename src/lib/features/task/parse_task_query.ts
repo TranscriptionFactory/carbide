@@ -46,9 +46,7 @@ function parse_date_comparator(
   return { operator: op_map[direction!]!, value: date_str! };
 }
 
-function parse_line(
-  line: string,
-):
+function parse_line(line: string):
   | {
       filter?: TaskFilter;
       sort?: TaskSort;
