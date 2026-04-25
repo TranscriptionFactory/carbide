@@ -8,6 +8,10 @@
 
 A local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), and Rust. Notes are plain Markdown files organized into vaults.
 
+### Why "Carbide"?
+
+Before modern flashlights, coal miners dropped **calcium carbide** into water to produce a bright acetylene flame in their lamps to navigate deep tunnels. The icon depicts a miner's lamp with Markdown symbols (` > ` and ` * `) forming the flame because Carbide is a local-first Markdown knowledge base with hybrid semantic/FTS search, graph visualization, a composable query language, and an extensible plugin system.
+
 ## What it does
 
 - **Local-first, Git-aware**: Vaults are folders of Markdown files on disk. Optional auto-commit on save, version history, and atomic writes.
