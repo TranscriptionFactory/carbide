@@ -1,0 +1,235 @@
+/* ============================================
+   DRIFT LAYOUT OVERRIDES
+   Floating glass surfaces with grain + glow
+   ============================================ */
+
+[data-layout-variant="drift"] .WorkspaceLayout--drift {
+  --drift-gap: var(--space-3);
+  --drift-dock-height: 3.5rem;
+  --drift-sidebar-width: 20rem;
+
+  position: relative;
+  isolation: isolate;
+
+  /* Radial gradient glow background */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 30% 20%,
+        var(--accent-glow) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 75% 70%,
+        color-mix(in oklch, var(--accent-glow) 80%, transparent) 0%,
+        transparent 70%
+      ),
+      var(--background);
+    pointer-events: none;
+  }
+
+  /* Grain / dot-grid texture overlay */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--foreground) 4%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 4px 4px;
+    pointer-events: none;
+  }
+
+  /* Activity bar: floating bottom-left pill */
+  .ActivityBar {
+    position: absolute;
+    bottom: var(--drift-gap);
+    left: var(--drift-gap);
+    height: var(--drift-dock-height);
+    width: auto;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: var(--space-2);
+    padding-inline: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: var(--glass-strong);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+  }
+
+  .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .ActivityBar__section:first-child {
+    border-inline-end: 1px solid var(--border);
+    margin-inline-end: var(--space-2);
+    padding-inline-end: var(--space-2);
+  }
+
+  .ActivityBar__button {
+    width: var(--size-touch-md);
+    height: var(--size-touch-md);
+    border-radius: var(--radius-full);
+  }
+
+  /* Tab bar: floating pill */
+  .TabBar {
+    border: none;
+    background: transparent;
+    justify-content: center;
+  }
+
+  .TabBar__tabs {
+    flex: 0 1 auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: var(--space-1);
+  }
+
+  .TabBar__tab {
+    border-radius: var(--radius-full);
+    border: none;
+    height: var(--size-touch-sm);
+  }
+
+  /* Left sidebar: floating glass card */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"] {
+    position: relative;
+  }
+
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:first-child {
+    position: absolute !important;
+    top: var(--drift-gap);
+    left: var(--drift-gap);
+    bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2);
+    width: var(--drift-sidebar-width) !important;
+    min-width: var(--drift-sidebar-width) !important;
+    max-width: var(--drift-sidebar-width) !important;
+    z-index: 150;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background-color: var(--glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-lg);
+    flex: none !important;
+  }
+
+  /* Right sidebar: floating glass card */
+  [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
+    position: absolute !important;
+    top: var(--drift-gap);
+    right: var(--drift-gap);
+    bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2);
+    width: var(--drift-sidebar-width) !important;
+    min-width: var(--drift-sidebar-width) !important;
+    max-width: var(--drift-sidebar-width) !important;
+    z-index: 150;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background-color: var(--glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-lg);
+    flex: none !important;
+  }
+
+  .ContextRail {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background-color: var(--glass);
+  }
+
+  /* Editor inset: padding for floating chrome */
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane]:last-child
+    [data-slot="sidebar-inset"] {
+    padding-bottom: calc(var(--drift-dock-height) + var(--space-8));
+    background-color: var(--background);
+  }
+
+  /* Glass editor area */
+  [data-slot="sidebar-inset"] {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Status bar: floating bottom-right */
+  .StatusBar {
+    position: absolute;
+    bottom: var(--drift-gap);
+    right: var(--drift-gap);
+    width: auto;
+    height: auto;
+    padding: var(--space-1-5) var(--space-3);
+    border: none;
+    border-radius: var(--radius-full);
+    background-color: var(--glass-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+    opacity: 0.5;
+    transition: opacity var(--duration-normal);
+    z-index: 100;
+  }
+
+  .StatusBar:hover {
+    opacity: 1;
+  }
+
+  /* Panel rounded corners */
+  .SidebarPanel {
+    border-radius: var(--radius);
+  }
+
+  /* Hide resize handles */
+  [data-resizable-handle] {
+    display: none !important;
+  }
+}
+
+/* Light-mode adjustments */
+[data-color-scheme="light"][data-layout-variant="drift"]
+  .WorkspaceLayout--drift {
+  &::before {
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 30% 20%,
+        color-mix(in oklch, var(--accent-glow) 50%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 75% 70%,
+        color-mix(in oklch, var(--accent-glow) 30%, transparent) 0%,
+        transparent 70%
+      ),
+      var(--background);
+  }
+
+  &::after {
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    );
+  }
+}

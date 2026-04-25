@@ -75,6 +75,7 @@
   const is_triptych = $derived(layout_variant === "triptych");
   const is_lattice = $derived(layout_variant === "lattice");
   const is_obsidian = $derived(layout_variant === "obsidian");
+  const is_drift = $derived(layout_variant === "drift");
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -281,6 +282,7 @@
     class:WorkspaceLayout--triptych={is_triptych}
     class:WorkspaceLayout--lattice={is_lattice}
     class:WorkspaceLayout--obsidian={is_obsidian}
+    class:WorkspaceLayout--drift={is_drift}
     data-sidebar-open={stores.ui.sidebar_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;

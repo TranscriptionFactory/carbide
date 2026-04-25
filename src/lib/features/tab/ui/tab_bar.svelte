@@ -36,6 +36,7 @@
   const is_hud = $derived(layout_variant === "hud");
   const is_zen_deck = $derived(layout_variant === "zen_deck");
   const is_dashboard = $derived(layout_variant === "dashboard");
+  const is_drift = $derived(layout_variant === "drift");
 
   let scroll_container: HTMLDivElement | undefined = $state();
   let can_scroll_left = $state(false);
@@ -461,7 +462,7 @@
       </button>
     {/if}
 
-    {#if !is_command_deck && !is_grounded_heavy && !is_hud && !is_zen_deck && !is_dashboard}
+    {#if !is_command_deck && !is_grounded_heavy && !is_hud && !is_zen_deck && !is_dashboard && !is_drift}
       <div class="TabBar__actions">
         <button
           type="button"

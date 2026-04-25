@@ -33,7 +33,8 @@ export type ThemeLayoutVariant =
   | "theater"
   | "triptych"
   | "lattice"
-  | "obsidian";
+  | "obsidian"
+  | "drift";
 
 export type Theme = {
   id: string;
@@ -1153,6 +1154,40 @@ const BP_LATTICE: ThemeBlueprint = {
   },
 };
 
+const OBSIDIAN_DARK_COLORS: Record<string, string> = {
+  "--background": "oklch(0.13 0.018 275)",
+  "--foreground": "oklch(0.96 0.008 280)",
+  "--card": "oklch(0.24 0.022 275 / 0.7)",
+  "--card-foreground": "oklch(0.96 0.008 280)",
+  "--popover": "oklch(0.24 0.022 275 / 0.7)",
+  "--popover-foreground": "oklch(0.96 0.008 280)",
+  "--primary": "oklch(0.78 0.19 285)",
+  "--primary-foreground": "oklch(0.12 0.02 275)",
+  "--secondary": "oklch(0.22 0.02 275 / 0.55)",
+  "--secondary-foreground": "oklch(0.96 0.008 280)",
+  "--muted": "oklch(0.22 0.02 275 / 0.55)",
+  "--muted-foreground": "oklch(0.56 0.015 280)",
+  "--accent": "oklch(0.78 0.2 325)",
+  "--accent-foreground": "oklch(0.96 0.008 280)",
+  "--border": "oklch(1 0 0 / 0.08)",
+  "--border-strong": "oklch(1 0 0 / 0.16)",
+  "--border-subtle": "oklch(1 0 0 / 0.08)",
+  "--input": "oklch(1 0 0 / 0.08)",
+  "--ring": "oklch(0.78 0.19 285)",
+  "--sidebar": "oklch(0.22 0.02 275 / 0.55)",
+  "--sidebar-foreground": "oklch(0.96 0.008 280)",
+  "--sidebar-border": "oklch(1 0 0 / 0.08)",
+  "--background-surface-2": "oklch(0.22 0.02 275 / 0.55)",
+  "--background-surface-3": "oklch(0.17 0.018 275 / 0.7)",
+  "--interactive": "oklch(0.78 0.19 285)",
+  "--interactive-bg":
+    "color-mix(in oklch, oklch(0.78 0.19 285) 20%, transparent)",
+  "--selection-bg":
+    "color-mix(in oklch, oklch(0.78 0.19 285) 30%, transparent)",
+  "--accent-hover": "oklch(1 0 0 / 0.04)",
+  "--scrollbar-thumb": "oklch(1 0 0 / 0.12)",
+};
+
 const BP_OBSIDIAN: ThemeBlueprint = {
   base_name: "Obsidian",
   surface_hue: 275,
@@ -1167,39 +1202,24 @@ const BP_OBSIDIAN: ThemeBlueprint = {
     "--shadow-md": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
     "--shadow-lg": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
   },
-  color_overrides_dark: {
-    "--background": "oklch(0.13 0.018 275)",
-    "--foreground": "oklch(0.96 0.008 280)",
-    "--card": "oklch(0.24 0.022 275 / 0.7)",
-    "--card-foreground": "oklch(0.96 0.008 280)",
-    "--popover": "oklch(0.24 0.022 275 / 0.7)",
-    "--popover-foreground": "oklch(0.96 0.008 280)",
-    "--primary": "oklch(0.78 0.19 285)",
-    "--primary-foreground": "oklch(0.12 0.02 275)",
-    "--secondary": "oklch(0.22 0.02 275 / 0.55)",
-    "--secondary-foreground": "oklch(0.96 0.008 280)",
-    "--muted": "oklch(0.22 0.02 275 / 0.55)",
-    "--muted-foreground": "oklch(0.56 0.015 280)",
-    "--accent": "oklch(0.78 0.2 325)",
-    "--accent-foreground": "oklch(0.96 0.008 280)",
-    "--border": "oklch(1 0 0 / 0.08)",
-    "--border-strong": "oklch(1 0 0 / 0.16)",
-    "--border-subtle": "oklch(1 0 0 / 0.08)",
-    "--input": "oklch(1 0 0 / 0.08)",
-    "--ring": "oklch(0.78 0.19 285)",
-    "--sidebar": "oklch(0.22 0.02 275 / 0.55)",
-    "--sidebar-foreground": "oklch(0.96 0.008 280)",
-    "--sidebar-border": "oklch(1 0 0 / 0.08)",
-    "--background-surface-2": "oklch(0.22 0.02 275 / 0.55)",
-    "--background-surface-3": "oklch(0.17 0.018 275 / 0.7)",
-    "--interactive": "oklch(0.78 0.19 285)",
-    "--interactive-bg":
-      "color-mix(in oklch, oklch(0.78 0.19 285) 20%, transparent)",
-    "--selection-bg":
-      "color-mix(in oklch, oklch(0.78 0.19 285) 30%, transparent)",
-    "--accent-hover": "oklch(1 0 0 / 0.04)",
-    "--scrollbar-thumb": "oklch(1 0 0 / 0.12)",
+  color_overrides_dark: OBSIDIAN_DARK_COLORS,
+};
+
+const BP_DRIFT: ThemeBlueprint = {
+  base_name: "Drift",
+  surface_hue: 275,
+  surface_chroma: 0.018,
+  accent_hue: 285,
+  accent_chroma: 0.19,
+  surface_style: "glass",
+  layout_variant: "drift",
+  schemes: "both",
+  structural_overrides: {
+    "--radius": "1rem",
+    "--shadow-md": "0 4px 16px -4px oklch(0 0 0 / 0.5)",
+    "--shadow-lg": "0 20px 50px -15px oklch(0 0 0 / 0.6)",
   },
+  color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
 const BLUEPRINTS: ThemeBlueprint[] = [
@@ -1224,6 +1244,7 @@ const BLUEPRINTS: ThemeBlueprint[] = [
   BP_TRIPTYCH,
   BP_LATTICE,
   BP_OBSIDIAN,
+  BP_DRIFT,
 ];
 
 export const BUILTIN_THEMES: readonly Theme[] =
