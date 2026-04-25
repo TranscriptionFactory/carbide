@@ -207,11 +207,12 @@
     > [data-pane]:has([data-slot="sidebar-inset"])
     [data-slot="sidebar-inset"] {
     padding-bottom: calc(var(--drift-dock-height) + var(--space-8));
-    background-color: var(--background);
+    background-color: transparent !important;
   }
 
   /* Glass editor area */
   [data-slot="sidebar-inset"] {
+    background: transparent !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
