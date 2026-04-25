@@ -90,6 +90,26 @@
           </span>
         {/if}
       </div>
+      <div class="SourceControlPanel__sync-actions">
+        <button
+          type="button"
+          class="SourceControlPanel__sync-btn"
+          disabled={stores.git.sync_status !== "idle"}
+          onclick={() => action_registry.execute(ACTION_IDS.git_pull)}
+          aria-label="Pull"
+        >
+          <ArrowDown class="SourceControlPanel__sync-btn-icon" />
+        </button>
+        <button
+          type="button"
+          class="SourceControlPanel__sync-btn"
+          disabled={stores.git.sync_status !== "idle"}
+          onclick={() => action_registry.execute(ACTION_IDS.git_push)}
+          aria-label="Push"
+        >
+          <ArrowUp class="SourceControlPanel__sync-btn-icon" />
+        </button>
+      </div>
     {/if}
   </div>
 
@@ -233,6 +253,40 @@
   :global(.SourceControlPanel__badge-icon) {
     width: 10px;
     height: 10px;
+  }
+
+  .SourceControlPanel__sync-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .SourceControlPanel__sync-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-0-5);
+    border-radius: var(--radius-sm);
+    color: var(--foreground);
+    opacity: 0.6;
+    transition:
+      opacity var(--duration-fast) var(--ease-default),
+      background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .SourceControlPanel__sync-btn:hover:not(:disabled) {
+    opacity: 1;
+    background-color: var(--accent);
+  }
+
+  .SourceControlPanel__sync-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  :global(.SourceControlPanel__sync-btn-icon) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
   }
 
   .SourceControlPanel__stats {
