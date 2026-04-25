@@ -48,13 +48,15 @@
 
   .ActivityBar {
     position: fixed !important;
+    top: auto !important;
     bottom: var(--drift-gap) !important;
-    left: 50vw !important;
+    left: 50% !important;
     right: auto !important;
     width: max-content !important;
     max-width: calc(100vw - var(--space-8)) !important;
     height: var(--drift-dock-height) !important;
     min-width: 0 !important;
+    margin: 0 !important;
     transform: translateX(-50%);
     align-items: center !important;
     justify-content: center !important;
@@ -124,11 +126,17 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:has([data-slot="sidebar"]) {
+    > [data-pane]:not(:has([data-slot="sidebar-inset"])) {
     position: relative !important;
     top: auto !important;
     left: auto !important;
     bottom: auto !important;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    min-height: 0;
+    margin: var(--drift-gap) 0
+      calc(var(--drift-dock-height) + var(--drift-gap) * 2) var(--drift-gap) !important;
     z-index: 2;
     border-radius: calc(var(--radius) * 1.5);
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
@@ -150,11 +158,11 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:has([data-slot="sidebar"])
-    [data-slot="sidebar"],
+    > [data-pane]:not(:has([data-slot="sidebar-inset"]))
+    > *,
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane]:has([data-slot="sidebar"])
+    > [data-pane]:not(:has([data-slot="sidebar-inset"]))
     [data-slot="sidebar-inner"] {
     position: static !important;
     inset: auto !important;
