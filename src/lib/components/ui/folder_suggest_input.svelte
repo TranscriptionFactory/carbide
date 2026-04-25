@@ -35,10 +35,19 @@
 
   function commit(path: string) {
     const clean = path.replace(/\/+$/, "");
-    query = clean;
+    const current_clean = query.replace(/\/+$/, "");
+    const has_children = folder_paths.some((p) => p.startsWith(clean + "/"));
+
     on_change(clean);
-    show_dropdown = false;
-    selected_index = 0;
+
+    if (has_children && clean !== current_clean) {
+      query = clean + "/";
+      selected_index = 0;
+    } else {
+      query = clean;
+      show_dropdown = false;
+      selected_index = 0;
+    }
   }
 
   function on_keydown(e: KeyboardEvent) {
