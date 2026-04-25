@@ -65,6 +65,14 @@ export function resolve_linked_path(
   return null;
 }
 
+export function resolve_linked_source_root(
+  source: { path: string; home_relative_path?: string },
+  home_dir: string,
+): string {
+  if (!source.home_relative_path || !home_dir) return source.path;
+  return source.home_relative_path.replace(/^~/, home_dir);
+}
+
 export function enrich_meta_with_paths(
   meta: LinkedSourceMeta,
   vault_root: string,

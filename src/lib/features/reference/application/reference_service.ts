@@ -37,8 +37,10 @@ import {
 } from "../domain/linked_source_utils";
 import {
   resolve_linked_path,
+  resolve_linked_source_root,
   enrich_meta_with_paths,
   compute_vault_relative_path,
+  compute_home_relative_path,
 } from "../domain/linked_source_paths";
 import { error_message } from "$lib/shared/utils/error_message";
 
@@ -487,6 +489,33 @@ export class ReferenceService {
         LINKED_SOURCES_SETTINGS_KEY,
       );
       this.store.set_linked_sources(sources ?? []);
+
+      const ls_port = this.linked_source_port;
+      if (ls_port && sources?.some((s) => !s.home_relative_path)) {
+        let home_dir = "";
+        try {
+          home_dir = await ls_port.resolve_home_dir();
+        } catch {
+          // non-critical
+        }
+        if (home_dir) {
+          let updated = false;
+          for (const source of sources!) {
+            if (!source.home_relative_path) {
+              const hrp = compute_home_relative_path(source.path, home_dir);
+              if (hrp) {
+                this.store.update_linked_source(source.id, {
+                  home_relative_path: hrp,
+                });
+                updated = true;
+              }
+            }
+          }
+          if (updated) {
+            await this.save_linked_sources();
+          }
+        }
+      }
     } catch (e) {
       log.from_error("Failed to load linked sources:", e);
     }
@@ -503,12 +532,22 @@ export class ReferenceService {
   }
 
   async add_linked_source(path: string, name: string): Promise<LinkedSource> {
+    const ls_port = this.require_linked_source_port();
+    let home_dir = "";
+    try {
+      home_dir = await ls_port.resolve_home_dir();
+    } catch {
+      // non-critical
+    }
+
+    const hrp = compute_home_relative_path(path, home_dir);
     const source: LinkedSource = {
       id: generate_linked_source_id(),
       path,
       name,
       enabled: true,
       last_scan_at: null,
+      ...(hrp ? { home_relative_path: hrp } : {}),
     };
 
     this.store.add_linked_source(source);
@@ -573,7 +612,16 @@ export class ReferenceService {
         // non-critical — relative paths won't be computed
       }
 
-      const file_infos = await ls_port.list_files(source.path);
+      const effective_path = resolve_linked_source_root(source, home_dir);
+      if (effective_path !== source.path) {
+        const hrp = compute_home_relative_path(effective_path, home_dir);
+        this.store.update_linked_source(source_id, {
+          path: effective_path,
+          ...(hrp ? { home_relative_path: hrp } : {}),
+        });
+      }
+
+      const file_infos = await ls_port.list_files(effective_path);
       const current_files = new Map(
         file_infos.map((f) => [f.file_path, f.modified_at]),
       );
@@ -846,19 +894,42 @@ export class ReferenceService {
 
     const ls_port = this.require_linked_source_port();
     const vault_id = this.require_vault_id();
+    let home_dir = "";
+    try {
+      home_dir = await ls_port.resolve_home_dir();
+    } catch {
+      // non-critical
+    }
+
     const missing: MissingLinkedSource[] = [];
+    let sources_updated = false;
 
     for (const source of sources) {
       if (!source.enabled) continue;
       await yield_to_ui();
+
+      const effective_path = resolve_linked_source_root(source, home_dir);
+
       try {
-        await ls_port.list_files(source.path);
+        await ls_port.list_files(effective_path);
+        if (effective_path !== source.path) {
+          const hrp = compute_home_relative_path(effective_path, home_dir);
+          this.store.update_linked_source(source.id, {
+            path: effective_path,
+            ...(hrp ? { home_relative_path: hrp } : {}),
+          });
+          sources_updated = true;
+        }
       } catch {
         const count = await ls_port
           .count_linked_notes(vault_id, source.name)
           .catch(() => 0);
         missing.push({ source, item_count: count });
       }
+    }
+
+    if (sources_updated) {
+      await this.save_linked_sources();
     }
 
     this.store.set_missing_linked_sources(missing);
@@ -878,7 +949,19 @@ export class ReferenceService {
     const source = this.store.linked_sources.find((s) => s.id === source_id);
     if (!source) return;
 
-    this.store.update_linked_source(source_id, { path: new_path });
+    const ls_port = this.require_linked_source_port();
+    let home_dir = "";
+    try {
+      home_dir = await ls_port.resolve_home_dir();
+    } catch {
+      // non-critical
+    }
+
+    const hrp = compute_home_relative_path(new_path, home_dir);
+    this.store.update_linked_source(source_id, {
+      path: new_path,
+      ...(hrp ? { home_relative_path: hrp } : {}),
+    });
     await this.save_linked_sources();
     this.store.dismiss_missing_linked_source(source_id);
     void this.scan_linked_source(source_id);

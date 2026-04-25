@@ -43,6 +43,7 @@ export type LinkedSource = {
   name: string;
   enabled: boolean;
   last_scan_at: number | null;
+  home_relative_path?: string;
 };
 
 export type ScanEntry = {

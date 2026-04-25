@@ -3,6 +3,7 @@ import {
   compute_vault_relative_path,
   compute_home_relative_path,
   resolve_linked_path,
+  resolve_linked_source_root,
   enrich_meta_with_paths,
 } from "$lib/features/reference/domain/linked_source_paths";
 
@@ -161,5 +162,52 @@ describe("enrich_meta_with_paths", () => {
     );
     expect(meta.vault_relative_path).toBe("../../../tmp/paper.pdf");
     expect(meta.home_relative_path).toBeUndefined();
+  });
+});
+
+describe("resolve_linked_source_root", () => {
+  it("returns stored path when home_relative_path is absent", () => {
+    expect(
+      resolve_linked_source_root(
+        { path: "/Users/aar126/CLOUD/LINKED_SOURCES" },
+        "/Users/abir",
+      ),
+    ).toBe("/Users/aar126/CLOUD/LINKED_SOURCES");
+  });
+
+  it("returns stored path when home_dir is empty", () => {
+    expect(
+      resolve_linked_source_root(
+        {
+          path: "/Users/aar126/CLOUD/LINKED_SOURCES",
+          home_relative_path: "~/CLOUD/LINKED_SOURCES",
+        },
+        "",
+      ),
+    ).toBe("/Users/aar126/CLOUD/LINKED_SOURCES");
+  });
+
+  it("expands home_relative_path with current home_dir", () => {
+    expect(
+      resolve_linked_source_root(
+        {
+          path: "/Users/aar126/CLOUD/LINKED_SOURCES",
+          home_relative_path: "~/CLOUD/LINKED_SOURCES",
+        },
+        "/Users/abir",
+      ),
+    ).toBe("/Users/abir/CLOUD/LINKED_SOURCES");
+  });
+
+  it("returns stored path when home_relative_path matches stored path", () => {
+    expect(
+      resolve_linked_source_root(
+        {
+          path: "/Users/abir/CLOUD/LINKED_SOURCES",
+          home_relative_path: "~/CLOUD/LINKED_SOURCES",
+        },
+        "/Users/abir",
+      ),
+    ).toBe("/Users/abir/CLOUD/LINKED_SOURCES");
   });
 });
