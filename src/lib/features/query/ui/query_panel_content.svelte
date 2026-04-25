@@ -8,6 +8,7 @@
   import LayoutList from "@lucide/svelte/icons/layout-list";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import Rows from "@lucide/svelte/icons/rows-3";
+  import NetworkIcon from "@lucide/svelte/icons/network";
 
   const { stores, action_registry } = use_app_context();
 
@@ -85,6 +86,12 @@
   function delete_query(event: MouseEvent, path: string) {
     event.stopPropagation();
     void action_registry.execute(ACTION_IDS.query_delete_saved, path);
+  }
+
+  function view_as_graph() {
+    void action_registry.execute(ACTION_IDS.search_graph_open, {
+      query: stores.query.query_text,
+    });
   }
 
   const view_modes: {
@@ -198,18 +205,29 @@
       <span class="QueryPanel__meta">
         {result.total} result{result.total === 1 ? "" : "s"} in {result.elapsed_ms}ms
       </span>
-      <div class="QueryPanel__view-toggle">
-        {#each view_modes as vm (vm.mode)}
-          <button
-            type="button"
-            class="QueryPanel__view-btn"
-            class:QueryPanel__view-btn--active={view_mode === vm.mode}
-            onclick={() => (view_mode = vm.mode)}
-            title={vm.title}
-          >
-            <vm.icon size={14} />
-          </button>
-        {/each}
+      <div class="QueryPanel__results-actions">
+        <button
+          type="button"
+          class="QueryPanel__graph-btn"
+          onclick={view_as_graph}
+          title="View as graph"
+        >
+          <NetworkIcon size={14} />
+          <span>View as graph</span>
+        </button>
+        <div class="QueryPanel__view-toggle">
+          {#each view_modes as vm (vm.mode)}
+            <button
+              type="button"
+              class="QueryPanel__view-btn"
+              class:QueryPanel__view-btn--active={view_mode === vm.mode}
+              onclick={() => (view_mode = vm.mode)}
+              title={vm.title}
+            >
+              <vm.icon size={14} />
+            </button>
+          {/each}
+        </div>
       </div>
     </div>
     <div class="QueryPanel__results">
@@ -403,6 +421,30 @@
   .QueryPanel__meta {
     font-size: var(--text-xs);
     color: var(--muted-foreground);
+  }
+
+  .QueryPanel__results-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .QueryPanel__graph-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-0-5) var(--space-1-5);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    border-radius: var(--radius-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  .QueryPanel__graph-btn:hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
   }
 
   .QueryPanel__view-toggle {
