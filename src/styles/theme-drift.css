@@ -251,17 +251,17 @@
       color-mix(in oklch, var(--card) 50%, transparent);
     box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 4%, transparent);
   }
+}
 
-  @keyframes drift-panel-enter {
-    from {
-      opacity: 0;
-      transform: translateX(calc(var(--space-4) * -1)) scale(0.98);
-    }
+@keyframes drift-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--space-4) * -1)) scale(0.98);
+  }
 
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 
