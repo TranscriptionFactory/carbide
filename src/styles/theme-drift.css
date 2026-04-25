@@ -48,21 +48,22 @@
 
   .ActivityBar {
     position: fixed !important;
-    top: auto !important;
-    bottom: var(--drift-gap) !important;
-    left: 50% !important;
+    top: 50% !important;
+    bottom: auto !important;
+    left: var(--drift-gap) !important;
     right: auto !important;
-    width: max-content !important;
-    max-width: calc(100vw - var(--space-8)) !important;
-    height: var(--drift-dock-height) !important;
+    width: var(--drift-dock-height) !important;
+    max-width: none !important;
+    height: max-content !important;
+    max-height: calc(100vh - var(--space-8)) !important;
     min-width: 0 !important;
     margin: 0 !important;
-    transform: translateX(-50%);
+    transform: translateY(-50%);
     align-items: center !important;
     justify-content: center !important;
-    flex-direction: row !important;
+    flex-direction: column !important;
     gap: var(--space-1) !important;
-    padding: var(--space-1) var(--space-3) !important;
+    padding: var(--space-3) var(--space-1) !important;
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent) !important;
     border-radius: var(--radius-full) !important;
     background-color: color-mix(
@@ -77,15 +78,15 @@
   }
 
   .ActivityBar__section {
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     gap: var(--space-2);
   }
 
   .ActivityBar__section:first-child {
-    border-inline-end: 1px solid var(--border);
-    margin-inline-end: var(--space-2);
-    padding-inline-end: var(--space-2);
+    border-block-end: 1px solid var(--border);
+    margin-block-end: var(--space-2);
+    padding-block-end: var(--space-2);
   }
 
   .ActivityBar__button {
@@ -136,7 +137,8 @@
     align-self: stretch;
     min-height: 0;
     margin: var(--drift-gap) 0
-      calc(var(--drift-dock-height) + var(--drift-gap) * 2) var(--drift-gap) !important;
+      calc(var(--drift-dock-height) + var(--drift-gap) * 2)
+      calc(var(--drift-dock-height) + var(--drift-gap) * 2) !important;
     z-index: 2;
     border-radius: calc(var(--radius) * 1.5);
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
@@ -215,14 +217,15 @@
   }
 
   .StatusBar {
-    position: absolute !important;
-    right: var(--drift-gap) !important;
-    bottom: calc(var(--drift-dock-height) + var(--drift-gap) * 2) !important;
-    left: auto !important;
-    width: auto !important;
-    max-width: min(34rem, calc(100vw - var(--space-8))) !important;
+    position: fixed !important;
+    right: auto !important;
+    bottom: var(--drift-gap) !important;
+    left: 50% !important;
+    width: max-content !important;
+    max-width: min(52rem, calc(100vw - var(--space-8))) !important;
     height: var(--drift-dock-height) !important;
     padding: var(--space-1) var(--space-3) !important;
+    transform: translateX(-50%);
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent) !important;
     border-radius: var(--radius-full) !important;
     background-color: color-mix(
@@ -235,7 +238,7 @@
     box-shadow: var(--shadow-md);
     opacity: 0.5;
     transition: opacity var(--duration-normal);
-    z-index: 120;
+    z-index: 210;
     overflow: hidden;
   }
 
