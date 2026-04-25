@@ -47,10 +47,12 @@
   }
 
   .ActivityBar {
-    position: absolute !important;
+    position: fixed !important;
     bottom: var(--drift-gap) !important;
-    left: 50% !important;
-    width: auto !important;
+    left: 50vw !important;
+    right: auto !important;
+    width: max-content !important;
+    max-width: calc(100vw - var(--space-8)) !important;
     height: var(--drift-dock-height) !important;
     min-width: 0 !important;
     transform: translateX(-50%);
@@ -69,7 +71,7 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow: var(--shadow-lg);
-    z-index: 100;
+    z-index: 220;
   }
 
   .ActivityBar__section {
@@ -225,7 +227,7 @@
     box-shadow: var(--shadow-md);
     opacity: 0.5;
     transition: opacity var(--duration-normal);
-    z-index: 100;
+    z-index: 120;
     overflow: hidden;
   }
 
