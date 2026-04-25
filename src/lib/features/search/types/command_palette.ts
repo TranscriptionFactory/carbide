@@ -65,6 +65,7 @@ export type CommandId =
   | "document_toggle_source"
   | "paste_html_as_markdown"
   | "open_welcome"
+  | "open_todays_note"
   | (string & {});
 
 export type CommandIcon =

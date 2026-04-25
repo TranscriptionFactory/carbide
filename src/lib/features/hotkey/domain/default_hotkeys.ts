@@ -418,6 +418,14 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Open the inline AI menu at the cursor",
     category: "general",
   },
+  {
+    action_id: ACTION_IDS.daily_notes_open_today,
+    key: "CmdOrCtrl+Alt+D",
+    phase: "capture",
+    label: "Open Today's Note",
+    description: "Navigate to today's daily note",
+    category: "general",
+  },
   // STT removed — archived on archive/stt-main
   // {
   //   action_id: ACTION_IDS.stt_toggle_recording,

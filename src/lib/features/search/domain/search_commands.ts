@@ -560,6 +560,13 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     when: (ctx) => ctx.has_open_note,
   },
   {
+    id: "open_todays_note",
+    label: "Open Today's Note",
+    description: "Navigate to today's daily note",
+    keywords: ["today", "daily", "note", "journal", "day"],
+    icon: "calendar",
+  },
+  {
     id: "open_welcome",
     label: "Open Welcome",
     description: "Show the welcome onboarding dialog",
