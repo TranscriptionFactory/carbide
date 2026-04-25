@@ -289,15 +289,9 @@
   .NoteEditor__visual-wrapper,
   .NoteEditor__split-container,
   .NoteEditor__empty {
-    border-inline: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--background) 82%, transparent),
-        color-mix(in oklch, var(--background) 94%, transparent)
-      ),
-      color-mix(in oklch, var(--card) 50%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 4%, transparent);
+    border-inline: 1px solid transparent;
+    background: transparent !important;
+    box-shadow: none;
   }
 }
 
