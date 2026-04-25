@@ -207,12 +207,12 @@
     > [data-pane]:has([data-slot="sidebar-inset"])
     [data-slot="sidebar-inset"] {
     padding-bottom: calc(var(--drift-dock-height) + var(--space-8));
-    background-color: transparent !important;
+    background-color: var(--background) !important;
   }
 
   /* Glass editor area */
   [data-slot="sidebar-inset"] {
-    background: transparent !important;
+    background: var(--background) !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
@@ -289,9 +289,9 @@
   .NoteEditor__visual-wrapper,
   .NoteEditor__split-container,
   .NoteEditor__empty {
-    border-inline: 1px solid transparent;
-    background: transparent !important;
-    box-shadow: none;
+    border-inline: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+    background: var(--background) !important;
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 4%, transparent);
   }
 }
 
