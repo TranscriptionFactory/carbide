@@ -11,6 +11,7 @@
   } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { detect_file_type } from "$lib/features/document";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import GraphCanvas from "$lib/features/graph/ui/graph_canvas.svelte";
@@ -58,7 +59,13 @@
   });
 
   async function open_existing_node(path: string) {
-    await action_registry.execute(ACTION_IDS.note_open, path);
+    if (detect_file_type(path)) {
+      await action_registry.execute(ACTION_IDS.document_open, {
+        file_path: path,
+      });
+    } else {
+      await action_registry.execute(ACTION_IDS.note_open, path);
+    }
     await action_registry.execute(ACTION_IDS.graph_focus_active_note);
   }
 
