@@ -172,6 +172,7 @@
   let prev_items_ref: OmnibarItem[] = $state([]);
   let mouse_moved = $state(false);
   let filter_mode = $state(false);
+  let was_open = $state(false);
 
   $effect(() => {
     if (open) {
@@ -445,12 +446,17 @@
   }
 
   $effect(() => {
-    if (!open) return;
+    if (!open) {
+      was_open = false;
+      return;
+    }
     const ref = input_ref;
     if (!ref) return;
+    const should_select = !was_open;
+    was_open = true;
     setTimeout(() => {
       ref.focus();
-      ref.select();
+      if (should_select) ref.select();
     }, 0);
   });
 </script>
