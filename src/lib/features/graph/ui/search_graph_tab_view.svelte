@@ -3,6 +3,7 @@
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
+  import { is_linked_note_path } from "$lib/shared/types/note";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
@@ -52,11 +53,20 @@
     });
   }
 
+  function resolve_file_path(path: string): string | null {
+    if (is_linked_note_path(path)) {
+      const note = stores.notes.notes.find((n) => n.path === path);
+      return note?.external_file_path ?? null;
+    }
+    return path;
+  }
+
   function open_node(path: string) {
     if (detect_file_type(path)) {
-      void action_registry.execute(ACTION_IDS.document_open, {
-        file_path: path,
-      });
+      const file_path = resolve_file_path(path);
+      if (file_path) {
+        void action_registry.execute(ACTION_IDS.document_open, { file_path });
+      }
     } else {
       void action_registry.execute(ACTION_IDS.note_open, path);
     }
