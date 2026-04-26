@@ -439,7 +439,7 @@ async fn cli_git_push(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    let result = git_service::git_push(root);
+    let result = git_service::git_push(root).await;
     (StatusCode::OK, Json(result)).into_response()
 }
 
@@ -451,7 +451,7 @@ async fn cli_git_pull(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    let result = git_service::git_pull(root, params.strategy);
+    let result = git_service::git_pull(root, params.strategy).await;
     (StatusCode::OK, Json(result)).into_response()
 }
 

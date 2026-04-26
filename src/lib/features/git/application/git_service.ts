@@ -137,12 +137,6 @@ export class GitService {
     this.begin_git_mutation(op_key);
 
     try {
-      const status = await this.git_port.status(vault_path);
-      if (!status.is_dirty) {
-        await this.finish_git_mutation_success(op_key);
-        return { status: "skipped" };
-      }
-
       await this.git_port.stage_and_commit(vault_path, message, files);
       await this.finish_git_mutation_success(op_key, {
         track_last_commit: true,
@@ -406,10 +400,12 @@ export class GitService {
     this.git_store.set_sync_status("pushing");
     this.git_store.set_error(null);
     try {
-      const status = await this.git_port.status(vault_path);
-      const result = status.has_upstream
+      const result = this.git_store.has_upstream
         ? await this.git_port.push(vault_path)
-        : await this.git_port.push_with_upstream(vault_path, status.branch);
+        : await this.git_port.push_with_upstream(
+            vault_path,
+            this.git_store.branch,
+          );
       if (!result.success) {
         this.fail_git_mutation("git.push", result.error ?? "Push failed");
         return result;
@@ -429,7 +425,10 @@ export class GitService {
     return this.serialize(() => this.inner_push());
   }
 
-  private async inner_pull(strategy: GitPullStrategy = "merge") {
+  private async inner_pull(
+    strategy: GitPullStrategy = "merge",
+    skip_refresh = false,
+  ) {
     const vault_path = this.get_vault_path();
     this.op_store.start("git.pull", this.now_ms());
     this.git_store.set_sync_status("pulling");
@@ -443,7 +442,9 @@ export class GitService {
       this.git_store.set_sync_status("idle");
       this.git_store.invalidate_history_cache();
       this.op_store.succeed("git.pull");
-      await this.refresh_status();
+      if (!skip_refresh) {
+        await this.refresh_status();
+      }
       return result;
     } catch (err) {
       const msg = error_message(err);
@@ -554,7 +555,7 @@ export class GitService {
           await this.inner_commit_all();
         }
 
-        const pull_result = await this.inner_pull(strategy);
+        const pull_result = await this.inner_pull(strategy, true);
         if (!pull_result.success) {
           this.op_store.fail("git.sync", pull_result.error ?? "Pull failed");
           return pull_result;

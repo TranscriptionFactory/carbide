@@ -156,11 +156,9 @@ pub fn git_status(vault_path: String) -> Result<GitStatus, String> {
 
     let is_dirty = !files.is_empty();
 
-    let has_remote = repo.find_remote("origin").is_ok();
-    let remote_url = repo
-        .find_remote("origin")
-        .ok()
-        .and_then(|r| r.url().map(|u| u.to_string()));
+    let origin = repo.find_remote("origin").ok();
+    let has_remote = origin.is_some();
+    let remote_url = origin.and_then(|r| r.url().map(|u| u.to_string()));
 
     let (ahead, behind, has_upstream) = match compute_ahead_behind(&repo) {
         Ok((a, b)) => (a, b, true),
@@ -752,137 +750,161 @@ fn is_valid_remote_url(url: &str) -> bool {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_push(vault_path: String) -> GitRemoteResult {
-    let mut cmd = git_cmd(&vault_path);
-    cmd.args([
-        "-c",
-        "http.lowSpeedLimit=1000",
-        "-c",
-        "http.lowSpeedTime=10",
-        "push",
-    ])
-    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
+pub async fn git_push(vault_path: String) -> GitRemoteResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut cmd = git_cmd(&vault_path);
+        cmd.args([
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=10",
+            "push",
+        ])
+        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
 
-    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
-    match run_with_timeout(cmd, timeout) {
-        Ok(output) => {
-            if output.status.success() {
-                GitRemoteResult {
-                    success: true,
-                    message: Some("Pushed successfully".to_string()),
-                    error: None,
-                }
-            } else {
-                GitRemoteResult {
-                    success: false,
-                    message: None,
-                    error: Some(parse_push_error(&String::from_utf8_lossy(&output.stderr))),
-                }
-            }
-        }
-        Err(e) => GitRemoteResult {
-            success: false,
-            message: None,
-            error: Some(e),
-        },
-    }
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn git_fetch(vault_path: String) -> GitRemoteResult {
-    let mut cmd = git_cmd(&vault_path);
-    cmd.args([
-        "-c",
-        "http.lowSpeedLimit=1000",
-        "-c",
-        "http.lowSpeedTime=10",
-        "fetch",
-        "--quiet",
-    ])
-    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
-
-    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
-    match run_with_timeout(cmd, timeout) {
-        Ok(output) => {
-            if output.status.success() {
-                GitRemoteResult {
-                    success: true,
-                    message: Some("Fetched successfully".to_string()),
-                    error: None,
-                }
-            } else {
-                GitRemoteResult {
-                    success: false,
-                    message: None,
-                    error: Some(parse_pull_error(&String::from_utf8_lossy(&output.stderr))),
-                }
-            }
-        }
-        Err(e) => GitRemoteResult {
-            success: false,
-            message: None,
-            error: Some(e),
-        },
-    }
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult {
-    let selected_strategy = strategy.unwrap_or_else(|| "merge".to_string());
-    let mut cmd = git_cmd(&vault_path);
-    cmd.args([
-        "-c",
-        "http.lowSpeedLimit=1000",
-        "-c",
-        "http.lowSpeedTime=10",
-    ])
-    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
-
-    match selected_strategy.as_str() {
-        "rebase" => {
-            cmd.args(["-c", "pull.rebase=true", "pull", "--rebase"]);
-        }
-        "ff_only" => {
-            cmd.args(["-c", "pull.ff=only", "pull", "--ff-only"]);
-        }
-        _ => {
-            cmd.args(["-c", "pull.rebase=false", "pull"]);
-        }
-    }
-
-    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
-    match run_with_timeout(cmd, timeout) {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if output.status.success() {
-                let message = if stdout.contains("Already up to date") {
-                    "Already up to date"
+        let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+        match run_with_timeout(cmd, timeout) {
+            Ok(output) => {
+                if output.status.success() {
+                    GitRemoteResult {
+                        success: true,
+                        message: Some("Pushed successfully".to_string()),
+                        error: None,
+                    }
                 } else {
-                    "Pulled latest changes"
-                };
-                GitRemoteResult {
-                    success: true,
-                    message: Some(message.to_string()),
-                    error: None,
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let combined = format!("{}{}", stdout, stderr);
-                GitRemoteResult {
-                    success: false,
-                    message: None,
-                    error: Some(parse_pull_error(&combined)),
+                    GitRemoteResult {
+                        success: false,
+                        message: None,
+                        error: Some(parse_push_error(&String::from_utf8_lossy(&output.stderr))),
+                    }
                 }
             }
+            Err(e) => GitRemoteResult {
+                success: false,
+                message: None,
+                error: Some(e),
+            },
         }
-        Err(e) => GitRemoteResult {
-            success: false,
-            message: None,
-            error: Some(e),
-        },
-    }
+    })
+    .await
+    .unwrap_or_else(|e| GitRemoteResult {
+        success: false,
+        message: None,
+        error: Some(format!("task join error: {}", e)),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn git_fetch(vault_path: String) -> GitRemoteResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut cmd = git_cmd(&vault_path);
+        cmd.args([
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=10",
+            "fetch",
+            "--quiet",
+        ])
+        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
+
+        let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+        match run_with_timeout(cmd, timeout) {
+            Ok(output) => {
+                if output.status.success() {
+                    GitRemoteResult {
+                        success: true,
+                        message: Some("Fetched successfully".to_string()),
+                        error: None,
+                    }
+                } else {
+                    GitRemoteResult {
+                        success: false,
+                        message: None,
+                        error: Some(parse_pull_error(&String::from_utf8_lossy(&output.stderr))),
+                    }
+                }
+            }
+            Err(e) => GitRemoteResult {
+                success: false,
+                message: None,
+                error: Some(e),
+            },
+        }
+    })
+    .await
+    .unwrap_or_else(|e| GitRemoteResult {
+        success: false,
+        message: None,
+        error: Some(format!("task join error: {}", e)),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemoteResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected_strategy = strategy.unwrap_or_else(|| "merge".to_string());
+        let mut cmd = git_cmd(&vault_path);
+        cmd.args([
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=10",
+        ])
+        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
+
+        match selected_strategy.as_str() {
+            "rebase" => {
+                cmd.args(["-c", "pull.rebase=true", "pull", "--rebase"]);
+            }
+            "ff_only" => {
+                cmd.args(["-c", "pull.ff=only", "pull", "--ff-only"]);
+            }
+            _ => {
+                cmd.args(["-c", "pull.rebase=false", "pull"]);
+            }
+        }
+
+        let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+        match run_with_timeout(cmd, timeout) {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if output.status.success() {
+                    let message = if stdout.contains("Already up to date") {
+                        "Already up to date"
+                    } else {
+                        "Pulled latest changes"
+                    };
+                    GitRemoteResult {
+                        success: true,
+                        message: Some(message.to_string()),
+                        error: None,
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let combined = format!("{}{}", stdout, stderr);
+                    GitRemoteResult {
+                        success: false,
+                        message: None,
+                        error: Some(parse_pull_error(&combined)),
+                    }
+                }
+            }
+            Err(e) => GitRemoteResult {
+                success: false,
+                message: None,
+                error: Some(e),
+            },
+        }
+    })
+    .await
+    .unwrap_or_else(|e| GitRemoteResult {
+        success: false,
+        message: None,
+        error: Some(format!("task join error: {}", e)),
+    })
 }
 
 #[tauri::command]
@@ -898,11 +920,11 @@ pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
         };
     }
 
-    let output = git_cmd(&vault_path)
-        .args(["remote", "add", "origin", &url])
-        .output();
+    let mut cmd = git_cmd(&vault_path);
+    cmd.args(["remote", "add", "origin", &url]);
 
-    match output {
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             if output.status.success() {
                 GitRemoteResult {
@@ -948,23 +970,25 @@ pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
         };
     }
 
-    let has_origin = git_cmd(&vault_path)
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false);
+    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
 
-    let output = if has_origin {
-        git_cmd(&vault_path)
-            .args(["remote", "set-url", "origin", &url])
-            .output()
-    } else {
-        git_cmd(&vault_path)
-            .args(["remote", "add", "origin", &url])
-            .output()
+    let has_origin = {
+        let cmd = git_cmd(&vault_path);
+        let mut check_cmd = cmd;
+        check_cmd.args(["remote", "get-url", "origin"]);
+        run_with_timeout(check_cmd, timeout)
+            .map(|output| output.status.success())
+            .unwrap_or(false)
     };
 
-    match output {
+    let mut cmd = git_cmd(&vault_path);
+    if has_origin {
+        cmd.args(["remote", "set-url", "origin", &url]);
+    } else {
+        cmd.args(["remote", "add", "origin", &url]);
+    }
+
+    match run_with_timeout(cmd, timeout) {
         Ok(output) => {
             if output.status.success() {
                 GitRemoteResult {
@@ -994,41 +1018,49 @@ pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_push_with_upstream(vault_path: String, branch: String) -> GitRemoteResult {
-    let mut cmd = git_cmd(&vault_path);
-    cmd.args([
-        "-c",
-        "http.lowSpeedLimit=1000",
-        "-c",
-        "http.lowSpeedTime=10",
-        "push",
-        "-u",
-        "origin",
-        &branch,
-    ])
-    .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
+pub async fn git_push_with_upstream(vault_path: String, branch: String) -> GitRemoteResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut cmd = git_cmd(&vault_path);
+        cmd.args([
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=10",
+            "push",
+            "-u",
+            "origin",
+            &branch,
+        ])
+        .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=10");
 
-    let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
-    match run_with_timeout(cmd, timeout) {
-        Ok(output) => {
-            if output.status.success() {
-                GitRemoteResult {
-                    success: true,
-                    message: Some(format!("Pushed and tracking origin/{}", branch)),
-                    error: None,
-                }
-            } else {
-                GitRemoteResult {
-                    success: false,
-                    message: None,
-                    error: Some(parse_push_error(&String::from_utf8_lossy(&output.stderr))),
+        let timeout = std::time::Duration::from_secs(GIT_REMOTE_TIMEOUT_SECS);
+        match run_with_timeout(cmd, timeout) {
+            Ok(output) => {
+                if output.status.success() {
+                    GitRemoteResult {
+                        success: true,
+                        message: Some(format!("Pushed and tracking origin/{}", branch)),
+                        error: None,
+                    }
+                } else {
+                    GitRemoteResult {
+                        success: false,
+                        message: None,
+                        error: Some(parse_push_error(&String::from_utf8_lossy(&output.stderr))),
+                    }
                 }
             }
+            Err(e) => GitRemoteResult {
+                success: false,
+                message: None,
+                error: Some(e),
+            },
         }
-        Err(e) => GitRemoteResult {
-            success: false,
-            message: None,
-            error: Some(e),
-        },
-    }
+    })
+    .await
+    .unwrap_or_else(|e| GitRemoteResult {
+        success: false,
+        message: None,
+        error: Some(format!("task join error: {}", e)),
+    })
 }

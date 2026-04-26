@@ -247,6 +247,7 @@ describe("GitService", () => {
 
   it("create_checkpoint returns skipped when there is no diff", async () => {
     const { service, status, stage_and_commit, create_tag } = create_harness();
+    stage_and_commit.mockRejectedValue(new Error("nothing to commit"));
     status.mockResolvedValue({
       branch: "main",
       is_dirty: false,
@@ -256,7 +257,7 @@ describe("GitService", () => {
     });
 
     const result = await service.create_checkpoint("No-op");
-    expect(stage_and_commit).not.toHaveBeenCalled();
+    expect(stage_and_commit).toHaveBeenCalled();
     expect(create_tag).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "skipped" });
   });
@@ -278,8 +279,9 @@ describe("GitService", () => {
     );
   });
 
-  it("skips commit when status is clean", async () => {
+  it("skips commit when there is nothing to commit", async () => {
     const { service, stage_and_commit, status, op_store } = create_harness();
+    stage_and_commit.mockRejectedValue(new Error("nothing to commit"));
     status.mockResolvedValue({
       branch: "main",
       is_dirty: false,
@@ -288,7 +290,7 @@ describe("GitService", () => {
       files: [],
     });
     await service.auto_commit(["a.md"]);
-    expect(stage_and_commit).not.toHaveBeenCalled();
+    expect(stage_and_commit).toHaveBeenCalled();
     expect(op_store.get("git.commit").status).toBe("success");
   });
 
