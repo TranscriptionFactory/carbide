@@ -14,6 +14,12 @@ export type SearchSettingDefinition = {
 export type SearchScope = "all" | "path" | "title" | "content";
 export type SearchDomain = "notes" | "commands" | "planned";
 export type OmnibarScope = "current_vault" | "all_vaults";
+export type OmnibarFileTypeFilter =
+  | "markdown"
+  | "pdf"
+  | "code"
+  | "canvas"
+  | "image";
 
 export type SearchQuery = {
   raw: string;

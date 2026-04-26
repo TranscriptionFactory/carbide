@@ -24,7 +24,12 @@
   import MaximizeIcon from "@lucide/svelte/icons/maximize";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import NetworkIcon from "@lucide/svelte/icons/network";
-  import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
+  import type {
+    OmnibarItem,
+    OmnibarScope,
+    OmnibarFileTypeFilter,
+  } from "$lib/shared/types/search";
+  import XIcon from "@lucide/svelte/icons/x";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
   import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
@@ -85,6 +90,7 @@
     selected_index: number;
     is_searching: boolean;
     scope: OmnibarScope;
+    file_type_filters: OmnibarFileTypeFilter[];
     items: OmnibarItem[];
     recent_notes: NoteMeta[];
     recent_command_ids: string[];
@@ -95,6 +101,8 @@
     on_query_change: (query: string) => void;
     on_selected_index_change: (index: number) => void;
     on_scope_change: (scope: OmnibarScope) => void;
+    on_toggle_file_type_filter: (filter: OmnibarFileTypeFilter) => void;
+    on_clear_filters: () => void;
     on_confirm: (item: OmnibarItem) => void;
     on_view_as_graph: (query: string) => void;
   };
@@ -105,6 +113,7 @@
     selected_index,
     is_searching,
     scope,
+    file_type_filters,
     items,
     recent_notes,
     recent_command_ids,
@@ -115,18 +124,60 @@
     on_query_change,
     on_selected_index_change,
     on_scope_change,
+    on_toggle_file_type_filter,
+    on_clear_filters,
     on_confirm,
     on_view_as_graph,
   }: Props = $props();
+
+  const TYPE_FILTERS: {
+    filter: OmnibarFileTypeFilter;
+    mnemonic: string;
+    label: string;
+  }[] = [
+    { filter: "markdown", mnemonic: "m", label: "Markdown" },
+    { filter: "pdf", mnemonic: "p", label: "PDF" },
+    { filter: "code", mnemonic: "c", label: "Code" },
+    { filter: "canvas", mnemonic: "d", label: "Drawing" },
+    { filter: "image", mnemonic: "i", label: "Images" },
+  ];
+  const SOURCE_SCOPES: {
+    scope: OmnibarScope;
+    mnemonic: string;
+    label: string;
+  }[] = [
+    { scope: "current_vault", mnemonic: "v", label: "Vault" },
+    { scope: "all_vaults", mnemonic: "a", label: "All" },
+  ];
+  type FilterMnemonicEntry =
+    | { kind: "type"; filter: OmnibarFileTypeFilter }
+    | { kind: "scope"; scope: OmnibarScope };
+  const FILTER_MNEMONICS = new Map<string, FilterMnemonicEntry>([
+    ...TYPE_FILTERS.map(
+      ({ mnemonic, filter }): [string, FilterMnemonicEntry] => [
+        mnemonic,
+        { kind: "type", filter },
+      ],
+    ),
+    ...SOURCE_SCOPES.map(
+      ({ mnemonic, scope: s }): [string, FilterMnemonicEntry] => [
+        mnemonic,
+        { kind: "scope", scope: s },
+      ],
+    ),
+  ]);
 
   let input_ref: HTMLInputElement | null = $state(null);
   let collapsed_vaults = $state(new SvelteSet<string>());
   let prev_items_ref: OmnibarItem[] = $state([]);
   let mouse_moved = $state(false);
+  let filter_mode = $state(false);
 
   $effect(() => {
     if (open) {
       mouse_moved = false;
+    } else {
+      filter_mode = false;
     }
   });
 
@@ -326,10 +377,40 @@
   function handle_keydown(event: KeyboardEvent) {
     if (!open) return;
 
-    if (event.key === "Tab" && show_scope_toggle) {
+    if (filter_mode) {
       event.preventDefault();
       event.stopPropagation();
-      cycle_scope(event.shiftKey ? -1 : 1);
+      const key = event.key.toLowerCase();
+      if (key === "tab" || key === "escape") {
+        filter_mode = false;
+        setTimeout(() => input_ref?.focus(), 0);
+        return;
+      }
+      const entry = FILTER_MNEMONICS.get(key);
+      if (entry) {
+        if (entry.kind === "type") {
+          on_toggle_file_type_filter(entry.filter);
+        } else {
+          on_scope_change(entry.scope);
+        }
+        return;
+      }
+      filter_mode = false;
+      setTimeout(() => input_ref?.focus(), 0);
+      return;
+    }
+
+    if (event.key === "Tab" && !event.shiftKey && !is_command_mode) {
+      event.preventDefault();
+      event.stopPropagation();
+      filter_mode = true;
+      return;
+    }
+
+    if (event.key === "Tab" && event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      on_clear_filters();
       return;
     }
 
@@ -369,6 +450,7 @@
     if (!ref) return;
     setTimeout(() => {
       ref.focus();
+      ref.select();
     }, 0);
   });
 </script>
@@ -393,12 +475,62 @@
         autocomplete="off"
         class="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
+      {#each file_type_filters as f}
+        {@const def = TYPE_FILTERS.find((t) => t.filter === f)}
+        {#if def}
+          <button
+            class="Omnibar__active-chip"
+            onclick={() => on_toggle_file_type_filter(f)}
+          >
+            {def.label}
+            <XIcon />
+          </button>
+        {/if}
+      {/each}
       {#if is_searching}
         <div class="Omnibar__spinner"></div>
       {/if}
     </div>
 
-    {#if show_scope_toggle}
+    {#if filter_mode}
+      <div class="Omnibar__filter-overlay">
+        <div class="Omnibar__filter-row">
+          <span class="Omnibar__filter-label">Type</span>
+          {#each TYPE_FILTERS as tf}
+            <button
+              class="Omnibar__filter-chip"
+              class:Omnibar__filter-chip--active={file_type_filters.includes(
+                tf.filter,
+              )}
+              onclick={() => on_toggle_file_type_filter(tf.filter)}
+            >
+              <kbd>{tf.mnemonic.toUpperCase()}</kbd>
+              {tf.label}
+            </button>
+          {/each}
+        </div>
+        {#if has_multiple_vaults}
+          <div class="Omnibar__filter-row">
+            <span class="Omnibar__filter-label">Source</span>
+            {#each SOURCE_SCOPES as ss}
+              <button
+                class="Omnibar__filter-chip"
+                class:Omnibar__filter-chip--active={scope === ss.scope}
+                onclick={() => on_scope_change(ss.scope)}
+              >
+                <kbd>{ss.mnemonic.toUpperCase()}</kbd>
+                {ss.label}
+              </button>
+            {/each}
+          </div>
+        {/if}
+        <span class="Omnibar__filter-hint"
+          >press letter to toggle · Tab/Esc to close</span
+        >
+      </div>
+    {/if}
+
+    {#if show_scope_toggle && !filter_mode}
       <div class="Omnibar__scope">
         <button
           class="Omnibar__scope-btn"
@@ -666,11 +798,11 @@
       {:else}
         <span class="Omnibar__hint"><kbd>&gt;</kbd> for commands</span>
         <span class="Omnibar__hint-sep">·</span>
+        <span class="Omnibar__hint"><kbd>Tab</kbd> filters</span>
+        <span class="Omnibar__hint-sep">·</span>
         <span class="Omnibar__hint"
           ><kbd>title:</kbd> <kbd>path:</kbd> <kbd>content:</kbd></span
         >
-        <span class="Omnibar__hint-sep">·</span>
-        <span class="Omnibar__hint"><kbd>notes with #tag</kbd></span>
       {/if}
       {#if can_view_as_graph}
         <button
@@ -1101,6 +1233,99 @@
   :global(.Omnibar__graph-action svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
+  }
+
+  .Omnibar__active-chip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    padding: var(--space-0-5) var(--space-1-5);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+    transition: background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .Omnibar__active-chip:hover {
+    background-color: var(--interactive-bg-hover);
+  }
+
+  :global(.Omnibar__active-chip svg) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
+  }
+
+  .Omnibar__filter-overlay {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    background-color: var(--card);
+  }
+
+  .Omnibar__filter-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+  }
+
+  .Omnibar__filter-label {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+    min-width: 3rem;
+  }
+
+  .Omnibar__filter-chip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+    background-color: var(--muted);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  .Omnibar__filter-chip:hover {
+    background-color: var(--accent);
+    color: var(--foreground);
+  }
+
+  .Omnibar__filter-chip--active {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  .Omnibar__filter-chip--active:hover {
+    background-color: var(--interactive-bg-hover);
+  }
+
+  .Omnibar__filter-chip kbd {
+    font-family: inherit;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    padding: 0 var(--space-0-5);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  .Omnibar__filter-hint {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
   }
 
   @keyframes spin {

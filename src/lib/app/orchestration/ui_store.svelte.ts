@@ -19,7 +19,10 @@ import type {
   MoveItem,
 } from "$lib/shared/types/filetree";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
-import type { OmnibarScope } from "$lib/shared/types/search";
+import type {
+  OmnibarScope,
+  OmnibarFileTypeFilter,
+} from "$lib/shared/types/search";
 import type {
   HotkeyConfig,
   HotkeyOverride,
@@ -89,13 +92,21 @@ const INITIAL_FILETREE_MOVE_CONFLICT_DIALOG = {
   conflicts: [] as { path: string; new_path: string; error: string }[],
 } as const;
 
-const INITIAL_OMNIBAR = {
+const INITIAL_OMNIBAR: {
+  open: boolean;
+  query: string;
+  selected_index: number;
+  is_searching: boolean;
+  scope: OmnibarScope;
+  file_type_filters: OmnibarFileTypeFilter[];
+} = {
   open: false,
   query: "",
   selected_index: 0,
   is_searching: false,
   scope: "current_vault",
-} as const;
+  file_type_filters: [],
+};
 
 const INITIAL_FIND_IN_FILE = {
   open: false,
@@ -323,6 +334,7 @@ export class UIStore {
     selected_index: number;
     is_searching: boolean;
     scope: OmnibarScope;
+    file_type_filters: OmnibarFileTypeFilter[];
   }>({ ...INITIAL_OMNIBAR });
 
   find_in_file = $state<{

@@ -161,6 +161,8 @@ export const ACTION_IDS = {
   omnibar_confirm_item: "omnibar.confirm_item",
   omnibar_confirm_cross_vault_open: "omnibar.confirm_cross_vault_open",
   omnibar_cancel_cross_vault_open: "omnibar.cancel_cross_vault_open",
+  omnibar_toggle_file_type_filter: "omnibar.toggle_file_type_filter",
+  omnibar_clear_filters: "omnibar.clear_filters",
 
   editor_fold_toggle: "editor.fold.toggle",
   editor_fold_collapse_all: "editor.fold.collapse_all",

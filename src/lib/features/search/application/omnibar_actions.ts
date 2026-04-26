@@ -1,6 +1,10 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import type { OmnibarItem, OmnibarScope } from "$lib/shared/types/search";
+import type {
+  OmnibarItem,
+  OmnibarScope,
+  OmnibarFileTypeFilter,
+} from "$lib/shared/types/search";
 import type { CommandId } from "$lib/features/search/types/command_palette";
 import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
@@ -115,6 +119,57 @@ function map_cross_vault_items(
   );
 }
 
+function file_type_matches(
+  file_type: string | null,
+  filter: OmnibarFileTypeFilter,
+): boolean {
+  switch (filter) {
+    case "markdown":
+      return (
+        file_type === null || file_type === "markdown" || file_type === "text"
+      );
+    case "pdf":
+      return file_type === "pdf";
+    case "code":
+      return file_type === "code";
+    case "canvas":
+      return file_type === "canvas";
+    case "image":
+      return file_type === "binary";
+    default:
+      return false;
+  }
+}
+
+function apply_file_type_filters(
+  items: OmnibarItem[],
+  filters: OmnibarFileTypeFilter[],
+): OmnibarItem[] {
+  if (filters.length === 0) return items;
+  return items.filter((item) => {
+    if (
+      item.kind === "command" ||
+      item.kind === "setting" ||
+      item.kind === "planned_note"
+    )
+      return true;
+    if (
+      item.kind === "note" ||
+      item.kind === "recent_note" ||
+      item.kind === "cross_vault_note"
+    ) {
+      return filters.some((f) => file_type_matches(item.note.file_type, f));
+    }
+    return true;
+  });
+}
+
+function reapply_filters(input: ActionRegistrationInput) {
+  const filters = input.stores.ui.omnibar.file_type_filters;
+  const raw = input.stores.search.omnibar_items_raw;
+  input.stores.search.set_omnibar_items(apply_file_type_filters(raw, filters));
+}
+
 function clamp_selected_index(input: ActionRegistrationInput) {
   const item_count = input.stores.search.omnibar_items.length;
   if (item_count === 0) {
@@ -124,24 +179,30 @@ function clamp_selected_index(input: ActionRegistrationInput) {
 }
 
 function open_omnibar(input: ActionRegistrationInput) {
+  const had_query = input.stores.ui.omnibar.query.trim().length > 0;
   set_omnibar_state(input, {
     open: true,
-    query: "",
     selected_index: 0,
     is_searching: false,
   });
-  input.stores.search.clear_omnibar();
+  if (had_query) {
+    const query = input.stores.ui.omnibar.query;
+    const scope = input.stores.ui.omnibar.scope;
+    void search_omnibar_query(input, query, scope).then(() => {
+      set_omnibar_state(input, {
+        is_searching: false,
+        selected_index: clamp_selected_index(input),
+      });
+    });
+  }
 }
 
 function close_omnibar(input: ActionRegistrationInput) {
   set_omnibar_state(input, {
     open: false,
-    query: "",
     selected_index: 0,
     is_searching: false,
-    scope: "current_vault",
   });
-  input.stores.search.clear_omnibar();
   input.services.search.reset_search_notes_operation();
 }
 
@@ -188,6 +249,8 @@ async function search_omnibar_query(
 ) {
   const parsed_query = parse_search_query(query);
 
+  const filters = input.stores.ui.omnibar.file_type_filters;
+
   if (scope === "all_vaults" && parsed_query.domain === "notes") {
     const result = await input.services.search.search_notes_all_vaults(query);
     if (input.stores.ui.omnibar.query.trim() !== query.trim()) {
@@ -196,7 +259,11 @@ async function search_omnibar_query(
     if (input.stores.ui.omnibar.scope !== "all_vaults") {
       return;
     }
-    input.stores.search.set_omnibar_items(map_cross_vault_items(result));
+    const raw = map_cross_vault_items(result);
+    input.stores.search.set_omnibar_items_raw(raw);
+    input.stores.search.set_omnibar_items(
+      apply_file_type_filters(raw, filters),
+    );
     return;
   }
 
@@ -211,7 +278,10 @@ async function search_omnibar_query(
   if (input.stores.ui.omnibar.scope !== scope) {
     return;
   }
-  input.stores.search.set_omnibar_items(result.items);
+  input.stores.search.set_omnibar_items_raw(result.items);
+  input.stores.search.set_omnibar_items(
+    apply_file_type_filters(result.items, filters),
+  );
 }
 
 async function execute_command(
@@ -521,6 +591,36 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
     label: "Cancel Open Cross-Vault Note",
     execute: () => {
       clear_cross_vault_open_confirm(input);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.omnibar_toggle_file_type_filter,
+    label: "Toggle Omnibar File Type Filter",
+    execute: (filter: unknown) => {
+      const f = filter as OmnibarFileTypeFilter;
+      const current = stores.ui.omnibar.file_type_filters;
+      const next = current.includes(f)
+        ? current.filter((x) => x !== f)
+        : [...current, f];
+      set_omnibar_state(input, { file_type_filters: next, selected_index: 0 });
+      reapply_filters(input);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.omnibar_clear_filters,
+    label: "Clear Omnibar Filters",
+    execute: () => {
+      const has_filters = stores.ui.omnibar.file_type_filters.length > 0;
+      if (has_filters) {
+        set_omnibar_state(input, { file_type_filters: [], selected_index: 0 });
+        reapply_filters(input);
+      } else if (stores.ui.omnibar.query.trim().length > 0) {
+        set_omnibar_state(input, { query: "", selected_index: 0 });
+        stores.search.clear_omnibar();
+        services.search.reset_search_notes_operation();
+      }
     },
   });
 }
