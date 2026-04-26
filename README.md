@@ -10,7 +10,7 @@ A local-first Markdown knowledge base built with [Tauri 2](https://tauri.app/), 
 
 ### Why "Carbide"?
 
-Before modern flashlights, coal miners dropped **calcium carbide** into water to produce a bright acetylene flame in their lamps to navigate deep tunnels. The icon depicts a miner's lamp with Markdown symbols (` > ` and ` * `) forming the flame because Carbide is a local-first Markdown knowledge base with hybrid semantic/FTS search, graph visualization, a composable query language, and an extensible plugin system.
+Before modern flashlights, coal miners dropped **calcium carbide** into water to produce a bright acetylene flame in their lamps to navigate deep tunnels. The icon depicts a miner's lamp with Markdown symbols (`>` and `*`) forming the flame because Carbide is a local-first Markdown knowledge base with hybrid semantic/FTS search, graph visualization, a composable query language, and an extensible plugin system.
 
 ## What it does
 
