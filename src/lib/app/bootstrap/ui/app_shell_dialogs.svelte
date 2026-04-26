@@ -42,7 +42,10 @@
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { toast } from "svelte-sonner";
   import type { OmnibarItem } from "$lib/shared/types/search";
-  import type { OmnibarScope } from "$lib/shared/types/search";
+  import type {
+    OmnibarScope,
+    OmnibarFileTypeFilter,
+  } from "$lib/shared/types/search";
   import type {
     EditorSettings,
     SettingsCategory,
@@ -588,6 +591,7 @@
   selected_index={stores.ui.omnibar.selected_index}
   is_searching={stores.ui.omnibar.is_searching}
   scope={stores.ui.omnibar.scope}
+  file_type_filters={stores.ui.omnibar.file_type_filters}
   items={stores.search.omnibar_items}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
@@ -607,6 +611,13 @@
     void action_registry.execute(ACTION_IDS.omnibar_set_selected_index, index)}
   on_scope_change={(scope: OmnibarScope) =>
     void action_registry.execute(ACTION_IDS.omnibar_set_scope, scope)}
+  on_toggle_file_type_filter={(filter: OmnibarFileTypeFilter) =>
+    void action_registry.execute(
+      ACTION_IDS.omnibar_toggle_file_type_filter,
+      filter,
+    )}
+  on_clear_filters={() =>
+    void action_registry.execute(ACTION_IDS.omnibar_clear_filters)}
   on_confirm={(item: OmnibarItem) =>
     void action_registry.execute(ACTION_IDS.omnibar_confirm_item, item)}
   on_view_as_graph={(query: string) => {
