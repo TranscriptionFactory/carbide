@@ -313,13 +313,12 @@ async function execute_command(
   }
 }
 
-function resolve_omnibar_file_path(
+async function resolve_omnibar_file_path(
   input: ActionRegistrationInput,
   note_id: string,
-): string | null {
+): Promise<string | null> {
   if (is_linked_note_path(note_id)) {
-    const note = input.stores.notes.notes.find((n) => n.path === note_id);
-    return note?.external_file_path ?? null;
+    return input.services.reference.resolve_linked_note_file_path(note_id);
   }
   return note_id;
 }
@@ -332,7 +331,7 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
     case "recent_note":
       close_omnibar(input);
       if (detect_file_type(item.note.id)) {
-        const file_path = resolve_omnibar_file_path(input, item.note.id);
+        const file_path = await resolve_omnibar_file_path(input, item.note.id);
         if (file_path) {
           await registry.execute(ACTION_IDS.document_open, { file_path });
         }
@@ -364,7 +363,7 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
         return;
       }
       if (detect_file_type(item.note.id)) {
-        const file_path = resolve_omnibar_file_path(input, item.note.id);
+        const file_path = await resolve_omnibar_file_path(input, item.note.id);
         if (file_path) {
           await registry.execute(ACTION_IDS.document_open, { file_path });
         }

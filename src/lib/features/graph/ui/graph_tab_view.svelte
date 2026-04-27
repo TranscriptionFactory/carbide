@@ -17,7 +17,7 @@
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
   import HierarchyTreeView from "$lib/features/graph/ui/hierarchy_tree_view.svelte";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
 
   const status = $derived(stores.graph.status);
   const snapshot = $derived(stores.graph.snapshot);
@@ -69,17 +69,16 @@
     }
   });
 
-  function resolve_file_path(path: string): string | null {
+  async function resolve_file_path(path: string): Promise<string | null> {
     if (is_linked_note_path(path)) {
-      const note = stores.notes.notes.find((n) => n.path === path);
-      return note?.external_file_path ?? null;
+      return services.reference.resolve_linked_note_file_path(path);
     }
     return path;
   }
 
   async function open_node(path: string) {
     if (detect_file_type(path)) {
-      const file_path = resolve_file_path(path);
+      const file_path = await resolve_file_path(path);
       if (file_path) {
         await action_registry.execute(ACTION_IDS.document_open, { file_path });
       }
