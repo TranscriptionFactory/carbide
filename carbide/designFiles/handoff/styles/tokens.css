@@ -1,0 +1,232 @@
+/* ============================================================
+   Carbide Design Tokens — Three-tier system
+   ------------------------------------------------------------
+   Tier 1 — Primitives:  raw values (palette, scale, motion)
+   Tier 2 — Semantic:    role tokens (background, foreground…)
+   Tier 3 — Component:   surface-specific (sidebar, editor…)
+
+   Themes override at any tier. Most themes only touch Tier 2.
+   Density / radius / scheme tweaks override Tier 1 globals.
+   ============================================================ */
+
+/* ----------- Tier 1: Primitives (defaults — neutral) ----------- */
+:root {
+  /* Spacing scale (4px base) */
+  --space-0: 0px;
+  --space-px: 1px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Density multiplier — Tweaks rewrite this */
+  --density: 1;
+
+  /* Radius scale — Tweaks rewrite --radius */
+  --radius: 6px;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-pill: 999px;
+
+  /* Type scale */
+  --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "Inter", sans-serif;
+  --font-serif: "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  --font-ui: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-code: var(--font-mono);
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-loose: 1.7;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Motion */
+  --duration-fast: 90ms;
+  --duration-normal: 160ms;
+  --duration-slow: 280ms;
+  --ease-default: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Sizes — chrome */
+  --size-titlebar: calc(34px * var(--density));
+  --size-activity-bar: calc(44px * var(--density));
+  --size-activity-icon: 18px;
+  --size-statusbar: calc(22px * var(--density));
+  --size-tabbar: calc(34px * var(--density));
+  --size-row: calc(28px * var(--density));
+
+  /* Shadows */
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
+  --shadow-2: 0 4px 12px oklch(0 0 0 / 0.06), 0 1px 3px oklch(0 0 0 / 0.04);
+  --shadow-3: 0 12px 32px oklch(0 0 0 / 0.10), 0 2px 6px oklch(0 0 0 / 0.05);
+}
+
+/* ----------- Tier 2: Semantic (LIGHT default) ----------- */
+:root,
+[data-color-scheme="light"] {
+  --background: oklch(1 0 0);
+  --background-surface-2: oklch(0.985 0 0);
+  --background-surface-3: oklch(0.965 0 0);
+  --foreground: oklch(0.18 0 0);
+  --foreground-secondary: oklch(0.38 0 0);
+  --foreground-tertiary: oklch(0.56 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0 0);
+
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.56 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --accent-hover: oklch(0.93 0 0);
+
+  --interactive: oklch(0.55 0.18 255);
+  --interactive-hover: oklch(0.50 0.18 255);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.62 0.14 152);
+  --warning: oklch(0.74 0.16 75);
+
+  --border: oklch(0.92 0 0);
+  --border-strong: oklch(0.82 0 0);
+  --border-subtle: oklch(0.96 0 0);
+  --input: oklch(0.92 0 0);
+  --ring: oklch(0.55 0.18 255);
+  --focus-ring: oklch(0.55 0.18 255);
+
+  /* Tier 3: Component-level (sidebar) */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.18 0 0);
+  --sidebar-muted-foreground: oklch(0.56 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.18 0 0);
+  --sidebar-border: oklch(0.92 0 0);
+  --sidebar-active-bar: var(--interactive);
+
+  /* Tier 3: Editor */
+  --editor-background: var(--background);
+  --editor-foreground: var(--foreground);
+  --editor-gutter: var(--foreground-tertiary);
+  --editor-selection: oklch(0.85 0.04 255 / 0.6);
+  --editor-link: oklch(0.50 0.18 255);
+  --editor-heading: var(--foreground);
+  --editor-code-bg: oklch(0.96 0 0);
+
+  /* Tier 3: Tabs */
+  --tab-active-bg: var(--background);
+  --tab-active-fg: var(--foreground);
+  --tab-inactive-bg: var(--background-surface-3);
+  --tab-inactive-fg: var(--foreground-tertiary);
+  --tab-border: var(--border);
+
+  /* Tier 3: Status bar */
+  --statusbar-bg: var(--interactive);
+  --statusbar-fg: oklch(0.985 0 0);
+
+  /* ----- Tier 3: Affordance flags (defaults) -----
+     Themes flip these to reshape components without editing component code. */
+  --statusbar-shape: "bar";          /* "bar" | "transparent" | "segments" */
+  --statusbar-divider: color-mix(in oklch, var(--statusbar-fg) 20%, transparent);
+  --statusbar-segment-pad: var(--space-3);
+
+  --tab-active-indicator: "underline";  /* "underline" | "border" | "fill" | "none" */
+  --tab-active-indicator-color: var(--interactive);
+  --tab-active-indicator-thickness: 2px;
+
+  --sidebar-active-shape: "ribbon";     /* "ribbon" | "fill" | "weight" | "invert" */
+
+  --heading-prefix-h1: "";              /* themes can set "# ", etc. */
+  --heading-prefix-h2: "";
+  --heading-prefix-h3: "";
+  --heading-prefix-color: var(--foreground-tertiary);
+}
+
+/* ----------- Tier 2: Semantic (DARK) ----------- */
+[data-color-scheme="dark"] {
+  --background: oklch(0.16 0 0);
+  --background-surface-2: oklch(0.20 0 0);
+  --background-surface-3: oklch(0.235 0 0);
+  --foreground: oklch(0.96 0 0);
+  --foreground-secondary: oklch(0.78 0 0);
+  --foreground-tertiary: oklch(0.58 0 0);
+
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+
+  --primary: oklch(0.92 0 0);
+  --primary-foreground: oklch(0.18 0 0);
+  --secondary: oklch(0.27 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+
+  --muted: oklch(0.235 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.27 0 0);
+  --accent-foreground: oklch(0.96 0 0);
+  --accent-hover: oklch(0.32 0 0);
+
+  --interactive: oklch(0.66 0.16 255);
+  --interactive-hover: oklch(0.72 0.16 255);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.70 0.14 152);
+  --warning: oklch(0.80 0.16 75);
+
+  --border: oklch(1 0 0 / 0.10);
+  --border-strong: oklch(1 0 0 / 0.20);
+  --border-subtle: oklch(1 0 0 / 0.06);
+  --input: oklch(1 0 0 / 0.15);
+  --ring: oklch(0.66 0.16 255);
+  --focus-ring: oklch(0.66 0.16 255);
+
+  --sidebar: oklch(0.18 0 0);
+  --sidebar-foreground: oklch(0.96 0 0);
+  --sidebar-muted-foreground: oklch(0.62 0 0);
+  --sidebar-accent: oklch(0.26 0 0);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
+  --sidebar-border: oklch(1 0 0 / 0.08);
+  --sidebar-active-bar: var(--interactive);
+
+  --editor-background: var(--background);
+  --editor-foreground: var(--foreground);
+  --editor-gutter: var(--foreground-tertiary);
+  --editor-selection: oklch(0.5 0.1 255 / 0.45);
+  --editor-link: oklch(0.72 0.16 255);
+  --editor-heading: var(--foreground);
+  --editor-code-bg: oklch(0.22 0 0);
+
+  --tab-active-bg: var(--background);
+  --tab-active-fg: var(--foreground);
+  --tab-inactive-bg: oklch(0.20 0 0);
+  --tab-inactive-fg: var(--foreground-tertiary);
+  --tab-border: var(--border);
+
+  --statusbar-bg: var(--interactive);
+  --statusbar-fg: oklch(0.16 0 0);
+}

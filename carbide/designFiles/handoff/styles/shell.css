@@ -1,0 +1,370 @@
+/* Prototype-only shell styles. Real app uses Svelte components;
+   classes here mirror those component names so a developer can
+   port the tokens directly. */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+.App {
+  display: grid;
+  grid-template-rows: var(--size-titlebar) 1fr var(--size-statusbar);
+  height: 100vh;
+  width: 100vw;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ------- Title bar ------- */
+.TitleBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--background-surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+  font-size: var(--text-sm);
+  color: var(--foreground-secondary);
+}
+.TitleBar__traffic {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 8px;
+}
+.TitleBar__dot { width: 12px; height: 12px; border-radius: 999px; background: var(--border-strong); }
+.TitleBar__title { font-weight: var(--weight-medium); }
+.TitleBar__title b { color: var(--foreground); font-weight: var(--weight-semibold); }
+
+/* ------- Body grid ------- */
+.Body {
+  display: grid;
+  grid-template-columns: var(--size-activity-bar) minmax(220px, 280px) 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ------- Activity bar ------- */
+.ActivityBar {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-border);
+}
+.ActivityBar__section { display: flex; flex-direction: column; }
+.ActivityBar__btn {
+  position: relative;
+  width: var(--size-activity-bar); height: var(--size-activity-bar);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sidebar-foreground); opacity: 0.45;
+  transition: opacity var(--duration-normal) var(--ease-default), background var(--duration-fast) var(--ease-default);
+}
+.ActivityBar__btn:hover { opacity: 1; }
+.ActivityBar__btn--active { opacity: 0.95; }
+/* active-button indicator lives in the sidebar-active-shape contract */
+.ActivityBar__btn svg { width: var(--size-activity-icon); height: var(--size-activity-icon); }
+
+/* ------- Sidebar ------- */
+.Sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden;
+}
+.Sidebar__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-3);
+  height: var(--size-row);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sidebar-muted-foreground);
+}
+.Sidebar__header__actions { display: flex; gap: 4px; }
+.IconBtn {
+  width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--sidebar-muted-foreground); border-radius: var(--radius-sm);
+}
+.IconBtn:hover { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
+.IconBtn svg { width: 14px; height: 14px; }
+
+.Sidebar__crumbs {
+  padding: 0 var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--sidebar-muted-foreground);
+  display: flex; gap: 4px; align-items: center;
+}
+.Sidebar__crumbs b { color: var(--sidebar-foreground); font-weight: var(--weight-medium); }
+.Sidebar__tree { flex: 1; overflow: auto; padding: var(--space-1) var(--space-1) var(--space-2); }
+
+.TreeRow {
+  display: flex; align-items: center; gap: 6px;
+  height: var(--size-row);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  color: var(--sidebar-foreground);
+  cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.TreeRow:hover { background: var(--sidebar-accent); }
+.TreeRow--active {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  font-weight: var(--weight-medium);
+}
+/* active-row indicator now lives in the sidebar-active-shape contract */
+.TreeRow__chev { color: var(--foreground-tertiary); display: inline-flex; }
+.TreeRow__chev svg { width: 10px; height: 10px; }
+.TreeRow__icon { color: var(--foreground-tertiary); display: inline-flex; }
+.TreeRow__icon svg { width: 13px; height: 13px; }
+.TreeRow__count { margin-left: auto; font-size: var(--text-xs); color: var(--foreground-tertiary); font-variant-numeric: tabular-nums; }
+.TreeRow--child { padding-left: var(--space-6); }
+.TreeRow--child2 { padding-left: var(--space-10); }
+
+.Sidebar__section {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sidebar-muted-foreground);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ------- Main pane ------- */
+.Main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--background); }
+
+.TabBar {
+  display: flex; align-items: stretch;
+  height: var(--size-tabbar);
+  background: var(--background-surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.Tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 var(--space-3);
+  background: var(--tab-inactive-bg);
+  color: var(--tab-inactive-fg);
+  border-right: 1px solid var(--tab-border);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  min-width: 120px; max-width: 200px;
+  white-space: nowrap; overflow: hidden;
+}
+.Tab__name { overflow: hidden; text-overflow: ellipsis; }
+.Tab__close {
+  width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); color: var(--foreground-tertiary); margin-left: auto;
+}
+.Tab__close:hover { background: var(--accent-hover); color: var(--foreground); }
+.Tab--active {
+  background: var(--tab-active-bg);
+  color: var(--tab-active-fg);
+  font-weight: var(--weight-medium);
+  position: relative;
+}
+/* active-tab indicator lives in the tab-active-indicator contract */
+.Tab__dot { width: 6px; height: 6px; border-radius: 999px; background: var(--interactive); }
+
+.TabBar__spacer { flex: 1; border-bottom: 1px solid var(--border); background: var(--background-surface-2); }
+.TabBar__actions { display: flex; align-items: center; gap: 4px; padding-right: 8px; background: var(--background-surface-2); border-bottom: 1px solid var(--border); }
+
+/* ------- Editor ------- */
+.Editor {
+  flex: 1; min-height: 0; overflow: auto;
+  background: var(--editor-background);
+  color: var(--editor-foreground);
+}
+.Editor__inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-8) var(--space-12);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+.Editor__title {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--editor-heading);
+  margin: 0 0 var(--space-2);
+}
+.Editor__meta {
+  font-size: var(--text-xs);
+  color: var(--foreground-tertiary);
+  margin-bottom: var(--space-6);
+  display: flex; gap: var(--space-4); flex-wrap: wrap;
+}
+.Editor__meta b { color: var(--foreground-secondary); font-weight: var(--weight-medium); }
+.Editor h2 {
+  font-size: var(--text-xl); font-weight: var(--weight-semibold);
+  color: var(--editor-heading); margin: var(--space-8) 0 var(--space-3);
+  letter-spacing: -0.005em;
+}
+.Editor h3 {
+  font-size: var(--text-lg); font-weight: var(--weight-semibold);
+  color: var(--editor-heading); margin: var(--space-6) 0 var(--space-2);
+}
+.Editor p { margin: 0 0 var(--space-4); color: var(--foreground); }
+.Editor a, .Editor .wikilink { color: var(--editor-link); text-decoration: none; border-bottom: 1px dashed currentColor; }
+.Editor code {
+  font-family: var(--font-code); font-size: 0.92em;
+  background: var(--editor-code-bg); padding: 1px 5px; border-radius: var(--radius-sm);
+}
+.Editor pre {
+  font-family: var(--font-code); font-size: var(--text-sm);
+  background: var(--editor-code-bg); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); overflow: auto; margin: 0 0 var(--space-4);
+  border: 1px solid var(--border-subtle);
+}
+.Editor blockquote {
+  margin: 0 0 var(--space-4); padding-left: var(--space-4);
+  border-left: 2px solid var(--border-strong); color: var(--foreground-secondary);
+}
+.Editor ul, .Editor ol { margin: 0 0 var(--space-4); padding-left: var(--space-6); }
+.Editor li { margin-bottom: 4px; }
+.Editor li input[type="checkbox"] { margin-right: 6px; }
+.Editor .tag {
+  display: inline-block; padding: 0 6px; border-radius: var(--radius-pill);
+  background: var(--accent); color: var(--accent-foreground);
+  font-size: 0.85em; font-weight: var(--weight-medium);
+}
+.Editor hr { border: 0; border-top: 1px solid var(--border); margin: var(--space-6) 0; }
+
+/* ------- Status bar ------- */
+.StatusBar {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 0 var(--space-3);
+  background: var(--statusbar-bg);
+  color: var(--statusbar-fg);
+  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+  border-top: 1px solid var(--border-subtle);
+}
+.StatusBar__group { display: flex; align-items: center; gap: var(--space-1); }
+.StatusBar__group + .StatusBar__group { padding-left: var(--space-3); border-left: 1px solid color-mix(in oklch, var(--statusbar-fg) 20%, transparent); }
+.StatusBar__sep { flex: 1; }
+.StatusBar svg { width: 12px; height: 12px; }
+.StatusBar b { font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+
+/* ----- StatusBar shape contract -----
+   Driven by --statusbar-shape, mirrored to [data-statusbar-shape]. */
+[data-statusbar-shape="transparent"] .StatusBar {
+  background: transparent;
+  color: var(--foreground-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+[data-statusbar-shape="segments"] .StatusBar {
+  gap: 0;
+  padding: 0;
+}
+[data-statusbar-shape="segments"] .StatusBar__group {
+  padding: 0 var(--statusbar-segment-pad);
+  height: 100%;
+  border-left: 1px solid var(--statusbar-divider);
+}
+[data-statusbar-shape="segments"] .StatusBar__group + .StatusBar__group { border-left: 1px solid var(--statusbar-divider); padding-left: var(--statusbar-segment-pad); }
+[data-statusbar-shape="segments"] .StatusBar__group--mode { background: oklch(0.65 0.18 30); color: white; }
+[data-statusbar-shape="segments"] .StatusBar__group--git  { background: oklch(0.55 0.18 250); color: white; }
+
+/* Outline panel */
+.Outline {
+  width: 220px;
+  border-left: 1px solid var(--border);
+  background: var(--background-surface-2);
+  flex: 0 0 auto;
+  display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden;
+}
+.Outline__head {
+  height: var(--size-row);
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--foreground-tertiary); display: flex; align-items: center;
+}
+.Outline__list { flex: 1; overflow: auto; padding: 0 var(--space-2) var(--space-2); }
+.Outline__item {
+  height: var(--size-row); padding: 0 var(--space-2);
+  border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-sm); color: var(--foreground-secondary); cursor: pointer;
+}
+.Outline__item:hover { background: var(--accent); }
+.Outline__item--active { color: var(--foreground); font-weight: var(--weight-medium); }
+.Outline__item--active::before { content: ""; width: 2px; height: 12px; background: var(--interactive); border-radius: 1px; margin-right: 2px; }
+.Outline__item--lvl2 { padding-left: var(--space-4); }
+
+.MainCols { display: flex; flex: 1; min-height: 0; }
+
+/* Theme picker chip in titlebar */
+.ThemeChip {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 4px; align-items: center;
+  font-size: var(--text-xs); color: var(--foreground-tertiary);
+}
+.ThemeChip__name { color: var(--foreground); font-weight: var(--weight-medium); }
+.ThemeChip__hint { padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+
+/* ----- Tab active-indicator contract -----
+   Driven by --tab-active-indicator, mirrored to [data-tab-indicator]. */
+[data-tab-indicator="underline"] .Tab--active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: var(--tab-active-indicator-thickness);
+  background: var(--tab-active-indicator-color);
+}
+[data-tab-indicator="border"] .Tab--active::after { display: none; }
+[data-tab-indicator="border"] .Tab--active {
+  border-bottom: var(--tab-active-indicator-thickness) solid var(--tab-active-indicator-color);
+}
+[data-tab-indicator="fill"] .Tab--active::after { display: none; }
+[data-tab-indicator="fill"] .Tab--active {
+  background: var(--tab-active-indicator-color);
+  color: var(--background);
+}
+[data-tab-indicator="none"] .Tab--active::after { display: none; }
+
+/* ----- Sidebar active-row shape contract -----
+   Driven by --sidebar-active-shape, mirrored to [data-sidebar-active]. */
+[data-sidebar-active="ribbon"] .TreeRow--active::before {
+  content: ""; display: block; width: 2px; height: 14px;
+  background: var(--sidebar-active-bar); border-radius: 1px;
+  margin-left: -6px; margin-right: 4px;
+}
+[data-sidebar-active="ribbon"] .ActivityBar__btn--active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 2px; background: var(--sidebar-active-bar); border-radius: 1px;
+}
+[data-sidebar-active="fill"] .TreeRow--active::before { display: none; }
+[data-sidebar-active="fill"] .TreeRow--active {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+[data-sidebar-active="weight"] .TreeRow--active {
+  background: transparent;
+  font-weight: var(--weight-semibold);
+}
+[data-sidebar-active="weight"] .TreeRow--active::before {
+  content: ""; display: block; width: 2px; height: 14px;
+  background: var(--foreground); border-radius: 1px;
+  margin-left: -6px; margin-right: 4px;
+}
+[data-sidebar-active="weight"] .ActivityBar__btn--active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 2px; background: var(--foreground); border-radius: 1px;
+}
+[data-sidebar-active="invert"] .TreeRow--active::before { display: none; }
+[data-sidebar-active="invert"] .TreeRow--active {
+  background: var(--interactive);
+  color: var(--background);
+}
+
+/* ----- Editor heading-prefix contract ----- */
+.Editor__title::before { content: var(--heading-prefix-h1); color: var(--heading-prefix-color); }
+.Editor h2::before     { content: var(--heading-prefix-h2); color: var(--heading-prefix-color); }
+.Editor h3::before     { content: var(--heading-prefix-h3); color: var(--heading-prefix-color); }

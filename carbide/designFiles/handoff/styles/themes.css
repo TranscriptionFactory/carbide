@@ -1,0 +1,271 @@
+/* ============================================================
+   Theme overrides — each [data-theme] block ONLY touches the
+   tokens that need to change vs defaults. This is how the
+   architecture supports radically different feels without
+   re-stating every variable.
+   ============================================================ */
+
+/* ============== Carbide Refined (default) ==================
+   No overrides needed — uses tokens.css defaults straight.
+   Listed here so theme picker can target it with data-theme.
+   ============================================================ */
+[data-theme="carbide"] {
+  /* default */
+}
+
+/* ============== IDE Cockpit ================================
+   Density-maximalist. Mono UI font. Hard borders. Color-coded
+   status bar. Sharper radii. Active row highlight ribbon.
+   ============================================================ */
+[data-theme="cockpit"] {
+  --font-ui: var(--font-mono);
+  --font-body: var(--font-mono);
+
+  --radius: 2px;
+  --radius-pill: 2px;
+
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 18px;
+
+  --size-titlebar: calc(28px * var(--density));
+  --size-activity-bar: calc(36px * var(--density));
+  --size-statusbar: calc(24px * var(--density));
+  --size-tabbar: calc(28px * var(--density));
+  --size-row: calc(22px * var(--density));
+
+  --interactive: oklch(0.72 0.18 145);
+  --focus-ring: oklch(0.72 0.18 145);
+  --ring: oklch(0.72 0.18 145);
+  --statusbar-bg: oklch(0.72 0.18 145);
+  --statusbar-fg: oklch(0.14 0 0);
+  --editor-link: oklch(0.65 0.18 220);
+  --editor-selection: oklch(0.72 0.18 145 / 0.25);
+
+  /* Affordance contract */
+  --statusbar-shape: "segments";
+  --tab-active-indicator: "underline";
+  --tab-active-indicator-thickness: 2px;
+  --sidebar-active-shape: "ribbon";
+}
+[data-theme="cockpit"][data-color-scheme="light"] {
+  --background: oklch(0.985 0.003 110);
+  --background-surface-2: oklch(0.965 0.004 110);
+  --background-surface-3: oklch(0.94 0.005 110);
+  --foreground: oklch(0.20 0.01 220);
+  --border: oklch(0.85 0.01 220);
+  --border-strong: oklch(0.65 0.01 220);
+  --sidebar: oklch(0.96 0.004 110);
+  --sidebar-border: oklch(0.85 0.01 220);
+  --tab-inactive-bg: oklch(0.94 0.005 110);
+  --editor-code-bg: oklch(0.94 0.005 110);
+}
+[data-theme="cockpit"][data-color-scheme="dark"] {
+  --background: oklch(0.16 0.01 250);
+  --background-surface-2: oklch(0.19 0.012 250);
+  --background-surface-3: oklch(0.22 0.014 250);
+  --foreground: oklch(0.92 0.01 110);
+  --foreground-secondary: oklch(0.75 0.01 110);
+  --foreground-tertiary: oklch(0.55 0.01 110);
+  --border: oklch(1 0 0 / 0.12);
+  --border-strong: oklch(1 0 0 / 0.30);
+  --sidebar: oklch(0.18 0.012 250);
+  --sidebar-border: oklch(1 0 0 / 0.10);
+  --tab-inactive-bg: oklch(0.20 0.012 250);
+  --tab-active-bg: oklch(0.16 0.01 250);
+  --editor-code-bg: oklch(0.21 0.013 250);
+  --editor-selection: oklch(0.72 0.18 145 / 0.20);
+}
+
+/* ============== Paper Zen =================================
+   Warm off-white, serif body, hairline rules, generous space.
+   Chrome shrinks. Active item just gets weight, not color.
+   ============================================================ */
+[data-theme="paper"] {
+  --font-ui: var(--font-serif);
+  --font-body: var(--font-serif);
+  --font-code: var(--font-mono);
+
+  --radius: 0px;
+  --radius-pill: 999px;
+
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 32px;
+  --leading-normal: 1.6;
+
+  --size-titlebar: calc(36px * var(--density));
+  --size-activity-bar: calc(48px * var(--density));
+  --size-statusbar: calc(20px * var(--density));
+  --size-tabbar: calc(38px * var(--density));
+  --size-row: calc(30px * var(--density));
+
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: 0 8px 24px oklch(0 0 0 / 0.08);
+
+  /* Affordance contract */
+  --statusbar-shape: "transparent";
+  --tab-active-indicator: "border";
+  --tab-active-indicator-thickness: 1px;
+  --sidebar-active-shape: "weight";
+}
+[data-theme="paper"][data-color-scheme="light"] {
+  --background: oklch(0.985 0.012 80);
+  --background-surface-2: oklch(0.97 0.014 80);
+  --background-surface-3: oklch(0.95 0.016 80);
+  --foreground: oklch(0.22 0.01 60);
+  --foreground-secondary: oklch(0.42 0.01 60);
+  --foreground-tertiary: oklch(0.58 0.012 60);
+  --border: oklch(0.88 0.012 70);
+  --border-strong: oklch(0.72 0.014 70);
+  --border-subtle: oklch(0.93 0.012 70);
+  --sidebar: oklch(0.97 0.014 80);
+  --sidebar-border: oklch(0.88 0.012 70);
+  --sidebar-accent: oklch(0.93 0.014 70);
+  --interactive: oklch(0.40 0.10 30);
+  --focus-ring: oklch(0.55 0.10 30);
+  --ring: oklch(0.55 0.10 30);
+  --statusbar-bg: transparent;
+  --statusbar-fg: oklch(0.42 0.01 60);
+  --tab-inactive-bg: oklch(0.97 0.014 80);
+  --tab-active-bg: oklch(0.985 0.012 80);
+  --editor-link: oklch(0.40 0.10 30);
+  --editor-selection: oklch(0.85 0.06 70 / 0.7);
+  --editor-code-bg: oklch(0.95 0.016 80);
+}
+[data-theme="paper"][data-color-scheme="dark"] {
+  --background: oklch(0.20 0.012 60);
+  --background-surface-2: oklch(0.23 0.013 60);
+  --background-surface-3: oklch(0.26 0.014 60);
+  --foreground: oklch(0.93 0.012 80);
+  --foreground-secondary: oklch(0.78 0.012 80);
+  --foreground-tertiary: oklch(0.60 0.012 80);
+  --border: oklch(1 0 0 / 0.10);
+  --border-strong: oklch(1 0 0 / 0.20);
+  --sidebar: oklch(0.22 0.013 60);
+  --sidebar-border: oklch(1 0 0 / 0.08);
+  --sidebar-accent: oklch(0.28 0.014 60);
+  --interactive: oklch(0.78 0.12 60);
+  --focus-ring: oklch(0.78 0.12 60);
+  --statusbar-bg: transparent;
+  --statusbar-fg: oklch(0.78 0.012 80);
+  --tab-inactive-bg: oklch(0.22 0.013 60);
+  --tab-active-bg: oklch(0.20 0.012 60);
+  --editor-link: oklch(0.78 0.12 60);
+  --editor-code-bg: oklch(0.25 0.014 60);
+}
+
+/* ============== Terminal Phosphor =========================
+   Hard black, mono everything, single-hue accent (amber/green).
+   No radius. Inverted selection. Aggressive text styling.
+   ============================================================ */
+[data-theme="terminal"] {
+  --font-ui: var(--font-mono);
+  --font-body: var(--font-mono);
+  --font-code: var(--font-mono);
+
+  --radius: 0px;
+  --radius-pill: 0px;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --leading-normal: 1.45;
+
+  --size-titlebar: calc(26px * var(--density));
+  --size-activity-bar: calc(32px * var(--density));
+  --size-statusbar: calc(20px * var(--density));
+  --size-tabbar: calc(26px * var(--density));
+  --size-row: calc(22px * var(--density));
+
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
+
+  /* Affordance contract */
+  --statusbar-shape: "bar";
+  --tab-active-indicator: "border";
+  --tab-active-indicator-thickness: 2px;
+  --sidebar-active-shape: "invert";
+  --heading-prefix-h1: "# ";
+  --heading-prefix-h2: "## ";
+  --heading-prefix-h3: "### ";
+}
+[data-theme="terminal"][data-color-scheme="dark"] {
+  --background: oklch(0.10 0.005 80);
+  --background-surface-2: oklch(0.13 0.008 80);
+  --background-surface-3: oklch(0.16 0.010 80);
+  --foreground: oklch(0.85 0.16 85);
+  --foreground-secondary: oklch(0.70 0.14 85);
+  --foreground-tertiary: oklch(0.50 0.10 85);
+  --border: oklch(0.30 0.06 85);
+  --border-strong: oklch(0.55 0.12 85);
+  --border-subtle: oklch(0.20 0.04 85);
+  --sidebar: oklch(0.10 0.005 80);
+  --sidebar-foreground: oklch(0.78 0.14 85);
+  --sidebar-border: oklch(0.30 0.06 85);
+  --sidebar-accent: oklch(0.18 0.04 85);
+  --sidebar-accent-foreground: oklch(0.95 0.16 85);
+  --interactive: oklch(0.85 0.16 85);
+  --interactive-hover: oklch(0.92 0.16 85);
+  --focus-ring: oklch(0.85 0.16 85);
+  --ring: oklch(0.85 0.16 85);
+  --accent: oklch(0.18 0.04 85);
+  --accent-foreground: oklch(0.95 0.16 85);
+  --accent-hover: oklch(0.22 0.05 85);
+  --statusbar-bg: oklch(0.85 0.16 85);
+  --statusbar-fg: oklch(0.10 0.005 80);
+  --tab-active-bg: oklch(0.10 0.005 80);
+  --tab-inactive-bg: oklch(0.13 0.008 80);
+  --tab-active-fg: oklch(0.95 0.16 85);
+  --tab-inactive-fg: oklch(0.55 0.10 85);
+  --editor-link: oklch(0.75 0.18 200);
+  --editor-selection: oklch(0.85 0.16 85 / 0.30);
+  --editor-code-bg: oklch(0.13 0.008 80);
+  --editor-heading: oklch(0.95 0.16 85);
+  --card: oklch(0.13 0.008 80);
+  --card-foreground: oklch(0.85 0.16 85);
+  --popover: oklch(0.10 0.005 80);
+  --popover-foreground: oklch(0.85 0.16 85);
+  --muted: oklch(0.16 0.010 80);
+  --muted-foreground: oklch(0.55 0.10 85);
+}
+/* Terminal theme is dark-first; light variant is "paper terminal" */
+[data-theme="terminal"][data-color-scheme="light"] {
+  --background: oklch(0.97 0.012 85);
+  --background-surface-2: oklch(0.94 0.014 85);
+  --background-surface-3: oklch(0.91 0.016 85);
+  --foreground: oklch(0.25 0.06 30);
+  --foreground-secondary: oklch(0.40 0.06 30);
+  --foreground-tertiary: oklch(0.55 0.05 30);
+  --border: oklch(0.40 0.06 30);
+  --border-strong: oklch(0.25 0.06 30);
+  --sidebar: oklch(0.94 0.014 85);
+  --sidebar-foreground: oklch(0.25 0.06 30);
+  --sidebar-border: oklch(0.40 0.06 30);
+  --interactive: oklch(0.25 0.06 30);
+  --focus-ring: oklch(0.25 0.06 30);
+  --statusbar-bg: oklch(0.25 0.06 30);
+  --statusbar-fg: oklch(0.97 0.012 85);
+  --tab-active-bg: oklch(0.97 0.012 85);
+  --tab-inactive-bg: oklch(0.94 0.014 85);
+  --editor-link: oklch(0.45 0.14 250);
+  --editor-selection: oklch(0.25 0.06 30 / 0.18);
+  --editor-code-bg: oklch(0.94 0.014 85);
+}
+
+/* ============== Density tokens =============================
+   Tweaks rewrite --density on :root. All chrome sizes scale.
+   ============================================================ */
+[data-density="compact"]  { --density: 0.85; }
+[data-density="regular"]  { --density: 1;    }
+[data-density="airy"]     { --density: 1.18; }
