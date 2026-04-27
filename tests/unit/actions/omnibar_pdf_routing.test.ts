@@ -159,7 +159,7 @@ describe("omnibar confirm_item routing", () => {
     );
 
     const item = make_note_item("@linked/zotero/paper.pdf");
-    item.note.file_type = "pdf";
+    if (item.kind === "note") item.note.file_type = "pdf";
 
     await registry.execute(ACTION_IDS.omnibar_confirm_item, item);
 
