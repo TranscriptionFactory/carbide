@@ -40,38 +40,61 @@ export function describe_suggestion_location(path: string): string {
 }
 
 type ExtractedQuery =
-  | { mode: "note"; query: string; offset: number }
+  | { mode: "note"; query: string; offset: number; is_embed: boolean }
   | {
       mode: "heading";
       query: string;
       offset: number;
+      is_embed: boolean;
       note_name: string | null;
       heading_query: string;
+    }
+  | {
+      mode: "block";
+      query: string;
+      offset: number;
+      is_embed: boolean;
+      note_name: string | null;
+      block_query: string;
     };
 
-function extract_wiki_query(text_before: string): ExtractedQuery | null {
+export function extract_wiki_query(text_before: string): ExtractedQuery | null {
   const open_idx = text_before.lastIndexOf("[[");
   if (open_idx === -1) return null;
   const after_open = text_before.slice(open_idx + 2);
   if (after_open.includes("]]") || after_open.includes("\n")) return null;
   if (after_open.includes("|")) return null;
 
+  const is_embed = open_idx > 0 && text_before[open_idx - 1] === "!";
+  const effective_offset = is_embed ? open_idx - 1 : open_idx;
+
   const hash_idx = after_open.indexOf("#");
   if (hash_idx !== -1) {
     const note_name = after_open.slice(0, hash_idx);
     const after_hash = after_open.slice(hash_idx + 1);
-    if (after_hash.startsWith("^")) return null;
+    if (after_hash.startsWith("^")) {
+      const block_query = after_hash.slice(1);
+      return {
+        mode: "block",
+        query: after_open,
+        offset: effective_offset,
+        is_embed,
+        note_name: note_name.length > 0 ? note_name : null,
+        block_query,
+      };
+    }
     const heading_query = after_hash;
     return {
       mode: "heading",
       query: after_open,
-      offset: open_idx,
+      offset: effective_offset,
+      is_embed,
       note_name: note_name.length > 0 ? note_name : null,
       heading_query,
     };
   }
 
-  return { mode: "note", query: after_open, offset: open_idx };
+  return { mode: "note", query: after_open, offset: effective_offset, is_embed };
 }
 
 function render_items(
@@ -141,8 +164,9 @@ function render_items(
   }
 }
 
-let current_mode: "note" | "heading" = "note";
+let current_mode: "note" | "heading" | "block" = "note";
 let current_note_name: string | null = null;
+let current_is_embed = false;
 
 export function create_wiki_suggest_prose_plugin(
   config: WikiSuggestPluginConfig,
@@ -154,7 +178,11 @@ export function create_wiki_suggest_prose_plugin(
       const result = extract_wiki_query(text_before);
       if (!result) return null;
       current_mode = result.mode;
-      current_note_name = result.mode === "heading" ? result.note_name : null;
+      current_is_embed = result.is_embed;
+      current_note_name =
+        result.mode === "heading" || result.mode === "block"
+          ? result.note_name
+          : null;
       return {
         query: result.query,
         from_offset: result.offset,
@@ -163,16 +191,17 @@ export function create_wiki_suggest_prose_plugin(
     },
     render_items,
     accept(view, item, state) {
-      let replacement: string;
+      const prefix = current_is_embed ? "!" : "";
+      let inner: string;
       if (item.kind === "heading") {
         const note_prefix = current_note_name ?? "";
-        replacement = note_prefix
-          ? `[[${note_prefix}#${item.text}]]`
-          : `[[#${item.text}]]`;
+        inner = note_prefix
+          ? `${note_prefix}#${item.text}`
+          : `#${item.text}`;
       } else {
-        const target = format_wiki_display(item.path);
-        replacement = `[[${target}]]`;
+        inner = format_wiki_display(item.path);
       }
+      const replacement = `${prefix}[[${inner}]]`;
 
       const selection_from = view.state.selection.from;
       const replace_to = Math.min(
@@ -207,6 +236,12 @@ export function create_wiki_suggest_prose_plugin(
           note_name: result.note_name,
           heading_query: result.heading_query,
         });
+      } else if (result.mode === "block") {
+        config.on_query({
+          kind: "block",
+          note_name: result.note_name,
+          block_query: result.block_query,
+        });
       } else {
         config.on_query({ kind: "note", query: result.query });
       }
@@ -215,16 +250,18 @@ export function create_wiki_suggest_prose_plugin(
     query_changed(prev, result) {
       const new_mode = current_mode;
       const old_mode_key = prev.query
-        ? prev.query.includes("#")
-          ? "heading"
-          : "note"
+        ? prev.query.includes("#^")
+          ? "block"
+          : prev.query.includes("#")
+            ? "heading"
+            : "note"
         : "note";
       return (
         result.query !== prev.query || new_mode !== old_mode_key || !prev.active
       );
     },
     handle_tab(view, state, accept_fn) {
-      if (current_mode === "heading") {
+      if (current_mode === "heading" || current_mode === "block") {
         if (state.items.length >= 1) {
           accept_fn(view, state.selected_index);
         }

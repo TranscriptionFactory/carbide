@@ -15,7 +15,8 @@ import type { Diagnostic } from "$lib/features/diagnostics";
 
 export type WikiQueryEvent =
   | { kind: "note"; query: string }
-  | { kind: "heading"; note_name: string | null; heading_query: string };
+  | { kind: "heading"; note_name: string | null; heading_query: string }
+  | { kind: "block"; note_name: string | null; block_query: string };
 
 export type BufferConfig = {
   note_path: string;

@@ -431,6 +431,45 @@ const callout_body: NodeSpec = {
   },
 };
 
+const note_embed: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+  marks: "",
+  attrs: {
+    src: { default: "" },
+    fragment: { default: null },
+    display_src: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: 'div[data-type="note-embed"]',
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          src: dom.getAttribute("data-src") ?? "",
+          fragment: dom.getAttribute("data-fragment") || null,
+          display_src: dom.getAttribute("data-display-src") ?? "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "div",
+      {
+        "data-type": "note-embed",
+        "data-src": node.attrs["src"] as string,
+        ...(node.attrs["fragment"]
+          ? { "data-fragment": node.attrs["fragment"] as string }
+          : {}),
+        "data-display-src": node.attrs["display_src"] as string,
+      },
+    ];
+  },
+};
+
 const file_embed: NodeSpec = {
   group: "block",
   atom: true,
@@ -794,6 +833,7 @@ export const schema = new Schema({
     callout_title,
     callout_body,
     excalidraw_embed,
+    note_embed,
     file_embed,
     "image-block": image_block,
     image,
