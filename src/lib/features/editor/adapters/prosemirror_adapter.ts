@@ -252,6 +252,10 @@ export function create_prosemirror_editor_port(args?: {
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
   task_port?: TaskPort;
+  note_embed?: {
+    read_note: (vault_id: string, note_path: string) => Promise<string>;
+    subscribe_to_changes: (handler: (event: import("$lib/features/watcher/types/watcher").VaultFsEvent) => void) => () => void;
+  };
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
   const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
@@ -259,6 +263,7 @@ export function create_prosemirror_editor_port(args?: {
   const slash_config = args?.slash_config;
   const ai_inline_config = args?.ai_inline_config;
   const task_port = args?.task_port;
+  const note_embed_args = args?.note_embed;
 
   return {
     start_session: (config) => {
@@ -323,6 +328,18 @@ export function create_prosemirror_editor_port(args?: {
               task_port,
               () => current_vault_id,
             ),
+          }),
+          ...(note_embed_args && {
+            note_embed: {
+              read_note: async (note_path: string) => {
+                const vid = current_vault_id;
+                if (!vid) return "";
+                const doc = await note_embed_args.read_note(vid, note_path);
+                return doc;
+              },
+              parse_markdown,
+              subscribe_to_changes: note_embed_args.subscribe_to_changes,
+            },
           }),
         },
         toolbar_config,

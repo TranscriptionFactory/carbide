@@ -12,6 +12,11 @@ import {
   file_embed_plugin_key,
 } from "../adapters/file_embed_plugin";
 import { create_file_embed_view_plugin } from "../adapters/file_embed_view_plugin";
+import {
+  create_note_embed_plugin,
+  note_embed_plugin_key,
+} from "../adapters/note_embed_plugin";
+import { create_note_embed_view_plugin } from "../adapters/note_embed_view_plugin";
 import { as_asset_path } from "$lib/shared/types/ids";
 import type { EditorExtension, PluginContext } from "./types";
 
@@ -58,7 +63,25 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
     }),
   );
 
+  plugins.push(create_note_embed_plugin());
+  if (ctx.note_embed) {
+    const note_ctx = ctx.note_embed;
+    plugins.push(
+      create_note_embed_view_plugin({
+        on_open_note: (path, fragment) => {
+          if (ctx.events.on_internal_link_click) {
+            const target = fragment ? `${path}#${fragment}` : path;
+            ctx.events.on_internal_link_click(target, ctx.get_note_path(), "wiki");
+          }
+        },
+        read_note: note_ctx.read_note,
+        parse_markdown: note_ctx.parse_markdown,
+        subscribe_to_changes: note_ctx.subscribe_to_changes,
+      }),
+    );
+  }
+
   return { plugins };
 }
 
-export { excalidraw_embed_plugin_key, file_embed_plugin_key };
+export { excalidraw_embed_plugin_key, file_embed_plugin_key, note_embed_plugin_key };

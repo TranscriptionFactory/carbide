@@ -274,6 +274,11 @@ function convert_block_node(node: PmNode): MdastNode | null {
       return { type: "wikiEmbed", value: `![[${src}]]` };
     }
 
+    case "note_embed": {
+      const display_src = (node.attrs["display_src"] as string) || "";
+      return { type: "wikiEmbed", value: `![[${display_src}]]` };
+    }
+
     case "file_embed": {
       const src = (node.attrs["src"] as string) || "";
       const params: string[] = [];

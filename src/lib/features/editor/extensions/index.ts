@@ -112,6 +112,7 @@ export type { CiteSuggestionItem } from "./suggest_extension";
 export {
   excalidraw_embed_plugin_key,
   file_embed_plugin_key,
+  note_embed_plugin_key,
 } from "./embed_extension";
 export type { ToolbarConfig } from "./toolbar_extension";
 export {
