@@ -279,6 +279,7 @@ export function create_test_ports(): Ports {
       search_linked_notes: () => Promise.resolve([]),
       update_linked_metadata: () => Promise.resolve(false),
       resolve_home_dir: () => Promise.resolve("/Users/test"),
+      resolve_linked_note_file_path: () => Promise.resolve(null),
     },
     mcp: {
       start: () =>

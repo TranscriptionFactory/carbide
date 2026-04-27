@@ -17,7 +17,7 @@
 
   let { tab_id, initial_query }: Props = $props();
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
 
   const instance = $derived(stores.search_graph.get_instance(tab_id));
   const snapshot = $derived(instance?.snapshot ?? null);
@@ -53,17 +53,16 @@
     });
   }
 
-  function resolve_file_path(path: string): string | null {
+  async function resolve_file_path(path: string): Promise<string | null> {
     if (is_linked_note_path(path)) {
-      const note = stores.notes.notes.find((n) => n.path === path);
-      return note?.external_file_path ?? null;
+      return services.reference.resolve_linked_note_file_path(path);
     }
     return path;
   }
 
-  function open_node(path: string) {
+  async function open_node(path: string) {
     if (detect_file_type(path)) {
-      const file_path = resolve_file_path(path);
+      const file_path = await resolve_file_path(path);
       if (file_path) {
         void action_registry.execute(ACTION_IDS.document_open, { file_path });
       }

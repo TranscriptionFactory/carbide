@@ -195,6 +195,7 @@ pub fn run() {
             features::search::service::count_linked_notes_by_source,
             features::search::service::find_note_by_citekey,
             features::search::service::search_linked_notes,
+            features::search::service::resolve_linked_note_file_path,
             features::search::service::update_linked_note_metadata,
             features::search::service::semantic_search,
             features::search::service::semantic_search_batch,

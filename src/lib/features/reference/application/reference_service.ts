@@ -405,6 +405,17 @@ export class ReferenceService {
     return this.linked_source_port.find_by_citekey(vault_id, citekey);
   }
 
+  async resolve_linked_note_file_path(
+    note_path: string,
+  ): Promise<string | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.linked_source_port) return null;
+    return this.linked_source_port.resolve_linked_note_file_path(
+      vault_id,
+      note_path,
+    );
+  }
+
   async search_linked_notes(query: string): Promise<LinkedNoteInfo[]> {
     if (!this.linked_source_port) return [];
     const vault_id = this.require_vault_id();

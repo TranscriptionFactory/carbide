@@ -95,4 +95,8 @@ export interface LinkedSourcePort {
   ): Promise<boolean>;
 
   resolve_home_dir(): Promise<string>;
+  resolve_linked_note_file_path(
+    vault_id: string,
+    note_path: string,
+  ): Promise<string | null>;
 }

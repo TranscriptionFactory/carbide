@@ -1333,6 +1333,21 @@ pub fn find_linked_note_path(
     Ok(path)
 }
 
+pub fn resolve_linked_note_file_path(
+    conn: &Connection,
+    note_path: &str,
+) -> Result<Option<(Option<String>, Option<String>, Option<String>)>, String> {
+    let row: Option<(Option<String>, Option<String>, Option<String>)> = conn
+        .query_row(
+            "SELECT external_file_path, home_relative_path, vault_relative_path FROM notes WHERE path = ?1 LIMIT 1",
+            params![note_path],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(row)
+}
+
 fn linked_note_info_from_row(
     row: &rusqlite::Row,
 ) -> rusqlite::Result<crate::features::search::model::LinkedNoteInfo> {
@@ -4207,6 +4222,49 @@ mod tests {
         let plan = compute_sync_plan(&vault_root, &manifest, &disk_files);
 
         assert_eq!(plan.removed, vec!["deleted.md".to_string()]);
+    }
+
+    #[test]
+    fn resolve_linked_note_file_path_returns_triple() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = crate::features::search::model::LinkedSourceMeta {
+            external_file_path: Some("/Users/old/Zotero/paper.pdf".to_string()),
+            home_relative_path: Some("~/Zotero/paper.pdf".to_string()),
+            vault_relative_path: Some("linked/paper.pdf".to_string()),
+            ..Default::default()
+        };
+
+        upsert_linked_content(
+            &conn,
+            "zotero",
+            "/Users/old/Zotero/paper.pdf",
+            "paper",
+            "body text",
+            &[],
+            "pdf",
+            100,
+            &meta,
+        )
+        .expect("upsert");
+
+        let result =
+            resolve_linked_note_file_path(&conn, "@linked/zotero/paper.pdf").expect("query");
+        let (ext, home, vault) = result.expect("should have row");
+        assert_eq!(ext, Some("/Users/old/Zotero/paper.pdf".to_string()));
+        assert_eq!(home, Some("~/Zotero/paper.pdf".to_string()));
+        assert_eq!(vault, Some("linked/paper.pdf".to_string()));
+    }
+
+    #[test]
+    fn resolve_linked_note_file_path_returns_none_for_missing() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let result =
+            resolve_linked_note_file_path(&conn, "@linked/zotero/missing.pdf").expect("query");
+        assert!(result.is_none());
     }
 }
 

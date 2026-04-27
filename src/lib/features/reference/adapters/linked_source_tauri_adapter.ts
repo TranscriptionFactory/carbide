@@ -123,5 +123,15 @@ export function create_linked_source_tauri_adapter(): LinkedSourcePort {
     async resolve_home_dir(): Promise<string> {
       return tauri_invoke<string>("resolve_home_dir", {});
     },
+
+    async resolve_linked_note_file_path(
+      vault_id: VaultId,
+      note_path: string,
+    ): Promise<string | null> {
+      return tauri_invoke<string | null>("resolve_linked_note_file_path", {
+        vaultId: vault_id,
+        notePath: note_path,
+      });
+    },
   };
 }

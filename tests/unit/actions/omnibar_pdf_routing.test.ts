@@ -34,11 +34,18 @@ function create_harness() {
     outline: new OutlineStore(),
   };
 
+  const resolve_linked_note_file_path = vi
+    .fn()
+    .mockResolvedValue(null as string | null);
+
   const services = {
     search: {
       search_omnibar: vi.fn().mockResolvedValue({ items: [] }),
       search_notes_all_vaults: vi.fn().mockResolvedValue({ groups: [] }),
       reset_search_notes_operation: vi.fn(),
+    },
+    reference: {
+      resolve_linked_note_file_path,
     },
   };
 
@@ -67,7 +74,14 @@ function create_harness() {
     execute: note_open,
   });
 
-  return { registry, stores, document_open, note_open };
+  return {
+    registry,
+    stores,
+    services,
+    document_open,
+    note_open,
+    resolve_linked_note_file_path,
+  };
 }
 
 function make_note_item(path: string): OmnibarItem {
@@ -134,6 +148,28 @@ describe("omnibar confirm_item routing", () => {
       cleanup_if_missing: true,
     });
     expect(document_open).not.toHaveBeenCalled();
+  });
+
+  it("resolves linked note PDF via reference service and dispatches document_open", async () => {
+    const { registry, document_open, note_open, resolve_linked_note_file_path } =
+      create_harness();
+
+    resolve_linked_note_file_path.mockResolvedValue(
+      "/Users/abir/Zotero/storage/paper.pdf",
+    );
+
+    const item = make_note_item("@linked/zotero/paper.pdf");
+    item.note.file_type = "pdf";
+
+    await registry.execute(ACTION_IDS.omnibar_confirm_item, item);
+
+    expect(resolve_linked_note_file_path).toHaveBeenCalledWith(
+      as_note_path("@linked/zotero/paper.pdf"),
+    );
+    expect(document_open).toHaveBeenCalledWith({
+      file_path: "/Users/abir/Zotero/storage/paper.pdf",
+    });
+    expect(note_open).not.toHaveBeenCalled();
   });
 
   it("routes a recent_note item with a .pdf path to document_open", async () => {
