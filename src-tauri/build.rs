@@ -1,13 +1,23 @@
 fn main() {
     ensure_default_icon();
     emit_icon_rerun();
-    println!(
-        "cargo:rustc-env=TARGET_TRIPLE={}",
-        std::env::var("TARGET").unwrap()
-    );
+    let target = std::env::var("TARGET").unwrap();
+    println!("cargo:rustc-env=TARGET_TRIPLE={}", target);
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-env=CARGO_MANIFEST_DIR={}", manifest_dir);
+    ensure_carbide_cli(&target);
     tauri_build::build()
+}
+
+fn ensure_carbide_cli(target: &str) {
+    let dest = std::path::PathBuf::from("binaries")
+        .join(format!("carbide-cli-{target}"));
+    if dest.exists() {
+        return;
+    }
+    let _ = std::fs::create_dir_all("binaries");
+    let _ = std::fs::write(&dest, b"");
+    println!("cargo:warning=created stub carbide-cli binary; run `cargo build -p carbide-cli` for the real one");
 }
 
 fn ensure_default_icon() {
