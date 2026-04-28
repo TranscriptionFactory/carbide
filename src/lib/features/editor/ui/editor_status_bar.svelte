@@ -358,8 +358,8 @@
     font-feature-settings: "tnum" 1;
     flex-shrink: 0;
     border-top: 1px solid var(--border);
-    background-color: color-mix(in oklch, var(--muted) 30%, transparent);
-    color: var(--muted-foreground);
+    background-color: var(--statusbar-bg);
+    color: var(--statusbar-fg);
   }
 
   .StatusBar__section {
@@ -375,11 +375,11 @@
   }
 
   .StatusBar__item--indexing {
-    color: var(--primary);
+    opacity: 1;
   }
 
   .StatusBar__item--repairing {
-    color: var(--primary);
+    opacity: 1;
   }
 
   .StatusBar__item--failed {
@@ -387,7 +387,7 @@
   }
 
   .StatusBar__item--completed {
-    color: var(--muted-foreground);
+    opacity: 0.7;
   }
 
   .StatusBar__item--saved {
@@ -400,7 +400,7 @@
   }
 
   .StatusBar__item--clickable:hover {
-    color: var(--interactive);
+    opacity: 1;
   }
 
   .StatusBar__separator {
@@ -430,7 +430,6 @@
 
   .StatusBar__vault-action:hover:not(:disabled) {
     opacity: 1;
-    color: var(--interactive);
   }
 
   .StatusBar__vault-action:focus-visible {
@@ -451,14 +450,12 @@
     width: var(--size-touch-xs);
     height: var(--size-touch-xs);
     border-radius: var(--radius-sm);
-    color: var(--muted-foreground);
     opacity: 0.7;
     transition: opacity var(--duration-fast) var(--ease-default);
   }
 
   .StatusBar__action:hover:not(:disabled) {
     opacity: 1;
-    color: var(--interactive);
   }
 
   .StatusBar__action:focus-visible {
@@ -473,7 +470,6 @@
   }
 
   .StatusBar__action--active {
-    color: var(--primary);
     opacity: 1;
   }
 
@@ -483,16 +479,12 @@
     padding: 0 var(--space-1);
     border-radius: var(--radius-sm);
     font-size: var(--text-xs);
-    color: var(--muted-foreground);
     opacity: 0.7;
-    transition:
-      opacity var(--duration-fast) var(--ease-default),
-      color var(--duration-fast) var(--ease-default);
+    transition: opacity var(--duration-fast) var(--ease-default);
   }
 
   .StatusBar__mode-toggle:hover {
     opacity: 1;
-    color: var(--interactive);
   }
 
   .StatusBar__mode-toggle--dimmed {
@@ -502,7 +494,6 @@
 
   .StatusBar__mode-toggle--active {
     opacity: 1;
-    color: var(--primary);
   }
 
   :global(.StatusBar__item svg),
