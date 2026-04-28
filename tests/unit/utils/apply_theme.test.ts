@@ -159,6 +159,57 @@ describe("apply_theme", () => {
     expect(attributes.get("data-theme")).toBe("cockpit");
   });
 
+  it("uses css_theme for data-theme when set", () => {
+    const paper_theme = {
+      ...BUILTIN_NORDIC_DARK,
+      css_theme: "paper" as const,
+    };
+    apply_theme(paper_theme);
+    expect(attributes.get("data-theme")).toBe("paper");
+  });
+
+  it("css_theme overrides layout_variant for data-theme", () => {
+    const theme = {
+      ...BUILTIN_NORDIC_DARK,
+      layout_variant: "cockpit" as const,
+      css_theme: "terminal" as const,
+    };
+    apply_theme(theme);
+    expect(attributes.get("data-theme")).toBe("terminal");
+  });
+
+  it("sets data-density attribute from theme.density", () => {
+    apply_theme(BUILTIN_NORDIC_DARK);
+    expect(attributes.get("data-density")).toBe("regular");
+
+    const compact_theme = {
+      ...BUILTIN_NORDIC_DARK,
+      density: "compact" as const,
+    };
+    apply_theme(compact_theme);
+    expect(attributes.get("data-density")).toBe("compact");
+
+    const airy_theme = {
+      ...BUILTIN_NORDIC_DARK,
+      density: "airy" as const,
+    };
+    apply_theme(airy_theme);
+    expect(attributes.get("data-density")).toBe("airy");
+  });
+
+  it("includes data_theme and density in FOUC cache", () => {
+    const paper_theme = {
+      ...BUILTIN_NORDIC_DARK,
+      css_theme: "paper" as const,
+      density: "compact" as const,
+    };
+    apply_theme(paper_theme);
+    expect(set_item).toHaveBeenCalledOnce();
+    const cached = JSON.parse(set_item.mock.calls[0]![1] as string);
+    expect(cached.data_theme).toBe("paper");
+    expect(cached.density).toBe("compact");
+  });
+
   it("does not throw when document is undefined", () => {
     (globalThis as { document: Document | undefined }).document = undefined;
     expect(() => {

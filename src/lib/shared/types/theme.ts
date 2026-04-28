@@ -1236,7 +1236,6 @@ const BP_DRIFT: ThemeBlueprint = {
   color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
-
 const BP_TERMINAL: ThemeBlueprint = {
   base_name: "Terminal",
   surface_hue: 120,
