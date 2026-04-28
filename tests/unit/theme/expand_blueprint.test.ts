@@ -3,6 +3,7 @@ import { expand_blueprint, type ThemeBlueprint } from "$lib/shared/types/theme";
 
 const MINIMAL_BP: ThemeBlueprint = {
   base_name: "Test Theme",
+  category: "core",
   surface_hue: 200,
   surface_chroma: 0.02,
   accent_hue: 300,

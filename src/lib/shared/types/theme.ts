@@ -23,6 +23,15 @@ export type ThemeCodeBlockStyle = "default" | "borderless" | "filled";
 
 export type SurfaceStyle = "solid" | "glass" | "transparent";
 
+export type ThemeCategory = "core" | "stylized" | "layout" | "specialty";
+
+export const THEME_CATEGORY_LABELS: Record<ThemeCategory, string> = {
+  core: "Core",
+  stylized: "Stylized",
+  layout: "Layout",
+  specialty: "Specialty",
+};
+
 export type ThemeLayoutVariant =
   | "default"
   | "monolith"
@@ -45,6 +54,7 @@ export type Theme = {
   name: string;
   color_scheme: ThemeColorScheme;
   is_builtin: boolean;
+  category: ThemeCategory;
 
   layout_variant: ThemeLayoutVariant;
   css_theme: ThemeCssTheme | null;
@@ -99,7 +109,7 @@ export type Theme = {
 
 const SHARED_DEFAULTS: Omit<
   Theme,
-  "id" | "name" | "color_scheme" | "is_builtin"
+  "id" | "name" | "color_scheme" | "is_builtin" | "category"
 > = {
   layout_variant: "default",
   css_theme: null,
@@ -146,6 +156,7 @@ const SHARED_DEFAULTS: Omit<
 
 export type ThemeBlueprint = {
   base_name: string;
+  category: ThemeCategory;
   surface_hue: number;
   surface_chroma: number;
   accent_hue: number;
@@ -192,6 +203,7 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
       name: `${bp.base_name} ${scheme === "dark" ? "Dark" : "Light"}`,
       color_scheme: scheme,
       is_builtin: true,
+      category: bp.category,
       surface_hue: bp.surface_hue,
       surface_chroma: bp.surface_chroma,
       surface_style: bp.surface_style ?? "solid",
@@ -234,6 +246,7 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
 
 const BP_NORDIC: ThemeBlueprint = {
   base_name: "Nordic",
+  category: "core",
   surface_hue: 68,
   surface_chroma: 0.008,
   accent_hue: 155,
@@ -242,6 +255,7 @@ const BP_NORDIC: ThemeBlueprint = {
 
 const BP_BRUTALIST: ThemeBlueprint = {
   base_name: "Brutalist",
+  category: "core",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 30,
@@ -335,6 +349,7 @@ const BP_BRUTALIST: ThemeBlueprint = {
 
 const BP_NEON: ThemeBlueprint = {
   base_name: "Neon",
+  category: "stylized",
   surface_hue: 280,
   surface_chroma: 0.015,
   accent_hue: 300,
@@ -423,6 +438,7 @@ const BP_NEON: ThemeBlueprint = {
 
 const BP_PAPER: ThemeBlueprint = {
   base_name: "Paper",
+  category: "core",
   surface_hue: 55,
   surface_chroma: 0.015,
   accent_hue: 45,
@@ -513,6 +529,7 @@ const BP_PAPER: ThemeBlueprint = {
 
 const BP_FLOATING: ThemeBlueprint = {
   base_name: "Floating",
+  category: "stylized",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 250,
@@ -598,6 +615,7 @@ const BP_FLOATING: ThemeBlueprint = {
 
 const BP_GLASS: ThemeBlueprint = {
   base_name: "Glass",
+  category: "stylized",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 250,
@@ -680,6 +698,7 @@ const BP_GLASS: ThemeBlueprint = {
 
 const BP_DENSE: ThemeBlueprint = {
   base_name: "Dense",
+  category: "core",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 250,
@@ -769,6 +788,7 @@ const BP_DENSE: ThemeBlueprint = {
 
 const BP_LINEAR: ThemeBlueprint = {
   base_name: "Linear",
+  category: "core",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 0,
@@ -857,6 +877,7 @@ const BP_LINEAR: ThemeBlueprint = {
 
 const BP_MONOLITH: ThemeBlueprint = {
   base_name: "Monolith",
+  category: "layout",
   surface_hue: 80,
   surface_chroma: 0.005,
   accent_hue: 60,
@@ -894,6 +915,7 @@ const BP_MONOLITH: ThemeBlueprint = {
 
 const BP_WORKBENCH: ThemeBlueprint = {
   base_name: "Workbench",
+  category: "layout",
   surface_hue: 250,
   surface_chroma: 0.01,
   accent_hue: 25,
@@ -935,6 +957,7 @@ const BP_WORKBENCH: ThemeBlueprint = {
 
 const BP_COMMAND_DECK: ThemeBlueprint = {
   base_name: "Command Deck",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 200,
@@ -959,6 +982,7 @@ const BP_COMMAND_DECK: ThemeBlueprint = {
 
 const BP_GROUNDED_HEAVY: ThemeBlueprint = {
   base_name: "Grounded Heavy",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 240,
@@ -978,6 +1002,7 @@ const BP_GROUNDED_HEAVY: ThemeBlueprint = {
 
 const BP_HUD: ThemeBlueprint = {
   base_name: "HUD",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 280,
@@ -997,6 +1022,7 @@ const BP_HUD: ThemeBlueprint = {
 
 const BP_ZEN_DECK: ThemeBlueprint = {
   base_name: "Zen Deck",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 180,
@@ -1016,6 +1042,7 @@ const BP_ZEN_DECK: ThemeBlueprint = {
 
 const BP_DASHBOARD: ThemeBlueprint = {
   base_name: "Dashboard",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 220,
@@ -1035,6 +1062,7 @@ const BP_DASHBOARD: ThemeBlueprint = {
 
 const BP_SPOTLIGHT: ThemeBlueprint = {
   base_name: "Spotlight",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 210,
@@ -1063,6 +1091,7 @@ const BP_SPOTLIGHT: ThemeBlueprint = {
 
 const BP_COCKPIT: ThemeBlueprint = {
   base_name: "Cockpit",
+  category: "layout",
   surface_hue: 170,
   surface_chroma: 0.005,
   accent_hue: 170,
@@ -1088,6 +1117,7 @@ const BP_COCKPIT: ThemeBlueprint = {
 
 const BP_THEATER: ThemeBlueprint = {
   base_name: "Theater",
+  category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
   accent_hue: 260,
@@ -1114,6 +1144,7 @@ const BP_THEATER: ThemeBlueprint = {
 
 const BP_TRIPTYCH: ThemeBlueprint = {
   base_name: "Triptych",
+  category: "layout",
   surface_hue: 145,
   surface_chroma: 0.003,
   accent_hue: 145,
@@ -1142,6 +1173,7 @@ const BP_TRIPTYCH: ThemeBlueprint = {
 
 const BP_LATTICE: ThemeBlueprint = {
   base_name: "Lattice",
+  category: "layout",
   surface_hue: 190,
   surface_chroma: 0.004,
   accent_hue: 190,
@@ -1204,6 +1236,7 @@ const OBSIDIAN_DARK_COLORS: Record<string, string> = {
 
 const BP_OBSIDIAN: ThemeBlueprint = {
   base_name: "Obsidian",
+  category: "specialty",
   surface_hue: 275,
   surface_chroma: 0.018,
   accent_hue: 285,
@@ -1221,6 +1254,7 @@ const BP_OBSIDIAN: ThemeBlueprint = {
 
 const BP_DRIFT: ThemeBlueprint = {
   base_name: "Drift",
+  category: "specialty",
   surface_hue: 275,
   surface_chroma: 0.018,
   accent_hue: 285,
@@ -1238,6 +1272,7 @@ const BP_DRIFT: ThemeBlueprint = {
 
 const BP_TERMINAL: ThemeBlueprint = {
   base_name: "Terminal",
+  category: "specialty",
   surface_hue: 120,
   surface_chroma: 0.005,
   accent_hue: 130,
@@ -1379,4 +1414,34 @@ export function find_paired_theme_id(
   );
   if (paired) return paired.id;
   return all_themes.find((t) => t.color_scheme === target_scheme)?.id ?? null;
+}
+
+export type ThemeCategoryGroup = {
+  category: ThemeCategory;
+  label: string;
+  themes: Theme[];
+};
+
+const CATEGORY_ORDER: ThemeCategory[] = [
+  "core",
+  "stylized",
+  "layout",
+  "specialty",
+];
+
+export function group_themes_by_category(
+  themes: Theme[],
+): ThemeCategoryGroup[] {
+  const by_cat = new Map<ThemeCategory, Theme[]>();
+  for (const t of themes) {
+    const cat = t.category;
+    const arr = by_cat.get(cat);
+    if (arr) arr.push(t);
+    else by_cat.set(cat, [t]);
+  }
+  return CATEGORY_ORDER.filter((c) => by_cat.has(c)).map((c) => ({
+    category: c,
+    label: THEME_CATEGORY_LABELS[c],
+    themes: by_cat.get(c)!,
+  }));
 }
