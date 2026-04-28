@@ -32,6 +32,11 @@ describe("apply_theme", () => {
     const document_stub = { documentElement: root };
     globalThis.document = document_stub as Document;
 
+    globalThis.getComputedStyle = () =>
+      ({
+        getPropertyValue: () => "",
+      }) as unknown as CSSStyleDeclaration;
+
     set_item = vi.fn();
     const localStorage_stub = {
       getItem: () => null,
@@ -140,6 +145,18 @@ describe("apply_theme", () => {
     };
     apply_theme(custom);
     expect(store.get("--editor-bold-color")).toBe("var(--primary)");
+  });
+
+  it("sets data-theme attribute based on layout_variant", () => {
+    apply_theme(BUILTIN_NORDIC_DARK);
+    expect(attributes.get("data-theme")).toBe("carbide");
+
+    const cockpit_theme = {
+      ...BUILTIN_NORDIC_DARK,
+      layout_variant: "cockpit" as const,
+    };
+    apply_theme(cockpit_theme);
+    expect(attributes.get("data-theme")).toBe("cockpit");
   });
 
   it("does not throw when document is undefined", () => {

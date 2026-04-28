@@ -4,6 +4,7 @@ import {
   generate_ui_tokens,
 } from "$lib/shared/utils/palette_generator";
 import { resolve_font_stack } from "$lib/shared/utils/theme_helpers";
+import { apply_affordances } from "$lib/shared/utils/apply_affordances";
 
 const SPACING_MAP: Record<string, string> = {
   extra_compact: "0.75rem",
@@ -136,6 +137,14 @@ function build_token_entries(theme: Theme): [string, string][] {
   return entries;
 }
 
+const LAYOUT_TO_DATA_THEME: Record<string, string> = {
+  cockpit: "cockpit",
+};
+
+function resolve_data_theme(layout_variant: string): string {
+  return LAYOUT_TO_DATA_THEME[layout_variant] ?? "carbide";
+}
+
 let applied_property_keys: string[] = [];
 
 export function apply_theme(
@@ -170,6 +179,11 @@ export function apply_theme(
   for (const [key, value] of entries) {
     root.style.setProperty(key, value);
   }
+
+  const data_theme = resolve_data_theme(theme.layout_variant);
+  root.setAttribute("data-theme", data_theme);
+
+  apply_affordances();
 
   if (options.persist_to_cache !== false) {
     cache_theme_for_fouc(theme, entries, options.color_scheme_preference);

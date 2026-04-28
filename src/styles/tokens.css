@@ -37,7 +37,8 @@
 
   /* Type scale */
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "Inter", sans-serif;
-  --font-serif: "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, serif;
+  --font-serif:
+    "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
   --font-ui: var(--font-sans);
   --font-body: var(--font-sans);
@@ -78,7 +79,7 @@
   /* Shadows */
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
   --shadow-2: 0 4px 12px oklch(0 0 0 / 0.06), 0 1px 3px oklch(0 0 0 / 0.04);
-  --shadow-3: 0 12px 32px oklch(0 0 0 / 0.10), 0 2px 6px oklch(0 0 0 / 0.05);
+  --shadow-3: 0 12px 32px oklch(0 0 0 / 0.1), 0 2px 6px oklch(0 0 0 / 0.05);
 }
 
 /* ----------- Tier 2: Semantic (LIGHT default) ----------- */
@@ -108,7 +109,7 @@
   --accent-hover: oklch(0.93 0 0);
 
   --interactive: oklch(0.55 0.18 255);
-  --interactive-hover: oklch(0.50 0.18 255);
+  --interactive-hover: oklch(0.5 0.18 255);
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.62 0.14 152);
   --warning: oklch(0.74 0.16 75);
@@ -134,7 +135,7 @@
   --editor-foreground: var(--foreground);
   --editor-gutter: var(--foreground-tertiary);
   --editor-selection: oklch(0.85 0.04 255 / 0.6);
-  --editor-link: oklch(0.50 0.18 255);
+  --editor-link: oklch(0.5 0.18 255);
   --editor-heading: var(--foreground);
   --editor-code-bg: oklch(0.96 0 0);
 
@@ -151,17 +152,21 @@
 
   /* ----- Tier 3: Affordance flags (defaults) -----
      Themes flip these to reshape components without editing component code. */
-  --statusbar-shape: "bar";          /* "bar" | "transparent" | "segments" */
-  --statusbar-divider: color-mix(in oklch, var(--statusbar-fg) 20%, transparent);
+  --statusbar-shape: "bar"; /* "bar" | "transparent" | "segments" */
+  --statusbar-divider: color-mix(
+    in oklch,
+    var(--statusbar-fg) 20%,
+    transparent
+  );
   --statusbar-segment-pad: var(--space-3);
 
-  --tab-active-indicator: "underline";  /* "underline" | "border" | "fill" | "none" */
+  --tab-active-indicator: "underline"; /* "underline" | "border" | "fill" | "none" */
   --tab-active-indicator-color: var(--interactive);
   --tab-active-indicator-thickness: 2px;
 
-  --sidebar-active-shape: "ribbon";     /* "ribbon" | "fill" | "weight" | "invert" */
+  --sidebar-active-shape: "ribbon"; /* "ribbon" | "fill" | "weight" | "invert" */
 
-  --heading-prefix-h1: "";              /* themes can set "# ", etc. */
+  --heading-prefix-h1: ""; /* themes can set "# ", etc. */
   --heading-prefix-h2: "";
   --heading-prefix-h3: "";
   --heading-prefix-color: var(--foreground-tertiary);
@@ -181,7 +186,7 @@
 /* ----------- Tier 2: Semantic (DARK) ----------- */
 [data-color-scheme="dark"] {
   --background: oklch(0.16 0 0);
-  --background-surface-2: oklch(0.20 0 0);
+  --background-surface-2: oklch(0.2 0 0);
   --background-surface-3: oklch(0.235 0 0);
   --foreground: oklch(0.96 0 0);
   --foreground-secondary: oklch(0.78 0 0);
@@ -206,11 +211,11 @@
   --interactive: oklch(0.66 0.16 255);
   --interactive-hover: oklch(0.72 0.16 255);
   --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.70 0.14 152);
-  --warning: oklch(0.80 0.16 75);
+  --success: oklch(0.7 0.14 152);
+  --warning: oklch(0.8 0.16 75);
 
-  --border: oklch(1 0 0 / 0.10);
-  --border-strong: oklch(1 0 0 / 0.20);
+  --border: oklch(1 0 0 / 0.1);
+  --border-strong: oklch(1 0 0 / 0.2);
   --border-subtle: oklch(1 0 0 / 0.06);
   --input: oklch(1 0 0 / 0.15);
   --ring: oklch(0.66 0.16 255);
@@ -234,7 +239,7 @@
 
   --tab-active-bg: var(--background);
   --tab-active-fg: var(--foreground);
-  --tab-inactive-bg: oklch(0.20 0 0);
+  --tab-inactive-bg: oklch(0.2 0 0);
   --tab-inactive-fg: var(--foreground-tertiary);
   --tab-border: var(--border);
 
