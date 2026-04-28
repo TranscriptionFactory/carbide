@@ -625,8 +625,6 @@
             {color_scheme_preference}
             {system_light_theme_id}
             {system_dark_theme_id}
-            {editor_settings}
-            on_editor_update={update}
             on_switch={on_theme_switch}
             on_create={on_theme_create}
             on_duplicate={on_theme_duplicate}
