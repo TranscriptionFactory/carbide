@@ -9,7 +9,7 @@ describe("source_editor_theme", () => {
   it("uses a dedicated source editor background token", () => {
     expect(build_source_editor_background_theme_spec()).toEqual({
       "&": {
-        backgroundColor: "var(--editor-source-bg, var(--background))",
+        backgroundColor: "var(--editor-source-bg, var(--editor-background))",
       },
     });
   });
@@ -20,7 +20,7 @@ describe("source_editor_theme", () => {
     expect(spec[".cm-gutters"]).toEqual({
       backgroundColor: "transparent",
       borderRight: "1px solid var(--border)",
-      color: "var(--muted-foreground)",
+      color: "var(--editor-gutter)",
       opacity: "0.5",
     });
   });
