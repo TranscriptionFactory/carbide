@@ -618,21 +618,23 @@
           ][d.getMonth()],
       };
 
+      const DATE_TOKEN_KEYS = Object.keys(DATE_TOKENS).sort(
+        (a, b) => b.length - a.length,
+      );
+
       function format_date(fmt) {
         const now = new Date();
         let result = fmt || "YYYY-MM-DD";
-        const sorted_keys = Object.keys(DATE_TOKENS).sort(
-          (a, b) => b.length - a.length,
-        );
-        for (const key of sorted_keys) {
+        for (const key of DATE_TOKEN_KEYS) {
           result = result.replaceAll(key, DATE_TOKENS[key](now));
         }
         return result;
       }
 
       // Date & time
+      let default_date_format = "YYYY-MM-DD";
       TemplateEngine.register_helper("date", (fmt) =>
-        format_date(fmt || "YYYY-MM-DD"),
+        format_date(fmt || default_date_format),
       );
       TemplateEngine.register_helper("time", (fmt) =>
         format_date(fmt || "HH:mm"),
@@ -659,13 +661,14 @@
         const n = Number(len) || 50;
         return str.length > n ? str.slice(0, n) + "..." : str;
       });
-      TemplateEngine.register_helper("slugify", (s) => {
+      function slugify(s) {
         if (!s) return "";
         return String(s)
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "");
-      });
+      }
+      TemplateEngine.register_helper("slugify", slugify);
       TemplateEngine.register_helper("default", (val, fallback) =>
         val != null && val !== "" ? val : fallback,
       );
@@ -879,29 +882,27 @@
 
       async function list_templates() {
         try {
-          const folder = await get_template_folder();
+          await get_template_folder();
           const all_paths = await carbide.vault.list();
-          const template_paths = all_paths.filter(
-            (p) => p.startsWith(folder + "/") && p.endsWith(".md"),
+          const template_paths = all_paths.filter(is_template_path);
+          const results = await Promise.allSettled(
+            template_paths.map((p) => carbide.vault.read(p)),
           );
           const entries = [];
-          for (const path of template_paths) {
-            try {
-              const content = await carbide.vault.read(path);
-              const { frontmatter, body } = parse_frontmatter(content);
-              const tpl = frontmatter.template || {};
-              const filename = path.split("/").pop().replace(/\.md$/, "");
-              entries.push({
-                path,
-                name: tpl.name || filename,
-                description: tpl.description || "",
-                category: tpl.category || "",
-                insert_mode: tpl.insert_mode || "replace",
-                body,
-              });
-            } catch {
-              // skip unreadable templates
-            }
+          for (let i = 0; i < template_paths.length; i++) {
+            const r = results[i];
+            if (r.status !== "fulfilled") continue;
+            const { frontmatter, body } = parse_frontmatter(r.value);
+            const tpl = frontmatter.template || {};
+            const filename = template_paths[i].split("/").pop().replace(/\.md$/, "");
+            entries.push({
+              path: template_paths[i],
+              name: tpl.name || filename,
+              description: tpl.description || "",
+              category: tpl.category || "",
+              insert_mode: tpl.insert_mode || "replace",
+              body,
+            });
           }
           template_index = entries;
           return entries;
@@ -919,11 +920,7 @@
 
       async function save_template(name, category, body) {
         const folder = await get_template_folder();
-        const slug = name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
-        const path = `${folder}/${slug}.md`;
+        const path = `${folder}/${slugify(name)}.md`;
         const meta = { name, category };
         const content = build_frontmatter(meta) + "\n" + body;
         try {
@@ -1070,17 +1067,17 @@
       const picker_list_el = document.getElementById("picker-list");
       const picker_search_el = document.getElementById("picker-search-input");
 
+      const BUILT_IN_ITEMS = Object.entries(EXAMPLES).map(([key, body]) => ({
+        path: null,
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        description: "Built-in example",
+        category: "example",
+        body,
+      }));
+
       function get_picker_items() {
         const query = picker_search_el.value.toLowerCase().trim();
-        const built_in = Object.entries(EXAMPLES).map(([key, body]) => ({
-          path: null,
-          name: key.charAt(0).toUpperCase() + key.slice(1),
-          description: "Built-in example",
-          category: "example",
-          body,
-          built_in_key: key,
-        }));
-        const all = [...template_index, ...built_in];
+        const all = [...template_index, ...BUILT_IN_ITEMS];
         if (!query) return all;
         return all.filter(
           (t) =>
@@ -1090,8 +1087,11 @@
         );
       }
 
+      let picker_items_snapshot = [];
+
       function render_picker() {
         const items = get_picker_items();
+        picker_items_snapshot = items;
         if (items.length === 0) {
           picker_list_el.innerHTML =
             '<div class="picker-empty">No templates found. Save one from the editor.</div>';
@@ -1109,27 +1109,33 @@
           </div>`,
           )
           .join("");
-        const items_ref = items;
-        picker_list_el.querySelectorAll(".picker-item").forEach((el) => {
-          el.addEventListener("click", () => {
-            const idx = Number(el.dataset.idx);
-            const item = items_ref[idx];
-            if (!item) return;
-            editor_el.value = item.body || "";
-            show_view("editor");
-            schedule_preview();
-            status_el.textContent = `Loaded: ${item.name}`;
-          });
-        });
       }
+
+      picker_list_el.addEventListener("click", (e) => {
+        const item_el = e.target.closest(".picker-item");
+        if (!item_el) return;
+        const idx = Number(item_el.dataset.idx);
+        const item = picker_items_snapshot[idx];
+        if (!item) return;
+        editor_el.value = item.body || "";
+        show_view("editor");
+        schedule_preview();
+        status_el.textContent = `Loaded: ${item.name}`;
+      });
 
       function esc(s) {
-        const d = document.createElement("div");
-        d.textContent = s;
-        return d.innerHTML;
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       }
 
-      picker_search_el.addEventListener("input", render_picker);
+      let picker_search_timer = null;
+      picker_search_el.addEventListener("input", () => {
+        clearTimeout(picker_search_timer);
+        picker_search_timer = setTimeout(render_picker, 100);
+      });
 
       // ─── Toolbar: snippet insertion ───────────────────────────────────
 
@@ -1184,16 +1190,18 @@
       const save_name_el = document.getElementById("save-name");
       const save_category_el = document.getElementById("save-category");
 
+      function close_save_dialog() {
+        save_dialog_el.classList.remove("visible");
+        save_name_el.value = "";
+        save_category_el.value = "";
+      }
+
       document.getElementById("btn-save").addEventListener("click", () => {
         save_dialog_el.classList.add("visible");
         save_name_el.focus();
       });
 
-      document.getElementById("save-cancel").addEventListener("click", () => {
-        save_dialog_el.classList.remove("visible");
-        save_name_el.value = "";
-        save_category_el.value = "";
-      });
+      document.getElementById("save-cancel").addEventListener("click", close_save_dialog);
 
       document
         .getElementById("save-confirm")
@@ -1208,21 +1216,29 @@
           try {
             const path = await save_template(name, category, body);
             status_el.textContent = `Saved: ${path}`;
-            save_dialog_el.classList.remove("visible");
-            save_name_el.value = "";
-            save_category_el.value = "";
+            close_save_dialog();
           } catch (e) {
             status_el.textContent = "Save failed: " + e.message;
           }
         });
+
+      // ─── Command IDs ────────────────────────────────────────────────
+
+      const CMD_INSERT = "smart-templates:insert-template";
+      const CMD_CREATE = "smart-templates:create-template";
+      const CMD_FROM_NOTE = "smart-templates:create-from-note";
 
       // ─── Plugin lifecycle ─────────────────────────────────────────────
 
       carbide.onload(async () => {
         // Load settings
         try {
-          const debounce_val = await carbide.settings.get("preview_debounce");
+          const [debounce_val, date_fmt] = await Promise.all([
+            carbide.settings.get("preview_debounce").catch(() => null),
+            carbide.settings.get("default_date_format").catch(() => null),
+          ]);
           if (debounce_val) preview_debounce_ms = Number(debounce_val);
+          if (date_fmt) default_date_format = date_fmt;
         } catch {}
 
         // Register commands
@@ -1234,21 +1250,21 @@
         });
 
         carbide.commands.register({
-          id: "smart-templates:insert-template",
+          id: CMD_INSERT,
           label: "Insert Template",
           description: "Browse and insert a template into the current note",
           keywords: ["template", "insert", "picker"],
         });
 
         carbide.commands.register({
-          id: "smart-templates:create-template",
+          id: CMD_CREATE,
           label: "Create Template",
           description: "Open the template editor with a blank template",
           keywords: ["template", "create", "new"],
         });
 
         carbide.commands.register({
-          id: "smart-templates:create-from-note",
+          id: CMD_FROM_NOTE,
           label: "Create Template from Note",
           description: "Use the current note content as a template",
           keywords: ["template", "from", "note", "current"],
@@ -1307,29 +1323,26 @@
         });
 
         // Refresh template index on vault file changes in template folder
-        carbide.events.on("file-created", (data) => {
+        const on_template_file_change = (data) => {
           if (data?.path && is_template_path(data.path)) list_templates();
-        });
-        carbide.events.on("file-modified", (data) => {
-          if (data?.path && is_template_path(data.path)) list_templates();
-        });
-        carbide.events.on("file-deleted", (data) => {
-          if (data?.path && is_template_path(data.path)) list_templates();
-        });
+        };
+        for (const evt of ["file-created", "file-modified", "file-deleted"]) {
+          carbide.events.on(evt, on_template_file_change);
+        }
 
         // Handle commands from palette via raw message (command.execute is not routed through the event bus)
         window.addEventListener("message", (event) => {
           const msg = event.data;
           if (!msg || msg.method !== "command.execute") return;
           const cmd = msg.params?.[0];
-          if (cmd === "smart-templates:insert-template") {
+          if (cmd === CMD_INSERT) {
             show_view("picker");
-          } else if (cmd === "smart-templates:create-template") {
+          } else if (cmd === CMD_CREATE) {
             editor_el.value = "";
             show_view("editor");
             editor_el.focus();
             status_el.textContent = "New template";
-          } else if (cmd === "smart-templates:create-from-note") {
+          } else if (cmd === CMD_FROM_NOTE) {
             create_template_from_note();
           }
         });
