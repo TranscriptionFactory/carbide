@@ -722,4 +722,34 @@
     width: var(--size-icon-sm);
     height: var(--size-icon-sm);
   }
+
+  /* ----- Tab active-indicator contract ----- */
+  :global([data-tab-indicator="underline"]) .TabBar__tab--active::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: -1px;
+    height: var(--tab-active-indicator-thickness);
+    background: var(--tab-active-indicator-color);
+  }
+
+  :global([data-tab-indicator="border"]) .TabBar__tab--active::after {
+    display: none;
+  }
+  :global([data-tab-indicator="border"]) .TabBar__tab--active {
+    border-bottom: var(--tab-active-indicator-thickness) solid
+      var(--tab-active-indicator-color);
+  }
+
+  :global([data-tab-indicator="fill"]) .TabBar__tab--active::after {
+    display: none;
+  }
+  :global([data-tab-indicator="fill"]) .TabBar__tab--active {
+    background: var(--tab-active-indicator-color);
+    color: var(--background);
+  }
+
+  :global([data-tab-indicator="none"]) .TabBar__tab--active::after {
+    display: none;
+  }
 </style>

@@ -515,4 +515,35 @@
       transform: rotate(360deg);
     }
   }
+
+  /* ----- StatusBar shape contract ----- */
+  :global([data-statusbar-shape="transparent"]) .StatusBar {
+    background: transparent;
+    color: var(--foreground-secondary);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  :global([data-statusbar-shape="segments"]) .StatusBar {
+    gap: 0;
+    padding: 0;
+  }
+
+  :global([data-statusbar-shape="segments"]) .StatusBar__section {
+    gap: 0;
+  }
+
+  :global([data-statusbar-shape="segments"]) .StatusBar__separator {
+    display: none;
+  }
+
+  :global([data-statusbar-shape="segments"]) .StatusBar__item,
+  :global([data-statusbar-shape="segments"]) .StatusBar__vault-action,
+  :global([data-statusbar-shape="segments"]) .StatusBar__action,
+  :global([data-statusbar-shape="segments"]) .StatusBar__mode-toggle {
+    padding-inline: var(--statusbar-segment-pad);
+    height: 100%;
+    border-left: 1px solid var(--statusbar-divider);
+    display: inline-flex;
+    align-items: center;
+  }
 </style>

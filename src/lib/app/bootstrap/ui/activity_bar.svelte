@@ -224,12 +224,32 @@
     inset-block: var(--space-2);
     inset-inline-start: 0;
     width: 2px;
-    background-color: var(--interactive);
+    background-color: var(--sidebar-active-bar);
     border-radius: 1px;
   }
 
   :global(.ActivityBar__icon) {
     width: var(--size-activity-icon);
     height: var(--size-activity-icon);
+  }
+
+  /* ----- Sidebar active-shape contract (activity bar) ----- */
+  :global([data-sidebar-active="fill"]) .ActivityBar__button--active::before {
+    display: none;
+  }
+  :global([data-sidebar-active="fill"]) .ActivityBar__button--active {
+    background-color: var(--sidebar-accent);
+  }
+
+  :global([data-sidebar-active="weight"]) .ActivityBar__button--active::before {
+    background-color: var(--foreground);
+  }
+
+  :global([data-sidebar-active="invert"]) .ActivityBar__button--active::before {
+    display: none;
+  }
+  :global([data-sidebar-active="invert"]) .ActivityBar__button--active {
+    background-color: var(--interactive);
+    color: var(--background);
   }
 </style>

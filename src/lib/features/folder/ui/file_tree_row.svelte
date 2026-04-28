@@ -888,7 +888,7 @@
 
   :global([data-tree-style="airy_minimal"]) .TreeRow--selected {
     color: var(--sidebar-foreground);
-    box-shadow: inset 2px 0 0 0 var(--interactive);
+    box-shadow: inset 2px 0 0 0 var(--sidebar-active-bar);
   }
 
   :global([data-tree-style="airy_minimal"]) .TreeRow--selected:hover {
@@ -1157,5 +1157,34 @@
   :global([data-show-blurb][data-tree-style="refined"])
     .TreeRow--folder.TreeRow--selected {
     background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+  }
+
+  /* ----- Sidebar active-shape contract (tree rows) ----- */
+  :global([data-sidebar-active="ribbon"]) .TreeRow--selected::after {
+    content: "";
+    position: absolute;
+    inset-block: 25%;
+    inset-inline-start: 0;
+    width: 2px;
+    background: var(--sidebar-active-bar);
+    border-radius: 1px;
+  }
+
+  :global([data-sidebar-active="weight"]) .TreeRow--selected {
+    font-weight: var(--weight-semibold);
+  }
+  :global([data-sidebar-active="weight"]) .TreeRow--selected::after {
+    content: "";
+    position: absolute;
+    inset-block: 25%;
+    inset-inline-start: 0;
+    width: 2px;
+    background: var(--foreground);
+    border-radius: 1px;
+  }
+
+  :global([data-sidebar-active="invert"]) .TreeRow--selected {
+    background-color: var(--interactive);
+    color: var(--background);
   }
 </style>
