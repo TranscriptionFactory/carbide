@@ -1,7 +1,7 @@
 {
   "id": "smart-templates",
   "name": "Smart Templates",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "author": "Carbide Community",
   "description": "Context-aware dynamic templates with Handlebars, live preview, and one-click insertion.",
   "api_version": "1",
@@ -12,7 +12,34 @@
     "search:read",
     "events:subscribe",
     "commands:register",
-    "ui:panel"
+    "ui:panel",
+    "fs:read",
+    "fs:write",
+    "settings:register"
   ],
-  "activation_events": ["on_startup"]
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": {
+      "template_folder": {
+        "type": "string",
+        "label": "Template folder",
+        "description": "Vault folder path for saved templates",
+        "default": "templates"
+      },
+      "default_date_format": {
+        "type": "string",
+        "label": "Default date format",
+        "description": "Date format string (e.g. YYYY-MM-DD)",
+        "default": "YYYY-MM-DD"
+      },
+      "preview_debounce": {
+        "type": "number",
+        "label": "Preview debounce (ms)",
+        "description": "Delay before preview updates after typing",
+        "default": 1000,
+        "min": 200,
+        "max": 5000
+      }
+    }
+  }
 }

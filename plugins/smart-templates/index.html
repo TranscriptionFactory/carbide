@@ -52,6 +52,17 @@
       .toolbar button:hover {
         background: rgba(128, 128, 128, 0.15);
       }
+      .toolbar button.active {
+        background: rgba(100, 140, 255, 0.2);
+        border-color: rgba(100, 140, 255, 0.4);
+      }
+
+      .view-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
 
       .split-pane {
         display: flex;
@@ -133,10 +144,123 @@
         opacity: 0.5;
         margin-left: auto;
       }
+
+      /* ─── Picker view ─────────────────────────────────── */
+
+      .picker-view {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .picker-search {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        flex-shrink: 0;
+      }
+      .picker-search input {
+        width: 100%;
+        padding: 5px 8px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.1);
+        color: inherit;
+        font-size: 12px;
+        outline: none;
+      }
+      .picker-search input:focus {
+        border-color: rgba(100, 140, 255, 0.5);
+      }
+      .picker-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0;
+      }
+      .picker-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+        transition: background 0.1s;
+      }
+      .picker-item:hover {
+        background: rgba(128, 128, 128, 0.1);
+      }
+      .picker-item-name {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .picker-item-meta {
+        font-size: 11px;
+        opacity: 0.5;
+        margin-top: 2px;
+      }
+      .picker-item-category {
+        display: inline-block;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(100, 140, 255, 0.15);
+        font-size: 10px;
+        margin-right: 6px;
+      }
+      .picker-empty {
+        padding: 20px;
+        text-align: center;
+        opacity: 0.4;
+        font-size: 12px;
+      }
+
+      /* ─── Save dialog ─────────────────────────────────── */
+
+      .save-dialog {
+        display: none;
+        padding: 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        background: rgba(128, 128, 128, 0.05);
+        flex-shrink: 0;
+      }
+      .save-dialog.visible {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .save-dialog input {
+        flex: 1;
+        min-width: 120px;
+        padding: 4px 8px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.1);
+        color: inherit;
+        font-size: 12px;
+        outline: none;
+      }
+      .save-dialog input:focus {
+        border-color: rgba(100, 140, 255, 0.5);
+      }
+      .save-dialog button {
+        padding: 4px 10px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        border-radius: 4px;
+        background: rgba(100, 140, 255, 0.15);
+        color: inherit;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .save-dialog .save-cancel {
+        background: transparent;
+      }
+
+      .hidden {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
     <div class="toolbar">
+      <button id="btn-picker" title="Browse templates">Browse</button>
+      <button id="btn-editor-view" class="active" title="Template editor">Editor</button>
+      <span style="width: 1px; height: 16px; background: rgba(128,128,128,0.2); margin: 0 2px;"></span>
       <select id="example-select">
         <option value="">— Examples —</option>
         <option value="meeting">Meeting Notes</option>
@@ -152,26 +276,43 @@
       <button data-insert="{{#unless condition}}\n\n{{/unless}}">Unless</button>
     </div>
 
-    <div class="split-pane">
-      <div class="pane">
-        <div class="pane-header">Template</div>
-        <textarea id="template-editor" spellcheck="false"></textarea>
+    <div class="save-dialog" id="save-dialog">
+      <input id="save-name" type="text" placeholder="Template name" />
+      <input id="save-category" type="text" placeholder="Category (optional)" />
+      <button id="save-confirm">Save</button>
+      <button id="save-cancel" class="save-cancel">Cancel</button>
+    </div>
+
+    <div class="view-container">
+      <!-- Picker view -->
+      <div id="picker-view" class="picker-view hidden">
+        <div class="picker-search">
+          <input id="picker-search-input" type="text" placeholder="Search templates..." />
+        </div>
+        <div class="picker-list" id="picker-list"></div>
       </div>
-      <div class="pane">
-        <div class="pane-header">Preview</div>
-        <div id="preview-output"></div>
+
+      <!-- Editor view -->
+      <div id="editor-view" class="split-pane">
+        <div class="pane">
+          <div class="pane-header">Template</div>
+          <textarea id="template-editor" spellcheck="false"></textarea>
+        </div>
+        <div class="pane">
+          <div class="pane-header">Preview</div>
+          <div id="preview-output"></div>
+        </div>
       </div>
     </div>
 
     <div class="bottom-bar">
       <button id="btn-insert">Insert into Note</button>
+      <button id="btn-save">Save Template</button>
       <span class="status" id="status-text">Ready</span>
     </div>
 
     <script>
       // ─── Lightweight Handlebars-compatible template engine ───────────────
-      // Supports: {{expr}}, {{helper args}}, {{#if}}, {{#unless}}, {{#each}},
-      //           {{else}}, {{> partial}}, dot-path resolution, string literals
       const TemplateEngine = (() => {
         const helpers = {};
         const partials = {};
@@ -489,6 +630,7 @@
         return result;
       }
 
+      // Date & time
       TemplateEngine.register_helper("date", (fmt) =>
         format_date(fmt || "YYYY-MM-DD"),
       );
@@ -496,6 +638,7 @@
         format_date(fmt || "HH:mm"),
       );
 
+      // Comparison
       TemplateEngine.register_helper("eq", (a, b) => (a == b ? "true" : ""));
       TemplateEngine.register_helper("ne", (a, b) => (a != b ? "true" : ""));
       TemplateEngine.register_helper("gt", (a, b) => (a > b ? "true" : ""));
@@ -503,6 +646,7 @@
       TemplateEngine.register_helper("lt", (a, b) => (a < b ? "true" : ""));
       TemplateEngine.register_helper("lte", (a, b) => (a <= b ? "true" : ""));
 
+      // String operations
       TemplateEngine.register_helper("uppercase", (s) =>
         s ? String(s).toUpperCase() : "",
       );
@@ -525,6 +669,65 @@
       TemplateEngine.register_helper("default", (val, fallback) =>
         val != null && val !== "" ? val : fallback,
       );
+      TemplateEngine.register_helper("trim", (s) =>
+        s ? String(s).trim() : "",
+      );
+      TemplateEngine.register_helper("replace", (s, find, rep) =>
+        s ? String(s).replaceAll(String(find || ""), String(rep || "")) : "",
+      );
+      TemplateEngine.register_helper("concat", (...args) =>
+        args.map((a) => (a == null ? "" : String(a))).join(""),
+      );
+      TemplateEngine.register_helper("contains", (s, substr) =>
+        s && substr && String(s).includes(String(substr)) ? "true" : "",
+      );
+
+      // Array/collection helpers
+      TemplateEngine.register_helper("split", (s, delim) =>
+        s ? String(s).split(String(delim || ",")) : [],
+      );
+      TemplateEngine.register_helper("join", (arr, delim) =>
+        Array.isArray(arr) ? arr.join(String(delim ?? ", ")) : "",
+      );
+      TemplateEngine.register_helper("first", (arr) =>
+        Array.isArray(arr) && arr.length > 0 ? arr[0] : "",
+      );
+      TemplateEngine.register_helper("last", (arr) =>
+        Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : "",
+      );
+      TemplateEngine.register_helper("length", (val) => {
+        if (Array.isArray(val)) return val.length;
+        if (typeof val === "string") return val.length;
+        return 0;
+      });
+      TemplateEngine.register_helper("reverse", (arr) =>
+        Array.isArray(arr) ? [...arr].reverse() : [],
+      );
+      TemplateEngine.register_helper("sort", (arr) =>
+        Array.isArray(arr) ? [...arr].sort() : [],
+      );
+      TemplateEngine.register_helper("uniq", (arr) =>
+        Array.isArray(arr) ? [...new Set(arr)] : [],
+      );
+
+      // Math helpers
+      TemplateEngine.register_helper("add", (a, b) => Number(a) + Number(b));
+      TemplateEngine.register_helper("sub", (a, b) => Number(a) - Number(b));
+      TemplateEngine.register_helper("mul", (a, b) => Number(a) * Number(b));
+      TemplateEngine.register_helper("div", (a, b) => {
+        const divisor = Number(b);
+        return divisor === 0 ? 0 : Number(a) / divisor;
+      });
+      TemplateEngine.register_helper("mod", (a, b) => {
+        const divisor = Number(b);
+        return divisor === 0 ? 0 : Number(a) % divisor;
+      });
+      TemplateEngine.register_helper("round", (num, dec) => {
+        const n = Number(num);
+        const d = Number(dec) || 0;
+        const factor = Math.pow(10, d);
+        return Math.round(n * factor) / factor;
+      });
 
       // ─── Built-in example templates ─────────────────────────────────────
 
@@ -607,7 +810,132 @@
 `,
       };
 
-      // ─── Context management ─────────────────────────────────────────────
+      // ─── Template frontmatter parsing ─────────────────────────────────
+
+      function parse_frontmatter(content) {
+        if (!content.startsWith("---")) {
+          return { frontmatter: {}, body: content };
+        }
+        const end_idx = content.indexOf("\n---", 3);
+        if (end_idx < 0) {
+          return { frontmatter: {}, body: content };
+        }
+        const raw = content.slice(4, end_idx).trim();
+        const fm = {};
+        for (const line of raw.split("\n")) {
+          const colon = line.indexOf(":");
+          if (colon < 0) continue;
+          const key = line.slice(0, colon).trim();
+          let val = line.slice(colon + 1).trim();
+          if (
+            (val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'"))
+          ) {
+            val = val.slice(1, -1);
+          }
+          if (key.startsWith("template.")) {
+            const sub_key = key.slice(9);
+            if (!fm.template) fm.template = {};
+            fm.template[sub_key] = val;
+          } else {
+            fm[key] = val;
+          }
+        }
+        const body = content.slice(end_idx + 4).replace(/^\n/, "");
+        return { frontmatter: fm, body };
+      }
+
+      function build_frontmatter(meta) {
+        const lines = ["---"];
+        if (meta.name) lines.push(`template.name: ${meta.name}`);
+        if (meta.description)
+          lines.push(`template.description: ${meta.description}`);
+        if (meta.category) lines.push(`template.category: ${meta.category}`);
+        if (meta.insert_mode)
+          lines.push(`template.insert_mode: ${meta.insert_mode}`);
+        lines.push("---");
+        return lines.join("\n");
+      }
+
+      // ─── Template library (vault-backed) ──────────────────────────────
+
+      let template_index = [];
+      let template_folder = "templates";
+
+      async function get_template_folder() {
+        try {
+          const val = await carbide.settings.get("template_folder");
+          if (val) template_folder = val;
+        } catch {}
+        return template_folder;
+      }
+
+      function is_template_path(path) {
+        return (
+          path.startsWith(template_folder + "/") &&
+          path.endsWith(".md")
+        );
+      }
+
+      async function list_templates() {
+        try {
+          const folder = await get_template_folder();
+          const all_paths = await carbide.vault.list();
+          const template_paths = all_paths.filter(
+            (p) => p.startsWith(folder + "/") && p.endsWith(".md"),
+          );
+          const entries = [];
+          for (const path of template_paths) {
+            try {
+              const content = await carbide.vault.read(path);
+              const { frontmatter, body } = parse_frontmatter(content);
+              const tpl = frontmatter.template || {};
+              const filename = path.split("/").pop().replace(/\.md$/, "");
+              entries.push({
+                path,
+                name: tpl.name || filename,
+                description: tpl.description || "",
+                category: tpl.category || "",
+                insert_mode: tpl.insert_mode || "replace",
+                body,
+              });
+            } catch {
+              // skip unreadable templates
+            }
+          }
+          template_index = entries;
+          return entries;
+        } catch {
+          template_index = [];
+          return [];
+        }
+      }
+
+      async function load_template(path) {
+        const content = await carbide.vault.read(path);
+        const { frontmatter, body } = parse_frontmatter(content);
+        return { frontmatter, body, path };
+      }
+
+      async function save_template(name, category, body) {
+        const folder = await get_template_folder();
+        const slug = name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        const path = `${folder}/${slug}.md`;
+        const meta = { name, category };
+        const content = build_frontmatter(meta) + "\n" + body;
+        try {
+          await carbide.vault.create(path, content);
+        } catch {
+          await carbide.vault.modify(path, content);
+        }
+        await list_templates();
+        return path;
+      }
+
+      // ─── Context management ───────────────────────────────────────────
 
       let cached_context = null;
       let context_stale = true;
@@ -667,18 +995,19 @@
         context_stale = true;
       }
 
-      // ─── Preview rendering ──────────────────────────────────────────────
+      // ─── Preview rendering ────────────────────────────────────────────
 
       const editor_el = document.getElementById("template-editor");
       const preview_el = document.getElementById("preview-output");
       const status_el = document.getElementById("status-text");
       let debounce_timer = null;
+      let preview_debounce_ms = 1000;
       let last_rendered = "";
 
       function schedule_preview() {
         clearTimeout(debounce_timer);
         status_el.textContent = "Typing...";
-        debounce_timer = setTimeout(render_preview, 1000);
+        debounce_timer = setTimeout(render_preview, preview_debounce_ms);
       }
 
       async function render_preview() {
@@ -709,7 +1038,100 @@
 
       editor_el.addEventListener("input", schedule_preview);
 
-      // ─── Toolbar: snippet insertion ─────────────────────────────────────
+      // ─── View switching ───────────────────────────────────────────────
+
+      const picker_view_el = document.getElementById("picker-view");
+      const editor_view_el = document.getElementById("editor-view");
+      const btn_picker = document.getElementById("btn-picker");
+      const btn_editor_view = document.getElementById("btn-editor-view");
+      let current_view = "editor";
+
+      function show_view(view) {
+        current_view = view;
+        if (view === "picker") {
+          picker_view_el.classList.remove("hidden");
+          editor_view_el.classList.add("hidden");
+          btn_picker.classList.add("active");
+          btn_editor_view.classList.remove("active");
+          render_picker();
+        } else {
+          picker_view_el.classList.add("hidden");
+          editor_view_el.classList.remove("hidden");
+          btn_picker.classList.remove("active");
+          btn_editor_view.classList.add("active");
+        }
+      }
+
+      btn_picker.addEventListener("click", () => show_view("picker"));
+      btn_editor_view.addEventListener("click", () => show_view("editor"));
+
+      // ─── Template picker ──────────────────────────────────────────────
+
+      const picker_list_el = document.getElementById("picker-list");
+      const picker_search_el = document.getElementById("picker-search-input");
+
+      function get_picker_items() {
+        const query = picker_search_el.value.toLowerCase().trim();
+        const built_in = Object.entries(EXAMPLES).map(([key, body]) => ({
+          path: null,
+          name: key.charAt(0).toUpperCase() + key.slice(1),
+          description: "Built-in example",
+          category: "example",
+          body,
+          built_in_key: key,
+        }));
+        const all = [...template_index, ...built_in];
+        if (!query) return all;
+        return all.filter(
+          (t) =>
+            t.name.toLowerCase().includes(query) ||
+            t.description.toLowerCase().includes(query) ||
+            t.category.toLowerCase().includes(query),
+        );
+      }
+
+      function render_picker() {
+        const items = get_picker_items();
+        if (items.length === 0) {
+          picker_list_el.innerHTML =
+            '<div class="picker-empty">No templates found. Save one from the editor.</div>';
+          return;
+        }
+        picker_list_el.innerHTML = items
+          .map(
+            (t, i) => `
+          <div class="picker-item" data-idx="${i}">
+            <div class="picker-item-name">
+              ${t.category ? `<span class="picker-item-category">${esc(t.category)}</span>` : ""}
+              ${esc(t.name)}
+            </div>
+            ${t.description ? `<div class="picker-item-meta">${esc(t.description)}</div>` : ""}
+          </div>`,
+          )
+          .join("");
+        const items_ref = items;
+        picker_list_el.querySelectorAll(".picker-item").forEach((el) => {
+          el.addEventListener("click", () => {
+            const idx = Number(el.dataset.idx);
+            const item = items_ref[idx];
+            if (!item) return;
+            editor_el.value = item.body || "";
+            show_view("editor");
+            schedule_preview();
+            status_el.textContent = `Loaded: ${item.name}`;
+          });
+        });
+      }
+
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      picker_search_el.addEventListener("input", render_picker);
+
+      // ─── Toolbar: snippet insertion ───────────────────────────────────
 
       document.querySelectorAll("[data-insert]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -725,7 +1147,7 @@
         });
       });
 
-      // ─── Toolbar: example selector ──────────────────────────────────────
+      // ─── Toolbar: example selector ────────────────────────────────────
 
       document
         .getElementById("example-select")
@@ -738,7 +1160,7 @@
           e.target.value = "";
         });
 
-      // ─── Insert into note ───────────────────────────────────────────────
+      // ─── Insert into note ─────────────────────────────────────────────
 
       document
         .getElementById("btn-insert")
@@ -756,9 +1178,54 @@
           }
         });
 
-      // ─── Plugin lifecycle ───────────────────────────────────────────────
+      // ─── Save template ────────────────────────────────────────────────
+
+      const save_dialog_el = document.getElementById("save-dialog");
+      const save_name_el = document.getElementById("save-name");
+      const save_category_el = document.getElementById("save-category");
+
+      document.getElementById("btn-save").addEventListener("click", () => {
+        save_dialog_el.classList.add("visible");
+        save_name_el.focus();
+      });
+
+      document.getElementById("save-cancel").addEventListener("click", () => {
+        save_dialog_el.classList.remove("visible");
+        save_name_el.value = "";
+        save_category_el.value = "";
+      });
+
+      document
+        .getElementById("save-confirm")
+        .addEventListener("click", async () => {
+          const name = save_name_el.value.trim();
+          if (!name) {
+            status_el.textContent = "Please enter a template name";
+            return;
+          }
+          const category = save_category_el.value.trim();
+          const body = editor_el.value;
+          try {
+            const path = await save_template(name, category, body);
+            status_el.textContent = `Saved: ${path}`;
+            save_dialog_el.classList.remove("visible");
+            save_name_el.value = "";
+            save_category_el.value = "";
+          } catch (e) {
+            status_el.textContent = "Save failed: " + e.message;
+          }
+        });
+
+      // ─── Plugin lifecycle ─────────────────────────────────────────────
 
       carbide.onload(async () => {
+        // Load settings
+        try {
+          const debounce_val = await carbide.settings.get("preview_debounce");
+          if (debounce_val) preview_debounce_ms = Number(debounce_val);
+        } catch {}
+
+        // Register commands
         carbide.commands.register({
           id: "smart-templates:open-panel",
           label: "Open Smart Templates",
@@ -766,12 +1233,67 @@
           keywords: ["template", "handlebars", "snippet", "dynamic"],
         });
 
+        carbide.commands.register({
+          id: "smart-templates:insert-template",
+          label: "Insert Template",
+          description: "Browse and insert a template into the current note",
+          keywords: ["template", "insert", "picker"],
+        });
+
+        carbide.commands.register({
+          id: "smart-templates:create-template",
+          label: "Create Template",
+          description: "Open the template editor with a blank template",
+          keywords: ["template", "create", "new"],
+        });
+
+        carbide.commands.register({
+          id: "smart-templates:create-from-note",
+          label: "Create Template from Note",
+          description: "Use the current note content as a template",
+          keywords: ["template", "from", "note", "current"],
+        });
+
+        // Register sidebar panel
         carbide.ui.addSidebarPanel({
           id: "smart-templates:panel",
           label: "Smart Templates",
           icon: "blocks",
         });
 
+        // Register settings tab
+        carbide.settings.registerTab({
+          label: "Smart Templates",
+          settings: [
+            {
+              key: "template_folder",
+              type: "string",
+              label: "Template folder",
+              description: "Vault folder path for saved templates",
+              default: "templates",
+              placeholder: "templates",
+            },
+            {
+              key: "default_date_format",
+              type: "string",
+              label: "Default date format",
+              description: "Date format string used by the date helper",
+              default: "YYYY-MM-DD",
+              placeholder: "YYYY-MM-DD",
+            },
+            {
+              key: "preview_debounce",
+              type: "number",
+              label: "Preview debounce (ms)",
+              description: "Delay before preview updates after typing",
+              default: 1000,
+              min: 200,
+              max: 5000,
+            },
+          ],
+        });
+
+        // Event listeners
         carbide.events.on("active-file-changed", () => {
           mark_context_stale();
           schedule_preview();
@@ -784,9 +1306,55 @@
           }
         });
 
+        // Refresh template index on vault file changes in template folder
+        carbide.events.on("file-created", (data) => {
+          if (data?.path && is_template_path(data.path)) list_templates();
+        });
+        carbide.events.on("file-modified", (data) => {
+          if (data?.path && is_template_path(data.path)) list_templates();
+        });
+        carbide.events.on("file-deleted", (data) => {
+          if (data?.path && is_template_path(data.path)) list_templates();
+        });
+
+        // Handle commands from palette via raw message (command.execute is not routed through the event bus)
+        window.addEventListener("message", (event) => {
+          const msg = event.data;
+          if (!msg || msg.method !== "command.execute") return;
+          const cmd = msg.params?.[0];
+          if (cmd === "smart-templates:insert-template") {
+            show_view("picker");
+          } else if (cmd === "smart-templates:create-template") {
+            editor_el.value = "";
+            show_view("editor");
+            editor_el.focus();
+            status_el.textContent = "New template";
+          } else if (cmd === "smart-templates:create-from-note") {
+            create_template_from_note();
+          }
+        });
+
+        // Initial load
+        await list_templates();
         editor_el.value = EXAMPLES.meeting;
         schedule_preview();
       });
+
+      async function create_template_from_note() {
+        try {
+          const content = await carbide.editor.getValue();
+          if (content) {
+            editor_el.value = content;
+            show_view("editor");
+            schedule_preview();
+            status_el.textContent = "Loaded current note as template";
+          } else {
+            status_el.textContent = "No active note content";
+          }
+        } catch (e) {
+          status_el.textContent = "Failed to read note: " + e.message;
+        }
+      }
     </script>
   </body>
 </html>
