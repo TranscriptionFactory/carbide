@@ -346,6 +346,41 @@ fn resolve_cli_sidecar(app: &AppHandle) -> Result<PathBuf, String> {
     ))
 }
 
+pub fn ensure_cli_current(app: &AppHandle) {
+    let link = carbide_cli_path();
+    let current_target = match std::fs::read_link(&link) {
+        Ok(t) => t,
+        Err(_) => return, // not installed as symlink — nothing to update
+    };
+
+    if !is_carbide_binary(&current_target) {
+        return;
+    }
+
+    let sidecar = match resolve_cli_sidecar(app) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    if current_target == sidecar {
+        return;
+    }
+
+    if let Err(e) = remove_symlink(&link) {
+        log::warn!("CLI auto-update: failed to remove old symlink: {e}");
+        return;
+    }
+    if let Err(e) = create_symlink(&sidecar, &link) {
+        log::warn!("CLI auto-update: failed to create new symlink: {e}");
+        return;
+    }
+    log::info!(
+        "CLI auto-updated: {} -> {}",
+        link.display(),
+        sidecar.display()
+    );
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn mcp_install_cli(app: AppHandle) -> Result<SetupResult, String> {
