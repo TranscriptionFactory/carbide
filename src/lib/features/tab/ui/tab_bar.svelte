@@ -487,7 +487,7 @@
     height: var(--size-touch-lg);
     min-width: 0;
     background-color: var(--background);
-    border-block-end: 1px solid var(--border);
+    border-block-end: 1px solid var(--tab-border);
     position: relative;
     flex-shrink: 0;
   }
@@ -548,8 +548,8 @@
     max-width: 260px;
     padding-inline: var(--space-3) var(--space-2);
     height: 100%;
-    border-inline-end: 1px solid var(--border);
-    color: var(--muted-foreground);
+    border-inline-end: 1px solid var(--tab-border);
+    color: var(--tab-inactive-fg);
     font-size: var(--text-sm);
     white-space: nowrap;
     cursor: pointer;
@@ -562,11 +562,11 @@
 
   .TabBar__tab:hover {
     background-color: var(--muted);
-    color: var(--foreground);
+    color: var(--tab-active-fg);
   }
 
   .TabBar__tab--active {
-    color: var(--foreground);
+    color: var(--tab-active-fg);
     font-weight: 500;
   }
 
@@ -575,8 +575,8 @@
     position: absolute;
     inset-inline: 0;
     bottom: 0;
-    height: 2px;
-    background-color: var(--foreground);
+    height: var(--tab-active-indicator-thickness);
+    background-color: var(--tab-active-indicator-color);
   }
 
   .TabBar__tab--active:hover {
