@@ -51,10 +51,7 @@ enum Command {
         #[arg(long, help = "Output raw markdown (skip terminal rendering)")]
         raw: bool,
     },
-    #[command(
-        about = "Read a note (raw output, alias for read --raw)",
-        visible_alias = "cat"
-    )]
+    #[command(about = "Read a note (raw output, alias for read --raw)")]
     Cat {
         #[arg(help = "Note path (relative to vault root)")]
         path: String,
