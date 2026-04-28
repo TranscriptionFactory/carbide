@@ -2,6 +2,8 @@
   import type { Snippet } from "svelte";
   import "../app.css";
   import "../styles/fonts.css";
+  import "../styles/tokens.css";
+  import "../styles/themes.css";
   import "../styles/design_tokens.css";
   import "../styles/theme-monolith.css";
   import "../styles/theme-workbench.css";
