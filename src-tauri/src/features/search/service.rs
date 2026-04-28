@@ -2283,6 +2283,50 @@ pub fn search_linked_notes(
 
 #[tauri::command]
 #[specta::specta]
+pub fn resolve_linked_note_file_path(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Option<String>, String> {
+    use tauri::Manager;
+    let triple = with_read_conn(&app, &vault_id, |conn| {
+        search_db::resolve_linked_note_file_path(conn, &note_path)
+    })?;
+
+    let triple = match triple {
+        Some(t) => t,
+        None => return Ok(None),
+    };
+
+    let (external_file_path, home_relative_path, vault_relative_path) = triple;
+
+    let home_dir = app
+        .path()
+        .home_dir()
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned());
+
+    let vault_root = crate::shared::storage::vault_path(&app, &vault_id)
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned());
+
+    if let (Some(hrp), Some(home)) = (&home_relative_path, &home_dir) {
+        if hrp.starts_with("~/") {
+            let expanded = format!("{}{}", home, &hrp[1..]);
+            return Ok(Some(expanded));
+        }
+    }
+
+    if let (Some(vrp), Some(root)) = (&vault_relative_path, &vault_root) {
+        let resolved = std::path::Path::new(root).join(vrp);
+        return Ok(Some(resolved.to_string_lossy().into_owned()));
+    }
+
+    Ok(external_file_path)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn update_linked_note_metadata(
     app: AppHandle,
     vault_id: String,
