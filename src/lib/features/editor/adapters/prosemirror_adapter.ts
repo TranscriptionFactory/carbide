@@ -255,7 +255,11 @@ export function create_prosemirror_editor_port(args?: {
   task_port?: TaskPort;
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;
-    subscribe_to_changes: (handler: (event: import("$lib/features/watcher/types/watcher").VaultFsEvent) => void) => () => void;
+    subscribe_to_changes: (
+      handler: (
+        event: import("$lib/features/watcher").VaultFsEvent,
+      ) => void,
+    ) => () => void;
   };
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;

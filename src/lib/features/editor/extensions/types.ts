@@ -3,7 +3,7 @@ import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorEventHandlers } from "$lib/features/editor/ports";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import type { TaskQueryCallbacks } from "../adapters/code_block_view_plugin";
-import type { VaultFsEvent } from "$lib/features/watcher/types/watcher";
+import type { VaultFsEvent } from "$lib/features/watcher";
 
 export type ResolveAssetUrlForVault = (
   vault_id: VaultId,

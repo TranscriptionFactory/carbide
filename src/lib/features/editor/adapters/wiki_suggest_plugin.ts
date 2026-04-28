@@ -103,7 +103,12 @@ export function extract_wiki_query(text_before: string): ExtractedQuery | null {
     };
   }
 
-  return { mode: "note", query: after_open, offset: effective_offset, is_embed };
+  return {
+    mode: "note",
+    query: after_open,
+    offset: effective_offset,
+    is_embed,
+  };
 }
 
 function render_items(
@@ -219,9 +224,7 @@ export function create_wiki_suggest_prose_plugin(
       let inner: string;
       if (item.kind === "heading") {
         const note_prefix = current_note_name ?? "";
-        inner = note_prefix
-          ? `${note_prefix}#${item.text}`
-          : `#${item.text}`;
+        inner = note_prefix ? `${note_prefix}#${item.text}` : `#${item.text}`;
       } else if (item.kind === "block") {
         const note_prefix = current_note_name ?? "";
         inner = note_prefix

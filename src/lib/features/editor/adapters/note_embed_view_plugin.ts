@@ -2,12 +2,8 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { DOMSerializer } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
-import {
-  FileText,
-  ExternalLink,
-  ChevronRight,
-} from "lucide-static";
-import type { VaultFsEvent } from "$lib/features/watcher/types/watcher";
+import { FileText, ExternalLink, ChevronRight } from "lucide-static";
+import type { VaultFsEvent } from "$lib/features/watcher";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("note_embed_view");

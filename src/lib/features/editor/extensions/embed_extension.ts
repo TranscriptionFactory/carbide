@@ -71,7 +71,11 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
         on_open_note: (path, fragment) => {
           if (ctx.events.on_internal_link_click) {
             const target = fragment ? `${path}#${fragment}` : path;
-            ctx.events.on_internal_link_click(target, ctx.get_note_path(), "wiki");
+            ctx.events.on_internal_link_click(
+              target,
+              ctx.get_note_path(),
+              "wiki",
+            );
           }
         },
         read_note: note_ctx.read_note,
@@ -84,4 +88,8 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   return { plugins };
 }
 
-export { excalidraw_embed_plugin_key, file_embed_plugin_key, note_embed_plugin_key };
+export {
+  excalidraw_embed_plugin_key,
+  file_embed_plugin_key,
+  note_embed_plugin_key,
+};
