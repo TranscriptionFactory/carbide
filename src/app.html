@@ -21,6 +21,18 @@
             document.documentElement.setAttribute("data-color-scheme", scheme);
             document.documentElement.style.setProperty("color-scheme", scheme);
           }
+          if (cache.data_theme) {
+            document.documentElement.setAttribute(
+              "data-theme",
+              cache.data_theme,
+            );
+          }
+          if (cache.density) {
+            document.documentElement.setAttribute(
+              "data-density",
+              cache.density,
+            );
+          }
           if (cache.tokens) {
             var keys = Object.keys(cache.tokens);
             for (var i = 0; i < keys.length; i++) {

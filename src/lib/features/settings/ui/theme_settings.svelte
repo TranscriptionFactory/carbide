@@ -7,6 +7,7 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import {
     type Theme,
+    type ThemeDensity,
     type ColorSchemePreference,
     AVAILABLE_SHIKI_THEMES,
     get_all_themes,
@@ -175,6 +176,12 @@
     { value: "light", label: "Light" },
     { value: "dark", label: "Dark" },
     { value: "system", label: "System" },
+  ];
+
+  const density_options: { value: ThemeDensity; label: string }[] = [
+    { value: "compact", label: "Compact" },
+    { value: "regular", label: "Regular" },
+    { value: "airy", label: "Airy" },
   ];
 
   const heading_color_options = [
@@ -413,6 +420,25 @@
         on_change={handle_accent_change}
         disabled={locked}
       />
+
+      <!-- Density -->
+      <div class="ThemeSettings__row">
+        <span class="ThemeSettings__label">Density</span>
+        <div class="ThemeSettings__segmented">
+          {#each density_options as option (option.value)}
+            <button
+              type="button"
+              class="ThemeSettings__segment"
+              class:ThemeSettings__segment--active={active_theme.density ===
+                option.value}
+              disabled={locked}
+              onclick={() => update("density", option.value)}
+            >
+              {option.label}
+            </button>
+          {/each}
+        </div>
+      </div>
 
       <!-- Typography Presets -->
       <div class="ThemeSettings__section-header">Typography</div>
@@ -800,6 +826,47 @@
 
   :global(.ThemeSettings__chevron--open) {
     transform: rotate(180deg);
+  }
+
+  .ThemeSettings__segmented {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 0.375rem);
+    overflow: hidden;
+  }
+
+  .ThemeSettings__segment {
+    flex: 1;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    color: var(--muted-foreground);
+    transition:
+      background 100ms ease,
+      color 100ms ease;
+  }
+
+  .ThemeSettings__segment:last-child {
+    border-right: none;
+  }
+
+  .ThemeSettings__segment:hover:not(:disabled) {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  .ThemeSettings__segment--active {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .ThemeSettings__segment:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .ThemeSettings__popover-overlay {

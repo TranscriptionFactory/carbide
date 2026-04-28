@@ -180,8 +180,11 @@ export function apply_theme(
     root.style.setProperty(key, value);
   }
 
-  const data_theme = resolve_data_theme(theme.layout_variant);
+  const data_theme =
+    theme.css_theme ?? resolve_data_theme(theme.layout_variant);
   root.setAttribute("data-theme", data_theme);
+
+  root.setAttribute("data-density", theme.density);
 
   apply_affordances();
 
@@ -204,6 +207,8 @@ function cache_theme_for_fouc(
   try {
     const cache: Record<string, unknown> = {
       color_scheme: theme.color_scheme,
+      data_theme: theme.css_theme ?? resolve_data_theme(theme.layout_variant),
+      density: theme.density,
       tokens: Object.fromEntries(entries),
     };
     if (color_scheme_preference) {

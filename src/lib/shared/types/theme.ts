@@ -9,6 +9,10 @@ export type ThemeSpacing =
   | "spacious"
   | "extra_spacious";
 
+export type ThemeDensity = "compact" | "regular" | "airy";
+
+export type ThemeCssTheme = "carbide" | "cockpit" | "paper" | "terminal";
+
 export type ThemeHeadingColor = "inherit" | "primary" | "accent";
 
 export type ThemeBoldStyle = "default" | "heavier" | "color-accent";
@@ -43,6 +47,8 @@ export type Theme = {
   is_builtin: boolean;
 
   layout_variant: ThemeLayoutVariant;
+  css_theme: ThemeCssTheme | null;
+  density: ThemeDensity;
 
   accent_hue: number;
   accent_chroma: number;
@@ -96,6 +102,8 @@ const SHARED_DEFAULTS: Omit<
   "id" | "name" | "color_scheme" | "is_builtin"
 > = {
   layout_variant: "default",
+  css_theme: null,
+  density: "regular",
   accent_hue: 155,
   accent_chroma: 0.11,
   surface_hue: 68,
@@ -144,6 +152,8 @@ export type ThemeBlueprint = {
   accent_chroma: number;
   surface_style?: SurfaceStyle;
   layout_variant?: ThemeLayoutVariant;
+  css_theme?: ThemeCssTheme | null;
+  density?: ThemeDensity;
   schemes?: "both" | "dark_only";
   font_family_sans?: string;
   font_family_mono?: string;
@@ -190,6 +200,8 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
       ...(bp.layout_variant !== undefined && {
         layout_variant: bp.layout_variant,
       }),
+      ...(bp.css_theme !== undefined && { css_theme: bp.css_theme }),
+      ...(bp.density !== undefined && { density: bp.density }),
       ...(bp.font_family_sans !== undefined && {
         font_family_sans: bp.font_family_sans,
       }),
@@ -415,6 +427,7 @@ const BP_PAPER: ThemeBlueprint = {
   surface_chroma: 0.015,
   accent_hue: 45,
   accent_chroma: 0.08,
+  css_theme: "paper",
   font_size: 1.0625,
   line_height: 1.85,
   spacing: "spacious",
@@ -1055,6 +1068,7 @@ const BP_COCKPIT: ThemeBlueprint = {
   accent_hue: 170,
   accent_chroma: 0.12,
   layout_variant: "cockpit",
+  css_theme: "cockpit",
   structural_overrides: {
     "--radius": "0.375rem",
   },
@@ -1222,6 +1236,55 @@ const BP_DRIFT: ThemeBlueprint = {
   color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
+
+const BP_TERMINAL: ThemeBlueprint = {
+  base_name: "Terminal",
+  surface_hue: 120,
+  surface_chroma: 0.005,
+  accent_hue: 130,
+  accent_chroma: 0.15,
+  css_theme: "terminal",
+  density: "compact",
+  font_family_sans: "'JetBrains Mono', 'Fira Code', monospace",
+  font_family_mono: "'JetBrains Mono', 'Fira Code', monospace",
+  spacing: "compact",
+  shiki_theme_dark: "github-dark",
+  structural_overrides: {
+    "--radius": "0px",
+  },
+  color_overrides_light: {
+    "--background": "oklch(0.95 0.008 120)",
+    "--foreground": "oklch(0.25 0.04 130)",
+    "--card": "oklch(0.93 0.01 120)",
+    "--card-foreground": "oklch(0.25 0.04 130)",
+    "--primary": "oklch(0.45 0.15 130)",
+    "--primary-foreground": "oklch(0.95 0.008 120)",
+    "--border": "oklch(0.82 0.02 120)",
+    "--muted": "oklch(0.9 0.01 120)",
+    "--muted-foreground": "oklch(0.45 0.02 120)",
+    "--accent": "oklch(0.88 0.04 130)",
+    "--accent-foreground": "oklch(0.25 0.04 130)",
+    "--sidebar": "oklch(0.92 0.01 120)",
+    "--sidebar-foreground": "oklch(0.25 0.04 130)",
+    "--sidebar-border": "oklch(0.82 0.02 120)",
+  },
+  color_overrides_dark: {
+    "--background": "oklch(0.12 0.008 120)",
+    "--foreground": "oklch(0.82 0.12 130)",
+    "--card": "oklch(0.15 0.01 120)",
+    "--card-foreground": "oklch(0.82 0.12 130)",
+    "--primary": "oklch(0.72 0.18 130)",
+    "--primary-foreground": "oklch(0.12 0.008 120)",
+    "--border": "oklch(0.24 0.015 120)",
+    "--muted": "oklch(0.18 0.01 120)",
+    "--muted-foreground": "oklch(0.55 0.05 130)",
+    "--accent": "oklch(0.22 0.03 130)",
+    "--accent-foreground": "oklch(0.82 0.12 130)",
+    "--sidebar": "oklch(0.14 0.01 120)",
+    "--sidebar-foreground": "oklch(0.82 0.12 130)",
+    "--sidebar-border": "oklch(0.22 0.015 120)",
+  },
+};
 const BLUEPRINTS: ThemeBlueprint[] = [
   BP_NORDIC,
   BP_BRUTALIST,
@@ -1245,6 +1308,7 @@ const BLUEPRINTS: ThemeBlueprint[] = [
   BP_LATTICE,
   BP_OBSIDIAN,
   BP_DRIFT,
+  BP_TERMINAL,
 ];
 
 export const BUILTIN_THEMES: readonly Theme[] =
