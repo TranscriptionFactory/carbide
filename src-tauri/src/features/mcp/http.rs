@@ -281,6 +281,8 @@ impl HttpServerState {
             });
         }
 
+        super::setup::ensure_cli_current(&app);
+
         let token = auth::read_or_create_token()?;
         let state = HttpAppState::new(app, token);
         let port = self.port;
