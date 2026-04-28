@@ -8,13 +8,14 @@ export function daily_note_path(
   subfolder_format: DailyNoteSubfolderFormat = "none",
 ): string {
   const name = format_note_name(name_format, date);
+  const prefix = folder ? `${folder}/` : "";
   switch (subfolder_format) {
     case "year":
-      return `${folder}/${String(date.getFullYear())}/${name}.md`;
+      return `${prefix}${String(date.getFullYear())}/${name}.md`;
     case "year_month":
-      return `${folder}/${String(date.getFullYear())}/${String(date.getMonth() + 1).padStart(2, "0")}/${name}.md`;
+      return `${prefix}${String(date.getFullYear())}/${String(date.getMonth() + 1).padStart(2, "0")}/${name}.md`;
     default:
-      return `${folder}/${name}.md`;
+      return `${prefix}${name}.md`;
   }
 }
 
@@ -37,6 +38,7 @@ function build_parse_regex(
     pattern = pattern.replaceAll(token, group);
   }
   const escaped_folder = folder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const prefix = folder ? `${escaped_folder}/` : "";
 
   let middle: string;
   switch (subfolder_format) {
@@ -50,7 +52,7 @@ function build_parse_regex(
       middle = "";
   }
 
-  const full = `^${escaped_folder}/${middle}${pattern}\\.md$`;
+  const full = `^${prefix}${middle}${pattern}\\.md$`;
   try {
     return new RegExp(full);
   } catch {

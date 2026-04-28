@@ -46,6 +46,25 @@ describe("daily_note_path", () => {
       "J/2026/01/2026-01-05.md",
     );
   });
+
+  it("handles empty folder (vault root) with none", () => {
+    const date = new Date(2026, 3, 23);
+    expect(daily_note_path("", "%Y-%m-%d", date, "none")).toBe("2026-04-23.md");
+  });
+
+  it("handles empty folder with year subfolder", () => {
+    const date = new Date(2026, 3, 23);
+    expect(daily_note_path("", "%Y-%m-%d", date, "year")).toBe(
+      "2026/2026-04-23.md",
+    );
+  });
+
+  it("handles empty folder with year_month subfolder", () => {
+    const date = new Date(2026, 3, 23);
+    expect(daily_note_path("", "%Y-%m-%d", date, "year_month")).toBe(
+      "2026/04/2026-04-23.md",
+    );
+  });
 });
 
 describe("parse_daily_note_date", () => {
@@ -151,5 +170,30 @@ describe("parse_daily_note_date", () => {
         "year",
       ),
     ).toBeNull();
+  });
+
+  it("parses date with empty folder (vault root)", () => {
+    const result = parse_daily_note_date("", "%Y-%m-%d", "2026-04-23.md");
+    expect(result).toEqual(new Date(2026, 3, 23));
+  });
+
+  it("parses date with empty folder and year subfolder", () => {
+    const result = parse_daily_note_date(
+      "",
+      "%Y-%m-%d",
+      "2026/2026-04-23.md",
+      "year",
+    );
+    expect(result).toEqual(new Date(2026, 3, 23));
+  });
+
+  it("parses date with empty folder and year_month subfolder", () => {
+    const result = parse_daily_note_date(
+      "",
+      "%Y-%m-%d",
+      "2026/04/2026-04-23.md",
+      "year_month",
+    );
+    expect(result).toEqual(new Date(2026, 3, 23));
   });
 });

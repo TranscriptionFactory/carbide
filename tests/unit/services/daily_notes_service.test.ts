@@ -191,4 +191,66 @@ describe("DailyNotesService", () => {
       "Journal",
     );
   });
+
+  it("creates note at vault root when folder is empty", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+
+    const result = await service.ensure_daily_note(
+      "",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+    );
+
+    expect(result).toBe("2026-04-23.md");
+    const create_folder = notes_port.create_folder as ReturnType<typeof vi.fn>;
+    expect(create_folder).not.toHaveBeenCalled();
+  });
+
+  it("creates year subfolder at vault root when folder is empty", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+
+    const result = await service.ensure_daily_note(
+      "",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "year",
+    );
+
+    expect(result).toBe("2026/2026-04-23.md");
+    const create_folder = notes_port.create_folder as ReturnType<typeof vi.fn>;
+    expect(create_folder).toHaveBeenCalledTimes(1);
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "",
+      "2026",
+    );
+  });
+
+  it("creates year_month subfolders at vault root when folder is empty", async () => {
+    const { service, vault_store, notes_port } = make_service();
+    vault_store.vault = create_test_vault();
+
+    const result = await service.ensure_daily_note(
+      "",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+      "year_month",
+    );
+
+    expect(result).toBe("2026/04/2026-04-23.md");
+    const create_folder = notes_port.create_folder as ReturnType<typeof vi.fn>;
+    expect(create_folder).toHaveBeenCalledTimes(2);
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "",
+      "2026",
+    );
+    expect(create_folder).toHaveBeenCalledWith(
+      vault_store.vault!.id,
+      "2026",
+      "04",
+    );
+  });
 });

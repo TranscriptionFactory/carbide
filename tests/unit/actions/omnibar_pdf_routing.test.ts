@@ -151,8 +151,12 @@ describe("omnibar confirm_item routing", () => {
   });
 
   it("resolves linked note PDF via reference service and dispatches document_open", async () => {
-    const { registry, document_open, note_open, resolve_linked_note_file_path } =
-      create_harness();
+    const {
+      registry,
+      document_open,
+      note_open,
+      resolve_linked_note_file_path,
+    } = create_harness();
 
     resolve_linked_note_file_path.mockResolvedValue(
       "/Users/abir/Zotero/storage/paper.pdf",

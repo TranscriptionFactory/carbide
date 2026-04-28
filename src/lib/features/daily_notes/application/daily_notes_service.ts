@@ -35,17 +35,20 @@ export class DailyNotesService {
     const existing = this.notes_store.notes.find((n) => n.path === path);
     if (existing) return path;
 
-    try {
-      await this.notes_port.create_folder(vault.id, "", folder);
-    } catch {
-      // folder may already exist
+    if (folder) {
+      try {
+        await this.notes_port.create_folder(vault.id, "", folder);
+      } catch {
+        // folder may already exist
+      }
     }
 
     if (subfolder_format === "year" || subfolder_format === "year_month") {
+      const year_parent = folder || "";
       try {
         await this.notes_port.create_folder(
           vault.id,
-          folder,
+          year_parent,
           String(date.getFullYear()),
         );
       } catch {
@@ -54,10 +57,13 @@ export class DailyNotesService {
     }
 
     if (subfolder_format === "year_month") {
+      const year_dir = folder
+        ? `${folder}/${String(date.getFullYear())}`
+        : String(date.getFullYear());
       try {
         await this.notes_port.create_folder(
           vault.id,
-          `${folder}/${String(date.getFullYear())}`,
+          year_dir,
           String(date.getMonth() + 1).padStart(2, "0"),
         );
       } catch {
