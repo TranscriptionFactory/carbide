@@ -56,6 +56,7 @@ import {
 } from "$lib/features/reference";
 import type { SlashCommand } from "$lib/features/editor";
 import type { Ports } from "$lib/app/di/app_ports";
+import type { VaultId, NoteId } from "$lib/shared/types/ids";
 
 export type SlashCommandProvider = {
   get_plugin_commands: () => SlashCommand[];
@@ -141,6 +142,13 @@ export function create_prod_ports(): Ports & {
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
       task_port: task,
+      note_embed: {
+        read_note: (vault_id, note_path) =>
+          notes
+            .read_note(vault_id as VaultId, note_path as NoteId)
+            .then((d) => d.markdown),
+        subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
+      },
     }),
     clipboard,
     shell,

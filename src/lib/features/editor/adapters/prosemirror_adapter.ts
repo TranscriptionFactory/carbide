@@ -39,6 +39,7 @@ import {
   wiki_link_plugin_key,
   excalidraw_embed_plugin_key,
   file_embed_plugin_key,
+  note_embed_plugin_key,
   set_wiki_suggestions,
   set_heading_suggestions,
   set_block_suggestions,
@@ -256,9 +257,7 @@ export function create_prosemirror_editor_port(args?: {
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;
     subscribe_to_changes: (
-      handler: (
-        event: import("$lib/features/watcher").VaultFsEvent,
-      ) => void,
+      handler: (event: import("$lib/features/watcher").VaultFsEvent) => void,
     ) => () => void;
   };
 }): EditorPort {
@@ -539,7 +538,8 @@ export function create_prosemirror_editor_port(args?: {
       function dispatch_full_scan(v: EditorView) {
         const embed_scan_tr = v.state.tr
           .setMeta(excalidraw_embed_plugin_key, { action: "full_scan" })
-          .setMeta(file_embed_plugin_key, { action: "full_scan" });
+          .setMeta(file_embed_plugin_key, { action: "full_scan" })
+          .setMeta(note_embed_plugin_key, { action: "full_scan" });
         v.dispatch(embed_scan_tr);
 
         const full_scan_tr = v.state.tr.setMeta(wiki_link_plugin_key, {
