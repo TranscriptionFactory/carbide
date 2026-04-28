@@ -4,15 +4,19 @@
   import { HotkeyKey } from "$lib/features/hotkey";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
   import HashIcon from "@lucide/svelte/icons/hash";
+  import BookOpenIcon from "@lucide/svelte/icons/book-open";
+  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import SearchIcon from "@lucide/svelte/icons/search";
   import {
     EDITOR_SHORTCUTS,
     MARKDOWN_SYNTAX,
+    GUIDES,
+    render_guide,
   } from "$lib/app/orchestration/help_data";
   import { format_hotkey_for_display } from "$lib/features/hotkey";
   import type { HotkeyConfig, HotkeyCategory } from "$lib/features/hotkey";
 
-  type HelpCategory = "shortcuts" | "markdown";
+  type HelpCategory = "shortcuts" | "markdown" | "guides";
 
   type Props = {
     open: boolean;
@@ -24,6 +28,21 @@
 
   let active_category = $state<HelpCategory>("shortcuts");
   let search_query = $state("");
+  let active_guide_slug = $state<string | null>(null);
+  let guide_html = $state<string>("");
+  let guide_loading = $state(false);
+
+  async function open_guide(slug: string) {
+    active_guide_slug = slug;
+    guide_loading = true;
+    guide_html = (await render_guide(slug)) ?? "<p>Guide not found.</p>";
+    guide_loading = false;
+  }
+
+  function close_guide() {
+    active_guide_slug = null;
+    guide_html = "";
+  }
 
   const categories: {
     id: HelpCategory;
@@ -32,6 +51,7 @@
   }[] = [
     { id: "shortcuts", label: "Shortcuts", icon: KeyboardIcon },
     { id: "markdown", label: "Markdown", icon: HashIcon },
+    { id: "guides", label: "Guides", icon: BookOpenIcon },
   ];
 
   const app_category_order: HotkeyCategory[] = [
@@ -102,6 +122,7 @@
       on_close();
       search_query = "";
       active_category = "shortcuts";
+      close_guide();
     }
   }
 </script>
@@ -125,6 +146,7 @@
             onclick={() => {
               active_category = cat.id;
               search_query = "";
+              close_guide();
             }}
           >
             <cat.icon />
@@ -227,6 +249,41 @@
               </div>
             {/if}
           </div>
+        {:else if active_category === "guides"}
+          {#if active_guide_slug}
+            <div class="HelpDialog__guide-header">
+              <button class="HelpDialog__back-button" onclick={close_guide}>
+                <ArrowLeftIcon />
+                <span>Back</span>
+              </button>
+              <h2 class="HelpDialog__content-header">
+                {GUIDES.find((g) => g.slug === active_guide_slug)?.title ??
+                  "Guide"}
+              </h2>
+            </div>
+            {#if guide_loading}
+              <div class="HelpDialog__empty">Loading...</div>
+            {:else}
+              <div class="HelpDialog__guide-content">
+                {@html guide_html}
+              </div>
+            {/if}
+          {:else}
+            <h2 class="HelpDialog__content-header">Guides</h2>
+            <div class="HelpDialog__guide-list">
+              {#each GUIDES as guide (guide.slug)}
+                <button
+                  class="HelpDialog__guide-item"
+                  onclick={() => open_guide(guide.slug)}
+                >
+                  <span class="HelpDialog__guide-title">{guide.title}</span>
+                  <span class="HelpDialog__guide-description"
+                    >{guide.description}</span
+                  >
+                </button>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </div>
     </div>
@@ -445,5 +502,187 @@
     padding: var(--space-8) var(--space-4);
     color: var(--muted-foreground);
     font-size: var(--text-sm);
+  }
+
+  .HelpDialog__guide-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .HelpDialog__back-button {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-2);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+    flex-shrink: 0;
+  }
+
+  .HelpDialog__back-button:hover {
+    background-color: var(--muted);
+    color: var(--foreground);
+  }
+
+  .HelpDialog__back-button :global(svg) {
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+  }
+
+  .HelpDialog__guide-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .HelpDialog__guide-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    padding: var(--space-3);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    text-align: start;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .HelpDialog__guide-item:hover {
+    background-color: var(--muted);
+  }
+
+  .HelpDialog__guide-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  .HelpDialog__guide-description {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+  }
+
+  .HelpDialog__guide-content {
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--foreground);
+  }
+
+  .HelpDialog__guide-content :global(h1) {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-3);
+  }
+
+  .HelpDialog__guide-content :global(h1:first-child) {
+    margin-top: 0;
+  }
+
+  .HelpDialog__guide-content :global(h2) {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-top: var(--space-5);
+    margin-bottom: var(--space-2);
+  }
+
+  .HelpDialog__guide-content :global(h3) {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-2);
+  }
+
+  .HelpDialog__guide-content :global(p) {
+    margin-bottom: var(--space-3);
+  }
+
+  .HelpDialog__guide-content :global(ul),
+  .HelpDialog__guide-content :global(ol) {
+    margin-bottom: var(--space-3);
+    padding-left: var(--space-6);
+  }
+
+  .HelpDialog__guide-content :global(li) {
+    margin-bottom: var(--space-1);
+  }
+
+  .HelpDialog__guide-content :global(code) {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    padding: 0.15em 0.35em;
+    border-radius: var(--radius-sm);
+    background-color: var(--muted);
+  }
+
+  .HelpDialog__guide-content :global(pre) {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background-color: var(--muted);
+    overflow-x: auto;
+  }
+
+  .HelpDialog__guide-content :global(pre code) {
+    padding: 0;
+    background: none;
+  }
+
+  .HelpDialog__guide-content :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-3);
+    font-size: var(--text-sm);
+  }
+
+  .HelpDialog__guide-content :global(th),
+  .HelpDialog__guide-content :global(td) {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    text-align: start;
+  }
+
+  .HelpDialog__guide-content :global(th) {
+    font-weight: 600;
+    background-color: var(--muted);
+  }
+
+  .HelpDialog__guide-content :global(blockquote) {
+    margin-bottom: var(--space-3);
+    padding-left: var(--space-4);
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+  }
+
+  .HelpDialog__guide-content :global(a) {
+    color: var(--interactive);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .HelpDialog__guide-content :global(a:hover) {
+    color: var(--interactive-hover);
+  }
+
+  .HelpDialog__guide-content :global(hr) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: var(--space-4) 0;
   }
 </style>

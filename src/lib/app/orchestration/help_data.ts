@@ -1,3 +1,10 @@
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
+import rehypeSanitize from "rehype-sanitize";
+
 export type EditorShortcut = {
   label: string;
   key: string;
@@ -7,6 +14,81 @@ export type MarkdownSyntaxEntry = {
   label: string;
   syntax: string;
 };
+
+export type GuideEntry = {
+  slug: string;
+  title: string;
+  description: string;
+};
+
+const raw_docs = import.meta.glob("/docs/*.md", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+export const GUIDES: GuideEntry[] = [
+  {
+    slug: "getting_started",
+    title: "Getting Started",
+    description: "Set up Carbide and learn the basics",
+  },
+  {
+    slug: "architecture",
+    title: "Architecture",
+    description: "How the codebase is structured",
+  },
+  {
+    slug: "search_and_queries",
+    title: "Search & Queries",
+    description: "Find notes with full-text and structured queries",
+  },
+  {
+    slug: "bases_and_references",
+    title: "Bases & References",
+    description: "Organize notes with bases and cross-references",
+  },
+  {
+    slug: "markdown-syntax-guide",
+    title: "Markdown Syntax Guide",
+    description: "Supported markdown features and extensions",
+  },
+  {
+    slug: "plugin_howto",
+    title: "Writing Plugins",
+    description: "Build and register custom plugins",
+  },
+  {
+    slug: "html_to_markdown_plugin",
+    title: "HTML to Markdown Plugin",
+    description: "Convert HTML content to markdown notes",
+  },
+  {
+    slug: "data_storage_locations",
+    title: "Data Storage Locations",
+    description: "Where Carbide stores your data",
+  },
+  {
+    slug: "UI",
+    title: "UI Design System",
+    description: "Colors, tokens, and component patterns",
+  },
+];
+
+const md_processor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkRehype)
+  .use(rehypeSanitize)
+  .use(rehypeStringify);
+
+export async function render_guide(slug: string): Promise<string | null> {
+  const key = `/docs/${slug}.md`;
+  const raw = raw_docs[key];
+  if (!raw) return null;
+  const result = await md_processor.process(raw);
+  return String(result);
+}
 
 export const EDITOR_SHORTCUTS: EditorShortcut[] = [
   { label: "Bold", key: "CmdOrCtrl+B" },
