@@ -80,8 +80,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--editor-background);
+    color: var(--editor-foreground);
   }
 
   .ImageViewer__toolbar {
@@ -130,18 +130,18 @@
 
   .ImageViewer__canvas--checkerboard {
     background-image: repeating-conic-gradient(
-        color-mix(in srgb, var(--foreground) 6%, transparent) 0% 25%,
-        color-mix(in srgb, var(--foreground) 12%, transparent) 0% 50%
+        color-mix(in srgb, var(--editor-foreground) 6%, transparent) 0% 25%,
+        color-mix(in srgb, var(--editor-foreground) 12%, transparent) 0% 50%
       )
       0 0 / 20px 20px;
   }
 
   .ImageViewer__canvas--light {
-    background: color-mix(in srgb, white 92%, var(--background));
+    background: color-mix(in srgb, white 92%, var(--editor-background));
   }
 
   .ImageViewer__canvas--dark {
-    background: color-mix(in srgb, black 82%, var(--background));
+    background: color-mix(in srgb, black 82%, var(--editor-background));
   }
 
   .ImageViewer__img {

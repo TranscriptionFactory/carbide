@@ -87,6 +87,6 @@
     flex: 1;
     width: 100%;
     border: none;
-    background: var(--background);
+    background: var(--editor-background);
   }
 </style>

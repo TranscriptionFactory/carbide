@@ -206,8 +206,8 @@
     font-family: var(--font-mono, monospace);
     font-size: 0.875rem;
     padding: 0.5rem;
-    background: var(--background);
-    color: var(--foreground);
+    background: var(--editor-background);
+    color: var(--editor-foreground);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius, 0.375rem) * 0.5);
     resize: vertical;
@@ -223,7 +223,7 @@
     display: flex;
     justify-content: center;
     padding: 0.75rem;
-    background: var(--background);
+    background: var(--editor-background);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius, 0.375rem) * 0.5);
     min-height: 2.5rem;

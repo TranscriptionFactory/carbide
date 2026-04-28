@@ -288,7 +288,7 @@
   .NoteEditor__empty-title {
     font-size: var(--text-base);
     font-weight: 500;
-    color: var(--foreground);
+    color: var(--editor-foreground);
   }
 
   .NoteEditor__empty-hint {

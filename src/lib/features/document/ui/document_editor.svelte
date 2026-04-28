@@ -131,8 +131,8 @@
     position: relative;
     height: 100%;
     overflow: hidden;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--editor-background);
+    color: var(--editor-foreground);
   }
 
   .DocumentEditor__editor {

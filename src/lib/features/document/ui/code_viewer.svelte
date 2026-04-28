@@ -359,8 +359,8 @@
     position: relative;
     height: 100%;
     overflow: hidden;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--editor-background);
+    color: var(--editor-foreground);
   }
 
   .CodeViewer__scrollport {
@@ -397,7 +397,7 @@
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
-    background-color: var(--background);
+    background-color: var(--editor-background);
     color: var(--muted-foreground);
     font-size: var(--text-sm);
     cursor: pointer;

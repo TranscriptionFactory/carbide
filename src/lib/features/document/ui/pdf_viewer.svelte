@@ -848,8 +848,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--editor-background);
+    color: var(--editor-foreground);
     outline: none;
   }
 
