@@ -55,7 +55,7 @@
   --background: oklch(0.985 0.003 110);
   --background-surface-2: oklch(0.965 0.004 110);
   --background-surface-3: oklch(0.94 0.005 110);
-  --foreground: oklch(0.20 0.01 220);
+  --foreground: oklch(0.2 0.01 220);
   --border: oklch(0.85 0.01 220);
   --border-strong: oklch(0.65 0.01 220);
   --sidebar: oklch(0.96 0.004 110);
@@ -71,13 +71,13 @@
   --foreground-secondary: oklch(0.75 0.01 110);
   --foreground-tertiary: oklch(0.55 0.01 110);
   --border: oklch(1 0 0 / 0.12);
-  --border-strong: oklch(1 0 0 / 0.30);
+  --border-strong: oklch(1 0 0 / 0.3);
   --sidebar: oklch(0.18 0.012 250);
-  --sidebar-border: oklch(1 0 0 / 0.10);
-  --tab-inactive-bg: oklch(0.20 0.012 250);
+  --sidebar-border: oklch(1 0 0 / 0.1);
+  --tab-inactive-bg: oklch(0.2 0.012 250);
   --tab-active-bg: oklch(0.16 0.01 250);
   --editor-code-bg: oklch(0.21 0.013 250);
-  --editor-selection: oklch(0.72 0.18 145 / 0.20);
+  --editor-selection: oklch(0.72 0.18 145 / 0.2);
 }
 
 /* ============== Paper Zen =================================
@@ -128,26 +128,26 @@
   --sidebar: oklch(0.97 0.014 80);
   --sidebar-border: oklch(0.88 0.012 70);
   --sidebar-accent: oklch(0.93 0.014 70);
-  --interactive: oklch(0.40 0.10 30);
-  --focus-ring: oklch(0.55 0.10 30);
-  --ring: oklch(0.55 0.10 30);
+  --interactive: oklch(0.4 0.1 30);
+  --focus-ring: oklch(0.55 0.1 30);
+  --ring: oklch(0.55 0.1 30);
   --statusbar-bg: transparent;
   --statusbar-fg: oklch(0.42 0.01 60);
   --tab-inactive-bg: oklch(0.97 0.014 80);
   --tab-active-bg: oklch(0.985 0.012 80);
-  --editor-link: oklch(0.40 0.10 30);
+  --editor-link: oklch(0.4 0.1 30);
   --editor-selection: oklch(0.85 0.06 70 / 0.7);
   --editor-code-bg: oklch(0.95 0.016 80);
 }
 [data-theme="paper"][data-color-scheme="dark"] {
-  --background: oklch(0.20 0.012 60);
+  --background: oklch(0.2 0.012 60);
   --background-surface-2: oklch(0.23 0.013 60);
   --background-surface-3: oklch(0.26 0.014 60);
   --foreground: oklch(0.93 0.012 80);
   --foreground-secondary: oklch(0.78 0.012 80);
-  --foreground-tertiary: oklch(0.60 0.012 80);
-  --border: oklch(1 0 0 / 0.10);
-  --border-strong: oklch(1 0 0 / 0.20);
+  --foreground-tertiary: oklch(0.6 0.012 80);
+  --border: oklch(1 0 0 / 0.1);
+  --border-strong: oklch(1 0 0 / 0.2);
   --sidebar: oklch(0.22 0.013 60);
   --sidebar-border: oklch(1 0 0 / 0.08);
   --sidebar-accent: oklch(0.28 0.014 60);
@@ -156,7 +156,7 @@
   --statusbar-bg: transparent;
   --statusbar-fg: oklch(0.78 0.012 80);
   --tab-inactive-bg: oklch(0.22 0.013 60);
-  --tab-active-bg: oklch(0.20 0.012 60);
+  --tab-active-bg: oklch(0.2 0.012 60);
   --editor-link: oklch(0.78 0.12 60);
   --editor-code-bg: oklch(0.25 0.014 60);
 }
@@ -201,18 +201,18 @@
   --heading-prefix-h3: "### ";
 }
 [data-theme="terminal"][data-color-scheme="dark"] {
-  --background: oklch(0.10 0.005 80);
+  --background: oklch(0.1 0.005 80);
   --background-surface-2: oklch(0.13 0.008 80);
-  --background-surface-3: oklch(0.16 0.010 80);
+  --background-surface-3: oklch(0.16 0.01 80);
   --foreground: oklch(0.85 0.16 85);
-  --foreground-secondary: oklch(0.70 0.14 85);
-  --foreground-tertiary: oklch(0.50 0.10 85);
-  --border: oklch(0.30 0.06 85);
+  --foreground-secondary: oklch(0.7 0.14 85);
+  --foreground-tertiary: oklch(0.5 0.1 85);
+  --border: oklch(0.3 0.06 85);
   --border-strong: oklch(0.55 0.12 85);
-  --border-subtle: oklch(0.20 0.04 85);
-  --sidebar: oklch(0.10 0.005 80);
+  --border-subtle: oklch(0.2 0.04 85);
+  --sidebar: oklch(0.1 0.005 80);
   --sidebar-foreground: oklch(0.78 0.14 85);
-  --sidebar-border: oklch(0.30 0.06 85);
+  --sidebar-border: oklch(0.3 0.06 85);
   --sidebar-accent: oklch(0.18 0.04 85);
   --sidebar-accent-foreground: oklch(0.95 0.16 85);
   --interactive: oklch(0.85 0.16 85);
@@ -223,21 +223,21 @@
   --accent-foreground: oklch(0.95 0.16 85);
   --accent-hover: oklch(0.22 0.05 85);
   --statusbar-bg: oklch(0.85 0.16 85);
-  --statusbar-fg: oklch(0.10 0.005 80);
-  --tab-active-bg: oklch(0.10 0.005 80);
+  --statusbar-fg: oklch(0.1 0.005 80);
+  --tab-active-bg: oklch(0.1 0.005 80);
   --tab-inactive-bg: oklch(0.13 0.008 80);
   --tab-active-fg: oklch(0.95 0.16 85);
-  --tab-inactive-fg: oklch(0.55 0.10 85);
+  --tab-inactive-fg: oklch(0.55 0.1 85);
   --editor-link: oklch(0.75 0.18 200);
-  --editor-selection: oklch(0.85 0.16 85 / 0.30);
+  --editor-selection: oklch(0.85 0.16 85 / 0.3);
   --editor-code-bg: oklch(0.13 0.008 80);
   --editor-heading: oklch(0.95 0.16 85);
   --card: oklch(0.13 0.008 80);
   --card-foreground: oklch(0.85 0.16 85);
-  --popover: oklch(0.10 0.005 80);
+  --popover: oklch(0.1 0.005 80);
   --popover-foreground: oklch(0.85 0.16 85);
-  --muted: oklch(0.16 0.010 80);
-  --muted-foreground: oklch(0.55 0.10 85);
+  --muted: oklch(0.16 0.01 80);
+  --muted-foreground: oklch(0.55 0.1 85);
 }
 /* Terminal theme is dark-first; light variant is "paper terminal" */
 [data-theme="terminal"][data-color-scheme="light"] {
@@ -245,13 +245,13 @@
   --background-surface-2: oklch(0.94 0.014 85);
   --background-surface-3: oklch(0.91 0.016 85);
   --foreground: oklch(0.25 0.06 30);
-  --foreground-secondary: oklch(0.40 0.06 30);
+  --foreground-secondary: oklch(0.4 0.06 30);
   --foreground-tertiary: oklch(0.55 0.05 30);
-  --border: oklch(0.40 0.06 30);
+  --border: oklch(0.4 0.06 30);
   --border-strong: oklch(0.25 0.06 30);
   --sidebar: oklch(0.94 0.014 85);
   --sidebar-foreground: oklch(0.25 0.06 30);
-  --sidebar-border: oklch(0.40 0.06 30);
+  --sidebar-border: oklch(0.4 0.06 30);
   --interactive: oklch(0.25 0.06 30);
   --focus-ring: oklch(0.25 0.06 30);
   --statusbar-bg: oklch(0.25 0.06 30);
@@ -266,6 +266,12 @@
 /* ============== Density tokens =============================
    Tweaks rewrite --density on :root. All chrome sizes scale.
    ============================================================ */
-[data-density="compact"]  { --density: 0.85; }
-[data-density="regular"]  { --density: 1;    }
-[data-density="airy"]     { --density: 1.18; }
+[data-density="compact"] {
+  --density: 0.85;
+}
+[data-density="regular"] {
+  --density: 1;
+}
+[data-density="airy"] {
+  --density: 1.18;
+}

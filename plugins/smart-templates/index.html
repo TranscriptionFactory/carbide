@@ -259,8 +259,17 @@
   <body>
     <div class="toolbar">
       <button id="btn-picker" title="Browse templates">Browse</button>
-      <button id="btn-editor-view" class="active" title="Template editor">Editor</button>
-      <span style="width: 1px; height: 16px; background: rgba(128,128,128,0.2); margin: 0 2px;"></span>
+      <button id="btn-editor-view" class="active" title="Template editor">
+        Editor
+      </button>
+      <span
+        style="
+          width: 1px;
+          height: 16px;
+          background: rgba(128, 128, 128, 0.2);
+          margin: 0 2px;
+        "
+      ></span>
       <select id="example-select">
         <option value="">— Examples —</option>
         <option value="meeting">Meeting Notes</option>
@@ -287,7 +296,11 @@
       <!-- Picker view -->
       <div id="picker-view" class="picker-view hidden">
         <div class="picker-search">
-          <input id="picker-search-input" type="text" placeholder="Search templates..." />
+          <input
+            id="picker-search-input"
+            type="text"
+            placeholder="Search templates..."
+          />
         </div>
         <div class="picker-list" id="picker-list"></div>
       </div>
@@ -874,10 +887,7 @@
       }
 
       function is_template_path(path) {
-        return (
-          path.startsWith(template_folder + "/") &&
-          path.endsWith(".md")
-        );
+        return path.startsWith(template_folder + "/") && path.endsWith(".md");
       }
 
       async function list_templates() {
@@ -894,7 +904,10 @@
             if (r.status !== "fulfilled") continue;
             const { frontmatter, body } = parse_frontmatter(r.value);
             const tpl = frontmatter.template || {};
-            const filename = template_paths[i].split("/").pop().replace(/\.md$/, "");
+            const filename = template_paths[i]
+              .split("/")
+              .pop()
+              .replace(/\.md$/, "");
             entries.push({
               path: template_paths[i],
               name: tpl.name || filename,
@@ -1201,7 +1214,9 @@
         save_name_el.focus();
       });
 
-      document.getElementById("save-cancel").addEventListener("click", close_save_dialog);
+      document
+        .getElementById("save-cancel")
+        .addEventListener("click", close_save_dialog);
 
       document
         .getElementById("save-confirm")
