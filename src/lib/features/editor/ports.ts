@@ -52,6 +52,9 @@ export type EditorSession = {
   set_heading_suggestions?: (
     items: Array<{ text: string; level: number }>,
   ) => void;
+  set_block_suggestions?: (
+    items: Array<{ block_id: string; text: string }>,
+  ) => void;
   set_image_suggestions?: (
     items: Array<{ path: string; name: string }>,
   ) => void;

@@ -25,7 +25,16 @@ type HeadingSuggestionItem = {
   level: number;
 };
 
-type SuggestionItem = NoteSuggestionItem | HeadingSuggestionItem;
+type BlockSuggestionItem = {
+  kind: "block";
+  block_id: string;
+  text: string;
+};
+
+type SuggestionItem =
+  | NoteSuggestionItem
+  | HeadingSuggestionItem
+  | BlockSuggestionItem;
 
 import type { WikiQueryEvent } from "$lib/features/editor/ports";
 
@@ -127,6 +136,21 @@ function render_items(
       badge.className = "WikiSuggest__badge WikiSuggest__level";
       badge.textContent = `H${String(item.level)}`;
       row.appendChild(badge);
+    } else if (item.kind === "block") {
+      row.classList.add("WikiSuggest__item--block");
+
+      const content = document.createElement("span");
+      content.className = "WikiSuggest__content";
+      const label = document.createElement("span");
+      label.className = "WikiSuggest__label";
+      label.textContent = item.text;
+      content.appendChild(label);
+      row.appendChild(content);
+
+      const badge = document.createElement("span");
+      badge.className = "WikiSuggest__badge";
+      badge.textContent = `^${item.block_id}`;
+      row.appendChild(badge);
     } else {
       if (item.kind === "planned") {
         row.classList.add("WikiSuggest__item--planned");
@@ -198,6 +222,11 @@ export function create_wiki_suggest_prose_plugin(
         inner = note_prefix
           ? `${note_prefix}#${item.text}`
           : `#${item.text}`;
+      } else if (item.kind === "block") {
+        const note_prefix = current_note_name ?? "";
+        inner = note_prefix
+          ? `${note_prefix}#^${item.block_id}`
+          : `#^${item.block_id}`;
       } else {
         inner = format_wiki_display(item.path);
       }
@@ -325,6 +354,20 @@ export function set_heading_suggestions(
     kind: "heading" as const,
     text: h.text,
     level: h.level,
+  }));
+  view.dispatch(
+    view.state.tr.setMeta(wiki_suggest_plugin_key, { items: mapped }),
+  );
+}
+
+export function set_block_suggestions(
+  view: EditorView,
+  items: Array<{ block_id: string; text: string }>,
+) {
+  const mapped: BlockSuggestionItem[] = items.map((b) => ({
+    kind: "block" as const,
+    block_id: b.block_id,
+    text: b.text,
   }));
   view.dispatch(
     view.state.tr.setMeta(wiki_suggest_plugin_key, { items: mapped }),

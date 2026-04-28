@@ -8,6 +8,7 @@ import {
 import {
   set_wiki_suggestions,
   set_heading_suggestions,
+  set_block_suggestions,
   create_wiki_suggest_prose_plugin,
   type WikiSuggestPluginConfig,
 } from "../adapters/wiki_suggest_plugin";
@@ -65,5 +66,5 @@ export function create_wiki_link_extension(
   };
 }
 
-export { wiki_link_plugin_key, set_wiki_suggestions, set_heading_suggestions };
+export { wiki_link_plugin_key, set_wiki_suggestions, set_heading_suggestions, set_block_suggestions };
 export type { WikiQueryEvent } from "$lib/features/editor/ports";

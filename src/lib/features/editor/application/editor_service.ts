@@ -30,7 +30,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
-import type { AssetsPort } from "$lib/features/note";
+import type { AssetsPort, NotesPort } from "$lib/features/note";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import { is_draft_note_path } from "$lib/features/note";
@@ -38,6 +38,24 @@ import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("editor_service");
+
+const BLOCK_ID_REGEX = /\s\^([a-zA-Z0-9-]+)\s*$/;
+
+function parse_block_ids(
+  markdown: string,
+): Array<{ text: string; block_id: string; line: number }> {
+  const results: Array<{ text: string; block_id: string; line: number }> = [];
+  const lines = markdown.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const match = BLOCK_ID_REGEX.exec(line);
+    if (match && match[1]) {
+      const text = line.slice(0, match.index).trim();
+      results.push({ text, block_id: match[1], line: i + 1 });
+    }
+  }
+  return results;
+}
 
 function note_name_from_path(path: string): string {
   const leaf = path.split("/").at(-1) ?? path;
@@ -173,6 +191,7 @@ export class EditorService {
     private readonly assets_port?: AssetsPort,
     private readonly tag_port?: TagPort,
     private readonly reference_store?: { library_items: CslItem[] },
+    private readonly notes_port?: NotesPort,
   ) {}
 
   is_mounted(): boolean {
@@ -647,6 +666,12 @@ export class EditorService {
           this.map_wiki_suggestions(result.results),
         );
       });
+    } else if (event.kind === "block") {
+      void this.handle_block_suggest(
+        generation,
+        event.note_name,
+        event.block_query,
+      );
     } else {
       void this.handle_heading_suggest(
         generation,
@@ -698,6 +723,54 @@ export class EditorService {
     );
 
     this.session?.set_heading_suggestions?.(filtered);
+  }
+
+  private async handle_block_suggest(
+    generation: number,
+    note_name: string | null,
+    block_query: string,
+  ): Promise<void> {
+    const search_service = this.search_service;
+    if (!search_service) return;
+    if (!this.notes_port) return;
+
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    let resolved_path: string | null = null;
+    if (note_name === null) {
+      resolved_path = this.get_active_note_path();
+    } else {
+      const source_path = this.get_active_note_path();
+      if (!source_path) return;
+      resolved_path = await search_service.resolve_wiki_link(
+        source_path,
+        note_name,
+      );
+    }
+
+    if (!resolved_path) {
+      this.session?.set_block_suggestions?.([]);
+      return;
+    }
+    if (!this.is_generation_current(generation)) return;
+
+    try {
+      const doc = await this.notes_port.read_note(vault_id, resolved_path);
+      if (!this.is_generation_current(generation)) return;
+
+      const blocks = parse_block_ids(doc.markdown);
+      const query_lower = block_query.toLowerCase();
+      const filtered = blocks.filter(
+        (b) =>
+          b.block_id.toLowerCase().includes(query_lower) ||
+          b.text.toLowerCase().includes(query_lower),
+      );
+
+      this.session?.set_block_suggestions?.(filtered);
+    } catch {
+      this.session?.set_block_suggestions?.([]);
+    }
   }
 
   private handle_image_suggest_query(generation: number, query: string): void {
