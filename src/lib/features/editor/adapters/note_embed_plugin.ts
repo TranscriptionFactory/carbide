@@ -5,7 +5,6 @@ import {
   collect_paragraph_text,
   is_full_scan_meta,
 } from "./embed_plugin_utils";
-
 const NOTE_EMBED_REGEX = /^!\[\[([^\]#\n]+?)(?:#([^\]]*))?\]\]$/;
 
 const FILE_EXTENSION_REGEX = /\.[a-zA-Z0-9]+$/;
@@ -127,6 +126,13 @@ export function create_note_embed_plugin(): Plugin {
 
       const result = try_convert_paragraph(parent);
       if (!result) return null;
+
+      const text = collect_paragraph_text(parent);
+      if (text) {
+        const cursor_offset = $from.parentOffset;
+        const close_idx = text.indexOf("]]");
+        if (close_idx !== -1 && cursor_offset <= close_idx) return null;
+      }
 
       return replace_paragraph_with_note_embed(
         new_state,
