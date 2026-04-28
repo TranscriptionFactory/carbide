@@ -41,6 +41,7 @@ import {
   file_embed_plugin_key,
   set_wiki_suggestions,
   set_heading_suggestions,
+  set_block_suggestions,
   set_image_suggestions,
   set_tag_suggestions,
   set_cite_suggestions,
@@ -965,6 +966,12 @@ export function create_prosemirror_editor_port(args?: {
         set_heading_suggestions(items: Array<{ text: string; level: number }>) {
           if (!view) return;
           set_heading_suggestions(view, items);
+        },
+        set_block_suggestions(
+          items: Array<{ block_id: string; text: string }>,
+        ) {
+          if (!view) return;
+          set_block_suggestions(view, items);
         },
         set_image_suggestions(items: Array<{ path: string; name: string }>) {
           if (!view) return;

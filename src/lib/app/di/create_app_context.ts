@@ -495,6 +495,7 @@ export function create_app_context(input: {
     input.ports.assets,
     input.ports.tag,
     stores.reference,
+    input.ports.notes,
   );
 
   const settings_service = new SettingsService(

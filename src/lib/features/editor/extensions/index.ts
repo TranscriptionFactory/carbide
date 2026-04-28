@@ -100,6 +100,7 @@ export {
   wiki_link_plugin_key,
   set_wiki_suggestions,
   set_heading_suggestions,
+  set_block_suggestions,
   type WikiQueryEvent,
 } from "./wiki_link_extension";
 export {
