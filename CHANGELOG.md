@@ -1,5 +1,11 @@
 # carbide
 
+## 1.30.1
+
+### Patch Changes
+
+- d711b41: fixed file explorer refreshing when deleting/moving folders
+
 ## 1.30.0
 
 ### Minor Changes
