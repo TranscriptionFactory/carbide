@@ -850,6 +850,7 @@ export class EditorService {
   private handle_at_palette_note_query(
     generation: number,
     query: string,
+    markdown_only: boolean,
   ): void {
     if (!this.is_generation_current(generation)) return;
     const search_service = this.search_service;
@@ -861,15 +862,20 @@ export class EditorService {
         this.session?.set_at_palette_suggestions?.("notes", []);
         return;
       }
-      const items: AtPaletteItem[] = this.map_wiki_suggestions(
-        result.results,
-      ).map((r) => ({
-        category: "notes" as const,
-        title: r.title,
-        path: r.path,
-        kind: r.kind,
-        ref_count: r.ref_count,
-      }));
+      const filtered = markdown_only
+        ? result.results.filter(
+            (r) => r.kind === "planned" || r.note.file_type === null,
+          )
+        : result.results;
+      const items: AtPaletteItem[] = this.map_wiki_suggestions(filtered).map(
+        (r) => ({
+          category: "notes" as const,
+          title: r.title,
+          path: r.path,
+          kind: r.kind,
+          ref_count: r.ref_count,
+        }),
+      );
       this.session?.set_at_palette_suggestions?.("notes", items);
     });
   }
@@ -1038,8 +1044,11 @@ export class EditorService {
     }
 
     if (this.search_service || this.tag_port || this.reference_store) {
-      events.on_at_palette_note_query = (query: string) => {
-        this.handle_at_palette_note_query(generation, query);
+      events.on_at_palette_note_query = (
+        query: string,
+        markdown_only: boolean,
+      ) => {
+        this.handle_at_palette_note_query(generation, query, markdown_only);
       };
       events.on_at_palette_heading_query = (
         note_name: string | null,

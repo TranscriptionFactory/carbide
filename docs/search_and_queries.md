@@ -31,14 +31,15 @@ The `@` palette is an inline autocomplete that lets you quickly insert wiki link
 
 By default, typing `@query` searches across all categories simultaneously. Prefix the query to restrict to a single category:
 
-| Prefix | Category   | Example         | Inserts                  |
-| ------ | ---------- | --------------- | ------------------------ |
-| `/`    | Notes      | `@/meeting`     | `[[meeting notes]]`      |
-| `#`    | Headings   | `@#introduction` | `[[note#Introduction]]` |
-| `[`    | References | `@[smith`       | `[@smith2024]`           |
-| `>`    | Commands   | `@>toggle`      | executes the command     |
-| `d `   | Dates      | `@d tomorrow`   | `[[2026-04-30]]`         |
-| `t `   | Tags       | `@t project`    | `#project`               |
+| Prefix | Category              | Example          | Inserts                 |
+| ------ | --------------------- | ---------------- | ----------------------- |
+| `/`    | Notes (markdown only) | `@/meeting`      | `[[meeting notes]]`     |
+| `//`   | Notes (all files)     | `@//paper`       | `[[paper.pdf]]`         |
+| `#`    | Headings              | `@#introduction` | `[[note#Introduction]]` |
+| `[`    | References            | `@[smith`        | `[@smith2024]`          |
+| `>`    | Commands              | `@>toggle`       | executes the command    |
+| `d `   | Dates                 | `@d tomorrow`    | `[[2026-04-30]]`        |
+| `t `   | Tags                  | `@t project`     | `#project`              |
 
 Without a prefix, all categories are queried and results appear in this display order: Dates → Notes → Headings → Tags → References → Commands.
 

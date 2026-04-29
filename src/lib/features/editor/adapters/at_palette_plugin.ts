@@ -81,11 +81,22 @@ export function extract_at_trigger(
 type DetectedPrefix = {
   category: AtPaletteCategory | "all";
   stripped_query: string;
+  markdown_only?: boolean;
 };
 
 export function detect_prefix(query: string): DetectedPrefix {
+  if (query.startsWith("//"))
+    return {
+      category: "notes",
+      stripped_query: query.slice(2),
+      markdown_only: false,
+    };
   if (query.startsWith("/"))
-    return { category: "notes", stripped_query: query.slice(1) };
+    return {
+      category: "notes",
+      stripped_query: query.slice(1),
+      markdown_only: true,
+    };
   if (query.startsWith("#"))
     return { category: "headings", stripped_query: query.slice(1) };
   if (query.startsWith("["))
@@ -183,7 +194,7 @@ function resolve_command_items(
 }
 
 export type AtPalettePluginConfig = {
-  on_note_query?: ((query: string) => void) | undefined;
+  on_note_query?: ((query: string, markdown_only: boolean) => void) | undefined;
   on_heading_query?:
     | ((note_name: string | null, heading_query: string) => void)
     | undefined;
@@ -405,7 +416,8 @@ export function create_at_palette_prose_plugin(
     debounce_timer = setTimeout(() => {
       const cat = prefix.category;
       const sq = prefix.stripped_query;
-      if (cat === "all" || cat === "notes") config.on_note_query?.(sq || query);
+      if (cat === "all" || cat === "notes")
+        config.on_note_query?.(sq || query, prefix.markdown_only ?? false);
       if (cat === "all" || cat === "headings")
         config.on_heading_query?.(null, sq || query);
       if (cat === "all" || cat === "tags") config.on_tag_query?.(sq || query);

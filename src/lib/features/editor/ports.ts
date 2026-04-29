@@ -119,7 +119,7 @@ export type EditorEventHandlers = {
   on_tag_suggest_query?: (query: string) => void;
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
-  on_at_palette_note_query?: (query: string) => void;
+  on_at_palette_note_query?: (query: string, markdown_only: boolean) => void;
   on_at_palette_heading_query?: (
     note_name: string | null,
     heading_query: string,

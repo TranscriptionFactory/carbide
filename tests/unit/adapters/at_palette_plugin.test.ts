@@ -155,10 +155,18 @@ describe("extract_at_trigger", () => {
 });
 
 describe("detect_prefix", () => {
-  it("maps '/' to notes", () => {
+  it("maps '/' to notes (markdown only)", () => {
     const result = detect_prefix("/roadmap");
     expect(result.category).toBe("notes");
     expect(result.stripped_query).toBe("roadmap");
+    expect(result.markdown_only).toBe(true);
+  });
+
+  it("maps '//' to notes (all file types)", () => {
+    const result = detect_prefix("//roadmap");
+    expect(result.category).toBe("notes");
+    expect(result.stripped_query).toBe("roadmap");
+    expect(result.markdown_only).toBe(false);
   });
 
   it("maps '#' to headings", () => {
