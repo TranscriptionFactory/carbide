@@ -841,6 +841,12 @@ export function create_app_context(input: {
           if (!note) throw new Error("Note not found");
           return note_service.delete_note(note);
         },
+        async list_notes() {
+          const vault = stores.vault.vault;
+          if (!vault) throw new Error("No active vault");
+          const notes = await input.ports.notes.list_notes(vault.id);
+          return notes.map((n) => n.path);
+        },
         async read_asset(asset_path) {
           const vault = stores.vault.vault;
           if (!vault) throw new Error("No active vault");

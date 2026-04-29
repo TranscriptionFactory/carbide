@@ -41,6 +41,7 @@ function make_context() {
   };
 
   const read_asset = vi.fn();
+  const list_notes = vi.fn();
 
   const context: PluginRpcContext = {
     services: {
@@ -50,6 +51,7 @@ function make_context() {
         write_note,
         delete_note,
         read_asset,
+        list_notes,
       },
       editor: {
         apply_ai_output,
@@ -72,6 +74,7 @@ function make_context() {
     write_note,
     delete_note,
     read_asset,
+    list_notes,
     apply_ai_output,
     get_ai_context,
   };
@@ -175,6 +178,25 @@ describe("PluginRpcHandler", () => {
         mime_type: "image/png",
       });
       expect(ctx.read_asset).toHaveBeenCalledWith("assets/image.png");
+    });
+
+    it("lists notes from backend via vault.list", async () => {
+      grant_permissions("fs:read");
+      ctx.list_notes.mockResolvedValue([
+        "notes/hello.md",
+        "templates/daily.md",
+      ]);
+
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v5",
+        method: "vault.list",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual(["notes/hello.md", "templates/daily.md"]);
+      expect(ctx.list_notes).toHaveBeenCalled();
     });
   });
 

@@ -260,6 +260,7 @@ describe("PluginService", () => {
           write_note: vi.fn(),
           delete_note: vi.fn(),
           read_asset: vi.fn(),
+          list_notes: vi.fn(),
         },
         editor: {
           apply_ai_output: vi.fn(),

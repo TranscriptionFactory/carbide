@@ -39,6 +39,7 @@ type PluginRpcNoteService = {
   write_note(note_path: string, markdown: string): Promise<unknown>;
   delete_note(note_path: string): Promise<unknown>;
   read_asset(asset_path: string): Promise<{ data: string; mime_type: string }>;
+  list_notes(): Promise<string[]>;
 };
 
 type PluginRpcEditorService = {
@@ -599,7 +600,11 @@ export class PluginRpcHandler {
     }
   }
 
-  private handle_vault(plugin_id: string, action: string, params: RpcParams) {
+  private async handle_vault(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
     this.require_any_permission(plugin_id, ["fs:read", "fs:write"]);
 
     switch (action) {
@@ -625,7 +630,7 @@ export class PluginRpcHandler {
           read_param_string(params, 0, "note path"),
         );
       case "list":
-        return this.context.stores.notes.notes.map((n) => n.path);
+        return this.context.services.note.list_notes();
       case "read_asset":
         return this.context.services.note.read_asset(
           read_param_string(params, 0, "asset path"),
