@@ -21,6 +21,42 @@ Cross-vault search is supported — results aggregate across all open vaults.
 
 **Shortcut**: `Cmd+O` / `Ctrl+O` opens the omnibar in note-search mode directly.
 
+## @ Palette (Inline Mentions)
+
+**Trigger**: Type `@` in the editor (must be preceded by whitespace or start of line).
+
+The `@` palette is an inline autocomplete that lets you quickly insert wiki links, headings, dates, tags, citations, and commands without leaving the editor. Results appear in a dropdown grouped by category.
+
+### Category Prefixes
+
+By default, typing `@query` searches across all categories simultaneously. Prefix the query to restrict to a single category:
+
+| Prefix | Category   | Example         | Inserts                  |
+| ------ | ---------- | --------------- | ------------------------ |
+| `/`    | Notes      | `@/meeting`     | `[[meeting notes]]`      |
+| `#`    | Headings   | `@#introduction` | `[[note#Introduction]]` |
+| `[`    | References | `@[smith`       | `[@smith2024]`           |
+| `>`    | Commands   | `@>toggle`      | executes the command     |
+| `d `   | Dates      | `@d tomorrow`   | `[[2026-04-30]]`         |
+| `t `   | Tags       | `@t project`    | `#project`               |
+
+Without a prefix, all categories are queried and results appear in this display order: Dates → Notes → Headings → Tags → References → Commands.
+
+### How Each Category Resolves
+
+- **Notes**: FTS via `suggest_wiki_links` — searches existing note titles and paths, interleaved with planned (unresolved) link targets sorted by reference count.
+- **Headings**: Resolves the note name (if given), then lists its headings. Without a note prefix, uses headings from the current note.
+- **Tags**: Searches all tags in the vault, ranked by usage count.
+- **References**: Filters the in-memory citation library (BibTeX/CSL-JSON from linked sources) by citekey, title, and author. First 20 matches shown.
+- **Dates**: Parses natural language dates ("tomorrow", "next friday", "2026-05-01") and shows preset suggestions (today, yesterday, etc.).
+- **Commands**: Filters available editor commands by label and description.
+
+### Navigation
+
+- **Arrow keys**: move selection
+- **Enter / Tab**: accept the selected item
+- **Escape**: dismiss the palette
+
 ## Query Language
 
 A composable query syntax for structured note filtering. Queries can be typed in the omnibar, written in dedicated `.query` files, or built in the query panel.
