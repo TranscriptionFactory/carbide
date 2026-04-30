@@ -115,7 +115,6 @@ class NoteEmbedView implements NodeView {
     this.collapse_btn.innerHTML = ChevronRight;
     this.on_collapse = (e: MouseEvent) => {
       e.preventDefault();
-      e.stopPropagation();
       const pos = this.get_pos();
       if (pos == null) return;
       this.view.dispatch(
@@ -125,7 +124,7 @@ class NoteEmbedView implements NodeView {
         }),
       );
     };
-    this.collapse_btn.addEventListener("mousedown", this.on_collapse);
+    this.collapse_btn.addEventListener("click", this.on_collapse);
     toolbar.appendChild(this.collapse_btn);
 
     const open_btn = document.createElement("button");
@@ -200,8 +199,10 @@ class NoteEmbedView implements NodeView {
     }
   }
 
-  stopEvent(): boolean {
-    return true;
+  stopEvent(event: Event): boolean {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return false;
+    return target.closest("button") !== null || target.closest("a") !== null;
   }
 
   ignoreMutation(): boolean {
@@ -210,7 +211,7 @@ class NoteEmbedView implements NodeView {
 
   destroy(): void {
     this._destroyed = true;
-    this.collapse_btn.removeEventListener("mousedown", this.on_collapse);
+    this.collapse_btn.removeEventListener("click", this.on_collapse);
     if (this._unsubscribe) {
       this._unsubscribe();
       this._unsubscribe = null;

@@ -508,7 +508,6 @@ class CodeBlockView implements NodeView {
     this.collapse_btn.innerHTML = CHEVRON_SVG;
     this.on_collapse = (e: MouseEvent) => {
       e.preventDefault();
-      e.stopPropagation();
       const pos = this.get_pos();
       if (pos === undefined) return;
       this.view.dispatch(
@@ -518,7 +517,7 @@ class CodeBlockView implements NodeView {
         }),
       );
     };
-    this.collapse_btn.addEventListener("mousedown", this.on_collapse);
+    this.collapse_btn.addEventListener("click", this.on_collapse);
     this.toolbar.appendChild(this.collapse_btn);
 
     this.toolbar.appendChild(this.lang_label);
@@ -854,7 +853,7 @@ class CodeBlockView implements NodeView {
   }
 
   destroy() {
-    this.collapse_btn.removeEventListener("mousedown", this.on_collapse);
+    this.collapse_btn.removeEventListener("click", this.on_collapse);
     this.cancel_resize();
     this.dismiss_picker();
     if (this.mermaid) {

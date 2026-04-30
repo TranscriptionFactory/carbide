@@ -100,7 +100,7 @@ describe("CodeBlockView", () => {
       container = c;
 
       const btn = c.querySelector<HTMLButtonElement>(".code-block-collapse")!;
-      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       const code_block_node = view.state.doc.child(0);
       expect(code_block_node.attrs["collapsed"]).toBe(true);
@@ -134,8 +134,8 @@ describe("CodeBlockView", () => {
       container = c;
 
       const btn = c.querySelector<HTMLButtonElement>(".code-block-collapse")!;
-      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       const code_block_node = view.state.doc.child(0);
       expect(code_block_node.attrs["collapsed"]).toBe(false);
