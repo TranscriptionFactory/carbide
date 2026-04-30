@@ -2640,8 +2640,12 @@
   height: 0.875rem;
 }
 
-.file-embed-collapse[data-expanded="true"] {
+.file-embed[data-collapsed="false"] .file-embed-collapse {
   transform: rotate(90deg);
+}
+
+.file-embed[data-collapsed="true"] .file-embed-content {
+  display: none;
 }
 
 .file-embed-expand {
