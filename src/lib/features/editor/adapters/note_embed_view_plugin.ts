@@ -64,19 +64,26 @@ function extract_block_by_id(markdown: string, block_id: string): string {
 class NoteEmbedView implements NodeView {
   dom: HTMLElement;
   private _destroyed = false;
-  private _collapsed = false;
   private _content_el: HTMLElement;
   private _unsubscribe: (() => void) | null = null;
   private _src: string;
   private _fragment: string | null;
   private _callbacks: NoteEmbedCallbacks;
+  private node: ProseNode;
+  private view: EditorView;
+  private get_pos: () => number | undefined;
+  private collapse_btn: HTMLButtonElement;
+  private on_collapse: (e: MouseEvent) => void;
 
   constructor(
     node: ProseNode,
-    _view: EditorView,
-    _getPos: () => number | undefined,
+    view: EditorView,
+    get_pos: () => number | undefined,
     callbacks: NoteEmbedCallbacks,
   ) {
+    this.node = node;
+    this.view = view;
+    this.get_pos = get_pos;
     this._src = node.attrs["src"] as string;
     this._fragment = node.attrs["fragment"] as string | null;
     const display_src = node.attrs["display_src"] as string;
@@ -87,6 +94,7 @@ class NoteEmbedView implements NodeView {
     this.dom = document.createElement("div");
     this.dom.className = "note-embed";
     this.dom.contentEditable = "false";
+    this.dom.dataset["collapsed"] = String(node.attrs["collapsed"]);
 
     const toolbar = document.createElement("div");
     toolbar.className = "note-embed__toolbar";
@@ -101,18 +109,24 @@ class NoteEmbedView implements NodeView {
     name_el.textContent = display_name;
     toolbar.appendChild(name_el);
 
-    const collapse_btn = document.createElement("button");
-    collapse_btn.className = "note-embed__collapse";
-    collapse_btn.title = "Toggle preview";
-    collapse_btn.innerHTML = ChevronRight;
-    collapse_btn.dataset["expanded"] = "true";
-    collapse_btn.addEventListener("click", (e) => {
+    this.collapse_btn = document.createElement("button");
+    this.collapse_btn.className = "note-embed__collapse";
+    this.collapse_btn.title = "Toggle preview";
+    this.collapse_btn.innerHTML = ChevronRight;
+    this.on_collapse = (e: MouseEvent) => {
+      e.preventDefault();
       e.stopPropagation();
-      this._collapsed = !this._collapsed;
-      collapse_btn.dataset["expanded"] = String(!this._collapsed);
-      this._content_el.style.display = this._collapsed ? "none" : "";
-    });
-    toolbar.appendChild(collapse_btn);
+      const pos = this.get_pos();
+      if (pos == null) return;
+      this.view.dispatch(
+        this.view.state.tr.setNodeMarkup(pos, null, {
+          ...this.node.attrs,
+          collapsed: !this.node.attrs["collapsed"],
+        }),
+      );
+    };
+    this.collapse_btn.addEventListener("mousedown", this.on_collapse);
+    toolbar.appendChild(this.collapse_btn);
 
     const open_btn = document.createElement("button");
     open_btn.className = "note-embed__open";
@@ -142,6 +156,13 @@ class NoteEmbedView implements NodeView {
         void this._render_content();
       }
     });
+  }
+
+  update(updated: ProseNode): boolean {
+    if (updated.type.name !== "note_embed") return false;
+    this.node = updated;
+    this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
+    return true;
   }
 
   private async _render_content(): Promise<void> {
@@ -189,6 +210,7 @@ class NoteEmbedView implements NodeView {
 
   destroy(): void {
     this._destroyed = true;
+    this.collapse_btn.removeEventListener("mousedown", this.on_collapse);
     if (this._unsubscribe) {
       this._unsubscribe();
       this._unsubscribe = null;
