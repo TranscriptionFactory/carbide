@@ -50,7 +50,7 @@
     on_destroy,
   }: Props = $props();
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, services } = use_app_context();
 
   let editor_root: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined;
@@ -281,7 +281,7 @@
       extensions.push(EV.theme(build_source_editor_syntax_theme_spec()));
       extensions.push(EV.theme(build_source_editor_background_theme_spec()));
 
-      const editor_service = use_app_context().services.editor;
+      const editor_service = services.editor;
       if (editor_service.callbacks_have_lsp_hover) {
         const { create_cm_lsp_hover } =
           await import("$lib/features/editor/adapters/cm_lsp_hover");
