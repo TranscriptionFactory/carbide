@@ -53,7 +53,7 @@ In `appendTransaction`, before the regex scan, check `wiki_suggest_plugin_key.ge
 
 ---
 
-## Issue 2: LSP hover and completion in source mode
+## Issue 2: LSP hover and completion in source mode — DONE (d68f5382)
 
 **Files to modify:**
 - `src/lib/features/editor/application/editor_service.ts` — expose public methods for LSP hover/completion
@@ -118,7 +118,7 @@ In `onMount`, after building extensions array:
 
 ---
 
-## Issue 3: Dual LSP hover tooltips on wiki links
+## Issue 3: Dual LSP hover tooltips on wiki links — DONE (7a91bede)
 
 **File to modify:**
 - `src/lib/features/editor/adapters/lsp_hover_plugin.ts` — check for link mark before starting hover timeout
@@ -160,11 +160,17 @@ Also remove the `should_suppress_visual` mechanism since it becomes unnecessary 
 
 ## Execution order
 
-1. Issue 3 (smallest, self-contained) → commit
-2. Issue 1 (medium, touches suggest framework) → commit
-3. Issue 2 (largest, new files) → commit
+1. ~~Issue 3 (smallest, self-contained) → commit~~ DONE `7a91bede`
+2. Issue 1 (medium, touches suggest framework) → commit — NOT STARTED (skipped per user request)
+3. ~~Issue 2 (largest, new files) → commit~~ DONE `d68f5382`
 
 ## Post-edit
 
 - `pnpm check && pnpm lint && pnpm test && cd src-tauri && cargo check`
 - `pnpm format`
+
+## Implementation notes
+
+**Issue 3 (7a91bede):** Added `native_link_hover_enabled` input param to `create_lsp_hover_plugin`. In `on_mousemove`, resolves ProseMirror position and checks for `link` mark before starting hover timeout — if found, hides any existing tooltip and returns. Wired via `lsp_extension.ts`. Kept `should_suppress_visual` as safety net for programmatic `trigger_lsp_hover` calls.
+
+**Issue 2 (d68f5382, 6ec0c64c):** Added `lsp_hover()`, `lsp_completion()`, `lsp_completion_trigger_characters`, `callbacks_have_lsp_hover`, `callbacks_have_lsp_completion` to `EditorService`. Created `cm_lsp_hover.ts` (ViewPlugin, debounced mousemove, `@floating-ui/dom` tooltip, `render_lsp_markdown`) and `cm_lsp_completion.ts` (`@codemirror/autocomplete` CompletionSource wrapping EditorService). Wired into `source_editor_content.svelte` via conditional dynamic imports. Added `@codemirror/autocomplete` as direct dependency.
