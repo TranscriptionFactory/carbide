@@ -1011,6 +1011,61 @@
   height: 0.875rem;
 }
 
+/* ── Code block collapse ── */
+
+.code-block-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--radius) * 0.35);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    color var(--duration-fast),
+    background var(--duration-fast);
+  transform: rotate(90deg);
+}
+
+.code-block-collapse:hover {
+  background: color-mix(in oklch, var(--editor-foreground) 15%, transparent);
+  color: var(--editor-foreground);
+}
+
+.code-block-collapse svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.code-block-wrapper[data-collapsed="true"] .code-block-collapse {
+  transform: rotate(0deg);
+}
+
+.code-block-line-count {
+  display: none;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--muted-foreground);
+  margin-left: auto;
+  padding-right: 0.25rem;
+}
+
+.code-block-wrapper[data-collapsed="true"] .code-block-line-count {
+  display: inline;
+}
+
+.code-block-wrapper[data-collapsed="true"] pre,
+.code-block-wrapper[data-collapsed="true"] .code-block-resize-handle,
+.code-block-wrapper[data-collapsed="true"] .mermaid-preview,
+.code-block-wrapper[data-collapsed="true"] .task-query-results {
+  display: none;
+}
+
 /* ── Code block resize handle ── */
 
 .code-block-resize-handle {

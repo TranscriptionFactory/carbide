@@ -5,7 +5,7 @@ import type {
   NodeView,
   ViewMutationRecord,
 } from "prosemirror-view";
-import { Check, Copy } from "lucide-static";
+import { Check, ChevronRight, Copy } from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
@@ -31,6 +31,7 @@ function resize_icon(svg: string, size: number): string {
 
 const COPY_SVG = resize_icon(Copy, 14);
 const CHECK_SVG = resize_icon(Check, 14);
+const CHEVRON_SVG = resize_icon(ChevronRight, 14);
 
 function create_copy_button(code_el: HTMLElement): HTMLButtonElement {
   const button = document.createElement("button");
@@ -468,6 +469,9 @@ class CodeBlockView implements NodeView {
   private mermaid: MermaidState | null = null;
   private task_query: TaskQueryState | null = null;
   private current_language: string;
+  private collapse_btn: HTMLButtonElement;
+  private line_count_el: HTMLSpanElement;
+  private on_collapse: (e: MouseEvent) => void;
   private is_resizing = false;
   private cancel_resize: () => void;
   private applied_height: number | null = null;
@@ -497,7 +501,32 @@ class CodeBlockView implements NodeView {
       this.toggle_picker();
     });
 
+    this.collapse_btn = document.createElement("button");
+    this.collapse_btn.className = "code-block-collapse";
+    this.collapse_btn.type = "button";
+    this.collapse_btn.setAttribute("aria-label", "Toggle collapse");
+    this.collapse_btn.innerHTML = CHEVRON_SVG;
+    this.on_collapse = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const pos = this.get_pos();
+      if (pos === undefined) return;
+      this.view.dispatch(
+        this.view.state.tr.setNodeMarkup(pos, undefined, {
+          ...this.node.attrs,
+          collapsed: !this.node.attrs["collapsed"],
+        }),
+      );
+    };
+    this.collapse_btn.addEventListener("mousedown", this.on_collapse);
+    this.toolbar.appendChild(this.collapse_btn);
+
     this.toolbar.appendChild(this.lang_label);
+
+    this.line_count_el = document.createElement("span");
+    this.line_count_el.className = "code-block-line-count";
+    this.line_count_el.textContent = this.compute_line_count();
+    this.toolbar.appendChild(this.line_count_el);
 
     this.pre = document.createElement("pre");
     this.contentDOM = document.createElement("code");
@@ -527,6 +556,7 @@ class CodeBlockView implements NodeView {
     );
     this.cancel_resize = cancel;
 
+    this.dom.dataset["collapsed"] = String(node.attrs["collapsed"]);
     this.dom.appendChild(this.toolbar);
     this.dom.appendChild(this.pre);
     this.dom.appendChild(resize_el);
@@ -536,6 +566,11 @@ class CodeBlockView implements NodeView {
     } else if (this.current_language === "tasks" && this.task_query_callbacks) {
       this.setup_task_query(this.task_query_callbacks);
     }
+  }
+
+  private compute_line_count(): string {
+    const n = this.node.textContent.split("\n").length;
+    return `${String(n)} line${n === 1 ? "" : "s"}`;
   }
 
   private set_height(height: number | null) {
@@ -739,6 +774,10 @@ class CodeBlockView implements NodeView {
   update(updated: ProseNode): boolean {
     if (updated.type.name !== "code_block") return false;
 
+    this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
+    const line_n = updated.textContent.split("\n").length;
+    this.line_count_el.textContent = `${String(line_n)} line${line_n === 1 ? "" : "s"}`;
+
     const new_lang = (updated.attrs.language as string) ?? "";
     const old_lang = this.current_language;
 
@@ -797,6 +836,7 @@ class CodeBlockView implements NodeView {
     if (!(event.target instanceof HTMLElement)) return false;
     return (
       event.target.closest(".code-block-toolbar") !== null ||
+      event.target.closest(".code-block-collapse") !== null ||
       event.target.closest(".code-block-resize-handle") !== null ||
       event.target.closest(".task-query-results") !== null
     );
@@ -814,6 +854,7 @@ class CodeBlockView implements NodeView {
   }
 
   destroy() {
+    this.collapse_btn.removeEventListener("mousedown", this.on_collapse);
     this.cancel_resize();
     this.dismiss_picker();
     if (this.mermaid) {
