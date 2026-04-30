@@ -2788,8 +2788,12 @@
   height: 0.875rem;
 }
 
-.note-embed__collapse[data-expanded="true"] {
+.note-embed[data-collapsed="false"] .note-embed__collapse {
   transform: rotate(90deg);
+}
+
+.note-embed[data-collapsed="true"] .note-embed__content {
+  display: none;
 }
 
 .note-embed__open {
