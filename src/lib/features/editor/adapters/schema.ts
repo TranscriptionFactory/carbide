@@ -55,6 +55,7 @@ const code_block: NodeSpec = {
   attrs: {
     language: { default: "" },
     height: { default: null },
+    collapsed: { default: false },
   },
   parseDOM: [
     {
@@ -441,6 +442,7 @@ const note_embed: NodeSpec = {
     src: { default: "" },
     fragment: { default: null },
     display_src: { default: "" },
+    collapsed: { default: false },
   },
   parseDOM: [
     {
@@ -481,6 +483,7 @@ const file_embed: NodeSpec = {
     page: { default: null },
     height: { default: 400 },
     file_type: { default: "" },
+    collapsed: { default: false },
   },
   parseDOM: [
     {
