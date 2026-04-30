@@ -5,9 +5,7 @@ import { render_lsp_markdown } from "./lsp_tooltip_renderer";
 import { line_character_from_md_offset } from "./lsp_plugin_utils";
 import type { EditorService } from "../application/editor_service";
 
-export function create_cm_lsp_hover(
-  editor_service: EditorService,
-): Extension {
+export function create_cm_lsp_hover(editor_service: EditorService): Extension {
   return ViewPlugin.define((editor_view: EditorView) => {
     let hover_timeout: ReturnType<typeof setTimeout> | null = null;
     let active_pos: number | null = null;
