@@ -299,7 +299,16 @@ export function create_table_toolbar_prose_plugin(): Plugin {
         if (toolbar_el?.contains(related)) return;
         remove_toolbar();
       }
+      function on_pointerdown(e: PointerEvent) {
+        if (!toolbar_el) return;
+        const target = e.target as Node;
+        if (toolbar_el.contains(target)) return;
+        const table_dom = find_table_dom(view);
+        if (table_dom?.contains(target)) return;
+        remove_toolbar();
+      }
       view.dom.addEventListener("focusout", on_blur);
+      document.addEventListener("pointerdown", on_pointerdown, true);
 
       return {
         update(view) {
@@ -321,7 +330,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             align_btn_refs = align_btns;
             layout_btn_refs = layout_btns;
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
-            backdrop_el = create_backdrop(remove_toolbar);
+            backdrop_el = create_backdrop(remove_toolbar, Z_TABLE_TOOLBAR - 1);
             document.body.appendChild(backdrop_el);
             document.body.appendChild(toolbar_el);
           }
@@ -349,6 +358,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
         },
         destroy() {
           view.dom.removeEventListener("focusout", on_blur);
+          document.removeEventListener("pointerdown", on_pointerdown, true);
           remove_toolbar();
         },
       };

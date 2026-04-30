@@ -644,6 +644,7 @@
 
 .code-block-wrapper {
   position: relative;
+  display: flow-root;
   margin-top: calc(var(--editor-spacing) * 0.75);
   margin-bottom: calc(var(--editor-spacing) * 1.25);
 }
