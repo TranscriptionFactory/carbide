@@ -23,6 +23,7 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
       hover_input.on_hover_result = ctx.events.on_markdown_lsp_hover_result;
     }
     if (ctx.native_link_hover_enabled !== false) {
+      hover_input.native_link_hover_enabled = true;
       hover_input.should_suppress_visual = () => is_link_tooltip_active();
     }
     plugins.push(create_lsp_hover_plugin(hover_input));
