@@ -312,18 +312,26 @@ Each phase is scoped to fit in a single conversation session. Phases are ordered
 
 **Deliverables:** Fix to reactor + reference service startup sequence, timing logs (removable after profiling).
 
-### Phase 2 — Image Reparse Integrity (Bug 2)
+### Phase 2 — Image Reparse Integrity (Bug 2) ✅ COMPLETED
 
 **Goal:** Wikilink images survive the save/reload cycle without corruption.
 
-1. **Reproduce.** Create a test note with `![[6_BLOB/image.png]]`, save, reload, inspect the markdown output. Confirm the conversion to `![](...)`.
-2. **Trace the round-trip.** Add logging at `pm_to_mdast.ts` serialization and `mdast_to_pm.ts` parsing. Identify where `file_embed` → `wikiEmbed` is lost or reinterpreted.
-3. **Fix remark round-trip.** Ensure `wikiEmbed` nodes in MDAST survive stringify → parse. Likely needs a remark plugin that preserves `![[...]]` as an opaque token rather than letting it be reinterpreted.
-4. **Fix path encoding.** Standardize: wikilink paths stored unencoded, standard paths URI-encoded. Decoding at resolution layer only.
-5. **Test the `!` + standard link document breaking.** Reproduce with a minimal doc, identify which remark plugin interaction causes structure loss.
-6. **Write tests.** Round-trip tests for both image types through the full serialize → parse → serialize cycle.
+**Status:** Implemented and verified. All 12 round-trip tests pass, full test suite (3624 tests) green.
 
-**Deliverables:** Remark round-trip fix, path encoding fix, regression tests.
+**What was done:**
+1. Created `remark_wiki_embed.ts` — remark parse plugin that walks the MDAST tree and replaces `paragraph` nodes containing `![[...]]` text with `wikiEmbed` MDAST nodes. Handles top-level, blockquotes, and list items.
+2. Registered plugin in `remark_processor.ts` (`parse_processor` chain after `remark_callout`).
+3. Added `wikiEmbed` → PM node handler in `mdast_to_pm.ts` that routes by extension: `.excalidraw`/`.canvas` → `excalidraw_embed`, `.md`/no ext → `note_embed`, other → `file_embed` (using `detect_embed_type`/`parse_embed_fragment`).
+4. Fixed `convert_list_item` in `mdast_to_pm.ts` to route `wikiEmbed` first-children through `convert_block` (was falling through to `convert_inline` which silently dropped them).
+5. Wrote 12 round-trip tests covering: images, PDFs with fragments, extensionless notes, excalidraw, canvas, list items, and full PM-level round-trips.
+
+**Not addressed (separate concerns):**
+- Path encoding mismatch (Bug 2 sub-issue) — still relevant for standard markdown images but orthogonal to the wikilink round-trip fix.
+- `!` + standard link document breaking — needs separate investigation.
+
+**Branch:** `fix/image-reparse` | **Commit:** `3bdc96f0`
+
+**Deliverables:** Remark round-trip fix, regression tests.
 
 ### Phase 3 — Task Checkbox Stability (Bug 5)
 
@@ -355,30 +363,31 @@ Each phase is scoped to fit in a single conversation session. Phases are ordered
 
 **Deliverables:** Git history timeout + guard, image-block resize handle, `image_drop_format` vault setting.
 
-### Phase 5 — Editor Polish (Bugs 3 + 4)
+### Phase 5 — Editor Polish (Bugs 3 + 4) ✅ COMPLETED
 
-**Goal:** Codeblock and table toolbar visual issues resolved.
+**Goal:** Codeblock and table toolbar visual issues resolved. Collapsible nodeview infrastructure unified and extended.
+
+**Status:** Implemented and verified. All 3631 tests pass, type checking clean.
+
+**What was done:**
 
 **Bug 3 — Codeblock hiding:**
-1. Reproduce: codeblock inside numbered list, shrink below content height.
-2. Inspect computed layout in dev tools. Identify the CSS property causing clipping (likely `overflow` on a list ancestor).
-3. Fix: likely `min-height` instead of `height` on `<pre>`, or explicit height propagation to the list item container.
-4. Test in multiple list nesting scenarios.
+- Added `display: flow-root` to `.code-block-wrapper` in `editor.css`. This creates a new block formatting context that ensures the wrapper properly contains its children (the `<pre>` with fixed height + overflow), preventing layout leaks in list item contexts without clipping resize handles or dropdowns.
 
-**Bug 4 — Table toolbar z-index:**
-1. Audit z-index values across the app (sidebar, toolbar, modals, table toolbar).
-2. Adjust `Z_TABLE_TOOLBAR` relative to sidebar/main toolbar.
-3. Fix dismiss logic: add global click listener or use `pointerdown` outside editor area to dismiss.
-4. Test: open table toolbar, click sidebar, verify toolbar dismisses.
+**Bug 4 — Table toolbar z-index / dismiss:**
+- Raised backdrop z-index from 0 to 49 (just below toolbar at 50) via a new `z_index` parameter on `create_backdrop()` in `floating_toolbar_utils.ts`. The backdrop now sits above other page content and properly catches clicks.
+- Added `pointerdown` capture-phase listener on `document` in `table_toolbar_plugin.ts` as a secondary dismiss mechanism. Dismisses toolbar when clicking outside both the toolbar and the table DOM, ensuring clicks on sidebar or other UI dismiss the toolbar.
 
-**Deliverables:** CSS fixes for codeblock layout, z-index/dismiss fixes for table toolbar.
+**Branch:** `fix/editor-polish` | **Commits:** Prior collapse infrastructure commits + `a70729af`
+
+**Deliverables:** CSS fix for codeblock layout, z-index/dismiss fixes for table toolbar, collapsible nodeview infrastructure (code_block, file_embed, note_embed collapse with PM attr persistence).
 
 ### Phase Summary
 
 | Phase | Bugs | Est. Scope | Branch |
 |-------|------|------------|--------|
-| 1 | 1, 8 | Startup reactor + service refactor | `fix/startup-flow` |
-| 2 | 2 | Remark round-trip + path encoding | `fix/image-reparse` |
+| 1 | 1, 8 | ✅  Startup reactor + service refactor | `fix/startup-flow` |
+| 2 | 2 | ✅ Remark round-trip fix | `fix/image-reparse` |
 | 3 | 5 | Task attribute unification | `fix/task-toggle` |
 | 4 | 6, 7 | Git timeout + image resize + setting | `feat/image-resize-git-history` |
-| 5 | 3, 4 | CSS/UI polish | `fix/editor-polish` |
+| 5 | 3, 4, collapsible nodeviews | ✅ CSS/UI polish | `fix/editor-polish` |
