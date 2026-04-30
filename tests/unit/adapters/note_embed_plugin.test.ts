@@ -67,6 +67,7 @@ describe("note_embed schema", () => {
     expect(node.attrs["src"]).toBe("test.md");
     expect(node.attrs["fragment"]).toBeNull();
     expect(node.attrs["display_src"]).toBe("");
+    expect(node.attrs["collapsed"]).toBe(false);
   });
 
   it("creates a note_embed node with all attrs", () => {
@@ -87,6 +88,21 @@ describe("note_embed schema", () => {
       display_src: "note#^abc123",
     });
     expect(node.attrs["fragment"]).toBe("^abc123");
+  });
+});
+
+describe("note_embed collapsed attr", () => {
+  it("collapsed attr is not present in serialized markdown", () => {
+    const doc = schema.node("doc", null, [
+      note_embed_type().create({
+        src: "note.md",
+        display_src: "note",
+        collapsed: true,
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md).not.toContain("collapsed");
+    expect(md.trim()).toBe("![[note]]");
   });
 });
 

@@ -105,6 +105,7 @@ describe("file_embed schema", () => {
     expect(node.attrs["page"]).toBeNull();
     expect(node.attrs["height"]).toBe(400);
     expect(node.attrs["file_type"]).toBe("");
+    expect(node.attrs["collapsed"]).toBe(false);
   });
 
   it("creates a file_embed node with all attrs", () => {
@@ -117,6 +118,21 @@ describe("file_embed schema", () => {
     expect(node.attrs["page"]).toBe(5);
     expect(node.attrs["height"]).toBe(600);
     expect(node.attrs["file_type"]).toBe("pdf");
+  });
+});
+
+describe("file_embed collapsed attr", () => {
+  it("collapsed attr is not present in serialized markdown", () => {
+    const doc = schema.node("doc", null, [
+      file_embed_type().create({
+        src: "report.pdf",
+        file_type: "pdf",
+        collapsed: true,
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md).not.toContain("collapsed");
+    expect(md.trim()).toBe("![[report.pdf]]");
   });
 });
 

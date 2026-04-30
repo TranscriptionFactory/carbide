@@ -64,6 +64,89 @@ describe("CodeBlockView", () => {
     vi.useRealTimers();
   });
 
+  describe("collapse", () => {
+    it("renders collapse button in toolbar", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const btn = c.querySelector(".code-block-collapse");
+      expect(btn).not.toBeNull();
+      expect(btn?.closest(".code-block-toolbar")).not.toBeNull();
+
+      view.destroy();
+    });
+
+    it("starts with data-collapsed false", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const wrapper = get_code_block_wrapper(c);
+      expect(wrapper?.dataset["collapsed"]).toBe("false");
+
+      view.destroy();
+    });
+
+    it("dispatches transaction with collapsed=true on click", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const btn = c.querySelector<HTMLButtonElement>(".code-block-collapse")!;
+      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs["collapsed"]).toBe(true);
+
+      const wrapper = get_code_block_wrapper(c);
+      expect(wrapper?.dataset["collapsed"]).toBe("true");
+
+      view.destroy();
+    });
+
+    it("shows line count element when collapsed", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "line1\nline2\nline3",
+      );
+      container = c;
+
+      const line_count = c.querySelector<HTMLSpanElement>(
+        ".code-block-line-count",
+      )!;
+      expect(line_count.textContent).toBe("3 lines");
+
+      view.destroy();
+    });
+
+    it("toggles back to expanded on second click", () => {
+      const { view, container: c } = create_editor_with_code_block(
+        "javascript",
+        "const x = 1;",
+      );
+      container = c;
+
+      const btn = c.querySelector<HTMLButtonElement>(".code-block-collapse")!;
+      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+      const code_block_node = view.state.doc.child(0);
+      expect(code_block_node.attrs["collapsed"]).toBe(false);
+
+      const wrapper = get_code_block_wrapper(c);
+      expect(wrapper?.dataset["collapsed"]).toBe("false");
+
+      view.destroy();
+    });
+  });
+
   describe("mermaid preview", () => {
     it("shows mermaid preview when code block has mermaid language", () => {
       const { view, container: c } = create_editor_with_code_block(
