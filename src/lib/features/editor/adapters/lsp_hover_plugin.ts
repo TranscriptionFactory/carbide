@@ -37,6 +37,7 @@ export function create_lsp_hover_plugin(input: {
   ) => void;
   get_markdown: () => string;
   should_suppress_visual?: () => boolean;
+  native_link_hover_enabled?: boolean;
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,
@@ -178,6 +179,14 @@ export function create_lsp_hover_plugin(input: {
 
         const pos = pos_result.pos;
         if (pos === active_pos) return;
+
+        if (input.native_link_hover_enabled) {
+          const resolved = editor_view.state.doc.resolve(pos);
+          if (resolved.marks().some((m) => m.type.name === "link")) {
+            if (!hovering_tooltip) hide();
+            return;
+          }
+        }
 
         hover_timeout = setTimeout(() => {
           trigger_at_pos(pos);
