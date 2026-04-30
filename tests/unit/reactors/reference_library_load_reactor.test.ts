@@ -7,7 +7,11 @@ function make_mock_vault_store(vault_id: string | null) {
 }
 
 function make_mock_reference_service() {
-  return { load_library: vi.fn(async () => {}) } as unknown as ReferenceService;
+  return {
+    load_library: vi.fn(async () => {}),
+    verify_linked_sources: vi.fn(async () => {}),
+    rescan_all_enabled_sources: vi.fn(async () => {}),
+  } as unknown as ReferenceService;
 }
 
 describe("reference_library_load.reactor", () => {
