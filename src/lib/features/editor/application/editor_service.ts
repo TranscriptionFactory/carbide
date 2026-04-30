@@ -447,6 +447,49 @@ export class EditorService {
     this.session?.trigger_hover_at_cursor?.();
   }
 
+  async lsp_hover(
+    line: number,
+    character: number,
+  ): Promise<{ contents: string | null } | null> {
+    const note = this.active_note;
+    if (!note || is_draft_note_path(note.meta.path)) return null;
+    return (
+      this.callbacks.on_markdown_lsp_hover?.(note.meta.path, line, character) ??
+      null
+    );
+  }
+
+  async lsp_completion(
+    line: number,
+    character: number,
+  ): Promise<
+    Array<{ label: string; detail: string | null; insert_text: string | null }>
+  > {
+    const note = this.active_note;
+    if (!note || is_draft_note_path(note.meta.path)) return [];
+    return (
+      this.callbacks.on_markdown_lsp_completion?.(
+        note.meta.path,
+        line,
+        character,
+      ) ?? []
+    );
+  }
+
+  get lsp_completion_trigger_characters(): string[] {
+    return (
+      this.callbacks.get_markdown_lsp_completion_trigger_characters?.() ?? []
+    );
+  }
+
+  get callbacks_have_lsp_hover(): boolean {
+    return this.callbacks.on_markdown_lsp_hover != null;
+  }
+
+  get callbacks_have_lsp_completion(): boolean {
+    return this.callbacks.on_markdown_lsp_completion != null;
+  }
+
   close_buffer(note_path: NotePath) {
     this.session?.close_buffer(note_path);
   }

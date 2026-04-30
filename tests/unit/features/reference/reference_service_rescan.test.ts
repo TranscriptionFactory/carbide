@@ -95,6 +95,40 @@ describe("rescan_all_enabled_sources", () => {
     expect(scan_spy).not.toHaveBeenCalledWith("s2");
   });
 
+  it("skips sources that are in missing_linked_sources", async () => {
+    const store = new ReferenceStore();
+    const ls_port = make_mock_linked_source_port();
+
+    const service = new ReferenceService(
+      make_mock_storage(),
+      store,
+      make_vault_store(),
+      new OpStore(),
+      () => 1000,
+      null,
+      null,
+      ls_port,
+      {
+        get_vault_setting: vi.fn(() => Promise.resolve(null)),
+        set_vault_setting: vi.fn(() => Promise.resolve()),
+      } as never,
+    );
+
+    const s1 = make_source({ id: "s1", name: "Papers" });
+    const s2 = make_source({ id: "s2", name: "Reports", path: "/reports" });
+    store.add_linked_source(s1);
+    store.add_linked_source(s2);
+    store.set_missing_linked_sources([{ source: s1, item_count: 5 }]);
+
+    const scan_spy = vi.spyOn(service, "scan_linked_source");
+
+    await service.rescan_all_enabled_sources();
+
+    expect(scan_spy).toHaveBeenCalledTimes(1);
+    expect(scan_spy).toHaveBeenCalledWith("s2");
+    expect(scan_spy).not.toHaveBeenCalledWith("s1");
+  });
+
   it("does nothing when no sources exist", async () => {
     const store = new ReferenceStore();
     const ls_port = make_mock_linked_source_port();
