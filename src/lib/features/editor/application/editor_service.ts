@@ -454,11 +454,8 @@ export class EditorService {
     const note = this.active_note;
     if (!note || is_draft_note_path(note.meta.path)) return null;
     return (
-      this.callbacks.on_markdown_lsp_hover?.(
-        note.meta.path,
-        line,
-        character,
-      ) ?? null
+      this.callbacks.on_markdown_lsp_hover?.(note.meta.path, line, character) ??
+      null
     );
   }
 
