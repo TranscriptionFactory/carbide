@@ -1,6 +1,7 @@
 import type { Root } from "mdast";
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import { schema } from "./schema";
+import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
 
@@ -178,6 +179,10 @@ function convert_block(node: AnyMdastNode): PmNode | null {
       return convert_callout(node);
     }
 
+    case "wikiEmbed": {
+      return convert_wiki_embed(node);
+    }
+
     case "html": {
       return null;
     }
@@ -185,6 +190,45 @@ function convert_block(node: AnyMdastNode): PmNode | null {
     default:
       return null;
   }
+}
+
+const WIKI_EMBED_PARSE_RE = /^!\[\[([^\]\n]+?)\]\]$/;
+const EXCALIDRAW_EXT_RE = /\.(?:excalidraw|canvas)$/i;
+const MD_EXT_RE = /\.md$/i;
+const FILE_EXT_RE = /\.[a-zA-Z0-9]+$/;
+
+function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
+  const raw = (node.value as string) || "";
+  const match = WIKI_EMBED_PARSE_RE.exec(raw);
+  if (!match || !match[1]) return null;
+
+  const inner = match[1];
+  const hash_idx = inner.indexOf("#");
+  const target = hash_idx >= 0 ? inner.slice(0, hash_idx) : inner;
+  const fragment = hash_idx >= 0 ? inner.slice(hash_idx + 1) : "";
+
+  if (EXCALIDRAW_EXT_RE.test(target)) {
+    return schema.nodes.excalidraw_embed.create({ src: target });
+  }
+
+  if (MD_EXT_RE.test(target) || !FILE_EXT_RE.test(target)) {
+    const src = MD_EXT_RE.test(target) ? target : `${target}.md`;
+    const display_src = fragment ? `${target}#${fragment}` : target;
+    return schema.nodes.note_embed.create({
+      src,
+      fragment: fragment || null,
+      display_src,
+    });
+  }
+
+  const file_type = detect_embed_type(target);
+  const parsed = parse_embed_fragment(fragment);
+  return schema.nodes.file_embed.create({
+    src: target,
+    file_type,
+    page: parsed.page,
+    height: parsed.height ?? 400,
+  });
 }
 
 function convert_list_item(node: AnyMdastNode): PmNode {
@@ -203,7 +247,7 @@ function convert_list_item(node: AnyMdastNode): PmNode {
     const first = children_nodes[0];
     if (!first) {
       pm_children = [schema.nodes.paragraph.create()];
-    } else if (first.type === "paragraph") {
+    } else if (first.type === "paragraph" || first.type === "wikiEmbed") {
       const first_pm = convert_block(first);
       if (first_pm) pm_children.push(first_pm);
       for (let i = 1; i < children_nodes.length; i++) {

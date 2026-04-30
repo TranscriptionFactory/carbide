@@ -9,6 +9,7 @@ import remarkGemoji from "remark-gemoji";
 import { remark_highlight, highlight_to_markdown } from "./remark_highlight";
 import { remark_details, details_to_markdown } from "./remark_details";
 import { remark_callout, callout_to_markdown } from "./remark_callout";
+import { remark_wiki_embed } from "./remark_wiki_embed";
 
 type StringifyState = {
   enter: (s: string) => () => void;
@@ -82,7 +83,8 @@ export const parse_processor = unified()
   .use(remarkGemoji)
   .use(remark_highlight)
   .use(remark_details)
-  .use(remark_callout);
+  .use(remark_callout)
+  .use(remark_wiki_embed);
 
 export const fallback_parse_processor = unified()
   .use(remarkParse)
