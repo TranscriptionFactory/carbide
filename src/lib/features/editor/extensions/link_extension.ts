@@ -10,7 +10,22 @@ export function create_link_extension(ctx: PluginContext): EditorExtension {
 
   if (link_mark_type) {
     if (ctx.native_link_hover_enabled !== false) {
-      plugins.push(create_link_tooltip_prose_plugin(link_mark_type));
+      const on_hover = ctx.events.on_markdown_lsp_hover;
+      const lsp_hover_options = on_hover
+        ? {
+            get_lsp_hover: async (
+              line: number,
+              character: number,
+            ): Promise<string | null> => {
+              const result = await on_hover(line, character);
+              return result?.contents ?? null;
+            },
+            get_markdown: ctx.get_markdown,
+          }
+        : undefined;
+      plugins.push(
+        create_link_tooltip_prose_plugin(link_mark_type, lsp_hover_options),
+      );
     }
     plugins.push(
       create_markdown_link_input_rule_prose_plugin({

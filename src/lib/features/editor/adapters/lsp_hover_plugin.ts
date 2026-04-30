@@ -4,6 +4,7 @@ import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { MarkdownLspHoverResult } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
 import { render_lsp_markdown } from "./lsp_tooltip_renderer";
+import { diagnostics_decoration_plugin_key } from "./diagnostics_decoration_plugin";
 
 type LspHoverPluginState = {
   trigger_at_pos: (pos: number) => void;
@@ -35,6 +36,7 @@ export function create_lsp_hover_plugin(input: {
     result: { contents: string; line: number; character: number } | null,
   ) => void;
   get_markdown: () => string;
+  should_suppress_visual?: () => boolean;
 }): Plugin {
   return new Plugin({
     key: lsp_hover_plugin_key,
@@ -88,13 +90,11 @@ export function create_lsp_hover_plugin(input: {
       }
 
       function has_diagnostic_at_pos(pos: number): boolean {
-        const diag_el = document.querySelector(".diagnostic-tooltip");
-        if (!diag_el || (diag_el as HTMLElement).style.display === "none")
-          return false;
-        const deco_set = editor_view.state.doc;
-        void deco_set;
-        void pos;
-        return true;
+        const deco_set = diagnostics_decoration_plugin_key.getState(
+          editor_view.state,
+        );
+        if (!deco_set) return false;
+        return deco_set.find(pos, pos + 1).length > 0;
       }
 
       function show(view: EditorView, pos: number, contents: string) {
@@ -149,7 +149,7 @@ export function create_lsp_hover_plugin(input: {
             if (!hovering_tooltip) hide();
             return;
           }
-          if (has_diagnostic_at_pos(pos)) {
+          if (has_diagnostic_at_pos(pos) || input.should_suppress_visual?.()) {
             input.on_hover_result?.({
               contents: result.contents,
               line,

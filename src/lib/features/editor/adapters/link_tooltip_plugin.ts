@@ -4,8 +4,15 @@ import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import { Check, Link, Pencil, Trash2 } from "lucide-static";
 import { build_link_edit_transaction } from "./link_edit_transaction";
+import { render_lsp_markdown } from "./lsp_tooltip_renderer";
+import { line_and_character_from_pos } from "./lsp_plugin_utils";
 
 export const link_tooltip_plugin_key = new PluginKey("custom-link-tooltip");
+
+let _link_tooltip_active = false;
+export function is_link_tooltip_active(): boolean {
+  return _link_tooltip_active;
+}
 
 function resize_icon(svg: string, size: number): string {
   return svg
@@ -212,7 +219,44 @@ function hide_floating(container: HTMLElement) {
   container.style.display = "none";
 }
 
-export function create_link_tooltip_prose_plugin(link_type: MarkType): Plugin {
+function render_lsp_section(container: HTMLElement, content: string) {
+  const existing = container.querySelector(".lsp-hover-section");
+  if (existing) existing.remove();
+  const section = document.createElement("div");
+  section.className = "lsp-hover-section";
+  section.style.borderTop = "1px solid var(--border)";
+  section.style.marginTop = "6px";
+  section.style.paddingTop = "6px";
+  section.style.fontSize = "13px";
+  section.style.lineHeight = "1.5";
+  const header = document.createElement("span");
+  header.style.fontSize = "10px";
+  header.style.textTransform = "uppercase";
+  header.style.letterSpacing = "0.05em";
+  header.style.color = "var(--muted-foreground)";
+  header.style.display = "block";
+  header.style.marginBottom = "4px";
+  header.textContent = "LSP";
+  section.appendChild(header);
+  const body = document.createElement("div");
+  body.className = "lsp-hover-content";
+  body.innerHTML = render_lsp_markdown(content);
+  section.appendChild(body);
+  const actions = container.querySelector(".link-preview");
+  if (actions) {
+    container.insertBefore(section, actions);
+  } else {
+    container.appendChild(section);
+  }
+}
+
+export function create_link_tooltip_prose_plugin(
+  link_type: MarkType,
+  options?: {
+    get_lsp_hover?: (line: number, character: number) => Promise<string | null>;
+    get_markdown?: () => string;
+  },
+): Plugin {
   return new Plugin({
     key: link_tooltip_plugin_key,
     view(editor_view) {
@@ -299,6 +343,7 @@ export function create_link_tooltip_prose_plugin(link_type: MarkType): Plugin {
         mode = "idle";
         current_link = null;
         hovering_tooltip = false;
+        _link_tooltip_active = false;
         hide_floating(preview_container);
         hide_floating(edit_container);
       };
@@ -357,13 +402,30 @@ export function create_link_tooltip_prose_plugin(link_type: MarkType): Plugin {
           if (info) {
             current_link = info;
             mode = "preview";
+            _link_tooltip_active = true;
             preview_dom.link_display_el.textContent = String(
               info.mark.attrs.href ?? "",
             );
+            const lsp_section =
+              preview_container.querySelector(".lsp-hover-section");
+            if (lsp_section) lsp_section.remove();
             show_floating(preview_container, {
               getBoundingClientRect: () =>
                 pos_to_dom_rect(editor_view, info.from, info.to),
             });
+            if (options?.get_lsp_hover && options.get_markdown) {
+              const markdown = options.get_markdown();
+              const { line, character } = line_and_character_from_pos(
+                editor_view,
+                info.from,
+                markdown,
+              );
+              void options.get_lsp_hover(line, character).then((content) => {
+                if (mode !== "preview" || !current_link) return;
+                if (!content) return;
+                render_lsp_section(preview_container, content);
+              });
+            }
           } else if (!hovering_tooltip && mode === "preview") {
             reset();
           }

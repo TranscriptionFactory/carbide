@@ -10,8 +10,6 @@ import {
   destroy_dropdown,
 } from "./suggest_dropdown_utils";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
-import { wiki_suggest_plugin_key } from "./wiki_suggest_plugin";
-import { at_palette_plugin_key } from "./at_palette_plugin";
 
 export const lsp_completion_plugin_key = new PluginKey<LspCompletionState>(
   "lsp-completion",
@@ -87,10 +85,10 @@ function escape_regex(s: string): string {
 function trigger_context(
   view: EditorView,
   trigger_chars: string[],
+  completion_blockers?: Array<(view: EditorView) => boolean>,
 ): { query: string; from: number } | null {
   if (trigger_chars.length === 0) return null;
-  if (wiki_suggest_plugin_key.getState(view.state)?.active) return null;
-  if (at_palette_plugin_key.getState(view.state)?.active) return null;
+  if (completion_blockers?.some((blocker) => blocker(view))) return null;
   const { $from } = view.state.selection;
   if (!$from.parent.isTextblock || $from.parent.type.name === "code_block") {
     return null;
@@ -111,6 +109,7 @@ export function create_lsp_completion_plugin(input: {
   ) => Promise<MarkdownLspCompletionItem[]>;
   get_trigger_characters: () => string[];
   get_markdown: () => string;
+  completion_blockers?: Array<(view: EditorView) => boolean>;
 }): Plugin<LspCompletionState> {
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
@@ -219,7 +218,11 @@ export function create_lsp_completion_plugin(input: {
           }
 
           const trigger_chars = input.get_trigger_characters();
-          const context = trigger_context(view, trigger_chars);
+          const context = trigger_context(
+            view,
+            trigger_chars,
+            input.completion_blockers,
+          );
           if (!context) {
             dismiss(view);
             return;
