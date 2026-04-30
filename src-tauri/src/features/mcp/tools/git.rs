@@ -25,12 +25,12 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn git_status_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
 
     ToolDefinition {
         name: "git_status".into(),
         description:
-            "Get the git working tree status for a vault (branch, modified/staged/untracked files)."
+            "Get the git working tree status for a vault. Returns branch name, clean/dirty state, ahead/behind counts, and per-file status codes with paths. Only works if the vault is a git repository."
                 .into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -42,12 +42,12 @@ fn git_status_def() -> ToolDefinition {
 
 fn git_log_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "limit".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Maximum number of commits to return (default: 20)".into()),
+            description: Some("Optional. Maximum number of commits to return (default: 20, max: 100)".into()),
             enum_values: None,
             default: Some(Value::Number(20.into())),
         },
@@ -55,7 +55,7 @@ fn git_log_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "git_log".into(),
-        description: "Get recent git commit history for a vault.".into(),
+        description: "Get recent git commit history for a vault. Returns one line per commit: short_hash, author, and message. Only works if the vault is a git repository.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -66,25 +66,25 @@ fn git_log_def() -> ToolDefinition {
 
 fn rename_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "old_path".into(),
         prop(
             "string",
-            "Current vault-relative path of the note (e.g. folder/note.md)",
+            "Current vault-relative path of the note (e.g. 'folder/note.md')",
         ),
     );
     properties.insert(
         "new_path".into(),
         prop(
             "string",
-            "New vault-relative path for the note (e.g. other/renamed.md)",
+            "New vault-relative path for the note (e.g. 'other/renamed.md'). Must end in .md.",
         ),
     );
 
     ToolDefinition {
         name: "rename_note".into(),
-        description: "Rename or move a note to a new path within the vault.".into(),
+        description: "Rename or move a note to a new path within the vault. Returns 'old_path → new_path' on success. Fails if the source note does not exist.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,

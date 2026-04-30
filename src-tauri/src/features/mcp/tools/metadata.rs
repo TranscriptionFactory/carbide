@@ -20,18 +20,18 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn get_note_metadata_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
         prop(
             "string",
-            "Vault-relative path to the note (e.g. folder/note.md)",
+            "Vault-relative path to the note (e.g. 'folder/note.md')",
         ),
     );
 
     ToolDefinition {
         name: "get_note_metadata".into(),
-        description: "Get metadata for a note including title, tags, properties, and statistics (word count, links, etc).".into(),
+        description: "Get metadata for a note without reading its full content. Returns path, title, size, mtime, word/char counts, heading/outlink counts, reading time, task progress, tags, and frontmatter properties with types. Use read_note instead if you need the actual markdown content.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,

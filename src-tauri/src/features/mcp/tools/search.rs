@@ -21,13 +21,13 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn search_notes_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
-    properties.insert("query".into(), prop("string", "Search query text"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
+    properties.insert("query".into(), prop("string", "Search query text. Searches note titles and body content."));
     properties.insert(
         "limit".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Maximum number of results (default: 20)".into()),
+            description: Some("Optional. Maximum number of results to return (default: 20, max: 100)".into()),
             enum_values: None,
             default: Some(Value::Number(20.into())),
         },
@@ -35,7 +35,7 @@ fn search_notes_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "search_notes".into(),
-        description: "Search notes using full-text search. Returns matching notes with relevance scores and text snippets.".into(),
+        description: "Full-text search across note titles and content. Returns tab-separated lines of path, title, and relevance score, with matching text snippets on the next line. Use list_notes to browse by folder, or query_notes_by_property to filter by frontmatter fields.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -46,11 +46,11 @@ fn search_notes_def() -> ToolDefinition {
 
 fn reindex_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
 
     ToolDefinition {
         name: "reindex".into(),
-        description: "Rebuild the search index for a vault. Triggers a full re-index of all notes in the background.".into(),
+        description: "Rebuild the search index for a vault. Triggers a full re-index of all notes in the background. Use this if search results seem stale or incomplete. Returns immediately; indexing continues asynchronously.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,

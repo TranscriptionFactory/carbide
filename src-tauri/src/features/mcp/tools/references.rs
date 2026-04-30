@@ -22,12 +22,12 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn list_references_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "limit".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Maximum number of results (default: 50)".into()),
+            description: Some("Optional. Maximum number of results to return (default: 50, max: 200)".into()),
             enum_values: None,
             default: Some(Value::Number(50.into())),
         },
@@ -35,7 +35,7 @@ fn list_references_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "list_references".into(),
-        description: "List citation references in the vault's library. Returns citekey, title, author, and year for each item.".into(),
+        description: "List citation references in the vault's CSL-JSON library. Returns a total count header, then tab-separated lines of citekey, title, author(s), and year. Use search_references to find specific entries by keyword.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -46,18 +46,18 @@ fn list_references_def() -> ToolDefinition {
 
 fn search_references_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "query".into(),
         prop(
             "string",
-            "Search query to match against citekey, title, or author",
+            "Search query. Matches against citekey, title, and author names (case-insensitive substring match).",
         ),
     );
 
     ToolDefinition {
         name: "search_references".into(),
-        description: "Search citation references by citekey, title, or author name.".into(),
+        description: "Search citation references by citekey, title, or author name. Returns a match count header, then tab-separated lines of citekey, title, author(s), and year. Max 50 results. Use list_references to browse the full library.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,

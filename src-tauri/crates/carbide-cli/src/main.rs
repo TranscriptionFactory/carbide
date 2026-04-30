@@ -44,151 +44,151 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    #[command(about = "Read a note")]
+    #[command(about = "Read a note (rendered for terminal). Use 'cat' or --raw for raw markdown")]
     Read {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
         #[arg(long, help = "Output raw markdown (skip terminal rendering)")]
         raw: bool,
     },
-    #[command(about = "Read a note (raw output, alias for read --raw)")]
+    #[command(about = "Read a note as raw markdown (alias for 'read --raw')")]
     Cat {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
     },
-    #[command(about = "Open a note in the default app")]
+    #[command(about = "Open a note in the default system app")]
     Open {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
     },
     #[command(about = "Open a note in $EDITOR")]
     Edit {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
     },
-    #[command(about = "Create a new note")]
+    #[command(about = "Create a new note. Fails if note already exists unless --overwrite is set")]
     Create {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (must end in .md, e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "Initial content")]
+        #[arg(long, help = "Initial markdown content (including frontmatter)")]
         content: Option<String>,
-        #[arg(long, help = "Overwrite if exists")]
+        #[arg(long, help = "Overwrite if a note already exists at this path")]
         overwrite: bool,
     },
-    #[command(about = "Write content to a note (replaces existing content)")]
+    #[command(about = "Replace the full content of an existing note. Use 'create' for new notes")]
     Write {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "New content")]
+        #[arg(long, help = "New markdown content (replaces entire file)")]
         content: String,
     },
-    #[command(about = "Append content to a note")]
+    #[command(about = "Append content to the end of a note")]
     Append {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "Content to append")]
+        #[arg(long, help = "Markdown content to append")]
         content: String,
     },
     #[command(about = "Prepend content after frontmatter")]
     Prepend {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "Content to prepend")]
+        #[arg(long, help = "Markdown content to insert after frontmatter")]
         content: String,
     },
-    #[command(about = "Rename a note")]
+    #[command(about = "Rename or move a note to a new path")]
     Rename {
-        #[arg(help = "Current note path")]
+        #[arg(help = "Current vault-relative note path (e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "New path")]
+        #[arg(long, help = "New vault-relative path (must end in .md)")]
         new_path: String,
     },
-    #[command(name = "move", about = "Move a note to a different folder")]
+    #[command(name = "move", about = "Move a note to a different folder (keeps filename)")]
     Move {
-        #[arg(help = "Note path")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
-        #[arg(long, help = "Target folder")]
+        #[arg(long, help = "Target folder path (e.g. 'archive/2024')")]
         to: String,
     },
-    #[command(about = "Delete a note")]
+    #[command(about = "Permanently delete a note")]
     Delete {
-        #[arg(help = "Note path")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
     },
-    #[command(about = "Search notes")]
+    #[command(about = "Full-text search across note titles and content")]
     Search {
-        #[arg(help = "Search query")]
+        #[arg(help = "Search query (matches titles and body content)")]
         query: String,
-        #[arg(long, default_value = "50", help = "Max results")]
+        #[arg(long, default_value = "50", help = "Max results (max: 100)")]
         limit: usize,
-        #[arg(long, help = "Output only paths (one per line)")]
+        #[arg(long, help = "Output only paths (one per line, useful for scripting)")]
         paths_only: bool,
     },
-    #[command(about = "List files in vault")]
+    #[command(about = "List notes in vault. Use 'search' for full-text search, 'bases:query' for property filters")]
     Files {
-        #[arg(long, help = "Filter by folder")]
+        #[arg(long, help = "Filter to notes under this folder (e.g. 'projects/active')")]
         folder: Option<String>,
-        #[arg(long, default_value = "200", help = "Max results")]
+        #[arg(long, default_value = "200", help = "Max results (max: 500)")]
         limit: usize,
         #[arg(long, default_value = "0", help = "Offset for pagination")]
         offset: usize,
     },
-    #[command(about = "List tags in vault")]
+    #[command(about = "List all tags in vault, or show notes with a specific tag")]
     Tags {
-        #[arg(long, help = "Show notes with this tag")]
+        #[arg(long, help = "Show notes with this tag (e.g. 'project')")]
         filter: Option<String>,
     },
-    #[command(about = "Show headings for a note")]
+    #[command(about = "Show heading outline for a note")]
     Outline {
-        #[arg(help = "Note path (relative to vault root)")]
+        #[arg(help = "Vault-relative note path (e.g. folder/note.md)")]
         path: String,
     },
-    #[command(about = "Show active vault info")]
+    #[command(about = "Show active vault info (ID, path, note count)")]
     Vault,
-    #[command(about = "List known vaults")]
+    #[command(about = "List all registered vaults with IDs and status")]
     Vaults,
-    #[command(about = "Rebuild the search index")]
+    #[command(about = "Rebuild the search index (use if search results seem stale)")]
     Reindex,
-    #[command(about = "Show app status")]
+    #[command(about = "Show Carbide app status (version, active vault, MCP endpoint)")]
     Status,
-    #[command(about = "Git operations")]
+    #[command(about = "Git operations (status, commit, log, diff)")]
     Git {
         #[command(subcommand)]
         action: commands::git::GitAction,
     },
-    #[command(about = "List citation library entries")]
+    #[command(about = "List citation library entries (citekey, title, author, year)")]
     References,
-    #[command(name = "reference:search", about = "Search citation library")]
+    #[command(name = "reference:search", about = "Search citations by citekey, title, or author")]
     ReferenceSearch {
-        #[arg(help = "Search query")]
+        #[arg(help = "Search query (case-insensitive substring match)")]
         query: String,
     },
     #[command(name = "reference:add", about = "Add a citation by DOI lookup")]
     ReferenceAdd {
-        #[arg(help = "DOI identifier")]
+        #[arg(help = "DOI identifier (e.g. '10.1234/example')")]
         doi: String,
     },
-    #[command(name = "reference:bbt", about = "Search Zotero Better BibTeX")]
+    #[command(name = "reference:bbt", about = "Search Zotero Better BibTeX library")]
     ReferenceBbt {
-        #[arg(help = "Search query")]
+        #[arg(help = "Search query for BBT")]
         query: String,
-        #[arg(long, help = "Max results")]
+        #[arg(long, help = "Max results to return")]
         limit: Option<u32>,
-        #[arg(long, help = "BBT JSON-RPC URL")]
+        #[arg(long, help = "BBT JSON-RPC URL (auto-detected if omitted)")]
         bbt_url: Option<String>,
     },
-    #[command(name = "bases:query", about = "Query notes using bases filters")]
+    #[command(name = "bases:query", about = "Query notes by frontmatter properties. Use 'bases:properties' to discover available fields")]
     BasesQuery {
         #[arg(
             long,
             short,
-            help = "Filter expression (e.g. status=draft, priority>3)"
+            help = "Filter expression: property[op]value. Operators: = (eq), != (neq), > (gt), >= (gte), < (lt), <= (lte), ~ (contains). E.g. 'status=draft', 'priority>3'"
         )]
         filter: Vec<String>,
         #[arg(
             long,
             short,
-            help = "Sort field (prefix with - for descending, e.g. -mtime_ms)"
+            help = "Sort field. Prefix with - for descending (e.g. '-mtime_ms', 'title')"
         )]
         sort: Vec<String>,
         #[arg(long, default_value = "100", help = "Max results")]
@@ -198,25 +198,25 @@ enum Command {
     },
     #[command(
         name = "bases:properties",
-        about = "List queryable properties with types"
+        about = "List all frontmatter property names with types, counts, and sample values"
     )]
     BasesProperties,
-    #[command(about = "List tasks across vault")]
+    #[command(about = "List markdown tasks (checkboxes) across vault notes")]
     Tasks {
-        #[arg(long, help = "Filter by status (todo, doing, done)")]
+        #[arg(long, help = "Filter by status: todo, doing, or done")]
         status: Option<String>,
-        #[arg(long, help = "Filter by note path")]
+        #[arg(long, help = "Filter to tasks in this note path")]
         path: Option<String>,
         #[arg(long, default_value = "100", help = "Max results")]
         limit: usize,
     },
-    #[command(name = "task:update", about = "Update task status")]
+    #[command(name = "task:update", about = "Update a task's checkbox status by line number")]
     TaskUpdate {
-        #[arg(help = "Note path containing the task")]
+        #[arg(help = "Vault-relative note path containing the task")]
         path: String,
-        #[arg(help = "Line number of the task")]
+        #[arg(help = "1-based line number of the task checkbox")]
         line_number: usize,
-        #[arg(help = "New status (todo, doing, done)")]
+        #[arg(help = "New status: todo, doing, or done")]
         status: String,
     },
     #[command(about = "Developer tools")]

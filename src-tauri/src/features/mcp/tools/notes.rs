@@ -31,16 +31,16 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn list_notes_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "folder".into(),
-        prop("string", "Filter to notes under this folder path"),
+        prop("string", "Optional. Vault-relative folder path to filter by (e.g. 'projects/active'). Omit to list all notes."),
     );
     properties.insert(
         "limit".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Maximum number of results (default: 200)".into()),
+            description: Some("Optional. Maximum number of results to return (default: 200, max: 500)".into()),
             enum_values: None,
             default: Some(Value::Number(200.into())),
         },
@@ -49,7 +49,7 @@ fn list_notes_def() -> ToolDefinition {
         "offset".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Offset for pagination (default: 0)".into()),
+            description: Some("Optional. Number of results to skip for pagination (default: 0)".into()),
             enum_values: None,
             default: Some(Value::Number(0.into())),
         },
@@ -57,7 +57,7 @@ fn list_notes_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "list_notes".into(),
-        description: "List all notes in a vault. Returns paths, titles, and metadata.".into(),
+        description: "List notes in a vault with pagination. Returns tab-separated lines of path and title, plus a count summary. Use folder to filter by directory. Use search_notes for full-text search, or query_notes_by_property to filter by frontmatter fields.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -68,18 +68,18 @@ fn list_notes_def() -> ToolDefinition {
 
 fn read_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
         prop(
             "string",
-            "Vault-relative path to the note (e.g. folder/note.md)",
+            "Vault-relative path to the note (e.g. 'folder/note.md')",
         ),
     );
 
     ToolDefinition {
         name: "read_note".into(),
-        description: "Read the full markdown content of a note.".into(),
+        description: "Read the full markdown content of a note, including frontmatter. Returns raw markdown as a single text block. Use get_note_metadata instead if you only need title, tags, properties, or stats.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -90,19 +90,19 @@ fn read_note_def() -> ToolDefinition {
 
 fn create_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
         prop(
             "string",
-            "Vault-relative path for the new note (must end in .md)",
+            "Vault-relative path for the new note. Must end in .md (e.g. 'projects/new-idea.md'). Parent directories are created automatically.",
         ),
     );
-    properties.insert("content".into(), prop("string", "Initial markdown content"));
+    properties.insert("content".into(), prop("string", "Initial markdown content (including any frontmatter)"));
 
     ToolDefinition {
         name: "create_note".into(),
-        description: "Create a new note with the given path and content.".into(),
+        description: "Create a new note. Fails with a conflict error if a note already exists at the given path — use update_note to modify existing notes. Returns the created path on success.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -113,19 +113,19 @@ fn create_note_def() -> ToolDefinition {
 
 fn update_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
-        prop("string", "Vault-relative path to the note"),
+        prop("string", "Vault-relative path to the note (e.g. 'folder/note.md')"),
     );
     properties.insert(
         "content".into(),
-        prop("string", "New markdown content for the note"),
+        prop("string", "New markdown content (replaces entire file, including frontmatter)"),
     );
 
     ToolDefinition {
         name: "update_note".into(),
-        description: "Update the content of an existing note.".into(),
+        description: "Replace the full content of an existing note. Fails if the note does not exist — use create_note for new notes. Returns the updated path and modification timestamp.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -136,15 +136,15 @@ fn update_note_def() -> ToolDefinition {
 
 fn delete_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
-        prop("string", "Vault-relative path to the note to delete"),
+        prop("string", "Vault-relative path to the note to delete (e.g. 'folder/note.md')"),
     );
 
     ToolDefinition {
         name: "delete_note".into(),
-        description: "Delete a note from the vault.".into(),
+        description: "Permanently delete a note from the vault. Fails if the note does not exist. Returns the deleted path on success.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,

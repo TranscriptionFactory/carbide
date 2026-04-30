@@ -31,18 +31,18 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn get_backlinks_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
         prop(
             "string",
-            "Vault-relative path to the note (e.g. folder/note.md)",
+            "Vault-relative path to the note (e.g. 'folder/note.md')",
         ),
     );
 
     ToolDefinition {
         name: "get_backlinks".into(),
-        description: "Get all notes that link to the specified note (incoming links).".into(),
+        description: "Get all notes that link to the specified note (incoming links). Returns tab-separated lines of path and title. Use get_outgoing_links for the reverse direction.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -53,19 +53,19 @@ fn get_backlinks_def() -> ToolDefinition {
 
 fn get_outgoing_links_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "path".into(),
         prop(
             "string",
-            "Vault-relative path to the note (e.g. folder/note.md)",
+            "Vault-relative path to the note (e.g. 'folder/note.md')",
         ),
     );
 
     ToolDefinition {
         name: "get_outgoing_links".into(),
         description:
-            "Get all notes that the specified note links to (outgoing links, resolved to existing notes)."
+            "Get all notes that the specified note links to (outgoing links, resolved to existing notes only). Returns tab-separated lines of path and title. Use get_backlinks for the reverse direction."
                 .into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -77,11 +77,11 @@ fn get_outgoing_links_def() -> ToolDefinition {
 
 fn list_properties_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
 
     ToolDefinition {
         name: "list_properties".into(),
-        description: "List all frontmatter property names with their inferred types, occurrence counts, and sample values.".into(),
+        description: "List all frontmatter property names across the vault with their inferred types, occurrence counts, and sample values. Use this to discover available property names before calling query_notes_by_property.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -92,23 +92,23 @@ fn list_properties_def() -> ToolDefinition {
 
 fn query_notes_by_property_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "property".into(),
-        prop("string", "Property name to filter on"),
+        prop("string", "Frontmatter property name to filter on (use list_properties to discover available names)"),
     );
     properties.insert(
         "value".into(),
         prop(
             "string",
-            "Value to match against (optional for existence check)",
+            "Optional. Value to compare against. Omit to check for property existence only.",
         ),
     );
     properties.insert(
         "operator".into(),
         PropertySchema {
             prop_type: "string".into(),
-            description: Some("Comparison operator (default: eq)".into()),
+            description: Some("Optional. Comparison operator: eq (equal), neq (not equal), contains (substring match), gt (greater than), gte (greater or equal), lt (less than), lte (less or equal). Default: eq.".into()),
             enum_values: Some(vec![
                 "eq".into(),
                 "neq".into(),
@@ -125,7 +125,7 @@ fn query_notes_by_property_def() -> ToolDefinition {
         "limit".into(),
         PropertySchema {
             prop_type: "integer".into(),
-            description: Some("Maximum number of results (default: 50)".into()),
+            description: Some("Optional. Maximum number of results to return (default: 50, max: 200)".into()),
             enum_values: None,
             default: Some(Value::Number(50.into())),
         },
@@ -133,7 +133,7 @@ fn query_notes_by_property_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "query_notes_by_property".into(),
-        description: "Find notes matching a frontmatter property filter. Supports equality, comparison, and contains operators.".into(),
+        description: "Find notes matching a frontmatter property filter. Returns tab-separated lines of path, title, property values, and tags, with a result count header. Use list_properties first to discover available property names. Use search_notes for full-text search instead.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
