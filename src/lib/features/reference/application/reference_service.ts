@@ -947,7 +947,12 @@ export class ReferenceService {
   }
 
   async rescan_all_enabled_sources(): Promise<void> {
-    const sources = this.store.linked_sources.filter((s) => s.enabled);
+    const missing_ids = new Set(
+      this.store.missing_linked_sources.map((m) => m.source.id),
+    );
+    const sources = this.store.linked_sources.filter(
+      (s) => s.enabled && !missing_ids.has(s.id),
+    );
     for (const source of sources) {
       await this.scan_linked_source(source.id);
     }

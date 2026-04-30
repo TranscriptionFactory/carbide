@@ -8,14 +8,21 @@
     FolderOpen,
     AlertTriangle,
   } from "@lucide/svelte";
+  import { onMount } from "svelte";
 
   const ctx = use_app_context();
   const ref_store = ctx.stores.reference;
 
   let processing = $state(false);
+  let ready = $state(false);
+
+  onMount(() => {
+    const id = setTimeout(() => (ready = true), 500);
+    return () => clearTimeout(id);
+  });
 
   const current = $derived(ref_store.missing_linked_sources[0] ?? null);
-  const is_open = $derived(current !== null);
+  const is_open = $derived(ready && current !== null);
 
   function dismiss() {
     if (current) {
