@@ -148,6 +148,12 @@ type PluginRpcExportBackend = {
   ): Promise<{ success: boolean; path: string | null }>;
 };
 
+export type PluginRpcActionsBackend = {
+  list(): Array<{ id: string; label: string; shortcut?: string }>;
+  available(): Array<{ id: string; label: string; shortcut?: string }>;
+  execute(id: string, args: unknown[]): Promise<void>;
+};
+
 export type PluginRpcContext = {
   services: {
     note: PluginRpcNoteService;
@@ -191,6 +197,7 @@ export type PluginRpcContext = {
   ai?: PluginRpcAiBackend;
   mcp?: PluginRpcMcpBackend;
   export?: PluginRpcExportBackend;
+  actions?: PluginRpcActionsBackend;
 };
 
 function is_record(value: unknown): value is RpcRecord {
@@ -576,6 +583,8 @@ export class PluginRpcHandler {
         return this.handle_mcp(plugin_id, action, params);
       case "export":
         return this.handle_export(plugin_id, action, params);
+      case "actions":
+        return this.handle_actions(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -1142,6 +1151,33 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown export action: ${action}`);
+    }
+  }
+
+  private async handle_actions(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    this.require_permission(plugin_id, "actions:execute");
+
+    if (!this.context.actions) {
+      throw new Error("Actions backend not initialized");
+    }
+
+    switch (action) {
+      case "list":
+        return this.context.actions.list();
+      case "available":
+        return this.context.actions.available();
+      case "execute": {
+        const action_id = read_param_string(params, 0, "action id");
+        const args = Array.isArray(params[1]) ? (params[1] as unknown[]) : [];
+        await this.context.actions.execute(action_id, args);
+        return { success: true };
+      }
+      default:
+        throw new Error(`Unknown actions action: ${action}`);
     }
   }
 }
