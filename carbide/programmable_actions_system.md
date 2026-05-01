@@ -1,6 +1,6 @@
 # Programmable Actions System — Research & Design
 
-## Status: Research | 2026-04-30
+## Status: In Progress (Phase 1 complete) | 2026-04-30
 
 **Question:** Can a user (or external tool) programmatically trigger Carbide actions — e.g., create a note from a template, run an AI action, organize files via MCP/CLI?
 
@@ -60,6 +60,7 @@ Iframe-sandboxed, permission-gated, communicates via `postMessage` RPC. Full API
 | Access MCP tools | `mcp:access` | RPC `mcp.list_tools / call_tool` |
 | **Register MCP tools** | `mcp:register` | RPC `mcp.register_tool` |
 | Save binary exports | `export:save` | RPC `export.save_binary` |
+| **Execute app actions** | `actions:execute` | `carbide.actions.*` |
 
 Activation events: `on_startup`, `on_command:<id>`, `on_file_open:<glob>`, `on_settings_open`.
 
@@ -112,11 +113,9 @@ Setup utilities auto-configure Claude Desktop and Claude Code configs. Token aut
 
 Despite the rich infrastructure, there are clear seams where the layers don't connect:
 
-### Gap 1: No plugin access to the action registry
+### ~~Gap 1: No plugin access to the action registry~~ ✅ Resolved (Phase 1)
 
-Plugins cannot call `action_registry.execute("note.create")`. They're limited to vault/editor/search/metadata APIs. A plugin that wants to open a specific note in a new tab, run lint, trigger git commit, or open the graph view simply cannot.
-
-**Impact:** Plugins are data-manipulation tools, not app-automation tools.
+~~Plugins cannot call `action_registry.execute("note.create")`.~~ Plugins now have full access via `carbide.actions.{list, available, execute}` with `actions:execute` permission. See Phase 1 below.
 
 ### Gap 2: No MCP access to the action registry
 
@@ -294,12 +293,14 @@ This builds on (A) and (B) — once actions are programmatically invokable, sequ
 
 ## 4. Implementation Plan
 
-### Phase 1: Plugin → Action Registry (low effort, high value)
+### Phase 1: Plugin → Action Registry ✅ Complete
 
-1. Add `actions:execute` permission to the permission system
-2. Add `handle_actions()` to `PluginRpcHandler` with `list`, `available`, `execute` methods
-3. Expose via `carbide.actions.*` in the plugin SDK
-4. Scope-gate by action namespace in manifest
+1. ✅ Added `actions:execute` permission to the permission system (`plugin_permission_dialog.svelte`)
+2. ✅ Added `PluginRpcActionsBackend` type and `handle_actions()` to `PluginRpcHandler` with `list`, `available`, `execute` methods
+3. ✅ Exposed via `carbide.actions.*` in the plugin SDK (`carbide_plugin_api.js`)
+4. ✅ Wired `ActionRegistry` into RPC context (`create_app_context.ts`)
+5. ✅ 11 tests covering permission grants, denials, invalid args, backend errors (`plugin_rpc_actions.test.ts`)
+6. ⏳ Scope-gate by action namespace in manifest (deferred — simple permission gate for now)
 
 **Enables:** Plugins that orchestrate the full app. A "daily setup" plugin. A "project workspace" plugin that opens specific notes + graph + canvas on startup.
 
