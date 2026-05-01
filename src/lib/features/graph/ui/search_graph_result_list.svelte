@@ -59,10 +59,16 @@
   const sorted_nodes = $derived(
     [...filtered_nodes].sort((a, b) => {
       if (a.kind !== b.kind) return a.kind === "hit" ? -1 : 1;
-      if (sort_mode === "date_modified")
-        return (b.date_modified_ms ?? 0) - (a.date_modified_ms ?? 0);
-      if (sort_mode === "date_created")
-        return (b.date_created_ms ?? 0) - (a.date_created_ms ?? 0);
+      if (sort_mode === "date_modified") {
+        const diff = (b.date_modified_ms ?? 0) - (a.date_modified_ms ?? 0);
+        if (diff !== 0) return diff;
+        return (b.score ?? 0) - (a.score ?? 0);
+      }
+      if (sort_mode === "date_created") {
+        const diff = (b.date_created_ms ?? 0) - (a.date_created_ms ?? 0);
+        if (diff !== 0) return diff;
+        return (b.score ?? 0) - (a.score ?? 0);
+      }
       return (b.score ?? 0) - (a.score ?? 0);
     }),
   );
@@ -191,14 +197,21 @@
       >
         <div class="SearchGraphResultList__header">
           <span class="SearchGraphResultList__title">{node.title}</span>
-          <span
-            class="SearchGraphResultList__badge"
-            class:SearchGraphResultList__badge--hit={node.kind === "hit"}
-            class:SearchGraphResultList__badge--neighbor={node.kind ===
-              "neighbor"}
-          >
-            {node.kind}
-          </span>
+          <div class="SearchGraphResultList__header-right">
+            {#if node.kind === "hit" && node.score != null}
+              <span class="SearchGraphResultList__score"
+                >{node.score.toFixed(2)}</span
+              >
+            {/if}
+            <span
+              class="SearchGraphResultList__badge"
+              class:SearchGraphResultList__badge--hit={node.kind === "hit"}
+              class:SearchGraphResultList__badge--neighbor={node.kind ===
+                "neighbor"}
+            >
+              {node.kind}
+            </span>
+          </div>
         </div>
         <span class="SearchGraphResultList__path">{format_path(node.path)}</span
         >
@@ -394,6 +407,19 @@
       var(--muted-foreground) 0 1px,
       transparent 1px 3px
     );
+  }
+
+  .SearchGraphResultList__header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .SearchGraphResultList__score {
+    font-size: 10px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
   }
 
   .SearchGraphResultList__badge {
