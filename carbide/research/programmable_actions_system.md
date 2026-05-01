@@ -1,0 +1,322 @@
+# Programmable Actions System — Research & Design
+
+## Status: Research | 2026-04-30
+
+**Question:** Can a user (or external tool) programmatically trigger Carbide actions — e.g., create a note from a template, run an AI action, organize files via MCP/CLI?
+
+---
+
+## 1. What Exists Today
+
+Carbide already has a deep, layered execution architecture. The pieces are all there — they just aren't fully connected to each other or to the outside world.
+
+### 1.1 Action Registry (internal dispatch surface)
+
+**`src/lib/app/action_registry/`**
+
+Every triggerable behavior goes through `ActionRegistry`. ~420 named action IDs organized by namespace: `note.*`, `vault.*`, `folder.*`, `editor.*`, `tab.*`, `git.*`, `ai.*`, `search.*`, `omnibar.*`, `ui.*`, `theme.*`, `canvas.*`, `graph.*`, `bases.*`, `query.*`, `lint.*`, `lsp.*`, `task.*`, `daily_notes.*`, `document.*`, etc.
+
+```typescript
+class ActionRegistry {
+  register(action: AppAction)        // { id, label, shortcut?, when?, execute }
+  execute(id: string, ...args)       // dispatch by ID, respects when() guard
+  get_all(): AppAction[]
+  get_available(): AppAction[]       // filtered by when() predicate
+}
+```
+
+Each feature registers its own actions via `register_<feature>_actions()`, wired together at boot in `register_actions()` → called from `create_app_context()`.
+
+### 1.2 Command Palette (Omnibar)
+
+**`src/lib/features/search/`**
+
+~70 built-in commands mapped to action IDs via `COMMAND_TO_ACTION_ID`. Prefix `>` in the omnibar to enter command mode. Commands have `when()` guards for contextual availability and `keywords` for fuzzy matching.
+
+Plugin commands merge into the same palette. When a plugin command is invoked:
+```
+omnibar → window.dispatchEvent("carbide:plugin-command") → PluginIframeHost → postMessage to iframe
+```
+
+### 1.3 Plugin System
+
+**`src/lib/features/plugin/`** | Docs: `docs/plugin_howto.md`
+
+Iframe-sandboxed, permission-gated, communicates via `postMessage` RPC. Full API surface:
+
+| Capability | Permission | SDK |
+|---|---|---|
+| Read/write vault files | `fs:read`, `fs:write` | `carbide.vault.*` |
+| Read/modify editor | `editor:read`, `editor:modify` | `carbide.editor.*` |
+| Register commands | `commands:register` | `carbide.commands.register()` |
+| Register slash commands | `commands:register` | RPC `commands.register_slash` |
+| UI (sidebar, statusbar, ribbon, toasts) | `ui:panel`, `ui:statusbar` | `carbide.ui.*` |
+| Subscribe to vault events | `events:subscribe` | `carbide.events.on()` |
+| Full-text search | `search:read` | `carbide.search.fts()` |
+| Metadata / property queries | `metadata:read` | `carbide.metadata.query()` |
+| Run AI prompts | `ai:execute` | `carbide.ai.execute()` |
+| HTTP requests (proxied) | `network:fetch` | `carbide.network.fetch()` |
+| Push diagnostics | `diagnostics:write` | `carbide.diagnostics.push()` |
+| Access MCP tools | `mcp:access` | RPC `mcp.list_tools / call_tool` |
+| **Register MCP tools** | `mcp:register` | RPC `mcp.register_tool` |
+| Save binary exports | `export:save` | RPC `export.save_binary` |
+
+Activation events: `on_startup`, `on_command:<id>`, `on_file_open:<glob>`, `on_settings_open`.
+
+### 1.4 Plugin Event Bus
+
+**`src/lib/features/plugin/application/plugin_event_bus.ts`**
+
+Pub/sub with debouncing (50ms), back-pressure (64 pending/plugin), and permission gating.
+
+Events: `file-created`, `file-modified`, `file-deleted`, `file-renamed`, `active-file-changed`, `editor-selection-changed`, `vault-opened`, `layout-changed`, `note-indexed`, `metadata-changed`.
+
+### 1.5 Reactor System
+
+**`src/lib/reactors/`** — ~45 persistent `$effect.root()` observers that watch store changes and trigger side effects. Notable:
+
+- `autosave.reactor` — save on edit debounce
+- `git_autocommit.reactor` — auto-commit on save
+- `plugin_lifecycle.reactor` — init/teardown plugins on vault open/close
+- `mcp_autostart.reactor` — starts MCP server when vault opens
+
+This is the internal automation backbone — hooks/triggers, but not exposed to plugins or externally.
+
+### 1.6 MCP Server
+
+**Frontend:** `src/lib/features/mcp/` | **Rust:** `src-tauri/src/features/mcp/`
+
+Local HTTP MCP server (JSON-RPC, protocol `2024-11-05`), auto-started by reactor when enabled. Exposes ~16 tools:
+
+| Tool | Category |
+|---|---|
+| `list_notes`, `read_note`, `create_note`, `update_note`, `delete_note` | CRUD |
+| `search_notes`, `reindex` | Search |
+| `get_note_metadata` | Metadata |
+| `list_vaults` | Vault |
+| `get_backlinks`, `get_outgoing_links`, `list_properties`, `query_notes_by_property` | Graph |
+| `list_references`, `search_references` | References |
+| `git_status`, `git_log`, `rename_note` | Git |
+
+Setup utilities auto-configure Claude Desktop and Claude Code configs. Token auth in place.
+
+**Plugin-registered MCP tools** (via `mcp:register` permission) are merged into the same server — plugins can extend what external agents see.
+
+### 1.7 Smart Templates
+
+**`plugins/smart-templates/`** — Bundled first-party plugin. Handlebars engine with context-aware variables (`current_note`, `selection`, `fileCache`, `backlinks`, `date`, `time`). Templates are markdown files with YAML frontmatter. Triggered via slash commands or command palette.
+
+---
+
+## 2. The Gaps
+
+Despite the rich infrastructure, there are clear seams where the layers don't connect:
+
+### Gap 1: No plugin access to the action registry
+
+Plugins cannot call `action_registry.execute("note.create")`. They're limited to vault/editor/search/metadata APIs. A plugin that wants to open a specific note in a new tab, run lint, trigger git commit, or open the graph view simply cannot.
+
+**Impact:** Plugins are data-manipulation tools, not app-automation tools.
+
+### Gap 2: No MCP access to the action registry
+
+External agents (Claude Code, Claude Desktop) can CRUD notes via MCP, but cannot trigger any of the 420 UI/app actions. No "open this note," "run lint," "switch to graph view," "create daily note."
+
+**Impact:** MCP is vault-level automation only, not app-level.
+
+### Gap 3: No action composition or chaining
+
+No way to define "when X happens, do Y then Z." The reactor system does this internally (e.g., autosave → auto-commit), but it's not exposed to plugins or users. There's no workflow engine, no action sequencing, no conditional logic.
+
+**Impact:** Every action is a one-shot. Multi-step workflows require manual orchestration.
+
+### Gap 4: No cross-plugin communication
+
+Plugins can't invoke each other's commands or share data. Each plugin is an island. A "daily setup" plugin can't invoke smart-templates to create a note.
+
+**Impact:** Plugin ecosystem can't compose.
+
+### Gap 5: Smart templates aren't externally triggerable
+
+No MCP tool or API to say "apply template X with context Y." Templates are UI-only.
+
+**Impact:** The most common "action" use case (create note from template) is inaccessible to automation.
+
+---
+
+## 3. Design: Programmable Actions
+
+### 3.1 Principle
+
+The action registry already exists and works. The design should be: **expose it, don't replace it.** Every new automation surface should dispatch through the same `ActionRegistry.execute()` path.
+
+### 3.2 Layer Diagram
+
+```
+                          ┌─────────────────────────────┐
+                          │     Action Registry          │
+                          │   (420+ named actions)       │
+                          └──────────┬──────────────────┘
+                                     │ execute(id, ...args)
+              ┌──────────────────────┼──────────────────────┐
+              │                      │                      │
+    ┌─────────▼──────┐    ┌─────────▼──────┐    ┌─────────▼──────┐
+    │  Keyboard /    │    │  Plugin RPC    │    │  MCP Server    │
+    │  Menu / UI     │    │  (new bridge)  │    │  (new bridge)  │
+    │  (exists)      │    │                │    │                │
+    └────────────────┘    └────────────────┘    └────────────────┘
+                                                        ▲
+                                                        │
+                                                ┌───────┴────────┐
+                                                │  Claude Code / │
+                                                │  CLI / External│
+                                                └────────────────┘
+```
+
+### 3.3 Proposed Changes
+
+#### A. Plugin → Action Registry bridge
+
+Add an `actions` RPC namespace to `PluginRpcHandler`:
+
+```typescript
+// New permission: "actions:execute"
+carbide.actions.list()                    // → AppAction[] (id, label, shortcut)
+carbide.actions.available()               // → filtered by when() guards
+carbide.actions.execute(id, ...args)      // → dispatch through registry
+```
+
+This is the single highest-leverage change. Plugins can now orchestrate the entire app.
+
+**Permission gating:** A new `actions:execute` permission. Consider an allowlist in the manifest so plugins declare which action namespaces they need (e.g., `"action_scopes": ["note.*", "editor.*"]`).
+
+#### B. MCP → Action Registry bridge
+
+Add an `execute_action` MCP tool:
+
+```json
+{
+  "name": "execute_action",
+  "description": "Execute a Carbide app action by ID",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action_id": { "type": "string", "description": "e.g. note.create, daily_notes.open_today" },
+      "args": { "type": "array", "description": "Action arguments" }
+    },
+    "required": ["action_id"]
+  }
+}
+```
+
+Also add `list_actions` to let agents discover what's available. This requires routing the MCP call from the Rust backend through to the frontend's action registry via existing IPC.
+
+**Consideration:** Some actions are UI-only (open dialog, focus editor). These make sense when the app is in the foreground but are meaningless headlessly. Tag actions with a `headless_safe` flag, and have the MCP tool filter or warn accordingly.
+
+#### C. Template execution via MCP
+
+Add an `apply_template` MCP tool:
+
+```json
+{
+  "name": "apply_template",
+  "description": "Create a note by applying a smart-template",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "template_name": { "type": "string" },
+      "output_path": { "type": "string", "description": "Where to write the resulting note" },
+      "context": { "type": "object", "description": "Variables to inject into the template" }
+    },
+    "required": ["template_name"]
+  }
+}
+```
+
+Implementation path: the smart-templates plugin already has Handlebars rendering logic. Two options:
+1. The MCP server calls the smart-templates plugin via the plugin bridge (requires plugin to be running)
+2. Extract template rendering into a shared module usable by both the plugin and the Rust MCP server
+
+Option 1 is simpler and keeps template logic in one place.
+
+#### D. Action Sequences (future, not MVP)
+
+A declarative format for multi-step workflows:
+
+```yaml
+# .carbide/actions/daily-setup.yaml
+name: Daily Setup
+trigger: command  # or: on_startup, on_schedule, on_file_created
+steps:
+  - action: daily_notes.open_today
+  - action: apply_template
+    args:
+      template_name: daily-journal
+      output_path: "journal/{{date 'YYYY-MM-DD'}}.md"
+  - action: ui.show_notice
+    args: ["Daily note created"]
+```
+
+This builds on (A) and (B) — once actions are programmatically invokable, sequencing is straightforward. The action-runner plugin would be a simple loop over steps, calling `carbide.actions.execute()` for each.
+
+**Not MVP.** This is valuable but the ROI comes from A/B/C first.
+
+---
+
+## 4. Implementation Plan
+
+### Phase 1: Plugin → Action Registry (low effort, high value)
+
+1. Add `actions:execute` permission to the permission system
+2. Add `handle_actions()` to `PluginRpcHandler` with `list`, `available`, `execute` methods
+3. Expose via `carbide.actions.*` in the plugin SDK
+4. Scope-gate by action namespace in manifest
+
+**Enables:** Plugins that orchestrate the full app. A "daily setup" plugin. A "project workspace" plugin that opens specific notes + graph + canvas on startup.
+
+### Phase 2: MCP → Action Registry (medium effort, high value)
+
+1. Add `execute_action` and `list_actions` MCP tools in Rust
+2. Route execution through Tauri IPC → frontend action registry
+3. Tag actions with `headless_safe` metadata
+4. Add `apply_template` MCP tool (via plugin bridge)
+
+**Enables:** "Hey Claude, create my daily note from the standup template." "Organize my inbox notes by tag." External scripts that drive the app.
+
+### Phase 3: Cross-Plugin Communication (low effort)
+
+1. Add `carbide.plugins.call(pluginId, commandId, args?)` to the SDK
+2. Route through host — no direct iframe-to-iframe messaging
+3. Permission: `plugins:call` with target allowlist
+
+**Enables:** Plugin composition. Smart-templates callable from other plugins.
+
+### Phase 4: Action Sequences (medium effort, lower priority)
+
+1. Define YAML schema for action sequences
+2. Build action-runner as a bundled plugin (dogfoods Phase 1 API)
+3. Register sequences as commands in the palette
+4. Optional: trigger on events (wraps the event bus)
+
+**Enables:** User-defined automation without writing a plugin.
+
+---
+
+## 5. Key Decisions to Make
+
+| Decision | Options | Recommendation |
+|---|---|---|
+| Action scoping for plugins | Per-action allowlist vs. namespace wildcard | Namespace wildcard (`note.*`, `editor.*`) — simpler UX, adequate security for local-first app |
+| MCP action execution | Frontend-routed (IPC) vs. Rust-native | Frontend-routed — actions live in the frontend, no point duplicating |
+| Template MCP tool | Plugin bridge vs. shared module | Plugin bridge — keeps logic in one place, smart-templates is already running |
+| Action sequences format | YAML vs. JSON vs. JS | YAML — readable, declarative, no security concerns. JS only if scripting is explicitly requested later |
+| Headless action behavior | Filter out UI actions vs. warn vs. no-op | Filter from `list_actions`, return error with reason from `execute_action` |
+
+---
+
+## 6. Relation to Existing Systems
+
+- **Reactors** remain internal — they're infra, not user-facing automation. Action sequences would be the user-facing equivalent.
+- **Event bus** stays as-is for plugin subscriptions. Action sequences could optionally trigger on events (Phase 4), but that's composition on top, not a replacement.
+- **Omnibar** remains the primary UI entry point. Action sequences would register as omnibar commands.
+- **MCP server** gains new tools but the protocol and auth stay the same.
