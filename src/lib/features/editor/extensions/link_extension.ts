@@ -21,7 +21,9 @@ export function create_link_extension(ctx: PluginContext): EditorExtension {
               return result?.contents ?? null;
             },
             get_markdown: ctx.get_markdown,
-            on_hover_result: ctx.events.on_markdown_lsp_hover_result,
+            ...(ctx.events.on_markdown_lsp_hover_result
+              ? { on_hover_result: ctx.events.on_markdown_lsp_hover_result }
+              : {}),
           }
         : undefined;
       plugins.push(

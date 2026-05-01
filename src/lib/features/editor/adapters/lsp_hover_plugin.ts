@@ -3,7 +3,10 @@ import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 import type { MarkdownLspHoverResult } from "$lib/features/markdown_lsp";
 import { line_and_character_from_pos } from "./lsp_plugin_utils";
-import { render_lsp_markdown, attach_lsp_link_handler } from "./lsp_tooltip_renderer";
+import {
+  render_lsp_markdown,
+  attach_lsp_link_handler,
+} from "./lsp_tooltip_renderer";
 import { diagnostics_decoration_plugin_key } from "./diagnostics_decoration_plugin";
 
 type LspHoverPluginState = {

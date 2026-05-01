@@ -255,7 +255,9 @@ export function create_link_tooltip_prose_plugin(
   options?: {
     get_lsp_hover?: (line: number, character: number) => Promise<string | null>;
     get_markdown?: () => string;
-    on_hover_result?: (result: { contents: string; line: number; character: number } | null) => void;
+    on_hover_result?: (
+      result: { contents: string; line: number; character: number } | null,
+    ) => void;
   },
 ): Plugin {
   return new Plugin({
@@ -425,7 +427,11 @@ export function create_link_tooltip_prose_plugin(
                 if (mode !== "preview" || !current_link) return;
                 if (!content) return;
                 render_lsp_section(preview_container, content);
-                options?.on_hover_result?.({ contents: content, line, character });
+                options?.on_hover_result?.({
+                  contents: content,
+                  line,
+                  character,
+                });
               });
             }
           } else if (!hovering_tooltip && mode === "preview") {

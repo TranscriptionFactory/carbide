@@ -2,7 +2,7 @@
   import { Sparkles, Play, CircleAlert, Info, X } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
-  import { render_lsp_markdown } from "$lib/features/editor/adapters/lsp_tooltip_renderer";
+  import { render_lsp_markdown } from "$lib/features/editor";
   import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp";
   import type {
     MarkdownLspStatus,
@@ -120,20 +120,23 @@
     e.preventDefault();
     const href = anchor.getAttribute("href");
     if (!href) return;
-    if (href.endsWith(".md") || (!href.startsWith("http://") && !href.startsWith("https://"))) {
+    if (
+      href.endsWith(".md") ||
+      (!href.startsWith("http://") && !href.startsWith("https://"))
+    ) {
       void action_registry.execute(ACTION_IDS.note_open, href);
     } else {
       void action_registry.execute(ACTION_IDS.shell_open_url, href);
     }
   }
 
-  const active_note_path = $derived(stores.editor.open_note?.meta?.path);
-  let prev_note_path = $state(active_note_path);
+  let prev_note_path: string | undefined;
   $effect(() => {
-    if (active_note_path !== prev_note_path) {
-      prev_note_path = active_note_path;
+    const current = stores.editor.open_note?.meta?.path;
+    if (prev_note_path !== undefined && current !== prev_note_path) {
       stores.lsp.set_hover(null);
     }
+    prev_note_path = current;
   });
 
   $effect(() => {
@@ -183,9 +186,13 @@
         {/if}
       </button>
       {#if active_tab === "hover" && hover_content}
-        <button type="button" class="LspResults__clear-btn"
+        <button
+          type="button"
+          class="LspResults__clear-btn"
           onclick={() => stores.lsp.set_hover(null)}
-          title="Clear hover" aria-label="Clear hover content">
+          title="Clear hover"
+          aria-label="Clear hover content"
+        >
           <X />
         </button>
       {/if}
@@ -299,7 +306,11 @@
             Ln {hover_content.line + 1}, Col {hover_content.character + 1}
           </div>
           <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div class="lsp-hover-content LspResults__hover-rendered" onclick={handle_hover_link_click} role="presentation">
+          <div
+            class="lsp-hover-content LspResults__hover-rendered"
+            onclick={handle_hover_link_click}
+            role="presentation"
+          >
             {@html render_lsp_markdown(hover_content.contents)}
           </div>
         </div>

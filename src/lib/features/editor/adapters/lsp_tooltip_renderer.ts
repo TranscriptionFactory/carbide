@@ -17,7 +17,10 @@ export function attach_lsp_link_handler(
     e.preventDefault();
     const href = anchor.getAttribute("href");
     if (!href) return;
-    if (href.endsWith(".md") || (!href.startsWith("http://") && !href.startsWith("https://"))) {
+    if (
+      href.endsWith(".md") ||
+      (!href.startsWith("http://") && !href.startsWith("https://"))
+    ) {
       on_internal(href);
     } else {
       on_external(href);
