@@ -1,8 +1,9 @@
 # Bug Research & Implementation Plan
 
 **Date:** 2026-04-30
-**Source:** `carbide/2026-04-30_bug_report.md`
-**Branch:** `feat/extensible-lsp-suggest-coordination` (current)
+**Source:** `carbide/implementation/2026-04-30_bug_report.md`
+
+## **Status**: ALL PHASES COMPLETED
 
 ---
 
@@ -333,35 +334,29 @@ Each phase is scoped to fit in a single conversation session. Phases are ordered
 
 **Deliverables:** Remark round-trip fix, regression tests.
 
-### Phase 3 — Task Checkbox Stability (Bug 5)
+### Phase 3 — Task Checkbox Stability (Bug 5) ✅ COMPLETED
 
 **Goal:** Task items never revert to bullets regardless of toggle count.
 
-1. **Trace state transitions.** Log `checked` and `task_status` attrs after each click in `task_keymap_plugin.ts`. Identify the exact toggle sequence that produces `null`/`null`.
-2. **Unify on `task_status`.** Remove `checked` as the source of truth. `task_status` should be the single attribute controlling task identity. `checked` can remain for backward compat parsing (read-only) but should not be written.
-3. **Guard serialization.** In the markdown serializer, ensure a node that has ever been a task (has `task_status`) always serializes as `- [ ]` / `- [x]` / `- [/]`, never as `- `.
-4. **Write tests.** Cycle a task through `todo → doing → done → todo → doing → done` and verify markdown output at each step.
+**Fix:** Enforced invariant: `checked` is null iff the node is NOT a task. `doing` state maps to `checked=false` instead of `null`. Both attrs nullified on backspace. Serializer/parser/toDOM all gate on either attr being non-null.
 
-**Deliverables:** Unified task attribute, serializer guard, cycle tests.
+**Branch:** `fix/task-toggle-git-image` | **Commit:** `cb4c7660`
 
-### Phase 4 — Git History + Image Resize (Bugs 6 + 7)
+**Deliverables:** Toggle fix, serializer/parser guard, 8 cycle tests.
+
+### Phase 4 — Git History + Image Resize (Bugs 6 + 7) ✅ COMPLETED
 
 **Goal:** Git history loads reliably; dropped images can be resized.
 
-**Bug 6 — Git history:**
-1. Check Rust backend for `git log` command. Verify `--max-count` is passed.
-2. Add a 10s timeout to the Tauri command. Surface error on timeout.
-3. Add guard: if `is_loading_history` is already true, don't re-issue.
-4. Verify with a vault that has many commits to a single file.
+**Bug 6 fix:** Added revwalk traversal cap (`limit * 500`), 10s backend timeout via `tokio::time::timeout`, 15s frontend timeout via `Promise.race`. 2 new tests.
 
-**Bug 7 — Image resize + drop format setting:**
-1. Add pointer-drag resize handle to `image-block` nodeview (port from `code_block_view_plugin.ts`). Update `width` attr via `setNodeMarkup()`.
-2. Add vault setting `image_drop_format: "standard" | "wikilink"` (default: `"standard"`).
-3. Wire setting into `build_file_link()` in `file_drop_plugin.ts` and `image_paste_plugin.ts`.
-4. Add setting to UI under Settings → Editor → Images.
-5. Test: drop image with each setting, verify syntax and resize behavior.
+**Bug 7 fix:** Created reusable `resize_handle.ts` utility, integrated right-edge drag handle into `image-block` nodeview. Double-click resets to auto. CSS updated for col-resize cursor.
 
-**Deliverables:** Git history timeout + guard, image-block resize handle, `image_drop_format` vault setting.
+**Branch:** `fix/task-toggle-git-image` | **Commits:** `bce9ed52`, `a67b607b`
+
+**Deliverables:** Git history timeout (Rust + TS), image-block resize handle, 2 timeout tests.
+
+**Note:** `image_drop_format` setting (wikilink vs standard) deferred — orthogonal to the resize handle fix.
 
 ### Phase 5 — Editor Polish (Bugs 3 + 4) ✅ COMPLETED
 
