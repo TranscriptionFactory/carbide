@@ -8,7 +8,7 @@ import type {
   PluginHttpFetchRequest,
   PluginHttpFetchResponse,
 } from "../ports";
-import { Blocks, LayoutDashboard } from "@lucide/svelte";
+import { resolve_plugin_icon } from "./plugin_icon_registry";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import PluginStatusBarItem from "../ui/plugin_status_bar_item.svelte";
 import PluginSidebarPanel from "../ui/plugin_sidebar_panel.svelte";
@@ -192,11 +192,6 @@ export type PluginRpcContext = {
   mcp?: PluginRpcMcpBackend;
   export?: PluginRpcExportBackend;
 };
-
-const SIDEBAR_ICON_COMPONENTS = {
-  blocks: Blocks,
-  "layout-dashboard": LayoutDashboard,
-} satisfies Record<string, typeof Blocks>;
 
 function is_record(value: unknown): value is RpcRecord {
   return typeof value === "object" && value !== null;
@@ -471,20 +466,6 @@ function read_settings_tab_properties(
   return Object.entries(properties_record).map(([key, value]) =>
     read_setting_schema(key, value, `settings tab properties.${key}`),
   );
-}
-
-function resolve_sidebar_icon(icon_name: string | undefined): typeof Blocks {
-  if (!icon_name) {
-    return Blocks;
-  }
-
-  if (icon_name in SIDEBAR_ICON_COMPONENTS) {
-    return SIDEBAR_ICON_COMPONENTS[
-      icon_name as keyof typeof SIDEBAR_ICON_COMPONENTS
-    ];
-  }
-
-  return Blocks;
 }
 
 export class PluginRpcHandler {
@@ -773,7 +754,7 @@ export class PluginRpcHandler {
         this.context.services.plugin.register_sidebar_view({
           id: namespaced_panel_id,
           label,
-          icon: resolve_sidebar_icon(icon),
+          icon: resolve_plugin_icon(icon),
           panel: PluginSidebarPanel,
           panel_props: {
             plugin_id,
