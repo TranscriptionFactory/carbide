@@ -312,10 +312,12 @@ function convert_block_node(node: PmNode): MdastNode | null {
 
 function convert_list_item(node: PmNode): MdastNode {
   const checked = node.attrs["checked"] as boolean | null;
+  const task_status = node.attrs["task_status"] as string | null;
+  const is_task = checked !== null || task_status !== null;
   const children = convert_children(node);
   return {
     type: "listItem",
-    checked: checked !== null ? checked : undefined,
+    checked: is_task ? (checked === true ? true : false) : undefined,
     spread: false,
     children,
   };

@@ -159,7 +159,7 @@ const list_item: NodeSpec = {
     },
   ],
   toDOM(node) {
-    if (node.attrs["checked"] != null) {
+    if (node.attrs["checked"] != null || node.attrs["task_status"] != null) {
       return [
         "li",
         {

@@ -43,6 +43,7 @@ export function create_task_keymap_prose_plugin(): Plugin {
           const tr = state.tr.setNodeMarkup($pos.before(li_depth), undefined, {
             ...li_node.attrs,
             checked: null,
+            task_status: null,
           });
           dispatch(tr);
           return true;
@@ -85,12 +86,7 @@ export function create_task_keymap_prose_plugin(): Plugin {
             : task_status === "doing"
               ? "done"
               : "todo";
-        const next_checked =
-          next_status === "done"
-            ? true
-            : next_status === "doing"
-              ? null
-              : false;
+        const next_checked = next_status === "done" ? true : false;
         view.dispatch(
           view.state.tr.setNodeMarkup(node_pos, undefined, {
             ...node.attrs,

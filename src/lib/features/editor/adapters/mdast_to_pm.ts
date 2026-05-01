@@ -279,7 +279,9 @@ function convert_list_item(node: AnyMdastNode): PmNode {
     pm_children = [schema.nodes.paragraph.create()];
   }
 
-  return schema.nodes.list_item.create({ checked }, pm_children);
+  const task_status =
+    checked === true ? "done" : checked === false ? "todo" : null;
+  return schema.nodes.list_item.create({ checked, task_status }, pm_children);
 }
 
 function convert_table(node: AnyMdastNode): PmNode {
