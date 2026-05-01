@@ -5,6 +5,7 @@ use git2::{
 use serde::Serialize;
 use specta::Type;
 use std::path::Path;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct GitFileStatus {
@@ -347,10 +348,16 @@ pub(crate) fn collect_git_log(
         .set_sorting(Sort::TIME)
         .map_err(|e| format!("failed to set sorting: {}", e))?;
 
+    let max_traversal = limit * 500;
+    let mut traversed: usize = 0;
     let mut commits = Vec::new();
 
     for oid_result in revwalk {
         if commits.len() >= limit {
+            break;
+        }
+        traversed += 1;
+        if traversed > max_traversal {
             break;
         }
 
@@ -377,11 +384,14 @@ pub async fn git_log(
     file_path: Option<String>,
     limit: usize,
 ) -> Result<Vec<GitCommit>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    let task = tauri::async_runtime::spawn_blocking(move || {
         collect_git_log(&vault_path, file_path.as_deref(), limit)
-    })
-    .await
-    .map_err(|error| format!("failed to join git log task: {}", error))?
+    });
+    match tokio::time::timeout(Duration::from_secs(10), task).await {
+        Ok(join_result) => join_result
+            .map_err(|error| format!("failed to join git log task: {}", error))?,
+        Err(_) => Err("git log timed out after 10 seconds".to_string()),
+    }
 }
 
 fn commit_touches_file(repo: &Repository, commit: &git2::Commit, path: &str) -> bool {
