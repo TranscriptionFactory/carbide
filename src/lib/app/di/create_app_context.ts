@@ -207,6 +207,8 @@ export function create_app_context(input: {
     input.ports.bases,
   );
 
+  let flush_lsp_sync: () => void = () => {};
+
   const editor_callbacks: EditorServiceCallbacks = {
     on_command_execute: (command_id: string) => {
       const action_id = COMMAND_TO_ACTION_ID[command_id];
@@ -338,6 +340,7 @@ export function create_app_context(input: {
     get_markdown_lsp_completion_trigger_characters: () =>
       stores.markdown_lsp.completion_trigger_characters,
     on_markdown_lsp_completion: async (file_path, line, character) => {
+      flush_lsp_sync();
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return [];
       const results: Array<{
@@ -1238,7 +1241,7 @@ export function create_app_context(input: {
     vim_nav_store: stores.vim_nav,
   });
 
-  const cleanup_reactors = mount_reactors({
+  const reactor_handles = mount_reactors({
     editor_store: stores.editor,
     ui_store: stores.ui,
     op_store: stores.op,
@@ -1286,6 +1289,7 @@ export function create_app_context(input: {
     // stt_store: stores.stt,
     // stt_service,
   });
+  flush_lsp_sync = reactor_handles.flush_lsp_sync;
 
   return {
     ports: input.ports,
@@ -1295,7 +1299,7 @@ export function create_app_context(input: {
     secondary_editor_manager,
     terminal_runtime: terminal_service,
     destroy: () => {
-      cleanup_reactors();
+      reactor_handles.cleanup();
       plugin_service.destroy();
       terminal_service.destroy();
       secondary_editor_manager.destroy();

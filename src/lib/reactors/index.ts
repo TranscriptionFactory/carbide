@@ -138,8 +138,45 @@ export type ReactorContext = {
   // stt_service: SttService;
 };
 
-export function mount_reactors(context: ReactorContext): () => void {
+export type ReactorHandles = {
+  cleanup: () => void;
+  flush_lsp_sync: () => void;
+};
+
+export function mount_reactors(context: ReactorContext): ReactorHandles {
   const conflict_toast_manager = new ConflictToastManager();
+
+  const lsp_sync_handle = create_lsp_document_sync_reactor(
+    context.editor_store,
+    [
+      {
+        is_ready: () => context.markdown_lsp_store.status === "running",
+        debounce_ms: 300,
+        on_open: (path, content) => {
+          void context.markdown_lsp_service
+            .did_open(path, content)
+            .then(() => context.markdown_lsp_service.document_symbols(path));
+        },
+        on_change: (path, content) =>
+          void context.markdown_lsp_service.did_change(path, content),
+        on_save: (path, content) =>
+          void context.markdown_lsp_service.did_save(path, content),
+        on_close: (path) => {
+          context.diagnostics_store.clear_file("markdown_lsp", path);
+          void context.markdown_lsp_service.did_close(path);
+        },
+      },
+      {
+        is_ready: () => context.lint_store.is_running,
+        debounce_ms: 300,
+        on_open: (path, content) =>
+          void context.lint_service.notify_file_opened(path, content),
+        on_change: (path, content) =>
+          void context.lint_service.notify_file_changed(path, content),
+        on_close: (path) => void context.lint_service.notify_file_closed(path),
+      },
+    ],
+  );
 
   const unmounts = [
     create_plugin_note_indexed_reactor(
@@ -316,34 +353,7 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.markdown_lsp_store,
       context.action_registry,
     ),
-    create_lsp_document_sync_reactor(context.editor_store, [
-      {
-        is_ready: () => context.markdown_lsp_store.status === "running",
-        debounce_ms: 300,
-        on_open: (path, content) => {
-          void context.markdown_lsp_service
-            .did_open(path, content)
-            .then(() => context.markdown_lsp_service.document_symbols(path));
-        },
-        on_change: (path, content) =>
-          void context.markdown_lsp_service.did_change(path, content),
-        on_save: (path, content) =>
-          void context.markdown_lsp_service.did_save(path, content),
-        on_close: (path) => {
-          context.diagnostics_store.clear_file("markdown_lsp", path);
-          void context.markdown_lsp_service.did_close(path);
-        },
-      },
-      {
-        is_ready: () => context.lint_store.is_running,
-        debounce_ms: 300,
-        on_open: (path, content) =>
-          void context.lint_service.notify_file_opened(path, content),
-        on_change: (path, content) =>
-          void context.lint_service.notify_file_changed(path, content),
-        on_close: (path) => void context.lint_service.notify_file_closed(path),
-      },
-    ]),
+    lsp_sync_handle.cleanup,
     create_diagnostics_active_file_reactor(
       context.editor_store,
       context.diagnostics_store,
@@ -384,10 +394,13 @@ export function mount_reactors(context: ReactorContext): () => void {
     // ),
   ];
 
-  return () => {
-    for (const unmount of unmounts) {
-      unmount();
-    }
-    conflict_toast_manager.dismiss_all();
+  return {
+    cleanup: () => {
+      for (const unmount of unmounts) {
+        unmount();
+      }
+      conflict_toast_manager.dismiss_all();
+    },
+    flush_lsp_sync: () => lsp_sync_handle.flush(),
   };
 }

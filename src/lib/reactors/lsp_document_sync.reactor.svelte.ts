@@ -14,21 +14,30 @@ export type LspSyncClientConfig = LspSyncCallbacks & {
   skip_draft?: boolean;
 };
 
+export type LspDocumentSyncHandle = { cleanup: () => void; flush: () => void };
+
 export function create_lsp_document_sync_reactor(
   editor_store: EditorStore,
   clients: LspSyncClientConfig[],
-): () => void {
-  return $effect.root(() => {
+): LspDocumentSyncHandle {
+  const flush_fns: Array<() => void> = [];
+  const cleanup = $effect.root(() => {
     for (const client of clients) {
-      mount_client_effects(editor_store, client);
+      flush_fns.push(mount_client_effects(editor_store, client));
     }
   });
+  return {
+    cleanup,
+    flush: () => {
+      for (const fn of flush_fns) fn();
+    },
+  };
 }
 
 function mount_client_effects(
   editor_store: EditorStore,
   client: LspSyncClientConfig,
-): void {
+): () => void {
   let previous_path: string | null = null;
 
   $effect(() => {
@@ -96,6 +105,17 @@ function mount_client_effects(
     };
   });
 
+  function flush_pending(): void {
+    if (!debounce_timer) return;
+    clearTimeout(debounce_timer);
+    debounce_timer = null;
+    const open_note = editor_store.open_note;
+    if (!open_note || !client.is_ready()) return;
+    const path = open_note.meta.path;
+    if (client.skip_draft && is_draft_note_path(path)) return;
+    client.on_change(path, open_note.markdown ?? "");
+  }
+
   if (client.on_save) {
     let was_dirty = false;
     const save_fn = client.on_save;
@@ -115,4 +135,6 @@ function mount_client_effects(
       save_fn(path, open_note.markdown ?? "");
     });
   }
+
+  return flush_pending;
 }
