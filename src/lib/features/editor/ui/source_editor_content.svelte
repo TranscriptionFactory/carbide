@@ -285,7 +285,9 @@
       if (editor_service.callbacks_have_lsp_hover) {
         const { create_cm_lsp_hover } =
           await import("$lib/features/editor/adapters/cm_lsp_hover");
-        extensions.push(create_cm_lsp_hover(editor_service));
+        extensions.push(create_cm_lsp_hover(editor_service, {
+          on_hover_result: (result) => stores.lsp.set_hover(result),
+        }));
       }
       if (editor_service.callbacks_have_lsp_completion) {
         const { create_cm_lsp_completion } =
