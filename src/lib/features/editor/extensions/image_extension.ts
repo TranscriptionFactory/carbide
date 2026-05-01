@@ -3,6 +3,7 @@ import type { Node as ProseNode } from "prosemirror-model";
 import { create_image_input_rule_prose_plugin } from "../adapters/image_input_rule_plugin";
 import { create_image_width_prose_plugin } from "../adapters/image_width_plugin";
 import { create_image_paste_prose_plugin } from "../adapters/image_paste_plugin";
+import { create_width_resize_handle } from "../adapters/resize_handle";
 import { resolve_relative_asset_path } from "$lib/features/note";
 import { as_asset_path } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -97,7 +98,7 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
     key: new PluginKey("image-block-view"),
     props: {
       nodeViews: {
-        "image-block": (node, _view, _get_pos) => {
+        "image-block": (node, view, get_pos) => {
           const dom = document.createElement("div");
           dom.className = "milkdown-image-block";
 
@@ -115,6 +116,23 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
           if (width) wrapper.style.width = width;
 
           img.src = resolve_src(String(node.attrs["src"] || ""), img);
+
+          const resize_handle = create_width_resize_handle(
+            wrapper,
+            (new_width) => {
+              const pos = get_pos();
+              if (pos === undefined) return;
+              const current = view.state.doc.nodeAt(pos);
+              if (!current) return;
+              view.dispatch(
+                view.state.tr.setNodeMarkup(pos, undefined, {
+                  ...current.attrs,
+                  width: new_width,
+                }),
+              );
+            },
+          );
+          wrapper.appendChild(resize_handle.el);
 
           const caption_el = document.createElement("figcaption");
           caption_el.className = "image-caption";
@@ -142,10 +160,14 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
               return true;
             },
             destroy() {
+              resize_handle.cancel();
               for (const [, set] of pending_listeners) set.delete(img);
             },
-            stopEvent() {
-              return false;
+            stopEvent(event: Event) {
+              return (
+                event instanceof PointerEvent &&
+                resize_handle.el.contains(event.target as Node)
+              );
             },
             ignoreMutation() {
               return true;
