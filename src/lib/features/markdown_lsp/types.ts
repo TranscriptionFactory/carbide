@@ -79,6 +79,8 @@ export type MarkdownLspCompletionItem = {
   label: string;
   detail: string | null;
   insert_text: string | null;
+  filter_text: string | null;
+  text_edit_range: MarkdownLspRange | null;
 };
 
 export type MarkdownLspStartResult = {

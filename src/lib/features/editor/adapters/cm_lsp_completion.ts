@@ -31,15 +31,27 @@ export function create_cm_lsp_completion(
     if (items.length === 0) return null;
 
     const word = ctx.matchBefore(/\w*/);
-    const from = word?.from ?? ctx.pos;
+    const default_from = word?.from ?? ctx.pos;
 
     return {
-      from,
+      from: default_from,
       options: items.map((item) => {
-        const opt: { label: string; apply: string; detail?: string } = {
+        let item_from: number | undefined;
+        if (item.text_edit_range) {
+          const r = item.text_edit_range;
+          const line_obj = ctx.state.doc.line(r.start_line + 1);
+          item_from = line_obj.from + r.start_character;
+        }
+        const opt: {
+          label: string;
+          apply: string;
+          detail?: string;
+          from?: number;
+        } = {
           label: item.label,
           apply: item.insert_text ?? item.label,
         };
+        if (item_from != null) opt.from = item_from;
         if (item.detail != null) opt.detail = item.detail;
         return opt;
       }),

@@ -154,7 +154,18 @@ export type EditorEventHandlers = {
     line: number,
     character: number,
   ) => Promise<
-    Array<{ label: string; detail: string | null; insert_text: string | null }>
+    Array<{
+      label: string;
+      detail: string | null;
+      insert_text: string | null;
+      filter_text: string | null;
+      text_edit_range: {
+        start_line: number;
+        start_character: number;
+        end_line: number;
+        end_character: number;
+      } | null;
+    }>
   >;
   get_markdown_lsp_completion_trigger_characters?: () => string[];
   on_markdown_lsp_inlay_hints?: () => Promise<

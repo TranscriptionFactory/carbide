@@ -751,10 +751,22 @@ describe("MarkdownLspService", () => {
       await service.start("marksman");
 
       let resolve_first!: (
-        v: { label: string; detail: null; insert_text: null }[],
+        v: {
+          label: string;
+          detail: null;
+          insert_text: null;
+          filter_text: null;
+          text_edit_range: null;
+        }[],
       ) => void;
       let resolve_second!: (
-        v: { label: string; detail: null; insert_text: null }[],
+        v: {
+          label: string;
+          detail: null;
+          insert_text: null;
+          filter_text: null;
+          text_edit_range: null;
+        }[],
       ) => void;
 
       vi.mocked(port.completion)
@@ -774,12 +786,28 @@ describe("MarkdownLspService", () => {
       const p1 = service.completion("note.md", 0, 0);
       const p2 = service.completion("note.md", 1, 0);
 
-      resolve_second([{ label: "second", detail: null, insert_text: null }]);
+      resolve_second([
+        {
+          label: "second",
+          detail: null,
+          insert_text: null,
+          filter_text: null,
+          text_edit_range: null,
+        },
+      ]);
       await p2;
       expect(store.completions).toHaveLength(1);
       expect(store.completions[0]!.label).toBe("second");
 
-      resolve_first([{ label: "stale", detail: null, insert_text: null }]);
+      resolve_first([
+        {
+          label: "stale",
+          detail: null,
+          insert_text: null,
+          filter_text: null,
+          text_edit_range: null,
+        },
+      ]);
       await p1;
       expect(store.completions[0]!.label).toBe("second");
     });

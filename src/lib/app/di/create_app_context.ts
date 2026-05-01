@@ -338,6 +338,13 @@ export function create_app_context(input: {
         label: string;
         detail: string | null;
         insert_text: string | null;
+        filter_text: string | null;
+        text_edit_range: {
+          start_line: number;
+          start_character: number;
+          end_line: number;
+          end_character: number;
+        } | null;
       }> = [];
       if (stores.markdown_lsp.status === "running") {
         try {
@@ -360,7 +367,13 @@ export function create_app_context(input: {
             line,
             character,
           );
-          results.push(...code_items);
+          results.push(
+            ...code_items.map((ci) => ({
+              ...ci,
+              filter_text: null,
+              text_edit_range: null,
+            })),
+          );
         } catch {
           /* ignore */
         }
