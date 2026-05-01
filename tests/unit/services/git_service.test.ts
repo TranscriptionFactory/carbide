@@ -541,4 +541,20 @@ describe("GitService", () => {
     await service.check_repo();
     expect(git_store.enabled).toBe(false);
   });
+
+  it("load_history resets is_loading_history when port throws", async () => {
+    const { service, log, git_store } = create_harness();
+    log.mockRejectedValue(new Error("git log timed out after 10 seconds"));
+    await service.load_history("notes/test.md", 20);
+    expect(git_store.is_loading_history).toBe(false);
+    expect(git_store.error).toBe("git log timed out after 10 seconds");
+  });
+
+  it("load_history propagates error message to git_store on port rejection", async () => {
+    const { service, log, git_store, op_store } = create_harness();
+    log.mockRejectedValue(new Error("connection refused"));
+    await service.load_history("notes/test.md", 20);
+    expect(git_store.error).toBe("connection refused");
+    expect(op_store.get("git.history").status).toBe("error");
+  });
 });

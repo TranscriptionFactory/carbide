@@ -7,6 +7,22 @@ import type { VaultPath } from "$lib/shared/types/ids";
 import { CHECKPOINT_PREFIX, type GitDiff } from "$lib/features/git/types/git";
 import { error_message } from "$lib/shared/utils/error_message";
 
+function with_timeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms / 1000}s`)),
+        ms,
+      ),
+    ),
+  ]);
+}
+
 type CommitRunResult =
   | { status: "committed" }
   | { status: "skipped" }
@@ -296,7 +312,11 @@ export class GitService {
     this.op_store.start("git.history", this.now_ms());
     this.git_store.set_loading_history(true);
     try {
-      const commits = await this.git_port.log(vault_path, note_path, limit);
+      const commits = await with_timeout(
+        this.git_port.log(vault_path, note_path, limit),
+        15_000,
+        "git log",
+      );
       this.git_store.set_history(commits, note_path, {
         limit,
         has_more: commits.length >= limit,
@@ -333,10 +353,10 @@ export class GitService {
     this.op_store.start("git.history_more", this.now_ms());
     this.git_store.set_loading_more_history(true);
     try {
-      const commits = await this.git_port.log(
-        vault_path,
-        note_path,
-        next_limit,
+      const commits = await with_timeout(
+        this.git_port.log(vault_path, note_path, next_limit),
+        15_000,
+        "git log",
       );
       this.git_store.set_history(commits, note_path, {
         limit: next_limit,
