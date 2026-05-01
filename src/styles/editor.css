@@ -1529,16 +1529,29 @@
 
 .ProseMirror .milkdown-image-block > .image-wrapper .image-resize-handle {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  height: 0.5rem;
-  bottom: -0.25rem;
-  width: 10rem;
-  background: var(--border);
-  border-radius: 2px;
+  right: -4px;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  background: transparent;
   opacity: 0;
   transition: opacity var(--duration-normal) var(--ease-default);
-  cursor: row-resize;
+  cursor: col-resize;
+}
+
+.ProseMirror
+  .milkdown-image-block
+  > .image-wrapper
+  .image-resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 2rem;
+  background: var(--border);
+  border-radius: 2px;
 }
 
 .ProseMirror .milkdown-image-block:hover > .image-wrapper .image-resize-handle {
