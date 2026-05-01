@@ -123,6 +123,7 @@ describe("PluginRpcHandler", () => {
       });
 
       expect(response.error).toBeUndefined();
+      expect(response.result).toBe("# Test");
       expect(svc.is_permission_granted).toHaveBeenCalledWith(
         PLUGIN_ID,
         "fs:read",

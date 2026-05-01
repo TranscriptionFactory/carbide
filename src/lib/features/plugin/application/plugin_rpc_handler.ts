@@ -598,10 +598,12 @@ export class PluginRpcHandler {
     this.require_any_permission(plugin_id, ["fs:read", "fs:write"]);
 
     switch (action) {
-      case "read":
-        return this.context.services.note.read_note(
+      case "read": {
+        const doc = await this.context.services.note.read_note(
           as_note_path(read_param_string(params, 0, "note path")),
         );
+        return (doc as { markdown: string }).markdown;
+      }
       case "create":
         this.require_permission(plugin_id, "fs:write");
         return this.context.services.note.create_note(
