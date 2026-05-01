@@ -40,73 +40,87 @@ function make_client(
 }
 
 describe("lsp_document_sync.reactor", () => {
-  it("returns a cleanup function", () => {
+  it("returns a handle with cleanup and flush", () => {
     const client = make_client();
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [client],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    expect(typeof handle.flush).toBe("function");
+    handle.cleanup();
   });
 
   it("accepts multiple clients", () => {
     const client_a = make_client({ debounce_ms: 500 });
     const client_b = make_client({ debounce_ms: 300 });
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [client_a, client_b],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    expect(typeof handle.flush).toBe("function");
+    handle.cleanup();
   });
 
   it("accepts zero clients", () => {
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    expect(typeof handle.flush).toBe("function");
+    handle.cleanup();
   });
 
   it("accepts client with skip_draft", () => {
     const client = make_client({ skip_draft: true });
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [client],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    handle.cleanup();
   });
 
   it("accepts client without optional callbacks", () => {
-    const { on_save, on_close, ...base } = make_client();
+    const { on_save: _on_save, on_close: _on_close, ...base } = make_client();
     const client: LspSyncClientConfig = base;
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [client],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    handle.cleanup();
   });
 
   it("accepts not-ready client without error", () => {
     const client = make_client({ is_ready: () => false });
-    const unmount = create_lsp_document_sync_reactor(
+    const handle = create_lsp_document_sync_reactor(
       make_editor_store("notes/a.md"),
       [client],
     );
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    handle.cleanup();
   });
 
   it("handles null open_note", () => {
     const client = make_client();
-    const unmount = create_lsp_document_sync_reactor(make_editor_store(null), [
+    const handle = create_lsp_document_sync_reactor(make_editor_store(null), [
       client,
     ]);
-    expect(typeof unmount).toBe("function");
-    unmount();
+    expect(typeof handle.cleanup).toBe("function");
+    handle.cleanup();
+  });
+
+  it("flush is a no-op when no pending timer", () => {
+    const client = make_client();
+    const handle = create_lsp_document_sync_reactor(
+      make_editor_store("notes/a.md"),
+      [client],
+    );
+    handle.flush();
+    expect(client.on_change).not.toHaveBeenCalled();
+    handle.cleanup();
   });
 });
