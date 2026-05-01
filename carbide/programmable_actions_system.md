@@ -1,6 +1,6 @@
 # Programmable Actions System — Research & Design
 
-## Status: In Progress (Phase 1 complete) | 2026-04-30
+## Status: Phase 1 Complete, Remaining Phases Deferred | 2026-04-30
 
 **Question:** Can a user (or external tool) programmatically trigger Carbide actions — e.g., create a note from a template, run an AI action, organize files via MCP/CLI?
 
@@ -304,41 +304,21 @@ This builds on (A) and (B) — once actions are programmatically invokable, sequ
 
 **Enables:** Plugins that orchestrate the full app. A "daily setup" plugin. A "project workspace" plugin that opens specific notes + graph + canvas on startup.
 
-### Phase 2: MCP → Action Registry (medium effort, high value)
+### Phase 2: MCP → Action Registry — Deferred
 
-1. Add `execute_action` and `list_actions` MCP tools in Rust
-2. Route execution through Tauri IPC → frontend action registry
-3. Tag actions with `headless_safe` metadata
+**Rationale:** External agents primarily need vault data, not UI control. The existing MCP server already provides comprehensive CRUD/search/metadata tools. Most of the 420 action registry entries are UI-bound (open dialog, focus editor, toggle sidebar) and meaningless to headless agents. The headless-safe subset largely overlaps with existing MCP tools. The engineering cost (Rust → Tauri IPC → frontend routing) isn't justified by the marginal gain. Revisit if plugin-registered actions (Phase 1) create demand for external invocation.
 
-**Enables:** External agents driving the app. Any action reachable from the command palette is now reachable from Claude Code.
+### Phase 2.5: AI Actions Framework — Deferred
 
-Note: template application (`apply_template`) falls out naturally from this — it's just `execute_action` targeting a smart-templates command. No special-purpose tool needed.
+**Rationale:** No plugin currently needs this. The API shape should emerge from a concrete use case rather than abstract design. When a plugin needs to expose a multi-step AI operation, build the framework around that real need.
 
-### Phase 2.5: AI Actions Framework (medium effort, high value)
+### Phase 3: Cross-Plugin Communication — Deferred
 
-1. Define `AIAction` interface and registration API (`carbide.actions.registerAI()`)
-2. Add param input step to command palette for parameterized actions
-3. Auto-expose registered AI actions as MCP tools (builds on Phase 2 bridge)
-4. Build a reference AI action plugin (e.g., "organize by tag") to validate the API
+**Rationale:** Only one first-party plugin exists (smart-templates). Build when a second plugin needs to call the first.
 
-**Enables:** "Hey Claude, organize my inbox notes by topic." Plugins that define reusable AI-powered vault operations, invokable from both the UI and external agents.
+### Phase 4: Action Sequences — Deferred
 
-### Phase 3: Cross-Plugin Communication (low effort)
-
-1. Add `carbide.plugins.call(pluginId, commandId, args?)` to the SDK
-2. Route through host — no direct iframe-to-iframe messaging
-3. Permission: `plugins:call` with target allowlist
-
-**Enables:** Plugin composition. Smart-templates callable from other plugins.
-
-### Phase 4: Action Sequences (medium effort, lower priority)
-
-1. Define YAML schema for action sequences
-2. Build action-runner as a bundled plugin (dogfoods Phase 1 API)
-3. Register sequences as commands in the palette
-4. Optional: trigger on events (wraps the event bus)
-
-**Enables:** User-defined automation without writing a plugin.
+**Rationale:** Coding agents (Claude Code, etc.) already do action sequencing natively via multi-step MCP calls with reasoning. A declarative YAML format adds a second, less flexible way to do the same thing.
 
 ---
 
