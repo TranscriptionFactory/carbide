@@ -105,6 +105,8 @@ export type EditorServiceCallbacks = {
     }>
   >;
   on_markdown_lsp_definition_navigate?: (uri: string) => void;
+  on_lsp_link_navigate?: (path: string) => void;
+  on_lsp_link_open_url?: (url: string) => void;
   on_markdown_lsp_completion?: (
     file_path: string,
     line: number,
@@ -1192,6 +1194,13 @@ export class EditorService {
     if (this.callbacks.on_markdown_lsp_definition_navigate) {
       events.on_markdown_lsp_definition_navigate =
         this.callbacks.on_markdown_lsp_definition_navigate;
+    }
+
+    if (this.callbacks.on_lsp_link_navigate) {
+      events.on_lsp_link_navigate = this.callbacks.on_lsp_link_navigate;
+    }
+    if (this.callbacks.on_lsp_link_open_url) {
+      events.on_lsp_link_open_url = this.callbacks.on_lsp_link_open_url;
     }
 
     if (this.callbacks.on_markdown_lsp_completion) {

@@ -26,6 +26,12 @@ export function create_lsp_extension(ctx: PluginContext): EditorExtension {
       hover_input.native_link_hover_enabled = true;
       hover_input.should_suppress_visual = () => is_link_tooltip_active();
     }
+    if (ctx.events.on_lsp_link_navigate) {
+      hover_input.on_link_navigate = ctx.events.on_lsp_link_navigate;
+    }
+    if (ctx.events.on_lsp_link_open_url) {
+      hover_input.on_link_open_url = ctx.events.on_lsp_link_open_url;
+    }
     plugins.push(create_lsp_hover_plugin(hover_input));
   }
 

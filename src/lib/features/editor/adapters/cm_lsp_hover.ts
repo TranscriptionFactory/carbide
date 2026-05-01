@@ -1,7 +1,7 @@
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
-import { render_lsp_markdown } from "./lsp_tooltip_renderer";
+import { render_lsp_markdown, attach_lsp_link_handler } from "./lsp_tooltip_renderer";
 import { line_character_from_md_offset } from "./lsp_plugin_utils";
 import type { EditorService } from "../application/editor_service";
 
@@ -9,6 +9,8 @@ export function create_cm_lsp_hover(
   editor_service: EditorService,
   options?: {
     on_hover_result?: (result: { contents: string; line: number; character: number } | null) => void;
+    on_link_navigate?: (path: string) => void;
+    on_link_open_url?: (url: string) => void;
   },
 ): Extension {
   return ViewPlugin.define((editor_view: EditorView) => {
@@ -36,6 +38,14 @@ export function create_cm_lsp_hover(
     container.style.wordBreak = "break-word";
     container.style.pointerEvents = "auto";
     document.body.appendChild(container);
+
+    if (options?.on_link_navigate || options?.on_link_open_url) {
+      attach_lsp_link_handler(
+        container,
+        options?.on_link_navigate ?? (() => {}),
+        options?.on_link_open_url ?? (() => {}),
+      );
+    }
 
     container.addEventListener("mouseenter", () => {
       hovering_tooltip = true;

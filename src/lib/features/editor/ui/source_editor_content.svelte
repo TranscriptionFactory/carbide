@@ -287,6 +287,8 @@
           await import("$lib/features/editor/adapters/cm_lsp_hover");
         extensions.push(create_cm_lsp_hover(editor_service, {
           on_hover_result: (result) => stores.lsp.set_hover(result),
+          on_link_navigate: (path) => void action_registry.execute(ACTION_IDS.note_open, path),
+          on_link_open_url: (url) => void action_registry.execute(ACTION_IDS.shell_open_url, url),
         }));
       }
       if (editor_service.callbacks_have_lsp_completion) {
