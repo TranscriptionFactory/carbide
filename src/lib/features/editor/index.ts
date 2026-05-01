@@ -34,6 +34,7 @@ export {
   normalize_markdown_line_breaks,
 } from "$lib/features/editor/domain/markdown_line_breaks";
 export { parse_to_mdast } from "$lib/features/editor/adapters/markdown_pipeline";
+export { render_lsp_markdown } from "$lib/features/editor/adapters/lsp_tooltip_renderer";
 export {
   ai_menu_plugin_key,
   dispatch_ai_menu,

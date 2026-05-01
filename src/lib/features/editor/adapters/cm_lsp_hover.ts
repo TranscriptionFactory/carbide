@@ -1,14 +1,19 @@
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
-import { render_lsp_markdown, attach_lsp_link_handler } from "./lsp_tooltip_renderer";
+import {
+  render_lsp_markdown,
+  attach_lsp_link_handler,
+} from "./lsp_tooltip_renderer";
 import { line_character_from_md_offset } from "./lsp_plugin_utils";
 import type { EditorService } from "../application/editor_service";
 
 export function create_cm_lsp_hover(
   editor_service: EditorService,
   options?: {
-    on_hover_result?: (result: { contents: string; line: number; character: number } | null) => void;
+    on_hover_result?: (
+      result: { contents: string; line: number; character: number } | null,
+    ) => void;
     on_link_navigate?: (path: string) => void;
     on_link_open_url?: (url: string) => void;
   },
@@ -134,7 +139,11 @@ export function create_cm_lsp_hover(
             return;
           }
           show(pos, result.contents);
-          options?.on_hover_result?.({ contents: result.contents, line, character });
+          options?.on_hover_result?.({
+            contents: result.contents,
+            line,
+            character,
+          });
         });
       }, 350);
     }
