@@ -953,6 +953,31 @@ export function create_app_context(input: {
     network: {
       fetch: plugin_http_fetch,
     },
+    actions: {
+      list() {
+        return action_registry.get_all().map((a) => {
+          const summary: { id: string; label: string; shortcut?: string } = {
+            id: a.id,
+            label: a.label,
+          };
+          if (a.shortcut) summary.shortcut = a.shortcut;
+          return summary;
+        });
+      },
+      available() {
+        return action_registry.get_available().map((a) => {
+          const summary: { id: string; label: string; shortcut?: string } = {
+            id: a.id,
+            label: a.label,
+          };
+          if (a.shortcut) summary.shortcut = a.shortcut;
+          return summary;
+        });
+      },
+      async execute(id, args) {
+        await action_registry.execute(id, ...args);
+      },
+    },
     export: {
       async save_binary(data, default_filename, filters) {
         const { save } = await import("@tauri-apps/plugin-dialog");

@@ -162,5 +162,11 @@
       saveBinary: (data, defaultFilename, filters) =>
         _rpc("export.save_binary", data, defaultFilename, filters),
     },
+
+    actions: {
+      list: () => _rpc("actions.list"),
+      available: () => _rpc("actions.available"),
+      execute: (id, ...args) => _rpc("actions.execute", id, ...args),
+    },
   };
 })();

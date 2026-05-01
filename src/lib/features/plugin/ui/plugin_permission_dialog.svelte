@@ -30,6 +30,7 @@
     "ui:ribbon": "Add ribbon icons",
     "events:subscribe": "Subscribe to vault events",
     "export:save": "Save files to disk",
+    "actions:execute": "Execute app actions",
   };
 
   function permission_label(permission: string): string {
