@@ -136,11 +136,11 @@ Plugins can't invoke each other's commands or share data. Each plugin is an isla
 
 **Impact:** Plugin ecosystem can't compose.
 
-### Gap 5: Smart templates aren't externally triggerable
+### Gap 5: No AI-driven actions
 
-No MCP tool or API to say "apply template X with context Y." Templates are UI-only.
+Plugins can call `carbide.ai.execute()` for individual prompts, but there's no concept of a reusable, parameterized AI action — e.g., "organize these notes by topic," "summarize this folder into an index note," "tag all untagged notes based on content." These are multi-step operations that combine vault access + AI reasoning + vault mutations, and there's no framework for defining or invoking them.
 
-**Impact:** The most common "action" use case (create note from template) is inaccessible to automation.
+**Impact:** The most powerful automation use cases (AI-powered vault operations) require building everything from scratch per-plugin, and can't be triggered externally via MCP/CLI.
 
 ---
 
@@ -213,31 +213,60 @@ Also add `list_actions` to let agents discover what's available. This requires r
 
 **Consideration:** Some actions are UI-only (open dialog, focus editor). These make sense when the app is in the foreground but are meaningless headlessly. Tag actions with a `headless_safe` flag, and have the MCP tool filter or warn accordingly.
 
-#### C. Template execution via MCP
+#### C. AI Actions Framework
 
-Add an `apply_template` MCP tool:
+The high-value use case: reusable, parameterized AI operations on the vault. Examples:
+
+- **"Organize my inbox"** — read all notes in `inbox/`, use AI to classify by topic, move to appropriate folders, update links
+- **"Tag untagged notes"** — find notes without tags, use AI to infer tags from content, write frontmatter
+- **"Summarize folder into index"** — read all notes in a folder, AI-generate a summary index note with links
+- **"Extract tasks"** — scan notes for action items, consolidate into a tasks note
+
+These combine vault CRUD + AI reasoning + vault mutations in a loop. The building blocks already exist (`carbide.vault.*`, `carbide.ai.execute()`, `carbide.metadata.*`), but there's no framework for defining and invoking them.
+
+**Proposed: AI Action definition**
+
+```typescript
+interface AIAction {
+  id: string;
+  label: string;
+  description: string;
+  // What the action needs from the user
+  params: AIActionParam[];
+  // The execution logic — a plugin function that uses vault + AI APIs
+  execute: (params: Record<string, unknown>, context: ActionContext) => Promise<AIActionResult>;
+}
+
+interface AIActionParam {
+  name: string;
+  type: "string" | "path" | "folder" | "select";
+  description: string;
+  default?: unknown;
+  options?: string[];  // for select type
+}
+```
+
+**Registration:** Plugins register AI actions via `carbide.actions.registerAI(action)`. These show up in:
+1. The command palette (with a param input step if needed)
+2. The MCP server as callable tools (enabling Claude Code / Claude Desktop to invoke them)
+
+**MCP exposure:** Each registered AI action becomes an MCP tool automatically:
 
 ```json
 {
-  "name": "apply_template",
-  "description": "Create a note by applying a smart-template",
+  "name": "ai_action:organize_inbox",
+  "description": "Read all notes in a folder, classify by topic, move to subfolders",
   "inputSchema": {
-    "type": "object",
     "properties": {
-      "template_name": { "type": "string" },
-      "output_path": { "type": "string", "description": "Where to write the resulting note" },
-      "context": { "type": "object", "description": "Variables to inject into the template" }
-    },
-    "required": ["template_name"]
+      "source_folder": { "type": "string", "default": "inbox/" }
+    }
   }
 }
 ```
 
-Implementation path: the smart-templates plugin already has Handlebars rendering logic. Two options:
-1. The MCP server calls the smart-templates plugin via the plugin bridge (requires plugin to be running)
-2. Extract template rendering into a shared module usable by both the plugin and the Rust MCP server
+This means an external agent can say: "call `ai_action:organize_inbox`" and the plugin handles the AI loop internally — reading notes, prompting the AI, writing results.
 
-Option 1 is simpler and keeps template logic in one place.
+**Why plugin-hosted, not MCP-native:** The AI action runs inside the app where it has access to the full plugin API (metadata, search, editor, semantic features). An external MCP-only approach would be limited to filesystem-level operations and couldn't leverage the index, embeddings, or backlink graph.
 
 #### D. Action Sequences (future, not MVP)
 
@@ -279,9 +308,19 @@ This builds on (A) and (B) — once actions are programmatically invokable, sequ
 1. Add `execute_action` and `list_actions` MCP tools in Rust
 2. Route execution through Tauri IPC → frontend action registry
 3. Tag actions with `headless_safe` metadata
-4. Add `apply_template` MCP tool (via plugin bridge)
 
-**Enables:** "Hey Claude, create my daily note from the standup template." "Organize my inbox notes by tag." External scripts that drive the app.
+**Enables:** External agents driving the app. Any action reachable from the command palette is now reachable from Claude Code.
+
+Note: template application (`apply_template`) falls out naturally from this — it's just `execute_action` targeting a smart-templates command. No special-purpose tool needed.
+
+### Phase 2.5: AI Actions Framework (medium effort, high value)
+
+1. Define `AIAction` interface and registration API (`carbide.actions.registerAI()`)
+2. Add param input step to command palette for parameterized actions
+3. Auto-expose registered AI actions as MCP tools (builds on Phase 2 bridge)
+4. Build a reference AI action plugin (e.g., "organize by tag") to validate the API
+
+**Enables:** "Hey Claude, organize my inbox notes by topic." Plugins that define reusable AI-powered vault operations, invokable from both the UI and external agents.
 
 ### Phase 3: Cross-Plugin Communication (low effort)
 
@@ -308,7 +347,8 @@ This builds on (A) and (B) — once actions are programmatically invokable, sequ
 |---|---|---|
 | Action scoping for plugins | Per-action allowlist vs. namespace wildcard | Namespace wildcard (`note.*`, `editor.*`) — simpler UX, adequate security for local-first app |
 | MCP action execution | Frontend-routed (IPC) vs. Rust-native | Frontend-routed — actions live in the frontend, no point duplicating |
-| Template MCP tool | Plugin bridge vs. shared module | Plugin bridge — keeps logic in one place, smart-templates is already running |
+| AI action hosting | Plugin-side vs. MCP-native | Plugin-side — needs full API access (metadata, search, semantic features) |
+| AI action MCP exposure | Auto-register as tools vs. explicit opt-in | Auto-register — every AI action should be externally callable by default |
 | Action sequences format | YAML vs. JSON vs. JS | YAML — readable, declarative, no security concerns. JS only if scripting is explicitly requested later |
 | Headless action behavior | Filter out UI actions vs. warn vs. no-op | Filter from `list_actions`, return error with reason from `execute_action` |
 
