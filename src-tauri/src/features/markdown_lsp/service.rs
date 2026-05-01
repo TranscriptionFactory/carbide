@@ -710,12 +710,13 @@ pub async fn markdown_lsp_prepare_rename(
 fn normalize_completion_item(item: &serde_json::Value) -> Option<MarkdownLspCompletionItem> {
     let raw_label = item.get("label")?.as_str()?.to_string();
     let title_part = raw_label.trim().trim_start_matches("🔗").trim();
-    let raw_insert = item
-        .get("insertText")
-        .and_then(|t| t.as_str())
-        .map(String::from);
+
+    let (text_edit_text, text_edit_range) = extract_text_edit(item);
+    let raw_insert = text_edit_text
+        .or_else(|| item.get("insertText").and_then(|t| t.as_str()).map(String::from));
+
     let (label, insert_text) = if title_part.is_empty() {
-        let fallback = label_from_insert_text(item)?;
+        let fallback = label_from_text(&raw_insert)?;
         let fixed_insert = raw_insert.map(|t| {
             if t.starts_with("[](") {
                 format!("[{}]({}", &fallback, &t[3..])
@@ -734,11 +735,31 @@ fn normalize_completion_item(item: &serde_json::Value) -> Option<MarkdownLspComp
             .and_then(|d| d.as_str())
             .map(String::from),
         insert_text,
+        filter_text: item
+            .get("filterText")
+            .and_then(|f| f.as_str())
+            .map(String::from),
+        text_edit_range,
     })
 }
 
-fn label_from_insert_text(item: &serde_json::Value) -> Option<String> {
-    let text = item.get("insertText")?.as_str()?;
+fn extract_text_edit(item: &serde_json::Value) -> (Option<String>, Option<MarkdownLspRange>) {
+    let te = match item.get("textEdit") {
+        Some(v) if !v.is_null() => v,
+        _ => return (None, None),
+    };
+    let new_text = te
+        .get("newText")
+        .and_then(|t| t.as_str())
+        .map(String::from);
+    let range = te.get("range").and_then(parse_range_obj).or_else(|| {
+        te.get("insert").and_then(parse_range_obj)
+    });
+    (new_text, range)
+}
+
+fn label_from_text(raw_insert: &Option<String>) -> Option<String> {
+    let text = raw_insert.as_deref()?;
     let dest = text
         .find("](")
         .and_then(|start| {
@@ -788,9 +809,10 @@ pub async fn markdown_lsp_completion(
     let raw_items = items_val.and_then(|v| v.as_array()).unwrap_or(&empty_vec);
     for item in raw_items.iter() {
         log::trace!(
-            "Marksman completion item: label={:?} insertText={:?} detail={:?}",
+            "LSP completion item: label={:?} insertText={:?} textEdit={:?} detail={:?}",
             item.get("label").and_then(|v| v.as_str()),
             item.get("insertText").and_then(|v| v.as_str()),
+            item.get("textEdit"),
             item.get("detail").and_then(|v| v.as_str()),
         );
     }

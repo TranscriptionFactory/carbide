@@ -48,6 +48,18 @@ export function build_source_editor_base_theme_spec(): CodeMirrorThemeSpec {
     ".cm-lint-marker-warning": {
       content: "'!'",
     },
+    ".cm-tooltip": {
+      backgroundColor: "var(--popover)",
+      color: "var(--popover-foreground)",
+      border: "1px solid var(--border)",
+      borderRadius: "6px",
+      fontSize: "12px",
+    },
+    ".cm-tooltip-lint": {
+      backgroundColor: "var(--popover)",
+      color: "var(--popover-foreground)",
+      padding: "4px 8px",
+    },
   };
 }
 

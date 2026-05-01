@@ -110,6 +110,8 @@ pub struct MarkdownLspCompletionItem {
     pub label: String,
     pub detail: Option<String>,
     pub insert_text: Option<String>,
+    pub filter_text: Option<String>,
+    pub text_edit_range: Option<MarkdownLspRange>,
 }
 
 #[derive(Debug, Serialize, Type)]

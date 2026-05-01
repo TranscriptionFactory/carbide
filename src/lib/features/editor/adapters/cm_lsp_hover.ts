@@ -8,9 +8,10 @@ import type { EditorService } from "../application/editor_service";
 export function create_cm_lsp_hover(editor_service: EditorService): Extension {
   return ViewPlugin.define((editor_view: EditorView) => {
     let hover_timeout: ReturnType<typeof setTimeout> | null = null;
-    let active_pos: number | null = null;
+    let active_range: { from: number; to: number } | null = null;
     let hovering_tooltip = false;
     let hover_gen = 0;
+    let show_timestamp = 0;
 
     const container = document.createElement("div");
     container.className = "lsp-hover-tooltip";
@@ -39,11 +40,16 @@ export function create_cm_lsp_hover(editor_service: EditorService): Extension {
       hide();
     });
 
+    function word_range_at(pos: number): { from: number; to: number } {
+      const word = editor_view.state.wordAt(pos);
+      return word ?? { from: pos, to: pos };
+    }
+
     function hide() {
       if (hovering_tooltip) return;
       container.style.display = "none";
       container.innerHTML = "";
-      active_pos = null;
+      active_range = null;
     }
 
     function show(pos: number, contents: string) {
@@ -62,7 +68,8 @@ export function create_cm_lsp_hover(editor_service: EditorService): Extension {
       body.innerHTML = render_lsp_markdown(contents);
       container.appendChild(body);
       container.style.display = "block";
-      active_pos = pos;
+      active_range = word_range_at(pos);
+      show_timestamp = Date.now();
 
       const coords = editor_view.coordsAtPos(pos);
       if (!coords) return;
@@ -94,7 +101,9 @@ export function create_cm_lsp_hover(editor_service: EditorService): Extension {
         if (!hovering_tooltip) hide();
         return;
       }
-      if (pos === active_pos) return;
+      if (active_range && pos >= active_range.from && pos <= active_range.to)
+        return;
+      if (Date.now() - show_timestamp < 100) return;
 
       hover_timeout = setTimeout(() => {
         const gen = ++hover_gen;
