@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Sparkles, Play, CircleAlert, Info } from "@lucide/svelte";
+  import { Sparkles, Play, CircleAlert, Info, X } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
+  import { render_lsp_markdown } from "$lib/features/editor/adapters/lsp_tooltip_renderer";
   import type { LspCodeAction, LspDiagnostic } from "$lib/features/lsp";
   import type {
     MarkdownLspStatus,
@@ -113,6 +114,28 @@
     }
   }
 
+  function handle_hover_link_click(e: MouseEvent) {
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (!anchor) return;
+    e.preventDefault();
+    const href = anchor.getAttribute("href");
+    if (!href) return;
+    if (href.endsWith(".md") || (!href.startsWith("http://") && !href.startsWith("https://"))) {
+      void action_registry.execute(ACTION_IDS.note_open, href);
+    } else {
+      void action_registry.execute(ACTION_IDS.shell_open_url, href);
+    }
+  }
+
+  const active_note_path = $derived(stores.editor.open_note?.meta?.path);
+  let prev_note_path = $state(active_note_path);
+  $effect(() => {
+    if (active_note_path !== prev_note_path) {
+      prev_note_path = active_note_path;
+      stores.lsp.set_hover(null);
+    }
+  });
+
   $effect(() => {
     if (active_tab === "diagnostics") {
       refresh_diagnostics();
@@ -159,6 +182,13 @@
           <span class="LspResults__badge LspResults__badge--active"></span>
         {/if}
       </button>
+      {#if active_tab === "hover" && hover_content}
+        <button type="button" class="LspResults__clear-btn"
+          onclick={() => stores.lsp.set_hover(null)}
+          title="Clear hover" aria-label="Clear hover content">
+          <X />
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -268,7 +298,10 @@
           <div class="LspResults__hover-location">
             Ln {hover_content.line + 1}, Col {hover_content.character + 1}
           </div>
-          <pre class="LspResults__hover-text">{hover_content.contents}</pre>
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div class="lsp-hover-content LspResults__hover-rendered" onclick={handle_hover_link_click} role="presentation">
+            {@html render_lsp_markdown(hover_content.contents)}
+          </div>
         </div>
       {:else}
         <div class="LspResults__empty">
@@ -558,12 +591,31 @@
     font-feature-settings: "tnum" 1;
   }
 
-  .LspResults__hover-text {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
+  .LspResults__hover-rendered {
     font-size: var(--text-xs);
     line-height: 1.5;
-    font-family: var(--font-mono, monospace);
+  }
+
+  .LspResults__clear-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-touch-xs);
+    height: var(--size-touch-xs);
+    margin-left: auto;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  .LspResults__clear-btn:hover {
+    color: var(--foreground);
+    background-color: var(--accent);
+  }
+
+  :global(.LspResults__clear-btn > svg) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
   }
 </style>

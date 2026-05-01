@@ -87,7 +87,6 @@ export function create_lsp_hover_plugin(input: {
         container.style.display = "none";
         container.innerHTML = "";
         active_pos = null;
-        input.on_hover_result?.(null);
       }
 
       function has_diagnostic_at_pos(pos: number): boolean {
