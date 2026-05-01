@@ -150,6 +150,8 @@ export type EditorEventHandlers = {
     }>
   >;
   on_markdown_lsp_definition_navigate?: (uri: string) => void;
+  on_lsp_link_navigate?: (path: string) => void;
+  on_lsp_link_open_url?: (url: string) => void;
   on_markdown_lsp_completion?: (
     line: number,
     character: number,

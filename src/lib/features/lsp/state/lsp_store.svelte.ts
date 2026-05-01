@@ -25,4 +25,8 @@ export class LspStore {
   ) {
     this.hover_content = content;
   }
+
+  clear_hover() {
+    this.hover_content = null;
+  }
 }

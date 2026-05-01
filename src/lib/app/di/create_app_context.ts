@@ -329,6 +329,12 @@ export function create_app_context(input: {
       const relative_path = decoded.slice(prefix.length);
       void action_registry.execute(ACTION_IDS.note_open, relative_path);
     },
+    on_lsp_link_navigate: (path: string) => {
+      void action_registry.execute(ACTION_IDS.note_open, path);
+    },
+    on_lsp_link_open_url: (url: string) => {
+      void action_registry.execute(ACTION_IDS.shell_open_url, url);
+    },
     get_markdown_lsp_completion_trigger_characters: () =>
       stores.markdown_lsp.completion_trigger_characters,
     on_markdown_lsp_completion: async (file_path, line, character) => {
