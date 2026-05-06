@@ -558,11 +558,15 @@ export function register_note_actions(input: ActionRegistrationInput) {
         const open_note = stores.editor.open_note;
         if (!open_note || open_note.meta.id !== payload.note_id) return;
 
+        const attachment_folder =
+          stores.ui.editor_settings.attachment_folder || ".assets";
+
         await save_and_insert_file(
           input,
           payload.note_id,
           payload.note_path,
           payload.image,
+          { attachment_folder },
         );
       },
     });

@@ -780,7 +780,7 @@ export function create_prosemirror_editor_port(args?: {
           const restore_policy = next_config.restore_policy;
           const should_reuse_cache = restore_policy === "reuse_cache";
           const is_same_path = next_config.note_path === current_note_path;
-          if (!is_same_path) {
+          if (!is_same_path || should_reuse_cache) {
             save_current_buffer();
           }
 
