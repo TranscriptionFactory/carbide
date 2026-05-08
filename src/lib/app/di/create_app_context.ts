@@ -44,6 +44,8 @@ import {
 } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import type { AiProviderHint } from "$lib/features/plugin";
 import {
   BasesService,
   BasesPanel,
@@ -103,6 +105,45 @@ import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
 
 export type AppContext = ReturnType<typeof create_app_context>;
+
+function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
+  const model = provider.model ?? null;
+
+  if (provider.transport.kind === "cli") {
+    const cmd = provider.transport.command;
+    if (cmd === "claude") {
+      return {
+        provider: "anthropic",
+        model,
+        api_key_env: "ANTHROPIC_API_KEY",
+        base_url: null,
+      };
+    }
+    if (cmd === "ollama") {
+      return { provider: "ollama", model, api_key_env: null, base_url: null };
+    }
+    return { provider: "unknown", model, api_key_env: null, base_url: null };
+  }
+
+  const { base_url, api_key_env } = provider.transport;
+  const combined = `${base_url} ${api_key_env ?? ""}`.toLowerCase();
+
+  if (combined.includes("anthropic")) {
+    return {
+      provider: "anthropic",
+      model,
+      api_key_env: api_key_env ?? null,
+      base_url: null,
+    };
+  }
+
+  return {
+    provider: "openai",
+    model,
+    api_key_env: api_key_env ?? null,
+    base_url: base_url || null,
+  };
+}
 
 export function create_app_context(input: {
   ports: Ports;
@@ -1055,6 +1096,24 @@ export function create_app_context(input: {
           mode: input.mode ?? "ask",
           timeout_seconds: settings.ai_execution_timeout_seconds,
         });
+      },
+      async get_provider_hint(): Promise<AiProviderHint> {
+        const settings = stores.ui.editor_settings;
+        const unknown_hint: AiProviderHint = {
+          provider: "unknown",
+          model: null,
+          api_key_env: null,
+          base_url: null,
+        };
+        if (!settings.ai_enabled) return unknown_hint;
+        const providers = settings.ai_providers;
+        const default_id = settings.ai_default_provider_id;
+        const provider =
+          default_id === "auto"
+            ? providers[0]
+            : providers.find((p) => p.id === default_id);
+        if (!provider) return unknown_hint;
+        return derive_provider_hint(provider);
       },
     },
     sidecar: external_mcp_tauri_adapter,

@@ -17,7 +17,7 @@ function make_manifest(
   };
 }
 
-function make_context(ai_execute = vi.fn()) {
+function make_context(ai_execute = vi.fn(), ai_get_provider_hint = vi.fn()) {
   return {
     services: {
       note: {
@@ -55,6 +55,7 @@ function make_context(ai_execute = vi.fn()) {
     },
     ai: {
       execute: ai_execute,
+      get_provider_hint: ai_get_provider_hint,
     },
   };
 }
@@ -241,5 +242,63 @@ describe("ai.execute RPC handler", () => {
       output: "",
       error: "Provider not available",
     });
+  });
+});
+
+describe("ai.get_provider_hint RPC handler", () => {
+  it("returns hint when AI backend provides one", async () => {
+    const hint = {
+      provider: "anthropic" as const,
+      model: "claude-3-opus",
+      api_key_env: "ANTHROPIC_API_KEY",
+      base_url: null,
+    };
+    const get_hint_mock = vi.fn().mockResolvedValue(hint);
+    const context = make_context(vi.fn(), get_hint_mock);
+    const handler = new PluginRpcHandler(context);
+    handler.set_settings_service(
+      make_settings_service(["ai:execute"]) as never,
+    );
+
+    const response = await handler.handle_request(
+      "test-plugin",
+      make_manifest(),
+      { id: "h1", method: "ai.get_provider_hint", params: [] },
+    );
+
+    expect(response.error).toBeUndefined();
+    expect(response.result).toEqual(hint);
+    expect(get_hint_mock).toHaveBeenCalled();
+  });
+
+  it("rejects without ai:execute permission", async () => {
+    const context = make_context();
+    const handler = new PluginRpcHandler(context);
+    handler.set_settings_service(make_settings_service([]) as never);
+
+    const response = await handler.handle_request(
+      "test-plugin",
+      make_manifest({ permissions: [] }),
+      { id: "h2", method: "ai.get_provider_hint", params: [] },
+    );
+
+    expect(response.error).toContain("Missing ai:execute permission");
+  });
+
+  it("errors when AI backend is not initialized", async () => {
+    const context = make_context();
+    context.ai = undefined as never;
+    const handler = new PluginRpcHandler(context);
+    handler.set_settings_service(
+      make_settings_service(["ai:execute"]) as never,
+    );
+
+    const response = await handler.handle_request(
+      "test-plugin",
+      make_manifest(),
+      { id: "h3", method: "ai.get_provider_hint", params: [] },
+    );
+
+    expect(response.error).toContain("AI backend not initialized");
   });
 });

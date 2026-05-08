@@ -7,6 +7,7 @@
   "api_version": "1",
   "permissions": [
     "sidecar:access",
+    "ai:execute",
     "fs:read",
     "fs:write",
     "commands:register",
@@ -22,8 +23,9 @@
         "key": "llm_provider",
         "type": "select",
         "label": "LLM Provider",
-        "default": "anthropic",
+        "default": "",
         "options": [
+          { "label": "Auto (use Carbide setting)", "value": "" },
           { "label": "Anthropic", "value": "anthropic" },
           { "label": "OpenAI", "value": "openai" },
           { "label": "Ollama", "value": "ollama" }

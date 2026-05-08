@@ -134,11 +134,19 @@ type PluginRpcNetworkBackend = {
   fetch(request: PluginHttpFetchRequest): Promise<PluginHttpFetchResponse>;
 };
 
+export type AiProviderHint = {
+  provider: "anthropic" | "openai" | "ollama" | "unknown";
+  model: string | null;
+  api_key_env: string | null;
+  base_url: string | null;
+};
+
 export type PluginRpcAiBackend = {
   execute(input: {
     prompt: string;
     mode?: "edit" | "ask";
   }): Promise<{ success: boolean; output: string; error: string | null }>;
+  get_provider_hint(): Promise<AiProviderHint>;
 };
 
 type PluginRpcExportBackend = {
@@ -1023,6 +1031,8 @@ export class PluginRpcHandler {
         }
         return this.context.ai.execute({ prompt, mode: mode ?? "ask" });
       }
+      case "get_provider_hint":
+        return this.context.ai.get_provider_hint();
       default:
         throw new Error(`Unknown ai action: ${action}`);
     }
