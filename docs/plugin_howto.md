@@ -518,11 +518,11 @@ Server IDs are automatically namespaced per plugin — two plugins using `"my-se
 // Start an external MCP server
 await rpc.send(
   "sidecar.start",
-  "server-id",       // unique ID for this server instance
+  "server-id", // unique ID for this server instance
   "/path/to/binary", // executable path
   ["--flag", "val"], // command-line args (optional)
-  { API_KEY: "..." },// environment variables (optional)
-  "/path/to/workdir" // working directory (optional)
+  { API_KEY: "..." }, // environment variables (optional)
+  "/path/to/workdir", // working directory (optional)
 );
 
 // Check server status
@@ -536,7 +536,7 @@ const result = await rpc.send(
   "sidecar.call_tool",
   "server-id",
   "tool_name",
-  { input: "data" }  // tool arguments (optional)
+  { input: "data" }, // tool arguments (optional)
 );
 
 // Stop the server
@@ -546,9 +546,17 @@ await rpc.send("sidecar.stop", "server-id");
 **Using the SDK** (recommended):
 
 ```js
-await carbide.sidecar.start("server-id", "/path/to/binary", ["--flag"], { KEY: "val" }, "/workdir");
+await carbide.sidecar.start(
+  "server-id",
+  "/path/to/binary",
+  ["--flag"],
+  { KEY: "val" },
+  "/workdir",
+);
 const status = await carbide.sidecar.status("server-id");
-const result = await carbide.sidecar.callTool("server-id", "tool_name", { input: "data" });
+const result = await carbide.sidecar.callTool("server-id", "tool_name", {
+  input: "data",
+});
 await carbide.sidecar.stop("server-id");
 ```
 

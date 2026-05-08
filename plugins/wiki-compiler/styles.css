@@ -51,14 +51,28 @@ body {
   flex-shrink: 0;
 }
 
-.status-dot.running { background: var(--wc-success); }
-.status-dot.stopped { background: var(--wc-muted); }
-.status-dot.error { background: var(--wc-destructive); }
-.status-dot.starting { background: var(--wc-accent); animation: pulse 1s infinite; }
+.status-dot.running {
+  background: var(--wc-success);
+}
+.status-dot.stopped {
+  background: var(--wc-muted);
+}
+.status-dot.error {
+  background: var(--wc-destructive);
+}
+.status-dot.starting {
+  background: var(--wc-accent);
+  animation: pulse 1s infinite;
+}
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .status-label {
@@ -92,14 +106,21 @@ body {
   transition: background 0.15s;
 }
 
-.btn:hover { background: var(--wc-border); }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:hover {
+  background: var(--wc-border);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .btn.primary {
   background: var(--wc-accent);
   color: var(--wc-bg);
   border-color: var(--wc-accent);
 }
-.btn.primary:hover { opacity: 0.85; }
+.btn.primary:hover {
+  opacity: 0.85;
+}
 
 .query-box {
   display: flex;
@@ -147,8 +168,12 @@ body {
   padding: 1px 0;
 }
 
-.log-entry.error { color: var(--wc-destructive); }
-.log-entry.success { color: var(--wc-success); }
+.log-entry.error {
+  color: var(--wc-destructive);
+}
+.log-entry.success {
+  color: var(--wc-success);
+}
 
 .notice {
   padding: 8px;

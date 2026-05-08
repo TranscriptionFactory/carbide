@@ -74,8 +74,7 @@
         function log(message, type) {
           const entry = document.createElement("div");
           entry.className = "log-entry" + (type ? " " + type : "");
-          entry.textContent =
-            new Date().toLocaleTimeString() + " " + message;
+          entry.textContent = new Date().toLocaleTimeString() + " " + message;
           els.log_area.appendChild(entry);
           els.log_area.scrollTop = els.log_area.scrollHeight;
         }
@@ -83,8 +82,7 @@
         function set_status(status, detail) {
           const s = status.status || status;
           els.status_dot.className = "status-dot " + s;
-          els.status_label.textContent =
-            s.charAt(0).toUpperCase() + s.slice(1);
+          els.status_label.textContent = s.charAt(0).toUpperCase() + s.slice(1);
           els.status_detail.textContent = detail || "";
 
           is_running = s === "running";
