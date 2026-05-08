@@ -27,9 +27,7 @@ function make_sidecar_mock(): {
     call_tool: vi
       .fn()
       .mockResolvedValue({ content: [{ type: "text", text: "ok" }] }),
-    status: vi
-      .fn()
-      .mockResolvedValue({ status: "running", tool_count: 5 }),
+    status: vi.fn().mockResolvedValue({ status: "running", tool_count: 5 }),
   };
 }
 
@@ -103,15 +101,17 @@ describe("sidecar.* RPC handler", () => {
 
   describe("start", () => {
     it("namespaces server_id with plugin_id", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        {
-          id: "1",
-          method: "sidecar.start",
-          params: ["my-server", "/usr/bin/mcp-server", ["--arg"], { KEY: "val" }, "/tmp"],
-        },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "1",
+        method: "sidecar.start",
+        params: [
+          "my-server",
+          "/usr/bin/mcp-server",
+          ["--arg"],
+          { KEY: "val" },
+          "/tmp",
+        ],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.start).toHaveBeenCalledWith(
@@ -124,15 +124,11 @@ describe("sidecar.* RPC handler", () => {
     });
 
     it("handles missing optional args", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        {
-          id: "2",
-          method: "sidecar.start",
-          params: ["srv", "/bin/tool"],
-        },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "2",
+        method: "sidecar.start",
+        params: ["srv", "/bin/tool"],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.start).toHaveBeenCalledWith(
@@ -147,11 +143,11 @@ describe("sidecar.* RPC handler", () => {
 
   describe("stop", () => {
     it("stops with namespaced server_id", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        { id: "3", method: "sidecar.stop", params: ["my-server"] },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "3",
+        method: "sidecar.stop",
+        params: ["my-server"],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.stop).toHaveBeenCalledWith("test-plugin:my-server");
@@ -160,15 +156,11 @@ describe("sidecar.* RPC handler", () => {
 
   describe("call_tool", () => {
     it("forwards tool call with namespaced server_id", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        {
-          id: "4",
-          method: "sidecar.call_tool",
-          params: ["srv", "compile_wiki", { output: "wiki/" }],
-        },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "4",
+        method: "sidecar.call_tool",
+        params: ["srv", "compile_wiki", { output: "wiki/" }],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.call_tool).toHaveBeenCalledWith(
@@ -182,15 +174,11 @@ describe("sidecar.* RPC handler", () => {
     });
 
     it("handles call_tool without arguments", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        {
-          id: "5",
-          method: "sidecar.call_tool",
-          params: ["srv", "status"],
-        },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "5",
+        method: "sidecar.call_tool",
+        params: ["srv", "status"],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.call_tool).toHaveBeenCalledWith(
@@ -203,11 +191,11 @@ describe("sidecar.* RPC handler", () => {
 
   describe("status", () => {
     it("returns status with namespaced server_id", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        { id: "6", method: "sidecar.status", params: ["srv"] },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "6",
+        method: "sidecar.status",
+        params: ["srv"],
+      });
 
       expect(response.error).toBeUndefined();
       expect(sidecar.status).toHaveBeenCalledWith("test-plugin:srv");
@@ -222,11 +210,11 @@ describe("sidecar.* RPC handler", () => {
     it("rejects without sidecar:access permission", async () => {
       handler.set_settings_service(make_settings_service([]) as never);
 
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        { id: "7", method: "sidecar.start", params: ["srv", "/bin/tool"] },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "7",
+        method: "sidecar.start",
+        params: ["srv", "/bin/tool"],
+      });
 
       expect(response.error).toContain("Missing sidecar:access permission");
       expect(sidecar.start).not.toHaveBeenCalled();
@@ -235,11 +223,11 @@ describe("sidecar.* RPC handler", () => {
 
   describe("errors", () => {
     it("errors on unknown sidecar action", async () => {
-      const response = await handler.handle_request(
-        "test-plugin",
-        manifest,
-        { id: "8", method: "sidecar.unknown", params: [] },
-      );
+      const response = await handler.handle_request("test-plugin", manifest, {
+        id: "8",
+        method: "sidecar.unknown",
+        params: [],
+      });
 
       expect(response.error).toContain("Unknown sidecar action");
     });
@@ -252,11 +240,11 @@ describe("sidecar.* RPC handler", () => {
         make_settings_service(["sidecar:access"]) as never,
       );
 
-      const response = await handler2.handle_request(
-        "test-plugin",
-        manifest,
-        { id: "9", method: "sidecar.start", params: ["srv", "/bin/tool"] },
-      );
+      const response = await handler2.handle_request("test-plugin", manifest, {
+        id: "9",
+        method: "sidecar.start",
+        params: ["srv", "/bin/tool"],
+      });
 
       expect(response.error).toContain("Sidecar backend not initialized");
     });

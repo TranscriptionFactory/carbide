@@ -1205,8 +1205,7 @@ export class PluginRpcHandler {
       throw new Error("Sidecar backend not initialized");
     }
 
-    const namespace_server_id = (user_id: string) =>
-      `${plugin_id}:${user_id}`;
+    const namespace_server_id = (user_id: string) => `${plugin_id}:${user_id}`;
 
     switch (action) {
       case "start": {
