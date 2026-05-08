@@ -326,7 +326,31 @@ Backend invariants:
 2. Managed state structs live in the feature's `service.rs` — no global statics
 3. Cross-feature shared code goes in `shared/`, not inside a feature module
 4. `app/mod.rs` is the only place that registers plugins, state, and command handlers
-5. Backend holds no domain state between calls (exceptions: `WatcherState` and `SearchDbState` which are explicit lifecycle-managed state)
+5. Backend holds no domain state between calls (exceptions: `WatcherState`, `SearchDbState`, and `ExternalMcpState` which are explicit lifecycle-managed state)
+
+### External MCP client
+
+The `external_mcp` feature (`src-tauri/src/features/external_mcp/`) lets plugins run external MCP-compatible binaries as sidecar processes. Architecture:
+
+- **`ExternalMcpClient`** — spawns a subprocess, handles JSON-RPC 2.0 over stdin/stdout, manages initialization (initialize → tools/list → notifications/initialized), and routes request/response with timeout.
+- **`ExternalMcpState`** — `HashMap<String, ExternalMcpClient>` behind `Arc<Mutex<>>`. Manages lifecycle (start/stop/status) and enforces uniqueness per server ID. Registered via Tauri `.manage()`.
+- **Tauri commands** — `external_mcp_start`, `external_mcp_stop`, `external_mcp_call_tool`, `external_mcp_status`.
+
+Frontend bridge:
+
+- **`ExternalMcpAdapter`** (`src/lib/features/plugin/adapters/external_mcp_tauri_adapter.ts`) — wraps Tauri `invoke()` calls.
+- **`PluginRpcHandler.handle_sidecar()`** — handles `sidecar.*` RPC methods from plugins, namespaces server IDs by plugin ID for isolation, checks `sidecar:access` permission.
+- **Plugin SDK** — `carbide.sidecar.start()`, `.stop()`, `.callTool()`, `.status()` in `carbide_plugin_api.js`.
+
+```
+Plugin iframe
+  → sidecar.start RPC
+    → PluginRpcHandler (namespace server_id, check permission)
+      → ExternalMcpAdapter (Tauri invoke)
+        → ExternalMcpState.start() (Rust)
+          → ExternalMcpClient.start() (spawn + MCP init)
+            → external binary (JSON-RPC over stdio)
+```
 
 ## Validation checklist
 
