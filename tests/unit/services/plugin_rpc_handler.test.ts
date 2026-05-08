@@ -200,6 +200,32 @@ describe("PluginRpcHandler", () => {
       expect(response.result).toEqual(["notes/hello.md", "templates/daily.md"]);
       expect(ctx.list_notes).toHaveBeenCalled();
     });
+
+    it("returns vault root path via vault.get_root", async () => {
+      grant_permissions("fs:read");
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v6",
+        method: "vault.get_root",
+        params: [],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toBe("/test/vault");
+    });
+
+    it("errors on vault.get_root when no vault is active", async () => {
+      grant_permissions("fs:read");
+      ctx.context.stores.vault.vault = null;
+      const manifest = make_manifest(["fs:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "v7",
+        method: "vault.get_root",
+        params: [],
+      });
+
+      expect(response.error).toContain("No active vault");
+    });
   });
 
   describe("editor.*", () => {
