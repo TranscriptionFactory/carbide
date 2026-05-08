@@ -105,6 +105,7 @@ Declare all permissions your plugin needs in `manifest.json`. Users must approve
 | `search:read`       | Full-text search and tag queries                                              |
 | `network:fetch`     | Make HTTP requests to external URLs via host-side proxy (`network.fetch`)     |
 | `ai:execute`        | Run AI prompts through the configured provider (`ai.execute`)                 |
+| `sidecar:access`    | Start/stop/call external MCP servers as sidecar processes (`sidecar.*`)       |
 
 `settings.get`, `settings.set`, `settings.get_all`, and `ui.show_notice` require no permission.
 
@@ -263,6 +264,9 @@ await rpc.send("vault.modify", "path/to/note.md", "new content");
 
 // Delete a note (fs:write)
 await rpc.send("vault.delete", "path/to/note.md");
+
+// Get the vault root path (fs:read)
+const root = await rpc.send("vault.get_root");
 ```
 
 ### editor.\*
@@ -503,6 +507,54 @@ await rpc.send("diagnostics.push", "path/to/file.md", [
 // Clear diagnostics for a file (or all if no path)
 await rpc.send("diagnostics.clear", "path/to/file.md");
 ```
+
+### sidecar.\*
+
+Requires `sidecar:access`. Start and manage external MCP (Model Context Protocol) servers as sidecar processes. This lets plugins delegate heavy work to standalone binaries that speak JSON-RPC over stdin/stdout.
+
+Server IDs are automatically namespaced per plugin — two plugins using `"my-server"` get isolated instances.
+
+```js
+// Start an external MCP server
+await rpc.send(
+  "sidecar.start",
+  "server-id",       // unique ID for this server instance
+  "/path/to/binary", // executable path
+  ["--flag", "val"], // command-line args (optional)
+  { API_KEY: "..." },// environment variables (optional)
+  "/path/to/workdir" // working directory (optional)
+);
+
+// Check server status
+const status = await rpc.send("sidecar.status", "server-id");
+// → { status: "running", tool_count: 3 }
+// → { status: "stopped" }
+// → { status: "error", message: "..." }
+
+// Call a tool on the running server
+const result = await rpc.send(
+  "sidecar.call_tool",
+  "server-id",
+  "tool_name",
+  { input: "data" }  // tool arguments (optional)
+);
+
+// Stop the server
+await rpc.send("sidecar.stop", "server-id");
+```
+
+**Using the SDK** (recommended):
+
+```js
+await carbide.sidecar.start("server-id", "/path/to/binary", ["--flag"], { KEY: "val" }, "/workdir");
+const status = await carbide.sidecar.status("server-id");
+const result = await carbide.sidecar.callTool("server-id", "tool_name", { input: "data" });
+await carbide.sidecar.stop("server-id");
+```
+
+**Timeouts:** `sidecar.start`, `sidecar.stop`, and `sidecar.status` have a 30s timeout. `sidecar.call_tool` has a 120s timeout for long-running operations.
+
+**MCP protocol:** The binary must implement the [MCP specification](https://spec.modelcontextprotocol.io/) over stdio — JSON-RPC 2.0 messages, one per line. The host sends `initialize`, `notifications/initialized`, and `tools/list` on startup. After initialization, `tools/call` is used for tool invocations.
 
 ---
 
