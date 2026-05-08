@@ -63,6 +63,7 @@ function make_context() {
       notes: { notes: [] },
       editor: { open_note: null },
       tab: { active_tab: null },
+      vault: { vault: { path: "/test/vault" } },
     },
   };
 

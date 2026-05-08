@@ -190,6 +190,9 @@ export type PluginRpcContext = {
         file_type?: string;
       } | null;
     };
+    vault: {
+      vault: { path: string } | null;
+    };
   };
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
@@ -631,6 +634,11 @@ export class PluginRpcHandler {
         return this.context.services.note.read_asset(
           read_param_string(params, 0, "asset path"),
         );
+      case "get_root": {
+        const vault = this.context.stores.vault.vault;
+        if (!vault) throw new Error("No active vault");
+        return vault.path;
+      }
       default:
         throw new Error(`Unknown vault action: ${action}`);
     }
