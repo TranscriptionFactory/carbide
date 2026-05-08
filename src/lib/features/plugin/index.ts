@@ -12,4 +12,5 @@ export { default as PluginRuntimeContainer } from "./ui/plugin_runtime_container
 export { PluginHostAdapter } from "./adapters/plugin_host_adapter";
 export { PluginSettingsTauriAdapter } from "./adapters/plugin_settings_tauri_adapter";
 export { plugin_http_fetch } from "./adapters/plugin_network_tauri_adapter";
+export { external_mcp_tauri_adapter } from "./adapters/external_mcp_tauri_adapter";
 export { to_editor_slash_commands } from "./domain/plugin_slash_commands";
