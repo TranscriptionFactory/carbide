@@ -3,7 +3,7 @@ pub mod manager;
 mod types;
 
 pub use manager::ExternalMcpState;
-pub use types::ExternalMcpStatus;
+pub use types::{ExternalMcpConfig, ExternalMcpError, ExternalMcpStatus};
 
 use std::collections::HashMap;
 
