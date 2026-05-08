@@ -10,7 +10,6 @@ edition = "2021"
 autotests = false
 
 [lib]
-name = "carbide_lib"
 path = "src/lib.rs"
 
 [[bin]]
