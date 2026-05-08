@@ -156,6 +156,7 @@
 
     ai: {
       execute: (opts) => _rpc("ai.execute", opts),
+      getProviderHint: () => _rpc("ai.get_provider_hint"),
     },
 
     mcp: {

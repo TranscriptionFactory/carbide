@@ -107,21 +107,34 @@
           };
         }
 
-        function build_env_vars(settings) {
+        async function build_env_vars(settings) {
           const env = {};
-          if (settings.llm_provider) {
-            env.LLMWIKI_PROVIDER = settings.llm_provider;
-          }
-          if (settings.llm_model) {
-            env.LLMWIKI_MODEL = settings.llm_model;
-          }
+          var hint = null;
+          try {
+            hint = await carbide.ai.getProviderHint();
+          } catch (_) {}
+
+          var provider =
+            settings.llm_provider ||
+            (hint && hint.provider !== "unknown" ? hint.provider : "") ||
+            "anthropic";
+          env.LLMWIKI_PROVIDER = provider;
+
+          var model = settings.llm_model || (hint && hint.model) || "";
+          if (model) env.LLMWIKI_MODEL = model;
+
           if (settings.api_key) {
-            if (settings.llm_provider === "anthropic") {
+            if (provider === "anthropic") {
               env.ANTHROPIC_API_KEY = settings.api_key;
-            } else if (settings.llm_provider === "openai") {
+            } else if (provider === "openai") {
               env.OPENAI_API_KEY = settings.api_key;
             }
           }
+
+          if (provider === "openai" && hint && hint.base_url) {
+            env.OPENAI_BASE_URL = hint.base_url;
+          }
+
           return env;
         }
 
@@ -133,7 +146,7 @@
             args.push("--root", vault_path);
           }
 
-          const env_vars = build_env_vars(settings);
+          const env_vars = await build_env_vars(settings);
 
           set_status("starting");
           log("Starting llmwiki server...");
