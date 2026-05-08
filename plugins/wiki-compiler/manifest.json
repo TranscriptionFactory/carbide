@@ -1,0 +1,73 @@
+{
+  "id": "wiki-compiler",
+  "name": "Wiki Compiler",
+  "version": "0.1.0",
+  "author": "Carbide",
+  "description": "Compile vault notes into an interlinked wiki using LLMs",
+  "api_version": "1",
+  "permissions": [
+    "sidecar:access",
+    "fs:read",
+    "fs:write",
+    "commands:register",
+    "events:subscribe",
+    "ui:panel",
+    "ui:statusbar",
+    "settings:register"
+  ],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": [
+      {
+        "key": "llm_provider",
+        "type": "select",
+        "label": "LLM Provider",
+        "default": "anthropic",
+        "options": [
+          { "label": "Anthropic", "value": "anthropic" },
+          { "label": "OpenAI", "value": "openai" },
+          { "label": "Ollama", "value": "ollama" }
+        ]
+      },
+      {
+        "key": "llm_model",
+        "type": "string",
+        "label": "Model",
+        "default": "",
+        "placeholder": "Leave empty for provider default"
+      },
+      {
+        "key": "api_key",
+        "type": "string",
+        "label": "API Key",
+        "placeholder": "sk-... or sk-ant-..."
+      },
+      {
+        "key": "wiki_folder",
+        "type": "string",
+        "label": "Wiki Output Folder",
+        "default": "wiki"
+      },
+      {
+        "key": "source_folder",
+        "type": "string",
+        "label": "Source Folder",
+        "default": "",
+        "placeholder": "Empty = entire vault"
+      },
+      {
+        "key": "auto_compile",
+        "type": "boolean",
+        "label": "Auto-compile on file save",
+        "default": false
+      },
+      {
+        "key": "llmwiki_path",
+        "type": "string",
+        "label": "llmwiki binary path",
+        "default": "",
+        "placeholder": "Empty = find on PATH"
+      }
+    ]
+  }
+}
