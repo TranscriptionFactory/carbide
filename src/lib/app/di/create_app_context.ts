@@ -56,6 +56,7 @@ import {
   PluginSettingsService,
   register_plugin_actions,
   plugin_http_fetch,
+  external_mcp_tauri_adapter,
 } from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
@@ -1055,6 +1056,7 @@ export function create_app_context(input: {
         });
       },
     },
+    sidecar: external_mcp_tauri_adapter,
   });
 
   register_plugin_actions(base_action_input, plugin_service);
