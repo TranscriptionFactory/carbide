@@ -3,13 +3,13 @@
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() >= 3 && args[1] == "--extract-pdf-text" {
-        carbide_lib::features::reference::linked_source::run_extract_pdf_text(&args[2]);
+        carbide::features::reference::linked_source::run_extract_pdf_text(&args[2]);
         return;
     }
     // STT removed — archived on archive/stt-main
     // if args.len() >= 2 && args[1] == "--stt-list-devices" {
-    //     carbide_lib::features::stt::audio::run_stt_list_devices();
+    //     carbide::features::stt::audio::run_stt_list_devices();
     //     return;
     // }
-    carbide_lib::run()
+    carbide::run()
 }

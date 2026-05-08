@@ -1,4 +1,4 @@
-use carbide_lib::features::external_mcp::{ExternalMcpConfig, ExternalMcpState};
+use carbide::features::external_mcp::{ExternalMcpConfig, ExternalMcpState};
 
 fn mock_mcp_config() -> ExternalMcpConfig {
     // A Python one-liner that acts as a minimal MCP server:
@@ -43,7 +43,7 @@ async fn status_returns_stopped_for_unknown_server() {
     let state = ExternalMcpState::default();
     let status = state.status("nonexistent").await;
     match status {
-        carbide_lib::features::external_mcp::ExternalMcpStatus::Stopped => {}
+        carbide::features::external_mcp::ExternalMcpStatus::Stopped => {}
         other => panic!("Expected Stopped, got {:?}", other),
     }
 }
@@ -59,7 +59,7 @@ async fn start_stop_lifecycle() {
 
     let status = state.status("test-server").await;
     match status {
-        carbide_lib::features::external_mcp::ExternalMcpStatus::Running { tool_count } => {
+        carbide::features::external_mcp::ExternalMcpStatus::Running { tool_count } => {
             assert_eq!(tool_count, 1, "mock provides 1 tool");
         }
         other => panic!("Expected Running, got {:?}", other),
@@ -72,7 +72,7 @@ async fn start_stop_lifecycle() {
 
     let status = state.status("test-server").await;
     match status {
-        carbide_lib::features::external_mcp::ExternalMcpStatus::Stopped => {}
+        carbide::features::external_mcp::ExternalMcpStatus::Stopped => {}
         other => panic!("Expected Stopped after stop, got {:?}", other),
     }
 }
@@ -152,11 +152,11 @@ async fn shutdown_stops_all_servers() {
     state.shutdown().await;
 
     match state.status("srv-a").await {
-        carbide_lib::features::external_mcp::ExternalMcpStatus::Stopped => {}
+        carbide::features::external_mcp::ExternalMcpStatus::Stopped => {}
         other => panic!("Expected Stopped after shutdown, got {:?}", other),
     }
     match state.status("srv-b").await {
-        carbide_lib::features::external_mcp::ExternalMcpStatus::Stopped => {}
+        carbide::features::external_mcp::ExternalMcpStatus::Stopped => {}
         other => panic!("Expected Stopped after shutdown, got {:?}", other),
     }
 }
