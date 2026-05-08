@@ -350,10 +350,11 @@
         <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
           {#if stores.ui.sidebar_open && !zen_mode}
             <Resizable.Pane
-              defaultSize={20}
+              defaultSize={stores.ui.sidebar_pane_size}
               minSize={15}
               maxSize={40}
               order={1}
+              onResize={(size) => (stores.ui.sidebar_pane_size = size)}
             >
               <Sidebar.Root collapsible="none" class="w-full">
                 <Sidebar.Header class="p-0">

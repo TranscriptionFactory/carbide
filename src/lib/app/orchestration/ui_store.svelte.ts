@@ -230,6 +230,7 @@ export class UIStore {
   );
 
   sidebar_open = $state(true);
+  sidebar_pane_size = $state(25);
   zen_mode = $state(false);
   floating_outline_collapsed = $state(false);
   sidebar_view = $state<SidebarView>("explorer");
