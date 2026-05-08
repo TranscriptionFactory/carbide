@@ -9,6 +9,86 @@ authors = ["altamkhan"]
 edition = "2021"
 autotests = false
 
+[[test]]
+name = "external_mcp_state"
+path = "tests/external_mcp_state.rs"
+
+[[test]]
+name = "iwes_registry"
+path = "tests/iwes_registry.rs"
+
+[[test]]
+name = "lsp_client_error_display"
+path = "tests/lsp_client_error_display.rs"
+
+[[test]]
+name = "markdown_lsp_provider_types"
+path = "tests/markdown_lsp_provider_types.rs"
+
+[[test]]
+name = "markdown_lsp_status_serde"
+path = "tests/markdown_lsp_status_serde.rs"
+
+[[test]]
+name = "mcp_router"
+path = "tests/mcp_router.rs"
+
+[[test]]
+name = "mcp_tools_git"
+path = "tests/mcp_tools_git.rs"
+
+[[test]]
+name = "mcp_tools_graph_references"
+path = "tests/mcp_tools_graph_references.rs"
+
+[[test]]
+name = "mcp_tools_notes"
+path = "tests/mcp_tools_notes.rs"
+
+[[test]]
+name = "mcp_tools_search_metadata_vault"
+path = "tests/mcp_tools_search_metadata_vault.rs"
+
+[[test]]
+name = "mcp_types"
+path = "tests/mcp_types.rs"
+
+[[test]]
+name = "metadata_events"
+path = "tests/metadata_events.rs"
+
+[[test]]
+name = "notes_service_safety"
+path = "tests/notes_service_safety.rs"
+
+[[test]]
+name = "plugin_protocol"
+path = "tests/plugin_protocol.rs"
+
+[[test]]
+name = "search_db_behavior"
+path = "tests/search_db_behavior.rs"
+
+[[test]]
+name = "smart_links_config"
+path = "tests/smart_links_config.rs"
+
+[[test]]
+name = "smart_links_rules"
+path = "tests/smart_links_rules.rs"
+
+[[test]]
+name = "toolchain_registry_specs"
+path = "tests/toolchain_registry_specs.rs"
+
+[[test]]
+name = "vault_path_risk"
+path = "tests/vault_path_risk.rs"
+
+[[test]]
+name = "vault_settings_service_parse"
+path = "tests/vault_settings_service_parse.rs"
+
 [lib]
 name = "carbide_lib"
 path = "src/lib.rs"
