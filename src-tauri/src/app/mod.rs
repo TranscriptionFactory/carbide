@@ -52,6 +52,9 @@ async fn shutdown_managed_processes(app: &tauri::AppHandle) {
     app.state::<features::lint::service::LintState>()
         .shutdown()
         .await;
+    app.state::<features::external_mcp::ExternalMcpState>()
+        .shutdown()
+        .await;
     app.state::<features::watcher::service::WatcherState>()
         .shutdown();
     log::info!("Process cleanup complete");
@@ -119,6 +122,7 @@ pub fn run() {
         .manage(features::ai::stream::AiStreamState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(features::mcp::http::HttpServerState::default())
+        .manage(features::external_mcp::ExternalMcpState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
             for arg in args.iter().skip(1) {
@@ -382,6 +386,10 @@ pub fn run() {
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,
             features::smart_links::smart_links_compute_vault_edges,
+            features::external_mcp::external_mcp_start,
+            features::external_mcp::external_mcp_stop,
+            features::external_mcp::external_mcp_call_tool,
+            features::external_mcp::external_mcp_status,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
