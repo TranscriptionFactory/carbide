@@ -55,6 +55,7 @@ function make_context(actions_backend?: {
       notes: { notes: [] },
       editor: { open_note: null },
       tab: { active_tab: null },
+      vault: { vault: { path: "/test/vault" } },
     },
     actions: actions_backend,
   };

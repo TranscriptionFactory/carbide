@@ -297,13 +297,9 @@
           log("Wiki Compiler plugin loading...");
 
           try {
-            const info = await carbide.editor.getInfo();
-            if (info && info.path) {
-              const parts = info.path.split("/");
-              vault_path = parts.length > 1 ? null : null;
-            }
+            vault_path = await carbide.vault.getRoot();
           } catch (_) {
-            // no active editor, that's fine
+            // no active vault
           }
 
           carbide.commands.register({

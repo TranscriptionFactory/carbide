@@ -51,6 +51,7 @@ function make_context(network_fetch = vi.fn()) {
       notes: { notes: [] },
       editor: { open_note: null },
       tab: { active_tab: null },
+      vault: { vault: { path: "/test/vault" } },
     },
     network: {
       fetch: network_fetch,

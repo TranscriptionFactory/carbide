@@ -51,6 +51,7 @@ function make_context(ai_execute = vi.fn()) {
       notes: { notes: [] },
       editor: { open_note: null },
       tab: { active_tab: null },
+      vault: { vault: { path: "/test/vault" } },
     },
     ai: {
       execute: ai_execute,

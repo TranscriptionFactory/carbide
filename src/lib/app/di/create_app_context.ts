@@ -899,6 +899,7 @@ export function create_app_context(input: {
       notes: stores.notes,
       editor: stores.editor,
       tab: stores.tab,
+      vault: stores.vault,
     },
     search: {
       async fts(query, limit) {

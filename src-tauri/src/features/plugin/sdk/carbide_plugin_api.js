@@ -79,6 +79,7 @@
       delete: (path) => _rpc("vault.delete", path),
       list: () => _rpc("vault.list"),
       readAsset: (path) => _rpc("vault.read_asset", path),
+      getRoot: () => _rpc("vault.get_root"),
     },
 
     editor: {
