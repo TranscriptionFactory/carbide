@@ -18,7 +18,7 @@ export interface ExternalMcpAdapter {
   call_tool(
     server_id: string,
     tool_name: string,
-    arguments?: Record<string, unknown>,
+    tool_arguments?: Record<string, unknown>,
   ): Promise<unknown>;
   status(server_id: string): Promise<ExternalMcpStatus>;
 }
