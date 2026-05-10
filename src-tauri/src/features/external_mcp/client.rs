@@ -405,14 +405,22 @@ async fn read_json_line(
     reader: &mut BufReader<tokio::process::ChildStdout>,
 ) -> Result<Option<serde_json::Value>, anyhow::Error> {
     let mut line = String::new();
-    let bytes_read = reader.read_line(&mut line).await?;
-    if bytes_read == 0 {
-        return Ok(None);
+    loop {
+        line.clear();
+        let bytes_read = reader.read_line(&mut line).await?;
+        if bytes_read == 0 {
+            return Ok(None);
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<serde_json::Value>(trimmed) {
+            Ok(message) => return Ok(Some(message)),
+            Err(_) => {
+                log::debug!("[external_mcp stdout non-json] {}", trimmed);
+                continue;
+            }
+        }
     }
-    let trimmed = line.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-    let message: serde_json::Value = serde_json::from_str(trimmed)?;
-    Ok(Some(message))
 }
