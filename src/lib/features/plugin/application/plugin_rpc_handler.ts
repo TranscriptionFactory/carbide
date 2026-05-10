@@ -17,6 +17,7 @@ import type { PluginEventBus } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginService } from "./plugin_service";
 import type { Diagnostic, DiagnosticSeverity } from "$lib/features/diagnostics";
+import type { ExternalMcpAdapter } from "../adapters/external_mcp_tauri_adapter";
 
 export interface RpcRequest {
   id: string;
@@ -133,11 +134,19 @@ type PluginRpcNetworkBackend = {
   fetch(request: PluginHttpFetchRequest): Promise<PluginHttpFetchResponse>;
 };
 
+export type AiProviderHint = {
+  provider: "anthropic" | "openai" | "ollama" | "unknown";
+  model: string | null;
+  api_key_env: string | null;
+  base_url: string | null;
+};
+
 export type PluginRpcAiBackend = {
   execute(input: {
     prompt: string;
     mode?: "edit" | "ask";
   }): Promise<{ success: boolean; output: string; error: string | null }>;
+  get_provider_hint(): Promise<AiProviderHint>;
 };
 
 type PluginRpcExportBackend = {
@@ -189,6 +198,9 @@ export type PluginRpcContext = {
         file_type?: string;
       } | null;
     };
+    vault: {
+      vault: { path: string } | null;
+    };
   };
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
@@ -198,6 +210,7 @@ export type PluginRpcContext = {
   mcp?: PluginRpcMcpBackend;
   export?: PluginRpcExportBackend;
   actions?: PluginRpcActionsBackend;
+  sidecar?: ExternalMcpAdapter;
 };
 
 function is_record(value: unknown): value is RpcRecord {
@@ -585,6 +598,8 @@ export class PluginRpcHandler {
         return this.handle_export(plugin_id, action, params);
       case "actions":
         return this.handle_actions(plugin_id, action, params);
+      case "sidecar":
+        return this.handle_sidecar(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -627,6 +642,11 @@ export class PluginRpcHandler {
         return this.context.services.note.read_asset(
           read_param_string(params, 0, "asset path"),
         );
+      case "get_root": {
+        const vault = this.context.stores.vault.vault;
+        if (!vault) throw new Error("No active vault");
+        return vault.path;
+      }
       default:
         throw new Error(`Unknown vault action: ${action}`);
     }
@@ -1011,6 +1031,8 @@ export class PluginRpcHandler {
         }
         return this.context.ai.execute({ prompt, mode: mode ?? "ask" });
       }
+      case "get_provider_hint":
+        return this.context.ai.get_provider_hint();
       default:
         throw new Error(`Unknown ai action: ${action}`);
     }
@@ -1180,6 +1202,68 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown actions action: ${action}`);
+    }
+  }
+  private async handle_sidecar(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ): Promise<unknown> {
+    this.require_permission(plugin_id, "sidecar:access");
+
+    if (!this.context.sidecar) {
+      throw new Error("Sidecar backend not initialized");
+    }
+
+    const namespace_server_id = (user_id: string) => `${plugin_id}:${user_id}`;
+
+    switch (action) {
+      case "start": {
+        const server_id = read_param_string(params, 0, "server id");
+        const binary = read_param_string(params, 1, "binary path");
+        const args = Array.isArray(params[2])
+          ? read_string_array(params[2], "args")
+          : [];
+        const env_vars = params[3]
+          ? read_string_record(params[3], "env vars")
+          : {};
+        const working_dir = read_optional_string(params[4]);
+        await this.context.sidecar.start(
+          namespace_server_id(server_id),
+          binary,
+          args,
+          env_vars,
+          working_dir,
+        );
+        return { success: true };
+      }
+      case "stop": {
+        const server_id = read_param_string(params, 0, "server id");
+        await this.context.sidecar.stop(namespace_server_id(server_id));
+        return { success: true };
+      }
+      case "call_tool": {
+        const server_id = read_param_string(params, 0, "server id");
+        const tool_name = read_param_string(params, 1, "tool name");
+        const tool_args =
+          params[2] !== undefined
+            ? (read_record(params[2], "tool arguments") as Record<
+                string,
+                unknown
+              >)
+            : undefined;
+        return this.context.sidecar.call_tool(
+          namespace_server_id(server_id),
+          tool_name,
+          tool_args,
+        );
+      }
+      case "status": {
+        const server_id = read_param_string(params, 0, "server id");
+        return this.context.sidecar.status(namespace_server_id(server_id));
+      }
+      default:
+        throw new Error(`Unknown sidecar action: ${action}`);
     }
   }
 }

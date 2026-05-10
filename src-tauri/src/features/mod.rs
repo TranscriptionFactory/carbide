@@ -2,6 +2,7 @@ pub mod ai;
 pub mod bases;
 pub mod canvas;
 pub mod code_lsp;
+pub mod external_mcp;
 pub mod git;
 pub mod lint;
 pub mod markdown_lsp;

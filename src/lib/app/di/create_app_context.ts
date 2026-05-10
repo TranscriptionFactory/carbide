@@ -5,7 +5,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { register_actions } from "$lib/app/action_registry/register_actions";
 import type { AppMountConfig } from "$lib/features/vault";
 import { VaultService } from "$lib/features/vault";
-import { NoteService } from "$lib/features/note";
+import { NoteService, resolve_relative_asset_path } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
 import {
@@ -44,6 +44,8 @@ import {
 } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
+import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import type { AiProviderHint } from "$lib/features/plugin";
 import {
   BasesService,
   BasesPanel,
@@ -56,6 +58,7 @@ import {
   PluginSettingsService,
   register_plugin_actions,
   plugin_http_fetch,
+  external_mcp_tauri_adapter,
 } from "$lib/features/plugin";
 import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
@@ -102,6 +105,45 @@ import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
 
 export type AppContext = ReturnType<typeof create_app_context>;
+
+function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
+  const model = provider.model ?? null;
+
+  if (provider.transport.kind === "cli") {
+    const cmd = provider.transport.command;
+    if (cmd === "claude") {
+      return {
+        provider: "anthropic",
+        model,
+        api_key_env: "ANTHROPIC_API_KEY",
+        base_url: null,
+      };
+    }
+    if (cmd === "ollama") {
+      return { provider: "ollama", model, api_key_env: null, base_url: null };
+    }
+    return { provider: "unknown", model, api_key_env: null, base_url: null };
+  }
+
+  const { base_url, api_key_env } = provider.transport;
+  const combined = `${base_url} ${api_key_env ?? ""}`.toLowerCase();
+
+  if (combined.includes("anthropic")) {
+    return {
+      provider: "anthropic",
+      model,
+      api_key_env: api_key_env ?? null,
+      base_url: null,
+    };
+  }
+
+  return {
+    provider: "openai",
+    model,
+    api_key_env: api_key_env ?? null,
+    base_url: base_url || null,
+  };
+}
 
 export function create_app_context(input: {
   ports: Ports;
@@ -222,6 +264,15 @@ export function create_app_context(input: {
         base_note_path,
         source,
       }),
+    on_open_document: (file_path, base_note_path) => {
+      const resolved =
+        file_path.startsWith("./") || file_path.startsWith("../")
+          ? resolve_relative_asset_path(base_note_path, file_path)
+          : file_path;
+      void action_registry.execute(ACTION_IDS.document_open, {
+        file_path: resolved,
+      });
+    },
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),
     on_anchor_link_click: (fragment) => {
@@ -898,6 +949,7 @@ export function create_app_context(input: {
       notes: stores.notes,
       editor: stores.editor,
       tab: stores.tab,
+      vault: stores.vault,
     },
     search: {
       async fts(query, limit) {
@@ -1054,7 +1106,26 @@ export function create_app_context(input: {
           timeout_seconds: settings.ai_execution_timeout_seconds,
         });
       },
+      async get_provider_hint(): Promise<AiProviderHint> {
+        const settings = stores.ui.editor_settings;
+        const unknown_hint: AiProviderHint = {
+          provider: "unknown",
+          model: null,
+          api_key_env: null,
+          base_url: null,
+        };
+        if (!settings.ai_enabled) return unknown_hint;
+        const providers = settings.ai_providers;
+        const default_id = settings.ai_default_provider_id;
+        const provider =
+          default_id === "auto"
+            ? providers[0]
+            : providers.find((p) => p.id === default_id);
+        if (!provider) return unknown_hint;
+        return derive_provider_hint(provider);
+      },
     },
+    sidecar: external_mcp_tauri_adapter,
   });
 
   register_plugin_actions(base_action_input, plugin_service);

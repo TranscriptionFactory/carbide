@@ -102,6 +102,20 @@ Inspect checkpoint commits on `feat/extended-tools` with `git diff` before archi
 
 ---
 
+## Recently Completed
+
+### External MCP Sidecar API
+
+- Generic external MCP client in Rust (JSON-RPC 2.0 over stdio)
+- `ExternalMcpState` lifecycle manager with start/stop/status/call_tool
+- `sidecar.*` plugin RPC bridge with per-plugin server namespacing
+- Plugin SDK: `carbide.sidecar.start/stop/callTool/status`
+- `vault.get_root` RPC action for plugins to retrieve vault path
+- Wiki-compiler plugin using sidecar API as reference implementation
+- Frontend + Rust integration tests
+
+---
+
 ## Open Decisions (carried forward)
 
 1. **`vault_contains` activation event** — deferred. Port when a concrete plugin needs vault-shape lazy activation.

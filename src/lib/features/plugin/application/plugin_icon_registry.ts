@@ -14,6 +14,7 @@ import Settings from "@lucide/svelte/icons/settings";
 import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
 
 // Files & Documents
+import BookOpen from "@lucide/svelte/icons/book-open";
 import File from "@lucide/svelte/icons/file";
 import FileText from "@lucide/svelte/icons/file-text";
 import FileCode from "@lucide/svelte/icons/file-code";
@@ -93,6 +94,7 @@ const PLUGIN_ICONS: Record<string, Component<IconProps>> = {
   settings: Settings,
   "sliders-horizontal": SlidersHorizontal,
 
+  "book-open": BookOpen,
   file: File,
   "file-text": FileText,
   "file-code": FileCode,

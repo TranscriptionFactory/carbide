@@ -23,14 +23,14 @@ import type { EditorExtension, PluginContext } from "./types";
 export function create_embed_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
 
+  const open_document = (path: string) => {
+    ctx.events.on_open_document?.(path, ctx.get_note_path());
+  };
+
   plugins.push(create_excalidraw_embed_plugin());
 
   const embed_callbacks: ExcalidrawEmbedCallbacks = {
-    on_open_file: (path) => {
-      if (ctx.events.on_internal_link_click) {
-        ctx.events.on_internal_link_click(path, ctx.get_note_path(), "wiki");
-      }
-    },
+    on_open_file: open_document,
   };
   if (ctx.load_svg_preview) {
     const load_svg = ctx.load_svg_preview;
@@ -45,11 +45,7 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   plugins.push(create_file_embed_plugin());
   plugins.push(
     create_file_embed_view_plugin({
-      on_open_file: (path) => {
-        if (ctx.events.on_internal_link_click) {
-          ctx.events.on_internal_link_click(path, ctx.get_note_path(), "wiki");
-        }
-      },
+      on_open_file: open_document,
       resolve_asset_url: ctx.resolve_asset_url_for_vault
         ? (src) => {
             const vault_id = ctx.get_vault_id();
