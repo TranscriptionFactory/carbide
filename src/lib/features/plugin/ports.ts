@@ -213,3 +213,26 @@ export interface PluginNotificationPort {
   notify_plugin_unstable(plugin_id: string, plugin_name: string): void;
   notify_plugin_auto_disabled(plugin_id: string, plugin_name: string): void;
 }
+
+export type MarketplacePluginFile = {
+  filename: string;
+  download_url: string;
+};
+
+export type MarketplacePluginListing = {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  files: MarketplacePluginFile[];
+};
+
+export interface MarketplacePort {
+  fetch_index(this: void, url: string): Promise<string>;
+  install_plugin(
+    this: void,
+    plugin_id: string,
+    files: MarketplacePluginFile[],
+  ): Promise<void>;
+}

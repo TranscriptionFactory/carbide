@@ -11,8 +11,11 @@
   } from "@lucide/svelte";
   import PluginPermissionDialog from "./plugin_permission_dialog.svelte";
   import PluginSettingsDialog from "./plugin_settings_dialog.svelte";
+  import PluginMarketplaceBrowser from "./plugin_marketplace_browser.svelte";
 
   const { stores, services } = use_app_context();
+
+  let active_tab = $state<"installed" | "browse">("installed");
 
   let is_discovering = $state(false);
   let reloading_ids = $state(new Set<string>());
@@ -83,137 +86,164 @@
 <div class="PluginManager">
   <div class="PluginManager__header">
     <div class="flex items-center justify-between px-4 py-2 border-b">
-      <h2 class="text-sm font-semibold">Plugins</h2>
-      <Button
-        variant="ghost"
-        size="icon"
-        onclick={discover_plugins}
-        disabled={is_discovering}
-      >
-        <RefreshCw class="w-4 h-4 {is_discovering ? 'animate-spin' : ''}" />
-      </Button>
+      <div class="flex items-center gap-2">
+        <button
+          class="text-sm font-semibold px-1 pb-0.5 border-b-2 transition-colors {active_tab ===
+          'installed'
+            ? 'border-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+          onclick={() => (active_tab = "installed")}
+        >
+          Installed
+        </button>
+        <button
+          class="text-sm font-semibold px-1 pb-0.5 border-b-2 transition-colors {active_tab ===
+          'browse'
+            ? 'border-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+          onclick={() => (active_tab = "browse")}
+        >
+          Browse
+        </button>
+      </div>
+      {#if active_tab === "installed"}
+        <Button
+          variant="ghost"
+          size="icon"
+          onclick={discover_plugins}
+          disabled={is_discovering}
+        >
+          <RefreshCw class="w-4 h-4 {is_discovering ? 'animate-spin' : ''}" />
+        </Button>
+      {/if}
     </div>
   </div>
 
-  <div class="PluginManager__content p-4 space-y-4">
-    {#if plugin_list.length === 0}
-      <div class="text-center py-8 text-muted-foreground">
-        <p class="text-sm">No plugins discovered.</p>
-        <p class="text-xs">
-          Place plugins in <code>.carbide/plugins/</code> and click refresh.
-        </p>
-      </div>
+  <div class="PluginManager__content">
+    {#if active_tab === "browse"}
+      <PluginMarketplaceBrowser />
     {:else}
-      <div class="space-y-3">
-        {#each plugin_list as plugin (plugin.manifest.id)}
-          {@const pending = pending_permissions(plugin.manifest.id)}
-          {@const is_active = plugin.enabled && plugin.status === "active"}
-          {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
-          {@const has_settings = can_open_settings(plugin.manifest.id)}
-          <div
-            class="flex flex-col p-3 border rounded-lg bg-card overflow-hidden"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <h3 class="text-sm font-medium truncate">
-                  {plugin.manifest.name}
-                </h3>
-                <p class="text-xs text-muted-foreground truncate">
-                  {plugin.manifest.version} by {plugin.manifest.author}
-                </p>
-              </div>
-              <div
-                class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end"
-              >
-                {#if pending.length > 0}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="w-8 h-8 relative"
-                    onclick={() =>
-                      open_permissions(
-                        plugin.manifest.id,
-                        plugin.manifest.name,
-                      )}
-                    title="Review pending permissions"
-                  >
-                    <ShieldAlert class="w-4 h-4 text-amber-500" />
-                    <span
-                      class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white"
-                    >
-                      {pending.length}
-                    </span>
-                  </Button>
-                {/if}
-                {#if is_active}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="w-8 h-8"
-                    onclick={() => reload_plugin(plugin.manifest.id)}
-                    disabled={is_reloading}
-                    title="Reload plugin"
-                  >
-                    <RotateCw
-                      class="w-4 h-4 {is_reloading ? 'animate-spin' : ''}"
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="w-8 h-8"
-                    onclick={() =>
-                      services.plugin.unload_then_idle(plugin.manifest.id)}
-                    title="Unload plugin"
-                  >
-                    <Square class="w-3.5 h-3.5" />
-                  </Button>
-                {:else if plugin.enabled && plugin.status !== "loading"}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="w-8 h-8"
-                    onclick={() =>
-                      services.plugin.load_and_activate(plugin.manifest.id)}
-                    title="Load plugin"
-                  >
-                    <Play class="w-4 h-4" />
-                  </Button>
-                {/if}
-                {#if has_settings}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="w-8 h-8"
-                    onclick={() => open_settings(plugin.manifest.id)}
-                    title="Open plugin settings"
-                    aria-label={`Open plugin settings for ${plugin.manifest.name}`}
-                  >
-                    <Settings class="w-4 h-4" />
-                  </Button>
-                {/if}
-                <Button
-                  variant={plugin.enabled ? "default" : "outline"}
-                  size="sm"
-                  class="h-7 text-xs px-2"
-                  onclick={() =>
-                    plugin.enabled
-                      ? services.plugin.disable_plugin(plugin.manifest.id)
-                      : services.plugin.enable_plugin(plugin.manifest.id)}
-                  disabled={plugin.status === "loading"}
-                >
-                  {plugin.enabled ? "Enabled" : "Disabled"}
-                </Button>
-              </div>
-            </div>
-            <p class="mt-2 text-xs text-muted-foreground line-clamp-2">
-              {plugin.manifest.description}
+      <div class="p-4 space-y-4">
+        {#if plugin_list.length === 0}
+          <div class="text-center py-8 text-muted-foreground">
+            <p class="text-sm">No plugins discovered.</p>
+            <p class="text-xs">
+              Place plugins in <code>.carbide/plugins/</code> and click refresh.
             </p>
-            {#if plugin.status === "error"}
-              <p class="mt-2 text-xs text-destructive">{plugin.error}</p>
-            {/if}
           </div>
-        {/each}
+        {:else}
+          <div class="space-y-3">
+            {#each plugin_list as plugin (plugin.manifest.id)}
+              {@const pending = pending_permissions(plugin.manifest.id)}
+              {@const is_active = plugin.enabled && plugin.status === "active"}
+              {@const is_reloading = reloading_ids.has(plugin.manifest.id)}
+              {@const has_settings = can_open_settings(plugin.manifest.id)}
+              <div
+                class="flex flex-col p-3 border rounded-lg bg-card overflow-hidden"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-medium truncate">
+                      {plugin.manifest.name}
+                    </h3>
+                    <p class="text-xs text-muted-foreground truncate">
+                      {plugin.manifest.version} by {plugin.manifest.author}
+                    </p>
+                  </div>
+                  <div
+                    class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end"
+                  >
+                    {#if pending.length > 0}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8 relative"
+                        onclick={() =>
+                          open_permissions(
+                            plugin.manifest.id,
+                            plugin.manifest.name,
+                          )}
+                        title="Review pending permissions"
+                      >
+                        <ShieldAlert class="w-4 h-4 text-amber-500" />
+                        <span
+                          class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white"
+                        >
+                          {pending.length}
+                        </span>
+                      </Button>
+                    {/if}
+                    {#if is_active}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8"
+                        onclick={() => reload_plugin(plugin.manifest.id)}
+                        disabled={is_reloading}
+                        title="Reload plugin"
+                      >
+                        <RotateCw
+                          class="w-4 h-4 {is_reloading ? 'animate-spin' : ''}"
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8"
+                        onclick={() =>
+                          services.plugin.unload_then_idle(plugin.manifest.id)}
+                        title="Unload plugin"
+                      >
+                        <Square class="w-3.5 h-3.5" />
+                      </Button>
+                    {:else if plugin.enabled && plugin.status !== "loading"}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8"
+                        onclick={() =>
+                          services.plugin.load_and_activate(plugin.manifest.id)}
+                        title="Load plugin"
+                      >
+                        <Play class="w-4 h-4" />
+                      </Button>
+                    {/if}
+                    {#if has_settings}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8"
+                        onclick={() => open_settings(plugin.manifest.id)}
+                        title="Open plugin settings"
+                        aria-label={`Open plugin settings for ${plugin.manifest.name}`}
+                      >
+                        <Settings class="w-4 h-4" />
+                      </Button>
+                    {/if}
+                    <Button
+                      variant={plugin.enabled ? "default" : "outline"}
+                      size="sm"
+                      class="h-7 text-xs px-2"
+                      onclick={() =>
+                        plugin.enabled
+                          ? services.plugin.disable_plugin(plugin.manifest.id)
+                          : services.plugin.enable_plugin(plugin.manifest.id)}
+                      disabled={plugin.status === "loading"}
+                    >
+                      {plugin.enabled ? "Enabled" : "Disabled"}
+                    </Button>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-muted-foreground line-clamp-2">
+                  {plugin.manifest.description}
+                </p>
+                {#if plugin.status === "error"}
+                  <p class="mt-2 text-xs text-destructive">{plugin.error}</p>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

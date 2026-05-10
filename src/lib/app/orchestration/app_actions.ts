@@ -318,7 +318,17 @@ async function execute_app_check_for_updates() {
       toast.success("Carbide is up to date");
       return;
     }
-    await download_and_install(update);
+    toast.info(`Carbide v${update.version} is available`, {
+      duration: 30_000,
+      action: {
+        label: "Update",
+        onClick: () => void download_and_install(update),
+      },
+      cancel: {
+        label: "Later",
+        onClick: () => {},
+      },
+    });
   } catch (error) {
     toast.dismiss(loading_toast_id);
     toast.error("Failed to check for updates");

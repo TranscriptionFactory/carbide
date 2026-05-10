@@ -36,6 +36,7 @@ import { create_task_tauri_adapter } from "$lib/features/task";
 import {
   PluginHostAdapter,
   PluginSettingsTauriAdapter,
+  MarketplaceTauriAdapter,
 } from "$lib/features/plugin";
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
@@ -108,6 +109,7 @@ export function create_prod_ports(): Ports & {
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();
   const plugin_settings = new PluginSettingsTauriAdapter();
+  const marketplace = new MarketplaceTauriAdapter();
   const canvas = create_canvas_tauri_adapter();
   const slash_command_provider = create_slash_command_provider();
   const ai_inline_handler: AiInlineHandler = {
@@ -164,6 +166,7 @@ export function create_prod_ports(): Ports & {
     task,
     plugin,
     plugin_settings,
+    marketplace,
     canvas,
     tag: create_tag_tauri_adapter(),
     lint: create_lint_tauri_adapter(),
