@@ -1718,6 +1718,43 @@ pub fn compute_sync_plan(
 
 const BATCH_SIZE: usize = 100;
 
+fn resolve_wikilink_targets(
+    conn: &Connection,
+    raw_targets: &BTreeSet<&str>,
+) -> Result<HashMap<String, String>, String> {
+    let mut resolved: HashMap<String, String> = HashMap::new();
+
+    let mut stmt = conn
+        .prepare("SELECT path FROM notes WHERE path LIKE '%/' || ?1 || '.md' OR path = ?1 || '.md' LIMIT 2")
+        .map_err(|e| e.to_string())?;
+
+    for &raw in raw_targets {
+        if raw.contains('/') || raw.ends_with(".md") {
+            let path = if raw.ends_with(".md") {
+                raw.to_string()
+            } else {
+                format!("{}.md", raw)
+            };
+            resolved.insert(raw.to_string(), path);
+        } else {
+            let matches: Vec<String> = stmt
+                .query_map(params![raw], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+
+            let path = if matches.len() == 1 {
+                matches.into_iter().next().unwrap()
+            } else {
+                format!("{}.md", raw)
+            };
+            resolved.insert(raw.to_string(), path);
+        }
+    }
+
+    Ok(resolved)
+}
+
 fn resolve_batch_outlinks(
     conn: &Connection,
     pending_links: &[(String, Vec<String>)],
@@ -1726,17 +1763,81 @@ fn resolve_batch_outlinks(
         return Ok(());
     }
 
+    let all_raw: BTreeSet<&str> = pending_links
+        .iter()
+        .flat_map(|(_, targets)| targets.iter().map(|t| t.as_str()))
+        .collect();
+    let resolved = resolve_wikilink_targets(conn, &all_raw)?;
+
     for (source, targets) in pending_links {
-        let mut resolved: BTreeSet<String> = BTreeSet::new();
+        let mut deduped: BTreeSet<String> = BTreeSet::new();
         for target in targets {
-            if *target != *source {
-                resolved.insert(target.clone());
+            let path = resolved
+                .get(target.as_str())
+                .cloned()
+                .unwrap_or_else(|| format!("{}.md", target));
+            if path != *source {
+                deduped.insert(path);
             }
         }
-        set_outlinks(conn, source, &resolved.into_iter().collect::<Vec<_>>())?;
+        set_outlinks(conn, source, &deduped.into_iter().collect::<Vec<_>>())?;
     }
 
     Ok(())
+}
+
+pub fn re_resolve_orphan_outlinks(conn: &Connection) -> Result<usize, String> {
+    let sql = "SELECT DISTINCT o.target_path
+               FROM outlinks o
+               LEFT JOIN notes n ON n.path = o.target_path
+               WHERE n.path IS NULL AND o.target_path NOT LIKE '@linked/%'";
+
+    let orphan_targets: Vec<String> = conn
+        .prepare(sql)
+        .map_err(|e| e.to_string())?
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    if orphan_targets.is_empty() {
+        return Ok(0);
+    }
+
+    let raw_set: BTreeSet<&str> = orphan_targets
+        .iter()
+        .filter_map(|t| {
+            let stem = t.strip_suffix(".md").unwrap_or(t);
+            if stem.contains('/') {
+                None
+            } else {
+                Some(stem)
+            }
+        })
+        .collect();
+
+    if raw_set.is_empty() {
+        return Ok(0);
+    }
+
+    let resolved = resolve_wikilink_targets(conn, &raw_set)?;
+    let mut updated = 0usize;
+
+    let mut update_stmt = conn
+        .prepare("UPDATE outlinks SET target_path = ?1 WHERE target_path = ?2")
+        .map_err(|e| e.to_string())?;
+
+    for (raw_stem, new_path) in &resolved {
+        let old_path = format!("{}.md", raw_stem);
+        if *new_path != old_path {
+            let count = update_stmt
+                .execute(params![new_path, old_path])
+                .map_err(|e| e.to_string())?;
+            updated += count;
+        }
+    }
+
+    Ok(updated)
 }
 
 pub fn rebuild_index(
@@ -1821,6 +1922,11 @@ pub fn rebuild_index(
         conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         on_progress(indexed, total);
         yield_fn();
+    }
+
+    let re_resolved = re_resolve_orphan_outlinks(conn).unwrap_or(0);
+    if re_resolved > 0 {
+        log::info!("rebuild_index: re-resolved {} cross-batch orphan outlinks", re_resolved);
     }
 
     Ok(IndexResult {
