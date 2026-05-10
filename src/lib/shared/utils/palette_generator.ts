@@ -138,24 +138,17 @@ const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
     source: "surface",
     glass_alpha: 0.55,
   },
-  "--card-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
   "--popover": {
     light_l: 0.99,
     dark_l: 0.22,
     source: "surface",
     glass_alpha: 0.55,
   },
-  "--popover-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
   "--secondary": {
     light_l: 0.965,
     dark_l: 0.265,
     source: "surface",
     glass_alpha: 0.55,
-  },
-  "--secondary-foreground": {
-    light_l: 0.25,
-    dark_l: 0.92,
-    source: "surface",
   },
   "--muted": {
     light_l: 0.965,
@@ -172,7 +165,6 @@ const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
     source: "surface",
     glass_alpha: 0.55,
   },
-  "--sidebar-foreground": { light_l: 0.25, dark_l: 0.92, source: "surface" },
   "--sidebar-border": { light_l: 0.94, dark_l: 0.28, source: "surface" },
   "--background-surface-2": {
     light_l: 0.965,
