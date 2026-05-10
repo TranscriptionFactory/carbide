@@ -1062,12 +1062,6 @@ export class EditorService {
         if (!this.is_generation_current(generation)) return;
         this.callbacks.on_internal_link_click(raw_path, base_note_path, source);
       },
-      on_open_document: this.callbacks.on_open_document
-        ? (file_path: string, base_note_path: string) => {
-            if (!this.is_generation_current(generation)) return;
-            this.callbacks.on_open_document?.(file_path, base_note_path);
-          }
-        : undefined,
       on_external_link_click: (url: string) => {
         if (!this.is_generation_current(generation)) return;
         this.callbacks.on_external_link_click(url);
@@ -1089,6 +1083,14 @@ export class EditorService {
         });
       },
     };
+
+    if (this.callbacks.on_open_document) {
+      const open_doc_cb = this.callbacks.on_open_document;
+      events.on_open_document = (file_path: string, base_note_path: string) => {
+        if (!this.is_generation_current(generation)) return;
+        open_doc_cb(file_path, base_note_path);
+      };
+    }
 
     if (this.search_service) {
       events.on_wiki_suggest_query = (event: WikiQueryEvent) => {
