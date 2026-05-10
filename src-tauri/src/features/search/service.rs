@@ -1,5 +1,5 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::db as search_db;
+use crate::features::search::db::{self as search_db, OrphanLink};
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
@@ -2975,6 +2975,29 @@ fn resolve_wiki_link_target(target: &str, source_path: &str) -> Option<String> {
         ""
     };
     resolve_relative_path(base_dir, &with_ext)
+}
+
+#[derive(Serialize, Type)]
+pub struct LinksSnapshot {
+    pub backlinks: Vec<IndexNoteMeta>,
+    pub outlinks: Vec<IndexNoteMeta>,
+    pub orphan_links: Vec<OrphanLink>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn index_note_links_snapshot(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<LinksSnapshot, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        Ok(LinksSnapshot {
+            backlinks: search_db::get_backlinks(conn, &note_id)?,
+            outlinks: search_db::get_outlinks(conn, &note_id)?,
+            orphan_links: search_db::get_orphan_outlinks(conn, &note_id)?,
+        })
+    })
 }
 
 #[cfg(test)]
