@@ -5,7 +5,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { register_actions } from "$lib/app/action_registry/register_actions";
 import type { AppMountConfig } from "$lib/features/vault";
 import { VaultService } from "$lib/features/vault";
-import { NoteService } from "$lib/features/note";
+import { NoteService, resolve_relative_asset_path } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
 import {
@@ -145,24 +145,6 @@ function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
   };
 }
 
-export function resolve_embed_path(base_note_path: string, embed_src: string): string {
-  if (!embed_src.startsWith("./") && !embed_src.startsWith("../")) {
-    return embed_src;
-  }
-  const dir = base_note_path.includes("/")
-    ? base_note_path.slice(0, base_note_path.lastIndexOf("/"))
-    : "";
-  const parts = dir ? dir.split("/") : [];
-  for (const segment of embed_src.split("/")) {
-    if (segment === "..") {
-      parts.pop();
-    } else if (segment !== ".") {
-      parts.push(segment);
-    }
-  }
-  return parts.join("/");
-}
-
 export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
@@ -283,7 +265,10 @@ export function create_app_context(input: {
         source,
       }),
     on_open_document: (file_path, base_note_path) => {
-      const resolved = resolve_embed_path(base_note_path, file_path);
+      const resolved =
+        file_path.startsWith("./") || file_path.startsWith("../")
+          ? resolve_relative_asset_path(base_note_path, file_path)
+          : file_path;
       void action_registry.execute(ACTION_IDS.document_open, {
         file_path: resolved,
       });
