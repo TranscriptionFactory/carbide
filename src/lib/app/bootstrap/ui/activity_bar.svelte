@@ -181,7 +181,7 @@
     width: var(--size-activity-bar);
     height: 100%;
     padding-block: var(--space-1);
-    background-color: var(--sidebar);
+    background-color: var(--activity-bar-bg);
     border-inline-end: 1px solid var(--sidebar-border);
   }
 
@@ -197,7 +197,7 @@
     justify-content: center;
     width: var(--size-activity-bar);
     height: var(--size-activity-bar);
-    color: var(--sidebar-foreground);
+    color: var(--activity-bar-fg);
     opacity: 0.35;
     transition:
       opacity var(--duration-normal) var(--ease-default),
