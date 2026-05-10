@@ -92,7 +92,22 @@ describe("PluginMarketplaceService", () => {
       await service.fetch_listings();
 
       expect(marketplace_port.fetch_index).toHaveBeenCalledWith(
-        "https://raw.githubusercontent.com/TranscriptionFactory/carbide-plugins/refs/heads/main/plugins/index.json",
+        "https://raw.githubusercontent.com/TranscriptionFactory/carbide/refs/heads/main/plugins/index.json",
+      );
+    });
+
+    it("calls op_store.fail on fetch error", async () => {
+      const { service, marketplace_port, op_store } = make_service();
+      vi.mocked(marketplace_port.fetch_index).mockRejectedValue(
+        new Error("404 Not Found"),
+      );
+      const fail_spy = vi.spyOn(op_store, "fail");
+
+      await expect(service.fetch_listings()).rejects.toThrow("404 Not Found");
+
+      expect(fail_spy).toHaveBeenCalledWith(
+        "plugin.marketplace_fetch",
+        "404 Not Found",
       );
     });
   });
@@ -146,10 +161,10 @@ describe("PluginMarketplaceService", () => {
 
       const listing = store.listings[0];
       expect(listing?.files[0]?.download_url).toBe(
-        "https://raw.githubusercontent.com/TranscriptionFactory/carbide-plugins/refs/heads/main/plugins/test-plugin/manifest.json",
+        "https://raw.githubusercontent.com/TranscriptionFactory/carbide/refs/heads/main/plugins/test-plugin/manifest.json",
       );
       expect(listing?.files[1]?.download_url).toBe(
-        "https://raw.githubusercontent.com/TranscriptionFactory/carbide-plugins/refs/heads/main/plugins/test-plugin/main.js",
+        "https://raw.githubusercontent.com/TranscriptionFactory/carbide/refs/heads/main/plugins/test-plugin/main.js",
       );
     });
   });

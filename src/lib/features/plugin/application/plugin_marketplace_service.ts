@@ -3,8 +3,7 @@ import type { PluginMarketplaceStore } from "../state/plugin_marketplace_store.s
 import type { SettingsPort } from "$lib/features/settings";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 
-const DEFAULT_REPO_URL =
-  "https://github.com/TranscriptionFactory/carbide-plugins";
+const DEFAULT_REPO_URL = "https://github.com/TranscriptionFactory/carbide";
 const SETTINGS_KEY = "plugin_marketplace_url";
 
 function repo_to_raw_base(repo_url: string): string {
@@ -79,8 +78,13 @@ export class PluginMarketplaceService {
       }));
 
       this.store.set_listings(listings);
-    } finally {
       this.op_store.succeed(op_key);
+    } catch (error) {
+      this.op_store.fail(
+        op_key,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
     }
   }
 
@@ -96,8 +100,13 @@ export class PluginMarketplaceService {
     this.op_store.start(op_key, Date.now());
     try {
       await this.marketplace_port.install_plugin(plugin_id, listing.files);
-    } finally {
       this.op_store.succeed(op_key);
+    } catch (error) {
+      this.op_store.fail(
+        op_key,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
     }
   }
 }
