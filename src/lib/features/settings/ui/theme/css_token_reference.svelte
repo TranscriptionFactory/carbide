@@ -104,6 +104,30 @@
       ],
     },
     {
+      label: "Activity Bar",
+      tokens: ["--activity-bar-bg", "--activity-bar-fg"],
+    },
+    {
+      label: "Tabs",
+      tokens: [
+        "--tab-active-bg",
+        "--tab-active-fg",
+        "--tab-inactive-bg",
+        "--tab-inactive-fg",
+        "--tab-border",
+        "--tab-active-indicator-color",
+        "--tab-active-indicator-thickness",
+      ],
+    },
+    {
+      label: "Status Bar",
+      tokens: [
+        "--statusbar-bg",
+        "--statusbar-fg",
+        "--statusbar-divider",
+      ],
+    },
+    {
       label: "Shadows",
       tokens: [
         "--shadow-xs",
@@ -166,6 +190,12 @@
     {
       label: "Editor",
       tokens: [
+        "--editor-background",
+        "--editor-foreground",
+        "--editor-heading",
+        "--editor-gutter",
+        "--editor-selection",
+        "--editor-code-bg",
         "--editor-heading-1",
         "--editor-heading-2",
         "--editor-heading-3",
