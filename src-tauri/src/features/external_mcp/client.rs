@@ -5,6 +5,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::types::{ExternalMcpConfig, ExternalMcpError};
+use crate::features::pipeline::service::get_expanded_path;
 
 const INIT_TIMEOUT_MS: u64 = 30_000;
 const REQUEST_TIMEOUT_MS: u64 = 120_000;
@@ -136,6 +137,9 @@ async fn mcp_run_loop(
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
 
+    if !config.env_vars.iter().any(|(k, _)| k == "PATH") {
+        cmd.env("PATH", get_expanded_path());
+    }
     for (key, value) in &config.env_vars {
         cmd.env(key, value);
     }
