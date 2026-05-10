@@ -145,7 +145,7 @@ function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
   };
 }
 
-function resolve_embed_path(base_note_path: string, embed_src: string): string {
+export function resolve_embed_path(base_note_path: string, embed_src: string): string {
   if (!embed_src.startsWith("./") && !embed_src.startsWith("../")) {
     return embed_src;
   }
