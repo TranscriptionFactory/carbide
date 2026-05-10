@@ -8,28 +8,28 @@
 
 > Legend: `[x]` = Implemented | `[~]` = Partially Implemented | `[ ]` = Not Implemented
 
-| # | Feature Area | Status | Notes |
-|---|---|---|---|
-| 1 | Internal Linking | `[x]` | Wikilinks, aliases, heading/block refs, autocomplete |
-| 2 | Embeds & Transclusion | `[~]` | Note/file/image embeds; no PDF page-range or audio/video embeds |
-| 3 | Tags | `[~]` | Inline tags with autocomplete; no tag pane or hierarchical search |
-| 4 | Callouts | `[x]` | All 32 types, foldable, nested content |
-| 5 | Properties (Frontmatter) | `[~]` | Parsed and preserved; no visual property editor |
-| 6 | Math & Equations | `[x]` | Inline and block LaTeX via KaTeX |
-| 7 | Mermaid Diagrams | `[x]` | Rendered in code blocks with caching |
-| 8 | Highlights, Comments, Formatting | `[~]` | Highlights and strikethrough; no `%%` comments |
-| 9 | Code Blocks | `[x]` | 50+ languages, Shiki highlighting |
-| 10 | Footnotes | `[ ]` | Not implemented |
-| 11 | Tables | `[x]` | GFM tables with alignment, keyboard nav |
-| 12 | Lists | `[x]` | Bullet, ordered, task lists with checkboxes |
-| 13 | Canvas | `[x]` | Separate canvas feature (Excalidraw-based) |
-| 14 | Obsidian URI Scheme | `[ ]` | Not implemented |
-| 15 | HTML in Obsidian | `[~]` | `<details>` supported; limited other HTML |
-| 16 | Queries & Dynamic Content | `[~]` | Task query blocks and note query system; no Dataview/DQL |
-| 17 | Templates | `[~]` | Note name templates with date tokens; no content templates |
-| 18 | CSS Customization | `[~]` | Theme system exists; no user CSS snippets |
-| 19 | Keyboard Shortcuts | `[x]` | Customizable hotkey system |
-| 20 | Tips, Tricks, Patterns | `[~]` | Some patterns supported via editor features |
+| #   | Feature Area                     | Status | Notes                                                             |
+| --- | -------------------------------- | ------ | ----------------------------------------------------------------- |
+| 1   | Internal Linking                 | `[x]`  | Wikilinks, aliases, heading/block refs, autocomplete              |
+| 2   | Embeds & Transclusion            | `[~]`  | Note/file/image embeds; no PDF page-range or audio/video embeds   |
+| 3   | Tags                             | `[~]`  | Inline tags with autocomplete; no tag pane or hierarchical search |
+| 4   | Callouts                         | `[x]`  | All 32 types, foldable, nested content                            |
+| 5   | Properties (Frontmatter)         | `[~]`  | Parsed and preserved; no visual property editor                   |
+| 6   | Math & Equations                 | `[x]`  | Inline and block LaTeX via KaTeX                                  |
+| 7   | Mermaid Diagrams                 | `[x]`  | Rendered in code blocks with caching                              |
+| 8   | Highlights, Comments, Formatting | `[~]`  | Highlights and strikethrough; no `%%` comments                    |
+| 9   | Code Blocks                      | `[x]`  | 50+ languages, Shiki highlighting                                 |
+| 10  | Footnotes                        | `[ ]`  | Not implemented                                                   |
+| 11  | Tables                           | `[x]`  | GFM tables with alignment, keyboard nav                           |
+| 12  | Lists                            | `[x]`  | Bullet, ordered, task lists with checkboxes                       |
+| 13  | Canvas                           | `[x]`  | Separate canvas feature (Excalidraw-based)                        |
+| 14  | Obsidian URI Scheme              | `[ ]`  | Not implemented                                                   |
+| 15  | HTML in Obsidian                 | `[~]`  | `<details>` supported; limited other HTML                         |
+| 16  | Queries & Dynamic Content        | `[~]`  | Task query blocks and note query system; no Dataview/DQL          |
+| 17  | Templates                        | `[~]`  | Note name templates with date tokens; no content templates        |
+| 18  | CSS Customization                | `[~]`  | Theme system exists; no user CSS snippets                         |
+| 19  | Keyboard Shortcuts               | `[x]`  | Customizable hotkey system                                        |
+| 20  | Tips, Tricks, Patterns           | `[~]`  | Some patterns supported via editor features                       |
 
 ---
 
