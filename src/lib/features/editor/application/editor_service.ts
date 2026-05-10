@@ -69,6 +69,7 @@ export type EditorServiceCallbacks = {
     base_note_path: string,
     source: InternalLinkSource,
   ) => void;
+  on_open_document?: (file_path: string, base_note_path: string) => void;
   on_external_link_click: (url: string) => void;
   on_anchor_link_click?: (fragment: string) => void;
   on_image_paste_requested: (
@@ -1061,6 +1062,12 @@ export class EditorService {
         if (!this.is_generation_current(generation)) return;
         this.callbacks.on_internal_link_click(raw_path, base_note_path, source);
       },
+      on_open_document: this.callbacks.on_open_document
+        ? (file_path: string, base_note_path: string) => {
+            if (!this.is_generation_current(generation)) return;
+            this.callbacks.on_open_document?.(file_path, base_note_path);
+          }
+        : undefined,
       on_external_link_click: (url: string) => {
         if (!this.is_generation_current(generation)) return;
         this.callbacks.on_external_link_click(url);

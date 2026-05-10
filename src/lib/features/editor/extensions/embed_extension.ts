@@ -27,8 +27,8 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
 
   const embed_callbacks: ExcalidrawEmbedCallbacks = {
     on_open_file: (path) => {
-      if (ctx.events.on_internal_link_click) {
-        ctx.events.on_internal_link_click(path, ctx.get_note_path(), "wiki");
+      if (ctx.events.on_open_document) {
+        ctx.events.on_open_document(path, ctx.get_note_path());
       }
     },
   };
@@ -46,8 +46,8 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   plugins.push(
     create_file_embed_view_plugin({
       on_open_file: (path) => {
-        if (ctx.events.on_internal_link_click) {
-          ctx.events.on_internal_link_click(path, ctx.get_note_path(), "wiki");
+        if (ctx.events.on_open_document) {
+          ctx.events.on_open_document(path, ctx.get_note_path());
         }
       },
       resolve_asset_url: ctx.resolve_asset_url_for_vault
