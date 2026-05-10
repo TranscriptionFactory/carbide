@@ -274,6 +274,127 @@ describe("LinksService", () => {
     expect(links_store.backlinks).toEqual([]);
   });
 
+  it("uses search DB backlinks when LSP is not running", async () => {
+    const vault = create_test_vault();
+    const db_backlinks = [note("db-ref-a.md"), note("db-ref-b.md")];
+    const db_outlinks = [note("out.md")];
+    const db_orphans = [orphan("missing.md")];
+    const search_port = make_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: db_backlinks,
+        outlinks: db_outlinks,
+        orphan_links: db_orphans,
+      }),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const links_store = new LinksStore();
+    const markdown_lsp_port = make_markdown_lsp_port();
+
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      markdown_lsp_port,
+      make_markdown_lsp_store("stopped"),
+    );
+    await service.load_note_links("target.md");
+
+    expect(markdown_lsp_port.references).not.toHaveBeenCalled();
+    expect(links_store.backlinks.map((b) => b.path)).toEqual([
+      "db-ref-a.md",
+      "db-ref-b.md",
+    ]);
+    expect(links_store.outlinks.map((o) => o.path)).toEqual(["out.md"]);
+    expect(links_store.orphan_links).toEqual([orphan("missing.md")]);
+  });
+
+  it("merges LSP and search DB backlinks, LSP takes priority", async () => {
+    const vault = create_test_vault();
+    const markdown_lsp_port = make_markdown_lsp_port({
+      references: vi.fn().mockResolvedValue([
+        {
+          uri: `file://${vault.path}/lsp-only.md`,
+          range: {
+            start_line: 0,
+            start_character: 0,
+            end_line: 0,
+            end_character: 5,
+          },
+        },
+        {
+          uri: `file://${vault.path}/shared.md`,
+          range: {
+            start_line: 0,
+            start_character: 0,
+            end_line: 0,
+            end_character: 5,
+          },
+        },
+      ]),
+    });
+
+    const search_port = make_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [note("shared.md"), note("db-only.md")],
+        outlinks: [note("out.md")],
+        orphan_links: [],
+      }),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const links_store = new LinksStore();
+
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
+    );
+    await service.load_note_links("target.md");
+
+    expect(links_store.backlinks.map((b) => b.path)).toEqual([
+      "lsp-only.md",
+      "shared.md",
+      "db-only.md",
+    ]);
+    expect(links_store.outlinks.map((o) => o.path)).toEqual(["out.md"]);
+  });
+
+  it("falls back to search DB backlinks when LSP errors", async () => {
+    const vault = create_test_vault();
+    const markdown_lsp_port = make_markdown_lsp_port({
+      references: vi.fn().mockRejectedValue(new Error("LSP crashed")),
+    });
+
+    const search_port = make_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue({
+        backlinks: [note("db-ref.md")],
+        outlinks: [],
+        orphan_links: [],
+      }),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const links_store = new LinksStore();
+
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      markdown_lsp_port,
+      make_markdown_lsp_store(),
+    );
+    await service.load_note_links("target.md");
+
+    expect(links_store.backlinks.map((b) => b.path)).toEqual(["db-ref.md"]);
+    expect(links_store.global_status).toBe("ready");
+  });
+
   it("extracts local links from markdown using frontend mdast traversal", () => {
     const search_port = make_search_port();
     const vault_store = new VaultStore();

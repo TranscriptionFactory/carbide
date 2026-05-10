@@ -7,6 +7,7 @@ export { register_find_in_file_actions } from "$lib/features/search/application/
 export { SearchStore } from "$lib/features/search/state/search_store.svelte";
 export type { IndexProgress } from "$lib/features/search/state/search_store.svelte";
 export type {
+  NoteLinksSnapshot,
   SearchPort,
   SmartLinkVaultEdge,
   WorkspaceIndexPort,
