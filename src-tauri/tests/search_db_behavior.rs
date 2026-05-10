@@ -2,8 +2,9 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest, get_note_meta,
     get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
-    query_bases, rebuild_index, remove_notes_by_prefix, rename_folder_paths, rename_note_path,
-    search, set_outlinks, suggest_planned, sync_index, upsert_note,
+    query_bases, re_resolve_orphan_outlinks, rebuild_index, remove_notes_by_prefix,
+    rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
+    upsert_note, upsert_note_simple,
 };
 use crate::features::search::model::{BaseQuery, IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
@@ -658,4 +659,102 @@ fn ctime_ms_defaults_to_zero_for_legacy_notes() {
     )
     .expect("query_bases");
     assert_eq!(results.rows[0].note.ctime_ms, 0);
+}
+
+#[test]
+fn resolve_batch_outlinks_resolves_bare_stem() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "journal/2026-05-09.md", "# May 9th");
+    write_md(root, "notes/daily.md", "See [[2026-05-09]] for details");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let backlinks = get_backlinks(&conn, "journal/2026-05-09.md").expect("backlinks");
+    assert_eq!(backlinks.len(), 1);
+    assert_eq!(backlinks[0].path, "notes/daily.md");
+
+    let outlinks = get_outlinks(&conn, "notes/daily.md").expect("outlinks");
+    assert_eq!(outlinks.len(), 1);
+    assert_eq!(outlinks[0].path, "journal/2026-05-09.md");
+}
+
+#[test]
+fn resolve_batch_outlinks_handles_path_with_slash() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "subfolder/note.md", "# A note");
+    write_md(root, "index.md", "Link to [[subfolder/note]]");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let backlinks = get_backlinks(&conn, "subfolder/note.md").expect("backlinks");
+    assert_eq!(backlinks.len(), 1);
+    assert_eq!(backlinks[0].path, "index.md");
+}
+
+#[test]
+fn resolve_batch_outlinks_ambiguous_stem_falls_back() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "a/foo.md", "# Foo A");
+    write_md(root, "b/foo.md", "# Foo B");
+    write_md(root, "linker.md", "Link to [[foo]]");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let orphans = get_orphan_outlinks(&conn, "linker.md").expect("orphans");
+    assert_eq!(orphans.len(), 1);
+    assert_eq!(orphans[0].target_path, "foo.md");
+}
+
+#[test]
+fn resolve_batch_outlinks_root_level_note() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "foo.md", "# Foo");
+    write_md(root, "bar.md", "Link to [[foo]]");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let backlinks = get_backlinks(&conn, "foo.md").expect("backlinks");
+    assert_eq!(backlinks.len(), 1);
+    assert_eq!(backlinks[0].path, "bar.md");
+}
+
+#[test]
+fn rebuild_re_resolves_cross_batch_orphans() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "journal/2026-05-09.md", "# May 9th");
+    write_md(root, "notes/source.md", "See [[2026-05-09]]");
+    for i in 0..100 {
+        write_md(root, &format!("filler/{:03}.md", i), "# filler");
+    }
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let backlinks = get_backlinks(&conn, "journal/2026-05-09.md").expect("backlinks");
+    assert_eq!(backlinks.len(), 1, "cross-batch link should be resolved by re_resolve_orphan_outlinks");
+    assert_eq!(backlinks[0].path, "notes/source.md");
 }
