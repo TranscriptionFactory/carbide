@@ -115,6 +115,7 @@ mod specta_export {
                 crate::features::search::service::find_note_by_citekey,
                 crate::features::search::service::search_linked_notes,
                 crate::features::search::service::update_linked_note_metadata,
+                crate::features::search::service::index_note_links_snapshot,
                 // Git commands (15)
                 crate::features::git::service::git_has_repo,
                 crate::features::git::service::git_init_repo,
