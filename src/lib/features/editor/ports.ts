@@ -110,6 +110,7 @@ export type EditorEventHandlers = {
     base_note_path: string,
     source: InternalLinkSource,
   ) => void;
+  on_open_document?: (file_path: string, base_note_path: string) => void;
   on_external_link_click?: (url: string) => void;
   on_anchor_link_click?: ((fragment: string) => void) | undefined;
   on_image_paste_requested?: (payload: PastedImagePayload) => void;

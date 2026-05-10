@@ -145,6 +145,27 @@ function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
   };
 }
 
+function resolve_embed_path(
+  base_note_path: string,
+  embed_src: string,
+): string {
+  if (!embed_src.startsWith("./") && !embed_src.startsWith("../")) {
+    return embed_src;
+  }
+  const dir = base_note_path.includes("/")
+    ? base_note_path.slice(0, base_note_path.lastIndexOf("/"))
+    : "";
+  const parts = dir ? dir.split("/") : [];
+  for (const segment of embed_src.split("/")) {
+    if (segment === "..") {
+      parts.pop();
+    } else if (segment !== ".") {
+      parts.push(segment);
+    }
+  }
+  return parts.join("/");
+}
+
 export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
@@ -264,6 +285,12 @@ export function create_app_context(input: {
         base_note_path,
         source,
       }),
+    on_open_document: (file_path, base_note_path) => {
+      const resolved = resolve_embed_path(base_note_path, file_path);
+      void action_registry.execute(ACTION_IDS.document_open, {
+        file_path: resolved,
+      });
+    },
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),
     on_anchor_link_click: (fragment) => {
