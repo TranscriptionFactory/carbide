@@ -121,11 +121,7 @@
     },
     {
       label: "Status Bar",
-      tokens: [
-        "--statusbar-bg",
-        "--statusbar-fg",
-        "--statusbar-divider",
-      ],
+      tokens: ["--statusbar-bg", "--statusbar-fg", "--statusbar-divider"],
     },
     {
       label: "Shadows",
