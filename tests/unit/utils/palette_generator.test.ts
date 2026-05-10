@@ -151,6 +151,14 @@ describe("generate_ui_tokens", () => {
     expect(tokens["--primary-foreground"]).toBe("oklch(0.100 0.0000 0.0)");
   });
 
+  it("does not produce inherited foreground tokens", () => {
+    const tokens = generate_ui_tokens(NORDIC_DARK_PARAMS);
+    expect(tokens).not.toHaveProperty("--card-foreground");
+    expect(tokens).not.toHaveProperty("--popover-foreground");
+    expect(tokens).not.toHaveProperty("--secondary-foreground");
+    expect(tokens).not.toHaveProperty("--sidebar-foreground");
+  });
+
   it("generates ring, accent, and scrollbar tokens", () => {
     const tokens = generate_ui_tokens(NORDIC_DARK_PARAMS);
     expect(tokens["--ring"]).toContain("155.0");
