@@ -1,0 +1,66 @@
+[
+  {
+    "id": "auto-tag",
+    "name": "Auto-Tag",
+    "version": "1.0.0",
+    "author": "Carbide",
+    "description": "Automatically prefixes configured words with # to create inline tags. Uses a TOML config for allow/deny lists.",
+    "files": [
+      "manifest.json",
+      "index.html",
+      "auto_tag.js",
+      "auto_tag.d.ts",
+      "config.toml"
+    ]
+  },
+  {
+    "id": "html-strip",
+    "name": "HTML Strip",
+    "version": "1.0.0",
+    "author": "Carbide",
+    "description": "Strip unnecessary elements (styles, scripts, metadata) from HTML files, leaving only content.",
+    "files": ["manifest.json", "index.html"]
+  },
+  {
+    "id": "html-to-markdown",
+    "name": "HTML to Markdown",
+    "version": "1.0.0",
+    "author": "Carbide",
+    "description": "Convert HTML files in your vault to Markdown using Turndown.",
+    "files": [
+      "manifest.json",
+      "index.html",
+      "vendor/turndown.min.js",
+      "vendor/turndown-plugin-gfm.min.js"
+    ]
+  },
+  {
+    "id": "slides",
+    "name": "Slides Export",
+    "version": "0.1.0",
+    "author": "Carbide",
+    "description": "Export markdown notes as slide deck PDFs, splitting on horizontal rules (---)",
+    "files": [
+      "manifest.json",
+      "index.html",
+      "vendor/jspdf.umd.min.js",
+      "vendor/marked.min.js"
+    ]
+  },
+  {
+    "id": "smart-templates",
+    "name": "Smart Templates",
+    "version": "1.0.0",
+    "author": "Carbide Community",
+    "description": "Context-aware dynamic templates with Handlebars, live preview, and one-click insertion.",
+    "files": ["manifest.json", "index.html"]
+  },
+  {
+    "id": "wiki-compiler",
+    "name": "Wiki Compiler",
+    "version": "0.1.0",
+    "author": "Carbide",
+    "description": "Compile vault notes into an interlinked wiki using LLMs",
+    "files": ["manifest.json", "index.html", "styles.css"]
+  }
+]
