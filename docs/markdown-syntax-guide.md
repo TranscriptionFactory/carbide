@@ -4,13 +4,42 @@
 
 ---
 
-# 1 — Internal Linking
+## Carbide Implementation Status
+
+> Legend: `[x]` = Implemented | `[~]` = Partially Implemented | `[ ]` = Not Implemented
+
+| # | Feature Area | Status | Notes |
+|---|---|---|---|
+| 1 | Internal Linking | `[x]` | Wikilinks, aliases, heading/block refs, autocomplete |
+| 2 | Embeds & Transclusion | `[~]` | Note/file/image embeds; no PDF page-range or audio/video embeds |
+| 3 | Tags | `[~]` | Inline tags with autocomplete; no tag pane or hierarchical search |
+| 4 | Callouts | `[x]` | All 32 types, foldable, nested content |
+| 5 | Properties (Frontmatter) | `[~]` | Parsed and preserved; no visual property editor |
+| 6 | Math & Equations | `[x]` | Inline and block LaTeX via KaTeX |
+| 7 | Mermaid Diagrams | `[x]` | Rendered in code blocks with caching |
+| 8 | Highlights, Comments, Formatting | `[~]` | Highlights and strikethrough; no `%%` comments |
+| 9 | Code Blocks | `[x]` | 50+ languages, Shiki highlighting |
+| 10 | Footnotes | `[ ]` | Not implemented |
+| 11 | Tables | `[x]` | GFM tables with alignment, keyboard nav |
+| 12 | Lists | `[x]` | Bullet, ordered, task lists with checkboxes |
+| 13 | Canvas | `[x]` | Separate canvas feature (Excalidraw-based) |
+| 14 | Obsidian URI Scheme | `[ ]` | Not implemented |
+| 15 | HTML in Obsidian | `[~]` | `<details>` supported; limited other HTML |
+| 16 | Queries & Dynamic Content | `[~]` | Task query blocks and note query system; no Dataview/DQL |
+| 17 | Templates | `[~]` | Note name templates with date tokens; no content templates |
+| 18 | CSS Customization | `[~]` | Theme system exists; no user CSS snippets |
+| 19 | Keyboard Shortcuts | `[x]` | Customizable hotkey system |
+| 20 | Tips, Tricks, Patterns | `[~]` | Some patterns supported via editor features |
+
+---
+
+# 1 — Internal Linking `[x]`
 
 Internal links are the foundation of Obsidian. They create the connections that turn a collection of notes into a knowledge graph.
 
 ---
 
-## 1.1 Basic Wikilinks
+## 1.1 Basic Wikilinks `[x]`
 
 ```markdown
 [[Note Name]]
@@ -23,7 +52,7 @@ Internal links are the foundation of Obsidian. They create the connections that 
 
 ---
 
-## 1.2 Display Text (Aliases in Links)
+## 1.2 Display Text (Aliases in Links) `[x]`
 
 ```markdown
 [[Note Name|Displayed text]]
@@ -38,7 +67,7 @@ Check the [[2025-01-15|meeting notes from January 15th]].
 
 ---
 
-## 1.3 Heading Links
+## 1.3 Heading Links `[x]`
 
 Link to a specific heading within any note:
 
@@ -63,9 +92,11 @@ Link to a heading in the current note:
 
 ---
 
-## 1.4 Block References
+## 1.4 Block References `[~]`
 
 Block references let you link to any specific paragraph, list item, or other block-level element.
+
+> **Carbide status:** Block reference syntax (`[[Note#^block-id]]`) is supported in wiki link suggestions and autocomplete. Block IDs are not yet auto-generated on target blocks.
 
 ### Creating a Block ID
 
@@ -100,7 +131,7 @@ When you type `[[Note#^` and select a block from the autocomplete popup, Obsidia
 
 ---
 
-## 1.5 Link Autocomplete
+## 1.5 Link Autocomplete `[x]`
 
 Typing `[[` triggers the link suggestion popup:
 
@@ -113,7 +144,7 @@ Typing `[[` triggers the link suggestion popup:
 
 ---
 
-## 1.6 Markdown-Style Links
+## 1.6 Markdown-Style Links `[x]`
 
 Obsidian also supports standard Markdown links:
 
@@ -131,7 +162,9 @@ You can toggle wikilinks on/off in **Settings → Files & Links → Use `[[Wikil
 
 ---
 
-## 1.7 Unlinked Mentions
+## 1.7 Unlinked Mentions `[ ]`
+
+> **Carbide status:** Not implemented. No backlinks pane or unlinked mention detection.
 
 Obsidian's backlinks pane shows two sections:
 
@@ -154,13 +187,13 @@ Now any note containing "ML" or "machine learning" as text will appear in unlink
 
 ---
 
-# 2 — Embeds and Transclusion
+# 2 — Embeds and Transclusion `[~]`
 
 Embeds pull content from other notes (or files) directly into the current note. The prefix `!` before a wikilink makes it an embed.
 
 ---
 
-## 2.1 Embedding Notes
+## 2.1 Embedding Notes `[x]`
 
 ### Entire Note
 
@@ -188,7 +221,7 @@ Embeds only that single block.
 
 ---
 
-## 2.2 Embedding Images
+## 2.2 Embedding Images `[x]`
 
 ```markdown
 ![[photo.png]]
@@ -230,7 +263,9 @@ Resize external images with HTML:
 
 ---
 
-## 2.3 Embedding PDFs
+## 2.3 Embedding PDFs `[~]`
+
+> **Carbide status:** PDF file embeds are supported (`![[document.pdf]]`). Page selection and height parameters are not yet implemented.
 
 ```markdown
 ![[document.pdf]]
@@ -259,7 +294,9 @@ Height is in pixels.
 
 ---
 
-## 2.4 Embedding Audio
+## 2.4 Embedding Audio `[ ]`
+
+> **Carbide status:** Not implemented. Audio file embeds are not rendered.
 
 ```markdown
 ![[recording.mp3]]
@@ -275,7 +312,9 @@ Renders an inline audio player.
 
 ---
 
-## 2.5 Embedding Video
+## 2.5 Embedding Video `[ ]`
+
+> **Carbide status:** Not implemented. Video file embeds are not rendered.
 
 ```markdown
 ![[video.mp4]]
@@ -288,7 +327,9 @@ Renders an inline video player.
 
 ---
 
-## 2.6 Embedding Web Pages (iframes)
+## 2.6 Embedding Web Pages (iframes) `[ ]`
+
+> **Carbide status:** Not implemented. Iframes are not rendered in the editor.
 
 ```markdown
 <iframe src="https://example.com" width="100%" height="400"></iframe>
@@ -307,11 +348,11 @@ Useful for embedding YouTube, Google Maps, or other web content. Not all sites a
 
 ---
 
-# 3 — Tags
+# 3 — Tags `[~]`
 
 ---
 
-## 3.1 Inline Tags
+## 3.1 Inline Tags `[x]`
 
 ```markdown
 #tag
@@ -348,7 +389,7 @@ Useful for embedding YouTube, Google Maps, or other web content. Not all sites a
 
 ---
 
-## 3.2 Frontmatter Tags
+## 3.2 Frontmatter Tags `[x]`
 
 ```yaml
 ---
@@ -373,19 +414,21 @@ tags: [project, reference, status/active]
 
 ---
 
-## 3.3 Tag Pane
+## 3.3 Tag Pane `[ ]`
+
+> **Carbide status:** Not implemented. No dedicated tag pane view.
 
 The tag pane (**View → Tags**) shows all tags in the vault with counts. Clicking a tag opens a search for it. Nested tags display hierarchically and can be collapsed.
 
 ---
 
-# 4 — Callouts
+# 4 — Callouts `[x]`
 
 Callouts are Obsidian's styled admonition blocks, built on top of blockquote syntax.
 
 ---
 
-## 4.1 Basic Callout
+## 4.1 Basic Callout `[x]`
 
 ```markdown
 > [!note]
@@ -408,7 +451,7 @@ Callouts are Obsidian's styled admonition blocks, built on top of blockquote syn
 
 ---
 
-## 4.2 Foldable Callouts
+## 4.2 Foldable Callouts `[x]`
 
 ```markdown
 > [!warning]- Collapsed by Default
@@ -424,7 +467,7 @@ Callouts are Obsidian's styled admonition blocks, built on top of blockquote syn
 
 ---
 
-## 4.3 Complete Callout Type Reference
+## 4.3 Complete Callout Type Reference `[x]`
 
 | Type       | Icon           | Color  | Aliases                |
 | ---------- | -------------- | ------ | ---------------------- |
@@ -451,7 +494,7 @@ All types and their aliases are interchangeable:
 
 ---
 
-## 4.4 Callout Content
+## 4.4 Callout Content `[x]`
 
 Callouts support full Markdown inside them:
 
@@ -481,7 +524,9 @@ Callouts support full Markdown inside them:
 
 ---
 
-## 4.5 Nested Callouts
+## 4.5 Nested Callouts `[~]`
+
+> **Carbide status:** Basic callout nesting may work but is not explicitly tested or optimized.
 
 ```markdown
 > [!question] Outer callout
@@ -498,7 +543,9 @@ Each nesting level adds another `>`.
 
 ---
 
-## 4.6 Custom Callouts (via CSS)
+## 4.6 Custom Callouts (via CSS) `[ ]`
+
+> **Carbide status:** Not implemented. Custom callout types cannot be defined by users.
 
 You can define custom callout types in a CSS snippet:
 
@@ -529,13 +576,15 @@ Enable the snippet in **Settings → Appearance → CSS Snippets**.
 
 ---
 
-# 5 — Properties (YAML Frontmatter)
+# 5 — Properties (YAML Frontmatter) `[~]`
 
 Properties are structured metadata for your notes, defined in YAML frontmatter at the very top of the file.
 
+> **Carbide status:** Frontmatter is parsed, preserved in round-trips, and hidden in the visual editor. No visual property editor or type enforcement.
+
 ---
 
-## 5.1 Basic Syntax
+## 5.1 Basic Syntax `[x]`
 
 ```yaml
 ---
@@ -547,7 +596,7 @@ The `---` delimiters must be the very first thing in the file (no blank lines or
 
 ---
 
-## 5.2 Data Types
+## 5.2 Data Types `[x]`
 
 ### Text
 
@@ -616,7 +665,9 @@ Wrap wikilinks in quotes inside YAML to prevent parsing errors.
 
 ---
 
-## 5.3 Obsidian's Reserved/Special Properties
+## 5.3 Obsidian's Reserved/Special Properties `[~]`
+
+> **Carbide status:** `tags` and `aliases` are recognized. Other special properties (`cssclasses`, `publish`, `permalink`, etc.) are not acted upon.
 
 | Property      | Type    | Purpose                                                       |
 | ------------- | ------- | ------------------------------------------------------------- |
@@ -631,7 +682,7 @@ Wrap wikilinks in quotes inside YAML to prevent parsing errors.
 
 ---
 
-## 5.4 Custom Properties
+## 5.4 Custom Properties `[x]`
 
 You can define any custom key-value pairs. These are especially powerful when combined with Dataview or other query plugins:
 
@@ -649,7 +700,9 @@ category: reference
 
 ---
 
-## 5.5 Properties View
+## 5.5 Properties View `[ ]`
+
+> **Carbide status:** Not implemented. No visual properties editor.
 
 Obsidian has a visual Properties editor at the top of notes (when enabled). You can:
 
@@ -659,13 +712,15 @@ Obsidian has a visual Properties editor at the top of notes (when enabled). You 
 
 ---
 
-# 6 — Math and Equations
+# 6 — Math and Equations `[x]`
 
 Obsidian uses MathJax (with KaTeX-like rendering) for LaTeX math typesetting.
 
+> **Carbide status:** Full KaTeX rendering for both inline and block math.
+
 ---
 
-## 6.1 Inline Math
+## 6.1 Inline Math `[x]`
 
 ```markdown
 The Pythagorean theorem states $a^2 + b^2 = c^2$.
@@ -675,7 +730,7 @@ Surround expressions with single dollar signs `$...$`. No spaces immediately aft
 
 ---
 
-## 6.2 Display (Block) Math
+## 6.2 Display (Block) Math `[x]`
 
 ```markdown
 $$
@@ -695,7 +750,7 @@ Both render as centered, display-mode equations.
 
 ---
 
-## 6.3 Common LaTeX Reference
+## 6.3 Common LaTeX Reference `[x]`
 
 ### Arithmetic and Relations
 
@@ -827,13 +882,15 @@ $a \qquad b$ double quad space
 
 ---
 
-# 7 — Mermaid Diagrams
+# 7 — Mermaid Diagrams `[x]`
 
 Obsidian natively renders Mermaid diagrams inside fenced code blocks.
 
+> **Carbide status:** Full Mermaid rendering with LRU caching (128 diagrams). All diagram types below are supported.
+
 ---
 
-## 7.1 Flowcharts
+## 7.1 Flowcharts `[x]`
 
 ````markdown
 ```mermaid
@@ -893,7 +950,7 @@ A -->|text| B arrow with label (alternate)
 
 ---
 
-## 7.2 Sequence Diagrams
+## 7.2 Sequence Diagrams `[x]`
 
 ````markdown
 ```mermaid
@@ -936,7 +993,7 @@ sequenceDiagram
 
 ---
 
-## 7.3 Gantt Charts
+## 7.3 Gantt Charts `[x]`
 
 ````markdown
 ```mermaid
@@ -973,7 +1030,7 @@ Task name :milestone, id, start, 0d milestone (zero duration)
 
 ---
 
-## 7.4 Pie Charts
+## 7.4 Pie Charts `[x]`
 
 ````markdown
 ```mermaid
@@ -988,7 +1045,7 @@ pie title Time Allocation
 
 ---
 
-## 7.5 Class Diagrams
+## 7.5 Class Diagrams `[x]`
 
 ````markdown
 ```mermaid
@@ -1012,7 +1069,7 @@ classDiagram
 
 ---
 
-## 7.6 State Diagrams
+## 7.6 State Diagrams `[x]`
 
 ````markdown
 ```mermaid
@@ -1034,7 +1091,7 @@ stateDiagram-v2
 
 ---
 
-## 7.7 Entity-Relationship Diagrams
+## 7.7 Entity-Relationship Diagrams `[x]`
 
 ````markdown
 ```mermaid
@@ -1058,7 +1115,7 @@ erDiagram
 
 ---
 
-## 7.8 User Journey Maps
+## 7.8 User Journey Maps `[x]`
 
 ````markdown
 ```mermaid
@@ -1077,11 +1134,11 @@ journey
 
 ---
 
-# 8 — Highlights, Comments, and Formatting Extras
+# 8 — Highlights, Comments, and Formatting Extras `[~]`
 
 ---
 
-## 8.1 Highlighted Text
+## 8.1 Highlighted Text `[x]`
 
 ```markdown
 ==This text will be highlighted.==
@@ -1094,7 +1151,9 @@ Renders with a yellow/marker-style background. The exact color depends on your t
 
 ---
 
-## 8.2 Comments
+## 8.2 Comments `[ ]`
+
+> **Carbide status:** Not implemented. `%%` comment syntax is not parsed or hidden.
 
 ```markdown
 %% This is a comment — invisible in reading view. %%
@@ -1113,7 +1172,7 @@ Useful for personal annotations, TODOs, or drafting notes.
 
 ---
 
-## 8.3 Strikethrough
+## 8.3 Strikethrough `[x]`
 
 ```markdown
 ~~This text is struck through.~~
@@ -1123,7 +1182,7 @@ GFM-standard, fully supported in Obsidian.
 
 ---
 
-## 8.4 Combining Formatting
+## 8.4 Combining Formatting `[x]`
 
 ```markdown
 **_Bold and italic_**
@@ -1135,7 +1194,7 @@ GFM-standard, fully supported in Obsidian.
 
 ---
 
-## 8.5 Horizontal Rules
+## 8.5 Horizontal Rules `[x]`
 
 ```markdown
 ---
@@ -1150,11 +1209,11 @@ Any of these produce a horizontal divider. `---` is the most common convention. 
 
 ---
 
-# 9 — Code Blocks
+# 9 — Code Blocks `[x]`
 
 ---
 
-## 9.1 Inline Code
+## 9.1 Inline Code `[x]`
 
 ```markdown
 Use `backticks` for inline code.
@@ -1163,9 +1222,11 @@ Use ``double backticks to include `literal` backticks``.
 
 ---
 
-## 9.2 Fenced Code Blocks with Syntax Highlighting
+## 9.2 Fenced Code Blocks with Syntax Highlighting `[x]`
 
 Obsidian uses Prism.js for syntax highlighting. Supported languages include (non-exhaustive):
+
+> **Carbide status:** Uses Shiki for syntax highlighting with 50+ languages supported.
 
 ````markdown
 ```javascript
@@ -1218,17 +1279,21 @@ Common language identifiers: `javascript` / `js`, `typescript` / `ts`, `python` 
 
 ---
 
-## 9.3 Code Block Line Numbers
+## 9.3 Code Block Line Numbers `[ ]`
+
+> **Carbide status:** Not supported in the visual editor. The source editor (CodeMirror) has optional line numbers.
 
 Not natively supported, but some community themes and CSS snippets add line numbers.
 
 ---
 
-# 10 — Footnotes
+# 10 — Footnotes `[ ]`
+
+> **Carbide status:** Not implemented. No footnote syntax parsing or rendering.
 
 ---
 
-## 10.1 Basic Footnotes
+## 10.1 Basic Footnotes `[ ]`
 
 ```markdown
 This statement needs a citation.[^1]
@@ -1246,7 +1311,7 @@ Another claim with a named footnote.[^source-name]
 
 ---
 
-## 10.2 Inline Footnotes
+## 10.2 Inline Footnotes `[ ]`
 
 ```markdown
 This has an inline footnote.^[The footnote content is written right here.]
@@ -1256,7 +1321,7 @@ No separate definition block needed. Useful for quick, short annotations.
 
 ---
 
-## 10.3 Multi-Paragraph Footnotes
+## 10.3 Multi-Paragraph Footnotes `[ ]`
 
 ```markdown
 [^long]: This is the first paragraph of a long footnote.
@@ -1269,11 +1334,11 @@ No separate definition block needed. Useful for quick, short annotations.
 
 ---
 
-# 11 — Tables
+# 11 — Tables `[x]`
 
 ---
 
-## 11.1 Basic Tables
+## 11.1 Basic Tables `[x]`
 
 ```markdown
 | Name    | Age | Role     |
@@ -1285,7 +1350,7 @@ No separate definition block needed. Useful for quick, short annotations.
 
 ---
 
-## 11.2 Column Alignment
+## 11.2 Column Alignment `[x]`
 
 ```markdown
 | Left | Center | Right |
@@ -1295,7 +1360,7 @@ No separate definition block needed. Useful for quick, short annotations.
 
 ---
 
-## 11.3 Formatting Inside Tables
+## 11.3 Formatting Inside Tables `[x]`
 
 ```markdown
 | Feature       | Example                      |
@@ -1323,11 +1388,11 @@ Note: Use `\|` to include a literal pipe character inside a table cell.
 
 ---
 
-# 12 — Lists — Deep Dive
+# 12 — Lists — Deep Dive `[x]`
 
 ---
 
-## 12.1 Unordered Lists
+## 12.1 Unordered Lists `[x]`
 
 ```markdown
 - Item one
@@ -1339,7 +1404,7 @@ Valid markers: `-`, `*`, `+`. Convention: use `-` consistently.
 
 ---
 
-## 12.2 Ordered Lists
+## 12.2 Ordered Lists `[x]`
 
 ```markdown
 1. First
@@ -1357,7 +1422,7 @@ The starting number matters; subsequent numbers auto-increment regardless of wha
 
 ---
 
-## 12.3 Nesting
+## 12.3 Nesting `[x]`
 
 Indent by 2 or 4 spaces (Obsidian accepts both, but be consistent):
 
@@ -1385,7 +1450,7 @@ Mixed nesting:
 
 ---
 
-## 12.4 Task Lists
+## 12.4 Task Lists `[x]`
 
 ```markdown
 - [ ] Unchecked
@@ -1397,7 +1462,9 @@ Mixed nesting:
 - Checkboxes are interactive in reading view and live preview — click to toggle.
 - Tasks can be queried by Dataview and Tasks plugin.
 
-### Alternative Task Statuses (with Plugins/Themes)
+### Alternative Task Statuses (with Plugins/Themes) `[ ]`
+
+> **Carbide status:** Not implemented. Only standard `[ ]` and `[x]` are supported.
 
 Some themes and the Tasks plugin support extended statuses:
 
@@ -1429,7 +1496,9 @@ These require a compatible theme (like Minimal, Things, or ITS Theme) with custo
 
 ---
 
-## 12.5 Definition Lists (Limited)
+## 12.5 Definition Lists (Limited) `[ ]`
+
+> **Carbide status:** Not implemented.
 
 Not natively supported in Obsidian's Markdown. Workarounds:
 
@@ -1447,13 +1516,15 @@ Definition text here.
 
 ---
 
-# 13 — Canvas
+# 13 — Canvas `[x]`
 
 Obsidian Canvas (`.canvas` files) is a spatial note-taking feature. While not Markdown per se, it's integral to Obsidian.
 
+> **Carbide status:** Implemented as an Excalidraw-based canvas feature with note cards, connections, and file embedding.
+
 ---
 
-## 13.1 Canvas Basics
+## 13.1 Canvas Basics `[x]`
 
 - **Cards**: Freeform text cards that support full Markdown.
 - **Note cards**: Embed existing Markdown notes onto the canvas.
@@ -1466,13 +1537,15 @@ Canvas files are stored as JSON (`.canvas` extension). You can link to them like
 
 ---
 
-# 14 — Obsidian URI Scheme
+# 14 — Obsidian URI Scheme `[ ]`
+
+> **Carbide status:** Not implemented. Carbide does not support the `obsidian://` URI scheme.
 
 Deep links that trigger Obsidian actions from external apps, bookmarks, or other notes.
 
 ---
 
-## 14.1 URI Actions
+## 14.1 URI Actions `[ ]`
 
 ### Open a Note
 
@@ -1524,13 +1597,15 @@ obsidian://open?vault=MyVault&setting=plugins
 
 ---
 
-# 15 — HTML in Obsidian
+# 15 — HTML in Obsidian `[~]`
 
 Obsidian allows a subset of HTML for cases where Markdown falls short.
 
 ---
 
-## 15.1 Allowed and Useful HTML
+## 15.1 Allowed and Useful HTML `[~]`
+
+> **Carbide status:** `<details>/<summary>` is fully supported. Other HTML elements (`<sup>`, `<sub>`, `<kbd>`, `<mark>`, etc.) have limited or no rendering in the visual editor.
 
 ```markdown
 <!-- HTML comment (invisible in all modes, unlike %% comments which show in edit mode) -->
@@ -1559,7 +1634,7 @@ Obsidian allows a subset of HTML for cases where Markdown falls short.
 
 ---
 
-## 15.2 `<details>` for Collapsible Sections
+## 15.2 `<details>` for Collapsible Sections `[x]`
 
 ```markdown
 <details>
@@ -1578,7 +1653,9 @@ Note: Leave a blank line after `<summary>` and before `</details>` for Markdown 
 
 ---
 
-## 15.3 HTML Tables (for Complex Layouts)
+## 15.3 HTML Tables (for Complex Layouts) `[ ]`
+
+> **Carbide status:** Not implemented. Raw HTML tables are not rendered in the visual editor.
 
 ```markdown
 <table>
@@ -1600,11 +1677,15 @@ Use HTML tables when you need cell merging, rowspan/colspan, or multi-line cell 
 
 ---
 
-# 16 — Queries and Dynamic Content
+# 16 — Queries and Dynamic Content `[~]`
+
+> **Carbide status:** Carbide implements its own task query blocks (````tasks` code blocks) and a note query system with clause-based filtering (`named`, `with`, `in`, `linked_from`, `with_property`). Dataview/DQL and Obsidian's native `query` blocks are not supported.
 
 ---
 
-## 16.1 Search / Query Block (Core Feature)
+## 16.1 Search / Query Block (Core Feature) `[~]`
+
+> **Carbide status:** Obsidian's `query` syntax is not supported. Carbide has its own note query system accessible via the query panel, with clauses like `notes named "..."`, `notes with #tag`, `notes in "Folder"`, `notes linked_from [[Note]]`, and property-based filtering with operators (`=`, `!=`, `>`, `<`, `contains`). Supports AND/OR logic, regex, and saved queries.
 
 Obsidian has a built-in query block (no plugins needed):
 
@@ -1641,7 +1722,7 @@ Combine operators: `tag:#project path:Work -tag:#archive`
 
 ---
 
-## 16.2 Dataview (Plugin — Detailed Reference)
+## 16.2 Dataview (Plugin — Detailed Reference) `[ ]`
 
 Dataview is the most widely used Obsidian plugin. It treats your vault as a queryable database.
 
@@ -1811,7 +1892,9 @@ dv.table(
 
 ---
 
-## 16.3 Tasks Plugin Syntax
+## 16.3 Tasks Plugin Syntax `[~]`
+
+> **Carbide status:** Carbide has its own task query system using ````tasks` code blocks with inline preview rendering. Supported clauses: `done`, `not done`, `status is todo/doing/done`, `due before/after/on YYYY-MM-DD`, `has due date`, `no due date`, `path/section/text includes ...`, `sort by <prop>`, `group by <prop>`, `limit N`. Emoji-based metadata fields (📅, ⏳, etc.) from the Obsidian Tasks plugin are not supported.
 
 The Tasks plugin extends task items with metadata:
 
@@ -1834,7 +1917,9 @@ The Tasks plugin extends task items with metadata:
 | 🔽    | Low priority                |                 |
 | ⏬    | Lowest priority             |                 |
 
-### Tasks Query Block
+### Tasks Query Block `[~]`
+
+> **Carbide status:** This syntax is supported in Carbide with live inline preview rendering. Carbide uses its own query parser rather than the Obsidian Tasks plugin.
 
 ````markdown
 ```tasks
@@ -1849,11 +1934,15 @@ limit 20
 
 ---
 
-# 17 — Templates
+# 17 — Templates `[~]`
+
+> **Carbide status:** Carbide supports note name templates with date/time tokens (`%Y`, `%m`, `%d`, `%H`, `%M`, `%S`) configurable in Settings. Full content templates (inserting pre-defined note bodies) and Templater-style scripting are not implemented.
 
 ---
 
-## 17.1 Core Templates (Built-in)
+## 17.1 Core Templates (Built-in) `[~]`
+
+> **Carbide status:** Note name formatting is supported with `%Y-%m-%d` style tokens. Content templates (inserting boilerplate into new notes) are not yet available.
 
 Enable **Core Plugin → Templates**. Set a template folder in settings.
 
@@ -1883,7 +1972,7 @@ Example daily note template:
 
 ---
 
-## 17.2 Templater Plugin (Advanced)
+## 17.2 Templater Plugin (Advanced) `[ ]`
 
 Templater offers far more power with JavaScript execution.
 
@@ -1923,11 +2012,13 @@ Templater offers far more power with JavaScript execution.
 
 ---
 
-# 18 — CSS Customization
+# 18 — CSS Customization `[~]`
+
+> **Carbide status:** Carbide has a built-in theme system with token-based customization. User CSS snippets (Obsidian-style) are not supported.
 
 ---
 
-## 18.1 CSS Snippets
+## 18.1 CSS Snippets `[ ]`
 
 Place `.css` files in `.obsidian/snippets/` and enable them in **Settings → Appearance → CSS Snippets**.
 
@@ -1970,7 +2061,9 @@ input[data-task="!"]:checked {
 
 ---
 
-## 18.2 cssclasses in Frontmatter
+## 18.2 cssclasses in Frontmatter `[ ]`
+
+> **Carbide status:** Not implemented. `cssclasses` property is not acted upon.
 
 ```yaml
 ---
@@ -1994,7 +2087,9 @@ Then target in CSS:
 
 ---
 
-# 19 — Keyboard Shortcuts Reference
+# 19 — Keyboard Shortcuts Reference `[x]`
+
+> **Carbide status:** Fully customizable hotkey system with configurable keybindings.
 
 | Action                   | Windows/Linux               | macOS                      |
 | ------------------------ | --------------------------- | -------------------------- |
@@ -2025,11 +2120,13 @@ All shortcuts are customizable in **Settings → Hotkeys**.
 
 ---
 
-# 20 — Tips, Tricks, and Patterns
+# 20 — Tips, Tricks, and Patterns `[~]`
 
 ---
 
-## 20.1 Daily Notes + Templates for Journaling
+## 20.1 Daily Notes + Templates for Journaling `[ ]`
+
+> **Carbide status:** No daily notes or template system.
 
 Set up **Core Plugin → Daily Notes** with a template:
 
@@ -2056,7 +2153,7 @@ Mood::
 
 ---
 
-## 20.2 Maps of Content (MOCs)
+## 20.2 Maps of Content (MOCs) `[x]`
 
 MOCs are index notes that organize other notes by topic:
 
@@ -2083,7 +2180,7 @@ MOCs are index notes that organize other notes by topic:
 
 ---
 
-## 20.3 Progressive Summarization in Notes
+## 20.3 Progressive Summarization in Notes `[x]`
 
 Use formatting layers to surface key content:
 
@@ -2100,7 +2197,7 @@ Regular text provides full context.
 
 ---
 
-## 20.4 Linking Patterns
+## 20.4 Linking Patterns `[~]`
 
 ```markdown
 Direct link: [[Concept]]
@@ -2112,7 +2209,7 @@ Block embed: ![[Research Note#^key-finding]]
 
 ---
 
-## 20.5 File Naming Patterns
+## 20.5 File Naming Patterns `[x]`
 
 | Pattern           | Example                          | Use Case             |
 | ----------------- | -------------------------------- | -------------------- |
