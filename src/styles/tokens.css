@@ -130,6 +130,10 @@
   --sidebar-border: oklch(0.92 0 0);
   --sidebar-active-bar: var(--interactive);
 
+  /* Tier 3: Activity Bar */
+  --activity-bar-bg: var(--sidebar);
+  --activity-bar-fg: var(--sidebar-foreground);
+
   /* Tier 3: Editor */
   --editor-background: var(--background);
   --editor-foreground: var(--foreground);
@@ -228,6 +232,10 @@
   --sidebar-accent-foreground: oklch(0.96 0 0);
   --sidebar-border: oklch(1 0 0 / 0.08);
   --sidebar-active-bar: var(--interactive);
+
+  /* Tier 3: Activity Bar */
+  --activity-bar-bg: var(--sidebar);
+  --activity-bar-fg: var(--sidebar-foreground);
 
   --editor-background: var(--background);
   --editor-foreground: var(--foreground);
