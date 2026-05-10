@@ -9,6 +9,10 @@ authors = ["altamkhan"]
 edition = "2021"
 autotests = false
 
+[[test]]
+name = "external_mcp_state"
+path = "tests/external_mcp_state.rs"
+
 [lib]
 path = "src/lib.rs"
 

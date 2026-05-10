@@ -4,14 +4,19 @@
   let _onload_cb = null;
   let _onunload_cb = null;
 
-  const _LONG_TIMEOUT_PREFIXES = ["export.", "vault."];
+  const _LONG_TIMEOUT_PREFIXES = ["export.", "vault.", "sidecar."];
+  const _EXTRA_LONG_TIMEOUT_PREFIXES = ["sidecar.call_tool"];
 
   function _rpc(method, ...params) {
     const id = crypto.randomUUID();
     window.parent.postMessage({ id, method, params }, "*");
-    const timeout = _LONG_TIMEOUT_PREFIXES.some((p) => method.startsWith(p))
-      ? 30000
-      : 5000;
+    const timeout = _EXTRA_LONG_TIMEOUT_PREFIXES.some((p) =>
+      method.startsWith(p),
+    )
+      ? 120000
+      : _LONG_TIMEOUT_PREFIXES.some((p) => method.startsWith(p))
+        ? 30000
+        : 5000;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         _pending.delete(id);
@@ -74,6 +79,7 @@
       delete: (path) => _rpc("vault.delete", path),
       list: () => _rpc("vault.list"),
       readAsset: (path) => _rpc("vault.read_asset", path),
+      getRoot: () => _rpc("vault.get_root"),
     },
 
     editor: {
@@ -150,6 +156,7 @@
 
     ai: {
       execute: (opts) => _rpc("ai.execute", opts),
+      getProviderHint: () => _rpc("ai.get_provider_hint"),
     },
 
     mcp: {
@@ -167,6 +174,15 @@
       list: () => _rpc("actions.list"),
       available: () => _rpc("actions.available"),
       execute: (id, ...args) => _rpc("actions.execute", id, ...args),
+    },
+
+    sidecar: {
+      start: (serverId, binaryPath, args, envVars, workingDir) =>
+        _rpc("sidecar.start", serverId, binaryPath, args, envVars, workingDir),
+      stop: (serverId) => _rpc("sidecar.stop", serverId),
+      callTool: (serverId, toolName, args) =>
+        _rpc("sidecar.call_tool", serverId, toolName, args),
+      status: (serverId) => _rpc("sidecar.status", serverId),
     },
   };
 })();

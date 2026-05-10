@@ -1,0 +1,419 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="carbide-plugin-api.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="not-found" class="notice error" style="display: none">
+      <strong>llmwiki not found.</strong> Install it with:
+      <code>npm install -g llm-wiki-compiler</code>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Status</div>
+      <div class="status-row">
+        <span id="status-dot" class="status-dot stopped"></span>
+        <span id="status-label" class="status-label">Stopped</span>
+        <span id="status-detail" class="status-detail"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Actions</div>
+      <div class="btn-row">
+        <button id="btn-compile" class="btn primary" disabled>Compile</button>
+        <button id="btn-lint" class="btn" disabled>Lint</button>
+        <button id="btn-status" class="btn" disabled>Refresh</button>
+        <button id="btn-ingest" class="btn" disabled>Ingest Note</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Query</div>
+      <div class="query-box">
+        <input
+          id="query-input"
+          class="query-input"
+          type="text"
+          placeholder="Ask a question about your wiki..."
+          disabled
+        />
+        <button id="btn-query" class="btn" disabled>Ask</button>
+      </div>
+      <div id="query-result" class="query-result" style="display: none"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Log</div>
+      <div id="log-area" class="log-area"></div>
+    </div>
+
+    <script>
+      (function () {
+        const SERVER_ID = "llmwiki";
+        let vault_path = null;
+        let is_running = false;
+
+        const els = {
+          status_dot: document.getElementById("status-dot"),
+          status_label: document.getElementById("status-label"),
+          status_detail: document.getElementById("status-detail"),
+          btn_compile: document.getElementById("btn-compile"),
+          btn_lint: document.getElementById("btn-lint"),
+          btn_status: document.getElementById("btn-status"),
+          btn_ingest: document.getElementById("btn-ingest"),
+          btn_query: document.getElementById("btn-query"),
+          query_input: document.getElementById("query-input"),
+          query_result: document.getElementById("query-result"),
+          log_area: document.getElementById("log-area"),
+          not_found: document.getElementById("not-found"),
+        };
+
+        function log(message, type) {
+          const entry = document.createElement("div");
+          entry.className = "log-entry" + (type ? " " + type : "");
+          entry.textContent = new Date().toLocaleTimeString() + " " + message;
+          els.log_area.appendChild(entry);
+          els.log_area.scrollTop = els.log_area.scrollHeight;
+        }
+
+        function set_status(status, detail) {
+          const s = status.status || status;
+          els.status_dot.className = "status-dot " + s;
+          els.status_label.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+          els.status_detail.textContent = detail || "";
+
+          is_running = s === "running";
+          els.btn_compile.disabled = !is_running;
+          els.btn_lint.disabled = !is_running;
+          els.btn_status.disabled = !is_running;
+          els.btn_ingest.disabled = !is_running;
+          els.btn_query.disabled = !is_running;
+          els.query_input.disabled = !is_running;
+        }
+
+        async function get_settings() {
+          const all = await carbide.settings.getAll();
+          return {
+            llm_provider: all.llm_provider || "anthropic",
+            llm_model: all.llm_model || "",
+            api_key: all.api_key || "",
+            wiki_folder: all.wiki_folder || "wiki",
+            source_folder: all.source_folder || "",
+            auto_compile: all.auto_compile || false,
+            llmwiki_path: all.llmwiki_path || "",
+          };
+        }
+
+        async function build_env_vars(settings) {
+          const env = {};
+          var hint = null;
+          try {
+            hint = await carbide.ai.getProviderHint();
+          } catch (_) {}
+
+          var provider =
+            settings.llm_provider ||
+            (hint && hint.provider !== "unknown" ? hint.provider : "") ||
+            "anthropic";
+          env.LLMWIKI_PROVIDER = provider;
+
+          var model = settings.llm_model || (hint && hint.model) || "";
+          if (model) env.LLMWIKI_MODEL = model;
+
+          if (settings.api_key) {
+            if (provider === "anthropic") {
+              env.ANTHROPIC_API_KEY = settings.api_key;
+            } else if (provider === "openai") {
+              env.OPENAI_API_KEY = settings.api_key;
+            }
+          }
+
+          if (provider === "openai" && hint && hint.base_url) {
+            env.OPENAI_BASE_URL = hint.base_url;
+          }
+
+          return env;
+        }
+
+        async function start_sidecar() {
+          const settings = await get_settings();
+          const binary = settings.llmwiki_path || "llmwiki";
+          const args = ["serve"];
+          if (vault_path) {
+            args.push("--root", vault_path);
+          }
+
+          const env_vars = await build_env_vars(settings);
+
+          set_status("starting");
+          log("Starting llmwiki server...");
+
+          try {
+            await carbide.sidecar.start(
+              SERVER_ID,
+              binary,
+              args,
+              env_vars,
+              vault_path,
+            );
+            set_status("running");
+            log("Server started successfully", "success");
+            await refresh_status();
+          } catch (e) {
+            const msg = e.message || String(e);
+            if (
+              msg.includes("spawn") ||
+              msg.includes("not found") ||
+              msg.includes("No such file")
+            ) {
+              els.not_found.style.display = "block";
+            }
+            set_status("error", msg);
+            log("Failed to start: " + msg, "error");
+          }
+        }
+
+        async function stop_sidecar() {
+          try {
+            await carbide.sidecar.stop(SERVER_ID);
+            set_status("stopped");
+            log("Server stopped");
+          } catch (e) {
+            log("Stop failed: " + (e.message || e), "error");
+          }
+        }
+
+        async function refresh_status() {
+          try {
+            const status = await carbide.sidecar.status(SERVER_ID);
+            if (status.status === "running") {
+              set_status("running", status.tool_count + " tools");
+            } else {
+              set_status(status.status, status.message || "");
+            }
+          } catch (e) {
+            log("Status check failed: " + (e.message || e), "error");
+          }
+        }
+
+        async function call_tool(tool_name, args) {
+          try {
+            log("Calling " + tool_name + "...");
+            const result = await carbide.sidecar.callTool(
+              SERVER_ID,
+              tool_name,
+              args || {},
+            );
+            return result;
+          } catch (e) {
+            log(tool_name + " failed: " + (e.message || e), "error");
+            throw e;
+          }
+        }
+
+        async function handle_compile() {
+          els.btn_compile.disabled = true;
+          try {
+            const result = await call_tool("compile_wiki");
+            log("Compilation complete", "success");
+            if (result && result.content) {
+              for (const item of result.content) {
+                if (item.text) log(item.text);
+              }
+            }
+          } catch (_) {
+            // logged in call_tool
+          }
+          els.btn_compile.disabled = !is_running;
+        }
+
+        async function handle_lint() {
+          els.btn_lint.disabled = true;
+          try {
+            const result = await call_tool("lint_wiki");
+            log("Lint complete", "success");
+            if (result && result.content) {
+              for (const item of result.content) {
+                if (item.text) log(item.text);
+              }
+            }
+          } catch (_) {
+            // logged in call_tool
+          }
+          els.btn_lint.disabled = !is_running;
+        }
+
+        async function handle_query() {
+          const question = els.query_input.value.trim();
+          if (!question) return;
+
+          els.btn_query.disabled = true;
+          els.query_result.style.display = "none";
+
+          try {
+            const result = await call_tool("query_wiki", {
+              question: question,
+            });
+            if (result && result.content) {
+              const text = result.content
+                .map(function (c) {
+                  return c.text || "";
+                })
+                .join("\n");
+              els.query_result.textContent = text;
+              els.query_result.style.display = "block";
+            }
+          } catch (_) {
+            // logged in call_tool
+          }
+          els.btn_query.disabled = !is_running;
+        }
+
+        async function handle_ingest_note() {
+          els.btn_ingest.disabled = true;
+          try {
+            const info = await carbide.editor.getInfo();
+            if (info && info.path) {
+              const result = await call_tool("ingest_source", {
+                source_path: info.path,
+              });
+              log("Ingested: " + info.path, "success");
+              if (result && result.content) {
+                for (const item of result.content) {
+                  if (item.text) log(item.text);
+                }
+              }
+            } else {
+              log("No active note to ingest", "error");
+            }
+          } catch (e) {
+            log("Ingest failed: " + (e.message || e), "error");
+          }
+          els.btn_ingest.disabled = !is_running;
+        }
+
+        els.btn_compile.addEventListener("click", handle_compile);
+        els.btn_lint.addEventListener("click", handle_lint);
+        els.btn_status.addEventListener("click", refresh_status);
+        els.btn_ingest.addEventListener("click", handle_ingest_note);
+        els.btn_query.addEventListener("click", handle_query);
+        els.query_input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") handle_query();
+        });
+
+        carbide.onload(async function () {
+          log("Wiki Compiler plugin loading...");
+
+          try {
+            vault_path = await carbide.vault.getRoot();
+          } catch (_) {
+            // no active vault
+          }
+
+          carbide.commands.register({
+            id: "compile",
+            label: "Wiki: Compile",
+            description: "Compile vault notes into a wiki",
+            icon: "book-open",
+          });
+          carbide.commands.register({
+            id: "query",
+            label: "Wiki: Query",
+            description: "Ask a question about your wiki",
+            icon: "search",
+          });
+          carbide.commands.register({
+            id: "lint",
+            label: "Wiki: Lint",
+            description: "Check wiki for issues",
+            icon: "check-circle",
+          });
+          carbide.commands.register({
+            id: "status",
+            label: "Wiki: Status",
+            description: "Show wiki compilation status",
+            icon: "info",
+          });
+          carbide.commands.register({
+            id: "ingest-note",
+            label: "Wiki: Ingest Current Note",
+            description: "Add the current note to wiki sources",
+            icon: "file-plus",
+          });
+
+          carbide.ui.addSidebarPanel({
+            id: "wiki-panel",
+            label: "Wiki Compiler",
+            icon: "book-open",
+          });
+
+          carbide.ui.addStatusBarItem({
+            id: "wiki-status",
+            priority: 50,
+            initial_text: "Wiki: starting...",
+          });
+
+          carbide.settings.registerTab({
+            label: "Wiki Compiler",
+            icon: "book-open",
+          });
+
+          await start_sidecar();
+
+          if (is_running) {
+            carbide.ui.updateStatusBarItem("wiki-status", "Wiki: ready");
+          } else {
+            carbide.ui.updateStatusBarItem("wiki-status", "Wiki: error");
+          }
+
+          const settings = await get_settings();
+          if (settings.auto_compile) {
+            carbide.events.on("file-modified", async function (data) {
+              if (!is_running) return;
+              try {
+                await call_tool("compile_wiki");
+                log("Auto-compile complete", "success");
+              } catch (_) {
+                // logged in call_tool
+              }
+            });
+          }
+        });
+
+        carbide.onunload(async function () {
+          log("Shutting down...");
+          await stop_sidecar();
+        });
+
+        window.addEventListener("message", function (event) {
+          const msg = event.data;
+          if (!msg || !msg.method) return;
+
+          if (msg.method === "command.execute") {
+            const cmd = msg.params && msg.params[0];
+            switch (cmd) {
+              case "compile":
+                handle_compile();
+                break;
+              case "query":
+                els.query_input.focus();
+                break;
+              case "lint":
+                handle_lint();
+                break;
+              case "status":
+                refresh_status();
+                break;
+              case "ingest-note":
+                handle_ingest_note();
+                break;
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

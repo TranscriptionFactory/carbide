@@ -69,6 +69,7 @@ export type EditorServiceCallbacks = {
     base_note_path: string,
     source: InternalLinkSource,
   ) => void;
+  on_open_document?: (file_path: string, base_note_path: string) => void;
   on_external_link_click: (url: string) => void;
   on_anchor_link_click?: (fragment: string) => void;
   on_image_paste_requested: (
@@ -1082,6 +1083,14 @@ export class EditorService {
         });
       },
     };
+
+    if (this.callbacks.on_open_document) {
+      const open_doc_cb = this.callbacks.on_open_document;
+      events.on_open_document = (file_path: string, base_note_path: string) => {
+        if (!this.is_generation_current(generation)) return;
+        open_doc_cb(file_path, base_note_path);
+      };
+    }
 
     if (this.search_service) {
       events.on_wiki_suggest_query = (event: WikiQueryEvent) => {

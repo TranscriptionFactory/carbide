@@ -4,6 +4,8 @@ import type { Node as ProseNode, NodeType } from "prosemirror-model";
 import {
   collect_paragraph_text,
   is_full_scan_meta,
+  insert_leading_paragraph,
+  ensure_leading_paragraph,
 } from "./embed_plugin_utils";
 const NOTE_EMBED_REGEX = /^!\[\[([^\]#\n]+?)(?:#([^\]]*))?\]\]$/;
 
@@ -40,12 +42,12 @@ function replace_paragraph_with_note_embed(
 
   tr.replaceWith(para_pos, para_end, new_node);
 
-  const after_pos = para_pos + new_node.nodeSize;
-  const paragraph_type = state.schema.nodes.paragraph;
-  if (after_pos >= tr.doc.content.size && paragraph_type) {
-    tr.insert(after_pos, paragraph_type.create());
-  }
-
+  const after_pos = insert_leading_paragraph(
+    tr,
+    state.schema,
+    para_pos,
+    new_node,
+  );
   tr.setSelection(TextSelection.near(tr.doc.resolve(after_pos), 1));
   return tr;
 }
@@ -116,6 +118,8 @@ export function create_note_embed_plugin(): Plugin {
         }
 
         if (!tr.docChanged) return null;
+
+        ensure_leading_paragraph(tr, new_state.schema, "note_embed");
         tr.setMeta("addToHistory", false);
         return tr;
       }
