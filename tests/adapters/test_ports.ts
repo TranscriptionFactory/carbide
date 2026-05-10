@@ -107,6 +107,10 @@ export function create_test_ports(): Ports {
       approve_permission: () => Promise.resolve(),
       deny_permission: () => Promise.resolve(),
     },
+    marketplace: {
+      fetch_index: () => Promise.resolve("[]"),
+      install_plugin: () => Promise.resolve(),
+    },
     canvas: {
       read_file: () => Promise.resolve('{"nodes":[],"edges":[]}'),
       write_file: () => Promise.resolve(),
