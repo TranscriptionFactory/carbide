@@ -40,8 +40,16 @@ function replace_paragraph_with_note_embed(
 
   tr.replaceWith(para_pos, para_end, new_node);
 
-  const after_pos = para_pos + new_node.nodeSize;
   const paragraph_type = state.schema.nodes.paragraph;
+  let offset = 0;
+
+  if (para_pos === 0 && paragraph_type) {
+    const leading = paragraph_type.create();
+    tr.insert(0, leading);
+    offset = leading.nodeSize;
+  }
+
+  const after_pos = offset + para_pos + new_node.nodeSize;
   if (after_pos >= tr.doc.content.size && paragraph_type) {
     tr.insert(after_pos, paragraph_type.create());
   }
@@ -116,6 +124,15 @@ export function create_note_embed_plugin(): Plugin {
         }
 
         if (!tr.docChanged) return null;
+
+        const first_child = tr.doc.firstChild;
+        if (first_child && first_child.type.name === "note_embed") {
+          const paragraph_type = new_state.schema.nodes.paragraph;
+          if (paragraph_type) {
+            tr.insert(0, paragraph_type.create());
+          }
+        }
+
         tr.setMeta("addToHistory", false);
         return tr;
       }
