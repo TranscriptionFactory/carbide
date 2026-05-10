@@ -290,6 +290,8 @@ pub fn run() {
             features::plugin::watcher::watch_plugins,
             features::plugin::watcher::unwatch_plugins,
             features::plugin::http_fetch::plugin_http_fetch,
+            features::plugin::marketplace::marketplace_fetch_index,
+            features::plugin::marketplace::marketplace_install_plugin,
             shared::buffer::open_buffer,
             shared::buffer::update_buffer,
             shared::buffer::save_buffer,
