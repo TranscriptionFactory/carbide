@@ -1,7 +1,9 @@
 export * from "./state/plugin_store.svelte";
 export * from "./state/plugin_settings_store.svelte";
+export * from "./state/plugin_marketplace_store.svelte";
 export * from "./application/plugin_service";
 export * from "./application/plugin_settings_service";
+export * from "./application/plugin_marketplace_service";
 export * from "./application/plugin_event_bus";
 export * from "./application/plugin_actions";
 export * from "./ports";
@@ -12,6 +14,7 @@ export { default as PluginRuntimeContainer } from "./ui/plugin_runtime_container
 export type { AiProviderHint } from "./application/plugin_rpc_handler";
 export { PluginHostAdapter } from "./adapters/plugin_host_adapter";
 export { PluginSettingsTauriAdapter } from "./adapters/plugin_settings_tauri_adapter";
+export { MarketplaceTauriAdapter } from "./adapters/marketplace_tauri_adapter";
 export { plugin_http_fetch } from "./adapters/plugin_network_tauri_adapter";
 export { external_mcp_tauri_adapter } from "./adapters/external_mcp_tauri_adapter";
 export { to_editor_slash_commands } from "./domain/plugin_slash_commands";

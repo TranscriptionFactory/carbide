@@ -56,6 +56,7 @@ import { TaskService, register_task_actions } from "$lib/features/task";
 import {
   PluginService,
   PluginSettingsService,
+  PluginMarketplaceService,
   register_plugin_actions,
   plugin_http_fetch,
   external_mcp_tauri_adapter,
@@ -174,6 +175,13 @@ export function create_app_context(input: {
     stores.plugin,
     stores.vault,
     input.ports.plugin,
+  );
+
+  const plugin_marketplace_service = new PluginMarketplaceService(
+    input.ports.marketplace,
+    input.ports.settings,
+    stores.plugin_marketplace,
+    stores.op,
   );
 
   plugin_service.set_settings_service(
@@ -1128,7 +1136,11 @@ export function create_app_context(input: {
     sidecar: external_mcp_tauri_adapter,
   });
 
-  register_plugin_actions(base_action_input, plugin_service);
+  register_plugin_actions(
+    base_action_input,
+    plugin_service,
+    plugin_marketplace_service,
+  );
 
   register_terminal_actions({
     ...base_action_input,
