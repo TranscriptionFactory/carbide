@@ -874,7 +874,8 @@ fn handle_upsert(
     };
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
-    search_db::upsert_note_simple(conn, &meta, &markdown)?;
+    let targets = search_db::upsert_note_simple(conn, &meta, &markdown)?;
+    search_db::resolve_batch_outlinks(conn, &[(meta.path.clone(), targets)])?;
     notes_cache.insert(meta.path.clone(), meta);
 
     embed_note_on_save(
@@ -902,7 +903,8 @@ fn handle_upsert_with_content(
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
-    search_db::upsert_note_simple(conn, &meta, markdown)?;
+    let targets = search_db::upsert_note_simple(conn, &meta, markdown)?;
+    search_db::resolve_batch_outlinks(conn, &[(meta.path.clone(), targets)])?;
     notes_cache.insert(meta.path.clone(), meta);
 
     embed_note_on_save(conn, note_id, markdown, note_index, block_index, app_handle);

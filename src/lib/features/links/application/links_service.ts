@@ -1,4 +1,4 @@
-import type { SearchPort } from "$lib/features/search";
+import type { NoteLinksSnapshot, SearchPort } from "$lib/features/search";
 import type { VaultStore } from "$lib/features/vault";
 import type { LinksStore } from "$lib/features/links/state/links_store.svelte";
 import type { VaultId } from "$lib/shared/types/ids";
@@ -74,16 +74,28 @@ export class LinksService {
 
     this.links_store.start_global_load(note_path);
 
+    const vault_path = this.vault_store.vault?.path ?? "";
+
+    let db_snapshot: NoteLinksSnapshot | null = null;
+    try {
+      db_snapshot = await this.search_port.get_note_links_snapshot(
+        vault_id,
+        note_path,
+      );
+    } catch (error) {
+      log.warn("Failed to load links snapshot from search DB", {
+        error: error_message(error),
+      });
+    }
+
     if (this.markdown_lsp_store.status !== "running") {
       this.links_store.set_global_snapshot(note_path, {
-        backlinks: [],
-        outlinks: [],
-        orphan_links: [],
+        backlinks: db_snapshot?.backlinks ?? [],
+        outlinks: db_snapshot?.outlinks ?? [],
+        orphan_links: db_snapshot?.orphan_links ?? [],
       });
       return;
     }
-
-    const vault_path = this.vault_store.vault?.path ?? "";
 
     try {
       const locations = await this.markdown_lsp_port.references(
@@ -103,10 +115,19 @@ export class LinksService {
         backlinks.push(path_to_note_meta(ref_path));
       }
 
+      if (db_snapshot) {
+        for (const bl of db_snapshot.backlinks) {
+          if (!seen.has(bl.path)) {
+            seen.add(bl.path);
+            backlinks.push(bl);
+          }
+        }
+      }
+
       this.links_store.set_global_snapshot(note_path, {
         backlinks,
-        outlinks: [],
-        orphan_links: [],
+        outlinks: db_snapshot?.outlinks ?? [],
+        orphan_links: db_snapshot?.orphan_links ?? [],
       });
     } catch (error) {
       if (this.is_global_request_stale(revision)) return;
@@ -114,7 +135,11 @@ export class LinksService {
       log.error("Failed to load backlinks from markdown LSP", {
         error: message,
       });
-      this.links_store.set_global_error(note_path, message);
+      this.links_store.set_global_snapshot(note_path, {
+        backlinks: db_snapshot?.backlinks ?? [],
+        outlinks: db_snapshot?.outlinks ?? [],
+        orphan_links: db_snapshot?.orphan_links ?? [],
+      });
     }
   }
 

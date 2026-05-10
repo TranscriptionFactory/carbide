@@ -1755,7 +1755,7 @@ fn resolve_wikilink_targets(
     Ok(resolved)
 }
 
-fn resolve_batch_outlinks(
+pub fn resolve_batch_outlinks(
     conn: &Connection,
     pending_links: &[(String, Vec<String>)],
 ) -> Result<(), String> {
