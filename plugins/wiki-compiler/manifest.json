@@ -10,6 +10,7 @@
     "ai:execute",
     "fs:read",
     "fs:write",
+    "editor:read",
     "commands:register",
     "events:subscribe",
     "ui:panel",

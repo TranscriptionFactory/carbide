@@ -59,10 +59,16 @@ type TauriOrphanLink = {
   ref_count: number;
 };
 
+type TauriAttachmentLink = {
+  target_path: string;
+  display_text: string;
+};
+
 type TauriLinksSnapshot = {
   backlinks: TauriNoteMeta[];
   outlinks: TauriNoteMeta[];
   orphan_links: TauriOrphanLink[];
+  attachments: TauriAttachmentLink[];
 };
 
 type TauriSemanticSearchHit = {
@@ -137,6 +143,10 @@ function map_note_links_snapshot(
     orphan_links: snapshot.orphan_links.map((orphan) => ({
       target_path: orphan.target_path,
       ref_count: orphan.ref_count,
+    })),
+    attachments: snapshot.attachments.map((a) => ({
+      target_path: a.target_path,
+      display_text: a.display_text,
     })),
   };
 }
