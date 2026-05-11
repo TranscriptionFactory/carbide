@@ -14,7 +14,6 @@ import {
 } from "prosemirror-tables";
 import {
   compute_floating_position,
-  create_backdrop,
   Z_TABLE_TOOLBAR,
 } from "./floating_toolbar_utils";
 
@@ -278,15 +277,12 @@ export const table_toolbar_plugin_key = new PluginKey("table-toolbar");
 
 export function create_table_toolbar_prose_plugin(): Plugin {
   let toolbar_el: HTMLElement | null = null;
-  let backdrop_el: HTMLElement | null = null;
   let align_btn_refs: AlignmentButtonRefs | null = null;
   let layout_btn_refs: LayoutButtonRefs | null = null;
 
   function remove_toolbar() {
     toolbar_el?.remove();
-    backdrop_el?.remove();
     toolbar_el = null;
-    backdrop_el = null;
     align_btn_refs = null;
     layout_btn_refs = null;
   }
@@ -312,6 +308,11 @@ export function create_table_toolbar_prose_plugin(): Plugin {
 
       return {
         update(view) {
+          if (!view.dom.offsetParent) {
+            remove_toolbar();
+            return;
+          }
+
           const { $from } = view.state.selection;
           if (!is_in_table($from)) {
             remove_toolbar();
@@ -330,8 +331,6 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             align_btn_refs = align_btns;
             layout_btn_refs = layout_btns;
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
-            backdrop_el = create_backdrop(remove_toolbar, Z_TABLE_TOOLBAR - 1);
-            document.body.appendChild(backdrop_el);
             document.body.appendChild(toolbar_el);
           }
 
