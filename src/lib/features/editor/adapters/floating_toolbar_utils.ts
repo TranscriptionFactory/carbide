@@ -17,16 +17,3 @@ export async function compute_floating_position(
   });
   return { x, y };
 }
-
-export function create_backdrop(
-  on_dismiss: () => void,
-  z_index = 49,
-): HTMLElement {
-  const backdrop = document.createElement("div");
-  backdrop.style.cssText = `position:fixed;inset:0;z-index:${String(z_index)};pointer-events:auto;`;
-  backdrop.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    on_dismiss();
-  });
-  return backdrop;
-}
