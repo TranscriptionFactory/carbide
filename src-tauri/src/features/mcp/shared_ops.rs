@@ -79,6 +79,8 @@ pub struct SearchArgs {
     pub query: String,
     #[serde(default)]
     pub limit: Option<usize>,
+    #[serde(default)]
+    pub mode: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -338,6 +340,30 @@ pub fn search_notes_index(
         .map_err(OpError::Internal)
 }
 
+pub fn search_notes_hybrid(
+    app: &AppHandle,
+    vault_id: &str,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<crate::features::search::model::HybridSearchHit>, OpError> {
+    match search_service::hybrid_search_sync(app, vault_id, query, limit) {
+        Ok(hits) => Ok(hits),
+        Err(_) => {
+            search_notes_index(app, vault_id, query, limit).map(|hits| {
+                hits.into_iter()
+                    .map(|h| crate::features::search::model::HybridSearchHit {
+                        note: h.note,
+                        score: h.score,
+                        snippet: h.snippet,
+                        snippet_page: None,
+                        source: crate::features::search::model::HitSource::Fts,
+                    })
+                    .collect()
+            })
+        }
+    }
+}
+
 pub fn list_vaults(app: &AppHandle) -> Result<Vec<crate::shared::storage::Vault>, OpError> {
     vault_service::list_vaults(app.clone()).map_err(OpError::Internal)
 }
@@ -451,6 +477,59 @@ fn find_frontmatter_end(content: &str) -> Option<usize> {
         }
     }
     None
+}
+
+pub fn rename_note_and_update_links(
+    app: &AppHandle,
+    vault_id: &str,
+    old_path: &str,
+    new_path: &str,
+) -> Result<(String, usize), OpError> {
+    use std::collections::HashMap;
+
+    notes_service::rename_note(
+        NoteRenameArgs {
+            vault_id: vault_id.to_string(),
+            from: old_path.to_string(),
+            to: new_path.to_string(),
+        },
+        app.clone(),
+    )
+    .map_err(OpError::Internal)?;
+
+    let backlink_notes = search_service::with_read_conn(app, vault_id, |conn| {
+        search_db::get_backlinks(conn, old_path)
+    })
+    .map_err(OpError::Internal)?;
+
+    let mut target_map = HashMap::new();
+    target_map.insert(old_path.to_string(), new_path.to_string());
+
+    let vault_root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
+    let mut updated_count = 0usize;
+
+    for note in &backlink_notes {
+        let abs_path = PathBuf::from(&vault_root).join(&note.path);
+        let content = match std::fs::read_to_string(&abs_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let result = search_service::rewrite_note_links(
+            content,
+            note.path.clone(),
+            note.path.clone(),
+            target_map.clone(),
+        );
+
+        if result.changed {
+            if io_utils::atomic_write(&abs_path, result.markdown.as_bytes()).is_ok() {
+                updated_count += 1;
+            }
+        }
+    }
+
+    Ok((format!("{} → {}", old_path, new_path), updated_count))
 }
 
 #[cfg(test)]

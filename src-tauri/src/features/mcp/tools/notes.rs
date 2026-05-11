@@ -15,6 +15,8 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
         create_note_def(),
         update_note_def(),
         delete_note_def(),
+        append_note_def(),
+        prepend_note_def(),
     ]
 }
 
@@ -25,6 +27,8 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
         "create_note" => Some(handle_create_note(app, arguments)),
         "update_note" => Some(handle_update_note(app, arguments)),
         "delete_note" => Some(handle_delete_note(app, arguments)),
+        "append_note" => Some(handle_append_note(app, arguments)),
+        "prepend_note" => Some(handle_prepend_note(app, arguments)),
         _ => None,
     }
 }
@@ -241,6 +245,82 @@ fn handle_delete_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
 
     match shared_ops::delete_note(app, &args.vault_id, &args.path) {
         Ok(()) => ToolResult::text(format!("Deleted: {}", args.path)),
+        Err(e) => op_err_to_tool_result(e),
+    }
+}
+
+fn append_note_def() -> ToolDefinition {
+    let mut properties = HashMap::new();
+    properties.insert(
+        "vault_id".into(),
+        prop("string", "Vault identifier (optional if an active vault is set)"),
+    );
+    properties.insert(
+        "path".into(),
+        prop("string", "Vault-relative path of the note to append to"),
+    );
+    properties.insert(
+        "content".into(),
+        prop("string", "Content to append at the end of the note"),
+    );
+
+    ToolDefinition {
+        name: "append_note".into(),
+        description: "Append content to the end of an existing note. Use this to add new sections, paragraphs, or entries without overwriting existing content.".into(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties,
+            required: vec!["vault_id".into(), "path".into(), "content".into()],
+        },
+    }
+}
+
+fn prepend_note_def() -> ToolDefinition {
+    let mut properties = HashMap::new();
+    properties.insert(
+        "vault_id".into(),
+        prop("string", "Vault identifier (optional if an active vault is set)"),
+    );
+    properties.insert(
+        "path".into(),
+        prop("string", "Vault-relative path of the note to prepend to"),
+    );
+    properties.insert(
+        "content".into(),
+        prop("string", "Content to insert after frontmatter (or at the start if no frontmatter)"),
+    );
+
+    ToolDefinition {
+        name: "prepend_note".into(),
+        description: "Insert content at the beginning of a note, after any YAML frontmatter. Use this to add content to the top of a note without disturbing metadata.".into(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties,
+            required: vec!["vault_id".into(), "path".into(), "content".into()],
+        },
+    }
+}
+
+fn handle_append_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
+    let args: shared_ops::WriteNoteArgs = match parse_args(arguments) {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    match shared_ops::append_to_note(app, &args.vault_id, &args.path, &args.content) {
+        Ok(path) => ToolResult::text(format!("Appended to: {}", path)),
+        Err(e) => op_err_to_tool_result(e),
+    }
+}
+
+fn handle_prepend_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
+    let args: shared_ops::WriteNoteArgs = match parse_args(arguments) {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    match shared_ops::prepend_to_note(app, &args.vault_id, &args.path, &args.content) {
+        Ok(path) => ToolResult::text(format!("Prepended to: {}", path)),
         Err(e) => op_err_to_tool_result(e),
     }
 }

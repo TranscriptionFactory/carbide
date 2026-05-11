@@ -5,9 +5,9 @@ use serde_json::Value;
 use tauri::AppHandle;
 
 use crate::features::git::service as git_service;
-use crate::features::mcp::tools::{parse_args, prop};
+use crate::features::mcp::shared_ops;
+use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
-use crate::features::notes::service::{self as notes_service, NoteRenameArgs};
 use crate::shared::storage;
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
@@ -66,7 +66,7 @@ fn git_log_def() -> ToolDefinition {
 
 fn rename_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (optional if an active vault is set)"));
     properties.insert(
         "old_path".into(),
         prop(
@@ -84,7 +84,7 @@ fn rename_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "rename_note".into(),
-        description: "Rename or move a note to a new path within the vault. Returns 'old_path → new_path' on success. Fails if the source note does not exist.".into(),
+        description: "Rename or move a note within the vault. **Automatically updates all wikilinks** (`[[...]]`) in other notes that reference the old path. Returns the old and new paths plus a count of updated backlinks.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -188,15 +188,22 @@ fn handle_rename_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
         Err(e) => return e,
     };
 
-    match notes_service::rename_note(
-        NoteRenameArgs {
-            vault_id: args.vault_id,
-            from: args.old_path.clone(),
-            to: args.new_path.clone(),
-        },
-        app.clone(),
+    match shared_ops::rename_note_and_update_links(
+        app,
+        &args.vault_id,
+        &args.old_path,
+        &args.new_path,
     ) {
-        Ok(()) => ToolResult::text(format!("Renamed: {} → {}", args.old_path, args.new_path)),
-        Err(e) => ToolResult::error(e),
+        Ok((renamed, updated_count)) => {
+            if updated_count > 0 {
+                ToolResult::text(format!(
+                    "Renamed: {}. Updated wikilinks in {} note(s).",
+                    renamed, updated_count
+                ))
+            } else {
+                ToolResult::text(format!("Renamed: {}", renamed))
+            }
+        }
+        Err(e) => op_err_to_tool_result(e),
     }
 }

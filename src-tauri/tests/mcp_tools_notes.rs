@@ -3,7 +3,7 @@ use crate::features::mcp::tools::notes;
 #[test]
 fn tool_definitions_count() {
     let defs = notes::tool_definitions();
-    assert_eq!(defs.len(), 5);
+    assert_eq!(defs.len(), 7);
 }
 
 #[test]

@@ -1,6 +1,7 @@
 use serde_json::Value;
 use tauri::AppHandle;
 
+use crate::features::mcp::shared_ops;
 use crate::features::mcp::tools;
 use crate::features::mcp::types::{
     method, InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
@@ -167,6 +168,7 @@ impl McpRouter {
         defs.extend(tools::graph::tool_definitions());
         defs.extend(tools::references::tool_definitions());
         defs.extend(tools::git::tool_definitions());
+        defs.extend(tools::tasks::tool_definitions());
         defs
     }
 
@@ -176,29 +178,54 @@ impl McpRouter {
             None => return ToolResult::error("No app context available".into()),
         };
 
-        if let Some(result) = tools::notes::dispatch(app, name, arguments) {
+        let arguments = self.inject_vault_id(app, arguments);
+        let arguments_ref = arguments.as_ref();
+
+        if let Some(result) = tools::notes::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::search::dispatch(app, name, arguments) {
+        if let Some(result) = tools::search::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::metadata::dispatch(app, name, arguments) {
+        if let Some(result) = tools::metadata::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::vault::dispatch(app, name, arguments) {
+        if let Some(result) = tools::vault::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::graph::dispatch(app, name, arguments) {
+        if let Some(result) = tools::graph::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::references::dispatch(app, name, arguments) {
+        if let Some(result) = tools::references::dispatch(app, name, arguments_ref) {
             return result;
         }
-        if let Some(result) = tools::git::dispatch(app, name, arguments) {
+        if let Some(result) = tools::git::dispatch(app, name, arguments_ref) {
+            return result;
+        }
+        if let Some(result) = tools::tasks::dispatch(app, name, arguments_ref) {
             return result;
         }
 
         ToolResult::error(format!("Unknown tool: {}", name))
+    }
+
+    fn inject_vault_id(&self, app: &AppHandle, arguments: Option<&Value>) -> Option<Value> {
+        let Some(args) = arguments else {
+            return None;
+        };
+        let Some(obj) = args.as_object() else {
+            return Some(args.clone());
+        };
+        if obj.contains_key("vault_id") {
+            return Some(args.clone());
+        }
+        if let Ok(Some(vault_id)) = shared_ops::get_active_vault_id(app) {
+            let mut obj = obj.clone();
+            obj.insert("vault_id".into(), Value::String(vault_id));
+            Some(Value::Object(obj))
+        } else {
+            Some(args.clone())
+        }
     }
 
     pub fn tool_definitions_public(&self) -> Vec<ToolDefinition> {
