@@ -77,4 +77,41 @@ describe("extract_local_links", () => {
       { url: "https://example.com", text: "site" },
     ]);
   });
+
+  it("separates attachment paths from outlink paths (markdown links)", () => {
+    const md =
+      "See [report](doc.pdf) and [photo](images/photo.png) and [note](related.md).";
+    const result = extract_local_links(md);
+
+    expect(result.attachment_paths).toContain("doc.pdf");
+    expect(result.attachment_paths).toContain("images/photo.png");
+    expect(result.outlink_paths).toContain("related.md");
+    expect(result.outlink_paths).not.toContain("doc.pdf");
+    expect(result.outlink_paths).not.toContain("images/photo.png");
+  });
+
+  it("separates attachment paths from outlink paths (wikilinks)", () => {
+    const md = "Embed [[image.png]] and link [[other note]].";
+    const result = extract_local_links(md);
+
+    expect(result.attachment_paths).toContain("image.png");
+    expect(result.outlink_paths).toContain("other note");
+    expect(result.outlink_paths).not.toContain("image.png");
+  });
+
+  it("deduplicates attachment paths", () => {
+    const md = "[[photo.jpg]] and [[photo.jpg]] again.";
+    const result = extract_local_links(md);
+
+    expect(
+      result.attachment_paths.filter((p) => p === "photo.jpg"),
+    ).toHaveLength(1);
+  });
+
+  it("returns empty attachment_paths for plain text", () => {
+    const md = "Just some plain text.";
+    const result = extract_local_links(md);
+
+    expect(result.attachment_paths).toEqual([]);
+  });
 });
