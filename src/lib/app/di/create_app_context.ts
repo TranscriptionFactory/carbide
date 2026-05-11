@@ -1300,6 +1300,7 @@ export function create_app_context(input: {
     stores.bases,
     stores.vault,
     stores.ui,
+    stores.tab,
   );
 
   register_task_actions(action_registry, task_service, stores.task, stores.ui);

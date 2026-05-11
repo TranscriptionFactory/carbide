@@ -49,6 +49,8 @@ export class TabService {
       active_tab_path = active_tab.id;
     } else if (active_tab?.kind === "search_graph") {
       active_tab_path = active_tab.id;
+    } else if (active_tab?.kind === "bases") {
+      active_tab_path = active_tab.id;
     }
 
     return {
@@ -75,6 +77,13 @@ export class TabService {
             ...base,
             kind: "search_graph" as const,
             query: tab.query,
+            cursor: null,
+          };
+        }
+        if (tab.kind === "bases") {
+          return {
+            ...base,
+            kind: "bases" as const,
             cursor: null,
           };
         }
@@ -224,6 +233,18 @@ export class TabService {
           },
         ];
       }
+      if (t.kind === "bases") {
+        return [
+          {
+            kind: "bases" as const,
+            id: "__bases__",
+            title: "Bases",
+            is_pinned: Boolean(t.is_pinned),
+            is_dirty: false,
+            pane,
+          },
+        ];
+      }
       if (t.kind === "document") {
         if (typeof t.file_path !== "string") return [];
         return [
@@ -273,6 +294,7 @@ export class TabService {
     if (!active_tab) return;
     if (active_tab.kind === "graph") return;
     if (active_tab.kind === "search_graph") return;
+    if (active_tab.kind === "bases") return;
     if (active_tab.kind !== "note") return;
 
     const result = await this.note_service.open_note(

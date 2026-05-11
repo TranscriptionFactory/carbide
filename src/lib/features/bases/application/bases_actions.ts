@@ -4,6 +4,10 @@ import type { BasesService } from "./bases_service";
 import type { BasesStore } from "../state/bases_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
+import type { TabStore } from "$lib/features/tab";
+
+const BASES_TAB_ID = "__bases__";
+const BASES_TAB_TITLE = "Bases";
 
 function slugify(name: string): string {
   return name
@@ -19,6 +23,7 @@ export function register_bases_actions(
   bases_store: BasesStore,
   vault_store: VaultStore,
   ui_store: UIStore,
+  tab_store: TabStore,
 ) {
   registry.register({
     id: ACTION_IDS.bases_toggle_panel,
@@ -96,6 +101,17 @@ export function register_bases_actions(
       if (!path) return;
 
       await bases_service.delete_view(vault_id, path);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.bases_open_as_tab,
+    label: "Open Bases in Tab",
+    execute: () => {
+      if (ui_store.sidebar_open && ui_store.sidebar_view === "bases") {
+        ui_store.toggle_sidebar();
+      }
+      tab_store.open_bases_tab(BASES_TAB_ID, BASES_TAB_TITLE);
     },
   });
 }
