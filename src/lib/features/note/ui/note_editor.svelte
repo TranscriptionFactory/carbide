@@ -10,6 +10,7 @@
   import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
+  import { BasesPanel } from "$lib/features/bases";
   import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -74,6 +75,8 @@
       file_path={active_tab.file_path}
       file_type={active_tab.file_type as "canvas" | "excalidraw"}
     />
+  {:else if active_tab?.kind === "bases"}
+    <BasesPanel />
   {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer
       viewer_state={document_viewer_state}

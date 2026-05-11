@@ -11,8 +11,10 @@
   import Save from "@lucide/svelte/icons/save";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import BasesTable from "./bases_table.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import { detect_file_type } from "$lib/features/document";
 
   const OPERATORS = [
     { value: "eq", label: "=" },
@@ -78,7 +80,15 @@
   }
 
   function handle_note_click(path: string) {
-    void action_registry.execute(ACTION_IDS.note_open, { note_path: path });
+    const filename = path.split("/").pop() ?? path;
+    const file_type = detect_file_type(filename);
+    if (file_type) {
+      void action_registry.execute(ACTION_IDS.document_open, {
+        file_path: path,
+      });
+    } else {
+      void action_registry.execute(ACTION_IDS.note_open, { note_path: path });
+    }
   }
 
   function add_filter() {
@@ -170,6 +180,15 @@
         title="Saved views"
       >
         <FolderOpen size={14} />
+      </button>
+      <button
+        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.bases_open_as_tab)}
+        aria-label="Open bases in tab"
+        title="Open bases in tab"
+      >
+        <Maximize2 size={14} />
       </button>
       <button
         class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {filters_open ||

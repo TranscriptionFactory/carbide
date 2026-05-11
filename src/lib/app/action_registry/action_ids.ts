@@ -364,6 +364,7 @@ export const ACTION_IDS = {
   bases_load_view: "bases.load_view",
   bases_list_views: "bases.list_views",
   bases_delete_view: "bases.delete_view",
+  bases_open_as_tab: "bases.open_as_tab",
 
   query_execute: "query.execute",
   query_clear: "query.clear",

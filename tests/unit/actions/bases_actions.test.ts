@@ -6,6 +6,13 @@ import type { BasesService } from "$lib/features/bases/application/bases_service
 import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
+import type { TabStore } from "$lib/features/tab/state/tab_store.svelte";
+
+function create_mock_tab_store() {
+  return {
+    open_bases_tab: vi.fn(),
+  } as unknown as TabStore;
+}
 
 function create_mock_registry() {
   const actions = new Map<string, any>();
@@ -51,7 +58,14 @@ describe("register_bases_actions", () => {
     const vault_store = create_mock_vault_store();
     const service = create_mock_bases_service();
 
-    register_bases_actions(registry, service, store, vault_store, ui_store);
+    register_bases_actions(
+      registry,
+      service,
+      store,
+      vault_store,
+      ui_store,
+      create_mock_tab_store(),
+    );
 
     expect(actions.has(ACTION_IDS.bases_toggle_panel)).toBe(true);
     expect(actions.has(ACTION_IDS.bases_refresh)).toBe(true);
@@ -66,6 +80,7 @@ describe("register_bases_actions", () => {
       new BasesStore(),
       create_mock_vault_store(),
       ui_store,
+      create_mock_tab_store(),
     );
 
     actions.get(ACTION_IDS.bases_toggle_panel).execute();
@@ -85,6 +100,7 @@ describe("register_bases_actions", () => {
       new BasesStore(),
       create_mock_vault_store(),
       ui_store,
+      create_mock_tab_store(),
     );
 
     actions.get(ACTION_IDS.bases_toggle_panel).execute();
@@ -101,6 +117,7 @@ describe("register_bases_actions", () => {
       new BasesStore(),
       create_mock_vault_store("v1"),
       create_mock_ui_store(),
+      create_mock_tab_store(),
     );
 
     await actions.get(ACTION_IDS.bases_refresh).execute();
@@ -118,6 +135,7 @@ describe("register_bases_actions", () => {
       new BasesStore(),
       create_mock_vault_store(null),
       create_mock_ui_store(),
+      create_mock_tab_store(),
     );
 
     await actions.get(ACTION_IDS.bases_refresh).execute();
