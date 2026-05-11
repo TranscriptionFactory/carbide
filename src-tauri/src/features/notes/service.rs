@@ -1,4 +1,5 @@
 use crate::features::search::db as search_db;
+use crate::features::search::service as search_service;
 use crate::shared::buffer::BufferManager;
 use crate::shared::constants;
 use crate::shared::io_utils;
@@ -813,6 +814,7 @@ pub fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
     if to_parent != from_parent {
         invalidate_folder_cache(&args.vault_id, &to_parent);
     }
+    update_backlinks_after_rename(&app, &args.vault_id, &root, &args.from, &args.to);
     emit_metadata_changed(
         &app,
         MetadataChangedEvent::Rename {
@@ -822,6 +824,43 @@ pub fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
         },
     );
     Ok(())
+}
+
+fn update_backlinks_after_rename(
+    app: &AppHandle,
+    vault_id: &str,
+    vault_root: &std::path::Path,
+    old_path: &str,
+    new_path: &str,
+) {
+    let backlink_notes = match search_service::with_read_conn(app, vault_id, |conn| {
+        search_db::get_backlinks(conn, old_path)
+    }) {
+        Ok(notes) => notes,
+        Err(_) => return,
+    };
+
+    let mut target_map = HashMap::new();
+    target_map.insert(old_path.to_string(), new_path.to_string());
+
+    for note in &backlink_notes {
+        let abs_path = vault_root.join(&note.path);
+        let content = match std::fs::read_to_string(&abs_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let result = search_service::rewrite_note_links(
+            content,
+            note.path.clone(),
+            note.path.clone(),
+            target_map.clone(),
+        );
+
+        if result.changed {
+            let _ = io_utils::atomic_write(&abs_path, result.markdown.as_bytes());
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Type)]
