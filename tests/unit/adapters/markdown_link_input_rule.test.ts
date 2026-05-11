@@ -79,7 +79,7 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
 
     const inserted = "[note title](some note.md)";
     const tr = state.tr.insertText(inserted, 1);
-    tr.setSelection(TextSelection.create(tr.doc, inserted.length));
+    tr.setSelection(TextSelection.create(tr.doc, 1 + inserted.length));
     const next = state.apply(tr);
 
     expect(next.doc.child(0).textContent.includes("[note title]")).toBe(false);
@@ -103,7 +103,7 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
 
     const inserted = "[Roadmap](some folder/some note.md)";
     const tr = state.tr.insertText(inserted, 1);
-    tr.setSelection(TextSelection.create(tr.doc, inserted.length));
+    tr.setSelection(TextSelection.create(tr.doc, 1 + inserted.length));
     const next = state.apply(tr);
 
     const info = get_link_info(next.doc, schema.marks.link);
@@ -125,7 +125,7 @@ describe("create_markdown_link_input_rule_prose_plugin", () => {
 
     const inserted = "![image](some note.md)";
     const tr = state.tr.insertText(inserted, 1);
-    tr.setSelection(TextSelection.create(tr.doc, inserted.length));
+    tr.setSelection(TextSelection.create(tr.doc, 1 + inserted.length));
     const next = state.apply(tr);
 
     expect(next.doc.child(0).textContent).toContain("![image](some note.md)");
