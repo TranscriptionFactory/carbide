@@ -1,5 +1,5 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::db::{self as search_db, OrphanLink};
+use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink};
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
@@ -2984,6 +2984,7 @@ pub struct LinksSnapshot {
     pub backlinks: Vec<IndexNoteMeta>,
     pub outlinks: Vec<IndexNoteMeta>,
     pub orphan_links: Vec<OrphanLink>,
+    pub attachments: Vec<AttachmentLink>,
 }
 
 #[tauri::command]
@@ -2998,6 +2999,7 @@ pub fn index_note_links_snapshot(
             backlinks: search_db::get_backlinks(conn, &note_id)?,
             outlinks: search_db::get_outlinks(conn, &note_id)?,
             orphan_links: search_db::get_orphan_outlinks(conn, &note_id)?,
+            attachments: search_db::get_attachment_links(conn, &note_id)?,
         })
     })
 }
