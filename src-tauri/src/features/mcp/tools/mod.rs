@@ -4,6 +4,7 @@ pub mod metadata;
 pub mod notes;
 pub mod references;
 pub mod search;
+pub mod tasks;
 pub mod vault;
 
 use crate::features::mcp::shared_ops::OpError;

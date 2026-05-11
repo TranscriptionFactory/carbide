@@ -23,7 +23,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
-fn resolve_embedding_model_id(app: &AppHandle) -> String {
+pub(crate) fn resolve_embedding_model_id(app: &AppHandle) -> String {
     settings_service::load_settings(app)
         .ok()
         .and_then(|store| store.settings.get("embedding_model_id").cloned())
@@ -31,7 +31,7 @@ fn resolve_embedding_model_id(app: &AppHandle) -> String {
         .unwrap_or_else(|| "snowflake-arctic-embed-xs".to_string())
 }
 
-fn short_id_to_hf_repo(short_id: &str) -> &str {
+pub(crate) fn short_id_to_hf_repo(short_id: &str) -> &str {
     match short_id {
         "snowflake-arctic-embed-xs" => "Snowflake/snowflake-arctic-embed-xs",
         "snowflake-arctic-embed-s" => "Snowflake/snowflake-arctic-embed-s",
@@ -449,7 +449,7 @@ pub fn clear_embedding_model_cache(app: AppHandle) -> Result<u64, String> {
     Ok(freed)
 }
 
-fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
+pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
         return Err("search indexing is not available in browse mode".to_string());
     }
@@ -1821,7 +1821,7 @@ fn handle_block_embed_batch(
     );
 }
 
-fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {
+pub(crate) fn resolve_embedding_cache_dir(app: &AppHandle) -> PathBuf {
     let dir = app
         .path()
         .app_cache_dir()
@@ -2568,6 +2568,38 @@ pub async fn hybrid_search(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+pub(crate) fn hybrid_search_sync(
+    app: &AppHandle,
+    vault_id: &str,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<HybridSearchHit>, String> {
+    let embedding_state = app.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(app);
+    let short_id = resolve_embedding_model_id(app);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = embedding_state.get_or_init(cache_dir, hf_repo, app)?;
+
+    ensure_worker(app, vault_id)?;
+    let state = app.state::<SearchDbState>();
+    let (read_conn, ni) = {
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id).ok_or("vault worker not found")?;
+        (Arc::clone(&worker.read_conn), Arc::clone(&worker.note_index))
+    };
+
+    let conn = read_conn.lock().map_err(|e| e.to_string())?;
+    let idx = ni.read().map_err(|e| e.to_string())?;
+
+    let query_input = SearchQueryInput {
+        raw: query.to_string(),
+        text: query.to_string(),
+        scope: SearchScope::All,
+    };
+
+    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit)
 }
 
 #[tauri::command]

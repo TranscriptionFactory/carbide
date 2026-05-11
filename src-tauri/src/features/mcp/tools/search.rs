@@ -21,7 +21,7 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn search_notes_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
+    properties.insert("vault_id".into(), prop("string", "Vault identifier (optional if an active vault is set)"));
     properties.insert("query".into(), prop("string", "Search query text. Searches note titles and body content."));
     properties.insert(
         "limit".into(),
@@ -32,10 +32,19 @@ fn search_notes_def() -> ToolDefinition {
             default: Some(Value::Number(20.into())),
         },
     );
+    properties.insert(
+        "mode".into(),
+        PropertySchema {
+            prop_type: "string".into(),
+            description: Some("Search mode: 'text' (default, full-text search) or 'semantic' (hybrid vector + FTS search, better for conceptual queries)".into()),
+            enum_values: Some(vec!["text".into(), "semantic".into()]),
+            default: Some(Value::String("text".into())),
+        },
+    );
 
     ToolDefinition {
         name: "search_notes".into(),
-        description: "Full-text search across note titles and content. Returns tab-separated lines of path, title, and relevance score, with matching text snippets on the next line. Use list_notes to browse by folder, or query_notes_by_property to filter by frontmatter fields.".into(),
+        description: "Search across note titles and content. Supports full-text search (default) and semantic/hybrid search for conceptual queries. Returns tab-separated lines of path, title, and relevance score, with matching text snippets on the next line.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -78,28 +87,55 @@ fn handle_search_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult
     };
 
     let max = args.limit.unwrap_or(20).min(100);
+    let is_semantic = args.mode.as_deref() == Some("semantic");
 
-    match shared_ops::search_notes_index(app, &args.vault_id, &args.query, max) {
-        Ok(hits) => {
-            if hits.is_empty() {
-                return ToolResult::text("No results found.".into());
+    if is_semantic {
+        match shared_ops::search_notes_hybrid(app, &args.vault_id, &args.query, max) {
+            Ok(hits) => {
+                if hits.is_empty() {
+                    return ToolResult::text("No results found.".into());
+                }
+                let lines: Vec<String> = hits
+                    .iter()
+                    .map(|hit| {
+                        let snippet = hit
+                            .snippet
+                            .as_deref()
+                            .map(|s| format!("\n  {}", s))
+                            .unwrap_or_default();
+                        format!(
+                            "{}\t{}\t{:.2}{}",
+                            hit.note.path, hit.note.title, hit.score, snippet
+                        )
+                    })
+                    .collect();
+                ToolResult::text(lines.join("\n"))
             }
-            let lines: Vec<String> = hits
-                .iter()
-                .map(|hit| {
-                    let snippet = hit
-                        .snippet
-                        .as_deref()
-                        .map(|s| format!("\n  {}", s))
-                        .unwrap_or_default();
-                    format!(
-                        "{}\t{}\t{:.2}{}",
-                        hit.note.path, hit.note.title, hit.score, snippet
-                    )
-                })
-                .collect();
-            ToolResult::text(lines.join("\n"))
+            Err(e) => op_err_to_tool_result(e),
         }
-        Err(e) => op_err_to_tool_result(e),
+    } else {
+        match shared_ops::search_notes_index(app, &args.vault_id, &args.query, max) {
+            Ok(hits) => {
+                if hits.is_empty() {
+                    return ToolResult::text("No results found.".into());
+                }
+                let lines: Vec<String> = hits
+                    .iter()
+                    .map(|hit| {
+                        let snippet = hit
+                            .snippet
+                            .as_deref()
+                            .map(|s| format!("\n  {}", s))
+                            .unwrap_or_default();
+                        format!(
+                            "{}\t{}\t{:.2}{}",
+                            hit.note.path, hit.note.title, hit.score, snippet
+                        )
+                    })
+                    .collect();
+                ToolResult::text(lines.join("\n"))
+            }
+            Err(e) => op_err_to_tool_result(e),
+        }
     }
 }
