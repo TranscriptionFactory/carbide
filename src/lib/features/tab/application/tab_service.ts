@@ -8,6 +8,7 @@ import type { NotePath, VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import { create_logger } from "$lib/shared/utils/logger";
 import { GRAPH_TAB_ID, GRAPH_TAB_TITLE } from "$lib/features/graph";
+import { BASES_TAB_ID, BASES_TAB_TITLE } from "$lib/features/bases";
 
 const log = create_logger("tab_service");
 const TABS_KEY = "open_tabs";
@@ -237,8 +238,8 @@ export class TabService {
         return [
           {
             kind: "bases" as const,
-            id: "__bases__",
-            title: "Bases",
+            id: BASES_TAB_ID,
+            title: BASES_TAB_TITLE,
             is_pinned: Boolean(t.is_pinned),
             is_dirty: false,
             pane,
