@@ -1116,6 +1116,7 @@ pub fn upsert_note_simple(
     let targets: Vec<String> = links
         .iter()
         .filter(|l| (l.link_type == "wikilink" || l.link_type == "markdown") && !l.target.is_empty())
+        .filter(|l| !is_attachment_target(&l.target))
         .map(|l| l.target.clone())
         .collect();
 
@@ -1785,6 +1786,45 @@ pub fn compute_sync_plan(
 
 const BATCH_SIZE: usize = 100;
 
+const ATTACHMENT_EXTENSIONS: &[&str] = &[
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
+    ".pdf", ".mp3", ".mp4", ".wav", ".ogg", ".webm", ".flac",
+    ".zip", ".tar", ".gz", ".rar",
+    ".csv", ".xlsx", ".docx", ".pptx",
+];
+
+fn is_attachment_target(target: &str) -> bool {
+    let lower = target.to_lowercase();
+    ATTACHMENT_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+}
+
+#[derive(Debug, Serialize, Type)]
+pub struct AttachmentLink {
+    pub target_path: String,
+    pub display_text: String,
+}
+
+pub fn get_attachment_links(conn: &Connection, path: &str) -> Result<Vec<AttachmentLink>, String> {
+    let sql = "SELECT target_path, link_text, link_type
+               FROM note_links
+               WHERE source_path = ?1
+                 AND (link_type = 'embed' OR (link_type = 'markdown' AND target_path NOT LIKE '%.md'))
+               ORDER BY target_path";
+
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![path], |row| {
+            Ok(AttachmentLink {
+                target_path: row.get(0)?,
+                display_text: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
 fn resolve_wikilink_targets(
     conn: &Connection,
     raw_targets: &BTreeSet<&str>,
@@ -1796,6 +1836,10 @@ fn resolve_wikilink_targets(
         .map_err(|e| e.to_string())?;
 
     for &raw in raw_targets {
+        if is_attachment_target(raw) {
+            continue;
+        }
+
         if raw.contains('/') || raw.ends_with(".md") {
             let path = if raw.ends_with(".md") {
                 raw.to_string()
