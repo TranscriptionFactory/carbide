@@ -5,9 +5,7 @@ import type { BasesStore } from "../state/bases_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { TabStore } from "$lib/features/tab";
-
-const BASES_TAB_ID = "__bases__";
-const BASES_TAB_TITLE = "Bases";
+import { BASES_TAB_ID, BASES_TAB_TITLE } from "../domain/bases_tab";
 
 function slugify(name: string): string {
   return name
