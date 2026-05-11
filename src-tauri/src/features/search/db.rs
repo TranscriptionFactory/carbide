@@ -626,12 +626,42 @@ fn extract_tags(markdown: &str) -> Vec<ExtractedTag> {
     tags
 }
 
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn simple_percent_decode(input: &str) -> String {
+    let mut result = Vec::with_capacity(input.len());
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                result.push(hi << 4 | lo);
+                i += 3;
+                continue;
+            }
+        }
+        result.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&result).into_owned()
+}
+
 fn extract_links(markdown: &str, headings: &[ExtractedHeading]) -> Vec<ExtractedLink> {
     use regex::Regex;
     use std::sync::LazyLock;
 
     static WIKI_LINK_RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(!?)\[\[([^\]\n]+?)]]").unwrap());
+
+    static MD_LINK_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(!?)\[([^\]\n]*)\]\(<?([^>)\n]+)>?\)").unwrap());
 
     let mut links = Vec::new();
     let mut in_frontmatter = false;
@@ -691,6 +721,43 @@ fn extract_links(markdown: &str, headings: &[ExtractedHeading]) -> Vec<Extracted
                 target: target_str,
                 display_text: display,
                 link_type: if is_embed { "embed" } else { "wikilink" },
+                anchor,
+                section_heading: section_heading.clone(),
+            });
+        }
+
+        for caps in MD_LINK_RE.captures_iter(line) {
+            let is_embed = &caps[1] == "!";
+            let display = caps[2].to_string();
+            let raw_url = caps[3].trim();
+
+            if raw_url.starts_with("http://")
+                || raw_url.starts_with("https://")
+                || raw_url.starts_with("mailto:")
+            {
+                continue;
+            }
+
+            let decoded = simple_percent_decode(raw_url);
+            let cleaned = decoded.split('#').next().unwrap_or(&decoded);
+            let cleaned = cleaned.split('?').next().unwrap_or(cleaned);
+
+            if cleaned.is_empty() {
+                continue;
+            }
+
+            let (target, anchor) = match decoded.split_once('#') {
+                Some((t, a)) => {
+                    let t = t.split('?').next().unwrap_or(t);
+                    (t.to_string(), Some(a.to_string()))
+                }
+                None => (cleaned.to_string(), None),
+            };
+
+            links.push(ExtractedLink {
+                target,
+                display_text: display,
+                link_type: if is_embed { "embed" } else { "markdown" },
                 anchor,
                 section_heading: section_heading.clone(),
             });
@@ -1048,7 +1115,7 @@ pub fn upsert_note_simple(
 
     let targets: Vec<String> = links
         .iter()
-        .filter(|l| l.link_type == "wikilink" && !l.target.is_empty())
+        .filter(|l| (l.link_type == "wikilink" || l.link_type == "markdown") && !l.target.is_empty())
         .map(|l| l.target.clone())
         .collect();
 
@@ -4371,6 +4438,70 @@ mod tests {
         let result =
             resolve_linked_note_file_path(&conn, "@linked/zotero/missing.pdf").expect("query");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn extract_links_standard_markdown_link() {
+        let md = "Some text [My Note](note.md) more text";
+        let links = extract_links(md, &[]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "note.md");
+        assert_eq!(links[0].display_text, "My Note");
+        assert_eq!(links[0].link_type, "markdown");
+    }
+
+    #[test]
+    fn extract_links_angle_bracket_url() {
+        let md = "[Daily Note](<Daily Note.md>)";
+        let links = extract_links(md, &[]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "Daily Note.md");
+        assert_eq!(links[0].link_type, "markdown");
+    }
+
+    #[test]
+    fn extract_links_skips_external_urls() {
+        let md = "[Google](https://example.com) and [Mail](mailto:a@b.com)";
+        let links = extract_links(md, &[]);
+        assert!(links.is_empty());
+    }
+
+    #[test]
+    fn extract_links_image_embed() {
+        let md = "![img](image.png)";
+        let links = extract_links(md, &[]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "image.png");
+        assert_eq!(links[0].link_type, "embed");
+    }
+
+    #[test]
+    fn extract_links_percent_encoded() {
+        let md = "[Note](Daily%20Note.md)";
+        let links = extract_links(md, &[]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "Daily Note.md");
+    }
+
+    #[test]
+    fn extract_links_with_anchor() {
+        let md = "[Section](note.md#heading)";
+        let links = extract_links(md, &[]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "note.md");
+        assert_eq!(links[0].anchor, Some("heading".to_string()));
+    }
+
+    #[test]
+    fn upsert_note_simple_returns_markdown_link_targets() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("notes/source.md", "Source");
+        let body = "Check [Target](target.md) for details.";
+        let targets = upsert_note_simple(&conn, &meta, body).expect("upsert_note_simple");
+
+        assert_eq!(targets, vec!["target.md".to_string()]);
     }
 }
 

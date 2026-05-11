@@ -108,6 +108,7 @@ export function create_markdown_link_input_rule_prose_plugin(input: {
         return null;
 
       const match_end_index = match_start_index + full_match.length;
+      if (anchor < match_end_index) return null;
       if (contains_link_mark(segments, match_start_index, match_end_index))
         return null;
 
