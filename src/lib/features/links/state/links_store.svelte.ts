@@ -1,6 +1,9 @@
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { OrphanLink } from "$lib/shared/types/search";
-import type { ExternalLink } from "$lib/features/links/types/link";
+import type {
+  AttachmentLink,
+  ExternalLink,
+} from "$lib/features/links/types/link";
 import type { SmartLinkRuleMatch } from "$lib/features/smart_links";
 
 export type SuggestedLink = {
@@ -13,10 +16,12 @@ type LinksSnapshot = {
   backlinks: NoteMeta[];
   outlinks: NoteMeta[];
   orphan_links: OrphanLink[];
+  attachments: AttachmentLink[];
 };
 
 type LocalLinksSnapshot = {
   outlink_paths: string[];
+  attachment_paths: string[];
   external_links: ExternalLink[];
 };
 
@@ -24,11 +29,13 @@ export type LinksGlobalStatus = "idle" | "loading" | "ready" | "error";
 
 export class LinksStore {
   local_outlink_paths = $state<string[]>([]);
+  local_attachment_paths = $state<string[]>([]);
   external_links = $state<ExternalLink[]>([]);
 
   backlinks = $state<NoteMeta[]>([]);
   outlinks = $state<NoteMeta[]>([]);
   orphan_links = $state<OrphanLink[]>([]);
+  attachments = $state<AttachmentLink[]>([]);
   active_note_path = $state<string | null>(null);
   global_status = $state<LinksGlobalStatus>("idle");
   global_error = $state<string | null>(null);
@@ -40,6 +47,7 @@ export class LinksStore {
   set_local_snapshot(note_path: string, snapshot: LocalLinksSnapshot) {
     this.active_note_path = note_path;
     this.local_outlink_paths = snapshot.outlink_paths;
+    this.local_attachment_paths = snapshot.attachment_paths;
     this.external_links = snapshot.external_links;
   }
 
@@ -50,6 +58,7 @@ export class LinksStore {
     this.backlinks = [];
     this.outlinks = [];
     this.orphan_links = [];
+    this.attachments = [];
   }
 
   set_snapshot(note_path: string, snapshot: LinksSnapshot) {
@@ -63,6 +72,7 @@ export class LinksStore {
     this.backlinks = snapshot.backlinks;
     this.outlinks = snapshot.outlinks;
     this.orphan_links = snapshot.orphan_links;
+    this.attachments = snapshot.attachments;
   }
 
   set_global_error(note_path: string, error: string | null) {
@@ -72,6 +82,7 @@ export class LinksStore {
     this.backlinks = [];
     this.outlinks = [];
     this.orphan_links = [];
+    this.attachments = [];
   }
 
   start_suggested_links_load(note_path: string) {
@@ -95,10 +106,12 @@ export class LinksStore {
   clear() {
     this.active_note_path = null;
     this.local_outlink_paths = [];
+    this.local_attachment_paths = [];
     this.external_links = [];
     this.backlinks = [];
     this.outlinks = [];
     this.orphan_links = [];
+    this.attachments = [];
     this.global_status = "idle";
     this.global_error = null;
     this.clear_suggested_links();

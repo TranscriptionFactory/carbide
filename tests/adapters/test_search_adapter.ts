@@ -66,6 +66,7 @@ export function create_test_search_adapter(): SearchPort {
         backlinks: [],
         outlinks: [],
         orphan_links: [],
+        attachments: [],
       });
     },
 

@@ -21,6 +21,19 @@
       : local_outlink_paths,
   );
 
+  const attachments = $derived.by(() => {
+    if (global_status === "ready") {
+      return stores.links.attachments.map((a) => ({
+        path: a.target_path,
+        title: a.display_text || file_name_from_path(a.target_path),
+      }));
+    }
+    return stores.links.local_attachment_paths.map((p) => ({
+      path: p,
+      title: file_name_from_path(p),
+    }));
+  });
+
   function open_existing_note(path: string) {
     void action_registry.execute(ACTION_IDS.note_open, path);
   }
@@ -33,9 +46,17 @@
     void action_registry.execute(ACTION_IDS.shell_open_url, url);
   }
 
+  function open_file(path: string) {
+    void action_registry.execute(ACTION_IDS.shell_open_path, path);
+  }
+
   function title_from_path(path: string): string {
     const leaf = path.split("/").pop() ?? path;
     return leaf.endsWith(".md") ? leaf.slice(0, -3) : leaf;
+  }
+
+  function file_name_from_path(path: string): string {
+    return path.split("/").pop() ?? path;
   }
 </script>
 
@@ -103,6 +124,25 @@
           path={link.target_path}
           meta={`${String(link.ref_count)} refs`}
           onclick={() => open_or_create_note(link.target_path)}
+        />
+      {/each}
+    {/if}
+  </LinkSection>
+
+  <LinkSection
+    title="Attachments"
+    count={attachments.length}
+    default_expanded={false}
+  >
+    {#if attachments.length === 0}
+      <p class="LinksPanel__empty">No attachments</p>
+    {:else}
+      {#each attachments as item (item.path)}
+        <LinkItem
+          title={item.title}
+          path={item.path}
+          attachment
+          onclick={() => open_file(item.path)}
         />
       {/each}
     {/if}

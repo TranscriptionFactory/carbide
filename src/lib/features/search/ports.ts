@@ -13,6 +13,7 @@ import type {
   SearchQueryInput,
 } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
+import type { AttachmentLink } from "$lib/features/links";
 import type { ExternalLink } from "$lib/features/links";
 import type {
   SmartLinkRuleGroup,
@@ -39,6 +40,7 @@ export type NoteLinksSnapshot = {
   backlinks: NoteMeta[];
   outlinks: NoteMeta[];
   orphan_links: OrphanLink[];
+  attachments: AttachmentLink[];
 };
 
 export type LocalNoteLinksSnapshot = {

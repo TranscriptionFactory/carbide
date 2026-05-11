@@ -60,6 +60,7 @@ export class LinksService {
   private set_empty_local_snapshot(note_path: string): void {
     this.links_store.set_local_snapshot(note_path, {
       outlink_paths: [],
+      attachment_paths: [],
       external_links: [],
     });
   }
@@ -93,6 +94,7 @@ export class LinksService {
         backlinks: db_snapshot?.backlinks ?? [],
         outlinks: db_snapshot?.outlinks ?? [],
         orphan_links: db_snapshot?.orphan_links ?? [],
+        attachments: db_snapshot?.attachments ?? [],
       });
       return;
     }
@@ -128,6 +130,7 @@ export class LinksService {
         backlinks,
         outlinks: db_snapshot?.outlinks ?? [],
         orphan_links: db_snapshot?.orphan_links ?? [],
+        attachments: db_snapshot?.attachments ?? [],
       });
     } catch (error) {
       if (this.is_global_request_stale(revision)) return;
@@ -139,6 +142,7 @@ export class LinksService {
         backlinks: db_snapshot?.backlinks ?? [],
         outlinks: db_snapshot?.outlinks ?? [],
         orphan_links: db_snapshot?.orphan_links ?? [],
+        attachments: db_snapshot?.attachments ?? [],
       });
     }
   }

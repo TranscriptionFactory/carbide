@@ -39,6 +39,7 @@ describe("LinksStore", () => {
     const store = new LinksStore();
     store.set_local_snapshot("target.md", {
       outlink_paths: ["a.md"],
+      attachment_paths: [],
       external_links: [{ url: "https://example.com", text: "example" }],
     });
     expect(store.local_outlink_paths).toEqual(["a.md"]);
@@ -54,6 +55,7 @@ describe("LinksStore", () => {
       backlinks: [note("a.md")],
       outlinks: [note("b.md")],
       orphan_links: [orphan("missing/c.md")],
+      attachments: [],
     });
     expect(store.backlinks).toEqual([note("a.md")]);
     expect(store.outlinks).toEqual([note("b.md")]);
@@ -83,12 +85,14 @@ describe("LinksStore", () => {
     const store = new LinksStore();
     store.set_local_snapshot("target.md", {
       outlink_paths: ["x.md"],
+      attachment_paths: [],
       external_links: [{ url: "https://example.com", text: "x" }],
     });
     store.set_snapshot("target.md", {
       backlinks: [note("a.md")],
       outlinks: [note("b.md")],
       orphan_links: [orphan("missing/c.md")],
+      attachments: [],
     });
     store.clear();
     expect(store.local_outlink_paths).toEqual([]);
@@ -105,12 +109,14 @@ describe("LinksStore", () => {
     const store = new LinksStore();
     store.set_local_snapshot("target.md", {
       outlink_paths: ["x.md"],
+      attachment_paths: [],
       external_links: [{ url: "https://example.com", text: "x" }],
     });
     store.set_snapshot("target.md", {
       backlinks: [note("a.md")],
       outlinks: [note("b.md")],
       orphan_links: [orphan("missing/c.md")],
+      attachments: [],
     });
     store.reset();
     expect(store.local_outlink_paths).toEqual([]);

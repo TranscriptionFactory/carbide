@@ -2,6 +2,7 @@
   import ArrowDownLeftIcon from "@lucide/svelte/icons/arrow-down-left";
   import ArrowUpRightIcon from "@lucide/svelte/icons/arrow-up-right";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
+  import PaperclipIcon from "@lucide/svelte/icons/paperclip";
 
   type Props = {
     title: string;
@@ -9,6 +10,7 @@
     meta?: string;
     backlink?: boolean;
     external?: boolean;
+    attachment?: boolean;
     onclick: () => void;
   };
 
@@ -18,13 +20,16 @@
     meta,
     backlink = false,
     external = false,
+    attachment = false,
     onclick,
   }: Props = $props();
 </script>
 
 <button type="button" class="LinkItem" {onclick}>
   <span class="LinkItem__icon">
-    {#if external}
+    {#if attachment}
+      <PaperclipIcon />
+    {:else if external}
       <ExternalLinkIcon />
     {:else if backlink}
       <ArrowDownLeftIcon />

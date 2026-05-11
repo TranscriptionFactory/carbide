@@ -145,6 +145,7 @@ describe("LinksService", () => {
       backlinks: [note("x.md")],
       outlinks: [note("y.md")],
       orphan_links: [orphan("missing/z.md")],
+      attachments: [],
     });
 
     const markdown_lsp_port = make_markdown_lsp_port();
@@ -284,6 +285,7 @@ describe("LinksService", () => {
         backlinks: db_backlinks,
         outlinks: db_outlinks,
         orphan_links: db_orphans,
+        attachments: [],
       }),
     });
 
@@ -340,6 +342,7 @@ describe("LinksService", () => {
         backlinks: [note("shared.md"), note("db-only.md")],
         outlinks: [note("out.md")],
         orphan_links: [],
+        attachments: [],
       }),
     });
 
@@ -375,6 +378,7 @@ describe("LinksService", () => {
         backlinks: [note("db-ref.md")],
         outlinks: [],
         orphan_links: [],
+        attachments: [],
       }),
     });
 
@@ -472,6 +476,7 @@ function make_search_port(
       backlinks: [],
       outlinks: [],
       orphan_links: [],
+      attachments: [],
     }),
     extract_local_note_links: vi.fn().mockResolvedValue(local_snapshot()),
     rewrite_note_links: vi

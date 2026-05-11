@@ -2,12 +2,16 @@ import { parse_to_mdast } from "$lib/features/editor";
 import { visit } from "unist-util-visit";
 import type { ExternalLink } from "../types/link";
 
-type LocalLinksResult = {
+export type LocalLinksResult = {
   outlink_paths: string[];
+  attachment_paths: string[];
   external_links: ExternalLink[];
 };
 
 const WIKI_LINK_RE = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+
+const ATTACHMENT_EXT_RE =
+  /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|pdf|mp3|mp4|wav|ogg|webm|flac|zip|tar|gz|rar|csv|xlsx|docx|pptx)$/i;
 
 function is_external_url(url: string): boolean {
   return /^https?:\/\//i.test(url) || /^mailto:/i.test(url);
@@ -30,6 +34,7 @@ function collect_text(children: unknown[]): string {
 export function extract_local_links(markdown: string): LocalLinksResult {
   const tree = parse_to_mdast(markdown);
   const outlink_set = new Set<string>();
+  const attachment_set = new Set<string>();
   const external_links: ExternalLink[] = [];
   const seen_urls = new Set<string>();
 
@@ -44,7 +49,13 @@ export function extract_local_links(markdown: string): LocalLinksResult {
       }
     } else {
       const path = url.split("#")[0];
-      if (path) outlink_set.add(path);
+      if (path) {
+        if (ATTACHMENT_EXT_RE.test(path)) {
+          attachment_set.add(path);
+        } else {
+          outlink_set.add(path);
+        }
+      }
     }
   });
 
@@ -52,12 +63,19 @@ export function extract_local_links(markdown: string): LocalLinksResult {
     const target = match[1]?.trim();
     if (target) {
       const path = target.split("#")[0];
-      if (path) outlink_set.add(path);
+      if (path) {
+        if (ATTACHMENT_EXT_RE.test(path)) {
+          attachment_set.add(path);
+        } else {
+          outlink_set.add(path);
+        }
+      }
     }
   }
 
   return {
     outlink_paths: [...outlink_set],
+    attachment_paths: [...attachment_set],
     external_links,
   };
 }
