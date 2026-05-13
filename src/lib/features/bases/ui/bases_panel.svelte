@@ -72,7 +72,7 @@
     all_properties.find((p) => p.name === draft_property) ?? null,
   );
 
-  const filtered_operators = $derived(() => {
+  const filtered_operators = $derived.by(() => {
     const ptype = selected_property_info?.property_type;
     const allowed = ptype ? OPERATORS_BY_TYPE[ptype] : null;
     return allowed
@@ -81,9 +81,11 @@
   });
 
   $effect(() => {
-    const ops = filtered_operators();
-    if (ops.length > 0 && !ops.some((op) => op.value === draft_operator)) {
-      draft_operator = ops[0]?.value ?? "eq";
+    if (
+      filtered_operators.length > 0 &&
+      !filtered_operators.some((op) => op.value === draft_operator)
+    ) {
+      draft_operator = filtered_operators[0]?.value ?? "eq";
     }
   });
 
@@ -109,29 +111,34 @@
     sync_search_filter();
   }
 
-  function sync_search_filter() {
+  function upsert_managed_filter(
+    property: string,
+    operator: string,
+    value: string | null,
+  ) {
     const existing = bases_store.query.filters;
-    const search_idx = existing.findIndex(
-      (f) => f.property === "content" && f.operator === "contains",
+    const idx = existing.findIndex(
+      (f) => f.property === property && f.operator === operator,
     );
 
-    if (search_text.trim()) {
-      const new_filter = {
-        property: "content",
-        operator: "contains",
-        value: search_text.trim(),
-      };
-      if (search_idx >= 0) {
+    if (value) {
+      const filter = { property, operator, value };
+      if (idx >= 0) {
         const filters = [...existing];
-        filters[search_idx] = new_filter;
+        filters[idx] = filter;
         bases_store.query = { ...bases_store.query, filters, offset: 0 };
       } else {
-        bases_store.add_filter(new_filter);
+        bases_store.add_filter(filter);
       }
-    } else if (search_idx >= 0) {
-      bases_store.remove_filter(search_idx);
+    } else if (idx >= 0) {
+      bases_store.remove_filter(idx);
     }
     run_query();
+  }
+
+  function sync_search_filter() {
+    const value = search_text.trim() || null;
+    upsert_managed_filter("content", "contains", value);
   }
 
   function on_folder_scope_input(value: string) {
@@ -152,29 +159,8 @@
   }
 
   function sync_folder_filter() {
-    const existing = bases_store.query.filters;
-    const path_idx = existing.findIndex(
-      (f) => f.property === "path" && f.operator === "contains",
-    );
-
-    if (folder_scope.trim()) {
-      const clean = folder_scope.replace(/\/+$/, "");
-      const new_filter = {
-        property: "path",
-        operator: "contains",
-        value: clean + "/",
-      };
-      if (path_idx >= 0) {
-        const filters = [...existing];
-        filters[path_idx] = new_filter;
-        bases_store.query = { ...bases_store.query, filters, offset: 0 };
-      } else {
-        bases_store.add_filter(new_filter);
-      }
-    } else if (path_idx >= 0) {
-      bases_store.remove_filter(path_idx);
-    }
-    run_query();
+    const clean = folder_scope.replace(/\/+$/, "").trim();
+    upsert_managed_filter("path", "contains", clean ? clean + "/" : null);
   }
 
   function refresh() {
@@ -240,6 +226,9 @@
 
   function clear_filters() {
     bases_store.clear_filters();
+    search_text = "";
+    folder_scope = "";
+    clearTimeout(search_timer);
     run_query();
   }
 
@@ -549,7 +538,7 @@
             bind:value={draft_operator}
             class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
           >
-            {#each filtered_operators() as op}
+            {#each filtered_operators as op}
               <option value={op.value}>{op.label}</option>
             {/each}
           </select>
