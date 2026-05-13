@@ -26,6 +26,7 @@
   let query = $state("");
   let show_dropdown = $state(false);
   let selected_index = $state(0);
+  let skip_next_blur = $state(false);
 
   $effect(() => {
     query = value;
@@ -42,6 +43,8 @@
 
     if (has_children && clean !== current_clean) {
       query = clean + "/";
+      show_dropdown = true;
+      skip_next_blur = true;
       selected_index = 0;
     } else {
       query = clean;
@@ -104,6 +107,10 @@
 
   function on_blur() {
     setTimeout(() => {
+      if (skip_next_blur) {
+        skip_next_blur = false;
+        return;
+      }
       show_dropdown = false;
       const clean = query.replace(/\/+$/, "");
       if (clean !== value) {
