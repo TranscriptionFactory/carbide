@@ -429,6 +429,14 @@ export function register_ai_actions(
       if (!ensure_ai_enabled()) return;
       const view = get_inline_view();
       if (!view) return;
+      const menu_state = get_ai_menu_state(view.state);
+      if (menu_state.open && !menu_state.streaming) {
+        const textarea = document.querySelector(
+          ".AiInlineMenu__textarea",
+        ) as HTMLTextAreaElement | null;
+        textarea?.focus();
+        return;
+      }
       dispatch_ai_menu(view, { action: "open" });
     },
   });
