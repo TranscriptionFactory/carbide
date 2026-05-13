@@ -35,6 +35,11 @@
   }: Props = $props();
 
   let prompt_text = $state("");
+  let textarea_el: HTMLTextAreaElement | undefined = $state();
+
+  $effect(() => {
+    if (textarea_el) textarea_el.focus();
+  });
 
   let filtered_commands = $derived(
     mode === "selection_command"
@@ -95,6 +100,7 @@
       <textarea
         class="AiInlineMenu__textarea"
         placeholder="Ask AI to write…"
+        bind:this={textarea_el}
         bind:value={prompt_text}
         onkeydown={handle_keydown}
         rows={1}
