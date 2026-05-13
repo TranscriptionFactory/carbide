@@ -5,16 +5,20 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
+  import Search from "@lucide/svelte/icons/search";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
   import Filter from "@lucide/svelte/icons/filter";
   import Save from "@lucide/svelte/icons/save";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import FolderSearch from "@lucide/svelte/icons/folder-search";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import BasesTable from "./bases_table.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { detect_file_type } from "$lib/features/document";
+  import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
+  import type { PropertyInfo } from "$lib/features/bases/ports";
 
   const OPERATORS = [
     { value: "eq", label: "=" },
@@ -27,7 +31,15 @@
     { value: "lte", label: "<=" },
   ];
 
-  const BUILT_IN_PROPERTIES = [
+  const OPERATORS_BY_TYPE: Record<string, string[]> = {
+    fts: ["contains", "not_contains"],
+    string: ["eq", "neq", "contains", "not_contains"],
+    number: ["eq", "neq", "gt", "lt", "gte", "lte"],
+    boolean: ["eq", "neq"],
+    date: ["eq", "neq", "gt", "lt", "gte", "lte"],
+  };
+
+  const BUILT_IN_PROPERTIES: PropertyInfo[] = [
     { name: "content", property_type: "fts", count: 0, unique_values: null },
     { name: "title", property_type: "string", count: 0, unique_values: null },
     { name: "path", property_type: "string", count: 0, unique_values: null },
@@ -37,6 +49,7 @@
   const { stores, services, action_registry } = use_app_context();
   const bases_store = stores.bases;
   const vault_store = stores.vault;
+  const note_store = stores.notes;
 
   let filters_open = $state(false);
   let draft_property = $state("");
@@ -45,6 +58,124 @@
   let views_open = $state(false);
   let save_name = $state("");
   let saving = $state(false);
+  let search_text = $state("");
+  let search_timer: ReturnType<typeof setTimeout> | undefined;
+  let folder_scope = $state("");
+  let folder_scope_open = $state(false);
+
+  const all_properties: PropertyInfo[] = $derived([
+    ...BUILT_IN_PROPERTIES,
+    ...bases_store.available_properties,
+  ]);
+
+  const selected_property_info = $derived(
+    all_properties.find((p) => p.name === draft_property) ?? null,
+  );
+
+  const filtered_operators = $derived(() => {
+    const ptype = selected_property_info?.property_type;
+    const allowed = ptype ? OPERATORS_BY_TYPE[ptype] : null;
+    return allowed
+      ? OPERATORS.filter((op) => allowed.includes(op.value))
+      : OPERATORS;
+  });
+
+  $effect(() => {
+    const ops = filtered_operators();
+    if (ops.length > 0 && !ops.some((op) => op.value === draft_operator)) {
+      draft_operator = ops[0]?.value ?? "eq";
+    }
+  });
+
+  const draft_unique_values = $derived(
+    selected_property_info?.unique_values ?? null,
+  );
+
+  const folder_suggestions = $derived(
+    filter_folder_paths(folder_scope, note_store.folder_paths),
+  );
+
+  function on_search_input(value: string) {
+    search_text = value;
+    clearTimeout(search_timer);
+    search_timer = setTimeout(() => {
+      sync_search_filter();
+    }, 300);
+  }
+
+  function clear_search() {
+    search_text = "";
+    clearTimeout(search_timer);
+    sync_search_filter();
+  }
+
+  function sync_search_filter() {
+    const existing = bases_store.query.filters;
+    const search_idx = existing.findIndex(
+      (f) => f.property === "content" && f.operator === "contains",
+    );
+
+    if (search_text.trim()) {
+      const new_filter = {
+        property: "content",
+        operator: "contains",
+        value: search_text.trim(),
+      };
+      if (search_idx >= 0) {
+        const filters = [...existing];
+        filters[search_idx] = new_filter;
+        bases_store.query = { ...bases_store.query, filters, offset: 0 };
+      } else {
+        bases_store.add_filter(new_filter);
+      }
+    } else if (search_idx >= 0) {
+      bases_store.remove_filter(search_idx);
+    }
+    run_query();
+  }
+
+  function on_folder_scope_input(value: string) {
+    folder_scope = value;
+    folder_scope_open = true;
+  }
+
+  function select_folder_scope(path: string) {
+    folder_scope = path;
+    folder_scope_open = false;
+    sync_folder_filter();
+  }
+
+  function clear_folder_scope() {
+    folder_scope = "";
+    folder_scope_open = false;
+    sync_folder_filter();
+  }
+
+  function sync_folder_filter() {
+    const existing = bases_store.query.filters;
+    const path_idx = existing.findIndex(
+      (f) => f.property === "path" && f.operator === "contains",
+    );
+
+    if (folder_scope.trim()) {
+      const clean = folder_scope.replace(/\/+$/, "");
+      const new_filter = {
+        property: "path",
+        operator: "contains",
+        value: clean + "/",
+      };
+      if (path_idx >= 0) {
+        const filters = [...existing];
+        filters[path_idx] = new_filter;
+        bases_store.query = { ...bases_store.query, filters, offset: 0 };
+      } else {
+        bases_store.add_filter(new_filter);
+      }
+    } else if (path_idx >= 0) {
+      bases_store.remove_filter(path_idx);
+    }
+    run_query();
+  }
 
   function refresh() {
     const vault_id = vault_store.active_vault_id;
@@ -148,6 +279,12 @@
           >
             — {bases_store.active_view_name}</span
           >{/if}
+        <span class="ml-1 text-xs font-normal text-zinc-400 tabular-nums">
+          {#if bases_store.loading}…{:else}({bases_store.total_count} note{bases_store.total_count !==
+            1
+              ? "s"
+              : ""}){/if}
+        </span>
       </h2>
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
@@ -168,6 +305,74 @@
         >
           <List size={14} />
         </button>
+      </div>
+      <div class="relative flex items-center">
+        <Search
+          size={12}
+          class="absolute left-1.5 text-zinc-400 pointer-events-none"
+        />
+        <input
+          type="text"
+          value={search_text}
+          oninput={(e) =>
+            on_search_input((e.currentTarget as HTMLInputElement).value)}
+          placeholder="Search..."
+          class="text-xs pl-6 pr-6 py-1 w-36 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+        />
+        {#if search_text}
+          <button
+            class="absolute right-1 p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+            onclick={clear_search}
+          >
+            <X size={10} />
+          </button>
+        {/if}
+      </div>
+      <div class="relative">
+        <div class="relative flex items-center">
+          <FolderSearch
+            size={12}
+            class="absolute left-1.5 text-zinc-400 pointer-events-none"
+          />
+          <input
+            type="text"
+            value={folder_scope}
+            oninput={(e) =>
+              on_folder_scope_input(
+                (e.currentTarget as HTMLInputElement).value,
+              )}
+            onfocus={() => (folder_scope_open = true)}
+            onblur={() => setTimeout(() => (folder_scope_open = false), 150)}
+            placeholder="Folder..."
+            class="text-xs pl-6 pr-6 py-1 w-28 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+          />
+          {#if folder_scope}
+            <button
+              class="absolute right-1 p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+              onclick={clear_folder_scope}
+            >
+              <X size={10} />
+            </button>
+          {/if}
+        </div>
+        {#if folder_scope_open && folder_suggestions.length > 0}
+          <div
+            class="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg max-h-40 overflow-y-auto"
+          >
+            {#each folder_suggestions as folder}
+              <button
+                type="button"
+                class="w-full text-left text-xs px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 truncate"
+                onmousedown={(e) => {
+                  e.preventDefault();
+                  select_folder_scope(folder);
+                }}
+              >
+                {folder || "(vault root)"}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
     <div class="flex items-center gap-1">
@@ -344,7 +549,7 @@
             bind:value={draft_operator}
             class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
           >
-            {#each OPERATORS as op}
+            {#each filtered_operators() as op}
               <option value={op.value}>{op.label}</option>
             {/each}
           </select>
@@ -359,9 +564,17 @@
             type="text"
             bind:value={draft_value}
             placeholder="value"
+            list={draft_unique_values ? "filter-value-suggestions" : undefined}
             class="w-full text-xs px-2 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
             onkeydown={(e) => e.key === "Enter" && add_filter()}
           />
+          {#if draft_unique_values}
+            <datalist id="filter-value-suggestions">
+              {#each draft_unique_values as v}
+                <option value={v}></option>
+              {/each}
+            </datalist>
+          {/if}
         </div>
         <button
           class="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50"
