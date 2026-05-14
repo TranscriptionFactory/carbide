@@ -37,6 +37,7 @@
     on_open_node: (path: string) => void;
     on_dblclick_node?: ((path: string) => void) | undefined;
     on_expand_node?: ((path: string) => void) | undefined;
+    on_export_canvas?: (() => void) | undefined;
     on_clusters_computed?:
       | ((assignments: Record<string, number>) => void)
       | undefined;
@@ -66,6 +67,7 @@
     on_open_node,
     on_dblclick_node,
     on_expand_node,
+    on_export_canvas,
     on_clusters_computed,
     group_mode = "folder",
     focus_node_path = null,
@@ -398,6 +400,17 @@
       >
         Open note
       </button>
+      {#if on_export_canvas}
+        <button
+          class="VaultGraph__context_menu_item"
+          onclick={() => {
+            on_export_canvas();
+            close_context_menu();
+          }}
+        >
+          Export as canvas
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
