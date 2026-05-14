@@ -449,6 +449,24 @@ export function register_note_actions(input: ActionRegistrationInput) {
           toast.error("Cannot link outside the vault");
           return;
         }
+
+        if (is_linked_note_path(resolved)) {
+          const abs_path =
+            await services.reference.resolve_linked_note_file_path(resolved);
+          if (abs_path) {
+            const fname = filename_from_path(abs_path);
+            const file_type = detect_file_type(fname);
+            if (file_type) {
+              await registry.execute(ACTION_IDS.document_open, {
+                file_path: abs_path,
+              });
+            } else {
+              await services.shell.open_path(abs_path);
+            }
+          }
+          return;
+        }
+
         const suffix = parse_internal_link_suffix(parsed.raw_path);
         if (
           (await handle_resolved_internal_target(
