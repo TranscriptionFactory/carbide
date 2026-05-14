@@ -2,6 +2,9 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import Table from "@lucide/svelte/icons/table";
   import List from "@lucide/svelte/icons/list";
+  import Columns3 from "@lucide/svelte/icons/columns-3";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
@@ -15,6 +18,10 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import BasesTable from "./bases_table.svelte";
+  import BasesKanban from "./bases_kanban.svelte";
+  import BasesGallery from "./bases_gallery.svelte";
+  import BasesCalendar from "./bases_calendar.svelte";
+  import type { ViewMode } from "$lib/features/bases/ports";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { detect_file_type } from "$lib/features/document";
   import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
@@ -278,22 +285,23 @@
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
       >
-        <button
-          class="p-1 rounded {bases_store.active_view_mode === 'table'
-            ? 'bg-white dark:bg-zinc-800 shadow-sm'
-            : ''}"
-          onclick={() => (bases_store.active_view_mode = "table")}
-        >
-          <Table size={14} />
-        </button>
-        <button
-          class="p-1 rounded {bases_store.active_view_mode === 'list'
-            ? 'bg-white dark:bg-zinc-800 shadow-sm'
-            : ''}"
-          onclick={() => (bases_store.active_view_mode = "list")}
-        >
-          <List size={14} />
-        </button>
+        {#each [
+          { mode: "table" as ViewMode, icon: Table, label: "Table" },
+          { mode: "list" as ViewMode, icon: List, label: "List" },
+          { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" },
+          { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" },
+          { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" },
+        ] as view_option}
+          <button
+            class="p-1 rounded {bases_store.active_view_mode === view_option.mode
+              ? 'bg-white dark:bg-zinc-800 shadow-sm'
+              : ''}"
+            onclick={() => (bases_store.active_view_mode = view_option.mode)}
+            title={view_option.label}
+          >
+            <view_option.icon size={14} />
+          </button>
+        {/each}
       </div>
       <div class="relative flex items-center">
         <Search
@@ -661,6 +669,27 @@
         on_note_click={handle_note_click}
         {active_sort}
         on_sort_toggle={toggle_sort}
+      />
+    {:else if bases_store.active_view_mode === "kanban"}
+      <BasesKanban
+        rows={bases_store.result_set}
+        config={bases_store.kanban_config}
+        available_properties={bases_store.available_properties}
+        on_note_click={handle_note_click}
+        on_config_change={(c) => (bases_store.kanban_config = c)}
+      />
+    {:else if bases_store.active_view_mode === "gallery"}
+      <BasesGallery
+        rows={bases_store.result_set}
+        on_note_click={handle_note_click}
+      />
+    {:else if bases_store.active_view_mode === "calendar"}
+      <BasesCalendar
+        rows={bases_store.result_set}
+        config={bases_store.calendar_config}
+        available_properties={bases_store.available_properties}
+        on_note_click={handle_note_click}
+        on_config_change={(c) => (bases_store.calendar_config = c)}
       />
     {:else}
       <div class="p-4 space-y-4">

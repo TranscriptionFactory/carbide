@@ -1,5 +1,10 @@
 import type { VaultId } from "$lib/shared/types/ids";
-import type { BasesPort, BaseQuery } from "../ports";
+import type {
+  BaseQuery,
+  BasesPort,
+  BaseViewDefinition,
+  ViewMode,
+} from "../ports";
 import type { BasesStore } from "../state/bases_store.svelte";
 
 export class BasesService {
@@ -42,11 +47,14 @@ export class BasesService {
   }
 
   async save_view(vault_id: VaultId, path: string, name: string) {
-    const view = {
+    const view: BaseViewDefinition = {
       name,
       query: this.store.query,
       view_mode: this.store.active_view_mode,
     };
+    if (this.store.kanban_config) view.kanban_config = this.store.kanban_config;
+    if (this.store.calendar_config)
+      view.calendar_config = this.store.calendar_config;
     try {
       await this.port.save_view(vault_id, path, view);
     } catch (e) {
@@ -61,7 +69,9 @@ export class BasesService {
       const view = await this.port.load_view(vault_id, path);
       if (revision !== this.active_revision) return;
       this.store.query = view.query;
-      this.store.active_view_mode = view.view_mode as "table" | "list";
+      this.store.active_view_mode = view.view_mode as ViewMode;
+      this.store.kanban_config = view.kanban_config ?? null;
+      this.store.calendar_config = view.calendar_config ?? null;
       this.store.active_view_name = view.name;
       await this.run_query(vault_id);
     } catch (e) {
