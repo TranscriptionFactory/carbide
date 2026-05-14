@@ -38,6 +38,8 @@
   const has_vault_snapshot = $derived(vault_snapshot !== null);
 
   const has_vault = $derived(stores.vault.vault !== null);
+  const group_mode = $derived(stores.graph.group_mode);
+  const focus_mode_active = $derived(stores.graph.focus_mode_active);
 
   let container_width = $state<number>(960);
   let container_element = $state<HTMLElement | null>(null);
@@ -207,6 +209,19 @@
             node_id,
           )}
         on_open_node={open_node}
+        on_dblclick_node={(path) =>
+          void action_registry.execute(
+            ACTION_IDS.graph_enter_focus_mode,
+            path,
+          )}
+        on_clusters_computed={(assignments) =>
+          stores.graph.set_cluster_assignments(assignments)}
+        {group_mode}
+        focus_node_path={focus_mode_active
+          ? stores.graph.focus_node_path
+          : null}
+        on_exit_focus={() =>
+          void action_registry.execute(ACTION_IDS.graph_exit_focus_mode)}
         force_params={{
           link_distance: stores.ui.editor_settings.graph_force_link_distance,
           charge_strength:
