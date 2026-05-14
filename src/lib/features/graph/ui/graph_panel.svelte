@@ -2,6 +2,7 @@
   import {
     Globe,
     FolderTree,
+    Group,
     Link,
     Maximize2,
     RefreshCw,
@@ -40,6 +41,17 @@
     stores.ui.editor_settings.semantic_graph_max_vault_size,
   );
   const graph_tab_active = $derived(stores.tab.active_tab?.kind === "graph");
+  const group_mode = $derived(stores.graph.group_mode);
+  const focus_mode_active = $derived(stores.graph.focus_mode_active);
+  const cluster_assignments = $derived(stores.graph.cluster_assignments);
+
+  const group_mode_label = $derived(
+    group_mode === "folder"
+      ? "Folder"
+      : group_mode === "cluster"
+        ? "Cluster"
+        : "None",
+  );
 
   let container_element = $state<HTMLElement | null>(null);
   let container_width = $state<number>(760);
@@ -154,6 +166,17 @@
       >
         <Link size={14} />
       </Button>
+      {#if is_vault_mode}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Group by: {group_mode_label}"
+          onclick={() =>
+            void action_registry.execute(ACTION_IDS.graph_cycle_group_mode)}
+        >
+          <Group size={14} />
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
@@ -208,6 +231,31 @@
     </div>
   {/if}
 
+  {#if focus_mode_active}
+    <div class="GraphPanel__focus_bar">
+      <span>Focused: {stores.graph.focus_node_path?.split("/").pop() ?? ""}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_exit_focus_mode)}
+      >
+        Exit focus
+      </Button>
+    </div>
+  {/if}
+
+  {#if is_vault_mode && group_mode !== "folder"}
+    <div class="GraphPanel__stats">
+      <span>Grouping: {group_mode_label}</span>
+      {#if group_mode === "cluster" && cluster_assignments}
+        <span
+          >{String(new Set(Object.values(cluster_assignments)).size)} clusters</span
+        >
+      {/if}
+    </div>
+  {/if}
+
   <div class="GraphPanel__body" bind:this={container_element}>
     {#if is_hierarchy_mode}
       <HierarchyTreeView />
@@ -224,6 +272,7 @@
         {smart_link_edges}
         {show_smart_link_edges}
         theme={stores.ui.active_theme}
+        {group_mode}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>
@@ -232,6 +281,13 @@
             node_id,
           )}
         on_open_node={open_existing_node}
+        on_dblclick_node={(path) =>
+          void action_registry.execute(
+            ACTION_IDS.graph_enter_focus_mode,
+            path,
+          )}
+        on_clusters_computed={(assignments) =>
+          stores.graph.set_cluster_assignments(assignments)}
         force_params={{
           link_distance: stores.ui.editor_settings.graph_force_link_distance,
           charge_strength:
@@ -367,5 +423,17 @@
 
   .GraphPanel__message--error {
     color: var(--destructive);
+  }
+
+  .GraphPanel__focus_bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: var(--space-3);
+    padding-block: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--primary);
+    background: var(--accent);
+    border-block-end: 1px solid var(--border);
   }
 </style>
