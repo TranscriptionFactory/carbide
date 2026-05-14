@@ -4,7 +4,6 @@ import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
-import type { Root } from "mdast";
 
 const MAX_CANVAS_CHARS = 4000;
 
@@ -63,13 +62,13 @@ export function extract_subpath_section(md: string, subpath: string): string {
   const heading_text = subpath.slice(1).replace(/-/g, " ").toLowerCase();
 
   const tree = unified().use(remarkParse).use(remarkGfm).parse(md);
-  const children = (tree as Root).children;
+  const children = tree.children;
 
   let start_index = -1;
   let start_depth = 0;
   for (let i = 0; i < children.length; i++) {
-    const node = children[i]!;
-    if (node.type !== "heading") continue;
+    const node = children[i];
+    if (!node || node.type !== "heading") continue;
     const text = extract_text(node).toLowerCase();
     if (text === heading_text) {
       start_index = i;
@@ -82,8 +81,8 @@ export function extract_subpath_section(md: string, subpath: string): string {
 
   let end_index = children.length;
   for (let i = start_index + 1; i < children.length; i++) {
-    const node = children[i]!;
-    if (node.type === "heading" && node.depth <= start_depth) {
+    const node = children[i];
+    if (node && node.type === "heading" && node.depth <= start_depth) {
       end_index = i;
       break;
     }
@@ -91,12 +90,16 @@ export function extract_subpath_section(md: string, subpath: string): string {
 
   const section_nodes = children.slice(start_index, end_index);
   const positions = section_nodes
-    .filter((n) => n.position)
-    .map((n) => n.position!);
+    .filter((n) => n.position != null)
+    .map((n) => n.position as NonNullable<typeof n.position>);
   if (positions.length === 0) return md;
 
-  const start_offset = positions[0]!.start.offset ?? 0;
-  const end_offset = positions[positions.length - 1]!.end.offset ?? md.length;
+  const first_pos = positions[0];
+  const last_pos = positions[positions.length - 1];
+  if (!first_pos || !last_pos) return md;
+
+  const start_offset = first_pos.start.offset ?? 0;
+  const end_offset = last_pos.end.offset ?? md.length;
 
   return md.slice(start_offset, end_offset);
 }

@@ -19,6 +19,7 @@ export type CanvasTabState = {
   is_dirty: boolean;
   status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
+  note_contents: Map<string, string>;
 };
 
 export class CanvasStore {
@@ -90,6 +91,7 @@ export class CanvasStore {
       is_dirty: false,
       status: "idle",
       error_message: null,
+      note_contents: new Map(),
     });
   }
 
@@ -123,6 +125,10 @@ export class CanvasStore {
     error_message: string | null = null,
   ): void {
     this.#patch(tab_id, { status, error_message });
+  }
+
+  set_note_contents(tab_id: string, contents: Map<string, string>): void {
+    this.#patch(tab_id, { note_contents: contents });
   }
 
   update_node(

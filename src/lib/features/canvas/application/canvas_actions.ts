@@ -132,6 +132,16 @@ export function register_canvas_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.canvas_load_note_contents,
+    label: "Load Note Contents",
+    execute: async (...args: unknown[]) => {
+      const tab_id = args[0] as string;
+      if (typeof tab_id !== "string") return;
+      await canvas_service.load_file_node_contents(tab_id);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.canvas_repair_refs,
     label: "Repair Canvas References",
     execute: async (...args: unknown[]) => {
