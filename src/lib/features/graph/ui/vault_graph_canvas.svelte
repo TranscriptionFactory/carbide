@@ -37,7 +37,9 @@
     on_open_node: (path: string) => void;
     on_dblclick_node?: ((path: string) => void) | undefined;
     on_expand_node?: ((path: string) => void) | undefined;
-    on_clusters_computed?: ((assignments: Record<string, number>) => void) | undefined;
+    on_clusters_computed?:
+      | ((assignments: Record<string, number>) => void)
+      | undefined;
     focus_node_path?: string | null;
     on_exit_focus?: (() => void) | undefined;
     force_params?: {
