@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, Sparkles, Link, X } from "@lucide/svelte";
+  import { LayoutGrid, Search, Sparkles, Link, X } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
@@ -128,6 +128,20 @@
       >
         <Link size={14} />
       </Button>
+      {#if snapshot}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Export as canvas"
+          onclick={() =>
+            void action_registry.execute(
+              ACTION_IDS.canvas_export_search_graph_as_canvas,
+              tab_id,
+            )}
+        >
+          <LayoutGrid size={14} />
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
