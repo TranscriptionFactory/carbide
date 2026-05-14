@@ -288,6 +288,11 @@
           )}
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
+        focus_node_path={focus_mode_active
+          ? stores.graph.focus_node_path
+          : null}
+        on_exit_focus={() =>
+          void action_registry.execute(ACTION_IDS.graph_exit_focus_mode)}
         force_params={{
           link_distance: stores.ui.editor_settings.graph_force_link_distance,
           charge_strength:
