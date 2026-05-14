@@ -5,6 +5,9 @@ import type {
 } from "$lib/features/canvas/state/canvas_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
+import type { NotesPort } from "$lib/features/note";
+import type { NoteId } from "$lib/shared/types/ids";
+import type { CanvasData, FileNode } from "$lib/features/canvas/types/canvas";
 import {
   parse_canvas,
   serialize_canvas,
@@ -13,6 +16,11 @@ import {
   EMPTY_CANVAS,
   EMPTY_EXCALIDRAW_SCENE,
 } from "$lib/features/canvas/application/canvas_constants";
+import {
+  render_markdown_to_html,
+  extract_subpath_section,
+  truncate_for_canvas,
+} from "$lib/features/canvas/domain/canvas_note_renderer";
 
 export class CanvasService {
   private open_canvas_revision = 0;
@@ -23,6 +31,7 @@ export class CanvasService {
     private readonly canvas_store: CanvasStore,
     private readonly op_store: OpStore,
     private readonly now_ms: () => number = () => Date.now(),
+    private readonly notes_port?: NotesPort,
   ) {}
 
   async open_canvas(
@@ -157,6 +166,51 @@ export class CanvasService {
       old_path,
       new_path,
     );
+  }
+
+  async load_file_node_contents(tab_id: string): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    const notes_port = this.notes_port;
+    if (!vault_id || !notes_port) return;
+
+    const state = this.canvas_store.get_state(tab_id);
+    if (!state?.canvas_data) return;
+
+    const md_file_nodes = state.canvas_data.nodes.filter(
+      (n): n is FileNode => n.type === "file" && n.file.endsWith(".md"),
+    );
+    if (md_file_nodes.length === 0) return;
+
+    const contents = new Map<string, string>();
+
+    await Promise.all(
+      md_file_nodes.map(async (node) => {
+        try {
+          const doc = await notes_port.read_note(vault_id, node.file as NoteId);
+          let md = String(doc.markdown);
+          if (node.subpath) {
+            md = extract_subpath_section(md, node.subpath);
+          }
+          md = truncate_for_canvas(md);
+          contents.set(node.id, render_markdown_to_html(md));
+        } catch {
+          // Skip nodes whose files can't be read
+        }
+      }),
+    );
+
+    if (contents.size > 0) {
+      this.canvas_store.set_note_contents(tab_id, contents);
+    }
+  }
+
+  async write_canvas_data(
+    vault_id: string,
+    file_path: string,
+    data: CanvasData,
+  ): Promise<void> {
+    const content = serialize_canvas(data);
+    await this.canvas_port.write_file(vault_id, file_path, content);
   }
 
   async #export_svg_preview(

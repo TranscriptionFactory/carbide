@@ -792,6 +792,7 @@ export function create_app_context(input: {
     stores.canvas,
     stores.op,
     now_ms,
+    input.ports.notes,
   );
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
