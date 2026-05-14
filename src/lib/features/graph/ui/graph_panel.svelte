@@ -3,6 +3,7 @@
     Globe,
     FolderTree,
     Group,
+    LayoutGrid,
     Link,
     Maximize2,
     RefreshCw,
@@ -177,6 +178,21 @@
           <Group size={14} />
         </Button>
       {/if}
+      {#if !is_hierarchy_mode && has_snapshot}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Export as canvas"
+          onclick={() =>
+            void action_registry.execute(
+              is_vault_mode
+                ? ACTION_IDS.canvas_export_vault_graph_as_canvas
+                : ACTION_IDS.canvas_export_neighborhood_as_canvas,
+            )}
+        >
+          <LayoutGrid size={14} />
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
@@ -285,6 +301,10 @@
         on_open_node={open_existing_node}
         on_dblclick_node={(path) =>
           void action_registry.execute(ACTION_IDS.graph_enter_focus_mode, path)}
+        on_export_canvas={() =>
+          void action_registry.execute(
+            ACTION_IDS.canvas_export_vault_graph_as_canvas,
+          )}
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         focus_node_path={focus_mode_active
