@@ -1,6 +1,7 @@
 import {
   create_assets_tauri_adapter,
   create_notes_tauri_adapter,
+  carbide_file_asset_url,
 } from "$lib/features/note";
 import {
   create_vault_tauri_adapter,
@@ -111,6 +112,7 @@ export function create_prod_ports(): Ports & {
   const plugin_settings = new PluginSettingsTauriAdapter();
   const marketplace = new MarketplaceTauriAdapter();
   const canvas = create_canvas_tauri_adapter();
+  const linked_source = create_linked_source_tauri_adapter();
   const slash_command_provider = create_slash_command_provider();
   const ai_inline_handler: AiInlineHandler = {
     execute: null,
@@ -130,8 +132,17 @@ export function create_prod_ports(): Ports & {
     vault_settings,
     assets,
     editor: create_milkdown_editor_port({
-      resolve_asset_url_for_vault: (vault_id, asset_path) =>
-        assets.resolve_asset_url(vault_id, asset_path),
+      resolve_asset_url_for_vault: async (vault_id, asset_path) => {
+        const path_str = String(asset_path);
+        if (path_str.startsWith("@linked/")) {
+          const resolved = await linked_source.resolve_linked_note_file_path(
+            vault_id,
+            path_str,
+          );
+          if (resolved) return carbide_file_asset_url(resolved);
+        }
+        return assets.resolve_asset_url(vault_id, asset_path);
+      },
       load_svg_preview: (vault_id, path) =>
         canvas.read_svg_preview(vault_id, path),
       ydoc_manager: create_ydoc_manager(),
@@ -178,7 +189,7 @@ export function create_prod_ports(): Ports & {
     reference_storage: create_reference_tauri_adapter(),
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),
-    linked_source: create_linked_source_tauri_adapter(),
+    linked_source,
     mcp: create_mcp_tauri_adapter(),
     // stt: create_stt_tauri_adapter(),
   };
