@@ -10,6 +10,10 @@ import {
   type SimulationNodeDatum,
   type SimulationLinkDatum,
 } from "d3-force";
+import {
+  label_propagation,
+  is_clustering_meaningful,
+} from "./graph_clustering";
 
 type WorkerNode = SimulationNodeDatum & {
   id: string;
@@ -47,6 +51,7 @@ type InboundMessage =
       edges: { source: string; target: string }[];
       force_params?: ForceParams;
       grouping?: GroupingParams;
+      compute_clusters?: boolean;
     }
   | { type: "tick_budget"; ticks: number }
   | { type: "reheat"; alpha?: number }
@@ -57,7 +62,8 @@ type InboundMessage =
 type OutboundMessage =
   | { type: "positions"; ids: string[]; buffer: ArrayBuffer }
   | { type: "stabilized" }
-  | { type: "tick"; alpha: number };
+  | { type: "tick"; alpha: number }
+  | { type: "clusters"; assignments: Record<string, number> };
 
 let simulation: Simulation<WorkerNode, WorkerEdge> | null = null;
 let nodes: WorkerNode[] = [];
@@ -201,6 +207,21 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
   }
 
   send_positions();
+
+  if (msg.compute_clusters) {
+    const clusters = label_propagation(
+      node_ids,
+      msg.edges,
+    );
+    if (is_clustering_meaningful(clusters, node_ids.length)) {
+      const assignments: Record<string, number> = {};
+      for (const [id, cluster] of clusters) {
+        assignments[id] = cluster;
+      }
+      post({ type: "clusters", assignments });
+    }
+  }
+
   post({ type: "stabilized" });
 }
 

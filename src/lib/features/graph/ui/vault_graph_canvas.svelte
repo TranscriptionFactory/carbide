@@ -17,6 +17,8 @@
 
   const log = create_logger("vault_graph");
 
+  import type { GraphGroupMode } from "$lib/features/graph/state/graph_store.svelte";
+
   type Props = {
     snapshot: VaultGraphSnapshot;
     filter_query: string;
@@ -28,10 +30,13 @@
     smart_link_edges: SmartLinkEdge[];
     show_smart_link_edges: boolean;
     theme?: Theme;
+    group_mode?: GraphGroupMode;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
+    on_dblclick_node?: ((path: string) => void) | undefined;
     on_expand_node?: ((path: string) => void) | undefined;
+    on_clusters_computed?: ((assignments: Record<string, number>) => void) | undefined;
     force_params?: {
       link_distance: number;
       charge_strength: number;
@@ -54,7 +59,10 @@
     on_select_node,
     on_hover_node,
     on_open_node,
+    on_dblclick_node,
     on_expand_node,
+    on_clusters_computed,
+    group_mode = "folder",
     force_params,
   }: Props = $props();
 
@@ -148,6 +156,8 @@
           });
         }
         r.update_positions(positions);
+      } else if (msg.type === "clusters" && on_clusters_computed) {
+        on_clusters_computed(msg.assignments as Record<string, number>);
       }
     };
     if (profile.is_degraded) {
@@ -166,6 +176,7 @@
       })),
       edges,
       force_params,
+      compute_clusters: group_mode === "cluster",
       grouping: has_search_meta
         ? {
             mode: "both" as const,
@@ -199,7 +210,7 @@
       on_select_node(id);
     };
     r.on_node_hover = on_hover_node;
-    r.on_node_dblclick = on_open_node;
+    r.on_node_dblclick = on_dblclick_node ?? on_open_node;
     r.on_node_contextmenu = (id, sx, sy) => {
       context_menu = { node_id: id, x: sx, y: sy };
     };
@@ -323,6 +334,17 @@
       class="VaultGraph__context_menu"
       style="left:{String(context_menu.x)}px;top:{String(context_menu.y)}px;"
     >
+      {#if on_dblclick_node}
+        <button
+          class="VaultGraph__context_menu_item"
+          onclick={() => {
+            if (context_menu) on_dblclick_node(context_menu.node_id);
+            close_context_menu();
+          }}
+        >
+          Focus node
+        </button>
+      {/if}
       {#if on_expand_node}
         <button
           class="VaultGraph__context_menu_item"
