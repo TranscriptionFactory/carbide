@@ -56,8 +56,9 @@
     };
   });
 
+  const canvas_data = $derived(canvas_state?.canvas_data ?? null);
   const has_md_file_nodes = $derived(
-    canvas_state?.canvas_data?.nodes.some(
+    canvas_data?.nodes.some(
       (n) => n.type === "file" && n.file.endsWith(".md"),
     ) ?? false,
   );

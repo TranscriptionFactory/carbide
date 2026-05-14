@@ -53,6 +53,8 @@ const processor = unified()
   .use(rehypeSanitize, sanitize_schema)
   .use(rehypeStringify);
 
+const parse_processor = unified().use(remarkParse).use(remarkGfm);
+
 export function render_markdown_to_html(md: string): string {
   return String(processor.processSync(md));
 }
@@ -61,7 +63,7 @@ export function extract_subpath_section(md: string, subpath: string): string {
   if (!subpath.startsWith("#")) return md;
   const heading_text = subpath.slice(1).replace(/-/g, " ").toLowerCase();
 
-  const tree = unified().use(remarkParse).use(remarkGfm).parse(md);
+  const tree = parse_processor.parse(md);
   const children = tree.children;
 
   let start_index = -1;
