@@ -75,6 +75,7 @@
     force_params,
   }: Props = $props();
 
+  let container_el = $state<HTMLDivElement | null>(null);
   let renderer = $state<VaultGraphRenderer | null>(null);
   let renderer_ready = $state(false);
   let worker = $state<Worker | null>(null);
@@ -252,10 +253,19 @@
 
   // Re-feed graph data when snapshot changes (e.g. new search query)
   let last_snapshot_ref: VaultGraphSnapshot | null = null;
+  let last_group_mode: GraphGroupMode | null = null;
   $effect(() => {
     if (!renderer_ready || !renderer) return;
     if (snapshot === last_snapshot_ref) return;
     last_snapshot_ref = snapshot;
+    last_group_mode = group_mode;
+    feed_graph(renderer, snapshot);
+  });
+
+  $effect(() => {
+    if (!renderer_ready || !renderer || !last_snapshot_ref) return;
+    if (group_mode === last_group_mode) return;
+    last_group_mode = group_mode;
     feed_graph(renderer, snapshot);
   });
 
@@ -315,6 +325,12 @@
     }
   });
 
+  $effect(() => {
+    if (focus_node_path && container_el) {
+      container_el.focus();
+    }
+  });
+
   function handle_keydown(event: KeyboardEvent) {
     if (event.key === "Escape" && focus_node_path && on_exit_focus) {
       on_exit_focus();
@@ -337,6 +353,7 @@
   role="img"
   aria-label="Full vault graph"
   tabindex="-1"
+  bind:this={container_el}
   oncontextmenu={(e) => e.preventDefault()}
   onclick={close_context_menu}
   onkeydown={handle_keydown}

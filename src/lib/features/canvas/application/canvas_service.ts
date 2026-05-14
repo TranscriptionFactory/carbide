@@ -24,7 +24,7 @@ import {
 
 export class CanvasService {
   private open_canvas_revision = 0;
-  private loading_note_contents = false;
+  private loading_tabs = new Set<string>();
 
   constructor(
     private readonly canvas_port: CanvasPort,
@@ -170,7 +170,7 @@ export class CanvasService {
   }
 
   async load_file_node_contents(tab_id: string): Promise<void> {
-    if (this.loading_note_contents) return;
+    if (this.loading_tabs.has(tab_id)) return;
     const vault_id = this.vault_store.vault?.id;
     const notes_port = this.notes_port;
     if (!vault_id || !notes_port) return;
@@ -183,7 +183,7 @@ export class CanvasService {
     );
     if (md_file_nodes.length === 0) return;
 
-    this.loading_note_contents = true;
+    this.loading_tabs.add(tab_id);
     try {
       const contents = new Map<string, string>();
 
@@ -210,7 +210,7 @@ export class CanvasService {
         this.canvas_store.set_note_contents(tab_id, contents);
       }
     } finally {
-      this.loading_note_contents = false;
+      this.loading_tabs.delete(tab_id);
     }
   }
 

@@ -29,10 +29,7 @@ async function write_and_open(
 ): Promise<void> {
   const file_path = generate_canvas_path(slug);
   await canvas_service.write_canvas_data(vault_id, file_path, data);
-  await registry.execute(ACTION_IDS.canvas_open, {
-    file_path,
-    file_type: "canvas",
-  });
+  await registry.execute(ACTION_IDS.canvas_open, file_path);
 }
 
 export function register_graph_canvas_actions(
