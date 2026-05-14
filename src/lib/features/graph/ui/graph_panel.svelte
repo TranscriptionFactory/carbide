@@ -178,7 +178,7 @@
           <Group size={14} />
         </Button>
       {/if}
-      {#if !is_hierarchy_mode && has_snapshot}
+      {#if !is_hierarchy_mode && (has_snapshot || (is_vault_mode && has_vault_snapshot))}
         <Button
           variant="ghost"
           size="icon"
