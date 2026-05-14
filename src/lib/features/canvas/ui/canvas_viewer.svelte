@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type { CanvasTabState } from "$lib/features/canvas/state/canvas_store.svelte";
   import type { Camera } from "$lib/features/canvas/types/canvas";
@@ -12,7 +13,7 @@
   }
 
   let { tab_id, file_path, file_type }: Props = $props();
-  const { stores } = use_app_context();
+  const { stores, action_registry } = use_app_context();
 
   const canvas_state: CanvasTabState | undefined = $derived(
     stores.canvas.get_state(tab_id),
@@ -53,6 +54,25 @@
       stores.canvas.unregister_scene_provider(tab_id);
       stores.canvas.unregister_svg_export_provider(tab_id);
     };
+  });
+
+  const has_md_file_nodes = $derived(
+    canvas_state?.canvas_data?.nodes.some(
+      (n) => n.type === "file" && n.file.endsWith(".md"),
+    ) ?? false,
+  );
+
+  $effect(() => {
+    if (
+      canvas_state?.status === "ready" &&
+      has_md_file_nodes &&
+      canvas_state.note_contents.size === 0
+    ) {
+      void action_registry.execute(
+        ACTION_IDS.canvas_load_note_contents,
+        tab_id,
+      );
+    }
   });
 
   const app_theme = $derived(is_dark ? ("dark" as const) : ("light" as const));
@@ -96,6 +116,7 @@
         canvas_data={canvas_state.canvas_data}
         camera={canvas_state.camera}
         on_camera_change={handle_camera_change}
+        note_contents={canvas_state.note_contents}
       />
     {/if}
   {:else}
