@@ -24,6 +24,10 @@ export { register_graph_actions } from "$lib/features/graph/application/graph_ac
 export { register_search_graph_actions } from "$lib/features/graph/application/search_graph_actions";
 export { resolve_graph_canvas_view } from "$lib/features/graph/domain/graph_canvas_view";
 export {
+  graph_to_canvas,
+  type GraphToCanvasInput,
+} from "$lib/features/graph/domain/graph_to_canvas";
+export {
   GRAPH_TAB_ID,
   GRAPH_TAB_TITLE,
 } from "$lib/features/graph/domain/graph_tab";
