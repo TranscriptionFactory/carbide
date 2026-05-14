@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { build_calendar_month } from "$lib/features/bases/domain/calendar_bucketing";
 import type { BaseNoteRow } from "$lib/features/bases/ports";
+import { as_note_path } from "$lib/shared/types/ids";
 
 function make_row(
   path: string,
@@ -9,8 +10,8 @@ function make_row(
 ): BaseNoteRow {
   return {
     note: {
-      id: path,
-      path,
+      id: as_note_path(path),
+      path: as_note_path(path),
       name: path.replace(".md", ""),
       title: path.replace(".md", ""),
       blurb: "",

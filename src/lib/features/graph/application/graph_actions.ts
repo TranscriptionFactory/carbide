@@ -176,4 +176,37 @@ export function register_graph_actions(
       );
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.graph_cycle_group_mode,
+    label: "Cycle Graph Grouping",
+    execute: () => {
+      const current = graph_store.group_mode;
+      const next =
+        current === "folder"
+          ? "cluster"
+          : current === "cluster"
+            ? "none"
+            : "folder";
+      graph_store.set_group_mode(next);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.graph_enter_focus_mode,
+    label: "Focus Graph Node",
+    execute: (path: unknown) => {
+      if (typeof path === "string" && path.length > 0) {
+        graph_store.enter_focus_mode(path);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.graph_exit_focus_mode,
+    label: "Exit Graph Focus Mode",
+    execute: () => {
+      graph_store.exit_focus_mode();
+    },
+  });
 }

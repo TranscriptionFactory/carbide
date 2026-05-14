@@ -8,6 +8,7 @@ import type {
 
 export type GraphStatus = "idle" | "loading" | "ready" | "error";
 export type GraphViewMode = "neighborhood" | "vault" | "hierarchy";
+export type GraphGroupMode = "folder" | "cluster" | "none";
 
 export class GraphStore {
   panel_open = $state(false);
@@ -26,6 +27,10 @@ export class GraphStore {
   show_smart_link_edges = $state(false);
   hierarchy_tree = $state<HierarchyTreeNode[] | null>(null);
   hierarchy_root_key = $state<string | null>(null);
+  group_mode = $state<GraphGroupMode>("folder");
+  cluster_assignments = $state<Record<string, number> | null>(null);
+  focus_node_path = $state<string | null>(null);
+  focus_mode_active = $state(false);
 
   set_panel_open(open: boolean) {
     this.panel_open = open;
@@ -122,6 +127,24 @@ export class GraphStore {
     this.error = null;
   }
 
+  set_group_mode(mode: GraphGroupMode) {
+    this.group_mode = mode;
+  }
+
+  set_cluster_assignments(assignments: Record<string, number> | null) {
+    this.cluster_assignments = assignments;
+  }
+
+  enter_focus_mode(node_path: string) {
+    this.focus_node_path = node_path;
+    this.focus_mode_active = true;
+  }
+
+  exit_focus_mode() {
+    this.focus_node_path = null;
+    this.focus_mode_active = false;
+  }
+
   set_hierarchy_tree(tree: HierarchyTreeNode[], root_key: string | null) {
     this.hierarchy_tree = tree;
     this.hierarchy_root_key = root_key;
@@ -140,5 +163,8 @@ export class GraphStore {
     this.show_semantic_edges = false;
     this.smart_link_edges = [];
     this.show_smart_link_edges = false;
+    this.cluster_assignments = null;
+    this.focus_node_path = null;
+    this.focus_mode_active = false;
   }
 }
