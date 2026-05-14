@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-12
 **Scope:** Four high-value visual features, ordered by implementation phase
-**Status (2026-05-14):** Phase 1 (Bases Views) and Phase 2 (Graph Clusters/Focus) substantially implemented. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels. Phases 3-4 not yet started.
+**Status (2026-05-14):** Phases 1-3 substantially implemented. Phase 4 in progress. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels, canvas click-to-open and viewport culling.
 
 ---
 
@@ -299,15 +299,15 @@ function render_note_preview(markdown: string, subpath?: string): string {
 
 ### Implementation Steps
 
-1. [ ] `canvas_note_renderer.ts` — remark → rehype → HTML pipeline — verify: converts sample markdown to clean HTML
-2. [ ] Subpath extraction function (heading-scoped sections from MDAST) — verify: extracts correct section
-3. [ ] Content loading layer — read notes for file nodes on canvas open — verify: content fetched
-4. [ ] Update `canvas_node.svelte` to render HTML for file nodes — verify: embedded content visible in node
-5. [ ] Scoped CSS for embedded markdown — verify: headings, lists, code render correctly
-6. [ ] Click-to-open interaction on embedded nodes — verify: opens note in editor
-7. [ ] Viewport-based lazy rendering — verify: off-screen nodes don't render content
-8. [ ] Truncation for large notes — verify: graceful handling of 10k+ char notes
-9. [ ] Tests: renderer output, subpath extraction, content caching
+1. [x] `canvas_note_renderer.ts` — remark → rehype → HTML pipeline — verify: converts sample markdown to clean HTML *(done: unified pipeline with GFM, sanitization)*
+2. [x] Subpath extraction function (heading-scoped sections from MDAST) — verify: extracts correct section *(done: `extract_subpath_section` with heading slug matching)*
+3. [x] Content loading layer — read notes for file nodes on canvas open — verify: content fetched *(done: `CanvasService.load_file_node_contents` via `NotesPort.read_note`)*
+4. [x] Update `canvas_node.svelte` to render HTML for file nodes — verify: embedded content visible in node *(done: `rendered_content` prop with `@html` rendering)*
+5. [x] Scoped CSS for embedded markdown — verify: headings, lists, code render correctly *(done: scoped `:global()` styles for all elements at 12px canvas size)*
+6. [ ] Click-to-open interaction on embedded nodes — verify: opens note in editor *(deferred: requires canvas interaction layer)*
+7. [ ] Viewport-based lazy rendering — verify: off-screen nodes don't render content *(deferred: optimization, not needed for initial release)*
+8. [x] Truncation for large notes — verify: graceful handling of 10k+ char notes *(done: `truncate_for_canvas` at 4000 chars with newline-aware truncation)*
+9. [x] Tests: renderer output, subpath extraction, content caching *(done: `canvas_note_renderer.test.ts` — 17 tests)*
 
 ---
 
