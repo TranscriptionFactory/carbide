@@ -3,12 +3,17 @@ import type {
   BaseNoteRow,
   BaseQuery,
   BaseSort,
+  CalendarConfig,
+  KanbanConfig,
   PropertyInfo,
   SavedViewInfo,
+  ViewMode,
 } from "../ports";
 
 export class BasesStore {
-  active_view_mode = $state<"table" | "list">("table");
+  active_view_mode = $state<ViewMode>("table");
+  kanban_config = $state<KanbanConfig | null>(null);
+  calendar_config = $state<CalendarConfig | null>(null);
   query = $state<BaseQuery>({
     filters: [],
     sort: [],
