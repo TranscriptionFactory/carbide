@@ -3,14 +3,14 @@ import type {
   CanvasEdge,
   CanvasNode,
   FileNode,
-} from "$lib/features/canvas/types/canvas";
+} from "$lib/features/canvas";
 import { radial_layout } from "$lib/features/graph/domain/radial_layout";
 
 export type GraphToCanvasInput = {
-  nodes: Array<{ path: string; title: string; kind?: string }>;
-  edges: Array<{ source: string; target: string; label?: string }>;
+  nodes: Array<{ path: string; title: string; kind?: string | undefined }>;
+  edges: Array<{ source: string; target: string; label?: string | undefined }>;
   layout: "column" | "radial";
-  center_path?: string;
+  center_path?: string | undefined;
 };
 
 const NODE_W = 300;
