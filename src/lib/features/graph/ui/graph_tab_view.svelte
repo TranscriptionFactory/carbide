@@ -210,10 +210,7 @@
           )}
         on_open_node={open_node}
         on_dblclick_node={(path) =>
-          void action_registry.execute(
-            ACTION_IDS.graph_enter_focus_mode,
-            path,
-          )}
+          void action_registry.execute(ACTION_IDS.graph_enter_focus_mode, path)}
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         {group_mode}

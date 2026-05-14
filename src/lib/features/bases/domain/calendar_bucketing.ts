@@ -26,7 +26,11 @@ export function build_calendar_month(
   const days_in_month = new Date(year, month + 1, 0).getDate();
 
   const today = new Date();
-  const today_str = format_date(today.getFullYear(), today.getMonth(), today.getDate());
+  const today_str = format_date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
 
   const date_map = new Map<string, BaseNoteRow[]>();
   for (const row of rows) {

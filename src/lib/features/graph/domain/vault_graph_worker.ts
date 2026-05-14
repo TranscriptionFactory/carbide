@@ -209,10 +209,7 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
   send_positions();
 
   if (msg.compute_clusters) {
-    const clusters = label_propagation(
-      node_ids,
-      msg.edges,
-    );
+    const clusters = label_propagation(node_ids, msg.edges);
     if (is_clustering_meaningful(clusters, node_ids.length)) {
       const assignments: Record<string, number> = {};
       for (const [id, cluster] of clusters) {
