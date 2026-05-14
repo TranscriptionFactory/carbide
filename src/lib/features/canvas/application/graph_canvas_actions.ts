@@ -1,6 +1,8 @@
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { CanvasService } from "$lib/features/canvas/application/canvas_service";
+import type { CanvasData } from "$lib/features/canvas/types/canvas";
 import {
   type GraphStore,
   type SearchGraphStore,
@@ -11,10 +13,26 @@ import {
 function generate_canvas_path(slug: string): string {
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const safe_slug = slug
+    .trim()
     .replace(/[<>:"/\\|?*]/g, "_")
     .slice(0, 40)
     .trim();
   return `graph-${safe_slug}-${ts}.canvas`;
+}
+
+async function write_and_open(
+  registry: ActionRegistry,
+  canvas_service: CanvasService,
+  vault_id: string,
+  slug: string,
+  data: CanvasData,
+): Promise<void> {
+  const file_path = generate_canvas_path(slug);
+  await canvas_service.write_canvas_data(vault_id, file_path, data);
+  await registry.execute(ACTION_IDS.canvas_open, {
+    file_path,
+    file_type: "canvas",
+  });
 }
 
 export function register_graph_canvas_actions(
@@ -62,12 +80,13 @@ export function register_graph_canvas_actions(
       };
 
       const data = graph_to_canvas(graph_input);
-      const file_path = generate_canvas_path(snapshot.center.title);
-      await canvas_service.write_canvas_data(vault_id, file_path, data);
-      await registry.execute(ACTION_IDS.canvas_open, {
-        file_path,
-        file_type: "canvas",
-      });
+      await write_and_open(
+        registry,
+        canvas_service,
+        vault_id,
+        snapshot.center.title,
+        data,
+      );
     },
   });
 
@@ -98,12 +117,7 @@ export function register_graph_canvas_actions(
 
       const data = graph_to_canvas(graph_input);
       const slug = center_path.split("/").pop()?.replace(".md", "") ?? "vault";
-      const file_path = generate_canvas_path(slug);
-      await canvas_service.write_canvas_data(vault_id, file_path, data);
-      await registry.execute(ACTION_IDS.canvas_open, {
-        file_path,
-        file_type: "canvas",
-      });
+      await write_and_open(registry, canvas_service, vault_id, slug, data);
     },
   });
 
@@ -134,13 +148,13 @@ export function register_graph_canvas_actions(
       };
 
       const data = graph_to_canvas(graph_input);
-      const slug = snapshot.query || "search";
-      const file_path = generate_canvas_path(slug);
-      await canvas_service.write_canvas_data(vault_id, file_path, data);
-      await registry.execute(ACTION_IDS.canvas_open, {
-        file_path,
-        file_type: "canvas",
-      });
+      await write_and_open(
+        registry,
+        canvas_service,
+        vault_id,
+        snapshot.query || "search",
+        data,
+      );
     },
   });
 }

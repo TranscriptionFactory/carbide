@@ -24,6 +24,7 @@ import {
 
 export class CanvasService {
   private open_canvas_revision = 0;
+  private loading_note_contents = false;
 
   constructor(
     private readonly canvas_port: CanvasPort,
@@ -169,6 +170,7 @@ export class CanvasService {
   }
 
   async load_file_node_contents(tab_id: string): Promise<void> {
+    if (this.loading_note_contents) return;
     const vault_id = this.vault_store.vault?.id;
     const notes_port = this.notes_port;
     if (!vault_id || !notes_port) return;
@@ -181,26 +183,34 @@ export class CanvasService {
     );
     if (md_file_nodes.length === 0) return;
 
-    const contents = new Map<string, string>();
+    this.loading_note_contents = true;
+    try {
+      const contents = new Map<string, string>();
 
-    await Promise.all(
-      md_file_nodes.map(async (node) => {
-        try {
-          const doc = await notes_port.read_note(vault_id, node.file as NoteId);
-          let md = String(doc.markdown);
-          if (node.subpath) {
-            md = extract_subpath_section(md, node.subpath);
+      await Promise.all(
+        md_file_nodes.map(async (node) => {
+          try {
+            const doc = await notes_port.read_note(
+              vault_id,
+              node.file as NoteId,
+            );
+            let md = String(doc.markdown);
+            if (node.subpath) {
+              md = extract_subpath_section(md, node.subpath);
+            }
+            md = truncate_for_canvas(md);
+            contents.set(node.id, render_markdown_to_html(md));
+          } catch {
+            // Skip nodes whose files can't be read
           }
-          md = truncate_for_canvas(md);
-          contents.set(node.id, render_markdown_to_html(md));
-        } catch {
-          // Skip nodes whose files can't be read
-        }
-      }),
-    );
+        }),
+      );
 
-    if (contents.size > 0) {
-      this.canvas_store.set_note_contents(tab_id, contents);
+      if (contents.size > 0) {
+        this.canvas_store.set_note_contents(tab_id, contents);
+      }
+    } finally {
+      this.loading_note_contents = false;
     }
   }
 
