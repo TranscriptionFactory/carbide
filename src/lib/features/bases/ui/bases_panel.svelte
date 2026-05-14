@@ -285,15 +285,10 @@
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
       >
-        {#each [
-          { mode: "table" as ViewMode, icon: Table, label: "Table" },
-          { mode: "list" as ViewMode, icon: List, label: "List" },
-          { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" },
-          { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" },
-          { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" },
-        ] as view_option}
+        {#each [{ mode: "table" as ViewMode, icon: Table, label: "Table" }, { mode: "list" as ViewMode, icon: List, label: "List" }, { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" }, { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" }, { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" }] as view_option}
           <button
-            class="p-1 rounded {bases_store.active_view_mode === view_option.mode
+            class="p-1 rounded {bases_store.active_view_mode ===
+            view_option.mode
               ? 'bg-white dark:bg-zinc-800 shadow-sm'
               : ''}"
             onclick={() => (bases_store.active_view_mode = view_option.mode)}

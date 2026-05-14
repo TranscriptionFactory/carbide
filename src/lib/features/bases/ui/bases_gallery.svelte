@@ -33,7 +33,9 @@
           </h3>
 
           {#if row.note.blurb}
-            <p class="text-[11px] text-zinc-500 line-clamp-2">{row.note.blurb}</p>
+            <p class="text-[11px] text-zinc-500 line-clamp-2">
+              {row.note.blurb}
+            </p>
           {/if}
 
           {#if row.tags.length > 0}
@@ -73,7 +75,8 @@
               >
                 <div
                   class="h-full bg-emerald-500 rounded-full"
-                  style="width: {(row.stats.tasks_done / row.stats.task_count) * 100}%"
+                  style="width: {(row.stats.tasks_done / row.stats.task_count) *
+                    100}%"
                 ></div>
               </div>
               <span class="text-[10px] text-zinc-400 tabular-nums shrink-0">

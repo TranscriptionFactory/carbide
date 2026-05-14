@@ -233,7 +233,9 @@
 
   {#if focus_mode_active}
     <div class="GraphPanel__focus_bar">
-      <span>Focused: {stores.graph.focus_node_path?.split("/").pop() ?? ""}</span>
+      <span
+        >Focused: {stores.graph.focus_node_path?.split("/").pop() ?? ""}</span
+      >
       <Button
         variant="ghost"
         size="sm"
@@ -282,10 +284,7 @@
           )}
         on_open_node={open_existing_node}
         on_dblclick_node={(path) =>
-          void action_registry.execute(
-            ACTION_IDS.graph_enter_focus_mode,
-            path,
-          )}
+          void action_registry.execute(ACTION_IDS.graph_enter_focus_mode, path)}
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         focus_node_path={focus_mode_active

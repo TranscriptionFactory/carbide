@@ -71,10 +71,7 @@ describe("group_rows_by_property", () => {
   });
 
   it("(unset) column sorts last", () => {
-    const rows = [
-      make_row("a.md", {}),
-      make_row("b.md", { status: "alpha" }),
-    ];
+    const rows = [make_row("a.md", {}), make_row("b.md", { status: "alpha" })];
 
     const columns = group_rows_by_property(rows, "status");
     expect(columns[columns.length - 1]!.value).toBe("(unset)");
