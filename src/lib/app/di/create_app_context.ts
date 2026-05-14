@@ -61,7 +61,11 @@ import {
   plugin_http_fetch,
   external_mcp_tauri_adapter,
 } from "$lib/features/plugin";
-import { CanvasService, register_canvas_actions } from "$lib/features/canvas";
+import {
+  CanvasService,
+  register_canvas_actions,
+  register_graph_canvas_actions,
+} from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
 import { LintService, register_lint_actions } from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
@@ -1182,6 +1186,13 @@ export function create_app_context(input: {
   register_canvas_actions({
     ...base_action_input,
     canvas_service,
+  });
+
+  register_graph_canvas_actions({
+    ...base_action_input,
+    canvas_service,
+    graph_store: stores.graph,
+    search_graph_store: stores.search_graph,
   });
 
   register_tag_actions(action_registry, tag_service, stores.tag, stores.ui);

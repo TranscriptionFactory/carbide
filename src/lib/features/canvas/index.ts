@@ -3,6 +3,7 @@ export {
   type CanvasEdge,
   type CanvasData,
   type Camera,
+  type FileNode,
 } from "$lib/features/canvas/types/canvas";
 export {
   parse_canvas,
@@ -22,6 +23,7 @@ export { type CanvasPort } from "$lib/features/canvas/ports";
 export { create_canvas_tauri_adapter } from "$lib/features/canvas/adapters/canvas_tauri_adapter";
 export { CanvasService } from "$lib/features/canvas/application/canvas_service";
 export { register_canvas_actions } from "$lib/features/canvas/application/canvas_actions";
+export { register_graph_canvas_actions } from "$lib/features/canvas/application/graph_canvas_actions";
 export { default as CanvasViewer } from "$lib/features/canvas/ui/canvas_viewer.svelte";
 export { default as CanvasPanel } from "$lib/features/canvas/ui/canvas_panel.svelte";
 export { default as SaveCanvasDialog } from "$lib/features/canvas/ui/save_canvas_dialog.svelte";

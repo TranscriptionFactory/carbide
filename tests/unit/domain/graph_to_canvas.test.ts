@@ -40,17 +40,18 @@ describe("graph_to_canvas", () => {
       const center = result.nodes.find(
         (n) => n.type === "file" && n.file === "center.md",
       );
-      expect(center).toBeDefined();
       const left = result.nodes.find(
         (n) => n.type === "file" && n.file === "backlink.md",
       );
       const right = result.nodes.find(
         (n) => n.type === "file" && n.file === "outlink.md",
       );
+      expect(center).toBeDefined();
       expect(left).toBeDefined();
       expect(right).toBeDefined();
-      expect(center!.x).toBeGreaterThan(left!.x);
-      expect(center!.x).toBeLessThan(right!.x);
+      if (!center || !left || !right) return;
+      expect(center.x).toBeGreaterThan(left.x);
+      expect(center.x).toBeLessThan(right.x);
     });
 
     it("maps edges to canvas edges with arrows", () => {
