@@ -312,6 +312,10 @@ export const ACTION_IDS = {
   canvas_confirm_create: "canvas.confirm_create",
   canvas_cancel_create: "canvas.cancel_create",
   canvas_repair_refs: "canvas.repair_refs",
+  canvas_load_note_contents: "canvas.load_note_contents",
+  canvas_export_neighborhood_as_canvas: "canvas.export_neighborhood_as_canvas",
+  canvas_export_vault_graph_as_canvas: "canvas.export_vault_graph_as_canvas",
+  canvas_export_search_graph_as_canvas: "canvas.export_search_graph_as_canvas",
 
   links_insert_suggested_link: "links.insert_suggested_link",
 
