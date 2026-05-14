@@ -44,10 +44,23 @@ export interface PropertyInfo {
   unique_values: string[] | null;
 }
 
+export type ViewMode = "table" | "list" | "kanban" | "gallery" | "calendar";
+
+export type KanbanConfig = {
+  group_by: string;
+  column_order?: string[];
+};
+
+export type CalendarConfig = {
+  date_property: string;
+};
+
 export interface BaseViewDefinition {
   name: string;
   query: BaseQuery;
   view_mode: string;
+  kanban_config?: KanbanConfig;
+  calendar_config?: CalendarConfig;
 }
 
 export interface SavedViewInfo {
