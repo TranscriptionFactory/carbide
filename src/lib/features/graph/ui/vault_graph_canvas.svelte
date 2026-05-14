@@ -10,6 +10,7 @@
   } from "$lib/features/graph/domain/vault_graph_renderer";
   import { compute_degradation_profile } from "$lib/features/graph/domain/graph_degrade";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
+  import { radial_layout } from "$lib/features/graph/domain/radial_layout";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
   import { rule_chip_label } from "$lib/features/smart_links";
   import type { Theme } from "$lib/shared/types/theme";
@@ -37,6 +38,8 @@
     on_dblclick_node?: ((path: string) => void) | undefined;
     on_expand_node?: ((path: string) => void) | undefined;
     on_clusters_computed?: ((assignments: Record<string, number>) => void) | undefined;
+    focus_node_path?: string | null;
+    on_exit_focus?: (() => void) | undefined;
     force_params?: {
       link_distance: number;
       charge_strength: number;
@@ -63,6 +66,8 @@
     on_expand_node,
     on_clusters_computed,
     group_mode = "folder",
+    focus_node_path = null,
+    on_exit_focus,
     force_params,
   }: Props = $props();
 
@@ -290,6 +295,28 @@
     renderer?.set_smart_link_edges(smart_link_edges, show_smart_link_edges);
   });
 
+  $effect(() => {
+    if (!renderer_ready || !renderer) return;
+    if (focus_node_path) {
+      const result = radial_layout(focus_node_path, plain_edges(snapshot));
+      renderer.update_positions(result.positions);
+      const focus_set = new Set<string>([focus_node_path]);
+      for (const id of result.neighbor_ids_1hop) focus_set.add(id);
+      for (const id of result.neighbor_ids_2hop) focus_set.add(id);
+      renderer.set_filter(focus_set);
+    } else {
+      renderer.set_filter(
+        filter_override_ids ?? compute_filter_set(filter_query, snapshot),
+      );
+    }
+  });
+
+  function handle_keydown(event: KeyboardEvent) {
+    if (event.key === "Escape" && focus_node_path && on_exit_focus) {
+      on_exit_focus();
+    }
+  }
+
   function format_tooltip(info: EdgeHoverInfo): string {
     const parts = info.rules.map(
       (r) =>
@@ -299,12 +326,16 @@
   }
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   class="VaultGraph"
   role="img"
   aria-label="Full vault graph"
+  tabindex="-1"
   oncontextmenu={(e) => e.preventDefault()}
   onclick={close_context_menu}
+  onkeydown={handle_keydown}
 >
   <div class="VaultGraph__canvas" use:init_canvas></div>
 
