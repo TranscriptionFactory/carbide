@@ -102,6 +102,7 @@ import { mount_reactors } from "$lib/reactors";
 import { Blocks, PencilRuler, BookMarked, Database } from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import { is_linked_note_path } from "$lib/shared/types/note";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
 
@@ -277,9 +278,21 @@ export function create_app_context(input: {
         file_path.startsWith("./") || file_path.startsWith("../")
           ? resolve_relative_asset_path(base_note_path, file_path)
           : file_path;
-      void action_registry.execute(ACTION_IDS.document_open, {
-        file_path: resolved,
-      });
+      if (is_linked_note_path(resolved)) {
+        void reference_service
+          .resolve_linked_note_file_path(resolved)
+          .then((abs_path) => {
+            if (abs_path) {
+              void action_registry.execute(ACTION_IDS.document_open, {
+                file_path: abs_path,
+              });
+            }
+          });
+      } else {
+        void action_registry.execute(ACTION_IDS.document_open, {
+          file_path: resolved,
+        });
+      }
     },
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),
