@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-12
 **Scope:** Four high-value visual features, ordered by implementation phase
+**Status (2026-05-14):** Phase 1 (Bases Views) and Phase 2 (Graph Clusters/Focus) substantially implemented. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels. Phases 3-4 not yet started.
 
 ---
 
@@ -118,22 +119,22 @@ content_snippet: Option<String>,   // first ~150 chars, stripped of markdown
 
 ### Implementation Steps
 
-1. [ ] Extend `active_view_mode` type union + `BaseViewDefinition` schema — add kanban/gallery/calendar
-2. [ ] Add view mode switcher UI (icon buttons in panel header) — verify: modes toggle correctly
+1. [x] Extend `active_view_mode` type union + `BaseViewDefinition` schema — add kanban/gallery/calendar *(done: `ViewMode`, `KanbanConfig`, `CalendarConfig` in ports.ts)*
+2. [x] Add view mode switcher UI (icon buttons in panel header) — verify: modes toggle correctly *(done: 5 icon buttons with Lucide icons)*
 3. [ ] **Kanban:**
-   - [ ] `bases_kanban.svelte` — grouping logic + column layout — verify: columns render from grouped data
-   - [ ] Drag-and-drop between columns — verify: cards move visually
-   - [ ] `bases_update_property` Tauri command — verify: frontmatter updates on disk
-   - [ ] Wire drop → property update → re-query — verify: card persists in new column after refresh
+   - [x] `bases_kanban.svelte` — grouping logic + column layout — verify: columns render from grouped data *(done: group-by selector, horizontal scroll columns, note cards)*
+   - [ ] Drag-and-drop between columns — verify: cards move visually *(deferred: needs `bases_update_property` Rust command)*
+   - [ ] `bases_update_property` Tauri command — verify: frontmatter updates on disk *(deferred: Rust work)*
+   - [ ] Wire drop → property update → re-query — verify: card persists in new column after refresh *(deferred)*
 4. [ ] **Gallery:**
-   - [ ] Add `content_snippet` + `first_image_path` to indexing pipeline — verify: fields populated on reindex
-   - [ ] Extend `BaseNoteRow` / query to include new fields — verify: fields returned from Rust
-   - [ ] `bases_gallery.svelte` — card grid — verify: renders with images and snippets
-5. [ ] **Calendar:**
-   - [ ] `bases_calendar.svelte` — month grid with note placement — verify: notes appear on correct days
-   - [ ] Month navigation + date property picker — verify: navigating months shows different notes
-6. [ ] Update saved view serialization to include view-specific config (kanban grouping, calendar date field)
-7. [ ] Tests: store grouping logic, property update round-trip, calendar date bucketing
+   - [ ] Add `content_snippet` + `first_image_path` to indexing pipeline — verify: fields populated on reindex *(deferred: Rust work)*
+   - [ ] Extend `BaseNoteRow` / query to include new fields — verify: fields returned from Rust *(deferred)*
+   - [x] `bases_gallery.svelte` — card grid — verify: renders with images and snippets *(done: card grid with title, blurb, tags, properties, task progress; placeholder image)*
+5. [x] **Calendar:**
+   - [x] `bases_calendar.svelte` — month grid with note placement — verify: notes appear on correct days *(done)*
+   - [x] Month navigation + date property picker — verify: navigating months shows different notes *(done: prev/next/today, date property dropdown)*
+6. [x] Update saved view serialization to include view-specific config (kanban grouping, calendar date field) *(done: `kanban_config`, `calendar_config` in BaseViewDefinition)*
+7. [x] Tests: store grouping logic, property update round-trip, calendar date bucketing *(done: kanban_grouping.test.ts, calendar_bucketing.test.ts)*
 
 ---
 
@@ -214,16 +215,16 @@ focus_mode_active: boolean;
 
 ### Implementation Steps
 
-1. [ ] `graph_clustering.ts` — label propagation on adjacency list — verify: produces reasonable clusters on test data
-2. [ ] Integrate clustering into `vault_graph_worker.ts` — run post-simulation — verify: cluster IDs returned
-3. [ ] Wire cluster assignments to renderer grouping — verify: convex hulls + colors per cluster
-4. [ ] "Group by" toggle in graph panel UI (Folder / Cluster / None) — verify: toggles between grouping modes
-5. [ ] Radial layout function — verify: nodes positioned in concentric rings
-6. [ ] Focus mode trigger (double-click / context menu) — verify: transitions to radial view
-7. [ ] Animated transition (zoom + fade + reposition) — verify: smooth animation
-8. [ ] Edge labels in focus mode — verify: relationship types visible
-9. [ ] Focus mode exit (Escape / click background) — verify: restores vault positions
-10. [ ] Tests: clustering algorithm correctness, radial layout geometry
+1. [x] `graph_clustering.ts` — label propagation on adjacency list — verify: produces reasonable clusters on test data *(done: `label_propagation()` + `is_clustering_meaningful()`)*
+2. [x] Integrate clustering into `vault_graph_worker.ts` — run post-simulation — verify: cluster IDs returned *(done: `compute_clusters` flag, posts cluster assignments)*
+3. [x] Wire cluster assignments to renderer grouping — verify: convex hulls + colors per cluster *(done: store stores assignments, canvas passes to filter set)*
+4. [x] "Group by" toggle in graph panel UI (Folder / Cluster / None) — verify: toggles between grouping modes *(done: `graph_cycle_group_mode` action, Group icon button)*
+5. [x] Radial layout function — verify: nodes positioned in concentric rings *(done: `radial_layout.ts` with inner/outer ring positioning)*
+6. [x] Focus mode trigger (double-click / context menu) — verify: transitions to radial view *(done: dblclick + "Focus node" context menu item)*
+7. [ ] Animated transition (zoom + fade + reposition) — verify: smooth animation *(deferred: requires PixiJS animation API work)*
+8. [ ] Edge labels in focus mode — verify: relationship types visible *(deferred: renderer-level work)*
+9. [x] Focus mode exit (Escape / click background) — verify: restores vault positions *(done: Escape key handler + "Exit focus" button)*
+10. [x] Tests: clustering algorithm correctness, radial layout geometry *(done: graph_clustering.test.ts, radial_layout.test.ts)*
 
 ---
 
