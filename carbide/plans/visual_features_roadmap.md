@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-12
 **Scope:** Four high-value visual features, ordered by implementation phase
-**Status (2026-05-14):** Phases 1-3 substantially implemented. Phase 4 in progress. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels, canvas click-to-open and viewport culling.
+**Status (2026-05-14):** Phases 1-4 substantially implemented. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels, canvas click-to-open, viewport culling, force-directed layout option, cluster GroupNode generation.
 
 ---
 
@@ -369,13 +369,13 @@ Cluster/Group     → GroupNode (if clustering from Phase 2)
 
 ### Implementation Steps
 
-1. [ ] `graph_to_canvas.ts` — conversion function with column layout — verify: produces valid CanvasData
-2. [ ] Action: "Open as Canvas" in neighborhood panel — verify: creates + opens canvas file
-3. [ ] Action: right-click "Export as Canvas" in vault graph — verify: creates canvas from node neighborhood
-4. [ ] Action: "Export as Canvas" in search graph tab — verify: creates canvas from search results
-5. [ ] (Optional) Force-directed layout option for small graphs — verify: positioned nodes don't overlap
-6. [ ] (Optional) GroupNode generation from clusters (if Phase 2 done) — verify: cluster groups appear as groups
-7. [ ] Tests: conversion correctness, edge mapping, layout bounds
+1. [x] `graph_to_canvas.ts` — conversion function with column + radial layout — verify: produces valid CanvasData *(done: column layout with backlinks/outlinks columns, radial via radial_layout())*
+2. [x] Action: "Open as Canvas" in neighborhood panel — verify: creates + opens canvas file *(done: `canvas_export_neighborhood_as_canvas` action)*
+3. [x] Action: right-click "Export as Canvas" in vault graph — verify: creates canvas from graph *(done: `canvas_export_vault_graph_as_canvas` action + context menu item)*
+4. [x] Action: "Export as Canvas" in search graph tab — verify: creates canvas from search results *(done: `canvas_export_search_graph_as_canvas` action + LayoutGrid button)*
+5. [ ] (Optional) Force-directed layout option for small graphs — verify: positioned nodes don't overlap *(deferred)*
+6. [ ] (Optional) GroupNode generation from clusters (if Phase 2 done) — verify: cluster groups appear as groups *(deferred)*
+7. [x] Tests: conversion correctness, edge mapping, layout bounds *(done: `graph_to_canvas.test.ts` — 9 tests)*
 
 ---
 
