@@ -1,4 +1,10 @@
-import { TextSelection, Plugin, PluginKey } from "prosemirror-state";
+import {
+  TextSelection,
+  Plugin,
+  PluginKey,
+  type EditorState,
+  type Transaction,
+} from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { yUndoPlugin, undo as yUndo, redo as yRedo } from "y-prosemirror";
 import { history, undo as pmUndo, redo as pmRedo } from "prosemirror-history";
@@ -25,6 +31,83 @@ import {
   duplicate_block,
 } from "../adapters/block_transforms";
 import type { EditorExtension, PluginContext } from "./types";
+
+function extend_selection_down(
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void,
+): boolean {
+  const { doc, selection } = state;
+  const anchor = selection.$anchor.pos;
+  const head = selection.$head.pos;
+  const $head = doc.resolve(head);
+
+  let target = doc.content.size;
+  for (let depth = $head.depth; depth >= 1; depth--) {
+    const parent = $head.node(depth);
+    if (parent.type.spec.isolating && parent.type.spec.atom) {
+      return false;
+    }
+    const end_of_parent = $head.end(depth);
+    if (head < end_of_parent) {
+      target = end_of_parent;
+      break;
+    }
+    target = $head.after(depth);
+    const next_node = doc.nodeAt(target);
+    if (next_node) {
+      target = target + next_node.nodeSize;
+      break;
+    }
+  }
+
+  if (target === head) return false;
+  if (!dispatch) return true;
+
+  const clamped = Math.min(target, doc.content.size);
+  const tr = state.tr.setSelection(
+    TextSelection.create(doc, anchor, clamped),
+  );
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function extend_selection_up(
+  state: EditorState,
+  dispatch?: (tr: Transaction) => void,
+): boolean {
+  const { doc, selection } = state;
+  const anchor = selection.$anchor.pos;
+  const head = selection.$head.pos;
+  const $head = doc.resolve(head);
+
+  let target = 0;
+  for (let depth = $head.depth; depth >= 1; depth--) {
+    const parent = $head.node(depth);
+    if (parent.type.spec.isolating && parent.type.spec.atom) {
+      return false;
+    }
+    const start_of_parent = $head.start(depth);
+    if (head > start_of_parent) {
+      target = start_of_parent;
+      break;
+    }
+    target = $head.before(depth);
+    const before = target - 1;
+    if (before >= 0) {
+      const $before = doc.resolve(before);
+      target = $before.start($before.depth);
+      break;
+    }
+  }
+
+  if (target === head) return false;
+  if (!dispatch) return true;
+
+  const clamped = Math.max(target, 0);
+  const tr = state.tr.setSelection(TextSelection.create(doc, anchor, clamped));
+  dispatch(tr.scrollIntoView());
+  return true;
+}
 
 export function create_core_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
@@ -110,6 +193,13 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
       "Mod-Shift-2": create_turn_into_command("heading", { level: 2 }),
       "Mod-Shift-3": create_turn_into_command("heading", { level: 3 }),
       "Mod-Shift-d": duplicate_block,
+    }),
+  );
+
+  plugins.push(
+    keymap({
+      "Mod-Shift-ArrowDown": extend_selection_down,
+      "Mod-Shift-ArrowUp": extend_selection_up,
     }),
   );
 
