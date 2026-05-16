@@ -11,7 +11,7 @@ use serde::Serialize;
 use specta::Type;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -253,6 +253,7 @@ struct ServerInner {
     running: bool,
 }
 
+#[derive(Clone)]
 pub struct HttpServerState {
     inner: Arc<tokio::sync::Mutex<ServerInner>>,
     port: u16,
@@ -361,6 +362,17 @@ pub async fn http_server_status(
     state: tauri::State<'_, HttpServerState>,
 ) -> Result<HttpServerInfo, String> {
     Ok(state.get_info().await)
+}
+
+pub fn http_server_auto_start(app: &AppHandle) {
+    let state = app.state::<HttpServerState>();
+    let app_handle = app.clone();
+    let state_clone = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = state_clone.start(app_handle).await {
+            log::error!("HTTP server auto-start failed: {}", e);
+        }
+    });
 }
 
 #[cfg(test)]

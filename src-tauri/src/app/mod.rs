@@ -163,6 +163,8 @@ pub fn run() {
 
             // STT init removed — archived on archive/stt-main
 
+            features::mcp::http::http_server_auto_start(app.handle());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
