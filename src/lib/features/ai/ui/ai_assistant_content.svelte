@@ -76,6 +76,12 @@
   const provider_config = $derived(providers.find((p) => p.id === provider_id));
   const is_ask_mode = $derived(mode === "ask");
   const last_turn = $derived(turns.length > 0 ? turns[turns.length - 1] : null);
+  const result_provider_name = $derived(
+    last_turn
+      ? (providers.find((p) => p.id === last_turn.provider_id)?.name ??
+          last_turn.provider_id)
+      : (provider_config?.name ?? "AI"),
+  );
   const last_turn_was_ask = $derived(last_turn?.mode === "ask");
   const result_is_answer = $derived(result !== null && last_turn_was_ask);
   const history_turns = $derived(
@@ -364,7 +370,7 @@
               >
                 Answer from
                 <span class="ml-1 text-foreground">
-                  {provider_config?.name ?? "AI"}
+                  {result_provider_name}
                 </span>
               </div>
               <div
@@ -381,7 +387,7 @@
                 >
                   Review the generated content before applying.
                   <span class="ml-1 text-foreground">
-                    Backend: {provider_config?.name ?? "AI"}
+                    Backend: {result_provider_name}
                   </span>
                 </div>
                 {#if draft_diff}
