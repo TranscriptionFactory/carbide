@@ -1,11 +1,9 @@
 import {
   TextSelection,
   Plugin,
-  PluginKey,
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
-import type { Node as ProseNode } from "prosemirror-model";
 import { yUndoPlugin, undo as yUndo, redo as yRedo } from "y-prosemirror";
 import { history, undo as pmUndo, redo as pmRedo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
@@ -64,9 +62,7 @@ function extend_selection_down(
   if (!dispatch) return true;
 
   const clamped = Math.min(target, doc.content.size);
-  const tr = state.tr.setSelection(
-    TextSelection.create(doc, anchor, clamped),
-  );
+  const tr = state.tr.setSelection(TextSelection.create(doc, anchor, clamped));
   dispatch(tr.scrollIntoView());
   return true;
 }

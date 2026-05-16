@@ -118,11 +118,14 @@
     {#if error_msg.startsWith("file_too_large:")}
       {@const size_bytes = Number(error_msg.split(":")[1])}
       <div class="DocumentViewer__state DocumentViewer__state--large-file">
-        <span>This file is {format_bytes(size_bytes)} — exceeds the 5 MB display limit.</span>
+        <span
+          >This file is {format_bytes(size_bytes)} — exceeds the 5 MB display limit.</span
+        >
         <button
           type="button"
           class="DocumentViewer__load-btn"
-          onclick={() => services.document.force_load_content(viewer_state.tab_id)}
+          onclick={() =>
+            services.document.force_load_content(viewer_state.tab_id)}
         >
           Load anyway
         </button>
