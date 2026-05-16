@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   prose_cursor_to_md_offset,
   md_offset_to_prose_pos,
+  prose_cursor_to_block_anchor,
+  block_anchor_to_prose_pos,
 } from "$lib/features/editor/adapters/cursor_offset_mapper";
 import {
   parse_markdown,
@@ -186,5 +188,52 @@ describe("md_offset_to_prose_pos", () => {
     const md_off = prose_cursor_to_md_offset(doc, 10, serialized);
     const back = md_offset_to_prose_pos(doc, md_off, serialized);
     expect(Math.abs(back - 10)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("prose_cursor_to_block_anchor / block_anchor_to_prose_pos", () => {
+  it("returns block 0 offset 0 for position 0", () => {
+    const doc = md_doc("hello");
+    const anchor = prose_cursor_to_block_anchor(doc, 0);
+    expect(anchor).toEqual({ block_index: 0, offset_in_block: 0 });
+  });
+
+  it("identifies first block with offset", () => {
+    const doc = md_doc("hello world");
+    const anchor = prose_cursor_to_block_anchor(doc, 4);
+    expect(anchor.block_index).toBe(0);
+    expect(anchor.offset_in_block).toBe(3);
+  });
+
+  it("identifies second block in multi-paragraph doc", () => {
+    const md = "first paragraph\n\nsecond paragraph";
+    const doc = md_doc(md);
+    const first_block_size = doc.child(0).nodeSize;
+    const cursor_in_second = first_block_size + 3;
+    const anchor = prose_cursor_to_block_anchor(doc, cursor_in_second);
+    expect(anchor.block_index).toBe(1);
+    expect(anchor.offset_in_block).toBe(2);
+  });
+
+  it("round-trips through block anchor", () => {
+    const md = "# Heading\n\nSome body text\n\n```\ncode\n```\n\nAfter code";
+    const doc = md_doc(md);
+    for (const pos of [1, 5, 15, doc.content.size - 3]) {
+      const clamped = Math.min(pos, doc.content.size);
+      const anchor = prose_cursor_to_block_anchor(doc, clamped);
+      const restored = block_anchor_to_prose_pos(doc, anchor);
+      expect(restored).toBe(clamped);
+    }
+  });
+
+  it("preserves position across reparse (simulating mode toggle)", () => {
+    const md = "---\ntitle: Test\n---\n\n# Hello\n\nWorld paragraph";
+    const doc1 = md_doc(md);
+    const cursor = 5;
+    const clamped = Math.min(cursor, doc1.content.size);
+    const anchor = prose_cursor_to_block_anchor(doc1, clamped);
+    const doc2 = md_doc(md);
+    const restored = block_anchor_to_prose_pos(doc2, anchor);
+    expect(restored).toBe(clamped);
   });
 });
