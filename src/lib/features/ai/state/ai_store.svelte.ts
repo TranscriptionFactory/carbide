@@ -84,7 +84,6 @@ export class AiStore {
 
   set_provider(provider_id: string) {
     this.dialog.provider_id = provider_id;
-    this.dialog.result = null;
     this.dialog.cli_status = "idle";
     this.dialog.cli_error = null;
   }
