@@ -1,5 +1,9 @@
 export interface DocumentPort {
-  read_file(vault_id: string, relative_path: string): Promise<string>;
+  read_file(
+    vault_id: string,
+    relative_path: string,
+    force?: boolean,
+  ): Promise<string>;
   write_file(
     vault_id: string,
     relative_path: string,

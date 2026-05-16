@@ -36,6 +36,7 @@ describe("DocumentService", () => {
     expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "docs/demo.txt",
+      undefined,
     );
     expect(document_store.get_viewer_state("tab-1")?.load_status).toBe("ready");
     expect(document_store.get_content_state("tab-1")?.content).toBe(
@@ -59,6 +60,7 @@ describe("DocumentService", () => {
     expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "docs/page.html",
+      undefined,
     );
     expect(document_store.get_content_state("tab-1")?.content).toBe(
       "file content here",
@@ -69,6 +71,7 @@ describe("DocumentService", () => {
     expect(document_port.read_file).toHaveBeenCalledWith(
       vault_store.vault?.id,
       "scripts/demo.py",
+      undefined,
     );
     expect(document_store.get_content_state("tab-2")?.content).toBe(
       "file content here",

@@ -52,12 +52,16 @@ export class DocumentService {
     await this.ensure_content(tab_id);
   }
 
-  async ensure_content(tab_id: string): Promise<void> {
+  async force_load_content(tab_id: string): Promise<void> {
+    await this.ensure_content(tab_id, true);
+  }
+
+  async ensure_content(tab_id: string, force?: boolean): Promise<void> {
     const viewer_state = this.document_store.get_viewer_state(tab_id);
     if (!viewer_state) return;
 
     const existing = this.document_store.get_content_state(tab_id);
-    if (existing?.status === "ready") {
+    if (!force && existing?.status === "ready") {
       this.document_store.touch_content_state(tab_id, this.now_ms());
       return;
     }
@@ -94,6 +98,7 @@ export class DocumentService {
         const content = await this.document_port.read_file(
           vault_id,
           viewer_state.file_path,
+          force,
         );
 
         const current_viewer = this.document_store.get_viewer_state(tab_id);
