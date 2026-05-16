@@ -21,6 +21,9 @@ import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/mark
 import {
   prose_cursor_to_md_offset,
   md_offset_to_prose_pos,
+  prose_cursor_to_block_anchor,
+  block_anchor_to_prose_pos,
+  type BlockAnchor,
 } from "$lib/features/editor/adapters/cursor_offset_mapper";
 import { count_words } from "$lib/shared/utils/count_words";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -1083,6 +1086,22 @@ export function create_prosemirror_editor_port(args?: {
             view.dispatch(view.state.tr.setSelection(selection));
           } catch (error: unknown) {
             log.error("Failed to restore cursor position", { error });
+          }
+        },
+        get_cursor_block_anchor(): BlockAnchor {
+          if (!view) return { block_index: 0, offset_in_block: 0 };
+          const { from } = view.state.selection;
+          return prose_cursor_to_block_anchor(view.state.doc, from);
+        },
+        set_cursor_from_block_anchor(anchor: BlockAnchor) {
+          if (!view) return;
+          const pos = block_anchor_to_prose_pos(view.state.doc, anchor);
+          const clamped = Math.min(pos, view.state.doc.content.size);
+          try {
+            const selection = TextSelection.create(view.state.doc, clamped);
+            view.dispatch(view.state.tr.setSelection(selection));
+          } catch (error: unknown) {
+            log.error("Failed to restore cursor from block anchor", { error });
           }
         },
         set_editable(editable: boolean) {

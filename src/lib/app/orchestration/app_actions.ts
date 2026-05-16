@@ -376,6 +376,7 @@ export function register_app_actions(input: ActionRegistrationInput) {
 
       if (current === "visual") {
         const md_offset = services.editor.get_cursor_markdown_offset();
+        const block_anchor = services.editor.get_cursor_block_anchor();
         const flush_result = services.editor.flush();
         if (flush_result) {
           const scroll_top = services.editor.get_scroll_top();
@@ -388,15 +389,21 @@ export function register_app_actions(input: ActionRegistrationInput) {
           editor_store.set_cursor_offset(
             Math.min(md_offset, flush_result.markdown.length),
           );
+          editor_store.set_cursor_block_anchor(block_anchor);
         }
       } else if (current === "source") {
+        const block_anchor = editor_store.cursor_block_anchor;
         const cursor_offset = editor_store.cursor_offset;
         services.editor.flush();
         const open_note = editor_store.open_note;
         if (open_note) {
           services.editor.sync_visual_from_markdown(open_note.markdown);
           services.editor.set_editable(true);
-          services.editor.set_cursor_from_markdown_offset(cursor_offset);
+          if (block_anchor) {
+            services.editor.set_cursor_from_block_anchor(block_anchor);
+          } else {
+            services.editor.set_cursor_from_markdown_offset(cursor_offset);
+          }
           if (!open_note.is_dirty) {
             services.editor.mark_clean_from_editor();
           }

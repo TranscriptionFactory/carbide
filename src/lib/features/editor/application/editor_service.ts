@@ -543,6 +543,21 @@ export class EditorService {
     this.session?.set_cursor_from_markdown_offset?.(offset);
   }
 
+  get_cursor_block_anchor(): import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor {
+    return (
+      this.session?.get_cursor_block_anchor?.() ?? {
+        block_index: 0,
+        offset_in_block: 0,
+      }
+    );
+  }
+
+  set_cursor_from_block_anchor(
+    anchor: import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor,
+  ) {
+    this.session?.set_cursor_from_block_anchor?.(anchor);
+  }
+
   scroll_to_position(pos: number) {
     this.session?.scroll_to_position?.(pos);
   }
