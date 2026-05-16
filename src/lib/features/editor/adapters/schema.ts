@@ -347,7 +347,6 @@ const details_block: NodeSpec = {
 const details_summary: NodeSpec = {
   content: "inline*",
   defining: true,
-  isolating: true,
   parseDOM: [{ tag: "summary" }],
   toDOM() {
     return ["summary", { class: "details-block__summary" }, 0];
@@ -408,7 +407,6 @@ const callout: NodeSpec = {
 const callout_title: NodeSpec = {
   content: "inline*",
   defining: true,
-  isolating: true,
   parseDOM: [{ tag: "div[data-callout-title]" }],
   toDOM() {
     return [
