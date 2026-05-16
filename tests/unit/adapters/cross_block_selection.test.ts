@@ -17,13 +17,14 @@ function make_callout(title_text: string, body_text: string) {
     null,
     title_text ? schema.text(title_text) : undefined,
   );
-  const body = schema.nodes.callout_body.create(null, [
-    make_para(body_text),
-  ]);
+  const body = schema.nodes.callout_body.create(null, [make_para(body_text)]);
   return schema.nodes.callout.create(null, [title, body]);
 }
 
-function make_state(doc: ReturnType<typeof schema.nodes.doc.create>, pos: number) {
+function make_state(
+  doc: ReturnType<typeof schema.nodes.doc.create>,
+  pos: number,
+) {
   const state = EditorState.create({ doc, schema });
   return state.apply(
     state.tr.setSelection(TextSelection.create(state.doc, pos)),
