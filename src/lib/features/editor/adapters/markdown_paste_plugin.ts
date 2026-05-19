@@ -1,6 +1,7 @@
 import { Plugin } from "prosemirror-state";
 import { Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
+import type { EditorView } from "prosemirror-view";
 import { pick_paste_mode } from "./markdown_paste_utils";
 import { html_to_markdown } from "$lib/shared/html";
 
@@ -26,6 +27,82 @@ function is_single_list_block(content: Slice["content"]): boolean {
   if (content.childCount !== 1) return false;
   const list = content.firstChild;
   return list !== null && is_list_node(list);
+}
+
+function has_clipboard_files(data: DataTransfer): boolean {
+  for (const item of Array.from(data.items)) {
+    if (item.kind === "file") return true;
+  }
+  return false;
+}
+
+type ParseFn = (markdown: string) => { content: Slice["content"] };
+
+export function insert_parsed_content(
+  view: EditorView,
+  source: string,
+  parse_fn: ParseFn,
+): boolean {
+  if (source.trim() === "") return false;
+
+  let doc: ReturnType<ParseFn>;
+  try {
+    doc = parse_fn(source);
+  } catch {
+    return false;
+  }
+
+  const is_single_textblock =
+    doc.content.childCount === 1 &&
+    doc.content.firstChild !== null &&
+    doc.content.firstChild.isTextblock;
+
+  const $from = view.state.selection.$from;
+  const cursor_in_list = $from.depth > 0 && is_list_node($from.node(-1));
+
+  let open_depth: number;
+  if (is_single_textblock) {
+    open_depth = 1;
+  } else if (is_single_flat_list_item(doc.content)) {
+    open_depth = 2;
+  } else if (cursor_in_list && is_single_list_block(doc.content)) {
+    open_depth = 2;
+  } else {
+    open_depth = 0;
+  }
+
+  try {
+    view.dispatch(
+      view.state.tr.replaceSelection(
+        new Slice(doc.content, open_depth, open_depth),
+      ),
+    );
+  } catch {
+    try {
+      const paragraph_type = view.state.schema.nodes.paragraph;
+      if (!paragraph_type) return false;
+      const text_node = view.state.schema.text(source);
+      const paragraph = paragraph_type.create(null, text_node);
+      view.dispatch(view.state.tr.replaceSelectionWith(paragraph, false));
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function read_and_paste_async(
+  view: EditorView,
+  parse_fn: ParseFn,
+): Promise<void> {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) return;
+    const source = text.replace(/\r\n/g, "\n");
+    insert_parsed_content(view, source, parse_fn);
+  } catch {
+    /* permission denied or unavailable — no-op */
+  }
 }
 
 export function create_markdown_paste_prose_plugin(
@@ -55,7 +132,15 @@ export function create_markdown_paste_prose_plugin(
         const text_html = clipboardData.getData("text/html");
 
         const mode = pick_paste_mode({ text_markdown, text_plain, text_html });
-        if (mode === "none") return false;
+
+        if (mode === "none") {
+          if (!has_clipboard_files(clipboardData)) {
+            event.preventDefault();
+            void read_and_paste_async(view, parse_fn);
+            return true;
+          }
+          return false;
+        }
 
         if (mode === "url") {
           const url = text_plain.trim();
@@ -82,52 +167,8 @@ export function create_markdown_paste_prose_plugin(
             text_markdown.trim() !== "" ? text_markdown : text_plain
           ).replace(/\r\n/g, "\n");
         }
-        if (source.trim() === "") return false;
 
-        let doc: ReturnType<typeof parse_fn>;
-        try {
-          doc = parse_fn(source);
-        } catch {
-          return false;
-        }
-
-        const is_single_textblock =
-          doc.content.childCount === 1 &&
-          doc.content.firstChild !== null &&
-          doc.content.firstChild.isTextblock;
-
-        const $from = view.state.selection.$from;
-        const cursor_in_list = $from.depth > 0 && is_list_node($from.node(-1));
-
-        let open_depth: number;
-        if (is_single_textblock) {
-          open_depth = 1;
-        } else if (is_single_flat_list_item(doc.content)) {
-          open_depth = 2;
-        } else if (cursor_in_list && is_single_list_block(doc.content)) {
-          open_depth = 2;
-        } else {
-          open_depth = 0;
-        }
-
-        try {
-          view.dispatch(
-            view.state.tr.replaceSelection(
-              new Slice(doc.content, open_depth, open_depth),
-            ),
-          );
-        } catch {
-          try {
-            const paragraph_type = view.state.schema.nodes.paragraph;
-            if (!paragraph_type) return false;
-            const text_node = view.state.schema.text(source);
-            const paragraph = paragraph_type.create(null, text_node);
-            view.dispatch(view.state.tr.replaceSelectionWith(paragraph, false));
-          } catch {
-            return false;
-          }
-        }
-        return true;
+        return insert_parsed_content(view, source, parse_fn);
       },
     },
   });
