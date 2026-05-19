@@ -266,10 +266,10 @@
 
 <div class="h-full flex flex-col bg-white dark:bg-zinc-950">
   <div
-    class="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-800"
+    class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 space-y-1.5"
   >
-    <div class="flex items-center gap-3">
-      <h2 class="text-sm font-semibold">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold truncate">
         Bases{#if bases_store.active_view_name}<span
             class="font-normal text-zinc-500"
           >
@@ -282,8 +282,51 @@
               : ""}){/if}
         </span>
       </h2>
+      <div class="flex items-center gap-0.5 shrink-0">
+        <button
+          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {views_open
+            ? 'text-blue-500'
+            : ''}"
+          onclick={toggle_views}
+          aria-label="Saved views"
+          title="Saved views"
+        >
+          <FolderOpen size={14} />
+        </button>
+        <button
+          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
+          onclick={() =>
+            void action_registry.execute(ACTION_IDS.bases_open_as_tab)}
+          aria-label="Open bases in tab"
+          title="Open bases in tab"
+        >
+          <Maximize2 size={14} />
+        </button>
+        <button
+          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {filters_open ||
+          has_filters
+            ? 'text-blue-500'
+            : ''}"
+          onclick={() => (filters_open = !filters_open)}
+          aria-label="Toggle filters"
+        >
+          <Filter size={14} />
+        </button>
+        <button
+          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
+          onclick={refresh}
+          disabled={bases_store.loading}
+        >
+          <RefreshCw
+            size={14}
+            class={bases_store.loading ? "animate-spin" : ""}
+          />
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
       <div
-        class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5"
+        class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5 shrink-0"
       >
         {#each [{ mode: "table" as ViewMode, icon: Table, label: "Table" }, { mode: "list" as ViewMode, icon: List, label: "List" }, { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" }, { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" }, { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" }] as view_option}
           <button
@@ -298,7 +341,7 @@
           </button>
         {/each}
       </div>
-      <div class="relative flex items-center">
+      <div class="relative flex items-center flex-1 min-w-0">
         <Search
           size={12}
           class="absolute left-1.5 text-zinc-400 pointer-events-none"
@@ -309,7 +352,7 @@
           oninput={(e) =>
             on_search_input((e.currentTarget as HTMLInputElement).value)}
           placeholder="Search..."
-          class="text-xs pl-6 pr-6 py-1 w-36 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+          class="text-xs pl-6 pr-6 py-1 w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
         />
         {#if search_text}
           <button
@@ -320,7 +363,7 @@
           </button>
         {/if}
       </div>
-      <div class="relative">
+      <div class="relative flex-1 min-w-0">
         <div class="relative flex items-center">
           <FolderSearch
             size={12}
@@ -336,7 +379,7 @@
             onfocus={() => (folder_scope_open = true)}
             onblur={() => setTimeout(() => (folder_scope_open = false), 150)}
             placeholder="Folder..."
-            class="text-xs pl-6 pr-6 py-1 w-28 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
+            class="text-xs pl-6 pr-6 py-1 w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md"
           />
           {#if folder_scope}
             <button
@@ -366,47 +409,6 @@
           </div>
         {/if}
       </div>
-    </div>
-    <div class="flex items-center gap-1">
-      <button
-        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {views_open
-          ? 'text-blue-500'
-          : ''}"
-        onclick={toggle_views}
-        aria-label="Saved views"
-        title="Saved views"
-      >
-        <FolderOpen size={14} />
-      </button>
-      <button
-        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
-        onclick={() =>
-          void action_registry.execute(ACTION_IDS.bases_open_as_tab)}
-        aria-label="Open bases in tab"
-        title="Open bases in tab"
-      >
-        <Maximize2 size={14} />
-      </button>
-      <button
-        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors {filters_open ||
-        has_filters
-          ? 'text-blue-500'
-          : ''}"
-        onclick={() => (filters_open = !filters_open)}
-        aria-label="Toggle filters"
-      >
-        <Filter size={14} />
-      </button>
-      <button
-        class="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-md transition-colors"
-        onclick={refresh}
-        disabled={bases_store.loading}
-      >
-        <RefreshCw
-          size={14}
-          class={bases_store.loading ? "animate-spin" : ""}
-        />
-      </button>
     </div>
   </div>
 
