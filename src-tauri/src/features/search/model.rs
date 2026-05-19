@@ -142,6 +142,10 @@ pub struct BaseNoteRow {
     pub properties: BTreeMap<String, PropertyValue>,
     pub tags: Vec<String>,
     pub stats: NoteStats,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_snippet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_image_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Type)]

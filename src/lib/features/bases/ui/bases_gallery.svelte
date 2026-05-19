@@ -21,20 +21,31 @@
         class="text-left bg-white dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer overflow-hidden shadow-sm"
         onclick={() => on_note_click(row.note.path)}
       >
-        <div
-          class="h-24 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"
-        >
-          <span class="text-3xl opacity-30">📄</span>
-        </div>
+        {#if row.first_image_path}
+          <div class="h-24 bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+            <img
+              src="asset://localhost/{row.first_image_path}"
+              alt=""
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        {:else}
+          <div
+            class="h-24 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"
+          >
+            <span class="text-3xl opacity-30">📄</span>
+          </div>
+        {/if}
 
         <div class="p-3 space-y-2">
           <h3 class="text-sm font-medium truncate">
             {row.note.title || row.note.name}
           </h3>
 
-          {#if row.note.blurb}
+          {#if row.content_snippet || row.note.blurb}
             <p class="text-[11px] text-zinc-500 line-clamp-2">
-              {row.note.blurb}
+              {row.content_snippet || row.note.blurb}
             </p>
           {/if}
 
