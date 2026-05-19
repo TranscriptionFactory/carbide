@@ -740,7 +740,6 @@ const em: MarkSpec = {
 const code_inline: MarkSpec = {
   priority: 100,
   code: true,
-  inclusive: false,
   parseDOM: [{ tag: "code" }],
   toDOM() {
     return ["code", 0];
@@ -782,7 +781,6 @@ const link: MarkSpec = {
 };
 
 const strikethrough: MarkSpec = {
-  inclusive: false,
   parseDOM: [
     { tag: "del" },
     { tag: "s" },
@@ -800,7 +798,6 @@ const strikethrough: MarkSpec = {
 };
 
 const highlight: MarkSpec = {
-  inclusive: false,
   parseDOM: [{ tag: "mark" }],
   toDOM() {
     return ["mark", 0];
