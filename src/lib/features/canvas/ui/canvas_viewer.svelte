@@ -92,6 +92,12 @@
       stores.canvas.set_dirty(tab_id, true);
     }
   }
+
+  function handle_node_click(file_path: string) {
+    void action_registry.execute(ACTION_IDS.note_open, {
+      note_path: file_path,
+    });
+  }
 </script>
 
 <div class="CanvasViewer">
@@ -118,6 +124,7 @@
         camera={canvas_state.camera}
         on_camera_change={handle_camera_change}
         note_contents={canvas_state.note_contents}
+        on_node_click={handle_node_click}
       />
     {/if}
   {:else}

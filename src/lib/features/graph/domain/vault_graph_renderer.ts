@@ -335,6 +335,90 @@ export class VaultGraphRenderer {
     this.request_render();
   }
 
+  private animation_id = 0;
+
+  animate_to_positions(
+    target: Map<string, { x: number; y: number }>,
+    duration = 400,
+  ): void {
+    const id = ++this.animation_id;
+    const start_positions = new Map<string, { x: number; y: number }>();
+    for (const [node_id, _target] of target) {
+      const entry = this.node_map.get(node_id);
+      if (entry) {
+        start_positions.set(node_id, { x: entry.x, y: entry.y });
+      }
+    }
+
+    const start_time = performance.now();
+
+    const step = () => {
+      if (this.destroyed || id !== this.animation_id) return;
+      const elapsed = performance.now() - start_time;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+
+      const spatial_nodes: { id: string; x: number; y: number }[] = [];
+      for (const [node_id, end] of target) {
+        const s = start_positions.get(node_id);
+        const entry = this.node_map.get(node_id);
+        if (!s || !entry) continue;
+        const x = s.x + (end.x - s.x) * eased;
+        const y = s.y + (end.y - s.y) * eased;
+        entry.x = x;
+        entry.y = y;
+        entry.container.position.set(x, y);
+        spatial_nodes.push({ id: node_id, x, y });
+      }
+      this.spatial.rebuild(spatial_nodes);
+      this.edges_dirty = true;
+      this.render();
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      }
+    };
+
+    requestAnimationFrame(step);
+  }
+
+  private edge_labels: Map<string, import("pixi.js").Text> = new Map();
+
+  show_edge_labels(
+    edges: Array<{ source: string; target: string; label: string }>,
+  ): void {
+    this.clear_edge_labels();
+    if (!this.edges_gfx) return;
+    const { Text } = require("pixi.js") as typeof import("pixi.js");
+    for (const edge of edges) {
+      const src = this.node_map.get(edge.source);
+      const tgt = this.node_map.get(edge.target);
+      if (!src || !tgt) continue;
+      const key = `${edge.source}::${edge.target}`;
+      const text = new Text({
+        text: edge.label,
+        style: {
+          fontSize: 10,
+          fill: this.colors.label_fill,
+          fontFamily: "system-ui, sans-serif",
+        },
+      });
+      text.anchor.set(0.5, 0.5);
+      text.position.set((src.x + tgt.x) / 2, (src.y + tgt.y) / 2);
+      text.alpha = 0.7;
+      this.edges_gfx.addChild(text);
+      this.edge_labels.set(key, text);
+    }
+    this.request_render();
+  }
+
+  clear_edge_labels(): void {
+    for (const text of this.edge_labels.values()) {
+      text.destroy();
+    }
+    this.edge_labels.clear();
+  }
+
   set_semantic_edges(edges: SemanticEdgeDef[], visible: boolean): void {
     this.semantic_edge_defs = edges;
     this.show_semantic = visible;
