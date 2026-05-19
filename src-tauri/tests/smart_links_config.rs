@@ -2,7 +2,7 @@ use crate::features::smart_links::{default_rules, SmartLinkRuleGroup};
 use tempfile::TempDir;
 
 #[test]
-fn load_creates_defaults_when_missing() {
+fn load_returns_defaults_without_writing_when_missing() {
     let tmp = TempDir::new().expect("temp dir");
     let rules = crate::features::smart_links::config::load_rules(tmp.path()).expect("load");
     assert_eq!(rules.len(), 2);
@@ -10,7 +10,7 @@ fn load_creates_defaults_when_missing() {
     assert_eq!(rules[1].rules.len(), 4);
 
     let config_path = tmp.path().join(".carbide/smart-links/rules.json");
-    assert!(config_path.is_file());
+    assert!(!config_path.exists());
 }
 
 #[test]

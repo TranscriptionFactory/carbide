@@ -1695,6 +1695,11 @@ pub fn write_vault_file(
     relative_path: String,
     content: String,
 ) -> Result<(), String> {
+    if relative_path.starts_with(constants::APP_DIR) {
+        if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+            return Err("cannot write to .carbide/ in browse mode".to_string());
+        }
+    }
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = safe_vault_abs(&root, &relative_path)?;
     io_utils::atomic_write(&abs, content.as_bytes())
