@@ -84,6 +84,7 @@ export function create_test_ports(): Ports {
       load_view: () => Promise.reject("Not found"),
       list_views: () => Promise.resolve([]),
       delete_view: () => Promise.resolve(),
+      update_property: () => Promise.resolve(),
     },
     task: {
       queryTasks: () => Promise.resolve([]),

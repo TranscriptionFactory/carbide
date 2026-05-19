@@ -12,12 +12,14 @@
     available_properties,
     on_note_click,
     on_config_change,
+    on_drop,
   }: {
     rows: BaseNoteRow[];
     config: KanbanConfig | null;
     available_properties: PropertyInfo[];
     on_note_click: (path: string) => void;
     on_config_change: (config: KanbanConfig) => void;
+    on_drop?: (note_path: string, key: string, value: string) => void;
   } = $props();
 
   const groupable_properties = $derived(
@@ -30,6 +32,44 @@
     if (!group_by) return [];
     return group_rows_by_property(rows, group_by, config?.column_order);
   });
+
+  let drag_over_column: string | null = $state(null);
+  let dragging_path: string | null = $state(null);
+
+  function handle_dragstart(e: DragEvent, path: string) {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData("text/plain", path);
+    e.dataTransfer.effectAllowed = "move";
+    dragging_path = path;
+  }
+
+  function handle_dragend() {
+    dragging_path = null;
+    drag_over_column = null;
+  }
+
+  function handle_dragover(e: DragEvent, column_value: string) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    drag_over_column = column_value;
+  }
+
+  function handle_dragleave(e: DragEvent, column_value: string) {
+    const related = e.relatedTarget as HTMLElement | null;
+    const current = e.currentTarget as HTMLElement;
+    if (related && current.contains(related)) return;
+    if (drag_over_column === column_value) drag_over_column = null;
+  }
+
+  function handle_drop_on_column(e: DragEvent, column_value: string) {
+    e.preventDefault();
+    drag_over_column = null;
+    dragging_path = null;
+    const note_path = e.dataTransfer?.getData("text/plain");
+    if (!note_path || !group_by || !on_drop) return;
+    const value = column_value === "Unset" ? "" : column_value;
+    on_drop(note_path, group_by, value);
+  }
 </script>
 
 {#if !group_by}
@@ -86,7 +126,14 @@
       <div class="flex h-full gap-4 p-4 min-w-min">
         {#each columns as column}
           <div
-            class="flex flex-col w-64 min-w-[256px] bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800"
+            class="flex flex-col w-64 min-w-[256px] bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border transition-colors {drag_over_column ===
+            column.value
+              ? 'border-blue-400 dark:border-blue-500'
+              : 'border-zinc-200 dark:border-zinc-800'}"
+            role="group"
+            ondragover={(e) => handle_dragover(e, column.value)}
+            ondragleave={(e) => handle_dragleave(e, column.value)}
+            ondrop={(e) => handle_drop_on_column(e, column.value)}
           >
             <div
               class="flex items-center justify-between px-3 py-2 border-b border-zinc-200 dark:border-zinc-800"
@@ -102,7 +149,13 @@
               {#each column.rows as row}
                 <button
                   type="button"
-                  class="w-full text-left p-2.5 bg-white dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer shadow-sm"
+                  class="w-full text-left p-2.5 bg-white dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer shadow-sm {dragging_path ===
+                  row.note.path
+                    ? 'opacity-50'
+                    : ''}"
+                  draggable="true"
+                  ondragstart={(e) => handle_dragstart(e, row.note.path)}
+                  ondragend={handle_dragend}
                   onclick={() => on_note_click(row.note.path)}
                 >
                   <div class="text-xs font-medium mb-1 truncate">
