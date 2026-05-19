@@ -48,6 +48,9 @@ pub fn bases_save_view(
     path: String,
     view: BaseViewDefinition,
 ) -> Result<(), String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Err("not available in browse mode".to_string());
+    }
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = notes_service::safe_vault_abs_for_write(&root, &path)?;
 
