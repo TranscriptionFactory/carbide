@@ -118,8 +118,8 @@ content_snippet: Option<String>,   // first ~150 chars, stripped of markdown
 
 ### Implementation Steps
 
-1. [ ] Extend `active_view_mode` type union + `BaseViewDefinition` schema — add kanban/gallery/calendar
-2. [ ] Add view mode switcher UI (icon buttons in panel header) — verify: modes toggle correctly
+1. [x] Extend `active_view_mode` type union + `BaseViewDefinition` schema — add kanban/gallery/calendar
+2. [x] Add view mode switcher UI (icon buttons in panel header) — verify: modes toggle correctly
 3. [x] **Kanban:**
    - [x] `bases_kanban.svelte` — grouping logic + column layout — verify: columns render from grouped data
    - [x] Drag-and-drop between columns — verify: cards move visually
@@ -129,11 +129,11 @@ content_snippet: Option<String>,   // first ~150 chars, stripped of markdown
    - [x] Add `content_snippet` + `first_image_path` to indexing pipeline — verify: fields populated on reindex
    - [x] Extend `BaseNoteRow` / query to include new fields — verify: fields returned from Rust
    - [x] `bases_gallery.svelte` — card grid — verify: renders with images and snippets
-5. [ ] **Calendar:**
-   - [ ] `bases_calendar.svelte` — month grid with note placement — verify: notes appear on correct days
-   - [ ] Month navigation + date property picker — verify: navigating months shows different notes
-6. [ ] Update saved view serialization to include view-specific config (kanban grouping, calendar date field)
-7. [ ] Tests: store grouping logic, property update round-trip, calendar date bucketing
+5. [x] **Calendar:**
+   - [x] `bases_calendar.svelte` — month grid with note placement — verify: notes appear on correct days
+   - [x] Month navigation + date property picker — verify: navigating months shows different notes
+6. [x] Update saved view serialization to include view-specific config (kanban grouping, calendar date field)
+7. [x] Tests: store grouping logic, property update round-trip, calendar date bucketing
 
 ---
 
