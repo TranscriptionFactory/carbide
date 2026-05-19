@@ -6,9 +6,7 @@ const CONFIG_REL: &str = ".carbide/smart-links/rules.json";
 pub fn load_rules(vault_root: &Path) -> Result<Vec<SmartLinkRuleGroup>, String> {
     let path = vault_root.join(CONFIG_REL);
     if !path.is_file() {
-        let defaults = default_rules();
-        save_rules(vault_root, &defaults)?;
-        return Ok(defaults);
+        return Ok(default_rules());
     }
     let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     serde_json::from_str(&content).map_err(|e| e.to_string())

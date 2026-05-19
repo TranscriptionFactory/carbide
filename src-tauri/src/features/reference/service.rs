@@ -73,6 +73,9 @@ pub fn reference_save_library(
     vault_id: String,
     library: ReferenceLibrary,
 ) -> Result<(), String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Err("not available in browse mode".to_string());
+    }
     write_library(&app, &vault_id, &library)
 }
 
@@ -83,6 +86,9 @@ pub fn reference_add_item(
     vault_id: String,
     item: serde_json::Value,
 ) -> Result<ReferenceLibrary, String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Err("not available in browse mode".to_string());
+    }
     let citekey = item_citekey(&item)
         .ok_or("item must have an 'id' field")?
         .to_string();
@@ -324,6 +330,9 @@ pub fn reference_save_annotation_note(
     citekey: String,
     markdown: String,
 ) -> Result<(), String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Err("not available in browse mode".to_string());
+    }
     let path = annotation_path(&app, &vault_id, &citekey)?;
     io_utils::atomic_write(&path, markdown.as_bytes())
 }

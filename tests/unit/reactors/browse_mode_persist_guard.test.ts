@@ -6,9 +6,11 @@ import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
 import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_persist.reactor.svelte";
 import { create_tab_persist_reactor } from "$lib/reactors/tab_persist.reactor.svelte";
+import { create_plugin_lifecycle_reactor } from "$lib/reactors/plugin_lifecycle.reactor.svelte";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { VaultService } from "$lib/features/vault";
 import type { TabService } from "$lib/features/tab";
+import type { PluginService } from "$lib/features/plugin";
 
 describe("browse mode persist guards", () => {
   let vault_store: VaultStore;
@@ -86,6 +88,28 @@ describe("browse mode persist guards", () => {
     vi.advanceTimersByTime(1100);
 
     expect(save_tabs).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("plugin_lifecycle skips init when vault is in browse mode", () => {
+    const initialize = vi.fn().mockResolvedValue(undefined);
+    const clear = vi.fn().mockResolvedValue(undefined);
+    const plugin_service = {
+      initialize_active_vault: initialize,
+      clear_active_vault: clear,
+    } as unknown as PluginService;
+
+    vault_store.set_vault(create_test_vault({ mode: "browse" }));
+
+    const cleanup = create_plugin_lifecycle_reactor(
+      vault_store,
+      plugin_service,
+    );
+
+    flushSync();
+    vi.advanceTimersByTime(1000);
+
+    expect(initialize).not.toHaveBeenCalled();
     cleanup();
   });
 });
