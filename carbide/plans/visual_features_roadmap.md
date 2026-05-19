@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-12
 **Scope:** Four high-value visual features, ordered by implementation phase
-**Status (2026-05-14):** Phases 1-4 substantially implemented. Remaining work: kanban drag-and-drop (Rust), gallery image extraction (Rust), graph animated transitions, edge labels, canvas click-to-open, viewport culling, force-directed layout option, cluster GroupNode generation.
+**Status (2026-05-19):** Phases 1-4 substantially complete. All frontend work done. Remaining work: kanban drag-and-drop (Rust `bases_update_property` command), gallery image extraction (Rust indexing for `content_snippet` + `first_image_path`), and viewport-based lazy rendering (optimization, deferred).
 
 ---
 
@@ -221,8 +221,8 @@ focus_mode_active: boolean;
 4. [x] "Group by" toggle in graph panel UI (Folder / Cluster / None) — verify: toggles between grouping modes *(done: `graph_cycle_group_mode` action, Group icon button)*
 5. [x] Radial layout function — verify: nodes positioned in concentric rings *(done: `radial_layout.ts` with inner/outer ring positioning)*
 6. [x] Focus mode trigger (double-click / context menu) — verify: transitions to radial view *(done: dblclick + "Focus node" context menu item)*
-7. [ ] Animated transition (zoom + fade + reposition) — verify: smooth animation *(deferred: requires PixiJS animation API work)*
-8. [ ] Edge labels in focus mode — verify: relationship types visible *(deferred: renderer-level work)*
+7. [x] Animated transition (zoom + fade + reposition) — verify: smooth animation *(done: `animate_to_positions` with ease-out cubic interpolation in vault_graph_renderer.ts)*
+8. [x] Edge labels in focus mode — verify: relationship types visible *(done: `show_edge_labels` with Text sprites at edge midpoints in vault_graph_renderer.ts)*
 9. [x] Focus mode exit (Escape / click background) — verify: restores vault positions *(done: Escape key handler + "Exit focus" button)*
 10. [x] Tests: clustering algorithm correctness, radial layout geometry *(done: graph_clustering.test.ts, radial_layout.test.ts)*
 
@@ -304,7 +304,7 @@ function render_note_preview(markdown: string, subpath?: string): string {
 3. [x] Content loading layer — read notes for file nodes on canvas open — verify: content fetched *(done: `CanvasService.load_file_node_contents` via `NotesPort.read_note`)*
 4. [x] Update `canvas_node.svelte` to render HTML for file nodes — verify: embedded content visible in node *(done: `rendered_content` prop with `@html` rendering)*
 5. [x] Scoped CSS for embedded markdown — verify: headings, lists, code render correctly *(done: scoped `:global()` styles for all elements at 12px canvas size)*
-6. [ ] Click-to-open interaction on embedded nodes — verify: opens note in editor *(deferred: requires canvas interaction layer)*
+6. [x] Click-to-open interaction on embedded nodes — verify: opens note in editor *(done: `on_click` callback through canvas_node → surface → viewer, fires `note_open` action with pointer-move threshold)*
 7. [ ] Viewport-based lazy rendering — verify: off-screen nodes don't render content *(deferred: optimization, not needed for initial release)*
 8. [x] Truncation for large notes — verify: graceful handling of 10k+ char notes *(done: `truncate_for_canvas` at 4000 chars with newline-aware truncation)*
 9. [x] Tests: renderer output, subpath extraction, content caching *(done: `canvas_note_renderer.test.ts` — 17 tests)*
@@ -373,8 +373,8 @@ Cluster/Group     → GroupNode (if clustering from Phase 2)
 2. [x] Action: "Open as Canvas" in neighborhood panel — verify: creates + opens canvas file *(done: `canvas_export_neighborhood_as_canvas` action)*
 3. [x] Action: right-click "Export as Canvas" in vault graph — verify: creates canvas from graph *(done: `canvas_export_vault_graph_as_canvas` action + context menu item)*
 4. [x] Action: "Export as Canvas" in search graph tab — verify: creates canvas from search results *(done: `canvas_export_search_graph_as_canvas` action + LayoutGrid button)*
-5. [ ] (Optional) Force-directed layout option for small graphs — verify: positioned nodes don't overlap *(deferred)*
-6. [ ] (Optional) GroupNode generation from clusters (if Phase 2 done) — verify: cluster groups appear as groups *(deferred)*
+5. [x] (Optional) Force-directed layout option for small graphs — verify: positioned nodes don't overlap *(done: synchronous d3-force simulation, 300 ticks, capped at 100 nodes with column fallback)*
+6. [x] (Optional) GroupNode generation from clusters (if Phase 2 done) — verify: cluster groups appear as groups *(done: AABB generation from cluster_assignments with 40px padding, groups prepended to nodes array)*
 7. [x] Tests: conversion correctness, edge mapping, layout bounds *(done: `graph_to_canvas.test.ts` — 9 tests)*
 
 ---
