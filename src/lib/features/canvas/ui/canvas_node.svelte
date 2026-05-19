@@ -4,9 +4,27 @@
   interface Props {
     node: CanvasNode;
     rendered_content?: string | null;
+    on_click?: ((file_path: string) => void) | undefined;
   }
 
-  let { node, rendered_content = null }: Props = $props();
+  let { node, rendered_content = null, on_click }: Props = $props();
+
+  let pointer_start_x = 0;
+  let pointer_start_y = 0;
+
+  function handle_pointerdown(e: PointerEvent) {
+    pointer_start_x = e.clientX;
+    pointer_start_y = e.clientY;
+  }
+
+  function handle_pointerup(e: PointerEvent) {
+    if (!on_click || node.type !== "file") return;
+    const dx = e.clientX - pointer_start_x;
+    const dy = e.clientY - pointer_start_y;
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+      on_click(node.file);
+    }
+  }
 
   const node_color = $derived(
     node.color ? `var(--canvas-color-${node.color}, ${node.color})` : undefined,
@@ -15,11 +33,17 @@
 
 <div
   class="CanvasNode CanvasNode--{node.type}"
+  class:CanvasNode--clickable={node.type === "file" && !!on_click}
   style:left="{node.x}px"
   style:top="{node.y}px"
   style:width="{node.width}px"
   style:height="{node.height}px"
   style:--node-color={node_color}
+  role={node.type === "file" && on_click ? "button" : undefined}
+  onpointerdown={node.type === "file" && on_click
+    ? handle_pointerdown
+    : undefined}
+  onpointerup={node.type === "file" && on_click ? handle_pointerup : undefined}
 >
   {#if node.type === "text"}
     <div class="CanvasNode__content CanvasNode__content--text">
@@ -60,6 +84,10 @@
     overflow: hidden;
     box-sizing: border-box;
     pointer-events: auto;
+  }
+
+  .CanvasNode--clickable {
+    cursor: pointer;
   }
 
   .CanvasNode--text,
