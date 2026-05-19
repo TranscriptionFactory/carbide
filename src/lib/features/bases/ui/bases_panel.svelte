@@ -672,6 +672,13 @@
         available_properties={bases_store.available_properties}
         on_note_click={handle_note_click}
         on_config_change={(c) => (bases_store.kanban_config = c)}
+        on_drop={(note_path, key, value) =>
+          void action_registry.execute(
+            ACTION_IDS.bases_update_property,
+            note_path,
+            key,
+            value,
+          )}
       />
     {:else if bases_store.active_view_mode === "gallery"}
       <BasesGallery

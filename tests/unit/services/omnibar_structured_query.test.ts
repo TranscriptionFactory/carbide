@@ -120,6 +120,7 @@ function make_mock_bases_port(): BasesPort {
       .mockResolvedValue({ columns: [], sort: [], filters: [] }),
     list_views: vi.fn().mockResolvedValue([]),
     delete_view: vi.fn().mockResolvedValue(undefined),
+    update_property: vi.fn().mockResolvedValue(undefined),
   };
 }
 

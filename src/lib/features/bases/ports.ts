@@ -79,4 +79,10 @@ export interface BasesPort {
   load_view(vault_id: VaultId, path: string): Promise<BaseViewDefinition>;
   list_views(vault_id: VaultId): Promise<SavedViewInfo[]>;
   delete_view(vault_id: VaultId, path: string): Promise<void>;
+  update_property(
+    vault_id: VaultId,
+    note_path: string,
+    key: string,
+    value: string,
+  ): Promise<void>;
 }

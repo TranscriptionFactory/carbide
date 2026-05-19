@@ -112,4 +112,16 @@ export function register_bases_actions(
       tab_store.open_bases_tab(BASES_TAB_ID, BASES_TAB_TITLE);
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.bases_update_property,
+    label: "Update Note Property",
+    execute: async (...args: unknown[]) => {
+      const vault_id = vault_store.active_vault_id;
+      if (!vault_id) return;
+      const [note_path, key, value] = args as [string, string, string];
+      if (!note_path || !key || value === undefined) return;
+      await bases_service.update_property(vault_id, note_path, key, value);
+    },
+  });
 }
