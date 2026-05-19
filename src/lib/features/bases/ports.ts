@@ -12,6 +12,8 @@ export interface BaseNoteRow {
   properties: Record<string, PropertyValue>;
   tags: string[];
   stats: NoteStats;
+  content_snippet?: string;
+  first_image_path?: string;
 }
 
 export interface BaseQueryResults {
