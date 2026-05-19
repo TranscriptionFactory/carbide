@@ -12,6 +12,7 @@
     camera: Camera;
     on_camera_change: (camera: Camera) => void;
     note_contents?: Map<string, string>;
+    on_node_click?: (file_path: string) => void;
   }
 
   let {
@@ -19,6 +20,7 @@
     camera,
     on_camera_change,
     note_contents = new Map(),
+    on_node_click,
   }: Props = $props();
 
   let container: HTMLDivElement | null = $state(null);
@@ -98,6 +100,7 @@
       <CanvasNodeComponent
         {node}
         rendered_content={note_contents.get(node.id) ?? null}
+        on_click={on_node_click}
       />
     {/each}
   </div>
