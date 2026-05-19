@@ -313,12 +313,29 @@
     if (!renderer_ready || !renderer) return;
     if (focus_node_path) {
       const result = radial_layout(focus_node_path, plain_edges(snapshot));
-      renderer.update_positions(result.positions);
       const focus_set = new Set<string>([focus_node_path]);
       for (const id of result.neighbor_ids_1hop) focus_set.add(id);
       for (const id of result.neighbor_ids_2hop) focus_set.add(id);
       renderer.set_filter(focus_set);
+      renderer.animate_to_positions(result.positions, 400);
+
+      const edge_labels: Array<{
+        source: string;
+        target: string;
+        label: string;
+      }> = [];
+      for (const e of snapshot.edges) {
+        if (focus_set.has(e.source) && focus_set.has(e.target)) {
+          edge_labels.push({
+            source: e.source,
+            target: e.target,
+            label: "wiki",
+          });
+        }
+      }
+      renderer.show_edge_labels(edge_labels);
     } else {
+      renderer.clear_edge_labels();
       renderer.set_filter(
         filter_override_ids ?? compute_filter_set(filter_query, snapshot),
       );
