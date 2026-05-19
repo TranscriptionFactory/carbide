@@ -129,6 +129,9 @@ pub fn smart_links_save_rules(
     vault_id: String,
     rules: Vec<SmartLinkRuleGroup>,
 ) -> Result<(), String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Err("not available in browse mode".to_string());
+    }
     let root = storage::vault_path(&app, &vault_id)?;
     config::save_rules(&root, &rules)
 }

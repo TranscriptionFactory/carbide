@@ -17,6 +17,11 @@ export function create_plugin_lifecycle_reactor(
         return;
       }
 
+      if (vault.mode !== "vault") {
+        void plugin_service.clear_active_vault();
+        return;
+      }
+
       void plugin_service.initialize_active_vault().catch((error: unknown) => {
         log.from_error("Failed to initialize plugins for vault", error);
       });
