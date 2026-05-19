@@ -4,6 +4,7 @@ export {
   type CanvasData,
   type Camera,
   type FileNode,
+  type GroupNode,
 } from "$lib/features/canvas/types/canvas";
 export {
   parse_canvas,
