@@ -202,6 +202,157 @@ export function prose_cursor_to_md_offset(
   return Math.min(mi, markdown.length);
 }
 
+export type BlockAnchor = {
+  block_index: number;
+  offset_in_block: number;
+};
+
+export function prose_cursor_to_block_anchor(
+  doc: ProseNode,
+  cursor_pos: number,
+): BlockAnchor {
+  if (cursor_pos <= 0 || doc.content.size === 0) {
+    return { block_index: 0, offset_in_block: 0 };
+  }
+
+  const clamped = Math.min(cursor_pos, doc.content.size);
+  let offset = 0;
+
+  for (let i = 0; i < doc.childCount; i++) {
+    const child = doc.child(i);
+    const block_start = offset + 1;
+    const block_end = offset + child.nodeSize;
+
+    if (clamped <= block_end) {
+      const offset_in_block = Math.max(0, clamped - block_start);
+      return { block_index: i, offset_in_block };
+    }
+
+    offset = block_end;
+  }
+
+  if (doc.childCount > 0) {
+    const last = doc.child(doc.childCount - 1);
+    return {
+      block_index: doc.childCount - 1,
+      offset_in_block: Math.max(0, last.content.size),
+    };
+  }
+
+  return { block_index: 0, offset_in_block: 0 };
+}
+
+export function block_anchor_to_prose_pos(
+  doc: ProseNode,
+  anchor: BlockAnchor,
+): number {
+  if (doc.childCount === 0) return 0;
+
+  const idx = Math.min(anchor.block_index, doc.childCount - 1);
+  let offset = 0;
+
+  for (let i = 0; i < idx; i++) {
+    offset += doc.child(i).nodeSize;
+  }
+
+  const block_start = offset + 1;
+  const child = doc.child(idx);
+  const max_offset = child.content.size;
+  const clamped_offset = Math.min(anchor.offset_in_block, max_offset);
+
+  return block_start + clamped_offset;
+}
+
+export function md_offset_to_block_anchor(
+  markdown: string,
+  md_offset: number,
+): BlockAnchor {
+  if (md_offset <= 0 || !markdown) {
+    return { block_index: 0, offset_in_block: 0 };
+  }
+
+  const clamped = Math.min(md_offset, markdown.length);
+  let block_index = 0;
+  let block_start = 0;
+  let i = 0;
+
+  while (i < clamped) {
+    if (i === 0 && markdown.startsWith("---\n", i)) {
+      const end = markdown.indexOf("\n---", i + 3);
+      if (end !== -1) {
+        const after = end + 4;
+        if (clamped <= after) {
+          return { block_index, offset_in_block: clamped - i };
+        }
+        i = after;
+        if (i < markdown.length && markdown[i] === "\n") i++;
+        block_index++;
+        block_start = i;
+        continue;
+      }
+    }
+
+    if (markdown[i] === "\n") {
+      let j = i;
+      while (j < markdown.length && markdown[j] === "\n") j++;
+      if (j - i >= 2) {
+        if (clamped <= j) {
+          return { block_index, offset_in_block: clamped - block_start };
+        }
+        i = j;
+        block_index++;
+        block_start = i;
+        continue;
+      }
+    }
+
+    i++;
+  }
+
+  return { block_index, offset_in_block: clamped - block_start };
+}
+
+export function block_anchor_to_md_offset(
+  markdown: string,
+  anchor: BlockAnchor,
+): number {
+  if (!markdown) return 0;
+
+  let block_index = 0;
+  let block_start = 0;
+  let i = 0;
+
+  if (i < markdown.length && markdown.startsWith("---\n", i)) {
+    const end = markdown.indexOf("\n---", i + 3);
+    if (end !== -1) {
+      const after = end + 4;
+      if (anchor.block_index === 0) {
+        return Math.min(block_start + anchor.offset_in_block, after);
+      }
+      i = after;
+      if (i < markdown.length && markdown[i] === "\n") i++;
+      block_index++;
+      block_start = i;
+    }
+  }
+
+  while (i < markdown.length && block_index < anchor.block_index) {
+    if (markdown[i] === "\n") {
+      let j = i;
+      while (j < markdown.length && markdown[j] === "\n") j++;
+      if (j - i >= 2) {
+        i = j;
+        block_index++;
+        block_start = i;
+        continue;
+      }
+    }
+    i++;
+  }
+
+  return Math.min(block_start + anchor.offset_in_block, markdown.length);
+}
+
 export function md_offset_to_prose_pos(
   doc: ProseNode,
   md_offset: number,

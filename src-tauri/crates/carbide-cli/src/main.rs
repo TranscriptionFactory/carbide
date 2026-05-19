@@ -273,6 +273,37 @@ async fn resolve_vault(client: &CarbideClient, explicit: Option<&str>) -> Result
         })
 }
 
+fn is_carbide_process_running() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("pgrep")
+            .args(["-x", "Carbide"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("pgrep")
+            .args(["-x", "carbide"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq Carbide.exe", "/NH"])
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).contains("Carbide.exe"))
+            .unwrap_or(false)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        false
+    }
+}
+
 async fn ensure_running_with_timeout(
     client: &CarbideClient,
     timeout: std::time::Duration,
@@ -295,10 +326,19 @@ async fn ensure_running_with_timeout(
         }
     }
 
-    Err(format!(
-        "timed out waiting for Carbide to start ({}s). Launch it manually and retry.",
-        timeout.as_secs()
-    ))
+    let process_running = is_carbide_process_running();
+    if process_running {
+        Err(format!(
+            "Carbide process is running but its HTTP server is not responding ({}s timeout). \
+             The app may still be initializing — try again shortly.",
+            timeout.as_secs()
+        ))
+    } else {
+        Err(format!(
+            "timed out waiting for Carbide to start ({}s). Launch it manually and retry.",
+            timeout.as_secs()
+        ))
+    }
 }
 
 fn launch_app() -> Result<(), String> {
@@ -404,7 +444,7 @@ async fn main() {
     // MCP proxy gets a longer timeout for cold launch
     let timeout = match command {
         Command::Mcp => std::time::Duration::from_secs(30),
-        _ => std::time::Duration::from_secs(10),
+        _ => std::time::Duration::from_secs(15),
     };
     if let Err(e) = ensure_running_with_timeout(&client, timeout).await {
         eprintln!("error: {}", e);

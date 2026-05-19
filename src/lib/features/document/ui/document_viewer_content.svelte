@@ -10,6 +10,7 @@
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
   import type { PdfMetadata } from "$lib/features/document/types/document";
+  import { format_bytes } from "$lib/shared/utils/format_bytes";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
 
@@ -19,7 +20,7 @@
   }
 
   let { viewer_state, content_state }: Props = $props();
-  const { stores } = use_app_context();
+  const { stores, services } = use_app_context();
   const asset_url = $derived(content_state?.asset_url ?? null);
   const current_content = $derived(
     stores.document.get_current_content(viewer_state.tab_id),
@@ -113,9 +114,27 @@
       />
     {/key}
   {:else if viewer_state.load_status === "error"}
-    <div class="DocumentViewer__state DocumentViewer__state--error">
-      <span>{viewer_state.error_message ?? "Failed to load document"}</span>
-    </div>
+    {@const error_msg = viewer_state.error_message ?? "Failed to load document"}
+    {#if error_msg.startsWith("file_too_large:")}
+      {@const size_bytes = Number(error_msg.split(":")[1])}
+      <div class="DocumentViewer__state DocumentViewer__state--large-file">
+        <span
+          >This file is {format_bytes(size_bytes)} — exceeds the 5 MB display limit.</span
+        >
+        <button
+          type="button"
+          class="DocumentViewer__load-btn"
+          onclick={() =>
+            services.document.force_load_content(viewer_state.tab_id)}
+        >
+          Load anyway
+        </button>
+      </div>
+    {:else}
+      <div class="DocumentViewer__state DocumentViewer__state--error">
+        <span>{error_msg}</span>
+      </div>
+    {/if}
   {:else}
     <div class="DocumentViewer__state">
       <span>Loading…</span>
@@ -175,5 +194,25 @@
 
   .DocumentViewer__state--error {
     color: var(--destructive);
+  }
+
+  .DocumentViewer__state--large-file {
+    flex-direction: column;
+    gap: var(--space-3);
+    color: var(--muted-foreground);
+  }
+
+  .DocumentViewer__load-btn {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+    transition: background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .DocumentViewer__load-btn:hover {
+    background-color: var(--secondary-hover, var(--muted));
   }
 </style>

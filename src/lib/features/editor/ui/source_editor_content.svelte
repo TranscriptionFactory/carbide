@@ -61,7 +61,7 @@
   let outline_timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
   let mounted_markdown_change: ((markdown: string) => void) | null = null;
-  let tracked_note_id: NoteId | null = null;
+  let tracked_note_id: NoteId | null = stores.editor.open_note?.meta.id ?? null;
   let mounted_note_id: NoteId | undefined;
 
   function get_content(): string {

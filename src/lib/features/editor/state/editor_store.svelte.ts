@@ -6,6 +6,7 @@ import type {
 import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { EditorMode } from "$lib/shared/types/editor";
+import type { BlockAnchor } from "$lib/features/editor/adapters/cursor_offset_mapper";
 
 export type PendingCursorRestore = {
   markdown_cursor_offset: number;
@@ -25,6 +26,7 @@ export class EditorStore {
   editor_mode = $state<EditorMode>("visual");
   split_view = $state(false);
   cursor_offset = $state(0);
+  cursor_block_anchor = $state<BlockAnchor | null>(null);
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
   source_content_getter: (() => string) | null = null;
@@ -187,6 +189,10 @@ export class EditorStore {
     this.cursor_offset = offset;
   }
 
+  set_cursor_block_anchor(anchor: BlockAnchor | null) {
+    this.cursor_block_anchor = anchor;
+  }
+
   set_scroll_fraction(fraction: number) {
     this.scroll_fraction = fraction;
   }
@@ -220,6 +226,7 @@ export class EditorStore {
     this.editor_mode = "visual";
     this.split_view = false;
     this.cursor_offset = 0;
+    this.cursor_block_anchor = null;
     this.scroll_fraction = 0;
     this.selection = null;
     this.source_content_getter = null;
