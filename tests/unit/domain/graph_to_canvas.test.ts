@@ -147,4 +147,103 @@ describe("graph_to_canvas", () => {
       expect(result.nodes).toHaveLength(2);
     });
   });
+
+  describe("force layout", () => {
+    it("positions all nodes with non-negative coordinates", () => {
+      const input: GraphToCanvasInput = {
+        nodes: [
+          { path: "a.md", title: "A" },
+          { path: "b.md", title: "B" },
+          { path: "c.md", title: "C" },
+        ],
+        edges: [
+          { source: "a.md", target: "b.md" },
+          { source: "b.md", target: "c.md" },
+        ],
+        layout: "force",
+      };
+      const result = graph_to_canvas(input);
+      expect(result.nodes).toHaveLength(3);
+      for (const node of result.nodes) {
+        expect(node.x).toBeGreaterThanOrEqual(0);
+        expect(node.y).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("falls back to column layout when >100 nodes", () => {
+      const nodes = Array.from({ length: 101 }, (_, i) => ({
+        path: `n${String(i)}.md`,
+        title: `N${String(i)}`,
+      }));
+      const input: GraphToCanvasInput = {
+        nodes,
+        edges: [{ source: "n0.md", target: "n1.md" }],
+        layout: "force",
+        center_path: "n0.md",
+      };
+      const result = graph_to_canvas(input);
+      // Should produce a result (column layout fallback)
+      expect(result.nodes.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("GroupNode generation", () => {
+    it("creates group nodes from cluster assignments", () => {
+      const input: GraphToCanvasInput = {
+        nodes: [
+          { path: "a.md", title: "A" },
+          { path: "b.md", title: "B" },
+          { path: "c.md", title: "C" },
+        ],
+        edges: [
+          { source: "a.md", target: "b.md" },
+          { source: "b.md", target: "c.md" },
+        ],
+        layout: "column",
+        center_path: "a.md",
+        cluster_assignments: { "a.md": 0, "b.md": 0, "c.md": 1 },
+      };
+      const result = graph_to_canvas(input);
+      const groups = result.nodes.filter((n) => n.type === "group");
+      // Cluster 0 has 2 members (a,b) -> group. Cluster 1 has 1 member (c) -> no group
+      expect(groups).toHaveLength(1);
+      expect(groups[0]?.type === "group" && groups[0].label).toBe("Cluster 0");
+    });
+
+    it("group node encompasses member nodes", () => {
+      const input: GraphToCanvasInput = {
+        nodes: [
+          { path: "a.md", title: "A" },
+          { path: "b.md", title: "B" },
+        ],
+        edges: [{ source: "a.md", target: "b.md" }],
+        layout: "column",
+        center_path: "a.md",
+        cluster_assignments: { "a.md": 0, "b.md": 0 },
+      };
+      const result = graph_to_canvas(input);
+      const group = result.nodes.find((n) => n.type === "group");
+      const file_nodes = result.nodes.filter((n) => n.type === "file");
+      expect(group).toBeDefined();
+      if (!group) return;
+      for (const fn of file_nodes) {
+        expect(fn.x).toBeGreaterThanOrEqual(group.x);
+        expect(fn.y).toBeGreaterThanOrEqual(group.y);
+        expect(fn.x + fn.width).toBeLessThanOrEqual(group.x + group.width);
+        expect(fn.y + fn.height).toBeLessThanOrEqual(group.y + group.height);
+      }
+    });
+
+    it("produces no groups when no cluster assignments", () => {
+      const input: GraphToCanvasInput = {
+        nodes: [{ path: "a.md", title: "A" }],
+        edges: [],
+        layout: "column",
+        center_path: "a.md",
+      };
+      const result = graph_to_canvas(input);
+      const groups = result.nodes.filter((n) => n.type === "group");
+      expect(groups).toHaveLength(0);
+    });
+  });
 });
