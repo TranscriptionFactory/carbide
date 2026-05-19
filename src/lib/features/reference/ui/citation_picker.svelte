@@ -126,7 +126,7 @@
 
   async function open_file(path: string | undefined) {
     if (!path) return;
-    await ctx.action_registry.execute("document.open", { file_path: path });
+    await ctx.action_registry.execute("note.open", { note_path: path });
   }
 
   function format_linked_note_line(note: LinkedNoteInfo): string {
@@ -283,7 +283,7 @@
         {#each linked_results as note (note.path)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => open_file(note.external_file_path)}
+            onclick={() => open_file(note.path)}
             title="Open linked file"
           >
             <div class="flex items-center gap-1.5">
@@ -368,7 +368,7 @@
           {#each notes as note (note.path)}
             <button
               class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-              onclick={() => open_file(note.external_file_path)}
+              onclick={() => open_file(note.path)}
               title="Open linked file"
             >
               <div class="flex items-center gap-1.5">
@@ -410,7 +410,7 @@
             <button
               class="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors"
               style="padding-left: {12 + depth * 16}px"
-              onclick={() => open_file(node.note!.external_file_path)}
+              onclick={() => open_file(node.note!.path)}
               title="Open linked file"
             >
               <div class="flex items-center gap-1.5">
@@ -491,7 +491,7 @@
         {#each all_linked_notes as note (note.path)}
           <button
             class="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
-            onclick={() => open_file(note.external_file_path)}
+            onclick={() => open_file(note.path)}
             title="Open linked file"
           >
             <div class="flex items-center gap-1.5">

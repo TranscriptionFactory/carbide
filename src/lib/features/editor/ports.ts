@@ -73,6 +73,10 @@ export type EditorSession = {
   scroll_to_position?: (pos: number) => void;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
+  get_cursor_block_anchor?: () => import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor;
+  set_cursor_from_block_anchor?: (
+    anchor: import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor,
+  ) => void;
   set_editable?: (editable: boolean) => void;
   set_spellcheck?: (enabled: boolean) => void;
   toggle_heading_fold?: (pos?: number) => void;

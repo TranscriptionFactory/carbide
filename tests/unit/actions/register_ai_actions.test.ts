@@ -271,6 +271,36 @@ describe("register_ai_actions", () => {
     expect(ai_service.check_availability).toHaveBeenCalledTimes(1);
   });
 
+  it("preserves result and turns when switching providers", async () => {
+    const { registry, ai_store, ai_service } = create_harness();
+    ai_service.execute = vi.fn().mockResolvedValue({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+    await registry.execute(ACTION_IDS.ai_execute);
+
+    expect(ai_store.dialog.result).toEqual({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+    expect(ai_store.dialog.turns).toHaveLength(1);
+
+    await registry.execute(ACTION_IDS.ai_update_provider, "ollama");
+
+    expect(ai_store.dialog.provider_id).toBe("ollama");
+    expect(ai_store.dialog.result).toEqual({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+    expect(ai_store.dialog.turns).toHaveLength(1);
+  });
+
   it("resets the AI session and closes the AI panel", async () => {
     const { registry, stores, ai_store } = create_harness();
 
