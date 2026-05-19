@@ -39,5 +39,18 @@ export function create_bases_tauri_adapter(): BasesPort {
     async delete_view(vault_id: VaultId, path: string): Promise<void> {
       return invoke("bases_delete_view", { vaultId: vault_id, path });
     },
+    async update_property(
+      vault_id: VaultId,
+      note_path: string,
+      key: string,
+      value: string,
+    ): Promise<void> {
+      return invoke("bases_update_property", {
+        vaultId: vault_id,
+        notePath: note_path,
+        key,
+        value,
+      });
+    },
   };
 }

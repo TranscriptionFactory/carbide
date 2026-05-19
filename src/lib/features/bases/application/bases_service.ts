@@ -106,4 +106,18 @@ export class BasesService {
       this.store.error = String(e);
     }
   }
+
+  async update_property(
+    vault_id: VaultId,
+    note_path: string,
+    key: string,
+    value: string,
+  ) {
+    try {
+      await this.port.update_property(vault_id, note_path, key, value);
+      await this.run_query(vault_id);
+    } catch (e) {
+      this.store.error = String(e);
+    }
+  }
 }
