@@ -216,6 +216,30 @@ fn extract_title_from_markdown(markdown: &str) -> Option<String> {
     None
 }
 
+fn extract_content_snippet(markdown: &str) -> Option<String> {
+    let body = crate::features::notes::service::extract_blurb_from_content(markdown);
+    if body.is_empty() {
+        None
+    } else {
+        Some(body)
+    }
+}
+
+const IMAGE_EXTENSIONS: &[&str] = &[
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
+];
+
+fn find_first_image_path(links: &[ExtractedLink]) -> Option<String> {
+    links
+        .iter()
+        .filter(|l| l.link_type == "embed" || l.link_type == "wikilink_embed")
+        .find(|l| {
+            let lower = l.target.to_lowercase();
+            IMAGE_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+        })
+        .map(|l| l.target.clone())
+}
+
 pub(crate) fn extract_frontmatter_properties(markdown: &str) -> Vec<(String, String, String)> {
     let mut props = Vec::new();
     let mut lines = markdown.lines().peekable();
@@ -1034,6 +1058,10 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
     }
 
+    for col in &["content_snippet TEXT", "first_image_path TEXT"] {
+        let _ = conn.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {col}"));
+    }
+
     let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_notes_citekey ON notes(citekey)");
     let _ = conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_notes_linked_source_id ON notes(linked_source_id)",
@@ -1089,9 +1117,14 @@ pub fn upsert_note_simple(
     let heading_count = headings.len() as i64;
     let reading_time_secs = word_count * 60 / 200;
 
+    let links = extract_links(raw_markdown, &headings);
+
+    let content_snippet = extract_content_snippet(raw_markdown);
+    let first_image_path = find_first_image_path(&links);
+
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type],
+        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, content_snippet, first_image_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type, content_snippet, first_image_path],
     )
     .map_err(|e| e.to_string())?;
 
@@ -1110,7 +1143,6 @@ pub fn upsert_note_simple(
     sync_code_blocks(conn, &meta.path, &code_blocks)?;
     sync_sections(conn, &meta.path, &sections)?;
 
-    let links = extract_links(raw_markdown, &headings);
     sync_links(conn, &meta.path, &links)?;
 
     let targets: Vec<String> = links
@@ -5159,7 +5191,8 @@ pub fn query_bases(
 
     let sql = format!(
         "SELECT notes.path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
-         COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date \
+         COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date, \
+         notes.content_snippet, notes.first_image_path \
          FROM notes \
          LEFT JOIN ( \
            SELECT path, COUNT(*) as task_count, \
@@ -5177,12 +5210,19 @@ pub fn query_bases(
     let param_refs: Vec<&dyn rusqlite::ToSql> = final_params.iter().map(|b| b.as_ref()).collect();
 
     let note_rows = stmt
-        .query_map(&param_refs[..], |row| note_meta_with_stats_from_row(row))
+        .query_map(&param_refs[..], |row| {
+            let (meta, stats) = note_meta_with_stats_from_row(row)?;
+            let content_snippet: Option<String> = row.get(16).ok().flatten();
+            let first_image_path: Option<String> = row.get(17).ok().flatten();
+            Ok((meta, stats, content_snippet, first_image_path))
+        })
         .map_err(|e| e.to_string())?;
 
     let mut notes_with_stats: Vec<(
         crate::features::search::model::IndexNoteMeta,
         crate::features::search::model::NoteStats,
+        Option<String>,
+        Option<String>,
     )> = Vec::new();
     for note_res in note_rows {
         notes_with_stats.push(note_res.map_err(|e| e.to_string())?);
@@ -5190,7 +5230,7 @@ pub fn query_bases(
 
     let paths: Vec<&str> = notes_with_stats
         .iter()
-        .map(|(n, _)| n.path.as_str())
+        .map(|(n, _, _, _)| n.path.as_str())
         .collect();
 
     let mut props_by_path: HashMap<
@@ -5244,7 +5284,7 @@ pub fn query_bases(
     }
 
     let mut rows = Vec::new();
-    for (note, stats) in notes_with_stats {
+    for (note, stats, content_snippet, first_image_path) in notes_with_stats {
         let properties = props_by_path.remove(&note.path).unwrap_or_default();
         let tags = tags_by_path.remove(&note.path).unwrap_or_default();
         rows.push(crate::features::search::model::BaseNoteRow {
@@ -5252,6 +5292,8 @@ pub fn query_bases(
             properties,
             tags,
             stats,
+            content_snippet,
+            first_image_path,
         });
     }
 
