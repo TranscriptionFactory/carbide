@@ -6,7 +6,7 @@
   import { onMount } from "svelte";
   import { parse_task_query } from "../parse_task_query";
   import { group_tasks } from "../domain/group_tasks";
-  import type { TaskGrouping } from "../types";
+  import type { FilterExpr, TaskGrouping } from "../types";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
   import ListFilter from "@lucide/svelte/icons/list-filter";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -27,37 +27,49 @@
   const taskStore = stores.task;
   const taskService = services.task;
 
+  const HIDE_DONE: FilterExpr = {
+    type: "atom",
+    filter: { property: "status", operator: "neq", value: "done" },
+  };
+
   let showCompleted = $state(false);
   let searchQuery = $state("");
   let queryErrors = $state<string[]>([]);
   let dslGrouping = $state<TaskGrouping>("none");
   let mounted = false;
 
-  const filteredTasks = $derived(
-    showCompleted
-      ? taskStore.tasks
-      : taskStore.tasks.filter((t) => t.status !== "done"),
-  );
-
   const activeGrouping = $derived(
     taskStore.queryMode ? dslGrouping : taskStore.grouping,
   );
 
-  const grouped = $derived(group_tasks(filteredTasks, activeGrouping));
+  const grouped = $derived(group_tasks(taskStore.tasks, activeGrouping));
+
+  function inject_hide_done(filter: FilterExpr | null): FilterExpr | null {
+    if (showCompleted) return filter;
+    if (!filter) return HIDE_DONE;
+    return { type: "and", operands: [HIDE_DONE, filter] };
+  }
 
   function apply_search(text: string) {
     const trimmed = text.trim();
-    const existing = taskStore.filter.filter(
-      (f) => f.property !== "text" && f.property !== "path",
+    const base = taskStore.filter.filter(
+      (f) =>
+        f.property !== "text" &&
+        f.property !== "path" &&
+        !(
+          f.property === "status" &&
+          f.operator === "neq" &&
+          f.value === "done"
+        ),
     );
+    const filters = [...base];
     if (trimmed) {
-      taskStore.setFilter([
-        ...existing,
-        { property: "text", operator: "contains", value: trimmed },
-      ]);
-    } else {
-      taskStore.setFilter(existing);
+      filters.push({ property: "text", operator: "contains", value: trimmed });
     }
+    if (!showCompleted) {
+      filters.push({ property: "status", operator: "neq", value: "done" });
+    }
+    taskStore.setFilter(filters);
     taskService.refreshTasks();
   }
 
@@ -66,7 +78,7 @@
     if (!trimmed) {
       queryErrors = [];
       dslGrouping = "none";
-      taskService.refreshTasks();
+      taskService.queryTasks({ filter: inject_hide_done(null) });
       return;
     }
 
@@ -75,11 +87,15 @@
     if (parsed.errors.length > 0) return;
 
     dslGrouping = parsed.grouping;
-    taskService.queryTasks(parsed.query);
+    taskService.queryTasks({
+      ...parsed.query,
+      filter: inject_hide_done(parsed.query.filter),
+    });
   }
 
   $effect(() => {
     if (!mounted) return;
+    const _sc = showCompleted;
     if (taskStore.queryMode) {
       execute_dsl(taskStore.queryText);
     } else {
@@ -148,10 +164,10 @@
       >
         <CheckCircle2 size={14} />
         Tasks
-        {#if filteredTasks.length > 0}
+        {#if taskStore.tasks.length > 0}
           <span
             class="text-[10px] font-normal bg-muted px-1.5 py-0.5 rounded-full"
-            >{filteredTasks.length}</span
+            >{taskStore.tasks.length}</span
           >
         {/if}
       </h2>
@@ -354,7 +370,7 @@
       >
         Loading tasks...
       </div>
-    {:else if filteredTasks.length === 0}
+    {:else if taskStore.tasks.length === 0}
       <div
         class="flex flex-col items-center justify-center h-40 text-xs text-muted-foreground gap-2"
       >
@@ -393,9 +409,9 @@
             {/each}
           </div>
         {:else if taskStore.viewMode === "kanban"}
-          <KanbanView tasks={filteredTasks} />
+          <KanbanView tasks={taskStore.tasks} />
         {:else if taskStore.viewMode === "schedule"}
-          <ScheduleView tasks={filteredTasks} />
+          <ScheduleView tasks={taskStore.tasks} />
         {/if}
       </div>
     {/if}
