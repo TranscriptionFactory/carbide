@@ -8,7 +8,7 @@ use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::features::search::db as search_db;
 use crate::features::tasks::service::query_tasks;
-use crate::features::tasks::types::{TaskFilter, TaskQuery, TaskSort};
+use crate::features::tasks::types::{FilterExpr, TaskFilter, TaskQuery, TaskSort};
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![query_tasks_def()]
@@ -112,8 +112,22 @@ fn handle_query_tasks(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
 
     let limit = args.limit.unwrap_or(50).min(200);
 
+    let filter = if filters.is_empty() {
+        None
+    } else {
+        let operands: Vec<FilterExpr> = filters
+            .into_iter()
+            .map(|f| FilterExpr::Atom { filter: f })
+            .collect();
+        if operands.len() == 1 {
+            Some(operands.into_iter().next().unwrap())
+        } else {
+            Some(FilterExpr::And { operands })
+        }
+    };
+
     let query = TaskQuery {
-        filters,
+        filter,
         sort: vec![TaskSort {
             property: "due_date".into(),
             descending: false,

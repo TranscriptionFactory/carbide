@@ -1,4 +1,6 @@
-use crate::features::tasks::types::{Task, TaskFilter, TaskQuery, TaskSort, TaskStatus};
+use crate::features::tasks::types::{
+    FilterExpr, Task, TaskFilter, TaskQuery, TaskSort, TaskStatus,
+};
 use crate::shared::io_utils;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -119,50 +121,84 @@ pub fn get_tasks_for_path(conn: &Connection, path: &str) -> Result<Vec<Task>, St
     Ok(tasks)
 }
 
-fn apply_task_filter(
+fn build_atom_sql(
     q: &TaskFilter,
-    where_clauses: &mut Vec<String>,
     params_vec: &mut Vec<Box<dyn rusqlite::ToSql>>,
-) {
-    let idx = params_vec.len() + 1;
+) -> Option<String> {
     let col = match q.property.as_str() {
         "status" => "status",
         "due_date" => "due_date",
         "path" => "path",
         "text" => "text",
         "section" => "section",
-        _ => return,
+        _ => return None,
     };
-    match q.operator.as_str() {
+    let idx = params_vec.len() + 1;
+    let clause = match q.operator.as_str() {
         "eq" => {
-            where_clauses.push(format!("{} = ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} = ?{}", col, idx)
         }
         "neq" => {
-            where_clauses.push(format!("{} != ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} != ?{}", col, idx)
         }
         "contains" => {
-            where_clauses.push(format!("{} LIKE ?{}", col, idx));
             params_vec.push(Box::new(format!("%{}%", q.value)));
+            format!("{} LIKE ?{}", col, idx)
         }
         "gt" => {
-            where_clauses.push(format!("{} > ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} > ?{}", col, idx)
         }
         "lt" => {
-            where_clauses.push(format!("{} < ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} < ?{}", col, idx)
         }
         "gte" => {
-            where_clauses.push(format!("{} >= ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} >= ?{}", col, idx)
         }
         "lte" => {
-            where_clauses.push(format!("{} <= ?{}", col, idx));
             params_vec.push(Box::new(q.value.clone()));
+            format!("{} <= ?{}", col, idx)
         }
-        _ => {}
+        _ => return None,
+    };
+    Some(clause)
+}
+
+fn build_filter_sql(
+    expr: &FilterExpr,
+    params: &mut Vec<Box<dyn rusqlite::ToSql>>,
+) -> Option<String> {
+    match expr {
+        FilterExpr::Atom { filter } => build_atom_sql(filter, params),
+        FilterExpr::And { operands } => {
+            let parts: Vec<_> = operands
+                .iter()
+                .filter_map(|e| build_filter_sql(e, params))
+                .collect();
+            if parts.is_empty() {
+                None
+            } else {
+                Some(format!("({})", parts.join(" AND ")))
+            }
+        }
+        FilterExpr::Or { operands } => {
+            let parts: Vec<_> = operands
+                .iter()
+                .filter_map(|e| build_filter_sql(e, params))
+                .collect();
+            if parts.is_empty() {
+                None
+            } else {
+                Some(format!("({})", parts.join(" OR ")))
+            }
+        }
+        FilterExpr::Not { operand } => {
+            build_filter_sql(operand, params).map(|s| format!("NOT ({})", s))
+        }
     }
 }
 
@@ -199,14 +235,12 @@ pub fn query_tasks(conn: &Connection, task_query: TaskQuery) -> Result<Vec<Task>
     let mut sql =
         "SELECT id, path, text, status, due_date, line_number, section FROM tasks".to_string();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    let mut where_clauses: Vec<String> = Vec::new();
 
-    for f in &task_query.filters {
-        apply_task_filter(f, &mut where_clauses, &mut params_vec);
-    }
-    if !where_clauses.is_empty() {
-        sql.push_str(" WHERE ");
-        sql.push_str(&where_clauses.join(" AND "));
+    if let Some(ref filter_expr) = task_query.filter {
+        if let Some(where_sql) = build_filter_sql(filter_expr, &mut params_vec) {
+            sql.push_str(" WHERE ");
+            sql.push_str(&where_sql);
+        }
     }
     sql.push_str(&build_order_clause(&task_query.sort));
     if task_query.limit > 0 {
