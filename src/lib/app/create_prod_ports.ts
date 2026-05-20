@@ -102,7 +102,7 @@ export function create_prod_ports(): Ports & {
   const ai = create_ai_tauri_adapter();
   const ai_stream = create_ai_stream_adapter();
   const graph = create_graph_remark_adapter(notes, async (vault_id, path) => {
-    const result = await commands.readVaultFile(vault_id, path);
+    const result = await commands.readVaultFile(vault_id, path, null);
     if (result.status === "ok") return result.data;
     throw new Error(result.error);
   });

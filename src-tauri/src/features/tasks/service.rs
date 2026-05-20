@@ -163,6 +163,10 @@ fn build_atom_sql(
             params_vec.push(Box::new(q.value.clone()));
             format!("{} <= ?{}", col, idx)
         }
+        "starts_with" => {
+            params_vec.push(Box::new(format!("{}%", q.value)));
+            format!("{} LIKE ?{}", col, idx)
+        }
         _ => return None,
     };
     Some(clause)
@@ -468,5 +472,14 @@ mod tests {
             Some("((status = ?1 AND path LIKE ?2) OR section LIKE ?3)".to_string())
         );
         assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn test_build_atom_sql_starts_with() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("path", "starts_with", "projects/");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(sql, Some("path LIKE ?1".to_string()));
+        assert_eq!(params.len(), 1);
     }
 }
