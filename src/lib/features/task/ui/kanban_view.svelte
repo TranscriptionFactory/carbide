@@ -1,59 +1,35 @@
 <script module lang="ts">
-  import type { Task, TaskStatus } from "../types";
+  import type { Task, TaskGrouping, TaskStatus } from "../types";
+  import { group_tasks } from "../domain/group_tasks";
+
+  const STATUS_ORDER: TaskStatus[] = ["todo", "doing", "done"];
+  const STATUS_LABELS: Record<string, string> = {
+    todo: "To Do",
+    doing: "Doing",
+    done: "Done",
+  };
 
   export function derive_kanban_columns(tasks: Task[], groupProperty: string) {
     if (groupProperty === "status") {
-      const STATUS_COLUMNS: {
-        id: string;
-        label: string;
-        status: TaskStatus;
-      }[] = [
-        { id: "todo", label: "To Do", status: "todo" },
-        { id: "doing", label: "Doing", status: "doing" },
-        { id: "done", label: "Done", status: "done" },
-      ];
-      return STATUS_COLUMNS.map((col) => ({
-        ...col,
-        tasks: tasks.filter((t) => t.status === col.status),
+      const groups = group_tasks(tasks, "status");
+      const by_key = new Map(groups.map((g) => [g.key, g]));
+      return STATUS_ORDER.map((s) => ({
+        id: s,
+        label: STATUS_LABELS[s] ?? s,
+        status: s as TaskStatus | undefined,
+        tasks: by_key.get(s)?.tasks ?? [],
       }));
     }
 
-    if (groupProperty === "section") {
-      const groups = new Map<string, Task[]>();
-      for (const t of tasks) {
-        const key = t.section || "No Section";
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(t);
-      }
-      return Array.from(groups.entries()).map(([label, g]) => ({
-        id: label,
-        label,
-        status: undefined as TaskStatus | undefined,
-        tasks: g,
-      }));
-    }
-
-    if (groupProperty === "note") {
-      const groups = new Map<string, Task[]>();
-      for (const t of tasks) {
-        const key = t.path;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(t);
-      }
-      return Array.from(groups.entries()).map(([label, g]) => ({
-        id: label,
-        label: label.split("/").pop() || label,
-        status: undefined as TaskStatus | undefined,
-        tasks: g,
-      }));
-    }
-
-    return [] as {
-      id: string;
-      label: string;
-      status: TaskStatus | undefined;
-      tasks: Task[];
-    }[];
+    const KNOWN: Set<string> = new Set(["note", "section", "due_date"]);
+    if (!KNOWN.has(groupProperty)) return [] as { id: string; label: string; status: TaskStatus | undefined; tasks: Task[] }[];
+    const groups = group_tasks(tasks, groupProperty as TaskGrouping);
+    return groups.map((g) => ({
+      id: g.key,
+      label: g.label,
+      status: undefined as TaskStatus | undefined,
+      tasks: g.tasks,
+    }));
   }
 </script>
 

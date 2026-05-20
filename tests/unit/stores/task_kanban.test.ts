@@ -92,7 +92,7 @@ describe("derive_kanban_columns", () => {
     expect(cols).toHaveLength(3);
     const sprint1 = find_column(cols, "Sprint 1");
     expect(sprint1.tasks).toHaveLength(2);
-    const no_section = find_column(cols, "No Section");
+    const no_section = find_column(cols, "(no section)");
     expect(no_section.tasks).toHaveLength(1);
   });
 
