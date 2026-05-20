@@ -34,8 +34,7 @@ function parse_date_comparator(
 ): { operator: TaskFilter["operator"]; value: string } | null {
   const today_match = rest.match(/^today$/i);
   if (today_match) {
-    const today = new Date().toISOString().slice(0, 10);
-    return { operator: "eq", value: today };
+    return { operator: "eq", value: "__today__" };
   }
 
   const cmp_match = rest.match(/^(before|after|on)\s+(\S+)$/);
@@ -45,8 +44,8 @@ function parse_date_comparator(
   if (!DATE_RE.test(date_str!)) return null;
 
   const op_map: Record<string, TaskFilter["operator"]> = {
-    before: "lt",
-    after: "gt",
+    before: "lte",
+    after: "gte",
     on: "eq",
   };
   return { operator: op_map[direction!]!, value: date_str! };

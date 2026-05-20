@@ -133,6 +133,40 @@ fn build_atom_sql(
         "section" => "section",
         _ => return None,
     };
+
+    let resolve_value = |val: &str| -> String {
+        match val {
+            "__today__" => "date('now', 'localtime')".to_string(),
+            "__week_start__" => "date('now', 'localtime', 'weekday 0', '-6 days')".to_string(),
+            "__week_end__" => "date('now', 'localtime', 'weekday 0')".to_string(),
+            "__last_week_start__" => {
+                "date('now', 'localtime', 'weekday 0', '-13 days')".to_string()
+            }
+            "__last_week_end__" => {
+                "date('now', 'localtime', 'weekday 0', '-7 days')".to_string()
+            }
+            s if s.starts_with("__today_plus_") && s.ends_with("__") => {
+                let n = &s[13..s.len() - 2];
+                format!("date('now', 'localtime', '+{} days')", n)
+            }
+            _ => String::new(),
+        }
+    };
+
+    let sentinel = resolve_value(&q.value);
+    if !sentinel.is_empty() {
+        let clause = match q.operator.as_str() {
+            "eq" => format!("{} = {}", col, sentinel),
+            "neq" => format!("{} != {}", col, sentinel),
+            "gt" => format!("{} > {}", col, sentinel),
+            "lt" => format!("{} < {}", col, sentinel),
+            "gte" => format!("{} >= {}", col, sentinel),
+            "lte" => format!("{} <= {}", col, sentinel),
+            _ => return None,
+        };
+        return Some(clause);
+    }
+
     let idx = params_vec.len() + 1;
     let clause = match q.operator.as_str() {
         "eq" => {
@@ -481,5 +515,41 @@ mod tests {
         let sql = build_filter_sql(&expr, &mut params);
         assert_eq!(sql, Some("path LIKE ?1".to_string()));
         assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_atom_sql_today_sentinel() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("due_date", "eq", "__today__");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("due_date = date('now', 'localtime')".to_string())
+        );
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_build_atom_sql_week_start_sentinel() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("due_date", "gte", "__week_start__");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("due_date >= date('now', 'localtime', 'weekday 0', '-6 days')".to_string())
+        );
+        assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_build_atom_sql_today_plus_n_sentinel() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("due_date", "lte", "__today_plus_7__");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("due_date <= date('now', 'localtime', '+7 days')".to_string())
+        );
+        assert_eq!(params.len(), 0);
     }
 }
