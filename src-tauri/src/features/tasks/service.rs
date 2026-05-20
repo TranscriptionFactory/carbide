@@ -386,4 +386,87 @@ mod tests {
 
         assert_eq!(tasks[4].due_date, Some("2024-01-01".to_string()));
     }
+
+    fn make_atom(property: &str, operator: &str, value: &str) -> FilterExpr {
+        FilterExpr::Atom {
+            filter: TaskFilter {
+                property: property.to_string(),
+                operator: operator.to_string(),
+                value: value.to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn test_build_filter_sql_atom() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("status", "eq", "todo");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(sql, Some("status = ?1".to_string()));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_filter_sql_and() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = FilterExpr::And {
+            operands: vec![
+                make_atom("status", "eq", "todo"),
+                make_atom("path", "contains", "daily"),
+            ],
+        };
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(sql, Some("(status = ?1 AND path LIKE ?2)".to_string()));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_build_filter_sql_or() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = FilterExpr::Or {
+            operands: vec![
+                make_atom("section", "contains", "urgent"),
+                make_atom("section", "contains", "reminders"),
+            ],
+        };
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("(section LIKE ?1 OR section LIKE ?2)".to_string())
+        );
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn test_build_filter_sql_not() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = FilterExpr::Not {
+            operand: Box::new(make_atom("status", "eq", "done")),
+        };
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(sql, Some("NOT (status = ?1)".to_string()));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn test_build_filter_sql_nested() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = FilterExpr::Or {
+            operands: vec![
+                FilterExpr::And {
+                    operands: vec![
+                        make_atom("status", "eq", "todo"),
+                        make_atom("path", "contains", "projects"),
+                    ],
+                },
+                make_atom("section", "contains", "urgent"),
+            ],
+        };
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("((status = ?1 AND path LIKE ?2) OR section LIKE ?3)".to_string())
+        );
+        assert_eq!(params.len(), 3);
+    }
 }

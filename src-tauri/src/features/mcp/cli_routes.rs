@@ -1097,6 +1097,7 @@ mod tests {
         let json = r#"{"vault_id":"v1"}"#;
         let params: TasksQueryParams = serde_json::from_str(json).unwrap();
         assert_eq!(params.vault_id, "v1");
+        assert!(params.filter.is_none());
         assert!(params.filters.is_empty());
         assert_eq!(params.limit, 100);
     }
@@ -1108,6 +1109,15 @@ mod tests {
         assert_eq!(params.filters.len(), 1);
         assert_eq!(params.filters[0].value, "todo");
         assert_eq!(params.limit, 20);
+    }
+
+    #[test]
+    fn test_tasks_query_params_with_filter_expr() {
+        let json = r#"{"vault_id":"v1","filter":{"type":"or","operands":[{"type":"atom","filter":{"property":"section","operator":"contains","value":"urgent"}},{"type":"atom","filter":{"property":"section","operator":"contains","value":"reminders"}}]}}"#;
+        let params: TasksQueryParams = serde_json::from_str(json).unwrap();
+        assert!(params.filter.is_some());
+        assert!(params.filters.is_empty());
+        assert!(matches!(params.filter.unwrap(), FilterExpr::Or { .. }));
     }
 
     #[test]
