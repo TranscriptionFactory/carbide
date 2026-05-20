@@ -21,7 +21,7 @@ use crate::features::search::db as search_db;
 use crate::features::search::model::{BaseFilter, BaseQuery, BaseSort};
 use crate::features::search::service as search_service;
 use crate::features::tasks::service as tasks_service;
-use crate::features::tasks::types::{TaskFilter, TaskQuery, TaskSort, TaskStatus};
+use crate::features::tasks::types::{FilterExpr, TaskFilter, TaskQuery, TaskSort, TaskStatus};
 use crate::shared::{io_utils, storage};
 
 #[derive(Serialize)]
@@ -635,6 +635,8 @@ async fn cli_bases_properties(
 struct TasksQueryParams {
     vault_id: String,
     #[serde(default)]
+    filter: Option<FilterExpr>,
+    #[serde(default)]
     filters: Vec<TaskFilter>,
     #[serde(default)]
     sort: Vec<TaskSort>,
@@ -661,8 +663,24 @@ async fn cli_tasks(
     Json(params): Json<TasksQueryParams>,
 ) -> axum::response::Response {
     let limit = params.limit.min(500);
+    let filter = if let Some(f) = params.filter {
+        Some(f)
+    } else if !params.filters.is_empty() {
+        let operands: Vec<FilterExpr> = params
+            .filters
+            .into_iter()
+            .map(|f| FilterExpr::Atom { filter: f })
+            .collect();
+        if operands.len() == 1 {
+            Some(operands.into_iter().next().unwrap())
+        } else {
+            Some(FilterExpr::And { operands })
+        }
+    } else {
+        None
+    };
     let query = TaskQuery {
-        filters: params.filters,
+        filter,
         sort: params.sort,
         limit,
         offset: params.offset,

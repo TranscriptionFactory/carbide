@@ -27,8 +27,14 @@ export interface TaskSort {
   descending: boolean;
 }
 
+export type FilterExpr =
+  | { type: "atom"; filter: TaskFilter }
+  | { type: "and"; operands: FilterExpr[] }
+  | { type: "or"; operands: FilterExpr[] }
+  | { type: "not"; operand: FilterExpr };
+
 export interface TaskQuery {
-  filters: TaskFilter[];
+  filter: FilterExpr | null;
   sort: TaskSort[];
   limit: number;
   offset: number;
