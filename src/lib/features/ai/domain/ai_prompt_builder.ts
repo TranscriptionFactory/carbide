@@ -4,6 +4,7 @@ import type {
   AiApplyTarget,
   AiMode,
   AiVaultContext,
+  AiVaultContextNote,
 } from "$lib/features/ai/domain/ai_types";
 import type { AiInlineCommand } from "$lib/features/ai/domain/ai_inline_commands";
 
@@ -19,39 +20,20 @@ function selection_text(
   return trimmed === "" ? null : selection.text;
 }
 
+function format_note(n: AiVaultContextNote): string {
+  return `- ${n.title} (${n.path}): ${n.blurb}`;
+}
+
 function vault_context_sections(ctx: AiVaultContext): string {
-  const parts: string[] = [];
-  if (ctx.similar_notes.length > 0) {
-    parts.push(
-      section(
-        "similar_notes",
-        ctx.similar_notes
-          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
-          .join("\n"),
-      ),
-    );
-  }
-  if (ctx.backlinks.length > 0) {
-    parts.push(
-      section(
-        "backlinks",
-        ctx.backlinks
-          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
-          .join("\n"),
-      ),
-    );
-  }
-  if (ctx.outlinks.length > 0) {
-    parts.push(
-      section(
-        "outlinks",
-        ctx.outlinks
-          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
-          .join("\n"),
-      ),
-    );
-  }
-  return parts.join("\n\n");
+  const entries: [string, AiVaultContextNote[]][] = [
+    ["similar_notes", ctx.similar_notes],
+    ["backlinks", ctx.backlinks],
+    ["outlinks", ctx.outlinks],
+  ];
+  return entries
+    .filter(([, notes]) => notes.length > 0)
+    .map(([label, notes]) => section(label, notes.map(format_note).join("\n")))
+    .join("\n\n");
 }
 
 export function build_ai_prompt(input: {
@@ -66,18 +48,16 @@ export function build_ai_prompt(input: {
   const user_prompt = input.user_prompt.trim();
   const selected_text = selection_text(input.selection);
 
-  const vault_ctx = input.vault_context;
-  const has_vault_context =
-    vault_ctx &&
-    (vault_ctx.similar_notes.length > 0 ||
-      vault_ctx.backlinks.length > 0 ||
-      vault_ctx.outlinks.length > 0);
-  const vault_ctx_line = has_vault_context
-    ? "Related notes from the vault are provided for additional context."
-    : null;
-  const vault_ctx_sections = has_vault_context
-    ? vault_context_sections(vault_ctx)
-    : null;
+  function append_vault_context(parts: string[]) {
+    const ctx = input.vault_context;
+    if (!ctx) return;
+    const sections_str = vault_context_sections(ctx);
+    if (!sections_str) return;
+    parts.push(
+      "Related notes from the vault are provided for additional context.",
+    );
+    parts.push(sections_str);
+  }
 
   if (input.mode === "ask") {
     if (input.target === "selection" && selected_text) {
@@ -89,8 +69,7 @@ export function build_ai_prompt(input: {
         section("selected_text", selected_text),
         section("full_note_context", input.note_markdown),
       ];
-      if (vault_ctx_line) parts.push(vault_ctx_line);
-      if (vault_ctx_sections) parts.push(vault_ctx_sections);
+      append_vault_context(parts);
       parts.push(section("user_question", user_prompt));
       return parts.join("\n\n");
     }
@@ -102,8 +81,7 @@ export function build_ai_prompt(input: {
       `Note path: ${input.note_path}`,
       section("note_markdown", input.note_markdown),
     ];
-    if (vault_ctx_line) parts.push(vault_ctx_line);
-    if (vault_ctx_sections) parts.push(vault_ctx_sections);
+    append_vault_context(parts);
     parts.push(section("user_question", user_prompt));
     return parts.join("\n\n");
   }
@@ -118,8 +96,7 @@ export function build_ai_prompt(input: {
       section("selected_text", selected_text),
       section("full_note_context", input.note_markdown),
     ];
-    if (vault_ctx_line) parts.push(vault_ctx_line);
-    if (vault_ctx_sections) parts.push(vault_ctx_sections);
+    append_vault_context(parts);
     parts.push(section("user_instructions", user_prompt));
     return parts.join("\n\n");
   }
@@ -131,8 +108,7 @@ export function build_ai_prompt(input: {
     `Note path: ${input.note_path}`,
     section("current_markdown", input.note_markdown),
   ];
-  if (vault_ctx_line) parts.push(vault_ctx_line);
-  if (vault_ctx_sections) parts.push(vault_ctx_sections);
+  append_vault_context(parts);
   parts.push(section("user_instructions", user_prompt));
   return parts.join("\n\n");
 }

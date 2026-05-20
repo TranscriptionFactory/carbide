@@ -1,4 +1,5 @@
 import { create_logger } from "$lib/shared/utils/logger";
+import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiPort, AiStreamPort } from "$lib/features/ai/ports";
 import type { SearchPort } from "$lib/features/search";
@@ -9,6 +10,7 @@ import type {
   AiProviderConfig,
   AiVaultContext,
   AiVaultContextNote,
+  VaultContextSettings,
 } from "$lib/features/ai/domain/ai_types";
 import { provider_command } from "$lib/features/ai/domain/ai_types";
 import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
@@ -17,12 +19,13 @@ import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 
 const log = create_logger("ai_service");
 
-export type VaultContextSettings = {
-  enabled: boolean;
-  similar_limit: number;
-  include_links: boolean;
-  similarity_threshold: number;
-};
+function to_vault_context_note(n: {
+  path: string;
+  title: string;
+  blurb: string;
+}): AiVaultContextNote {
+  return { path: n.path, title: n.title, blurb: n.blurb };
+}
 
 export class AiService {
   constructor(
@@ -63,15 +66,11 @@ export class AiService {
         .then((hits) =>
           hits
             .filter((h) => h.distance <= settings.similarity_threshold)
-            .map((h) => ({
-              path: h.note.path,
-              title: h.note.title,
-              blurb: h.note.blurb,
-            })),
+            .map((h) => to_vault_context_note(h.note)),
         )
         .catch((err) => {
           log.warn("Failed to fetch similar notes for AI context", {
-            error: err,
+            error: error_message(err),
           });
           return [];
         }),
@@ -79,20 +78,12 @@ export class AiService {
         ? this.search_port
             .get_note_links_snapshot(vault.id, note_path)
             .then((snapshot) => ({
-              backlinks: snapshot.backlinks.map((n) => ({
-                path: n.path,
-                title: n.title,
-                blurb: n.blurb,
-              })),
-              outlinks: snapshot.outlinks.map((n) => ({
-                path: n.path,
-                title: n.title,
-                blurb: n.blurb,
-              })),
+              backlinks: snapshot.backlinks.map(to_vault_context_note),
+              outlinks: snapshot.outlinks.map(to_vault_context_note),
             }))
             .catch((err) => {
               log.warn("Failed to fetch note links for AI context", {
-                error: err,
+                error: error_message(err),
               });
               return { backlinks: [], outlinks: [] };
             })

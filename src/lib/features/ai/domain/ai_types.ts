@@ -78,3 +78,10 @@ export type AiVaultContext = {
   backlinks: AiVaultContextNote[];
   outlinks: AiVaultContextNote[];
 };
+
+export type VaultContextSettings = {
+  enabled: boolean;
+  similar_limit: number;
+  include_links: boolean;
+  similarity_threshold: number;
+};

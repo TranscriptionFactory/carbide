@@ -4,7 +4,7 @@ import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type { VaultContextSettings } from "$lib/features/ai/application/ai_service";
+import type { VaultContextSettings } from "$lib/features/ai/domain/ai_types";
 
 const ollama_config: AiProviderConfig = {
   id: "ollama",

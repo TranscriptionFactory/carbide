@@ -68,8 +68,9 @@ export class AiStore {
     context: AiDialogContext,
     options?: { vault_context_enabled?: boolean },
   ) {
+    const defaults = initial_state();
     this.dialog = {
-      ...initial_state(),
+      ...defaults,
       open: true,
       provider_id,
       prompt: "",
@@ -79,7 +80,7 @@ export class AiStore {
       is_executing: false,
       result: null,
       vault_context_enabled:
-        options?.vault_context_enabled ?? initial_state().vault_context_enabled,
+        options?.vault_context_enabled ?? defaults.vault_context_enabled,
     };
   }
 
