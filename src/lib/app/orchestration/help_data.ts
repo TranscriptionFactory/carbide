@@ -73,6 +73,11 @@ export const GUIDES: GuideEntry[] = [
     title: "UI Design System",
     description: "Colors, tokens, and component patterns",
   },
+  {
+    slug: "CHANGELOG",
+    title: "Changelog",
+    description: "Recent changes and release notes",
+  },
 ];
 
 const md_processor = unified()
