@@ -96,7 +96,7 @@ Shipped in commits `bd7849e4` (group_tasks refactor), `283d77bd` (DSL + grouping
 
 ---
 
-## Phase 3: Embedded Query + Tags — PARTIALLY DONE
+## Phase 3: Embedded Query + Tags ✅ DONE
 
 ### Item 8 — Tag filtering (Medium) ✅
 
@@ -118,20 +118,15 @@ Shipped in commit `75ab6347`.
 - Removed client-side `filteredTasks` derivation
 - `showCompleted` toggle triggers re-query via `$effect` dependency
 
-### Item 6 — Navigate to source note from embedded results (Medium)
+### Item 6 — Navigate to source note from embedded results (Medium) ✅
 
-**Problem**: Embedded task query results show filename but there's no click handler to navigate.
+Shipped in commit `5a1a5768`.
 
-**Status**: Not started. Requires threading action registry through prosemirror_adapter → code_block_view_plugin callback chain.
-
-**Approach**:
-- Add `open_note: (path: string, line_number: number) => void` to `TaskQueryCallbacks` in `code_block_view_plugin.ts`
-- Make the meta element (filename) clickable with appropriate cursor styling
-- Wire in `prosemirror_adapter.ts` via action registry (`ACTION_IDS.note_open`)
-
-**Files**:
-- `src/lib/features/editor/adapters/code_block_view_plugin.ts` — add callback, wire click handler
-- `src/lib/features/editor/adapters/prosemirror_adapter.ts` — implement `open_note` callback
+**What changed**:
+- Added `open_note?: (path: string) => void` to `TaskQueryCallbacks`
+- Filename in embedded results is now a clickable link (dotted underline, hover highlight)
+- Wired through `build_task_query_callbacks` → `on_internal_link_click` from session events
+- CSS: `.task-query-file-link` with cursor pointer + dotted underline styling
 
 ---
 
@@ -165,6 +160,88 @@ Phase 2 (DSL UI) ──→ Phase 4 (saved views needs DSL UI)
 Phase 3 (embedded + tags) ──→ independent, can ship anytime
 Phase 4 (saved views) ──→ last
 ```
+
+## Phase 4 Implementation Prompt
+
+```
+Implement Phase 4 (Saved Task Views) from @carbide/plans/task_query_and_embedding_improvements.md
+
+### What to build
+
+Saved task views: persist DSL queries + grouping + sort as named views in the vault.
+
+### Storage
+
+- Path: `.carbide/task-views.json` (single file, array of views — simpler than a directory)
+- Type: `{ id: string, name: string, query_text: string, grouping: TaskGrouping, sort: TaskSort[] }`
+- `id` is a nanoid or timestamp-based unique key
+
+### Rust layer (src-tauri/src/features/tasks/)
+
+Follow the pattern from `smart_links/config.rs` — `load_rules`/`save_rules` with `atomic_write`:
+
+1. Add `task_views.rs`:
+   - `const CONFIG_REL: &str = ".carbide/task-views.json";`
+   - `TaskView` struct (serde): `{ id, name, query_text, grouping, sort }`
+   - `load_views(vault_root: &Path) -> Result<Vec<TaskView>, String>` — return `[]` if file missing
+   - `save_views(vault_root: &Path, views: &[TaskView]) -> Result<(), String>`
+   - `delete_view(vault_root: &Path, id: &str) -> Result<(), String>` — load, filter, save
+
+2. Add IPC commands in `mod.rs`:
+   - `tasks_views_list(app, vault_id) -> Vec<TaskView>`
+   - `tasks_views_save(app, vault_id, view: TaskView) -> ()` — upsert by id
+   - `tasks_views_delete(app, vault_id, id: String) -> ()`
+   - Register in `src-tauri/src/main.rs` invoke_handler
+
+3. Don't forget to add to the specta type generation if the project uses it.
+
+### TypeScript port layer
+
+1. `src/lib/features/task/types.ts` — add `TaskView` type
+2. `src/lib/features/task/ports.ts` — add to `TaskPort`:
+   - `listTaskViews(vaultId: string): Promise<TaskView[]>`
+   - `saveTaskView(vaultId: string, view: TaskView): Promise<void>`
+   - `deleteTaskView(vaultId: string, id: string): Promise<void>`
+3. `src/lib/features/task/adapters/task_tauri_adapter.ts` — implement via `invoke()`
+4. `src/lib/features/task/index.ts` — re-export `TaskView`
+
+### Store
+
+In `TaskStore`:
+- `savedViews = $state<TaskView[]>([])` + `setSavedViews(views)`
+- No need for a separate store; it's a small amount of state
+
+### UI (task_panel.svelte)
+
+- **Save button**: visible only in DSL mode when `queryText` is non-empty. Click opens a small inline prompt for the view name, then saves via `taskService`.
+- **View selector**: dropdown/select at top of panel (visible always), lists saved views. Selecting one:
+  1. Switches to DSL mode
+  2. Sets `queryText` to the view's `query_text`
+  3. Sets grouping + sort from the view
+  4. Executes the query
+- **Delete**: small X button next to each saved view in the dropdown, or a trash icon.
+
+### Task Service
+
+Add methods to `TaskService` (or handle directly in the panel — check existing patterns):
+- `loadSavedViews()` — called on mount
+- `saveCurrentView(name)` — takes current queryText + grouping + sort, generates id, saves
+- `deleteSavedView(id)` — removes and refreshes list
+
+### Tests
+
+- Unit tests for Rust `load_views`/`save_views`/`delete_view` (in `src-tauri/tests/`)
+- TypeScript: test the save/load/delete roundtrip if there's an existing pattern for IPC mocking
+
+### Key constraints
+
+- Follow existing patterns exactly (smart_links config.rs for Rust, TaskTauriAdapter for TS)
+- Keep it simple — no complex state management, no optimistic updates
+- The `id` field enables upsert semantics (save overwrites if id matches)
+- Load views on panel mount, not eagerly
+```
+
+---
 
 ## Key Decisions
 
