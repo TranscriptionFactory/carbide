@@ -1402,7 +1402,8 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Include Vault Context</span>
                 <span class="SettingsDialog__description"
-                  >Send semantically similar and linked notes as context to the AI</span
+                  >Send semantically similar and linked notes as context to the
+                  AI</span
                 >
               </div>
               <Switch.Root
@@ -1427,7 +1428,8 @@
                 onValueChange={(v: string | undefined) => {
                   if (v) update("ai_vault_context_similar_limit", Number(v));
                 }}
-                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+                disabled={ai_settings_disabled ||
+                  !editor_settings.ai_vault_context_enabled}
               >
                 <Select.Trigger class="w-28">
                   <span data-slot="select-value">
@@ -1454,7 +1456,8 @@
                 onCheckedChange={(v: boolean) => {
                   update("ai_vault_context_include_links", v);
                 }}
-                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+                disabled={ai_settings_disabled ||
+                  !editor_settings.ai_vault_context_enabled}
               />
             </div>
 
@@ -1462,16 +1465,21 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Similarity Threshold</span>
                 <span class="SettingsDialog__description"
-                  >Only include notes with similarity distance at or below this value</span
+                  >Only include notes with similarity distance at or below this
+                  value</span
                 >
               </div>
               <Select.Root
                 type="single"
-                value={String(editor_settings.ai_vault_context_similarity_threshold)}
+                value={String(
+                  editor_settings.ai_vault_context_similarity_threshold,
+                )}
                 onValueChange={(v: string | undefined) => {
-                  if (v) update("ai_vault_context_similarity_threshold", Number(v));
+                  if (v)
+                    update("ai_vault_context_similarity_threshold", Number(v));
                 }}
-                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+                disabled={ai_settings_disabled ||
+                  !editor_settings.ai_vault_context_enabled}
               >
                 <Select.Trigger class="w-28">
                   <span data-slot="select-value">
