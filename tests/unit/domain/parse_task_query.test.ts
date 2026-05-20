@@ -52,16 +52,16 @@ describe("parse_task_query", () => {
     expect(query.filter).toEqual(atom("text", "contains", "urgent"));
   });
 
-  it("parses 'due before <date>'", () => {
+  it("parses 'due before <date>' as inclusive (lte)", () => {
     const { query, errors } = parse_task_query("due before 2026-05-01");
     expect(errors).toEqual([]);
-    expect(query.filter).toEqual(atom("due_date", "lt", "2026-05-01"));
+    expect(query.filter).toEqual(atom("due_date", "lte", "2026-05-01"));
   });
 
-  it("parses 'due after <date>'", () => {
+  it("parses 'due after <date>' as inclusive (gte)", () => {
     const { query, errors } = parse_task_query("due after 2026-01-01");
     expect(errors).toEqual([]);
-    expect(query.filter).toEqual(atom("due_date", "gt", "2026-01-01"));
+    expect(query.filter).toEqual(atom("due_date", "gte", "2026-01-01"));
   });
 
   it("parses 'due on <date>'", () => {
@@ -70,15 +70,10 @@ describe("parse_task_query", () => {
     expect(query.filter).toEqual(atom("due_date", "eq", "2026-04-24"));
   });
 
-  it("parses 'due today'", () => {
+  it("parses 'due today' as sentinel", () => {
     const { query, errors } = parse_task_query("due today");
     expect(errors).toEqual([]);
-    expect(query.filter).not.toBeNull();
-    expect(query.filter!.type).toBe("atom");
-    const f = (query.filter as { type: "atom"; filter: any }).filter;
-    expect(f.property).toBe("due_date");
-    expect(f.operator).toBe("eq");
-    expect(f.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(query.filter).toEqual(atom("due_date", "eq", "__today__"));
   });
 
   it("parses 'has due date'", () => {
@@ -219,7 +214,7 @@ limit 20`;
       type: "and",
       operands: [
         atom("status", "eq", "todo"),
-        atom("due_date", "lt", "2026-05-01"),
+        atom("due_date", "lte", "2026-05-01"),
       ],
     });
   });
