@@ -178,7 +178,12 @@ function parse_filter_expr(line: string): FilterExpr | string {
 }
 
 type ParsedLine =
-  | { filter?: FilterExpr; sort?: TaskSort; grouping?: TaskGrouping; limit?: number }
+  | {
+      filter?: FilterExpr;
+      sort?: TaskSort;
+      grouping?: TaskGrouping;
+      limit?: number;
+    }
   | string;
 
 function parse_line(line: string): ParsedLine {
