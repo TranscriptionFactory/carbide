@@ -2,7 +2,12 @@ import type { TaskPort } from "../ports";
 import type { TaskStore } from "../state/task_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
-import type { TaskDueDateUpdate, TaskQuery, TaskStatus } from "../types";
+import type {
+  FilterExpr,
+  TaskDueDateUpdate,
+  TaskQuery,
+  TaskStatus,
+} from "../types";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("task_service");
@@ -20,8 +25,17 @@ export class TaskService {
   ) {}
 
   private build_query(overrides: Partial<TaskQuery> = {}): TaskQuery {
+    const store_filters = this.store.filter;
+    let filter: TaskQuery["filter"] = null;
+    if (store_filters.length > 0) {
+      const operands: FilterExpr[] = store_filters.map((f) => ({
+        type: "atom" as const,
+        filter: f,
+      }));
+      filter = operands.length === 1 ? operands[0]! : { type: "and", operands };
+    }
     return {
-      filters: this.store.filter,
+      filter,
       sort: this.store.sort,
       limit: 0,
       offset: 0,
