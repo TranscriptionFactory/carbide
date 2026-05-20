@@ -160,7 +160,7 @@ function parse_filter_expr(line: string): FilterExpr | string {
     return { type: "and", operands };
   }
 
-  const not_match = trimmed.match(/^NOT\s+(.+)$/i);
+  const not_match = trimmed.match(/^NOT\s+(\(.+)$/i);
   if (not_match) {
     const inner = parse_filter_expr(not_match[1]!);
     if (typeof inner === "string") return inner;
