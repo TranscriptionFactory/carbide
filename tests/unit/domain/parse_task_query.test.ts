@@ -88,6 +88,54 @@ describe("parse_task_query", () => {
     expect(query.filter).toEqual(atom("due_date", "eq", ""));
   });
 
+  it("parses 'due this week' as range", () => {
+    const { query, errors } = parse_task_query("due this week");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual({
+      type: "and",
+      operands: [
+        atom("due_date", "gte", "__week_start__"),
+        atom("due_date", "lte", "__week_end__"),
+      ],
+    });
+  });
+
+  it("parses 'due last week' as range", () => {
+    const { query, errors } = parse_task_query("due last week");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual({
+      type: "and",
+      operands: [
+        atom("due_date", "gte", "__last_week_start__"),
+        atom("due_date", "lte", "__last_week_end__"),
+      ],
+    });
+  });
+
+  it("parses 'due next 7 days' as range", () => {
+    const { query, errors } = parse_task_query("due next 7 days");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual({
+      type: "and",
+      operands: [
+        atom("due_date", "gte", "__today__"),
+        atom("due_date", "lte", "__today_plus_7__"),
+      ],
+    });
+  });
+
+  it("parses 'due next 1 day' (singular)", () => {
+    const { query, errors } = parse_task_query("due next 1 day");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual({
+      type: "and",
+      operands: [
+        atom("due_date", "gte", "__today__"),
+        atom("due_date", "lte", "__today_plus_1__"),
+      ],
+    });
+  });
+
   it("parses 'sort by due'", () => {
     const { query, errors } = parse_task_query("sort by due_date");
     expect(errors).toEqual([]);

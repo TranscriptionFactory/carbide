@@ -29,12 +29,89 @@ function parse_status_clause(rest: string): TaskFilter | null {
   return { property: "status", operator: "eq", value: match[1]! };
 }
 
-function parse_date_comparator(
-  rest: string,
-): { operator: TaskFilter["operator"]; value: string } | null {
+function parse_date_comparator(rest: string): FilterExpr | null {
   const today_match = rest.match(/^today$/i);
   if (today_match) {
-    return { operator: "eq", value: "__today__" };
+    return {
+      type: "atom",
+      filter: { property: "due_date", operator: "eq", value: "__today__" },
+    };
+  }
+
+  const this_week_match = rest.match(/^this\s+week$/i);
+  if (this_week_match) {
+    return {
+      type: "and",
+      operands: [
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "gte",
+            value: "__week_start__",
+          },
+        },
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "lte",
+            value: "__week_end__",
+          },
+        },
+      ],
+    };
+  }
+
+  const last_week_match = rest.match(/^last\s+week$/i);
+  if (last_week_match) {
+    return {
+      type: "and",
+      operands: [
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "gte",
+            value: "__last_week_start__",
+          },
+        },
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "lte",
+            value: "__last_week_end__",
+          },
+        },
+      ],
+    };
+  }
+
+  const next_n_match = rest.match(/^next\s+(\d+)\s+days?$/i);
+  if (next_n_match) {
+    const n = next_n_match[1]!;
+    return {
+      type: "and",
+      operands: [
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "gte",
+            value: "__today__",
+          },
+        },
+        {
+          type: "atom",
+          filter: {
+            property: "due_date",
+            operator: "lte",
+            value: `__today_plus_${n}__`,
+          },
+        },
+      ],
+    };
   }
 
   const cmp_match = rest.match(/^(before|after|on)\s+(\S+)$/);
@@ -48,21 +125,30 @@ function parse_date_comparator(
     after: "gte",
     on: "eq",
   };
-  return { operator: op_map[direction!]!, value: date_str! };
+  return {
+    type: "atom",
+    filter: { property: "due_date", operator: op_map[direction!]!, value: date_str! },
+  };
 }
 
-function parse_atom(trimmed: string): TaskFilter | string {
+function parse_atom(trimmed: string): FilterExpr | string {
   if (trimmed === "done") {
-    return { property: "status", operator: "eq", value: "done" };
+    return {
+      type: "atom",
+      filter: { property: "status", operator: "eq", value: "done" },
+    };
   }
   if (trimmed === "not done") {
-    return { property: "status", operator: "neq", value: "done" };
+    return {
+      type: "atom",
+      filter: { property: "status", operator: "neq", value: "done" },
+    };
   }
 
   const status_match = trimmed.match(/^status\s+(.+)$/);
   if (status_match) {
     const f = parse_status_clause(status_match[1]!);
-    if (f) return f;
+    if (f) return { type: "atom", filter: f };
     return `Invalid status clause: ${trimmed}`;
   }
 
@@ -70,28 +156,31 @@ function parse_atom(trimmed: string): TaskFilter | string {
     const re = new RegExp(`^${prop}\\s+includes\\s+(.+)$`);
     const m = trimmed.match(re);
     if (m) {
-      return { property: prop, operator: "contains", value: m[1]! };
+      return {
+        type: "atom",
+        filter: { property: prop, operator: "contains", value: m[1]! },
+      };
     }
   }
 
   const due_match = trimmed.match(/^due\s+(.+)$/);
   if (due_match) {
     const result = parse_date_comparator(due_match[1]!);
-    if (result) {
-      return {
-        property: "due_date",
-        operator: result.operator,
-        value: result.value,
-      };
-    }
+    if (result) return result;
     return `Invalid due clause: ${trimmed}`;
   }
 
   if (trimmed === "has due date") {
-    return { property: "due_date", operator: "neq", value: "" };
+    return {
+      type: "atom",
+      filter: { property: "due_date", operator: "neq", value: "" },
+    };
   }
   if (trimmed === "no due date") {
-    return { property: "due_date", operator: "eq", value: "" };
+    return {
+      type: "atom",
+      filter: { property: "due_date", operator: "eq", value: "" },
+    };
   }
 
   return `Unknown clause: ${trimmed}`;
@@ -171,9 +260,7 @@ function parse_filter_expr(line: string): FilterExpr | string {
     return parse_filter_expr(stripped);
   }
 
-  const atom = parse_atom(trimmed);
-  if (typeof atom === "string") return atom;
-  return { type: "atom", filter: atom };
+  return parse_atom(trimmed);
 }
 
 type ParsedLine =
