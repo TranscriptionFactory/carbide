@@ -200,6 +200,21 @@ has due date
 no due date
 ```
 
+#### Boolean Operators
+
+Combine filter clauses on a single line with `AND`, `OR`, `NOT`. Operands must be parenthesized:
+
+```
+(section includes urgent) OR (section includes reminders)
+(status is todo) AND (due before 2026-05-01)
+NOT (status is done)
+((status is todo) AND (path includes projects)) OR (section includes urgent)
+```
+
+- Multiple lines are still implicitly ANDed (backward compatible)
+- Precedence: `NOT` > `AND` > `OR`
+- `not done` remains a shorthand for "status is not done" (no parens needed)
+
 #### Sort and Group
 
 ```
