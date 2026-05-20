@@ -20,6 +20,7 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       path: "/tmp/.mcp.json",
       message: "Configured",
     }),
+    read_token: vi.fn().mockResolvedValue("existing_token_xyz"),
     regenerate_token: vi.fn().mockResolvedValue("new_token_abc"),
     get_setup_status: vi.fn().mockResolvedValue({
       claudeDesktopConfigured: false,
@@ -27,6 +28,7 @@ function create_mock_port(overrides?: Partial<McpPort>): McpPort {
       httpPort: 3457,
       tokenExists: true,
       cliInstalled: false,
+      cliPath: null,
     }),
     install_cli: vi.fn().mockResolvedValue({
       success: true,
@@ -153,6 +155,17 @@ describe("McpService", () => {
     expect(port.get_setup_status).toHaveBeenCalledOnce();
   });
 
+  it("read_token delegates to port", async () => {
+    const store = new McpStore();
+    const port = create_mock_port();
+    const service = new McpService(port, store);
+
+    const token = await service.read_token();
+
+    expect(token).toBe("existing_token_xyz");
+    expect(port.read_token).toHaveBeenCalledOnce();
+  });
+
   it("regenerate_token delegates to port", async () => {
     const store = new McpStore();
     const port = create_mock_port();
@@ -173,6 +186,7 @@ describe("McpService", () => {
         httpPort: 3457,
         tokenExists: true,
         cliInstalled: false,
+        cliPath: null,
       }),
     });
     const service = new McpService(port, store);
@@ -185,6 +199,7 @@ describe("McpService", () => {
       httpPort: 3457,
       tokenExists: true,
       cliInstalled: false,
+      cliPath: null,
     });
   });
 

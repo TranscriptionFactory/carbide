@@ -382,6 +382,7 @@ pub fn run() {
             features::mcp::http::http_server_status,
             features::mcp::setup::mcp_setup_claude_desktop,
             features::mcp::setup::mcp_setup_claude_code,
+            features::mcp::setup::mcp_read_token,
             features::mcp::setup::mcp_regenerate_token,
             features::mcp::setup::mcp_get_setup_status,
             features::mcp::setup::mcp_install_cli,

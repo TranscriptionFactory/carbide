@@ -38,6 +38,9 @@ export function create_mcp_tauri_adapter(): McpPort {
         vaultId: vault_id,
       });
     },
+    async read_token() {
+      return tauri_invoke<string>("mcp_read_token");
+    },
     async regenerate_token() {
       return tauri_invoke<string>("mcp_regenerate_token");
     },

@@ -39,6 +39,7 @@ describe("McpStore", () => {
       httpPort: 3457,
       tokenExists: true,
       cliInstalled: false,
+      cliPath: null,
     };
     store.set_setup_status(status);
     expect(store.setup_status).toEqual(status);

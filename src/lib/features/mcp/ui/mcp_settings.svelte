@@ -3,9 +3,11 @@
   import * as Switch from "$lib/components/ui/switch/index.js";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type { McpSetupStatus } from "$lib/features/mcp";
+  import { toast } from "svelte-sonner";
   import CheckCircle from "@lucide/svelte/icons/check-circle";
   import XCircle from "@lucide/svelte/icons/x-circle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import Copy from "@lucide/svelte/icons/copy";
 
   type Props = {
     mcp_enabled: boolean;
@@ -23,6 +25,7 @@
   let setup_message = $state<string | null>(null);
   let regen_loading = $state(false);
   let cli_loading = $state(false);
+  let token_copying = $state(false);
 
   $effect(() => {
     void services.mcp.refresh_setup_status();
@@ -98,6 +101,33 @@
     } finally {
       regen_loading = false;
     }
+  }
+
+  async function copy_endpoint() {
+    const url = `http://localhost:${setup_status?.httpPort ?? "3457"}/mcp`;
+    await services.clipboard.copy_text(url);
+    toast.success("Endpoint copied");
+  }
+
+  async function copy_token() {
+    token_copying = true;
+    try {
+      const token = await services.mcp.read_token();
+      await services.clipboard.copy_text(token);
+      toast.success("Token copied");
+    } catch (e) {
+      toast.error(
+        `Failed to copy token: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    } finally {
+      token_copying = false;
+    }
+  }
+
+  async function copy_stdio_command() {
+    if (!setup_status?.cliPath) return;
+    await services.clipboard.copy_text(`${setup_status.cliPath} mcp`);
+    toast.success("Stdio command copied");
   }
 </script>
 
@@ -253,6 +283,59 @@
     </Button>
   </div>
 
+  <div class="McpSettings__divider"></div>
+  <h3 class="McpSettings__subheader">Connection Details</h3>
+
+  <div class="McpSettings__row">
+    <div class="McpSettings__label-group">
+      <span class="McpSettings__label">HTTP Endpoint</span>
+      <span class="McpSettings__description">
+        http://localhost:{setup_status?.httpPort ?? "3457"}/mcp
+      </span>
+    </div>
+    <Button variant="outline" size="sm" onclick={copy_endpoint}>
+      <Copy size={14} />
+      Copy
+    </Button>
+  </div>
+
+  <div class="McpSettings__row">
+    <div class="McpSettings__label-group">
+      <span class="McpSettings__label">Bearer Token</span>
+      <span class="McpSettings__description">
+        Required for HTTP transport authentication
+      </span>
+    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={token_copying}
+      onclick={copy_token}
+    >
+      <Copy size={14} />
+      {token_copying ? "Copying..." : "Copy"}
+    </Button>
+  </div>
+
+  {#if setup_status?.cliInstalled && setup_status?.cliPath}
+    <div class="McpSettings__row">
+      <div class="McpSettings__label-group">
+        <span class="McpSettings__label">Stdio Command</span>
+        <span class="McpSettings__description">
+          {setup_status.cliPath} mcp
+        </span>
+      </div>
+      <Button variant="outline" size="sm" onclick={copy_stdio_command}>
+        <Copy size={14} />
+        Copy
+      </Button>
+    </div>
+  {/if}
+
+  <p class="McpSettings__hint">
+    Use these details to configure any MCP-compatible client.
+  </p>
+
   {#if setup_message}
     <p class="McpSettings__message">{setup_message}</p>
   {/if}
@@ -321,6 +404,12 @@
   .McpSettings__status-badge--running {
     background-color: var(--interactive-bg);
     color: var(--interactive-text-on-bg);
+  }
+
+  .McpSettings__hint {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    margin: 0;
   }
 
   .McpSettings__message {
