@@ -1,6 +1,6 @@
 # Boolean Operators for Task Queries
 
-## **Status**: READY TO IMPLEMENT
+## **Status**: IMPLEMENTED
 ## Context
 
 Task queries currently AND all filter lines together. A query like:
