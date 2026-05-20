@@ -777,6 +777,7 @@ export function create_app_context(input: {
     input.ports.ai,
     stores.vault,
     input.ports.ai_stream,
+    input.ports.search,
   );
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);

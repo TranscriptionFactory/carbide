@@ -40,6 +40,7 @@ export type AiDialogState = {
   result: AiExecutionResult | null;
   turns: AiConversationTurn[];
   next_turn_id: number;
+  vault_context_enabled: boolean;
 };
 
 function initial_state(): AiDialogState {
@@ -55,13 +56,18 @@ function initial_state(): AiDialogState {
     result: null,
     turns: [],
     next_turn_id: 1,
+    vault_context_enabled: true,
   };
 }
 
 export class AiStore {
   dialog = $state<AiDialogState>(initial_state());
 
-  open_dialog(provider_id: string, context: AiDialogContext) {
+  open_dialog(
+    provider_id: string,
+    context: AiDialogContext,
+    options?: { vault_context_enabled?: boolean },
+  ) {
     this.dialog = {
       ...initial_state(),
       open: true,
@@ -72,6 +78,8 @@ export class AiStore {
       cli_error: null,
       is_executing: false,
       result: null,
+      vault_context_enabled:
+        options?.vault_context_enabled ?? initial_state().vault_context_enabled,
     };
   }
 

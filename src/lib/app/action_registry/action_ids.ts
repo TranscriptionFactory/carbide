@@ -290,6 +290,7 @@ export const ACTION_IDS = {
   ai_accept_inline: "ai.accept_inline",
   ai_reject_inline: "ai.reject_inline",
   ai_close_inline_menu: "ai.close_inline_menu",
+  ai_toggle_vault_context: "ai.toggle_vault_context",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",

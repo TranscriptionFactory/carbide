@@ -180,14 +180,21 @@ export function register_ai_actions(
     }
 
     const selection = context.selection;
-    ai_store.open_dialog(next_provider_id, {
-      note_path: context.note_path,
-      note_title: context.note_title,
-      note_markdown: context.markdown,
-      selection,
-      target:
-        selection && selection.text.trim() !== "" ? "selection" : "full_note",
-    });
+    ai_store.open_dialog(
+      next_provider_id,
+      {
+        note_path: context.note_path,
+        note_title: context.note_title,
+        note_markdown: context.markdown,
+        selection,
+        target:
+          selection && selection.text.trim() !== "" ? "selection" : "full_note",
+      },
+      {
+        vault_context_enabled:
+          input.stores.ui.editor_settings.ai_vault_context_enabled,
+      },
+    );
 
     if (preset_cli_status === "available") {
       ai_store.set_cli_status("available");
@@ -310,6 +317,15 @@ export function register_ai_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.ai_toggle_vault_context,
+    label: "Toggle Vault Context",
+    execute: () => {
+      ai_store.dialog.vault_context_enabled =
+        !ai_store.dialog.vault_context_enabled;
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ai_execute,
     label: "Execute AI Edit",
     execute: async () => {
@@ -337,13 +353,19 @@ export function register_ai_actions(
       ai_store.start_execution();
 
       try {
+        const settings = input.stores.ui.editor_settings;
         const result = await ai_service.execute({
           provider_config: config,
           prompt: dialog.prompt,
           context: dialog.context,
           mode: dialog.mode,
-          timeout_seconds:
-            input.stores.ui.editor_settings.ai_execution_timeout_seconds,
+          timeout_seconds: settings.ai_execution_timeout_seconds,
+          vault_context_settings: {
+            enabled: dialog.vault_context_enabled,
+            similar_limit: settings.ai_vault_context_similar_limit,
+            include_links: settings.ai_vault_context_include_links,
+            similarity_threshold: settings.ai_vault_context_similarity_threshold,
+          },
         });
         if (revision !== dialog_revision) return;
         if (
@@ -598,6 +620,12 @@ export function register_ai_actions(
           },
           mode: "ask",
           timeout_seconds: settings.ai_execution_timeout_seconds,
+          vault_context_settings: {
+            enabled: settings.ai_vault_context_enabled,
+            similar_limit: settings.ai_vault_context_similar_limit,
+            include_links: settings.ai_vault_context_include_links,
+            similarity_threshold: settings.ai_vault_context_similarity_threshold,
+          },
         });
 
         if (!result.success) {

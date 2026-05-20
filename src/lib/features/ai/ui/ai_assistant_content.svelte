@@ -32,6 +32,7 @@
     is_executing: boolean;
     turns: AiConversationTurn[];
     result: AiExecutionResult | null;
+    vault_context_enabled: boolean;
     title?: string;
     description?: string | null;
     close_label: string;
@@ -43,6 +44,7 @@
     on_apply: (output?: string) => void;
     on_clear_result: () => void;
     on_close: () => void;
+    on_vault_context_toggle: () => void;
   };
 
   let {
@@ -60,6 +62,7 @@
     is_executing,
     turns,
     result,
+    vault_context_enabled,
     title = "AI Assistant",
     description = null,
     close_label,
@@ -71,6 +74,7 @@
     on_apply,
     on_clear_result,
     on_close,
+    on_vault_context_toggle,
   }: Props = $props();
 
   const provider_config = $derived(providers.find((p) => p.id === provider_id));
@@ -266,6 +270,16 @@
       onclick={() => on_target_change("full_note")}
     >
       Full Note
+    </Button>
+
+    <div class="h-4 w-px bg-border"></div>
+
+    <Button
+      variant={vault_context_enabled ? "default" : "outline"}
+      size="sm"
+      onclick={on_vault_context_toggle}
+    >
+      Vault Context
     </Button>
 
     <span class="ml-auto truncate text-sm text-muted-foreground">
