@@ -155,6 +155,10 @@ export type EditorSettings = {
   ai_inline_commands: AiInlineCommand[];
   ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
+  ai_vault_context_enabled: boolean;
+  ai_vault_context_similar_limit: number;
+  ai_vault_context_include_links: boolean;
+  ai_vault_context_similarity_threshold: number;
   document_pdf_default_zoom: DocumentPdfZoomMode;
   document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
@@ -264,6 +268,10 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_inline_commands: [],
   ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
+  ai_vault_context_enabled: true,
+  ai_vault_context_similar_limit: 5,
+  ai_vault_context_include_links: true,
+  ai_vault_context_similarity_threshold: 0.5,
   document_pdf_default_zoom: "fit_width",
   document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,
@@ -432,6 +440,10 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_inline_commands",
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
+  "ai_vault_context_enabled",
+  "ai_vault_context_similar_limit",
+  "ai_vault_context_include_links",
+  "ai_vault_context_similarity_threshold",
   "iwe_ai_provider_id",
   "document_pdf_default_zoom",
   "document_pdf_scroll_mode",

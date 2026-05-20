@@ -1,6 +1,10 @@
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
 import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
-import type { AiApplyTarget, AiMode } from "$lib/features/ai/domain/ai_types";
+import type {
+  AiApplyTarget,
+  AiMode,
+  AiVaultContext,
+} from "$lib/features/ai/domain/ai_types";
 import type { AiInlineCommand } from "$lib/features/ai/domain/ai_inline_commands";
 
 function section(label: string, value: string): string {
@@ -15,6 +19,41 @@ function selection_text(
   return trimmed === "" ? null : selection.text;
 }
 
+function vault_context_sections(ctx: AiVaultContext): string {
+  const parts: string[] = [];
+  if (ctx.similar_notes.length > 0) {
+    parts.push(
+      section(
+        "similar_notes",
+        ctx.similar_notes
+          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
+          .join("\n"),
+      ),
+    );
+  }
+  if (ctx.backlinks.length > 0) {
+    parts.push(
+      section(
+        "backlinks",
+        ctx.backlinks
+          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
+          .join("\n"),
+      ),
+    );
+  }
+  if (ctx.outlinks.length > 0) {
+    parts.push(
+      section(
+        "outlinks",
+        ctx.outlinks
+          .map((n) => `- ${n.title} (${n.path}): ${n.blurb}`)
+          .join("\n"),
+      ),
+    );
+  }
+  return parts.join("\n\n");
+}
+
 export function build_ai_prompt(input: {
   note_path: NotePath;
   note_markdown: MarkdownText;
@@ -22,35 +61,55 @@ export function build_ai_prompt(input: {
   user_prompt: string;
   target: AiApplyTarget;
   mode: AiMode;
+  vault_context?: AiVaultContext;
 }): string {
   const user_prompt = input.user_prompt.trim();
   const selected_text = selection_text(input.selection);
 
+  const vault_ctx = input.vault_context;
+  const has_vault_context =
+    vault_ctx &&
+    (vault_ctx.similar_notes.length > 0 ||
+      vault_ctx.backlinks.length > 0 ||
+      vault_ctx.outlinks.length > 0);
+  const vault_ctx_line = has_vault_context
+    ? "Related notes from the vault are provided for additional context."
+    : null;
+  const vault_ctx_sections = has_vault_context
+    ? vault_context_sections(vault_ctx)
+    : null;
+
   if (input.mode === "ask") {
     if (input.target === "selection" && selected_text) {
-      return [
+      const parts = [
         "You are a helpful assistant answering a question about a selected passage from a markdown note.",
         "Answer the user's question clearly and concisely.",
         "Do not return edited markdown. Do not rewrite the text.",
         `Note path: ${input.note_path}`,
         section("selected_text", selected_text),
         section("full_note_context", input.note_markdown),
-        section("user_question", user_prompt),
-      ].join("\n\n");
+      ];
+      if (vault_ctx_line) parts.push(vault_ctx_line);
+      if (vault_ctx_sections) parts.push(vault_ctx_sections);
+      parts.push(section("user_question", user_prompt));
+      return parts.join("\n\n");
     }
 
-    return [
+    const parts = [
       "You are a helpful assistant answering a question about the content of a markdown document.",
       "Answer the user's question clearly and concisely.",
       "Do not return edited markdown. Do not rewrite the text.",
       `Note path: ${input.note_path}`,
       section("note_markdown", input.note_markdown),
-      section("user_question", user_prompt),
-    ].join("\n\n");
+    ];
+    if (vault_ctx_line) parts.push(vault_ctx_line);
+    if (vault_ctx_sections) parts.push(vault_ctx_sections);
+    parts.push(section("user_question", user_prompt));
+    return parts.join("\n\n");
   }
 
   if (input.target === "selection" && selected_text) {
-    return [
+    const parts = [
       "You are editing a selected passage from a markdown document.",
       "Return ONLY the replacement text for the selected passage and retain all content that is not meant to be edited.",
       "Do not include commentary, explanations, or enclose the markdown in code fences.",
@@ -58,18 +117,24 @@ export function build_ai_prompt(input: {
       `Note path: ${input.note_path}`,
       section("selected_text", selected_text),
       section("full_note_context", input.note_markdown),
-      section("user_instructions", user_prompt),
-    ].join("\n\n");
+    ];
+    if (vault_ctx_line) parts.push(vault_ctx_line);
+    if (vault_ctx_sections) parts.push(vault_ctx_sections);
+    parts.push(section("user_instructions", user_prompt));
+    return parts.join("\n\n");
   }
 
-  return [
+  const parts = [
     "You are editing a markdown document.",
     "Return ONLY the complete edited markdown for the document and retain all content that is not meant to be edited.",
     "Do not include commentary, explanations, or enclose the markdown in code fences.",
     `Note path: ${input.note_path}`,
     section("current_markdown", input.note_markdown),
-    section("user_instructions", user_prompt),
-  ].join("\n\n");
+  ];
+  if (vault_ctx_line) parts.push(vault_ctx_line);
+  if (vault_ctx_sections) parts.push(vault_ctx_sections);
+  parts.push(section("user_instructions", user_prompt));
+  return parts.join("\n\n");
 }
 
 export function build_ai_inline_prompt(input: {
