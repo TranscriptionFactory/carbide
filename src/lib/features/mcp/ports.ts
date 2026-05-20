@@ -11,6 +11,7 @@ export type McpSetupStatus = {
   httpPort: number;
   tokenExists: boolean;
   cliInstalled: boolean;
+  cliPath: string | null;
 };
 
 export type McpSetupResult = {
@@ -40,6 +41,7 @@ export interface McpPort {
   get_status(): Promise<McpStatusInfo>;
   setup_claude_desktop(): Promise<McpSetupResult>;
   setup_claude_code(vault_id: string): Promise<McpSetupResult>;
+  read_token(): Promise<string>;
   regenerate_token(): Promise<string>;
   get_setup_status(): Promise<McpSetupStatus>;
   install_cli(): Promise<McpSetupResult>;

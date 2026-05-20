@@ -47,6 +47,10 @@ export class McpService {
     return result;
   }
 
+  async read_token(): Promise<string> {
+    return this.port.read_token();
+  }
+
   async regenerate_token(): Promise<string> {
     return this.port.regenerate_token();
   }

@@ -296,6 +296,7 @@ export function create_test_ports(): Ports {
         Promise.resolve({ success: true, path: "", message: "" }),
       setup_claude_code: () =>
         Promise.resolve({ success: true, path: "", message: "" }),
+      read_token: () => Promise.resolve("mock_token"),
       regenerate_token: () => Promise.resolve("mock_token"),
       get_setup_status: () =>
         Promise.resolve({
@@ -304,6 +305,7 @@ export function create_test_ports(): Ports {
           httpPort: 3457,
           tokenExists: false,
           cliInstalled: false,
+          cliPath: null,
         }),
       install_cli: () =>
         Promise.resolve({ success: true, path: "", message: "" }),

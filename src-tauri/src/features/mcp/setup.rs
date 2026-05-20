@@ -16,6 +16,7 @@ pub struct SetupStatus {
     pub http_port: u16,
     pub token_exists: bool,
     pub cli_installed: bool,
+    pub cli_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -226,6 +227,7 @@ fn token_exists() -> bool {
 }
 
 pub fn get_setup_status(vault_path: Option<&str>) -> SetupStatus {
+    let is_installed = cli_installed();
     SetupStatus {
         claude_desktop_configured: check_claude_desktop_configured(),
         claude_code_configured: vault_path
@@ -233,7 +235,12 @@ pub fn get_setup_status(vault_path: Option<&str>) -> SetupStatus {
             .unwrap_or(false),
         http_port: DEFAULT_PORT,
         token_exists: token_exists(),
-        cli_installed: cli_installed(),
+        cli_installed: is_installed,
+        cli_path: if is_installed {
+            Some(carbide_cli_path().to_string_lossy().to_string())
+        } else {
+            None
+        },
     }
 }
 
@@ -253,6 +260,12 @@ pub async fn mcp_setup_claude_code(
     let token = auth::read_or_create_token()?;
     let vault_path = storage::vault_path(&app, &vault_id)?;
     write_claude_code_config(&vault_path.to_string_lossy(), &token)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mcp_read_token() -> Result<String, String> {
+    auth::read_or_create_token()
 }
 
 #[tauri::command]
@@ -597,6 +610,11 @@ mod tests {
         let status = get_setup_status(None);
         assert!(!status.claude_code_configured);
         assert_eq!(status.http_port, DEFAULT_PORT);
+        if status.cli_installed {
+            assert!(status.cli_path.is_some());
+        } else {
+            assert!(status.cli_path.is_none());
+        }
     }
 
     #[test]
