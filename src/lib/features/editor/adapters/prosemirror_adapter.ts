@@ -78,7 +78,7 @@ import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_exte
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
 import type { TaskQueryCallbacks } from "$lib/features/editor/adapters/code_block_view_plugin";
-import type { TaskPort, TaskStatus } from "$lib/features/task";
+import type { TaskPort } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
 import type { Diagnostic } from "$lib/features/diagnostics";
@@ -222,11 +222,6 @@ function create_markdown_change_plugin(
   });
 }
 
-const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
-  todo: "doing",
-  doing: "done",
-  done: "todo",
-};
 
 function build_task_query_callbacks(
   port: TaskPort,
@@ -244,7 +239,7 @@ function build_task_query_callbacks(
       await port.updateTaskState(vid, {
         path: task.path,
         line_number: task.line_number,
-        status: NEXT_STATUS[task.status],
+        status: task.status,
       });
     },
   };
