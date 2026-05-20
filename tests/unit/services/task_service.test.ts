@@ -50,7 +50,10 @@ describe("TaskService", () => {
     await service.queryTasks();
 
     expect(port.queryTasks).toHaveBeenCalledWith(VAULT_ID, {
-      filters: [{ property: "status", operator: "eq", value: "todo" }],
+      filter: {
+        type: "atom",
+        filter: { property: "status", operator: "eq", value: "todo" },
+      },
       sort: [{ property: "due_date", descending: false }],
       limit: 0,
       offset: 0,

@@ -41,8 +41,17 @@ pub struct TaskSort {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum FilterExpr {
+    Atom { filter: TaskFilter },
+    And { operands: Vec<FilterExpr> },
+    Or { operands: Vec<FilterExpr> },
+    Not { operand: Box<FilterExpr> },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct TaskQuery {
-    pub filters: Vec<TaskFilter>,
+    pub filter: Option<FilterExpr>,
     pub sort: Vec<TaskSort>,
     pub limit: usize,
     pub offset: usize,
