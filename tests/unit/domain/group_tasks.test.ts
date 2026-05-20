@@ -5,10 +5,7 @@ import {
 } from "$lib/features/task/domain/group_tasks";
 import type { Task, TaskGrouping } from "$lib/features/task/types";
 
-function make_task(
-  id: string,
-  overrides: Partial<Task> = {},
-): Task {
+function make_task(id: string, overrides: Partial<Task> = {}): Task {
   return {
     id,
     path: "notes/test.md",

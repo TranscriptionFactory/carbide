@@ -4,24 +4,34 @@
   import KanbanView from "./kanban_view.svelte";
   import ScheduleView from "./schedule_view.svelte";
   import { onMount } from "svelte";
+  import { parse_task_query } from "../parse_task_query";
+  import { group_tasks } from "../domain/group_tasks";
+  import type { TaskGrouping } from "../types";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
   import ListFilter from "@lucide/svelte/icons/list-filter";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Search from "@lucide/svelte/icons/search";
+  import Code from "@lucide/svelte/icons/code";
   import LayoutList from "@lucide/svelte/icons/layout-list";
   import Kanban from "@lucide/svelte/icons/kanban";
   import Calendar from "@lucide/svelte/icons/calendar";
   import Columns from "@lucide/svelte/icons/columns";
   import Rows from "@lucide/svelte/icons/rows";
+  import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { ACTION_IDS } from "$lib/app";
 
-  const { stores, services, action_registry } = use_app_context();
+  const { stores, services } = use_app_context();
   const taskStore = stores.task;
   const taskService = services.task;
 
   let showCompleted = $state(false);
+  let searchQuery = $state("");
+  let queryErrors = $state<string[]>([]);
+  let dslGrouping = $state<TaskGrouping>("none");
+  let mounted = false;
 
   const filteredTasks = $derived(
     showCompleted
@@ -29,8 +39,11 @@
       : taskStore.tasks.filter((t) => t.status !== "done"),
   );
 
-  let searchQuery = $state("");
-  let mounted = false;
+  const activeGrouping = $derived(
+    taskStore.queryMode ? dslGrouping : taskStore.grouping,
+  );
+
+  const grouped = $derived(group_tasks(filteredTasks, activeGrouping));
 
   function apply_search(text: string) {
     const trimmed = text.trim();
@@ -48,10 +61,41 @@
     taskService.refreshTasks();
   }
 
+  function execute_dsl(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      queryErrors = [];
+      dslGrouping = "none";
+      taskService.refreshTasks();
+      return;
+    }
+
+    const parsed = parse_task_query(trimmed);
+    queryErrors = parsed.errors;
+    if (parsed.errors.length > 0) return;
+
+    dslGrouping = parsed.grouping;
+    taskService.queryTasks(parsed.query);
+  }
+
   $effect(() => {
     if (!mounted) return;
-    apply_search(searchQuery);
+    if (taskStore.queryMode) {
+      execute_dsl(taskStore.queryText);
+    } else {
+      apply_search(searchQuery);
+    }
   });
+
+  function toggle_query_mode() {
+    taskStore.queryMode = !taskStore.queryMode;
+    queryErrors = [];
+    if (!taskStore.queryMode) {
+      taskStore.queryText = "";
+      dslGrouping = "none";
+      apply_search(searchQuery);
+    }
+  }
 
   onMount(() => {
     mounted = true;
@@ -59,7 +103,11 @@
   });
 
   function refresh() {
-    taskService.refreshTasks();
+    if (taskStore.queryMode) {
+      execute_dsl(taskStore.queryText);
+    } else {
+      taskService.refreshTasks();
+    }
   }
 
   const groupingOptions = [
@@ -68,6 +116,28 @@
     { value: "note", label: "By Note" },
     { value: "section", label: "By Section" },
   ] as const;
+
+  const sortOptions = [
+    { value: "", label: "No Sort" },
+    { value: "status", label: "Status" },
+    { value: "due_date", label: "Due Date" },
+    { value: "path", label: "Path" },
+    { value: "text", label: "Text" },
+  ] as const;
+
+  let sortProperty = $state("");
+  let sortDescending = $state(false);
+
+  function apply_sort(property: string, descending: boolean) {
+    if (!property) {
+      taskStore.setSort([]);
+    } else {
+      taskStore.setSort([{ property, descending }]);
+    }
+    if (!taskStore.queryMode) {
+      taskService.refreshTasks();
+    }
+  }
 </script>
 
 <div class="flex flex-col h-full min-w-0 bg-background border-r">
@@ -78,6 +148,12 @@
       >
         <CheckCircle2 size={14} />
         Tasks
+        {#if filteredTasks.length > 0}
+          <span
+            class="text-[10px] font-normal bg-muted px-1.5 py-0.5 rounded-full"
+            >{filteredTasks.length}</span
+          >
+        {/if}
       </h2>
       <div class="flex items-center gap-1 flex-wrap">
         <Button
@@ -128,16 +204,55 @@
       </div>
     </div>
 
-    <div class="relative">
-      <Search
-        class="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground"
-      />
-      <Input
-        placeholder="Search tasks..."
-        class="h-8 pl-8 text-xs"
-        bind:value={searchQuery}
-      />
-    </div>
+    {#if taskStore.queryMode}
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-1">
+          <Button
+            variant="secondary"
+            size="icon"
+            class="h-8 w-8 shrink-0"
+            onclick={toggle_query_mode}
+            title="Switch to simple search"
+          >
+            <Code size={14} />
+          </Button>
+          <textarea
+            class="flex-1 min-h-[60px] max-h-[120px] rounded-md border bg-background px-2 py-1.5 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+            placeholder="status is todo&#10;due this week&#10;sort by due_date"
+            bind:value={taskStore.queryText}
+          ></textarea>
+        </div>
+        {#if queryErrors.length > 0}
+          <div class="text-[10px] text-destructive px-1">
+            {#each queryErrors as err}
+              <div>{err}</div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <div class="flex items-center gap-1">
+        <div class="relative flex-1">
+          <Search
+            class="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground"
+          />
+          <Input
+            placeholder="Search tasks..."
+            class="h-8 pl-8 text-xs"
+            bind:value={searchQuery}
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 shrink-0"
+          onclick={toggle_query_mode}
+          title="Switch to query DSL"
+        >
+          <Code size={14} />
+        </Button>
+      </div>
+    {/if}
 
     <div class="flex items-center gap-2 justify-between min-w-0 flex-wrap">
       <Button
@@ -184,16 +299,50 @@
             <option value="note">By Note</option>
           </select>
         {/if}
-        <Columns size={10} />
+        {#if !taskStore.queryMode}
+          <Columns size={10} />
+          <select
+            class="min-w-0 bg-transparent border-none focus:ring-0 text-[10px] cursor-pointer"
+            value={taskStore.grouping}
+            onchange={(e) =>
+              taskStore.setGrouping(e.currentTarget.value as any)}
+          >
+            {#each groupingOptions as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
+          </select>
+        {/if}
+        <ArrowUpDown size={10} />
         <select
           class="min-w-0 bg-transparent border-none focus:ring-0 text-[10px] cursor-pointer"
-          value={taskStore.grouping}
-          onchange={(e) => taskStore.setGrouping(e.currentTarget.value as any)}
+          value={sortProperty}
+          onchange={(e) => {
+            sortProperty = e.currentTarget.value;
+            apply_sort(sortProperty, sortDescending);
+          }}
         >
-          {#each groupingOptions as opt}
+          {#each sortOptions as opt}
             <option value={opt.value}>{opt.label}</option>
           {/each}
         </select>
+        {#if sortProperty}
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-4 w-4"
+            onclick={() => {
+              sortDescending = !sortDescending;
+              apply_sort(sortProperty, sortDescending);
+            }}
+            title={sortDescending ? "Descending" : "Ascending"}
+          >
+            {#if sortDescending}
+              <ArrowDown size={10} />
+            {:else}
+              <ArrowUp size={10} />
+            {/if}
+          </Button>
+        {/if}
       </div>
     </div>
   </div>
@@ -210,7 +359,7 @@
         class="flex flex-col items-center justify-center h-40 text-xs text-muted-foreground gap-2"
       >
         <p>No tasks found.</p>
-        {#if searchQuery}
+        {#if searchQuery && !taskStore.queryMode}
           <Button
             variant="link"
             size="sm"
@@ -225,8 +374,22 @@
       <div class="h-full">
         {#if taskStore.viewMode === "list"}
           <div class="h-full overflow-y-auto p-2 flex flex-col gap-1">
-            {#each filteredTasks as task (task.id)}
-              <TaskListItem {task} />
+            {#each grouped as group (group.key)}
+              {#if group.label}
+                <div class="flex items-center gap-2 px-1 pt-2 pb-1 first:pt-0">
+                  <span
+                    class="text-[10px] font-bold uppercase tracking-tight text-muted-foreground"
+                    >{group.label}</span
+                  >
+                  <span
+                    class="text-[10px] bg-muted px-1 py-0.5 rounded-full text-muted-foreground"
+                    >{group.tasks.length}</span
+                  >
+                </div>
+              {/if}
+              {#each group.tasks as task (task.id)}
+                <TaskListItem {task} />
+              {/each}
             {/each}
           </div>
         {:else if taskStore.viewMode === "kanban"}
