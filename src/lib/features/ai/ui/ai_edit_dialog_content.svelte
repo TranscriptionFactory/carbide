@@ -26,6 +26,7 @@
     is_executing: boolean;
     turns: AiConversationTurn[];
     result: AiExecutionResult | null;
+    vault_context_enabled: boolean;
     on_open_change: (open: boolean) => void;
     on_provider_change: (provider_id: string) => void;
     on_mode_change: (mode: AiMode) => void;
@@ -34,6 +35,7 @@
     on_execute: () => void;
     on_apply: (output?: string) => void;
     on_clear_result: () => void;
+    on_vault_context_toggle: () => void;
   };
 
   let {
@@ -52,6 +54,7 @@
     is_executing,
     turns,
     result,
+    vault_context_enabled,
     on_open_change,
     on_provider_change,
     on_mode_change,
@@ -60,6 +63,7 @@
     on_execute,
     on_apply,
     on_clear_result,
+    on_vault_context_toggle,
   }: Props = $props();
 </script>
 
@@ -86,6 +90,7 @@
       {is_executing}
       {turns}
       {result}
+      {vault_context_enabled}
       close_label={result ? "Close" : "Cancel"}
       {on_provider_change}
       {on_mode_change}
@@ -95,6 +100,7 @@
       {on_apply}
       {on_clear_result}
       on_close={() => on_open_change(false)}
+      {on_vault_context_toggle}
     />
   </Dialog.Content>
 </Dialog.Root>

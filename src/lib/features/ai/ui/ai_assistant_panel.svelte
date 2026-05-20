@@ -98,6 +98,7 @@
     is_executing={session.is_executing}
     turns={session.turns}
     result={session.result}
+    vault_context_enabled={session.vault_context_enabled}
     close_label="Hide Panel"
     on_provider_change={(value) =>
       void action_registry.execute(ACTION_IDS.ai_update_provider, value)}
@@ -113,5 +114,7 @@
     on_clear_result={() =>
       void action_registry.execute(ACTION_IDS.ai_clear_result)}
     on_close={hide_panel}
+    on_vault_context_toggle={() =>
+      void action_registry.execute(ACTION_IDS.ai_toggle_vault_context)}
   />
 {/if}
