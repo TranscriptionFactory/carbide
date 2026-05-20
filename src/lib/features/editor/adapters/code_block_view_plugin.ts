@@ -12,6 +12,7 @@ import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
 import { parse_task_query } from "$lib/features/task";
 import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
+import { group_tasks } from "$lib/features/task/domain/group_tasks";
 
 export type TaskQueryCallbacks = {
   query_tasks: (query: TaskQuery) => Promise<Task[]>;
@@ -274,51 +275,20 @@ async function render_task_query_results(
 
     container.innerHTML = "";
 
-    type GroupMap = Map<string, Task[]>;
-    let groups: GroupMap;
-    if (parsed.grouping === "none") {
-      groups = new Map([["", tasks]]);
-    } else {
-      groups = new Map();
-      for (const task of tasks) {
-        let key: string;
-        switch (parsed.grouping) {
-          case "status":
-            key = task.status;
-            break;
-          case "note":
-            key = file_name_from_path(task.path);
-            break;
-          case "section":
-            key = task.section ?? "(no section)";
-            break;
-          case "due_date":
-            key = task.due_date ?? "(no due date)";
-            break;
-          default:
-            key = "";
-        }
-        let group = groups.get(key);
-        if (!group) {
-          group = [];
-          groups.set(key, group);
-        }
-        group.push(task);
-      }
-    }
+    const grouped = group_tasks(tasks, parsed.grouping);
 
-    for (const [group_key, group_tasks] of groups) {
+    for (const group of grouped) {
       const group_el = document.createElement("div");
       group_el.className = "task-query-group";
 
-      if (group_key) {
+      if (group.label) {
         const header = document.createElement("div");
         header.className = "task-query-group-header";
-        header.textContent = group_key;
+        header.textContent = group.label;
         group_el.appendChild(header);
       }
 
-      for (const task of group_tasks) {
+      for (const task of group.tasks) {
         const item = document.createElement("div");
         item.className = "task-query-item";
 
