@@ -969,6 +969,17 @@
   color: var(--muted-foreground);
 }
 
+.task-query-file-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.task-query-file-link:hover {
+  color: var(--foreground);
+}
+
 .task-query-empty {
   color: var(--muted-foreground);
   font-size: var(--text-sm);

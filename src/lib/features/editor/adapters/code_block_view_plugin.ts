@@ -16,6 +16,7 @@ import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
 export type TaskQueryCallbacks = {
   query_tasks: (query: TaskQuery) => Promise<Task[]>;
   toggle_task: (task: Task) => Promise<void>;
+  open_note?: (path: string) => void;
 };
 
 const log = create_logger("code_block_view");
@@ -310,9 +311,26 @@ async function render_task_query_results(
 
         const meta_el = document.createElement("span");
         meta_el.className = "task-query-meta";
-        const parts: string[] = [file_name_from_path(task.path)];
-        if (task.due_date) parts.push(task.due_date);
-        meta_el.textContent = parts.join(" · ");
+
+        const file_el = document.createElement("span");
+        file_el.textContent = file_name_from_path(task.path);
+        const on_open = callbacks.open_note;
+        if (on_open) {
+          file_el.className = "task-query-file-link";
+          file_el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            on_open(task.path);
+          });
+        }
+        meta_el.appendChild(file_el);
+
+        if (task.due_date) {
+          const sep = document.createTextNode(" · ");
+          meta_el.appendChild(sep);
+          const date_el = document.createElement("span");
+          date_el.textContent = task.due_date;
+          meta_el.appendChild(date_el);
+        }
 
         item.appendChild(checkbox);
         item.appendChild(text_el);
