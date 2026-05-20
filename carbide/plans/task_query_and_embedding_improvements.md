@@ -57,57 +57,72 @@ Items 2 + 3 + 9 all touch the parser (`parse_task_query.ts`) and Rust SQL builde
 
 ---
 
-## Phase 2: Task Panel UI
+## Phase 2: Task Panel UI ✅ DONE
 
-### Item 1 — Query DSL entry point (Critical)
+Shipped in commits `bd7849e4` (group_tasks refactor), `283d77bd` (DSL + grouping + sort), `75ab6347` (backend filter).
+
+### Item 1 — Query DSL entry point (Critical) ✅
 
 **Problem**: The full boolean/date query DSL has no user-facing entry point. The task panel only exposes text search + grouping + hide-completed.
 
-**Approach**:
-- Add a toggle button next to the search input that expands it into a multi-line `<textarea>` for raw DSL entry
-- In query mode, textarea value parsed via `parse_task_query()` — resulting `TaskQuery` passed directly to `taskService.queryTasks()`
-- Parse errors displayed inline below the textarea
-- Simple search mode unchanged for quick text filtering
-- Grouping select and showCompleted toggle layer on top as additional filter atoms
+**What changed**:
+- Toggle button (Code icon) next to search input switches between simple search and DSL textarea
+- DSL textarea parses via `parse_task_query()`, executes directly via `taskService.queryTasks()`
+- Parse errors displayed inline below textarea
+- DSL grouping respected in list view
+- Added `queryMode` and `queryText` to `TaskStore`
 
-**Files**:
-- `src/lib/features/task/ui/task_panel.svelte` — toggle, textarea, parse+execute logic
-- `src/lib/features/task/state/task_store.svelte.ts` — add `query_text: string` field
-
-### Item 4 — Grouping in list view (High)
+### Item 4 — Grouping in list view (High) ✅
 
 **Problem**: The grouping `<select>` appears in list view but has no effect — tasks render flat.
 
-**Approach**:
-- Extract shared `group_tasks(tasks: Task[], grouping: TaskGrouping): Map<string, Task[]>` into `domain/group_tasks.ts`
-- Refactor kanban view and code block plugin to use it (eliminate three-way duplication)
-- List view renders group headers when grouping !== "none"
+**What changed**:
+- Extracted shared `group_tasks()` into `domain/group_tasks.ts` with `TaskGroup` type
+- Refactored kanban view (`derive_kanban_columns`) and code block plugin (`render_task_query_results`) to use shared function
+- List view renders group headers with label + count when grouping !== "none"
+- 7 unit tests for `group_tasks` covering all grouping types
 
-**Files**:
-- New: `src/lib/features/task/domain/group_tasks.ts`
-- `src/lib/features/task/ui/task_panel.svelte` — use `group_tasks` for list view
-- `src/lib/features/task/ui/kanban_view.svelte` — refactor to use shared function
-- `src/lib/features/editor/adapters/code_block_view_plugin.ts` — refactor to use shared function
-- Tests for `group_tasks` with each grouping type
-
-### Item 5 — Sort controls (High)
+### Item 5 — Sort controls (High) ✅
 
 **Problem**: The query language supports `sort by` but there's no sort UI in the task panel.
 
-**Approach**:
-- Sort `<select>` (None / Status / Due Date / Path / Text) + direction toggle in the toolbar
-- Updates `taskStore.sort`, triggers re-query (already wired in `build_query`)
+**What changed**:
+- Sort select (None / Status / Due Date / Path / Text) + ascending/descending toggle in toolbar
+- Updates `taskStore.sort`, triggers re-query
 
-**Files**:
-- `src/lib/features/task/ui/task_panel.svelte`
+### Item 10 — Task count in header (Low, trivial) ✅
+
+- Task count badge displayed next to "Tasks" label when tasks > 0
 
 ---
 
-## Phase 3: Embedded Query + Tags
+## Phase 3: Embedded Query + Tags — PARTIALLY DONE
+
+### Item 8 — Tag filtering (Medium) ✅
+
+Shipped in commit `8a9b5629`.
+
+**What changed**:
+- `tag includes urgent` → `{ property: "text", operator: "contains", value: "#urgent" }`
+- `has tag` → `{ property: "text", operator: "contains", value: "#" }`
+- Note: tag names should not include `#` in the query (stripped as comment); hash is auto-prepended
+- 3 unit tests added
+
+### Item 11 — `showCompleted` as backend filter (Low) ✅
+
+Shipped in commit `75ab6347`.
+
+**What changed**:
+- Simple mode: injects `{ property: "status", operator: "neq", value: "done" }` into store filter
+- DSL mode: wraps parsed query filter with AND containing the hide-done atom
+- Removed client-side `filteredTasks` derivation
+- `showCompleted` toggle triggers re-query via `$effect` dependency
 
 ### Item 6 — Navigate to source note from embedded results (Medium)
 
 **Problem**: Embedded task query results show filename but there's no click handler to navigate.
+
+**Status**: Not started. Requires threading action registry through prosemirror_adapter → code_block_view_plugin callback chain.
 
 **Approach**:
 - Add `open_note: (path: string, line_number: number) => void` to `TaskQueryCallbacks` in `code_block_view_plugin.ts`
@@ -117,31 +132,6 @@ Items 2 + 3 + 9 all touch the parser (`parse_task_query.ts`) and Rust SQL builde
 **Files**:
 - `src/lib/features/editor/adapters/code_block_view_plugin.ts` — add callback, wire click handler
 - `src/lib/features/editor/adapters/prosemirror_adapter.ts` — implement `open_note` callback
-
-### Item 8 — Tag filtering (Medium)
-
-**Problem**: Tasks often have inline tags (`#urgent`) but the DSL has no `tag` clause.
-
-**Approach**:
-- `tag includes urgent` → `{ property: "text", operator: "contains", value: "#urgent" }`
-- `has tag` → `{ property: "text", operator: "contains", value: "#" }`
-- Zero schema changes — reuses `text LIKE`
-
-**Files**:
-- `src/lib/features/task/parse_task_query.ts` — add tag clause parsing
-- `tests/unit/domain/parse_task_query.test.ts` — tests
-
-### Item 11 — `showCompleted` as backend filter (Low)
-
-**Problem**: Client-side filtering via `filteredTasks` derivation. Interacts poorly with `limit`.
-
-**Approach**:
-- Inject `{ property: "status", operator: "neq", value: "done" }` into the query when `showCompleted === false`
-- Remove client-side `filteredTasks` filter
-- Couples naturally with Item 1 (DSL UI)
-
-**Files**:
-- `src/lib/features/task/ui/task_panel.svelte`
 
 ---
 
@@ -164,10 +154,6 @@ Items 2 + 3 + 9 all touch the parser (`parse_task_query.ts`) and Rust SQL builde
 - `src-tauri/src/features/tasks/mod.rs` — new commands
 - `src/lib/features/task/ui/task_panel.svelte` — save/load UI
 - `src/lib/features/task/state/task_store.svelte.ts` — `saved_views` state
-
-### Item 10 — Task count in header (Low, trivial)
-
-- Display count next to "Tasks" label in `task_panel.svelte`
 
 ---
 
