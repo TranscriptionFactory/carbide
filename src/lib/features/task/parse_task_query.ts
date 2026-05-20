@@ -127,7 +127,11 @@ function parse_date_comparator(rest: string): FilterExpr | null {
   };
   return {
     type: "atom",
-    filter: { property: "due_date", operator: op_map[direction!]!, value: date_str! },
+    filter: {
+      property: "due_date",
+      operator: op_map[direction!]!,
+      value: date_str!,
+    },
   };
 }
 
@@ -168,6 +172,25 @@ function parse_atom(trimmed: string): FilterExpr | string {
     const result = parse_date_comparator(due_match[1]!);
     if (result) return result;
     return `Invalid due clause: ${trimmed}`;
+  }
+
+  const tag_match = trimmed.match(/^tag\s+includes\s+(.+)$/);
+  if (tag_match) {
+    const tag = tag_match[1]!.trim();
+    return {
+      type: "atom",
+      filter: {
+        property: "text",
+        operator: "contains",
+        value: tag.startsWith("#") ? tag : `#${tag}`,
+      },
+    };
+  }
+  if (trimmed === "has tag") {
+    return {
+      type: "atom",
+      filter: { property: "text", operator: "contains", value: "#" },
+    };
   }
 
   if (trimmed === "has due date") {
