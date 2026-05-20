@@ -311,4 +311,22 @@ not done`;
     const { errors } = parse_task_query("(status is todo) OR");
     expect(errors).toHaveLength(1);
   });
+
+  it("parses 'tag includes urgent' as text contains #urgent", () => {
+    const { query, errors } = parse_task_query("tag includes urgent");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("text", "contains", "#urgent"));
+  });
+
+  it("parses 'tag includes project' with auto-prefixed hash", () => {
+    const { query, errors } = parse_task_query("tag includes project");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("text", "contains", "#project"));
+  });
+
+  it("parses 'has tag' as text contains #", () => {
+    const { query, errors } = parse_task_query("has tag");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("text", "contains", "#"));
+  });
 });
