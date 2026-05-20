@@ -1397,6 +1397,94 @@
                 </button>
               </div>
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Include Vault Context</span>
+                <span class="SettingsDialog__description"
+                  >Send semantically similar and linked notes as context to the AI</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.ai_vault_context_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("ai_vault_context_enabled", v);
+                }}
+                disabled={ai_settings_disabled}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Similar Notes Limit</span>
+                <span class="SettingsDialog__description"
+                  >Maximum number of similar notes to include</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={String(editor_settings.ai_vault_context_similar_limit)}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("ai_vault_context_similar_limit", Number(v));
+                }}
+                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value">
+                    {editor_settings.ai_vault_context_similar_limit}
+                  </span>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each [3, 5, 10, 15] as n (n)}
+                    <Select.Item value={String(n)}>{n}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Include Linked Notes</span>
+                <span class="SettingsDialog__description"
+                  >Include backlinks and outlinks as additional context</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.ai_vault_context_include_links}
+                onCheckedChange={(v: boolean) => {
+                  update("ai_vault_context_include_links", v);
+                }}
+                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+              />
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Similarity Threshold</span>
+                <span class="SettingsDialog__description"
+                  >Only include notes with similarity distance at or below this value</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={String(editor_settings.ai_vault_context_similarity_threshold)}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("ai_vault_context_similarity_threshold", Number(v));
+                }}
+                disabled={ai_settings_disabled || !editor_settings.ai_vault_context_enabled}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value">
+                    {editor_settings.ai_vault_context_similarity_threshold}
+                  </span>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each [0.3, 0.4, 0.5, 0.6, 0.7] as n (n)}
+                    <Select.Item value={String(n)}>{n}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
           </div>
         {:else if active_category === "sidebar"}
           <h2 class="SettingsDialog__content-header">Sidebar</h2>
