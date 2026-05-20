@@ -27,6 +27,8 @@ export {
   type AiPortExecuteRequest,
   type AiProviderConfig,
   type AiProviderId,
+  type AiVaultContext,
+  type AiVaultContextNote,
   provider_command,
 } from "$lib/features/ai/domain/ai_types";
 export {
