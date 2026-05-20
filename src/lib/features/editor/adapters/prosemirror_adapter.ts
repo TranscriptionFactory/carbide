@@ -222,10 +222,10 @@ function create_markdown_change_plugin(
   });
 }
 
-
 function build_task_query_callbacks(
   port: TaskPort,
   get_vault_id: () => VaultId | null,
+  open_note?: (path: string) => void,
 ): TaskQueryCallbacks {
   return {
     async query_tasks(query) {
@@ -242,6 +242,7 @@ function build_task_query_callbacks(
         status: task.status,
       });
     },
+    ...(open_note && { open_note }),
   };
 }
 
@@ -329,6 +330,15 @@ export function create_prosemirror_editor_port(args?: {
             task_query_callbacks: build_task_query_callbacks(
               task_port,
               () => current_vault_id,
+              events.on_internal_link_click
+                ? (path: string) => {
+                    events.on_internal_link_click?.(
+                      path,
+                      current_note_path,
+                      "wiki",
+                    );
+                  }
+                : undefined,
             ),
           }),
           ...(note_embed_args && {
