@@ -1,5 +1,6 @@
 export { register_ai_actions } from "$lib/features/ai/application/ai_actions";
 export { AiService } from "$lib/features/ai/application/ai_service";
+export type { VaultContextSettings } from "$lib/features/ai/application/ai_service";
 export {
   AiStore,
   type AiDialogState,

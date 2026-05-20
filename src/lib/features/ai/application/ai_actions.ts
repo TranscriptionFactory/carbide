@@ -364,7 +364,8 @@ export function register_ai_actions(
             enabled: dialog.vault_context_enabled,
             similar_limit: settings.ai_vault_context_similar_limit,
             include_links: settings.ai_vault_context_include_links,
-            similarity_threshold: settings.ai_vault_context_similarity_threshold,
+            similarity_threshold:
+              settings.ai_vault_context_similarity_threshold,
           },
         });
         if (revision !== dialog_revision) return;
@@ -624,7 +625,8 @@ export function register_ai_actions(
             enabled: settings.ai_vault_context_enabled,
             similar_limit: settings.ai_vault_context_similar_limit,
             include_links: settings.ai_vault_context_include_links,
-            similarity_threshold: settings.ai_vault_context_similarity_threshold,
+            similarity_threshold:
+              settings.ai_vault_context_similarity_threshold,
           },
         });
 

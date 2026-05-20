@@ -1,7 +1,7 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiPort, AiStreamPort } from "$lib/features/ai/ports";
-import type { SearchPort } from "$lib/features/search/ports";
+import type { SearchPort } from "$lib/features/search";
 import type {
   AiDialogContext,
   AiExecutionResult,
@@ -53,15 +53,13 @@ export class AiService {
 
     const promises: [
       Promise<AiVaultContextNote[]>,
-      Promise<{ backlinks: AiVaultContextNote[]; outlinks: AiVaultContextNote[] }>,
+      Promise<{
+        backlinks: AiVaultContextNote[];
+        outlinks: AiVaultContextNote[];
+      }>,
     ] = [
       this.search_port
-        .find_similar_notes(
-          vault.id,
-          note_path,
-          settings.similar_limit,
-          true,
-        )
+        .find_similar_notes(vault.id, note_path, settings.similar_limit, true)
         .then((hits) =>
           hits
             .filter((h) => h.distance <= settings.similarity_threshold)
@@ -72,7 +70,9 @@ export class AiService {
             })),
         )
         .catch((err) => {
-          log.warn("Failed to fetch similar notes for AI context", { error: err });
+          log.warn("Failed to fetch similar notes for AI context", {
+            error: err,
+          });
           return [];
         }),
       settings.include_links
@@ -91,7 +91,9 @@ export class AiService {
               })),
             }))
             .catch((err) => {
-              log.warn("Failed to fetch note links for AI context", { error: err });
+              log.warn("Failed to fetch note links for AI context", {
+                error: err,
+              });
               return { backlinks: [], outlinks: [] };
             })
         : Promise.resolve({ backlinks: [], outlinks: [] }),
@@ -134,7 +136,7 @@ export class AiService {
       user_prompt: input.prompt,
       target: input.context.target,
       mode: input.mode,
-      vault_context,
+      ...(vault_context ? { vault_context } : {}),
     });
 
     const result = await this.ai_port.execute({
