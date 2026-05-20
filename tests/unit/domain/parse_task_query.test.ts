@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 import { parse_task_query } from "$lib/features/task/parse_task_query";
 import type { FilterExpr } from "$lib/features/task/types";
 
-function atom(
-  property: string,
-  operator: string,
-  value: string,
-): FilterExpr {
-  return { type: "atom", filter: { property, operator: operator as any, value } };
+function atom(property: string, operator: string, value: string): FilterExpr {
+  return {
+    type: "atom",
+    filter: { property, operator: operator as any, value },
+  };
 }
 
 describe("parse_task_query", () => {
