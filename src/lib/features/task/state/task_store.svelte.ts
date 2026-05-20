@@ -12,6 +12,8 @@ export class TaskStore {
   kanbanOrientation = $state<"horizontal" | "vertical">("horizontal");
   kanbanGroupProperty = $state<string>("status");
   showQuickCapture = $state(false);
+  queryMode = $state(false);
+  queryText = $state("");
 
   noteTasks = new SvelteMap<string, Task[]>();
 

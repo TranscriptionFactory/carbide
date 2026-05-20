@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./ports";
 export * from "./parse_task_query";
+export * from "./domain/group_tasks";
 export * from "./adapters/task_tauri_adapter";
 export * from "./state/task_store.svelte";
 export * from "./application/task_service";

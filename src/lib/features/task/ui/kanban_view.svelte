@@ -22,7 +22,13 @@
     }
 
     const KNOWN: Set<string> = new Set(["note", "section", "due_date"]);
-    if (!KNOWN.has(groupProperty)) return [] as { id: string; label: string; status: TaskStatus | undefined; tasks: Task[] }[];
+    if (!KNOWN.has(groupProperty))
+      return [] as {
+        id: string;
+        label: string;
+        status: TaskStatus | undefined;
+        tasks: Task[];
+      }[];
     const groups = group_tasks(tasks, groupProperty as TaskGrouping);
     return groups.map((g) => ({
       id: g.key,

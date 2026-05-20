@@ -10,9 +10,8 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
-import { parse_task_query } from "$lib/features/task";
+import { parse_task_query, group_tasks } from "$lib/features/task";
 import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
-import { group_tasks } from "$lib/features/task/domain/group_tasks";
 
 export type TaskQueryCallbacks = {
   query_tasks: (query: TaskQuery) => Promise<Task[]>;
