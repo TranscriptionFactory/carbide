@@ -22,12 +22,13 @@ pub fn hybrid_search(
     let fts_hits =
         search_db::search(conn, &query.text, query.scope, over_fetch).unwrap_or_default();
 
-    let merged = rrf_merge(&fts_hits, &vector_hits, limit, &query.text);
+    let merged = rrf_merge(conn, &fts_hits, &vector_hits, limit, &query.text);
 
     Ok(merged)
 }
 
 fn rrf_merge(
+    conn: &Connection,
     fts_hits: &[SearchHit],
     vector_hits: &[(String, f32)],
     limit: usize,
@@ -66,7 +67,14 @@ fn rrf_merge(
         .into_iter()
         .filter_map(|(path, (base_score, source))| {
             let fts_hit = fts_map.get(path.as_str());
-            let note = fts_hit.map(|h| h.note.clone())?;
+            let note = if let Some(h) = fts_hit {
+                h.note.clone()
+            } else {
+                match search_db::get_note_meta(conn, &path) {
+                    Ok(Some(meta)) => meta,
+                    _ => return None,
+                }
+            };
 
             let title_lower = note.title.to_lowercase();
             let mut final_score = base_score;
