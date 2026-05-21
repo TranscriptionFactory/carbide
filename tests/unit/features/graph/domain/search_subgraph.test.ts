@@ -317,7 +317,7 @@ describe("compute_auto_expanded_ids", () => {
 });
 
 describe("semantic boost scoring", () => {
-  it("boosts neighbors that appear in semantic boost set", () => {
+  it("boosts neighbors that appear in semantic boost map", () => {
     const hits: SearchSubgraphHit[] = [
       { path: "h1.md", title: "H1", score: 1 },
     ];
@@ -335,12 +335,41 @@ describe("semantic boost scoring", () => {
 
     const result = extract_search_subgraph(hits, vault, undefined, undefined, {
       max_neighbors: 1,
-      semantic_boost_paths: new Set(["boosted.md"]),
+      semantic_boost_paths: new Map([["boosted.md", 0.2]]),
     });
 
     const neighbors = result.nodes.filter((n) => n.kind === "neighbor");
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0]!.path).toBe("boosted.md");
+  });
+
+  it("gives higher boost to closer semantic neighbors", () => {
+    const hits: SearchSubgraphHit[] = [
+      { path: "h1.md", title: "H1", score: 1 },
+    ];
+    const vault = make_vault(
+      [
+        { path: "h1.md", title: "H1" },
+        { path: "close.md", title: "Close" },
+        { path: "far.md", title: "Far" },
+      ],
+      [
+        { source: "h1.md", target: "close.md" },
+        { source: "h1.md", target: "far.md" },
+      ],
+    );
+
+    const result = extract_search_subgraph(hits, vault, undefined, undefined, {
+      max_neighbors: 2,
+      semantic_boost_paths: new Map([
+        ["close.md", 0.1],
+        ["far.md", 0.9],
+      ]),
+    });
+
+    const neighbors = result.nodes.filter((n) => n.kind === "neighbor");
+    expect(neighbors).toHaveLength(2);
+    expect(neighbors[0]!.path).toBe("close.md");
   });
 
   it("does not boost when semantic_boost_paths is omitted", () => {
