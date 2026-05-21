@@ -313,8 +313,18 @@ function convert_block_node(node: PmNode): MdastNode | null {
 function convert_list_item(node: PmNode): MdastNode {
   const checked = node.attrs["checked"] as boolean | null;
   const task_status = node.attrs["task_status"] as string | null;
+  const is_doing = task_status === "doing";
   const is_task = checked !== null || task_status !== null;
   const children = convert_children(node);
+
+  if (is_doing) {
+    const para = children[0];
+    if (para && para.type === "paragraph" && Array.isArray(para.children)) {
+      para.children.unshift({ type: "doingCheckbox" } as MdastNode);
+    }
+    return { type: "listItem", spread: false, children };
+  }
+
   return {
     type: "listItem",
     checked: is_task ? (checked === true ? true : false) : undefined,

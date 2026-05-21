@@ -279,8 +279,15 @@ function convert_list_item(node: AnyMdastNode): PmNode {
     pm_children = [schema.nodes.paragraph.create()];
   }
 
-  const task_status =
-    checked === true ? "done" : checked === false ? "todo" : null;
+  const doing_from_data =
+    (node.data as Record<string, unknown> | undefined)?.taskStatus === "doing";
+  const task_status = doing_from_data
+    ? "doing"
+    : checked === true
+      ? "done"
+      : checked === false
+        ? "todo"
+        : null;
   return schema.nodes.list_item.create({ checked, task_status }, pm_children);
 }
 

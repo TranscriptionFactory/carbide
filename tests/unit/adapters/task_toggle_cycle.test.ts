@@ -69,10 +69,10 @@ describe("task checkbox toggle cycle", () => {
     expect(md).toBe("- [ ] task");
   });
 
-  it("serializes doing state as unchecked task", () => {
+  it("serializes doing state as [-] task", () => {
     const doc = wrap_in_doc(make_task_li(false, "doing"));
     const md = serialize_markdown(doc).trim();
-    expect(md).toBe("- [ ] task");
+    expect(md).toBe("- [-] task");
   });
 
   it("serializes done state as checked task", () => {
@@ -86,7 +86,7 @@ describe("task checkbox toggle cycle", () => {
       const checked = status === "done" ? true : false;
       const doc = wrap_in_doc(make_task_li(checked, status));
       const md = serialize_markdown(doc).trim();
-      expect(md).toMatch(/^- \[[ x]\]/);
+      expect(md).toMatch(/^- \[[ x\-]\]/);
     }
   });
 
@@ -100,6 +100,20 @@ describe("task checkbox toggle cycle", () => {
     const checked_li = checked_doc.firstChild?.firstChild;
     expect(checked_li?.attrs["checked"]).toBe(true);
     expect(checked_li?.attrs["task_status"]).toBe("done");
+  });
+
+  it("parser sets doing state from [-] markdown", () => {
+    const doc = parse_markdown("- [-] item");
+    const li = doc.firstChild?.firstChild;
+    expect(li?.attrs["checked"]).toBe(false);
+    expect(li?.attrs["task_status"]).toBe("doing");
+  });
+
+  it("parser sets doing state from [/] markdown", () => {
+    const doc = parse_markdown("- [/] item");
+    const li = doc.firstChild?.firstChild;
+    expect(li?.attrs["checked"]).toBe(false);
+    expect(li?.attrs["task_status"]).toBe("doing");
   });
 
   it("plain bullet has null for both attrs", () => {
@@ -118,11 +132,11 @@ describe("task checkbox toggle cycle", () => {
 
     const doc = wrap_in_doc(toggled);
     const md = serialize_markdown(doc).trim();
-    expect(md).toBe("- [ ] task");
+    expect(md).toBe("- [-] task");
 
     const reparsed = parse_markdown(md);
     const li = reparsed.firstChild?.firstChild;
     expect(li?.attrs["checked"]).toBe(false);
-    expect(li?.attrs["task_status"]).toBe("todo");
+    expect(li?.attrs["task_status"]).toBe("doing");
   });
 });
