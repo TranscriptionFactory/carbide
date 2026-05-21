@@ -31,6 +31,7 @@
     { separator: true },
     { id: ACTION_IDS.editor_turn_into_code_block, label: "Code Block" },
     { id: ACTION_IDS.editor_turn_into_callout, label: "Callout" },
+    { id: ACTION_IDS.editor_turn_into_details_block, label: "Collapsible Section" },
   ] as const;
 
   const turn_into_target_map: Record<
@@ -56,6 +57,7 @@
     [ACTION_IDS.editor_turn_into_todo_list]: { target: "todo_list" },
     [ACTION_IDS.editor_turn_into_code_block]: { target: "code_block" },
     [ACTION_IDS.editor_turn_into_callout]: { target: "callout" },
+    [ACTION_IDS.editor_turn_into_details_block]: { target: "details_block" },
   };
 
   const refactor_items = [

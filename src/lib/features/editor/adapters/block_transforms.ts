@@ -18,7 +18,8 @@ export type TurnIntoTarget =
   | "ordered_list"
   | "todo_list"
   | "code_block"
-  | "callout";
+  | "callout"
+  | "details_block";
 
 function resolve_block_at_cursor(
   state: EditorState,
@@ -197,6 +198,11 @@ export function create_turn_into_command(
       return convert_to_callout(state, dispatch, block);
     }
 
+    if (target === "details_block") {
+      if (current_name === "details_block") return false;
+      return convert_to_details_block(state, dispatch, block);
+    }
+
     return false;
   };
 }
@@ -228,6 +234,29 @@ function wrap_as_todo(state: EditorState, dispatch: Dispatch): boolean {
     }
   });
   dispatch(tr);
+  return true;
+}
+
+function convert_to_details_block(
+  state: EditorState,
+  dispatch: Dispatch,
+  block: { pos: number; node: ProseNode; end: number },
+): boolean {
+  if (!dispatch) return true;
+  const inline = collect_inline_content(block.node);
+  const summary = schema.nodes.details_summary.create(
+    null,
+    schema.text("Details"),
+  );
+  const body_para = schema.nodes.paragraph.create(null, inline);
+  const content = schema.nodes.details_content.create(null, [body_para]);
+  const details = schema.nodes.details_block.create({ open: true }, [
+    summary,
+    content,
+  ]);
+  const tr = state.tr.replaceWith(block.pos, block.end, details);
+  tr.setSelection(TextSelection.create(tr.doc, block.pos + 2));
+  dispatch(tr.scrollIntoView());
   return true;
 }
 
@@ -530,6 +559,18 @@ function build_turn_into_replacement(
         [title, body],
       ),
     ];
+  }
+
+  if (target === "details_block") {
+    if (current_name === "details_block") return null;
+    const inline = collect_inline_content(node);
+    const summary = schema.nodes.details_summary.create(
+      null,
+      schema.text("Details"),
+    );
+    const body_para = schema.nodes.paragraph.create(null, inline);
+    const content = schema.nodes.details_content.create(null, [body_para]);
+    return [schema.nodes.details_block.create({ open: true }, [summary, content])];
   }
 
   return null;
