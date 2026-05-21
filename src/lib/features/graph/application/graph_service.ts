@@ -396,7 +396,7 @@ export class GraphService {
       });
 
       let semantic_edges: SemanticEdge[] = [];
-      let semantic_boost_paths: Set<string> | undefined;
+      let semantic_boost_paths: Map<string, number> | undefined;
       try {
         const hit_paths = subgraph_hits.map((h) => h.path);
         semantic_edges = await this.search_port.semantic_search_batch(
@@ -411,7 +411,9 @@ export class GraphService {
           query,
           20,
         );
-        semantic_boost_paths = new Set(sem_hits.map((h) => h.note.path));
+        semantic_boost_paths = new Map(
+          sem_hits.map((h) => [h.note.path, h.distance]),
+        );
       } catch {
         // Embeddings may not be available — proceed without semantic edges
       }

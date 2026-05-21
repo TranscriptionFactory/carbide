@@ -20,7 +20,7 @@ export type SearchSubgraphHit = {
 
 export type SearchSubgraphOptions = {
   max_neighbors?: number;
-  semantic_boost_paths?: Set<string>;
+  semantic_boost_paths?: Map<string, number>;
 };
 
 const DEFAULT_MAX_NEIGHBORS = 50;
@@ -271,7 +271,7 @@ function build_adjacency_map(
 function score_neighbors(
   hit_set: Set<string>,
   adjacency: Map<string, Set<string>>,
-  semantic_boost_set?: Set<string>,
+  semantic_boost_map?: Map<string, number>,
 ): Map<string, number> {
   const neighbor_candidates = new Map<string, number>();
 
@@ -292,7 +292,8 @@ function score_neighbors(
   for (const [path, edges_to_hits] of neighbor_candidates) {
     const total_edges = adjacency.get(path)?.size ?? 1;
     const base = edges_to_hits / total_edges;
-    const boost = semantic_boost_set?.has(path) ? 0.3 : 0;
+    const distance = semantic_boost_map?.get(path);
+    const boost = distance !== undefined ? 0.3 * (1 - distance) : 0;
     scores.set(path, base + boost);
   }
   return scores;
