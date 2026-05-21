@@ -10,6 +10,7 @@ import { remark_highlight, highlight_to_markdown } from "./remark_highlight";
 import { remark_details, details_to_markdown } from "./remark_details";
 import { remark_callout, callout_to_markdown } from "./remark_callout";
 import { remark_wiki_embed } from "./remark_wiki_embed";
+import { remark_task_doing } from "./remark_task_doing";
 
 type StringifyState = {
   enter: (s: string) => () => void;
@@ -72,12 +73,14 @@ const stringify_options: StringifyOptions = {
     ...callout_to_markdown,
     table: table_handler,
     wikiEmbed: wiki_embed_handler,
+    doingCheckbox: () => "[-] ",
   } as unknown as StringifyOptions["handlers"],
 };
 
 export const parse_processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
+  .use(remark_task_doing)
   .use(remarkMath)
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkGemoji)
