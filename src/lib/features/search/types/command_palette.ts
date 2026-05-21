@@ -66,6 +66,8 @@ export type CommandId =
   | "paste_html_as_markdown"
   | "open_welcome"
   | "open_todays_note"
+  | "export_vault_graph_as_canvas"
+  | "export_neighborhood_as_canvas"
   | (string & {});
 
 export type CommandIcon =

@@ -78,6 +78,9 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   document_toggle_source: ACTION_IDS.document_toggle_source,
   paste_html_as_markdown: ACTION_IDS.note_paste_html_as_markdown,
   open_todays_note: ACTION_IDS.daily_notes_open_today,
+  export_vault_graph_as_canvas: ACTION_IDS.canvas_export_vault_graph_as_canvas,
+  export_neighborhood_as_canvas:
+    ACTION_IDS.canvas_export_neighborhood_as_canvas,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,
