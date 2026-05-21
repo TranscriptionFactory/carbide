@@ -181,6 +181,7 @@ export const ACTION_IDS = {
   editor_turn_into_todo_list: "editor.turn_into.todo_list",
   editor_turn_into_code_block: "editor.turn_into.code_block",
   editor_turn_into_callout: "editor.turn_into.callout",
+  editor_turn_into_details_block: "editor.turn_into.details_block",
   editor_duplicate_block: "editor.duplicate_block",
   editor_delete_block: "editor.delete_block",
 

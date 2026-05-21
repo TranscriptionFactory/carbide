@@ -657,6 +657,11 @@ export function register_app_actions(input: ActionRegistrationInput) {
     execute: () => services.editor.turn_into("callout"),
   });
   registry.register({
+    id: ACTION_IDS.editor_turn_into_details_block,
+    label: "Turn Into Collapsible Section",
+    execute: () => services.editor.turn_into("details_block"),
+  });
+  registry.register({
     id: ACTION_IDS.editor_duplicate_block,
     label: "Duplicate Block",
     execute: () => services.editor.duplicate_block(),
