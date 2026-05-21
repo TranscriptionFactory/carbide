@@ -573,4 +573,25 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     keywords: ["welcome", "onboarding", "getting started", "first run", "help"],
     icon: "sparkles",
   },
+  {
+    id: "export_vault_graph_as_canvas",
+    label: "Export Vault Graph as Canvas",
+    description: "Export the full vault graph to an Excalidraw canvas file",
+    keywords: ["export", "vault", "graph", "canvas", "network", "visualize"],
+    icon: "file-down",
+  },
+  {
+    id: "export_neighborhood_as_canvas",
+    label: "Export Neighborhood as Canvas",
+    description: "Export the current note's link neighborhood to a canvas file",
+    keywords: [
+      "export",
+      "neighborhood",
+      "graph",
+      "canvas",
+      "backlinks",
+      "outlinks",
+    ],
+    icon: "file-down",
+  },
 ];
