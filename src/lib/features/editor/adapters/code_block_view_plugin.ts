@@ -250,7 +250,6 @@ async function render_task_query_results(
   code: string,
   container: HTMLElement,
   callbacks: TaskQueryCallbacks,
-  on_toggle: () => void,
 ): Promise<void> {
   if (!code.trim()) {
     container.innerHTML = '<div class="task-query-empty">Empty query</div>';
@@ -299,14 +298,18 @@ async function render_task_query_results(
         checkbox.addEventListener("change", (e) => {
           e.preventDefault();
           const new_status = next_task_status(task.status);
-          void callbacks
-            .toggle_task({ ...task, status: new_status })
-            .then(on_toggle);
+          task.status = new_status;
+          checkbox.checked = new_status === "done";
+          checkbox.indeterminate = new_status === "doing";
+          text_el.classList.toggle("task-query-done", new_status === "done");
+          text_el.classList.toggle("task-query-doing", new_status === "doing");
+          void callbacks.toggle_task({ ...task, status: new_status });
         });
 
         const text_el = document.createElement("span");
         text_el.className = "task-query-text";
         if (task.status === "done") text_el.classList.add("task-query-done");
+        if (task.status === "doing") text_el.classList.add("task-query-doing");
         text_el.textContent = task.text;
 
         const meta_el = document.createElement("span");
@@ -323,6 +326,14 @@ async function render_task_query_results(
           });
         }
         meta_el.appendChild(file_el);
+
+        if (task.section) {
+          meta_el.appendChild(document.createTextNode(" · "));
+          const section_el = document.createElement("span");
+          section_el.className = "task-query-section";
+          section_el.textContent = task.section;
+          meta_el.appendChild(section_el);
+        }
 
         if (task.due_date) {
           const sep = document.createTextNode(" · ");
@@ -695,7 +706,6 @@ class CodeBlockView implements NodeView {
         code,
         this.task_query.preview_container,
         this.task_query.callbacks,
-        () => this.schedule_task_query_render(),
       );
     }, 150);
   }

@@ -963,6 +963,19 @@
   color: var(--muted-foreground);
 }
 
+.task-query-doing {
+  font-style: italic;
+  color: var(--accent-foreground);
+}
+
+.task-query-item input[type="checkbox"]:indeterminate {
+  accent-color: var(--accent-foreground);
+}
+
+.task-query-section {
+  font-style: italic;
+}
+
 .task-query-meta {
   flex-shrink: 0;
   font-size: var(--text-xs);
