@@ -5,7 +5,14 @@ import type {
   NodeView,
   ViewMutationRecord,
 } from "prosemirror-view";
-import { Check, ChevronRight, Copy, Download, ZoomIn, ZoomOut } from "lucide-static";
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  Download,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
@@ -616,9 +623,27 @@ class CodeBlockView implements NodeView {
       this.toggle_mermaid_preview();
     });
 
-    const zoom_in_btn = this.create_toolbar_icon_btn(ZOOM_IN_SVG, "Zoom in", () => { this.mermaid_zoom(0.25); });
-    const zoom_out_btn = this.create_toolbar_icon_btn(ZOOM_OUT_SVG, "Zoom out", () => { this.mermaid_zoom(-0.25); });
-    const export_btn = this.create_toolbar_icon_btn(DOWNLOAD_SVG, "Export diagram", () => { this.export_mermaid(); });
+    const zoom_in_btn = this.create_toolbar_icon_btn(
+      ZOOM_IN_SVG,
+      "Zoom in",
+      () => {
+        this.mermaid_zoom(0.25);
+      },
+    );
+    const zoom_out_btn = this.create_toolbar_icon_btn(
+      ZOOM_OUT_SVG,
+      "Zoom out",
+      () => {
+        this.mermaid_zoom(-0.25);
+      },
+    );
+    const export_btn = this.create_toolbar_icon_btn(
+      DOWNLOAD_SVG,
+      "Export diagram",
+      () => {
+        this.export_mermaid();
+      },
+    );
 
     const copy_btn = this.toolbar.lastChild;
     this.toolbar.insertBefore(toggle_btn, copy_btn);
@@ -646,7 +671,11 @@ class CodeBlockView implements NodeView {
     this.schedule_mermaid_render();
   }
 
-  private create_toolbar_icon_btn(icon_svg: string, label: string, on_click: () => void): HTMLButtonElement {
+  private create_toolbar_icon_btn(
+    icon_svg: string,
+    label: string,
+    on_click: () => void,
+  ): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.className = "mermaid-toggle-btn mermaid-icon-btn";
     btn.type = "button";
@@ -693,12 +722,16 @@ class CodeBlockView implements NodeView {
     container.addEventListener("pointerup", stop_drag);
     container.addEventListener("pointercancel", stop_drag);
 
-    container.addEventListener("wheel", (e) => {
-      if (!this.mermaid) return;
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      this.mermaid_zoom(delta);
-    }, { passive: false });
+    container.addEventListener(
+      "wheel",
+      (e) => {
+        if (!this.mermaid) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        this.mermaid_zoom(delta);
+      },
+      { passive: false },
+    );
 
     container.addEventListener("dblclick", (e) => {
       e.preventDefault();
