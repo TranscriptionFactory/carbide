@@ -5,7 +5,7 @@ import type {
   NodeView,
   ViewMutationRecord,
 } from "prosemirror-view";
-import { Check, ChevronRight, Copy } from "lucide-static";
+import { Check, ChevronRight, Copy, Download, ZoomIn, ZoomOut } from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
@@ -33,6 +33,9 @@ function resize_icon(svg: string, size: number): string {
 const COPY_SVG = resize_icon(Copy, 14);
 const CHECK_SVG = resize_icon(Check, 14);
 const CHEVRON_SVG = resize_icon(ChevronRight, 14);
+const ZOOM_IN_SVG = resize_icon(ZoomIn, 14);
+const ZOOM_OUT_SVG = resize_icon(ZoomOut, 14);
+const DOWNLOAD_SVG = resize_icon(Download, 14);
 
 function create_copy_button(code_el: HTMLElement): HTMLButtonElement {
   const button = document.createElement("button");
@@ -162,9 +165,16 @@ function create_language_picker(
 type MermaidState = {
   is_preview: boolean;
   preview_container: HTMLElement;
+  viewport: HTMLElement;
   toggle_btn: HTMLButtonElement;
+  zoom_in_btn: HTMLButtonElement;
+  zoom_out_btn: HTMLButtonElement;
+  export_btn: HTMLButtonElement;
   render_timer: ReturnType<typeof setTimeout> | undefined;
   last_rendered_content: string;
+  scale: number;
+  pan_x: number;
+  pan_y: number;
 };
 
 type TaskQueryState = {
@@ -590,6 +600,12 @@ class CodeBlockView implements NodeView {
     const preview_container = document.createElement("div");
     preview_container.className = "mermaid-preview";
 
+    const viewport = document.createElement("div");
+    viewport.className = "mermaid-viewport";
+    preview_container.appendChild(viewport);
+
+    this.setup_mermaid_pan(preview_container);
+
     const toggle_btn = document.createElement("button");
     toggle_btn.className = "mermaid-toggle-btn";
     toggle_btn.type = "button";
@@ -600,35 +616,140 @@ class CodeBlockView implements NodeView {
       this.toggle_mermaid_preview();
     });
 
-    this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
+    const zoom_in_btn = this.create_toolbar_icon_btn(ZOOM_IN_SVG, "Zoom in", () => { this.mermaid_zoom(0.25); });
+    const zoom_out_btn = this.create_toolbar_icon_btn(ZOOM_OUT_SVG, "Zoom out", () => { this.mermaid_zoom(-0.25); });
+    const export_btn = this.create_toolbar_icon_btn(DOWNLOAD_SVG, "Export diagram", () => { this.export_mermaid(); });
+
+    const copy_btn = this.toolbar.lastChild;
+    this.toolbar.insertBefore(toggle_btn, copy_btn);
+    this.toolbar.insertBefore(zoom_in_btn, copy_btn);
+    this.toolbar.insertBefore(zoom_out_btn, copy_btn);
+    this.toolbar.insertBefore(export_btn, copy_btn);
     this.dom.appendChild(preview_container);
 
     this.mermaid = {
       is_preview: true,
       preview_container,
+      viewport,
       toggle_btn,
+      zoom_in_btn,
+      zoom_out_btn,
+      export_btn,
       render_timer: undefined,
       last_rendered_content: this.node.textContent,
+      scale: 1,
+      pan_x: 0,
+      pan_y: 0,
     };
 
     this.pre.style.display = "none";
     this.schedule_mermaid_render();
   }
 
+  private create_toolbar_icon_btn(icon_svg: string, label: string, on_click: () => void): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.className = "mermaid-toggle-btn mermaid-icon-btn";
+    btn.type = "button";
+    btn.innerHTML = icon_svg;
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      on_click();
+    });
+    return btn;
+  }
+
+  private setup_mermaid_pan(container: HTMLElement) {
+    let is_dragging = false;
+    let start_x = 0;
+    let start_y = 0;
+    let start_pan_x = 0;
+    let start_pan_y = 0;
+
+    container.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      is_dragging = true;
+      start_x = e.clientX;
+      start_y = e.clientY;
+      start_pan_x = this.mermaid?.pan_x ?? 0;
+      start_pan_y = this.mermaid?.pan_y ?? 0;
+      container.setPointerCapture(e.pointerId);
+      container.style.cursor = "grabbing";
+    });
+
+    container.addEventListener("pointermove", (e) => {
+      if (!is_dragging || !this.mermaid) return;
+      this.mermaid.pan_x = start_pan_x + (e.clientX - start_x);
+      this.mermaid.pan_y = start_pan_y + (e.clientY - start_y);
+      this.apply_mermaid_transform();
+    });
+
+    const stop_drag = () => {
+      is_dragging = false;
+      container.style.cursor = "";
+    };
+    container.addEventListener("pointerup", stop_drag);
+    container.addEventListener("pointercancel", stop_drag);
+
+    container.addEventListener("wheel", (e) => {
+      if (!this.mermaid) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      this.mermaid_zoom(delta);
+    }, { passive: false });
+
+    container.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      if (!this.mermaid) return;
+      this.mermaid.scale = 1;
+      this.mermaid.pan_x = 0;
+      this.mermaid.pan_y = 0;
+      this.apply_mermaid_transform();
+    });
+  }
+
+  private mermaid_zoom(delta: number) {
+    if (!this.mermaid) return;
+    this.mermaid.scale = Math.max(0.1, Math.min(5, this.mermaid.scale + delta));
+    this.apply_mermaid_transform();
+  }
+
+  private apply_mermaid_transform() {
+    if (!this.mermaid) return;
+    const { scale, pan_x, pan_y, viewport } = this.mermaid;
+    viewport.style.transform = `translate(${String(pan_x)}px, ${String(pan_y)}px) scale(${String(scale)})`;
+  }
+
+  private export_mermaid() {
+    if (!this.mermaid) return;
+    const svg_el = this.mermaid.viewport.querySelector("svg");
+    if (!svg_el) return;
+
+    const serializer = new XMLSerializer();
+    const svg_str = serializer.serializeToString(svg_el);
+    const blob = new Blob([svg_str], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "diagram.svg";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   private toggle_mermaid_preview() {
     if (!this.mermaid) return;
     this.mermaid.is_preview = !this.mermaid.is_preview;
 
-    if (this.mermaid.is_preview) {
-      this.pre.style.display = "none";
-      this.mermaid.preview_container.style.display = "";
-      this.mermaid.toggle_btn.textContent = "Edit";
-      this.schedule_mermaid_render();
-    } else {
-      this.pre.style.display = "";
-      this.mermaid.preview_container.style.display = "none";
-      this.mermaid.toggle_btn.textContent = "Preview";
-    }
+    const show = this.mermaid.is_preview;
+    this.pre.style.display = show ? "none" : "";
+    this.mermaid.preview_container.style.display = show ? "" : "none";
+    this.mermaid.toggle_btn.textContent = show ? "Edit" : "Preview";
+    this.mermaid.zoom_in_btn.style.display = show ? "" : "none";
+    this.mermaid.zoom_out_btn.style.display = show ? "" : "none";
+    this.mermaid.export_btn.style.display = show ? "" : "none";
+    if (show) this.schedule_mermaid_render();
   }
 
   private schedule_mermaid_render() {
@@ -637,7 +758,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.render_timer = setTimeout(() => {
       if (!this.mermaid) return;
       const code = this.node.textContent;
-      void render_mermaid_preview(code, this.mermaid.preview_container);
+      void render_mermaid_preview(code, this.mermaid.viewport);
     }, 150);
   }
 
@@ -646,6 +767,9 @@ class CodeBlockView implements NodeView {
     clearTimeout(this.mermaid.render_timer);
     this.mermaid.preview_container.remove();
     this.mermaid.toggle_btn.remove();
+    this.mermaid.zoom_in_btn.remove();
+    this.mermaid.zoom_out_btn.remove();
+    this.mermaid.export_btn.remove();
     this.mermaid = null;
     this.pre.style.display = "";
   }
@@ -834,7 +958,8 @@ class CodeBlockView implements NodeView {
       event.target.closest(".code-block-toolbar") !== null ||
       event.target.closest(".code-block-collapse") !== null ||
       event.target.closest(".code-block-resize-handle") !== null ||
-      event.target.closest(".task-query-results") !== null
+      event.target.closest(".task-query-results") !== null ||
+      event.target.closest(".mermaid-preview") !== null
     );
   }
 
