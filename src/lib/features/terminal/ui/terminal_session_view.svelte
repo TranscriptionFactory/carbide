@@ -31,6 +31,7 @@
   let session_syncing = $state(false);
   let on_focus: (() => void) | undefined;
   let on_blur: (() => void) | undefined;
+  let on_webgl_error_handler: ((event: ErrorEvent) => void) | undefined;
   let attached_view_id = $state<string | null>(null);
 
   let output_buffer: Uint8Array[] = [];
@@ -287,13 +288,51 @@
     terminal.loadAddon(fit_addon);
     terminal.open(container_el);
 
+    let webgl_addon: WebglAddon | undefined;
     try {
-      terminal.loadAddon(new WebglAddon());
+      webgl_addon = new WebglAddon();
+      webgl_addon.onContextLoss(() => {
+        log.warn("WebGL context lost, falling back to canvas");
+        webgl_addon?.dispose();
+        webgl_addon = undefined;
+      });
+      terminal.loadAddon(webgl_addon);
     } catch (e) {
       log.warn("WebGL renderer unavailable, falling back to canvas", {
         error: String(e),
       });
+      webgl_addon = undefined;
     }
+
+    // Intercept async rendering errors thrown by the WebGL addon's minified
+    // code (e.g. ReferenceError "Can't find variable: i" triggered by
+    // advanced escape sequences in TUI tools like yazi).  When caught,
+    // dispose the addon so xterm silently falls back to canvas rendering.
+    const on_webgl_error = (event: ErrorEvent) => {
+      if (!webgl_addon) return;
+      const err = event.error;
+      if (err instanceof ReferenceError || err instanceof TypeError) {
+        const stack = err.stack ?? "";
+        const msg = err.message ?? "";
+        // Single-char variable names indicate minified third-party code
+        const is_minified_var = /Can't find variable: \w$/.test(msg);
+        const is_xterm_stack = /xterm|addon-webgl/.test(stack);
+        if (is_minified_var || is_xterm_stack) {
+          event.preventDefault();
+          log.warn("WebGL addon error, disposing and falling back to canvas", {
+            error: msg,
+          });
+          try {
+            webgl_addon.dispose();
+          } catch {
+            // already disposed
+          }
+          webgl_addon = undefined;
+        }
+      }
+    };
+    on_webgl_error_handler = on_webgl_error;
+    window.addEventListener("error", on_webgl_error);
 
     if (active) {
       requestAnimationFrame(() => {
@@ -357,6 +396,11 @@
     }
     on_focus = undefined;
     on_blur = undefined;
+
+    if (on_webgl_error_handler) {
+      window.removeEventListener("error", on_webgl_error_handler);
+      on_webgl_error_handler = undefined;
+    }
 
     detach_terminal_view();
 
