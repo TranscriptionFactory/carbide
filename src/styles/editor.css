@@ -550,6 +550,10 @@
   margin-bottom: var(--editor-list-item-spacing);
 }
 
+.ProseMirror li:last-child > p:last-child {
+  margin-bottom: 0;
+}
+
 .ProseMirror ul ul,
 .ProseMirror ol ul,
 .ProseMirror ul ol,
