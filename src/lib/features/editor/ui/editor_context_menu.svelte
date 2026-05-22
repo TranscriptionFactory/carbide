@@ -31,7 +31,10 @@
     { separator: true },
     { id: ACTION_IDS.editor_turn_into_code_block, label: "Code Block" },
     { id: ACTION_IDS.editor_turn_into_callout, label: "Callout" },
-    { id: ACTION_IDS.editor_turn_into_details_block, label: "Collapsible Section" },
+    {
+      id: ACTION_IDS.editor_turn_into_details_block,
+      label: "Collapsible Section",
+    },
   ] as const;
 
   const turn_into_target_map: Record<
