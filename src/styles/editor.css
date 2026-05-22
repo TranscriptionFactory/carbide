@@ -897,6 +897,29 @@
   max-height: none;
 }
 
+.mermaid-fullscreen-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+  z-index: 51;
+}
+
+.mermaid-fullscreen-toolbar .mermaid-icon-btn {
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.mermaid-fullscreen-toolbar .mermaid-icon-btn:hover {
+  opacity: 1;
+}
+
 .mermaid-icon-btn {
   display: inline-flex;
   align-items: center;
