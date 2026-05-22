@@ -570,7 +570,9 @@ function build_turn_into_replacement(
     );
     const body_para = schema.nodes.paragraph.create(null, inline);
     const content = schema.nodes.details_content.create(null, [body_para]);
-    return [schema.nodes.details_block.create({ open: true }, [summary, content])];
+    return [
+      schema.nodes.details_block.create({ open: true }, [summary, content]),
+    ];
   }
 
   return null;
