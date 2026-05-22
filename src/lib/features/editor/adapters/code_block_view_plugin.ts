@@ -729,13 +729,29 @@ class CodeBlockView implements NodeView {
 
     const serializer = new XMLSerializer();
     const svg_str = serializer.serializeToString(svg_el);
-    const blob = new Blob([svg_str], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "diagram.svg";
-    a.click();
-    URL.revokeObjectURL(url);
+
+    void (async () => {
+      try {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { invoke } = await import("@tauri-apps/api/core");
+        const file_path = await save({
+          title: "Export Mermaid Diagram",
+          defaultPath: "diagram.svg",
+          filters: [{ name: "SVG", extensions: ["svg"] }],
+        });
+        if (!file_path) return;
+        const data = Array.from(new TextEncoder().encode(svg_str));
+        await invoke("write_bytes_to_path", { path: file_path, data });
+      } catch {
+        const blob = new Blob([svg_str], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "diagram.svg";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    })();
   }
 
   private toggle_mermaid_preview() {
