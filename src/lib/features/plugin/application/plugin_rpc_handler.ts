@@ -600,6 +600,8 @@ export class PluginRpcHandler {
         return this.handle_actions(plugin_id, action, params);
       case "sidecar":
         return this.handle_sidecar(plugin_id, action, params);
+      case "render":
+        return this.handle_render(plugin_id, action, params);
       default:
         throw new Error(`Unknown namespace: ${namespace}`);
     }
@@ -1264,6 +1266,41 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown sidecar action: ${action}`);
+    }
+  }
+
+  private async handle_render(
+    _plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ) {
+    switch (action) {
+      case "mermaid": {
+        const code = read_param_string(params, 0, "mermaid code");
+        const theme_param =
+          typeof params[1] === "string" ? params[1] : undefined;
+        const mermaid = await import("mermaid");
+        const theme =
+          theme_param === "dark"
+            ? "dark"
+            : theme_param === "default"
+              ? "default"
+              : document.documentElement.getAttribute("data-color-scheme") ===
+                  "dark"
+                ? "dark"
+                : "default";
+        mermaid.default.initialize({
+          startOnLoad: false,
+          theme,
+          securityLevel: "strict",
+        });
+        await mermaid.default.parse(code);
+        const id = `plugin-mermaid-${String(Date.now())}`;
+        const { svg } = await mermaid.default.render(id, code);
+        return { svg };
+      }
+      default:
+        throw new Error(`Unknown render action: ${action}`);
     }
   }
 }
