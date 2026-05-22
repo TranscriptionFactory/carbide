@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Maximize2,
+  Minimize2,
   ZoomIn,
   ZoomOut,
 } from "lucide-static";
@@ -43,6 +45,8 @@ const CHEVRON_SVG = resize_icon(ChevronRight, 14);
 const ZOOM_IN_SVG = resize_icon(ZoomIn, 14);
 const ZOOM_OUT_SVG = resize_icon(ZoomOut, 14);
 const DOWNLOAD_SVG = resize_icon(Download, 14);
+const MAXIMIZE_SVG = resize_icon(Maximize2, 14);
+const MINIMIZE_SVG = resize_icon(Minimize2, 14);
 
 function create_copy_button(code_el: HTMLElement): HTMLButtonElement {
   const button = document.createElement("button");
@@ -177,6 +181,7 @@ type MermaidState = {
   zoom_in_btn: HTMLButtonElement;
   zoom_out_btn: HTMLButtonElement;
   export_btn: HTMLButtonElement;
+  expand_btn: HTMLButtonElement;
   render_timer: ReturnType<typeof setTimeout> | undefined;
   last_rendered_content: string;
   scale: number;
@@ -644,12 +649,20 @@ class CodeBlockView implements NodeView {
         this.export_mermaid();
       },
     );
+    const expand_btn = this.create_toolbar_icon_btn(
+      MAXIMIZE_SVG,
+      "Expand diagram",
+      () => {
+        this.toggle_mermaid_fullscreen();
+      },
+    );
 
     const copy_btn = this.toolbar.lastChild;
     this.toolbar.insertBefore(toggle_btn, copy_btn);
     this.toolbar.insertBefore(zoom_in_btn, copy_btn);
     this.toolbar.insertBefore(zoom_out_btn, copy_btn);
     this.toolbar.insertBefore(export_btn, copy_btn);
+    this.toolbar.insertBefore(expand_btn, copy_btn);
     this.dom.appendChild(preview_container);
 
     this.mermaid = {
@@ -660,6 +673,7 @@ class CodeBlockView implements NodeView {
       zoom_in_btn,
       zoom_out_btn,
       export_btn,
+      expand_btn,
       render_timer: undefined,
       last_rendered_content: this.node.textContent,
       scale: 1,
@@ -706,6 +720,7 @@ class CodeBlockView implements NodeView {
       start_pan_y = this.mermaid?.pan_y ?? 0;
       container.setPointerCapture(e.pointerId);
       container.style.cursor = "grabbing";
+      this.mermaid?.viewport.classList.add("is-dragging");
     });
 
     container.addEventListener("pointermove", (e) => {
@@ -718,6 +733,7 @@ class CodeBlockView implements NodeView {
     const stop_drag = () => {
       is_dragging = false;
       container.style.cursor = "";
+      this.mermaid?.viewport.classList.remove("is-dragging");
     };
     container.addEventListener("pointerup", stop_drag);
     container.addEventListener("pointercancel", stop_drag);
@@ -798,7 +814,30 @@ class CodeBlockView implements NodeView {
     this.mermaid.zoom_in_btn.style.display = show ? "" : "none";
     this.mermaid.zoom_out_btn.style.display = show ? "" : "none";
     this.mermaid.export_btn.style.display = show ? "" : "none";
+    this.mermaid.expand_btn.style.display = show ? "" : "none";
     if (show) this.schedule_mermaid_render();
+  }
+
+  private toggle_mermaid_fullscreen() {
+    if (!this.mermaid) return;
+    const container = this.mermaid.preview_container;
+    const is_fullscreen = container.classList.contains("mermaid-fullscreen");
+
+    if (is_fullscreen) {
+      container.classList.remove("mermaid-fullscreen");
+      this.mermaid.expand_btn.innerHTML = MAXIMIZE_SVG;
+      this.mermaid.expand_btn.title = "Expand diagram";
+      this.mermaid.expand_btn.setAttribute("aria-label", "Expand diagram");
+    } else {
+      container.classList.add("mermaid-fullscreen");
+      this.mermaid.expand_btn.innerHTML = MINIMIZE_SVG;
+      this.mermaid.expand_btn.title = "Exit fullscreen";
+      this.mermaid.expand_btn.setAttribute("aria-label", "Exit fullscreen");
+      this.mermaid.scale = 1;
+      this.mermaid.pan_x = 0;
+      this.mermaid.pan_y = 0;
+      this.apply_mermaid_transform();
+    }
   }
 
   private schedule_mermaid_render() {
@@ -819,6 +858,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.zoom_in_btn.remove();
     this.mermaid.zoom_out_btn.remove();
     this.mermaid.export_btn.remove();
+    this.mermaid.expand_btn.remove();
     this.mermaid = null;
     this.pre.style.display = "";
   }

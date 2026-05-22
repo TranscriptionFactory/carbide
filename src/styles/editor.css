@@ -862,6 +862,7 @@
   overflow: hidden;
   cursor: grab;
   touch-action: none;
+  resize: vertical;
 }
 
 .mermaid-viewport {
@@ -869,13 +870,31 @@
   transition: transform 0.1s ease-out;
 }
 
+.mermaid-viewport.is-dragging {
+  transition: none;
+}
+
 .mermaid-preview:active {
   cursor: grabbing;
 }
 
 .mermaid-viewport svg {
-  max-width: 100%;
   height: auto;
+}
+
+.mermaid-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border-radius: 0;
+  border: none;
+  resize: none;
+  min-height: unset;
+}
+
+.mermaid-fullscreen .mermaid-viewport svg {
+  max-width: none;
+  max-height: none;
 }
 
 .mermaid-icon-btn {
