@@ -456,7 +456,10 @@
     was_open = true;
     setTimeout(() => {
       ref.focus();
-      if (should_select) ref.select();
+      if (should_select) {
+        const len = ref.value.length;
+        ref.setSelectionRange(len, len);
+      }
     }, 0);
   });
 </script>

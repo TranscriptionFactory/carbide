@@ -855,11 +855,30 @@
   border: 1px solid var(--editor-code-border);
   border-top: none;
   border-radius: 0 0 calc(var(--radius) * 0.75) calc(var(--radius) * 0.75);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
 }
 
-.mermaid-preview svg {
+.mermaid-viewport {
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+}
+
+.mermaid-preview:active {
+  cursor: grabbing;
+}
+
+.mermaid-viewport svg {
   max-width: 100%;
   height: auto;
+}
+
+.mermaid-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.125rem 0.25rem;
 }
 
 .mermaid-loading {
