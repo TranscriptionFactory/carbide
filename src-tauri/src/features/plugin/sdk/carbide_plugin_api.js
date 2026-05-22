@@ -4,7 +4,7 @@
   let _onload_cb = null;
   let _onunload_cb = null;
 
-  const _LONG_TIMEOUT_PREFIXES = ["export.", "vault.", "sidecar."];
+  const _LONG_TIMEOUT_PREFIXES = ["export.", "vault.", "sidecar.", "render."];
   const _EXTRA_LONG_TIMEOUT_PREFIXES = ["sidecar.call_tool"];
 
   function _rpc(method, ...params) {
@@ -168,6 +168,10 @@
     export: {
       saveBinary: (data, defaultFilename, filters) =>
         _rpc("export.save_binary", data, defaultFilename, filters),
+    },
+
+    render: {
+      mermaid: (code, theme) => _rpc("render.mermaid", code, theme),
     },
 
     actions: {

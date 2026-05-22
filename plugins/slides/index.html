@@ -108,6 +108,38 @@
           return resolved.join("/");
         }
 
+        async function prerender_mermaid_blocks(all_tokens) {
+          const map = new Map();
+          let counter = 0;
+          for (const tokens of all_tokens) {
+            for (const token of tokens) {
+              if (
+                token.type === "code" &&
+                token.lang === "mermaid" &&
+                token.text.trim()
+              ) {
+                const key = token.text;
+                if (map.has(key)) continue;
+                try {
+                  const result = await carbide.render.mermaid(key, "default");
+                  if (result && result.svg) {
+                    map.set(key, result.svg);
+                  }
+                } catch (_) {}
+                counter++;
+              }
+            }
+          }
+          return map;
+        }
+
+        function svg_to_data_url(svg_str) {
+          return (
+            "data:image/svg+xml;base64," +
+            btoa(unescape(encodeURIComponent(svg_str)))
+          );
+        }
+
         function collect_image_hrefs_from_tokens(slides_tokens) {
           const hrefs = new Set();
           for (const tokens of slides_tokens) {
@@ -232,6 +264,7 @@
           col_x,
           col_w,
           font_scale,
+          mermaid_map,
         ) {
           const fs = font_scale || 1;
           for (const token of tokens) {
@@ -307,6 +340,38 @@
               }
 
               case "code": {
+                if (
+                  token.lang === "mermaid" &&
+                  mermaid_map &&
+                  mermaid_map.has(token.text)
+                ) {
+                  const svg_str = mermaid_map.get(token.text);
+                  const data_url = svg_to_data_url(svg_str);
+                  try {
+                    const props = doc.getImageProperties(data_url);
+                    const max_w = col_w;
+                    const max_h = PAGE_H - MARGIN - cursor.y;
+                    const scale = Math.min(
+                      max_w / props.width,
+                      max_h / props.height,
+                      1,
+                    );
+                    const w = props.width * scale;
+                    const h = props.height * scale;
+                    if (h > 0) {
+                      doc.addImage(data_url, "SVG", col_x, cursor.y, w, h);
+                      cursor.y += h + 4 * fs;
+                    }
+                  } catch (_) {
+                    doc.setFont("courier", "normal");
+                    doc.setFontSize(FONT_SIZES.code * fs);
+                    doc.text("[mermaid diagram]", col_x, cursor.y);
+                    cursor.y +=
+                      FONT_SIZES.code * LINE_HEIGHT_FACTOR * 0.352778 + 4 * fs;
+                    doc.setFont("helvetica", "normal");
+                  }
+                  break;
+                }
                 const code_size = FONT_SIZES.code * fs;
                 doc.setFont("courier", "normal");
                 doc.setFontSize(code_size);
@@ -374,7 +439,14 @@
           }
         }
 
-        function render_slide(doc, tokens, cursor, image_map, font_scale) {
+        function render_slide(
+          doc,
+          tokens,
+          cursor,
+          image_map,
+          font_scale,
+          mermaid_map,
+        ) {
           render_tokens(
             doc,
             tokens,
@@ -383,6 +455,7 @@
             MARGIN,
             CONTENT_W,
             font_scale,
+            mermaid_map,
           );
         }
 
@@ -392,6 +465,7 @@
           cursor,
           image_map,
           font_scale,
+          mermaid_map,
         ) {
           const layout = parse_layout(slide_md);
           if (!layout) return false;
@@ -406,6 +480,7 @@
               MARGIN,
               CONTENT_W,
               font_scale,
+              mermaid_map,
             );
           }
 
@@ -429,6 +504,7 @@
               col_x,
               col_w,
               font_scale,
+              mermaid_map,
             );
             if (col_cursor.y > max_col_y) max_col_y = col_cursor.y;
             col_x += col_w + COL_GAP;
@@ -518,6 +594,8 @@
                 ? await preload_images(all_hrefs, info.path)
                 : new Map();
 
+            const mermaid_map = await prerender_mermaid_blocks(all_tokens);
+
             const measure_doc = new jsPDF({
               orientation: "landscape",
               unit: "mm",
@@ -545,6 +623,7 @@
                     measure_cursor,
                     image_map,
                     1,
+                    mermaid_map,
                   );
                 } else {
                   render_slide(
@@ -553,6 +632,7 @@
                     measure_cursor,
                     image_map,
                     1,
+                    mermaid_map,
                   );
                 }
                 const content_h = measure_cursor.y - start_y;
@@ -567,9 +647,17 @@
                   cursor,
                   image_map,
                   font_scale,
+                  mermaid_map,
                 );
                 if (!handled) {
-                  render_slide(doc, tokens, cursor, image_map, font_scale);
+                  render_slide(
+                    doc,
+                    tokens,
+                    cursor,
+                    image_map,
+                    font_scale,
+                    mermaid_map,
+                  );
                 }
               }
             }
