@@ -109,4 +109,41 @@ export function register_search_graph_actions(
       await graph_service.expand_search_graph_node(tab_id, node_path);
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_toggle_selected,
+    label: "Toggle Search Graph Node Selection",
+    execute: (payload: unknown) => {
+      const { tab_id, node_id } = (payload ?? {}) as {
+        tab_id?: string;
+        node_id?: string;
+      };
+      if (!tab_id || !node_id) return;
+      search_graph_store.toggle_selected(tab_id, node_id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_select_range,
+    label: "Select Search Graph Node Range",
+    execute: (payload: unknown) => {
+      const { tab_id, from_id, to_id, ordered_paths } = (payload ?? {}) as {
+        tab_id?: string;
+        from_id?: string;
+        to_id?: string;
+        ordered_paths?: string[];
+      };
+      if (!tab_id || !from_id || !to_id || !ordered_paths) return;
+      search_graph_store.select_range(tab_id, from_id, to_id, ordered_paths);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_clear_selected,
+    label: "Clear Search Graph Selection",
+    execute: (tab_id: unknown) => {
+      if (typeof tab_id !== "string") return;
+      search_graph_store.clear_selected(tab_id);
+    },
+  });
 }

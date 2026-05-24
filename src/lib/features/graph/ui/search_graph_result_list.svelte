@@ -6,6 +6,8 @@
   } from "$lib/features/graph/ports";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Users, X } from "@lucide/svelte";
 
   type SortMode = "relevance" | "date_created" | "date_modified";
 
@@ -13,24 +15,40 @@
     nodes: SearchGraphNode[];
     edges: SearchGraphEdge[];
     selected_node_id: string | null;
+    selected_node_ids: Set<string>;
     hovered_node_id: string | null;
     scroll_to_path: string | null;
+    show_neighbors: boolean;
+    min_score: number;
     on_select: (path: string) => void;
     on_hover: (path: string | null) => void;
     on_open: (path: string) => void;
     on_scroll_done: () => void;
+    on_toggle_select: (
+      path: string,
+      shift_key: boolean,
+      ordered_paths: string[],
+    ) => void;
+    on_set_min_score: (score: number) => void;
+    on_toggle_neighbors: () => void;
   };
 
   let {
     nodes,
     edges,
     selected_node_id,
+    selected_node_ids,
     hovered_node_id,
     scroll_to_path,
+    show_neighbors,
+    min_score,
     on_select,
     on_hover,
     on_open,
     on_scroll_done,
+    on_toggle_select,
+    on_set_min_score,
+    on_toggle_neighbors,
   }: Props = $props();
 
   let card_elements = $state<Map<string, HTMLElement>>(new Map());
@@ -39,6 +57,7 @@
   let show_non_markdown = $state(true);
   let show_vault = $state(true);
   let show_linked = $state(true);
+  let score_input = $state("");
 
   function is_markdown(node: SearchGraphNode): boolean {
     return node.extension === "markdown" || node.extension == null;
@@ -46,12 +65,13 @@
 
   const filtered_nodes = $derived(
     nodes.filter((n) => {
-      if (n.kind === "neighbor") return true;
+      if (n.kind === "neighbor") return show_neighbors;
       const md = is_markdown(n);
       if (md && !show_markdown) return false;
       if (!md && !show_non_markdown) return false;
       if (n.source === "vault" && !show_vault) return false;
       if (n.source === "linked" && !show_linked) return false;
+      if (min_score > 0 && (n.score ?? 0) < min_score) return false;
       return true;
     }),
   );
@@ -73,6 +93,8 @@
     }),
   );
 
+  const ordered_paths = $derived(sorted_nodes.map((n) => n.path));
+
   const sort_options: { value: SortMode; label: string }[] = [
     { value: "relevance", label: "Relevance" },
     { value: "date_modified", label: "Modified" },
@@ -85,6 +107,7 @@
   const has_linked = $derived(
     nodes.some((n) => n.kind === "hit" && n.source === "linked"),
   );
+  const has_neighbors = $derived(nodes.some((n) => n.kind === "neighbor"));
 
   function edge_types_for_node(path: string): Set<SearchGraphEdgeType> {
     const types = new Set<SearchGraphEdgeType>();
@@ -117,6 +140,20 @@
   function format_path(path: string): string {
     const parts = path.split("/");
     return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : path;
+  }
+
+  function handle_card_click(event: MouseEvent, path: string) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+      on_toggle_select(path, event.shiftKey, ordered_paths);
+    } else {
+      on_select(path);
+    }
+  }
+
+  function handle_score_input(value: string) {
+    score_input = value;
+    const parsed = parseFloat(value);
+    on_set_min_score(Number.isNaN(parsed) ? 0 : parsed);
   }
 </script>
 
@@ -176,21 +213,52 @@
         linked
       </Button>
     {/if}
+    {#if has_neighbors}
+      <Button
+        variant={show_neighbors ? "default" : "outline"}
+        size="sm"
+        class="SearchGraphResultList__filter-btn"
+        title={show_neighbors ? "Hide neighbors" : "Show neighbors"}
+        onclick={on_toggle_neighbors}
+      >
+        <Users size={10} />
+      </Button>
+    {/if}
+    <Input
+      value={score_input}
+      placeholder="min"
+      class="SearchGraphResultList__score-input"
+      oninput={(event) => handle_score_input(event.currentTarget.value)}
+    />
+    {#if selected_node_ids.size > 0}
+      <Button
+        variant="ghost"
+        size="sm"
+        class="SearchGraphResultList__filter-btn"
+        title="Clear selection"
+        onclick={() => on_toggle_select("", false, [])}
+      >
+        <X size={10} />
+        {selected_node_ids.size}
+      </Button>
+    {/if}
   </div>
 
   <div class="SearchGraphResultList__cards" role="list">
     {#each sorted_nodes as node (node.path)}
       {@const edge_types = edge_types_for_node(node.path)}
+      {@const is_multi_selected = selected_node_ids.has(node.path)}
       <button
         use:register_card={node.path}
         class="SearchGraphResultList__card"
         class:SearchGraphResultList__card--selected={selected_node_id ===
           node.path}
+        class:SearchGraphResultList__card--multi-selected={is_multi_selected}
         class:SearchGraphResultList__card--hovered={hovered_node_id ===
           node.path}
         class:SearchGraphResultList__card--hit={node.kind === "hit"}
         class:SearchGraphResultList__card--neighbor={node.kind === "neighbor"}
-        onclick={() => on_select(node.path)}
+        onclick={(e) => handle_card_click(e, node.path)}
         ondblclick={() => on_open(node.path)}
         onpointerenter={() => on_hover(node.path)}
         onpointerleave={() => on_hover(null)}
@@ -277,6 +345,7 @@
     padding: var(--space-2);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
   :global(.SearchGraphResultList__sort-trigger) {
@@ -291,6 +360,15 @@
     font-size: 10px !important;
     padding: 0 var(--space-2) !important;
     min-width: 0 !important;
+  }
+
+  :global(.SearchGraphResultList__score-input) {
+    height: 24px !important;
+    font-size: 10px !important;
+    width: 48px !important;
+    min-width: 0 !important;
+    padding: 0 var(--space-1) !important;
+    text-align: center;
   }
 
   .SearchGraphResultList__cards {
@@ -326,6 +404,11 @@
   .SearchGraphResultList__card--selected {
     border-color: var(--primary);
     background: var(--accent);
+  }
+
+  .SearchGraphResultList__card--multi-selected {
+    border-inline-start: 3px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, var(--card));
   }
 
   .SearchGraphResultList__card--neighbor {

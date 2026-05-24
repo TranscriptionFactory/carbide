@@ -130,18 +130,29 @@ export function register_graph_canvas_actions(
       const snapshot = instance?.snapshot;
       if (!snapshot) return;
 
+      const selected = instance?.selected_node_ids;
+      const use_selection = selected != null && selected.size > 0;
+      const included_nodes = use_selection
+        ? snapshot.nodes.filter((n) => selected.has(n.path))
+        : snapshot.nodes;
+      const included_set = new Set(included_nodes.map((n) => n.path));
+
       const graph_input: GraphToCanvasInput = {
-        nodes: snapshot.nodes.map((n) => ({
+        nodes: included_nodes.map((n) => ({
           path: n.path,
           title: n.title,
           kind: n.kind,
         })),
-        edges: snapshot.edges.map((e) => ({
-          source: e.source,
-          target: e.target,
-        })),
+        edges: snapshot.edges
+          .filter(
+            (e) => included_set.has(e.source) && included_set.has(e.target),
+          )
+          .map((e) => ({
+            source: e.source,
+            target: e.target,
+          })),
         layout: "column",
-        center_path: snapshot.nodes.find((n) => n.kind === "hit")?.path,
+        center_path: included_nodes.find((n) => n.kind === "hit")?.path,
       };
 
       const data = graph_to_canvas(graph_input);

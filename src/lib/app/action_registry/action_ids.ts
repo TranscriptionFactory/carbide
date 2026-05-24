@@ -145,6 +145,11 @@ export const ACTION_IDS = {
   search_graph_toggle_semantic: "search_graph.toggle_semantic",
   search_graph_toggle_smart_links: "search_graph.toggle_smart_links",
   search_graph_expand_node: "search_graph.expand_node",
+  search_graph_toggle_selected: "search_graph.toggle_selected",
+  search_graph_select_range: "search_graph.select_range",
+  search_graph_clear_selected: "search_graph.clear_selected",
+  search_graph_toggle_neighbors: "search_graph.toggle_neighbors",
+  search_graph_set_min_score: "search_graph.set_min_score",
 
   help_open: "help.open",
   help_close: "help.close",
