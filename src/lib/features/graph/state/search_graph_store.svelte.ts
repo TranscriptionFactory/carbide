@@ -10,10 +10,13 @@ export type SearchGraphInstance = {
   auto_expanded_ids: Set<string>;
   user_expanded_ids: Set<string>;
   selected_node_id: string | null;
+  selected_node_ids: Set<string>;
   hovered_node_id: string | null;
   scroll_to_path: string | null;
   show_semantic_edges: boolean;
   show_smart_link_edges: boolean;
+  show_neighbors: boolean;
+  min_score: number;
 };
 
 function create_instance(query: string): SearchGraphInstance {
@@ -25,10 +28,13 @@ function create_instance(query: string): SearchGraphInstance {
     auto_expanded_ids: new Set(),
     user_expanded_ids: new Set(),
     selected_node_id: null,
+    selected_node_ids: new Set(),
     hovered_node_id: null,
     scroll_to_path: null,
     show_semantic_edges: false,
     show_smart_link_edges: false,
+    show_neighbors: true,
+    min_score: 0,
   };
 }
 
@@ -87,6 +93,47 @@ export class SearchGraphStore {
     });
   }
 
+  toggle_selected(tab_id: string, node_id: string): void {
+    const inst = this.instances.get(tab_id);
+    if (!inst) return;
+    const next = new Set(inst.selected_node_ids);
+    if (next.has(node_id)) {
+      next.delete(node_id);
+    } else {
+      next.add(node_id);
+    }
+    this.update(tab_id, { selected_node_ids: next });
+  }
+
+  select_range(
+    tab_id: string,
+    from_id: string,
+    to_id: string,
+    ordered_paths: string[],
+  ): void {
+    const inst = this.instances.get(tab_id);
+    if (!inst) return;
+    const from_idx = ordered_paths.indexOf(from_id);
+    const to_idx = ordered_paths.indexOf(to_id);
+    if (from_idx === -1 || to_idx === -1) return;
+    const lo = Math.min(from_idx, to_idx);
+    const hi = Math.max(from_idx, to_idx);
+    const next = new Set(inst.selected_node_ids);
+    for (let i = lo; i <= hi; i++) {
+      const p = ordered_paths[i];
+      if (p != null) next.add(p);
+    }
+    this.update(tab_id, { selected_node_ids: next });
+  }
+
+  clear_selected(tab_id: string): void {
+    this.update(tab_id, { selected_node_ids: new Set() });
+  }
+
+  select_all_visible(tab_id: string, paths: string[]): void {
+    this.update(tab_id, { selected_node_ids: new Set(paths) });
+  }
+
   set_hovered_node(tab_id: string, node_id: string | null): void {
     this.update(tab_id, { hovered_node_id: node_id });
   }
@@ -119,6 +166,16 @@ export class SearchGraphStore {
     this.update(tab_id, {
       show_smart_link_edges: !inst.show_smart_link_edges,
     });
+  }
+
+  toggle_neighbors(tab_id: string): void {
+    const inst = this.instances.get(tab_id);
+    if (!inst) return;
+    this.update(tab_id, { show_neighbors: !inst.show_neighbors });
+  }
+
+  set_min_score(tab_id: string, score: number): void {
+    this.update(tab_id, { min_score: score });
   }
 
   update_query(tab_id: string, query: string): void {

@@ -283,7 +283,9 @@
   });
 
   $effect(() => {
-    if (selected_node_ids.length > 0) {
+    if (selected_node_ids.length > 1) {
+      renderer?.select_nodes(new Set(selected_node_ids));
+    } else if (selected_node_ids.length === 1) {
       renderer?.select_node(selected_node_ids[0] ?? null);
     } else {
       renderer?.select_node(null);

@@ -75,7 +75,7 @@ export class VaultGraphRenderer {
   private spatial = new SpatialIndex();
   private circle_texture: Texture | null = null;
   private filter_set: Set<string> | null = null;
-  private selected_id: string | null = null;
+  private selected_ids: Set<string> = new Set();
   private hovered_id: string | null = null;
   private hovered_connections = new Set<string>();
   private has_search_meta = false;
@@ -455,7 +455,12 @@ export class VaultGraphRenderer {
   }
 
   select_node(id: string | null): void {
-    this.selected_id = id;
+    this.selected_ids = id ? new Set([id]) : new Set();
+    this.request_render();
+  }
+
+  select_nodes(ids: Set<string>): void {
+    this.selected_ids = ids;
     this.request_render();
   }
 
@@ -557,7 +562,7 @@ export class VaultGraphRenderer {
     for (const entry of this.node_map.values()) {
       if (!entry.container.visible) continue;
 
-      const is_selected = entry.id === this.selected_id;
+      const is_selected = this.selected_ids.has(entry.id);
       const is_hovered = entry.id === this.hovered_id;
       const is_connected = this.hovered_connections.has(entry.id);
 
@@ -800,11 +805,10 @@ export class VaultGraphRenderer {
     const normal: EdgeEndpoints[] = [];
     const highlighted: EdgeEndpoints[] = [];
 
-    const priority_ids = new Set(
-      [this.selected_id, this.hovered_id].filter(
-        (id): id is string => id != null,
-      ),
-    );
+    const priority_ids = new Set([
+      ...this.selected_ids,
+      ...(this.hovered_id ? [this.hovered_id] : []),
+    ]);
     const effective_edges = this.degrade_profile.is_degraded
       ? sample_edges(
           this.edge_defs,

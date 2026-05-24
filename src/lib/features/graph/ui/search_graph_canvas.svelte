@@ -14,9 +14,12 @@
   type Props = {
     snapshot: SearchGraphSnapshot;
     selected_node_id: string | null;
+    selected_node_ids: Set<string>;
     hovered_node_id: string | null;
     show_semantic_edges: boolean;
     show_smart_link_edges: boolean;
+    show_neighbors: boolean;
+    min_score: number;
     theme: Theme;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
@@ -27,9 +30,12 @@
   let {
     snapshot,
     selected_node_id,
+    selected_node_ids,
     hovered_node_id,
     show_semantic_edges,
     show_smart_link_edges,
+    show_neighbors,
+    min_score,
     theme,
     on_select_node,
     on_hover_node,
@@ -40,6 +46,16 @@
   function folder_from_path(path: string): string {
     const idx = path.lastIndexOf("/");
     return idx >= 0 ? path.slice(0, idx) : "";
+  }
+
+  function filter_nodes(
+    snap: SearchGraphSnapshot,
+  ): SearchGraphSnapshot["nodes"] {
+    return snap.nodes.filter((n) => {
+      if (n.kind === "neighbor") return show_neighbors;
+      if (min_score > 0 && (n.score ?? 0) < min_score) return false;
+      return true;
+    });
   }
 
   function normalize_scores(
@@ -59,9 +75,13 @@
     return result;
   }
 
-  function to_vault_snapshot(snap: SearchGraphSnapshot): VaultGraphSnapshot {
-    const scores = normalize_scores(snap.nodes);
-    const nodes: VaultGraphNode[] = snap.nodes.map((n) => ({
+  function to_vault_snapshot(
+    snap: SearchGraphSnapshot,
+    visible_nodes: SearchGraphSnapshot["nodes"],
+  ): VaultGraphSnapshot {
+    const scores = normalize_scores(visible_nodes);
+    const visible_set = new Set(visible_nodes.map((n) => n.path));
+    const nodes: VaultGraphNode[] = visible_nodes.map((n) => ({
       path: n.path,
       title: n.title,
       kind: n.kind,
@@ -69,7 +89,12 @@
       group: folder_from_path(n.path),
     }));
     const edges: VaultGraphEdge[] = snap.edges
-      .filter((e) => e.edge_type === "wiki")
+      .filter(
+        (e) =>
+          e.edge_type === "wiki" &&
+          visible_set.has(e.source) &&
+          visible_set.has(e.target),
+      )
       .map((e) => ({ source: e.source, target: e.target }));
     return {
       nodes,
@@ -83,9 +108,15 @@
 
   function extract_semantic_edges(
     snap_edges: SearchGraphEdge[],
+    visible_set: Set<string>,
   ): SemanticEdge[] {
     return snap_edges
-      .filter((e) => e.edge_type === "semantic")
+      .filter(
+        (e) =>
+          e.edge_type === "semantic" &&
+          visible_set.has(e.source) &&
+          visible_set.has(e.target),
+      )
       .map((e) => ({
         source: e.source,
         target: e.target,
@@ -95,9 +126,15 @@
 
   function extract_smart_link_edges(
     snap_edges: SearchGraphEdge[],
+    visible_set: Set<string>,
   ): SmartLinkEdge[] {
     return snap_edges
-      .filter((e) => e.edge_type === "smart_link")
+      .filter(
+        (e) =>
+          e.edge_type === "smart_link" &&
+          visible_set.has(e.source) &&
+          visible_set.has(e.target),
+      )
       .map((e) => ({
         source: e.source,
         target: e.target,
@@ -106,10 +143,22 @@
       }));
   }
 
-  const vault_snapshot = $derived(to_vault_snapshot(snapshot));
-  const semantic_edges = $derived(extract_semantic_edges(snapshot.edges));
-  const smart_link_edges = $derived(extract_smart_link_edges(snapshot.edges));
-  const selected_list = $derived(selected_node_id ? [selected_node_id] : []);
+  const visible_nodes = $derived(filter_nodes(snapshot));
+  const visible_set = $derived(new Set(visible_nodes.map((n) => n.path)));
+  const vault_snapshot = $derived(to_vault_snapshot(snapshot, visible_nodes));
+  const semantic_edges = $derived(
+    extract_semantic_edges(snapshot.edges, visible_set),
+  );
+  const smart_link_edges = $derived(
+    extract_smart_link_edges(snapshot.edges, visible_set),
+  );
+
+  const selected_list = $derived.by(() => {
+    if (selected_node_ids.size > 0) {
+      return [...selected_node_ids];
+    }
+    return selected_node_id ? [selected_node_id] : [];
+  });
 </script>
 
 <VaultGraphCanvas

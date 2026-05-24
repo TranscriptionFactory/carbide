@@ -85,6 +85,38 @@
   function clear_scroll() {
     stores.search_graph.clear_scroll_to(tab_id);
   }
+
+  let last_clicked_path = $state<string | null>(null);
+
+  function handle_toggle_select(
+    path: string,
+    shift_key: boolean,
+    ordered_paths: string[],
+  ) {
+    if (!path) {
+      stores.search_graph.clear_selected(tab_id);
+      return;
+    }
+    if (shift_key && last_clicked_path) {
+      stores.search_graph.select_range(
+        tab_id,
+        last_clicked_path,
+        path,
+        ordered_paths,
+      );
+    } else {
+      stores.search_graph.toggle_selected(tab_id, path);
+    }
+    last_clicked_path = path;
+  }
+
+  function handle_set_min_score(score: number) {
+    stores.search_graph.set_min_score(tab_id, score);
+  }
+
+  function handle_toggle_neighbors() {
+    stores.search_graph.toggle_neighbors(tab_id);
+  }
 </script>
 
 <div class="SearchGraphTabView">
@@ -164,6 +196,11 @@
       {#if snapshot.stats.smart_link_edge_count > 0}
         <span>smart: {String(snapshot.stats.smart_link_edge_count)}</span>
       {/if}
+      {#if (instance?.selected_node_ids.size ?? 0) > 0}
+        <span class="SearchGraphTabView__selection-count">
+          {String(instance?.selected_node_ids.size)} selected
+        </span>
+      {/if}
     </div>
   {/if}
 
@@ -183,9 +220,12 @@
           <SearchGraphCanvas
             {snapshot}
             selected_node_id={instance?.selected_node_id ?? null}
+            selected_node_ids={instance?.selected_node_ids ?? new Set()}
             hovered_node_id={instance?.hovered_node_id ?? null}
             show_semantic_edges={instance?.show_semantic_edges ?? false}
             show_smart_link_edges={instance?.show_smart_link_edges ?? false}
+            show_neighbors={instance?.show_neighbors ?? true}
+            min_score={instance?.min_score ?? 0}
             theme={stores.ui.active_theme}
             on_select_node={(id) => select_node(id)}
             on_hover_node={hover_node}
@@ -199,12 +239,18 @@
             nodes={snapshot.nodes}
             edges={snapshot.edges}
             selected_node_id={instance?.selected_node_id ?? null}
+            selected_node_ids={instance?.selected_node_ids ?? new Set()}
             hovered_node_id={instance?.hovered_node_id ?? null}
             scroll_to_path={instance?.scroll_to_path ?? null}
+            show_neighbors={instance?.show_neighbors ?? true}
+            min_score={instance?.min_score ?? 0}
             on_select={select_node}
             on_hover={hover_node}
             on_open={open_node}
             on_scroll_done={clear_scroll}
+            on_toggle_select={handle_toggle_select}
+            on_set_min_score={handle_set_min_score}
+            on_toggle_neighbors={handle_toggle_neighbors}
           />
         </Resizable.Pane>
       </Resizable.PaneGroup>
@@ -257,6 +303,11 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     border-block-end: 1px solid var(--border-subtle, var(--border));
+  }
+
+  .SearchGraphTabView__selection-count {
+    color: var(--primary);
+    font-weight: 500;
   }
 
   .SearchGraphTabView__body {
