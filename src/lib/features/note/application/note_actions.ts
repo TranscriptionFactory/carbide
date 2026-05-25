@@ -1033,11 +1033,20 @@ export function register_note_actions(input: ActionRegistrationInput) {
       }
 
       const title = open_note.meta.title;
-      const date_created_iso = new Date(open_note.meta.mtime_ms).toISOString().slice(0, 10);
-      const new_markdown = inject_initial_frontmatter(markdown, title, date_created_iso);
+      const date_created_iso = new Date(open_note.meta.mtime_ms)
+        .toISOString()
+        .slice(0, 10);
+      const new_markdown = inject_initial_frontmatter(
+        markdown,
+        title,
+        date_created_iso,
+      );
 
       services.editor.sync_visual_from_markdown_undoable(new_markdown);
-      stores.editor.set_markdown(open_note.meta.id as NoteId, as_markdown_text(new_markdown));
+      stores.editor.set_markdown(
+        open_note.meta.id as NoteId,
+        as_markdown_text(new_markdown),
+      );
       stores.editor.set_dirty(open_note.meta.id as NoteId, true);
     },
   });
