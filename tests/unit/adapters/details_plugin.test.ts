@@ -222,6 +222,38 @@ describe("details_block markdown serialization", () => {
   });
 });
 
+describe("details_block partial node serialization (clipboard)", () => {
+  it("serializes a partial details_block with only details_content", () => {
+    const md = [
+      "<details>",
+      "<summary>Click me</summary>",
+      "",
+      "- Item one",
+      "",
+      "Body text",
+      "",
+      "</details>",
+    ].join("\n");
+
+    const doc = parse_markdown(md);
+    const details = details_node(doc);
+    const content = child_node(details, 1, "details content");
+
+    // Simulate clipboard slice: a details_block with only the content child (no summary)
+    const { schema } = doc.type;
+    const partial_details = schema.nodes["details_block"]!.create(
+      { open: false },
+      content,
+    );
+    const clipboard_doc = schema.topNodeType.create(null, partial_details);
+    const output = serialize_markdown(clipboard_doc);
+
+    expect(output).toContain("Item one");
+    expect(output).toContain("Body text");
+    expect(output).not.toContain("<details>");
+  });
+});
+
 describe("details_block schema validation", () => {
   it("creates valid details_block structure", () => {
     const md = [
