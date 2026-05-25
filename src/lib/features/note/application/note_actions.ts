@@ -22,13 +22,20 @@ import {
 } from "$lib/features/note/application/note_action_helpers";
 import { is_draft_note_path } from "$lib/features/note/domain/ensure_open_note";
 import { is_linked_note_path, type NoteMeta } from "$lib/shared/types/note";
-import { as_note_path, type NotePath } from "$lib/shared/types/ids";
+import {
+  as_markdown_text,
+  as_note_path,
+  type NoteId,
+  type NotePath,
+} from "$lib/shared/types/ids";
 import type { ImagePasteRequest } from "$lib/shared/types/editor";
 import {
   note_name_from_path,
   parent_folder_path,
 } from "$lib/shared/utils/path";
 import type { InternalLinkSource } from "$lib/features/editor";
+import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
+import { inject_initial_frontmatter } from "$lib/features/metadata/domain/frontmatter_writer";
 import { toast } from "svelte-sonner";
 
 type WikiLinkPayload = {
@@ -1011,4 +1018,27 @@ export function register_note_actions(input: ActionRegistrationInput) {
   register_rename_actions();
   register_save_actions();
   register_star_actions();
+
+  registry.register({
+    id: ACTION_IDS.note_add_frontmatter,
+    label: "Add Frontmatter",
+    execute: () => {
+      const open_note = stores.editor.open_note;
+      if (!open_note) return;
+
+      const markdown = open_note.markdown ?? "";
+      if (find_frontmatter_span(markdown)) {
+        toast.info("Note already has frontmatter");
+        return;
+      }
+
+      const title = open_note.meta.title;
+      const date_created_iso = new Date(open_note.meta.mtime_ms).toISOString().slice(0, 10);
+      const new_markdown = inject_initial_frontmatter(markdown, title, date_created_iso);
+
+      services.editor.sync_visual_from_markdown_undoable(new_markdown);
+      stores.editor.set_markdown(open_note.meta.id as NoteId, as_markdown_text(new_markdown));
+      stores.editor.set_dirty(open_note.meta.id as NoteId, true);
+    },
+  });
 }
