@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ensure_frontmatter,
+  inject_initial_frontmatter,
   update_frontmatter_property,
   add_frontmatter_property,
   remove_frontmatter_property,
@@ -23,6 +24,23 @@ describe("ensure_frontmatter", () => {
   it("preserves existing empty frontmatter", () => {
     const md = "---\n---\nContent";
     expect(ensure_frontmatter(md)).toBe(md);
+  });
+});
+
+describe("inject_initial_frontmatter", () => {
+  it("prepends frontmatter to plain markdown", () => {
+    const result = inject_initial_frontmatter("# Hello\nWorld", "My Note", "2026-05-25");
+    expect(result).toBe('---\ntitle: "My Note"\ndate_created: 2026-05-25\n---\n\n# Hello\nWorld');
+  });
+
+  it("returns unchanged if frontmatter already exists", () => {
+    const md = "---\ntitle: Existing\n---\nBody";
+    expect(inject_initial_frontmatter(md, "New Title", "2026-01-01")).toBe(md);
+  });
+
+  it("creates frontmatter for empty string", () => {
+    const result = inject_initial_frontmatter("", "Untitled", "2026-05-25");
+    expect(result).toBe('---\ntitle: "Untitled"\ndate_created: 2026-05-25\n---\n\n');
   });
 });
 
