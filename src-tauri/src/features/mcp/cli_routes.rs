@@ -85,6 +85,7 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/move", post(cli_move))
         .route("/delete", post(cli_delete))
         .route("/reindex", post(cli_reindex))
+        .route("/ensure_frontmatter", post(cli_ensure_frontmatter))
         .route("/git/status", post(cli_git_status))
         .route("/git/commit", post(cli_git_commit))
         .route("/git/log", post(cli_git_log))
@@ -299,6 +300,16 @@ async fn cli_reindex(
             }),
         )
             .into_response(),
+        Err(e) => op_err_to_response(e),
+    }
+}
+
+async fn cli_ensure_frontmatter(
+    State(state): State<Arc<HttpAppState>>,
+    Json(params): Json<shared_ops::VaultPathArgs>,
+) -> axum::response::Response {
+    match shared_ops::ensure_frontmatter(state.app(), &params.vault_id, &params.path) {
+        Ok(path) => mutation_ok(path),
         Err(e) => op_err_to_response(e),
     }
 }
