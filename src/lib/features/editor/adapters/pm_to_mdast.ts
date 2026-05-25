@@ -156,7 +156,7 @@ function trim_trailing_phrasing_whitespace(children: PhrasingContent[]): void {
   }
 }
 
-function convert_block_node(node: PmNode): MdastNode | null {
+function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
   switch (node.type.name) {
     case "paragraph": {
       const children = convert_pm_inline(node);
@@ -228,6 +228,16 @@ function convert_block_node(node: PmNode): MdastNode | null {
       };
 
     case "details_block": {
+      if (node.childCount < 2) {
+        const blocks: MdastNode[] = [];
+        node.forEach((child) => {
+          child.forEach((grandchild) => {
+            const c = convert_block_node(grandchild);
+            if (c) blocks.push(...(Array.isArray(c) ? c : [c]));
+          });
+        });
+        return blocks.length > 0 ? blocks : null;
+      }
       const open = (node.attrs["open"] as boolean) || false;
       const summary = node.child(0);
       const content = node.child(1);
@@ -248,6 +258,16 @@ function convert_block_node(node: PmNode): MdastNode | null {
       return null;
 
     case "callout": {
+      if (node.childCount < 2) {
+        const blocks: MdastNode[] = [];
+        node.forEach((child) => {
+          child.forEach((grandchild) => {
+            const c = convert_block_node(grandchild);
+            if (c) blocks.push(...(Array.isArray(c) ? c : [c]));
+          });
+        });
+        return blocks.length > 0 ? blocks : null;
+      }
       const callout_type = (node.attrs["callout_type"] as string) || "note";
       const foldable = (node.attrs["foldable"] as boolean) || false;
       const default_folded = (node.attrs["default_folded"] as boolean) || false;
@@ -379,7 +399,8 @@ function convert_children(node: PmNode): MdastNode[] {
   const result: MdastNode[] = [];
   node.forEach((child) => {
     const converted = convert_block_node(child);
-    if (converted) result.push(converted);
+    if (converted)
+      result.push(...(Array.isArray(converted) ? converted : [converted]));
   });
   return result;
 }
@@ -388,7 +409,7 @@ export function pm_to_mdast(doc: PmNode): Root {
   const children: MdastNode[] = [];
   doc.forEach((child) => {
     const node = convert_block_node(child);
-    if (node) children.push(node);
+    if (node) children.push(...(Array.isArray(node) ? node : [node]));
   });
   const last_pm = doc.lastChild;
   if (
