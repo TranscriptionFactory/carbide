@@ -455,6 +455,39 @@ pub struct NoteMetadataResult {
     )>,
 }
 
+fn format_epoch_ms_as_date(ms: i64) -> String {
+    let secs = ms / 1000;
+    let days = secs / 86400;
+    let mut y = 1970i32;
+    let mut remaining = days;
+
+    loop {
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+
+    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut m = 0usize;
+    for &md in &month_days {
+        if remaining < md {
+            break;
+        }
+        remaining -= md;
+        m += 1;
+    }
+
+    format!("{:04}-{:02}-{:02}", y, m + 1, remaining + 1)
+}
+
 fn find_frontmatter_end(content: &str) -> Option<usize> {
     if !content.starts_with("---") {
         return None;
@@ -477,6 +510,36 @@ fn find_frontmatter_end(content: &str) -> Option<usize> {
         }
     }
     None
+}
+
+pub fn ensure_frontmatter(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+) -> Result<String, OpError> {
+    let (_, abs) = resolve_read_path(app, vault_id, path)?;
+    let existing = std::fs::read_to_string(&abs)
+        .map_err(|e| OpError::NotFound(format!("Failed to read note: {}", e)))?;
+
+    if find_frontmatter_end(&existing).is_some() {
+        return Ok(path.to_string());
+    }
+
+    let title = std::path::Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Untitled");
+
+    let mtime_ms = notes_service::file_meta(&abs)
+        .map(|(m, _, _)| m)
+        .unwrap_or(0);
+    let date = format_epoch_ms_as_date(mtime_ms);
+
+    let frontmatter = format!("---\ntitle: \"{}\"\ndate_created: {}\n---\n\n", title, date);
+    let new_content = format!("{}{}", frontmatter, existing);
+
+    io_utils::atomic_write(&abs, new_content.as_bytes()).map_err(OpError::Internal)?;
+    Ok(path.to_string())
 }
 
 pub fn rename_note_and_update_links(
@@ -561,5 +624,12 @@ mod tests {
         let content = "---\ntitle: Test\ndate: 2026-01-01\ntags: [a, b]\n---\nContent here";
         let pos = find_frontmatter_end(content).unwrap();
         assert_eq!(&content[pos..], "Content here");
+    }
+
+    #[test]
+    fn test_format_epoch_ms_as_date() {
+        assert_eq!(format_epoch_ms_as_date(0), "1970-01-01");
+        assert_eq!(format_epoch_ms_as_date(1_748_131_200_000), "2025-05-25");
+        assert_eq!(format_epoch_ms_as_date(1_779_667_200_000), "2026-05-25");
     }
 }

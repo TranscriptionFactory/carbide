@@ -17,6 +17,7 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
         delete_note_def(),
         append_note_def(),
         prepend_note_def(),
+        ensure_frontmatter_def(),
     ]
 }
 
@@ -29,6 +30,7 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
         "delete_note" => Some(handle_delete_note(app, arguments)),
         "append_note" => Some(handle_append_note(app, arguments)),
         "prepend_note" => Some(handle_prepend_note(app, arguments)),
+        "ensure_frontmatter" => Some(handle_ensure_frontmatter(app, arguments)),
         _ => None,
     }
 }
@@ -321,6 +323,40 @@ fn handle_prepend_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult
 
     match shared_ops::prepend_to_note(app, &args.vault_id, &args.path, &args.content) {
         Ok(path) => ToolResult::text(format!("Prepended to: {}", path)),
+        Err(e) => op_err_to_tool_result(e),
+    }
+}
+
+fn ensure_frontmatter_def() -> ToolDefinition {
+    let mut properties = HashMap::new();
+    properties.insert(
+        "vault_id".into(),
+        prop("string", "Vault identifier (use list_vaults to discover IDs)"),
+    );
+    properties.insert(
+        "path".into(),
+        prop("string", "Vault-relative path of the note to ensure frontmatter for"),
+    );
+
+    ToolDefinition {
+        name: "ensure_frontmatter".into(),
+        description: "Add title and date_created frontmatter to a note if it doesn't already have any. Idempotent: no-op if frontmatter exists.".into(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties,
+            required: vec!["vault_id".into(), "path".into()],
+        },
+    }
+}
+
+fn handle_ensure_frontmatter(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
+    let args: shared_ops::VaultPathArgs = match parse_args(arguments) {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    match shared_ops::ensure_frontmatter(app, &args.vault_id, &args.path) {
+        Ok(path) => ToolResult::text(format!("Frontmatter ensured: {}", path)),
         Err(e) => op_err_to_tool_result(e),
     }
 }
