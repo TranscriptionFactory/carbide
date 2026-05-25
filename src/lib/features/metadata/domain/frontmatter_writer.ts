@@ -143,3 +143,12 @@ export function remove_frontmatter_property(
 
   return rebuild(markdown, fm, new_body);
 }
+
+export function inject_initial_frontmatter(
+  markdown: string,
+  title: string,
+  date_created_iso: string,
+): string {
+  if (find_frontmatter_span(markdown)) return markdown;
+  return `---\ntitle: "${title}"\ndate_created: ${date_created_iso}\n---\n\n${markdown}`;
+}

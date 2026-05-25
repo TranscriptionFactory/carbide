@@ -68,6 +68,7 @@ export type CommandId =
   | "open_todays_note"
   | "export_vault_graph_as_canvas"
   | "export_neighborhood_as_canvas"
+  | "add_frontmatter"
   | (string & {});
 
 export type CommandIcon =
