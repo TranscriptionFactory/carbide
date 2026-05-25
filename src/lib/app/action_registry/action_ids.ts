@@ -43,6 +43,7 @@ export const ACTION_IDS = {
   note_retry_save: "note.retry_save",
   note_cancel_save: "note.cancel_save",
   note_toggle_star: "note.toggle_star",
+  note_add_frontmatter: "note.add_frontmatter",
 
   image_copy: "image.copy",
   image_copy_url: "image.copy_url",

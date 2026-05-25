@@ -594,4 +594,12 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     ],
     icon: "file-down",
   },
+  {
+    id: "add_frontmatter",
+    label: "Add Frontmatter",
+    description: "Add title and date properties to the current note",
+    keywords: ["frontmatter", "properties", "metadata", "yaml", "title", "date"],
+    icon: "file-plus",
+    when: (ctx) => ctx.has_open_note,
+  },
 ];
