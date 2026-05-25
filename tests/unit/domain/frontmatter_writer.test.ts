@@ -29,8 +29,14 @@ describe("ensure_frontmatter", () => {
 
 describe("inject_initial_frontmatter", () => {
   it("prepends frontmatter to plain markdown", () => {
-    const result = inject_initial_frontmatter("# Hello\nWorld", "My Note", "2026-05-25");
-    expect(result).toBe('---\ntitle: "My Note"\ndate_created: 2026-05-25\n---\n\n# Hello\nWorld');
+    const result = inject_initial_frontmatter(
+      "# Hello\nWorld",
+      "My Note",
+      "2026-05-25",
+    );
+    expect(result).toBe(
+      '---\ntitle: "My Note"\ndate_created: 2026-05-25\n---\n\n# Hello\nWorld',
+    );
   });
 
   it("returns unchanged if frontmatter already exists", () => {
@@ -40,7 +46,9 @@ describe("inject_initial_frontmatter", () => {
 
   it("creates frontmatter for empty string", () => {
     const result = inject_initial_frontmatter("", "Untitled", "2026-05-25");
-    expect(result).toBe('---\ntitle: "Untitled"\ndate_created: 2026-05-25\n---\n\n');
+    expect(result).toBe(
+      '---\ntitle: "Untitled"\ndate_created: 2026-05-25\n---\n\n',
+    );
   });
 });
 
