@@ -193,56 +193,13 @@ export function create_block_selection_plugin(): Plugin {
           return true;
         }
 
-        if (
-          event.shiftKey &&
-          (event.key === "ArrowDown" || event.key === "ArrowUp")
-        ) {
-          const { $from } = view.state.selection;
-          const current_pos = resolve_top_level_pos(view.state.doc, $from.pos);
-          if (current_pos == null) return false;
-
-          const all_positions = get_top_level_positions(view.state.doc);
-          const current_idx = all_positions.indexOf(current_pos);
-          if (current_idx === -1) return false;
-
-          const target_idx =
-            event.key === "ArrowDown"
-              ? Math.min(current_idx + 1, all_positions.length - 1)
-              : Math.max(current_idx - 1, 0);
-
-          if (target_idx === current_idx) return false;
-
-          const anchor =
-            plugin_state && plugin_state.selected_positions.size > 0
-              ? (plugin_state.anchor_pos ?? current_pos)
-              : current_pos;
-
-          const tr = view.state.tr.setMeta(block_selection_plugin_key, {
-            action: "extend",
-            pos: all_positions[target_idx]!,
-          } satisfies BlockSelectionMeta);
-
-          if (plugin_state && plugin_state.anchor_pos == null) {
-            tr.setMeta(block_selection_plugin_key, {
-              action: "set",
-              positions: (() => {
-                const start = Math.min(current_idx, target_idx);
-                const end = Math.max(current_idx, target_idx);
-                return all_positions.slice(start, end + 1);
-              })(),
-            } satisfies BlockSelectionMeta);
-          }
-
-          view.dispatch(tr);
-          return true;
-        }
-
         return false;
       },
 
       handleDOMEvents: {
         mousedown(view, event) {
-          if (!event.shiftKey) return false;
+          const is_mod = event.metaKey || event.ctrlKey;
+          if (!is_mod || event.shiftKey) return false;
 
           const coords = view.posAtCoords({
             left: event.clientX,
