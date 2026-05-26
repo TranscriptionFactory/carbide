@@ -98,6 +98,7 @@ export type EditorSession = {
     attrs: Record<string, unknown> | undefined,
     positions: Set<number>,
   ) => void;
+  copy_blocks?: (positions: Set<number>) => Promise<void>;
   batch_duplicate?: (positions: Set<number>) => void;
   batch_delete?: (positions: Set<number>) => void;
   get_block_selection?: () => Set<number>;

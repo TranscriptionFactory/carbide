@@ -104,6 +104,14 @@
     execute(action_id);
   }
 
+  async function handle_copy() {
+    if (has_multi_selection) {
+      await services.editor.copy_blocks(block_selection);
+    } else {
+      document.execCommand("copy");
+    }
+  }
+
   function handle_duplicate() {
     if (has_multi_selection) {
       services.editor.batch_duplicate(block_selection);
@@ -149,6 +157,10 @@
           {/each}
         </ContextMenu.SubContent>
       </ContextMenu.Sub>
+      <ContextMenu.Item onSelect={handle_copy}>
+        Copy
+        <span class="ml-auto text-xs text-muted-foreground">⌘C</span>
+      </ContextMenu.Item>
       <ContextMenu.Item onSelect={handle_duplicate}>
         Duplicate
         <span class="ml-auto text-xs text-muted-foreground">⇧⌘D</span>
