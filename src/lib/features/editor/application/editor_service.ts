@@ -625,6 +625,10 @@ export class EditorService {
     this.session?.batch_turn_into?.(target, attrs, positions);
   }
 
+  async copy_blocks(positions: Set<number>) {
+    await this.session?.copy_blocks?.(positions);
+  }
+
   batch_duplicate(positions: Set<number>) {
     this.session?.batch_duplicate?.(positions);
   }
