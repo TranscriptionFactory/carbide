@@ -1163,6 +1163,20 @@ export function create_prosemirror_editor_port(args?: {
             v.dispatch,
           );
         },
+        async copy_blocks(positions: Set<number>) {
+          const v = view;
+          if (!v) return;
+          const sorted = Array.from(positions).sort((a, b) => a - b);
+          const nodes: import("prosemirror-model").Node[] = [];
+          for (const pos of sorted) {
+            const node = v.state.doc.nodeAt(pos);
+            if (node) nodes.push(node);
+          }
+          if (nodes.length === 0) return;
+          const fragment = schema.topNodeType.create(null, nodes);
+          const md = serialize_markdown(fragment);
+          await navigator.clipboard.writeText(md);
+        },
         batch_duplicate(positions: Set<number>) {
           const v = view;
           if (!v) return;
