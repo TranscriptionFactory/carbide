@@ -66,7 +66,7 @@ describe("PluginMarketplaceService", () => {
       const first = store.listings[0];
       expect(first?.id).toBe("test-plugin");
       expect(first?.files).toHaveLength(2);
-      expect(first?.files[0]?.download_url).toContain(
+      expect(first?.files[0]?.downloadUrl).toContain(
         "raw.githubusercontent.com",
       );
     });
@@ -160,10 +160,10 @@ describe("PluginMarketplaceService", () => {
       await service.fetch_listings();
 
       const listing = store.listings[0];
-      expect(listing?.files[0]?.download_url).toBe(
+      expect(listing?.files[0]?.downloadUrl).toBe(
         "https://raw.githubusercontent.com/TranscriptionFactory/carbide/refs/heads/main/plugins/test-plugin/manifest.json",
       );
-      expect(listing?.files[1]?.download_url).toBe(
+      expect(listing?.files[1]?.downloadUrl).toBe(
         "https://raw.githubusercontent.com/TranscriptionFactory/carbide/refs/heads/main/plugins/test-plugin/main.js",
       );
     });

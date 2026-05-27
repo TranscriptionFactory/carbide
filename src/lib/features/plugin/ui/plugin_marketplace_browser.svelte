@@ -2,7 +2,13 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { Button } from "$lib/components/ui/button";
-  import { Download, Loader2, Check, Pencil, ArrowUpCircle } from "@lucide/svelte";
+  import {
+    Download,
+    Loader2,
+    Check,
+    Pencil,
+    ArrowUpCircle,
+  } from "@lucide/svelte";
   import { onMount } from "svelte";
 
   const { stores, action_registry } = use_app_context();
