@@ -1,8 +1,6 @@
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 import { create_md } from "$lib/features/document/domain/pdf_export";
 
-export const PRINT_STORAGE_KEY = "carbide:print_data";
-
 const md = create_md();
 
 let mermaid_instance: (typeof import("mermaid"))["default"] | null = null;
@@ -90,24 +88,45 @@ img { max-width: 100%; height: auto; }
 .print-title { margin-top: 0; }
 `;
 
-export async function render_note_for_print(
+export async function print_note_via_iframe(
   title: string,
   markdown: string,
-): Promise<string> {
+): Promise<void> {
   const body = parse_frontmatter(markdown).body;
   let html = md.render(body);
-
   html = await render_mermaid_blocks(html);
 
-  const body_html = `<h1 class="print-title">${escape_html(title)}</h1>\n${html}`;
-  return JSON.stringify({ css: PRINT_STYLES, body_html });
-}
+  const full_html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>${PRINT_STYLES}</style></head>
+<body>
+<h1 class="print-title">${escape_html(title)}</h1>
+${html}
+</body>
+</html>`;
 
-export function extract_print_content(raw: string): {
-  css: string;
-  body_html: string;
-} {
-  return JSON.parse(raw) as { css: string; body_html: string };
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-9999px";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
+
+  const iframe_doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+  if (!iframe_doc) {
+    document.body.removeChild(iframe);
+    return;
+  }
+
+  iframe_doc.open();
+  iframe_doc.write(full_html);
+  iframe_doc.close();
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  iframe.contentWindow?.print();
+  document.body.removeChild(iframe);
 }
 
 async function render_mermaid_blocks(html: string): Promise<string> {
