@@ -88,6 +88,8 @@ img { max-width: 100%; height: auto; }
 .print-title { margin-top: 0; }
 `;
 
+const PRINT_OVERLAY_ID = "carbide-print-overlay";
+
 export async function print_note_via_iframe(
   title: string,
   markdown: string,
@@ -96,37 +98,32 @@ export async function print_note_via_iframe(
   let html = md.render(body);
   html = await render_mermaid_blocks(html);
 
-  const full_html = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><style>${PRINT_STYLES}</style></head>
-<body>
-<h1 class="print-title">${escape_html(title)}</h1>
-${html}
-</body>
-</html>`;
+  const overlay = document.createElement("div");
+  overlay.id = PRINT_OVERLAY_ID;
+  overlay.innerHTML = `<h1 class="print-title">${escape_html(title)}</h1>\n${html}`;
 
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.left = "-9999px";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "none";
-  document.body.appendChild(iframe);
+  const style = document.createElement("style");
+  style.dataset.printOverlay = "";
+  style.textContent = `
+@media print {
+  body > *:not(#${PRINT_OVERLAY_ID}) { display: none !important; }
+  #${PRINT_OVERLAY_ID} { display: block !important; }
+}
+@media screen {
+  #${PRINT_OVERLAY_ID} { display: none !important; }
+}
+${PRINT_STYLES}
+`;
 
-  const iframe_doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-  if (!iframe_doc) {
-    document.body.removeChild(iframe);
-    return;
-  }
-
-  iframe_doc.open();
-  iframe_doc.write(full_html);
-  iframe_doc.close();
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
 
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
-  iframe.contentWindow?.print();
-  document.body.removeChild(iframe);
+  window.print();
+
+  overlay.remove();
+  style.remove();
 }
 
 async function render_mermaid_blocks(html: string): Promise<string> {
