@@ -22,3 +22,8 @@ export interface DocumentPort {
   ): Promise<string>;
   close_buffer(id: string): Promise<void>;
 }
+
+export interface PdfExportPort {
+  pick_pdf_save_path(default_name: string): Promise<string | null>;
+  export_html_to_pdf(html: string, save_path: string): Promise<void>;
+}
