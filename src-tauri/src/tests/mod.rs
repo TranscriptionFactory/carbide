@@ -169,6 +169,8 @@ mod specta_export {
                 crate::features::tasks::tasks_update_due_date,
                 // Pipeline commands (1)
                 crate::features::pipeline::service::pipeline_execute,
+                // Export commands (1)
+                crate::features::export::export_html_to_pdf,
                 // Buffer commands (5)
                 crate::shared::buffer::open_buffer,
                 crate::shared::buffer::update_buffer,

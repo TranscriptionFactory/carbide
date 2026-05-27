@@ -109,6 +109,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(PendingFileOpen::default())
+        .manage(features::export::ExportHtmlState::default())
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
         .manage(features::search::embeddings::EmbeddingServiceState::default())
@@ -399,6 +400,7 @@ pub fn run() {
             features::external_mcp::external_mcp_stop,
             features::external_mcp::external_mcp_call_tool,
             features::external_mcp::external_mcp_status,
+            features::export::export_html_to_pdf,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
@@ -431,6 +433,9 @@ pub fn run() {
                 });
                 responder.respond(response);
             });
+        })
+        .register_uri_scheme_protocol("pdfexport", |ctx, _req| {
+            features::export::handle_export_request(ctx.app_handle())
         })
         .register_asynchronous_uri_scheme_protocol("carbide-excalidraw", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
