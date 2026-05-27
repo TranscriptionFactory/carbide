@@ -342,12 +342,12 @@ function render_hr(ctx: PdfContext): void {
 
 function render_display_math(ctx: PdfContext, content: string): void {
   ctx.y += PARAGRAPH_GAP * 0.5;
+  ctx.doc.font(`${FONT_BODY}-italic`);
+  ctx.doc.fontSize(BODY_FONT_SIZE);
+  ctx.doc.fillColor(COLOR_BODY);
   const lines = content.trim().split("\n");
   for (const line of lines) {
     ensure_space(ctx, LINE_HEIGHT);
-    ctx.doc.font(`${FONT_BODY}-italic`);
-    ctx.doc.fontSize(BODY_FONT_SIZE);
-    ctx.doc.fillColor(COLOR_BODY);
     const w = ctx.doc.widthOfString(line);
     const cx = left_x(ctx) + (usable_width(ctx) - w) / 2;
     ctx.doc.text(line, cx, ctx.y, { lineBreak: false });
@@ -512,8 +512,11 @@ export function render_tokens_to_pdf(
 
       case "fence": {
         const lang = token.info?.trim();
-        if (lang === "mermaid" && mermaid_cache?.has(token.content.trim())) {
-          render_mermaid_image(ctx, mermaid_cache.get(token.content.trim())!);
+        const trimmed_content = token.content.trim();
+        const mermaid_entry =
+          lang === "mermaid" ? mermaid_cache?.get(trimmed_content) : undefined;
+        if (mermaid_entry) {
+          render_mermaid_image(ctx, mermaid_entry);
         } else if (lang === "math") {
           render_display_math(ctx, token.content);
         } else {
@@ -610,12 +613,16 @@ async function prerender_mermaid_blocks(
   tokens: Token[],
 ): Promise<Map<string, MermaidCacheEntry>> {
   const cache = new Map<string, MermaidCacheEntry>();
+  const seen = new Set<string>();
   const mermaid_codes: string[] = [];
 
   for (const token of tokens) {
     if (token.type === "fence" && token.info?.trim() === "mermaid") {
       const code = token.content.trim();
-      if (code && !cache.has(code)) mermaid_codes.push(code);
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        mermaid_codes.push(code);
+      }
     }
   }
 
