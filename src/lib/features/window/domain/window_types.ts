@@ -1,14 +1,18 @@
-export type WindowKind = "main" | "viewer";
+export type WindowKind = "main" | "viewer" | "print";
 
 export type WindowInit =
   | { kind: "main"; vault_path?: string; file_path?: string }
-  | { kind: "viewer"; vault_path: string; file_path: string };
+  | { kind: "viewer"; vault_path: string; file_path: string }
+  | { kind: "print" };
 
 export function parse_window_init(search_params: URLSearchParams): WindowInit {
   const kind = search_params.get("window_kind");
   const vault_path = search_params.get("vault_path");
   const file_path = search_params.get("file_path");
 
+  if (kind === "print") {
+    return { kind: "print" };
+  }
   if (kind === "viewer" && vault_path && file_path) {
     return { kind: "viewer", vault_path, file_path };
   }
@@ -37,6 +41,9 @@ export function compute_title(init: WindowInit): string {
     case "viewer": {
       const name = init.file_path.split("/").at(-1) ?? init.file_path;
       return name;
+    }
+    case "print": {
+      return "Print Preview";
     }
   }
 }
