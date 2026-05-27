@@ -129,45 +129,59 @@ async fn capture_pdf<R: Runtime>(
     }
 }
 
+// A4 at 72pt/inch (210mm x 297mm). The print CSS supplies the inner page
+// margins, so the print info margins are zeroed to avoid doubling them.
+#[cfg(target_os = "macos")]
+const A4_POINTS: objc2_foundation::NSSize = objc2_foundation::NSSize {
+    width: 595.28,
+    height: 841.89,
+};
+
+// macOS uses the AppKit print pipeline (like WebView2 PrintToPdf on Windows and
+// WebKitPrintOperation on Linux) so the page is paginated to A4 honoring the
+// print CSS. WKWebView's createPDF API only snapshots content as one tall page.
 #[cfg(target_os = "macos")]
 fn capture_platform(
     platform: tauri::webview::PlatformWebview,
     save_path: String,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
-    use objc2_foundation::{NSData, NSError};
+    use objc2::runtime::ProtocolObject;
+    use objc2_app_kit::{
+        NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob, NSPrintingPaginationMode,
+    };
+    use objc2_foundation::{NSCopying, NSString, NSURL};
     use objc2_web_kit::WKWebView;
 
     let webview: &WKWebView = unsafe { &*platform.inner().cast() };
-    let sender = Mutex::new(Some(tx));
 
-    let handler = block2::RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
-        let result = unsafe { write_macos_pdf(data, error, &save_path) };
-        if let Ok(mut guard) = sender.lock() {
-            if let Some(tx) = guard.take() {
-                let _ = tx.send(result);
-            }
-        }
-    });
+    let print_info = NSPrintInfo::new();
+    print_info.setPaperSize(A4_POINTS);
+    print_info.setTopMargin(0.0);
+    print_info.setBottomMargin(0.0);
+    print_info.setLeftMargin(0.0);
+    print_info.setRightMargin(0.0);
+    print_info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
+    print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
+    print_info.setJobDisposition(unsafe { NSPrintSaveJob });
 
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&save_path));
+    let key: &ProtocolObject<dyn NSCopying> =
+        ProtocolObject::from_ref(unsafe { NSPrintJobSavingURL });
     unsafe {
-        webview.createPDFWithConfiguration_completionHandler(None, &handler);
+        print_info.dictionary().setObject_forKey(&url, key);
     }
-}
 
-#[cfg(target_os = "macos")]
-unsafe fn write_macos_pdf(
-    data: *mut objc2_foundation::NSData,
-    error: *mut objc2_foundation::NSError,
-    save_path: &str,
-) -> Result<(), String> {
-    if let Some(data) = data.as_ref() {
-        return crate::shared::io_utils::atomic_write(save_path, data.to_vec());
-    }
-    if let Some(error) = error.as_ref() {
-        return Err(format!("createPDF failed: {}", error.localizedDescription()));
-    }
-    Err("createPDF returned neither data nor error".into())
+    let operation = unsafe { webview.printOperationWithPrintInfo(&print_info) };
+    operation.setShowsPrintPanel(false);
+    operation.setShowsProgressPanel(false);
+
+    let result = if operation.runOperation() {
+        Ok(())
+    } else {
+        Err("NSPrintOperation.runOperation returned false".into())
+    };
+    let _ = tx.send(result);
 }
 
 #[cfg(target_os = "windows")]
