@@ -1298,9 +1298,8 @@ export class PluginRpcHandler {
         const id = `plugin-mermaid-${String(Date.now())}`;
         const { svg } = await mermaid.default.render(id, code);
         try {
-          const { rasterize_svg_to_png } = await import(
-            "$lib/shared/domain/svg_rasterizer"
-          );
+          const { rasterize_svg_to_png } =
+            await import("$lib/shared/domain/svg_rasterizer");
           const png = await rasterize_svg_to_png(svg);
           return { svg, png };
         } catch {

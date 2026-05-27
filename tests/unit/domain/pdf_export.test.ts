@@ -433,13 +433,18 @@ describe("render_tokens_to_pdf", () => {
     render_tokens_to_pdf(doc, "T", parse("# Heading"));
     const move_calls = doc.moveTo.mock.calls;
     const line_calls = doc.lineTo.mock.calls;
-    const MM = 2.8346;
+    expect(move_calls.length).toBeGreaterThanOrEqual(2);
     for (let i = 0; i < move_calls.length; i++) {
       const move_y = move_calls[i]![1] as number;
       const line_y = line_calls[i]![1] as number;
       expect(move_y).toBe(line_y);
-      expect(move_y % (2 * MM)).not.toBeCloseTo(0, 1);
     }
+    const last_text_y = doc.text.mock.calls
+      .filter((c: unknown[]) => String(c[0]) !== "T")
+      .map((c: unknown[]) => c[2] as number)
+      .pop()!;
+    const h1_underline_y = move_calls[move_calls.length - 1]![1] as number;
+    expect(h1_underline_y).toBeGreaterThan(last_text_y);
   });
 
   it("renders mermaid fence as image when cache entry exists", () => {
