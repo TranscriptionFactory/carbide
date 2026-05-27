@@ -41,6 +41,10 @@ export class PluginSettingsStore {
     }
   }
 
+  delete_entry(plugin_id: string) {
+    this.entries.delete(plugin_id);
+  }
+
   clear() {
     this.entries.clear();
   }

@@ -20,6 +20,13 @@ export function register_plugin_actions(
   });
 
   input.registry.register({
+    id: ACTION_IDS.plugin_uninstall,
+    label: "Uninstall Plugin",
+    execute: (plugin_id: unknown) =>
+      _service.uninstall_plugin(plugin_id as string),
+  });
+
+  input.registry.register({
     id: ACTION_IDS.plugin_marketplace_fetch,
     label: "Fetch Marketplace Listings",
     execute: () => marketplace_service.fetch_listings(),
