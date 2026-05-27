@@ -216,7 +216,7 @@ export interface PluginNotificationPort {
 
 export type MarketplacePluginFile = {
   filename: string;
-  download_url: string;
+  downloadUrl: string;
 };
 
 export type MarketplacePluginListing = {
