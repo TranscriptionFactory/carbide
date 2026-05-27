@@ -4,7 +4,10 @@ import type { DocumentService } from "$lib/features/document/application/documen
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
 import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
-import { render_note_for_print } from "$lib/features/document/domain/print_render";
+import {
+  render_note_for_print,
+  PRINT_STORAGE_KEY,
+} from "$lib/features/document/domain/print_render";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -39,6 +42,17 @@ function parse_document_open_payload(
     parsed.initial_pdf_page = initial_pdf_page;
   }
   return parsed;
+}
+
+function get_active_note(stores: ActionRegistrationInput["stores"]) {
+  const active_tab = stores.tab.active_tab;
+  if (!active_tab || active_tab.kind !== "note") return null;
+  const open_note = stores.editor.open_note;
+  if (!open_note) return null;
+  return {
+    title: open_note.meta.title || open_note.meta.name,
+    markdown: open_note.markdown,
+  };
 }
 
 export function register_document_actions(
@@ -116,12 +130,9 @@ export function register_document_actions(
     id: ACTION_IDS.document_export_pdf,
     label: "Export as PDF (Text Only)",
     execute: async () => {
-      const active_tab = stores.tab.active_tab;
-      if (!active_tab || active_tab.kind !== "note") return;
-      const open_note = stores.editor.open_note;
-      if (!open_note) return;
-      const title = open_note.meta.title || open_note.meta.name;
-      await export_note_as_pdf(title, open_note.markdown);
+      const note = get_active_note(stores);
+      if (!note) return;
+      await export_note_as_pdf(note.title, note.markdown);
     },
   });
 
@@ -129,13 +140,10 @@ export function register_document_actions(
     id: ACTION_IDS.document_print_pdf,
     label: "Export as PDF",
     execute: async () => {
-      const active_tab = stores.tab.active_tab;
-      if (!active_tab || active_tab.kind !== "note") return;
-      const open_note = stores.editor.open_note;
-      if (!open_note) return;
-      const title = open_note.meta.title || open_note.meta.name;
-      const html = await render_note_for_print(title, open_note.markdown);
-      localStorage.setItem("carbide:print_data", html);
+      const note = get_active_note(stores);
+      if (!note) return;
+      const html = await render_note_for_print(note.title, note.markdown);
+      localStorage.setItem(PRINT_STORAGE_KEY, html);
 
       const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
       new WebviewWindow("print", {
