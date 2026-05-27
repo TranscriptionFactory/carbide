@@ -137,6 +137,61 @@ const A4_POINTS: objc2_foundation::NSSize = objc2_foundation::NSSize {
     height: 841.89,
 };
 
+#[cfg(target_os = "macos")]
+use objc2::runtime::{NSObject, NSObjectProtocol};
+
+#[cfg(target_os = "macos")]
+type CaptureSender = tokio::sync::oneshot::Sender<Result<(), String>>;
+
+// Stateless delegate that resolves the capture channel from the print
+// operation's `contextInfo` (a boxed sender). Synchronous `runOperation`
+// deadlocks WKWebView (its print rendering is async/cross-process), so the
+// capture must go through `runOperationModalForWindow:` + this callback.
+#[cfg(target_os = "macos")]
+objc2::define_class!(
+    #[unsafe(super(NSObject))]
+    #[name = "CarbidePdfPrintDelegate"]
+    struct PdfPrintDelegate;
+
+    impl PdfPrintDelegate {
+        #[unsafe(method(printOperationDidRun:success:contextInfo:))]
+        fn print_operation_did_run(
+            &self,
+            _operation: *mut objc2::runtime::AnyObject,
+            success: bool,
+            context_info: *mut std::ffi::c_void,
+        ) {
+            if context_info.is_null() {
+                return;
+            }
+            let tx = unsafe { Box::from_raw(context_info.cast::<CaptureSender>()) };
+            let result = if success {
+                Ok(())
+            } else {
+                Err("NSPrintOperation reported failure".into())
+            };
+            let _ = tx.send(result);
+        }
+    }
+
+    unsafe impl NSObjectProtocol for PdfPrintDelegate {}
+);
+
+// One reusable main-thread delegate; per-export state travels via contextInfo.
+#[cfg(target_os = "macos")]
+fn pdf_print_delegate() -> objc2::rc::Retained<PdfPrintDelegate> {
+    use objc2::rc::Retained;
+    use objc2::{msg_send, AnyThread};
+    thread_local! {
+        static DELEGATE: Retained<PdfPrintDelegate> = {
+            let this = PdfPrintDelegate::alloc().set_ivars(());
+            let delegate: Retained<PdfPrintDelegate> = unsafe { msg_send![super(this), init] };
+            delegate
+        };
+    }
+    DELEGATE.with(Retained::clone)
+}
+
 // macOS uses the AppKit print pipeline (like WebView2 PrintToPdf on Windows and
 // WebKitPrintOperation on Linux) so the page is paginated to A4 honoring the
 // print CSS. WKWebView's createPDF API only snapshots content as one tall page.
@@ -147,6 +202,7 @@ fn capture_platform(
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     use objc2::runtime::ProtocolObject;
+    use objc2::sel;
     use objc2_app_kit::{
         NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob, NSPrintingPaginationMode,
     };
@@ -154,6 +210,14 @@ fn capture_platform(
     use objc2_web_kit::WKWebView;
 
     let webview: &WKWebView = unsafe { &*platform.inner().cast() };
+
+    let window = match webview.window() {
+        Some(window) => window,
+        None => {
+            let _ = tx.send(Err("export webview has no window to print from".into()));
+            return;
+        }
+    };
 
     let print_info = NSPrintInfo::new();
     print_info.setPaperSize(A4_POINTS);
@@ -175,13 +239,18 @@ fn capture_platform(
     let operation = unsafe { webview.printOperationWithPrintInfo(&print_info) };
     operation.setShowsPrintPanel(false);
     operation.setShowsProgressPanel(false);
+    operation.setCanSpawnSeparateThread(true);
 
-    let result = if operation.runOperation() {
-        Ok(())
-    } else {
-        Err("NSPrintOperation.runOperation returned false".into())
-    };
-    let _ = tx.send(result);
+    let delegate = pdf_print_delegate();
+    let context = Box::into_raw(Box::new(tx)).cast::<std::ffi::c_void>();
+    unsafe {
+        operation.runOperationModalForWindow_delegate_didRunSelector_contextInfo(
+            &window,
+            Some(&*delegate),
+            Some(sel!(printOperationDidRun:success:contextInfo:)),
+            context,
+        );
+    }
 }
 
 #[cfg(target_os = "windows")]
