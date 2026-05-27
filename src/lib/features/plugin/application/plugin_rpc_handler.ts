@@ -1297,7 +1297,15 @@ export class PluginRpcHandler {
         await mermaid.default.parse(code);
         const id = `plugin-mermaid-${String(Date.now())}`;
         const { svg } = await mermaid.default.render(id, code);
-        return { svg };
+        try {
+          const { rasterize_svg_to_png } = await import(
+            "$lib/shared/domain/svg_rasterizer"
+          );
+          const png = await rasterize_svg_to_png(svg);
+          return { svg, png };
+        } catch {
+          return { svg };
+        }
       }
       default:
         throw new Error(`Unknown render action: ${action}`);

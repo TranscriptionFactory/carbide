@@ -247,7 +247,12 @@
 
           render_code(token) {
             if (token.lang === "mermaid" && this.mermaid_map.has(token.text)) {
-              this.render_mermaid_svg(this.mermaid_map.get(token.text));
+              const entry = this.mermaid_map.get(token.text);
+              if (entry && entry.data_url) {
+                this.render_mermaid_png(entry);
+              } else if (entry && entry.svg) {
+                this.render_mermaid_svg(entry.svg);
+              }
               return;
             }
 
@@ -289,6 +294,35 @@
               }
             }
             this.y += CODE_PAD + 3;
+          }
+
+          render_mermaid_png(png) {
+            try {
+              const max_w = CONTENT_W;
+              const scale = Math.min(max_w / png.width, 1);
+              const w = png.width * scale;
+              const h = png.height * scale;
+              const mm_w = w * PT_TO_MM;
+              const mm_h = h * PT_TO_MM;
+              const max_h = CONTENT_H * 0.5;
+              const final_scale = mm_h > max_h ? max_h / mm_h : 1;
+              const fw = mm_w * final_scale;
+              const fh = mm_h * final_scale;
+              this.check_page_break(fh + 4);
+              this.doc.addImage(
+                png.data_url,
+                "PNG",
+                MARGIN_LEFT,
+                this.y,
+                fw,
+                fh,
+              );
+              this.y += fh + 6;
+            } catch (_) {
+              this.set_text(FONT.mono, "italic", SIZE.small, BODY_COLOR);
+              this.doc.text("[mermaid diagram]", MARGIN_LEFT, this.y);
+              this.y += line_h(SIZE.small) + 4;
+            }
           }
 
           render_mermaid_svg(svg_str) {
@@ -513,7 +547,11 @@
                   token.text,
                   "default",
                 );
-                if (result && result.svg) map.set(token.text, result.svg);
+                if (result && result.png) {
+                  map.set(token.text, result.png);
+                } else if (result && result.svg) {
+                  map.set(token.text, { svg: result.svg });
+                }
               } catch (_) {}
             }
           }
