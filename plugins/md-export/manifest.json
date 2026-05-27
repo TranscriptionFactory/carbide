@@ -1,0 +1,21 @@
+{
+  "id": "md-export",
+  "name": "PDF Export",
+  "version": "0.1.0",
+  "author": "Carbide",
+  "description": "Export the current note as a beautifully formatted PDF with mermaid diagrams and LaTeX math",
+  "api_version": "1",
+  "permissions": ["editor:read", "export:save", "commands:register", "fs:read", "render:mermaid"],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "slash_commands": [
+      {
+        "id": "export-pdf",
+        "name": "Export as PDF",
+        "description": "Export the current note as a beautifully formatted PDF with mermaid diagrams and LaTeX math",
+        "icon": "file-text",
+        "keywords": ["pdf", "export", "print", "mermaid", "latex", "math"]
+      }
+    ]
+  }
+}
