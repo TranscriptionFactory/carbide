@@ -5,7 +5,13 @@
   "author": "Carbide",
   "description": "Export the current note as a beautifully formatted PDF with mermaid diagrams and LaTeX math",
   "api_version": "1",
-  "permissions": ["editor:read", "export:save", "commands:register", "fs:read", "render:mermaid"],
+  "permissions": [
+    "editor:read",
+    "export:save",
+    "commands:register",
+    "fs:read",
+    "render:mermaid"
+  ],
   "activation_events": ["on_startup"],
   "contributes": {
     "slash_commands": [

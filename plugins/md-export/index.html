@@ -21,7 +21,15 @@
         const CONTENT_H = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
 
         const FONT = { sans: "helvetica", mono: "courier" };
-        const SIZE = { h1: 22, h2: 18, h3: 15, h4: 13, body: 11, code: 9.5, small: 9 };
+        const SIZE = {
+          h1: 22,
+          h2: 18,
+          h3: 15,
+          h4: 13,
+          body: 11,
+          code: 9.5,
+          small: 9,
+        };
         const LH = 1.5;
         const PT_TO_MM = 0.352778;
         const BULLET = "\u2022";
@@ -60,7 +68,9 @@
         function normalize_wiki_images(md) {
           return md.replace(/!\[\[([^\]]+)\]\]/g, (_, inner) => {
             const parts = inner.split("|");
-            return "![" + (parts[1] || "").trim() + "](" + parts[0].trim() + ")";
+            return (
+              "![" + (parts[1] || "").trim() + "](" + parts[0].trim() + ")"
+            );
           });
         }
 
@@ -77,12 +87,19 @@
         }
 
         function svg_to_data_url(svg) {
-          return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+          return (
+            "data:image/svg+xml;base64," +
+            btoa(unescape(encodeURIComponent(svg)))
+          );
         }
 
         class PdfRenderer {
           constructor() {
-            this.doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            this.doc = new jsPDF({
+              orientation: "portrait",
+              unit: "mm",
+              format: "a4",
+            });
             this.y = MARGIN_TOP;
             this.page = 1;
             this.image_map = new Map();
@@ -133,7 +150,12 @@
               this.y += 1;
               this.doc.setDrawColor(...RULE_COLOR);
               this.doc.setLineWidth(0.3);
-              this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
+              this.doc.line(
+                MARGIN_LEFT,
+                this.y,
+                MARGIN_LEFT + CONTENT_W,
+                this.y,
+              );
               this.y += 3;
             } else {
               this.y += 2;
@@ -199,7 +221,7 @@
 
             for (let i = 0; i < token.items.length; i++) {
               const item = token.items[i];
-              const prefix = token.ordered ? (i + 1) + "." : BULLET;
+              const prefix = token.ordered ? i + 1 + "." : BULLET;
               const text = strip_inline(item.text || "");
               const lines = this.doc.splitTextToSize(text, avail_w);
 
@@ -239,9 +261,13 @@
             const start_y = this.y;
             this.doc.setFillColor(...CODE_BG);
             this.doc.roundedRect(
-              MARGIN_LEFT, start_y - CODE_PAD,
-              CONTENT_W, block_h,
-              1.5, 1.5, "F"
+              MARGIN_LEFT,
+              start_y - CODE_PAD,
+              CONTENT_W,
+              block_h,
+              1.5,
+              1.5,
+              "F",
             );
 
             this.y += CODE_PAD;
@@ -253,7 +279,10 @@
                 this.doc.setFillColor(...CODE_BG);
                 this.set_text(FONT.mono, "normal", SIZE.code, CODE_COLOR);
               }
-              const trimmed = this.doc.splitTextToSize(cl || " ", CONTENT_W - CODE_PAD * 2);
+              const trimmed = this.doc.splitTextToSize(
+                cl || " ",
+                CONTENT_W - CODE_PAD * 2,
+              );
               for (const tl of trimmed) {
                 this.doc.text(tl, MARGIN_LEFT + CODE_PAD, this.y);
                 this.y += lh;
@@ -286,7 +315,9 @@
 
           render_blockquote(token) {
             const text = token.tokens
-              ? token.tokens.map((t) => strip_inline(t.text || t.raw || "")).join(" ")
+              ? token.tokens
+                  .map((t) => strip_inline(t.text || t.raw || ""))
+                  .join(" ")
               : strip_inline(token.text || "");
 
             this.set_text(FONT.sans, "italic", SIZE.body, BLOCKQUOTE_TEXT);
@@ -299,7 +330,12 @@
 
             this.doc.setDrawColor(...BLOCKQUOTE_BAR);
             this.doc.setLineWidth(1);
-            this.doc.line(MARGIN_LEFT + 2, start_y - 2, MARGIN_LEFT + 2, start_y + block_h);
+            this.doc.line(
+              MARGIN_LEFT + 2,
+              start_y - 2,
+              MARGIN_LEFT + 2,
+              start_y + block_h,
+            );
 
             for (const line of lines) {
               this.doc.text(line, MARGIN_LEFT + 8, this.y);
@@ -319,14 +355,25 @@
             this.check_page_break(lh * 3);
 
             this.doc.setFillColor(...TABLE_HEADER_BG);
-            this.doc.rect(MARGIN_LEFT, this.y - cell_pad, CONTENT_W, lh + cell_pad * 2, "F");
+            this.doc.rect(
+              MARGIN_LEFT,
+              this.y - cell_pad,
+              CONTENT_W,
+              lh + cell_pad * 2,
+              "F",
+            );
 
             this.set_text(FONT.sans, "bold", SIZE.small, HEADING_COLOR);
             for (let c = 0; c < num_cols; c++) {
               const text = strip_inline(token.header[c].text || "");
-              this.doc.text(text, MARGIN_LEFT + c * col_w + cell_pad, this.y + cell_pad, {
-                maxWidth: col_w - cell_pad * 2,
-              });
+              this.doc.text(
+                text,
+                MARGIN_LEFT + c * col_w + cell_pad,
+                this.y + cell_pad,
+                {
+                  maxWidth: col_w - cell_pad * 2,
+                },
+              );
             }
             this.y += lh + cell_pad * 2;
 
@@ -341,21 +388,37 @@
 
               if (r % 2 === 1) {
                 this.doc.setFillColor(250, 250, 250);
-                this.doc.rect(MARGIN_LEFT, this.y - cell_pad, CONTENT_W, lh + cell_pad * 2, "F");
+                this.doc.rect(
+                  MARGIN_LEFT,
+                  this.y - cell_pad,
+                  CONTENT_W,
+                  lh + cell_pad * 2,
+                  "F",
+                );
                 this.set_text(FONT.sans, "normal", SIZE.small, BODY_COLOR);
               }
 
               for (let c = 0; c < num_cols; c++) {
                 const cell = row[c];
                 const text = strip_inline(cell ? cell.text || "" : "");
-                this.doc.text(text, MARGIN_LEFT + c * col_w + cell_pad, this.y + cell_pad, {
-                  maxWidth: col_w - cell_pad * 2,
-                });
+                this.doc.text(
+                  text,
+                  MARGIN_LEFT + c * col_w + cell_pad,
+                  this.y + cell_pad,
+                  {
+                    maxWidth: col_w - cell_pad * 2,
+                  },
+                );
               }
               this.y += lh + cell_pad * 2;
 
               this.doc.setDrawColor(...TABLE_BORDER);
-              this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
+              this.doc.line(
+                MARGIN_LEFT,
+                this.y,
+                MARGIN_LEFT + CONTENT_W,
+                this.y,
+              );
             }
             this.y += 4;
           }
@@ -440,10 +503,17 @@
         async function prerender_mermaid(tokens) {
           const map = new Map();
           for (const token of tokens) {
-            if (token.type === "code" && token.lang === "mermaid" && token.text.trim()) {
+            if (
+              token.type === "code" &&
+              token.lang === "mermaid" &&
+              token.text.trim()
+            ) {
               if (map.has(token.text)) continue;
               try {
-                const result = await carbide.render.mermaid(token.text, "default");
+                const result = await carbide.render.mermaid(
+                  token.text,
+                  "default",
+                );
                 if (result && result.svg) map.set(token.text, result.svg);
               } catch (_) {}
             }
@@ -468,7 +538,9 @@
 
             const image_hrefs = collect_image_hrefs(tokens);
             const [image_map, mermaid_map] = await Promise.all([
-              image_hrefs.size > 0 ? preload_images(image_hrefs, info.path) : new Map(),
+              image_hrefs.size > 0
+                ? preload_images(image_hrefs, info.path)
+                : new Map(),
               prerender_mermaid(tokens),
             ]);
 
@@ -479,7 +551,8 @@
 
             const buf = renderer.output();
             const bytes = Array.from(new Uint8Array(buf));
-            const name = info && info.name ? info.name.replace(/\.[^.]+$/, "") : "export";
+            const name =
+              info && info.name ? info.name.replace(/\.[^.]+$/, "") : "export";
 
             const result = await carbide.export.saveBinary(
               bytes,
