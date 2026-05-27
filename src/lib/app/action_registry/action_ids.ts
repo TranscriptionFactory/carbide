@@ -430,6 +430,7 @@ export const ACTION_IDS = {
 
   plugin_marketplace_fetch: "plugin.marketplace_fetch",
   plugin_marketplace_install: "plugin.marketplace_install",
+  plugin_marketplace_update: "plugin.marketplace_update",
   plugin_marketplace_save_url: "plugin.marketplace_save_url",
 
   vault_update_embeddings: "vault.update_embeddings",
