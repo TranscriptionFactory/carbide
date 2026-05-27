@@ -510,7 +510,7 @@ describe("SearchService", () => {
     );
   });
 
-  it("prefers exact indexed root matches for markdown links before creating relative targets", async () => {
+  it("resolves markdown links relative to the current file", async () => {
     const search_port = {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
@@ -578,7 +578,7 @@ describe("SearchService", () => {
       "exposomics/overview.md",
     );
 
-    expect(resolved).toBe("exposomics/overview.md");
+    expect(resolved).toBe("docs/exposomics/overview.md");
   });
 
   it("resolves bare wiki links to indexed folder notes when present", async () => {

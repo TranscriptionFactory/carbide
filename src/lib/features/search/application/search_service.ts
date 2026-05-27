@@ -688,15 +688,7 @@ export class SearchService {
       source_path,
       raw_target,
     );
-    if (raw_target.startsWith("./") || raw_target.startsWith("../")) {
-      return (await this.resolve_indexed_note_path(resolved ?? "")) ?? resolved;
-    }
-
-    return (
-      (await this.resolve_indexed_note_path(raw_target)) ??
-      (await this.resolve_indexed_note_path(resolved ?? "")) ??
-      resolved
-    );
+    return (await this.resolve_indexed_note_path(resolved ?? "")) ?? resolved;
   }
 
   async resolve_wiki_link(
