@@ -19,6 +19,11 @@ pub fn get_pending_file_open(state: tauri::State<PendingFileOpen>) -> Option<Str
     state.0.lock().unwrap().take()
 }
 
+#[tauri::command]
+pub fn print_webview(webview: tauri::Webview) -> Result<(), String> {
+    webview.print().map_err(|e| e.to_string())
+}
+
 fn handle_file_open(app: &tauri::AppHandle, path: String) {
     log::info!("File open event: {}", path);
     let state = app.state::<PendingFileOpen>();
@@ -301,6 +306,7 @@ pub fn run() {
             shared::buffer::read_buffer_window,
             shared::buffer::close_buffer,
             get_pending_file_open,
+            print_webview,
             features::canvas::extract_canvas_links,
             features::canvas::extract_canvas_text,
             features::canvas::rewrite_canvas_file_refs,

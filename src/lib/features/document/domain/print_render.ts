@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 import { create_md } from "$lib/features/document/domain/pdf_export";
 
@@ -120,7 +121,7 @@ ${PRINT_STYLES}
 
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
-  window.print();
+  await invoke("print_webview");
 
   overlay.remove();
   style.remove();
