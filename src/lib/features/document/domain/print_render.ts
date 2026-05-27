@@ -30,7 +30,10 @@ body {
   color: #1a1a1a;
   max-width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 2em;
+}
+@media print {
+  body { padding: 0; }
 }
 h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; }
 h1 { font-size: 1.8em; border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
@@ -96,18 +99,15 @@ export async function render_note_for_print(
 
   html = await render_mermaid_blocks(html);
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${escape_html(title)}</title>
-<style>${PRINT_STYLES}</style>
-</head>
-<body>
-<h1 class="print-title">${escape_html(title)}</h1>
-${html}
-</body>
-</html>`;
+  const body_html = `<h1 class="print-title">${escape_html(title)}</h1>\n${html}`;
+  return JSON.stringify({ css: PRINT_STYLES, body_html });
+}
+
+export function extract_print_content(raw: string): {
+  css: string;
+  body_html: string;
+} {
+  return JSON.parse(raw) as { css: string; body_html: string };
 }
 
 async function render_mermaid_blocks(html: string): Promise<string> {
