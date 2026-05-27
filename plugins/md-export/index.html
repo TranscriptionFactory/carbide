@@ -428,8 +428,7 @@
             this.check_page_break(4);
             this.doc.setDrawColor(...RULE_COLOR);
             this.doc.setLineWidth(0.3);
-            const cx = MARGIN_LEFT + CONTENT_W / 2;
-            this.doc.line(cx - 20, this.y, cx + 20, this.y);
+            this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
             this.y += 6;
           }
 

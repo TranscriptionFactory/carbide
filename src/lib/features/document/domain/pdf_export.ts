@@ -266,8 +266,8 @@ function render_heading(ctx: PdfContext, tag: string, token: Token): void {
     ctx.doc.strokeColor(COLOR_BORDER);
     ctx.doc.lineWidth(0.3 * MM);
     ctx.doc
-      .moveTo(left_x(ctx), ctx.y - 2 * MM)
-      .lineTo(left_x(ctx) + usable_width(ctx), ctx.y - 2 * MM)
+      .moveTo(left_x(ctx), ctx.y)
+      .lineTo(left_x(ctx) + usable_width(ctx), ctx.y)
       .stroke();
   }
 
@@ -437,8 +437,8 @@ export function render_tokens_to_pdf(
   doc.strokeColor(COLOR_BORDER);
   doc.lineWidth(0.3 * MM);
   doc
-    .moveTo(MARGIN, ctx.y - 2 * MM)
-    .lineTo(MARGIN + USABLE_WIDTH, ctx.y - 2 * MM)
+    .moveTo(MARGIN, ctx.y)
+    .lineTo(MARGIN + USABLE_WIDTH, ctx.y)
     .stroke();
   ctx.y += 6 * MM;
   set_body_font(doc);
