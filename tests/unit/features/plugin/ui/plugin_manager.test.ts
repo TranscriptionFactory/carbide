@@ -75,11 +75,17 @@ function create_context(options?: {
     load_and_activate: vi.fn().mockResolvedValue(undefined),
     disable_plugin: vi.fn().mockResolvedValue(undefined),
     enable_plugin: vi.fn().mockResolvedValue(undefined),
+    get_bundled_ids: vi.fn().mockResolvedValue([]),
+    uninstall_plugin: vi.fn().mockResolvedValue(undefined),
   };
 
   const plugin_settings = {
     approve_permission: vi.fn().mockResolvedValue(undefined),
     deny_permission: vi.fn().mockResolvedValue(undefined),
+  };
+
+  const action_registry = {
+    execute: vi.fn().mockResolvedValue(undefined),
   };
 
   const app_context = {
@@ -88,6 +94,7 @@ function create_context(options?: {
       plugin,
       plugin_settings,
     },
+    action_registry,
   } as unknown as Partial<AppContext>;
 
   return {
