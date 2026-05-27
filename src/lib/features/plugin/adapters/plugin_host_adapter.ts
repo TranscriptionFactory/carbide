@@ -34,6 +34,14 @@ export class PluginHostAdapter implements PluginHostPort {
     await invoke("plugin_unload", { pluginId: id });
   }
 
+  async delete_plugin(id: string): Promise<void> {
+    await invoke("plugin_delete", { pluginId: id });
+  }
+
+  async get_bundled_ids(): Promise<string[]> {
+    return invoke<string[]>("plugin_get_bundled_ids");
+  }
+
   async watch(vault_path: string): Promise<void> {
     await invoke("watch_plugins", { vaultPath: vault_path });
   }

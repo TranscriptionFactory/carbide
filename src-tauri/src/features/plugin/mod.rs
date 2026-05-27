@@ -87,3 +87,25 @@ pub async fn plugin_deny_permission(
 ) -> Result<(), String> {
     settings::deny_permission(Path::new(&vault_path), &plugin_id, &permission)
 }
+
+#[command]
+pub async fn plugin_delete(app: AppHandle, plugin_id: String) -> Result<(), String> {
+    marketplace::validate_path_segment(&plugin_id).map_err(|e| e.to_string())?;
+    let home_dir = resolve_home_dir(&app)?;
+    let plugin_dir = home_dir.join(".carbide").join("plugins").join(&plugin_id);
+    if !plugin_dir.exists() {
+        return Err(format!("Plugin directory not found: {}", plugin_id));
+    }
+    std::fs::remove_dir_all(&plugin_dir)
+        .map_err(|e| format!("Failed to delete plugin '{}': {}", plugin_id, e))?;
+    log::info!("Deleted plugin '{}'", plugin_id);
+    Ok(())
+}
+
+#[command]
+pub async fn plugin_get_bundled_ids() -> Result<Vec<String>, String> {
+    Ok(service::BUNDLED_PLUGIN_IDS
+        .iter()
+        .map(|s| s.to_string())
+        .collect())
+}

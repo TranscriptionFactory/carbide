@@ -1,5 +1,6 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { Button } from "$lib/components/ui/button";
   import {
     RefreshCw,
@@ -8,17 +9,19 @@
     Play,
     Square,
     RotateCw,
+    Trash2,
   } from "@lucide/svelte";
   import PluginPermissionDialog from "./plugin_permission_dialog.svelte";
   import PluginSettingsDialog from "./plugin_settings_dialog.svelte";
   import PluginMarketplaceBrowser from "./plugin_marketplace_browser.svelte";
 
-  const { stores, services } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
 
   let active_tab = $state<"installed" | "browse">("installed");
 
   let is_discovering = $state(false);
   let reloading_ids = $state(new Set<string>());
+  let bundled_ids = $state(new Set<string>());
 
   interface PermissionDialogState {
     plugin_id: string;
@@ -28,6 +31,19 @@
 
   let permission_dialog = $state<PermissionDialogState | null>(null);
   let settings_dialog_plugin_id = $state<string | null>(null);
+
+  $effect(() => {
+    services.plugin.get_bundled_ids().then((ids) => {
+      bundled_ids = new Set(ids);
+    });
+  });
+
+  async function uninstall_plugin(id: string, name: string) {
+    if (!confirm(`Uninstall "${name}"? This will remove the plugin files.`)) {
+      return;
+    }
+    await action_registry.execute(ACTION_IDS.plugin_uninstall, id);
+  }
 
   async function discover_plugins() {
     is_discovering = true;
@@ -218,6 +234,21 @@
                         aria-label={`Open plugin settings for ${plugin.manifest.name}`}
                       >
                         <Settings class="w-4 h-4" />
+                      </Button>
+                    {/if}
+                    {#if !bundled_ids.has(plugin.manifest.id)}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="w-8 h-8 text-destructive hover:text-destructive"
+                        onclick={() =>
+                          uninstall_plugin(
+                            plugin.manifest.id,
+                            plugin.manifest.name,
+                          )}
+                        title="Uninstall plugin"
+                      >
+                        <Trash2 class="w-4 h-4" />
                       </Button>
                     {/if}
                     <Button
