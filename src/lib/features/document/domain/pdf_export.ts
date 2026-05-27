@@ -356,10 +356,7 @@ function render_display_math(ctx: PdfContext, content: string): void {
   ctx.y += PARAGRAPH_GAP * 0.5;
 }
 
-function render_mermaid_image(
-  ctx: PdfContext,
-  entry: MermaidCacheEntry,
-): void {
+function render_mermaid_image(ctx: PdfContext, entry: MermaidCacheEntry): void {
   const max_w = usable_width(ctx);
   const max_h = ctx.page_height - MARGIN * 2 - 4 * MM;
   const scale = Math.min(max_w / entry.width, max_h / entry.height, 1);
@@ -626,9 +623,8 @@ async function prerender_mermaid_blocks(
 
   try {
     const mermaid = await import("mermaid");
-    const { rasterize_svg_to_png } = await import(
-      "$lib/shared/domain/svg_rasterizer"
-    );
+    const { rasterize_svg_to_png } =
+      await import("$lib/shared/domain/svg_rasterizer");
 
     mermaid.default.initialize({
       startOnLoad: false,
