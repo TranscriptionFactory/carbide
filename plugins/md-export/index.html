@@ -1,0 +1,522 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="carbide-plugin-api.js"></script>
+    <script src="vendor/marked.min.js"></script>
+    <script src="vendor/jspdf.umd.min.js"></script>
+  </head>
+  <body>
+    <script>
+      (function () {
+        const { jsPDF } = window.jspdf;
+
+        const PAGE_W = 210;
+        const PAGE_H = 297;
+        const MARGIN_TOP = 25;
+        const MARGIN_BOTTOM = 25;
+        const MARGIN_LEFT = 25;
+        const MARGIN_RIGHT = 25;
+        const CONTENT_W = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT;
+        const CONTENT_H = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM;
+
+        const FONT = { sans: "helvetica", mono: "courier" };
+        const SIZE = { h1: 22, h2: 18, h3: 15, h4: 13, body: 11, code: 9.5, small: 9 };
+        const LH = 1.5;
+        const PT_TO_MM = 0.352778;
+        const BULLET = "\u2022";
+        const INDENT = 6;
+        const CODE_PAD = 3;
+        const CODE_BG = [245, 245, 245];
+        const RULE_COLOR = [200, 200, 200];
+        const LINK_COLOR = [41, 98, 255];
+        const HEADING_COLOR = [30, 30, 30];
+        const BODY_COLOR = [50, 50, 50];
+        const CODE_COLOR = [60, 60, 60];
+        const BLOCKQUOTE_BAR = [180, 180, 180];
+        const BLOCKQUOTE_TEXT = [100, 100, 100];
+        const TABLE_HEADER_BG = [240, 240, 240];
+        const TABLE_BORDER = [220, 220, 220];
+
+        function line_h(font_size) {
+          return font_size * LH * PT_TO_MM;
+        }
+
+        function strip_frontmatter(md) {
+          const m = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+          return m ? md.slice(m[0].length) : md;
+        }
+
+        function strip_inline(text) {
+          return text
+            .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
+            .replace(/\*\*(.*?)\*\*/g, "$1")
+            .replace(/\*(.*?)\*/g, "$1")
+            .replace(/~~(.*?)~~/g, "$1")
+            .replace(/`(.*?)`/g, "$1")
+            .replace(/\[(.*?)\]\([^)]*\)/g, "$1");
+        }
+
+        function normalize_wiki_images(md) {
+          return md.replace(/!\[\[([^\]]+)\]\]/g, (_, inner) => {
+            const parts = inner.split("|");
+            return "![" + (parts[1] || "").trim() + "](" + parts[0].trim() + ")";
+          });
+        }
+
+        function resolve_path(note_path, src) {
+          if (src.startsWith("/")) return src;
+          const dir = note_path.substring(0, note_path.lastIndexOf("/") + 1);
+          const parts = (dir + src).split("/");
+          const resolved = [];
+          for (const p of parts) {
+            if (p === "..") resolved.pop();
+            else if (p !== "." && p !== "") resolved.push(p);
+          }
+          return resolved.join("/");
+        }
+
+        function svg_to_data_url(svg) {
+          return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+        }
+
+        class PdfRenderer {
+          constructor() {
+            this.doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            this.y = MARGIN_TOP;
+            this.page = 1;
+            this.image_map = new Map();
+            this.mermaid_map = new Map();
+          }
+
+          check_page_break(needed) {
+            if (this.y + needed > PAGE_H - MARGIN_BOTTOM) {
+              this.doc.addPage();
+              this.y = MARGIN_TOP;
+              this.page++;
+            }
+          }
+
+          set_text(font, style, size, color) {
+            this.doc.setFont(font, style);
+            this.doc.setFontSize(size);
+            this.doc.setTextColor(...color);
+          }
+
+          write_lines(lines, x, size) {
+            const lh = line_h(size);
+            for (const line of lines) {
+              this.check_page_break(lh);
+              this.doc.text(line, x, this.y);
+              this.y += lh;
+            }
+          }
+
+          render_heading(token) {
+            const sizes = { 1: SIZE.h1, 2: SIZE.h2, 3: SIZE.h3, 4: SIZE.h4 };
+            const size = sizes[token.depth] || SIZE.body;
+            const space_before = token.depth <= 2 ? 6 : 4;
+            this.y += space_before;
+            this.check_page_break(line_h(size) + 4);
+
+            if (token.depth <= 2) {
+              this.set_text(FONT.sans, "bold", size, HEADING_COLOR);
+            } else {
+              this.set_text(FONT.sans, "bold", size, HEADING_COLOR);
+            }
+
+            const text = strip_inline(token.text);
+            const lines = this.doc.splitTextToSize(text, CONTENT_W);
+            this.write_lines(lines, MARGIN_LEFT, size);
+
+            if (token.depth <= 2) {
+              this.y += 1;
+              this.doc.setDrawColor(...RULE_COLOR);
+              this.doc.setLineWidth(0.3);
+              this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
+              this.y += 3;
+            } else {
+              this.y += 2;
+            }
+          }
+
+          render_paragraph(token) {
+            this.set_text(FONT.sans, "normal", SIZE.body, BODY_COLOR);
+
+            if (token.tokens && token.tokens.some((t) => t.type === "image")) {
+              for (const t of token.tokens) {
+                if (t.type === "image") {
+                  this.render_image_token(t);
+                } else {
+                  const text = strip_inline(t.text || t.raw || "");
+                  if (text.trim()) {
+                    const lines = this.doc.splitTextToSize(text, CONTENT_W);
+                    this.write_lines(lines, MARGIN_LEFT, SIZE.body);
+                  }
+                }
+              }
+              this.y += 3;
+              return;
+            }
+
+            const text = strip_inline(token.text || "");
+            if (!text.trim()) return;
+            const lines = this.doc.splitTextToSize(text, CONTENT_W);
+            this.write_lines(lines, MARGIN_LEFT, SIZE.body);
+            this.y += 3;
+          }
+
+          render_image_token(token) {
+            const data = this.image_map.get(token.href);
+            if (!data) return;
+            this.render_image_data(data);
+          }
+
+          render_image_data(data) {
+            const format = data.mime_type.includes("png") ? "PNG" : "JPEG";
+            const uri = "data:" + data.mime_type + ";base64," + data.data;
+            try {
+              const props = this.doc.getImageProperties(uri);
+              const max_w = CONTENT_W;
+              const scale = Math.min(max_w / props.width, 1);
+              const w = props.width * scale;
+              const h = props.height * scale;
+              const max_h = CONTENT_H * 0.6;
+              const final_scale = h > max_h ? max_h / h : 1;
+              const fw = w * final_scale;
+              const fh = h * final_scale;
+              this.check_page_break(fh + 4);
+              this.doc.addImage(uri, format, MARGIN_LEFT, this.y, fw, fh);
+              this.y += fh + 4;
+            } catch (_) {}
+          }
+
+          render_list(token, depth) {
+            const indent_x = MARGIN_LEFT + (depth || 0) * INDENT;
+            const avail_w = CONTENT_W - (depth || 0) * INDENT - INDENT;
+
+            this.set_text(FONT.sans, "normal", SIZE.body, BODY_COLOR);
+
+            for (let i = 0; i < token.items.length; i++) {
+              const item = token.items[i];
+              const prefix = token.ordered ? (i + 1) + "." : BULLET;
+              const text = strip_inline(item.text || "");
+              const lines = this.doc.splitTextToSize(text, avail_w);
+
+              for (let j = 0; j < lines.length; j++) {
+                this.check_page_break(line_h(SIZE.body));
+                if (j === 0) {
+                  this.doc.text(prefix, indent_x, this.y);
+                }
+                this.doc.text(lines[j], indent_x + INDENT, this.y);
+                this.y += line_h(SIZE.body);
+              }
+
+              if (item.tokens) {
+                for (const sub of item.tokens) {
+                  if (sub.type === "list") {
+                    this.render_list(sub, (depth || 0) + 1);
+                  }
+                }
+              }
+            }
+            this.y += 2;
+          }
+
+          render_code(token) {
+            if (token.lang === "mermaid" && this.mermaid_map.has(token.text)) {
+              this.render_mermaid_svg(this.mermaid_map.get(token.text));
+              return;
+            }
+
+            this.set_text(FONT.mono, "normal", SIZE.code, CODE_COLOR);
+            const code_lines = token.text.split("\n");
+            const lh = line_h(SIZE.code);
+            const block_h = code_lines.length * lh + CODE_PAD * 2;
+
+            this.check_page_break(Math.min(block_h, CONTENT_H * 0.5));
+
+            const start_y = this.y;
+            this.doc.setFillColor(...CODE_BG);
+            this.doc.roundedRect(
+              MARGIN_LEFT, start_y - CODE_PAD,
+              CONTENT_W, block_h,
+              1.5, 1.5, "F"
+            );
+
+            this.y += CODE_PAD;
+            for (const cl of code_lines) {
+              if (this.y + lh > PAGE_H - MARGIN_BOTTOM) {
+                this.doc.addPage();
+                this.y = MARGIN_TOP;
+                this.page++;
+                this.doc.setFillColor(...CODE_BG);
+                this.set_text(FONT.mono, "normal", SIZE.code, CODE_COLOR);
+              }
+              const trimmed = this.doc.splitTextToSize(cl || " ", CONTENT_W - CODE_PAD * 2);
+              for (const tl of trimmed) {
+                this.doc.text(tl, MARGIN_LEFT + CODE_PAD, this.y);
+                this.y += lh;
+              }
+            }
+            this.y += CODE_PAD + 3;
+          }
+
+          render_mermaid_svg(svg_str) {
+            const data_url = svg_to_data_url(svg_str);
+            try {
+              const props = this.doc.getImageProperties(data_url);
+              const max_w = CONTENT_W;
+              const scale = Math.min(max_w / props.width, 1);
+              const w = props.width * scale;
+              const h = props.height * scale;
+              const max_h = CONTENT_H * 0.5;
+              const final_scale = h > max_h ? max_h / h : 1;
+              const fw = w * final_scale;
+              const fh = h * final_scale;
+              this.check_page_break(fh + 4);
+              this.doc.addImage(data_url, "SVG", MARGIN_LEFT, this.y, fw, fh);
+              this.y += fh + 6;
+            } catch (_) {
+              this.set_text(FONT.mono, "italic", SIZE.small, BODY_COLOR);
+              this.doc.text("[mermaid diagram]", MARGIN_LEFT, this.y);
+              this.y += line_h(SIZE.small) + 4;
+            }
+          }
+
+          render_blockquote(token) {
+            const text = token.tokens
+              ? token.tokens.map((t) => strip_inline(t.text || t.raw || "")).join(" ")
+              : strip_inline(token.text || "");
+
+            this.set_text(FONT.sans, "italic", SIZE.body, BLOCKQUOTE_TEXT);
+            const lines = this.doc.splitTextToSize(text, CONTENT_W - 10);
+            const lh = line_h(SIZE.body);
+            const block_h = lines.length * lh;
+
+            this.check_page_break(block_h + 4);
+            const start_y = this.y;
+
+            this.doc.setDrawColor(...BLOCKQUOTE_BAR);
+            this.doc.setLineWidth(1);
+            this.doc.line(MARGIN_LEFT + 2, start_y - 2, MARGIN_LEFT + 2, start_y + block_h);
+
+            for (const line of lines) {
+              this.doc.text(line, MARGIN_LEFT + 8, this.y);
+              this.y += lh;
+            }
+            this.y += 3;
+          }
+
+          render_table(token) {
+            if (!token.header || !token.rows) return;
+
+            const num_cols = token.header.length;
+            const col_w = CONTENT_W / num_cols;
+            const lh = line_h(SIZE.small);
+            const cell_pad = 2;
+
+            this.check_page_break(lh * 3);
+
+            this.doc.setFillColor(...TABLE_HEADER_BG);
+            this.doc.rect(MARGIN_LEFT, this.y - cell_pad, CONTENT_W, lh + cell_pad * 2, "F");
+
+            this.set_text(FONT.sans, "bold", SIZE.small, HEADING_COLOR);
+            for (let c = 0; c < num_cols; c++) {
+              const text = strip_inline(token.header[c].text || "");
+              this.doc.text(text, MARGIN_LEFT + c * col_w + cell_pad, this.y + cell_pad, {
+                maxWidth: col_w - cell_pad * 2,
+              });
+            }
+            this.y += lh + cell_pad * 2;
+
+            this.doc.setDrawColor(...TABLE_BORDER);
+            this.doc.setLineWidth(0.2);
+            this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
+
+            this.set_text(FONT.sans, "normal", SIZE.small, BODY_COLOR);
+            for (let r = 0; r < token.rows.length; r++) {
+              const row = token.rows[r];
+              this.check_page_break(lh + cell_pad * 2);
+
+              if (r % 2 === 1) {
+                this.doc.setFillColor(250, 250, 250);
+                this.doc.rect(MARGIN_LEFT, this.y - cell_pad, CONTENT_W, lh + cell_pad * 2, "F");
+                this.set_text(FONT.sans, "normal", SIZE.small, BODY_COLOR);
+              }
+
+              for (let c = 0; c < num_cols; c++) {
+                const cell = row[c];
+                const text = strip_inline(cell ? cell.text || "" : "");
+                this.doc.text(text, MARGIN_LEFT + c * col_w + cell_pad, this.y + cell_pad, {
+                  maxWidth: col_w - cell_pad * 2,
+                });
+              }
+              this.y += lh + cell_pad * 2;
+
+              this.doc.setDrawColor(...TABLE_BORDER);
+              this.doc.line(MARGIN_LEFT, this.y, MARGIN_LEFT + CONTENT_W, this.y);
+            }
+            this.y += 4;
+          }
+
+          render_hr() {
+            this.y += 4;
+            this.check_page_break(4);
+            this.doc.setDrawColor(...RULE_COLOR);
+            this.doc.setLineWidth(0.3);
+            const cx = MARGIN_LEFT + CONTENT_W / 2;
+            this.doc.line(cx - 20, this.y, cx + 20, this.y);
+            this.y += 6;
+          }
+
+          render_tokens(tokens) {
+            for (const token of tokens) {
+              switch (token.type) {
+                case "heading":
+                  this.render_heading(token);
+                  break;
+                case "paragraph":
+                  this.render_paragraph(token);
+                  break;
+                case "list":
+                  this.render_list(token, 0);
+                  break;
+                case "code":
+                  this.render_code(token);
+                  break;
+                case "blockquote":
+                  this.render_blockquote(token);
+                  break;
+                case "table":
+                  this.render_table(token);
+                  break;
+                case "hr":
+                  this.render_hr();
+                  break;
+                case "space":
+                  this.y += 3;
+                  break;
+                case "html":
+                  break;
+              }
+            }
+          }
+
+          output() {
+            return this.doc.output("arraybuffer");
+          }
+        }
+
+        function collect_image_hrefs(tokens) {
+          const hrefs = new Set();
+          for (const token of tokens) {
+            if (token.type === "paragraph" && token.tokens) {
+              for (const t of token.tokens) {
+                if (t.type === "image") hrefs.add(t.href);
+              }
+            }
+          }
+          return hrefs;
+        }
+
+        async function preload_images(hrefs, note_path) {
+          const map = new Map();
+          await Promise.allSettled(
+            [...hrefs].map(async (href) => {
+              const vault_path = resolve_path(note_path, href);
+              try {
+                map.set(href, await carbide.vault.readAsset(vault_path));
+              } catch (_) {
+                try {
+                  map.set(href, await carbide.vault.readAsset(href));
+                } catch (_) {}
+              }
+            }),
+          );
+          return map;
+        }
+
+        async function prerender_mermaid(tokens) {
+          const map = new Map();
+          for (const token of tokens) {
+            if (token.type === "code" && token.lang === "mermaid" && token.text.trim()) {
+              if (map.has(token.text)) continue;
+              try {
+                const result = await carbide.render.mermaid(token.text, "default");
+                if (result && result.svg) map.set(token.text, result.svg);
+              } catch (_) {}
+            }
+          }
+          return map;
+        }
+
+        async function export_pdf() {
+          try {
+            const [markdown, info] = await Promise.all([
+              carbide.editor.getValue(),
+              carbide.editor.getInfo(),
+            ]);
+
+            if (!markdown || !markdown.trim()) {
+              carbide.ui.showNotice("No content to export");
+              return;
+            }
+
+            const cleaned = normalize_wiki_images(strip_frontmatter(markdown));
+            const tokens = marked.lexer(cleaned);
+
+            const image_hrefs = collect_image_hrefs(tokens);
+            const [image_map, mermaid_map] = await Promise.all([
+              image_hrefs.size > 0 ? preload_images(image_hrefs, info.path) : new Map(),
+              prerender_mermaid(tokens),
+            ]);
+
+            const renderer = new PdfRenderer();
+            renderer.image_map = image_map;
+            renderer.mermaid_map = mermaid_map;
+            renderer.render_tokens(tokens);
+
+            const buf = renderer.output();
+            const bytes = Array.from(new Uint8Array(buf));
+            const name = info && info.name ? info.name.replace(/\.[^.]+$/, "") : "export";
+
+            const result = await carbide.export.saveBinary(
+              bytes,
+              name + ".pdf",
+              [{ name: "PDF", extensions: ["pdf"] }],
+            );
+
+            if (result.success) {
+              carbide.ui.showNotice("PDF exported successfully");
+            }
+          } catch (err) {
+            carbide.ui.showNotice("Export failed: " + (err.message || err));
+          }
+        }
+
+        carbide.onload(async () => {
+          await carbide.commands.register({
+            id: "export-pdf",
+            label: "Export as PDF",
+            description:
+              "Export the current note as a beautifully formatted PDF with mermaid diagrams",
+            icon: "file-text",
+            keywords: ["pdf", "export", "print", "mermaid"],
+          });
+
+          window.addEventListener("message", (event) => {
+            const msg = event.data;
+            if (
+              msg &&
+              msg.method === "command.execute" &&
+              msg.params?.[0] === "md-export:export-pdf"
+            ) {
+              export_pdf();
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
