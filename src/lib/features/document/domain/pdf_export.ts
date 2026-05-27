@@ -340,6 +340,22 @@ function render_hr(ctx: PdfContext): void {
   ctx.y += 4 * MM;
 }
 
+function render_display_math(ctx: PdfContext, content: string): void {
+  ctx.y += PARAGRAPH_GAP * 0.5;
+  const lines = content.trim().split("\n");
+  for (const line of lines) {
+    ensure_space(ctx, LINE_HEIGHT);
+    ctx.doc.font(`${FONT_BODY}-italic`);
+    ctx.doc.fontSize(BODY_FONT_SIZE);
+    ctx.doc.fillColor(COLOR_BODY);
+    const w = ctx.doc.widthOfString(line);
+    const cx = left_x(ctx) + (usable_width(ctx) - w) / 2;
+    ctx.doc.text(line, cx, ctx.y, { lineBreak: false });
+    ctx.y += LINE_HEIGHT;
+  }
+  ctx.y += PARAGRAPH_GAP * 0.5;
+}
+
 function render_mermaid_image(
   ctx: PdfContext,
   entry: MermaidCacheEntry,
@@ -501,6 +517,8 @@ export function render_tokens_to_pdf(
         const lang = token.info?.trim();
         if (lang === "mermaid" && mermaid_cache?.has(token.content.trim())) {
           render_mermaid_image(ctx, mermaid_cache.get(token.content.trim())!);
+        } else if (lang === "math") {
+          render_display_math(ctx, token.content);
         } else {
           render_fence(ctx, token);
         }

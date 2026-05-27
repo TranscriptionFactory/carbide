@@ -245,6 +245,21 @@
             this.y += 2;
           }
 
+          render_display_math(expr) {
+            this.y += 2;
+            this.set_text(FONT.sans, "italic", SIZE.body, BODY_COLOR);
+            const lines = expr.trim().split("\n");
+            for (const line of lines) {
+              const lh = line_h(SIZE.body);
+              this.check_page_break(lh);
+              const w = this.doc.getTextWidth(line);
+              const cx = MARGIN_LEFT + (CONTENT_W - w) / 2;
+              this.doc.text(line, cx, this.y);
+              this.y += lh;
+            }
+            this.y += 2;
+          }
+
           render_code(token) {
             if (token.lang === "mermaid" && this.mermaid_map.has(token.text)) {
               const entry = this.mermaid_map.get(token.text);
@@ -253,6 +268,11 @@
               } else if (entry && entry.svg) {
                 this.render_mermaid_svg(entry.svg);
               }
+              return;
+            }
+
+            if (token.lang === "math") {
+              this.render_display_math(token.text);
               return;
             }
 
