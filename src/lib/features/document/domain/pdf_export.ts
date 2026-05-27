@@ -55,9 +55,21 @@ export type PdfDoc = {
   ): PdfDoc;
   addPage(): PdfDoc;
   registerFont(name: string, src: ArrayBuffer | Buffer): PdfDoc;
+  image(
+    src: string | Buffer | ArrayBuffer,
+    x: number,
+    y: number,
+    options?: { fit?: [number, number] },
+  ): PdfDoc;
   on(event: string, listener: (...args: any[]) => void): PdfDoc;
   end(): void;
   page: { width: number; height: number };
+};
+
+export type MermaidCacheEntry = {
+  data_url: string;
+  width: number;
+  height: number;
 };
 
 type PdfContext = {
@@ -328,6 +340,21 @@ function render_hr(ctx: PdfContext): void {
   ctx.y += 4 * MM;
 }
 
+function render_mermaid_image(
+  ctx: PdfContext,
+  entry: MermaidCacheEntry,
+): void {
+  const max_w = usable_width(ctx);
+  const max_h = ctx.page_height - MARGIN * 2 - 4 * MM;
+  const scale = Math.min(max_w / entry.width, max_h / entry.height, 1);
+  const w = entry.width * scale;
+  const h = entry.height * scale;
+
+  ensure_space(ctx, h + PARAGRAPH_GAP);
+  ctx.doc.image(entry.data_url, left_x(ctx), ctx.y, { fit: [w, h] });
+  ctx.y += h + PARAGRAPH_GAP;
+}
+
 function render_table(ctx: PdfContext, tokens: Token[], start: number): number {
   set_body_font(ctx.doc);
   const rows: { cells: string[]; is_header: boolean }[] = [];
@@ -417,6 +444,7 @@ export function render_tokens_to_pdf(
   doc: PdfDoc,
   title: string,
   tokens: Token[],
+  mermaid_cache?: Map<string, MermaidCacheEntry>,
 ): void {
   const ctx: PdfContext = {
     doc,
@@ -470,7 +498,12 @@ export function render_tokens_to_pdf(
       }
 
       case "fence": {
-        render_fence(ctx, token);
+        const lang = token.info?.trim();
+        if (lang === "mermaid" && mermaid_cache?.has(token.content.trim())) {
+          render_mermaid_image(ctx, mermaid_cache.get(token.content.trim())!);
+        } else {
+          render_fence(ctx, token);
+        }
         break;
       }
 
@@ -558,6 +591,51 @@ const FONT_FILES = [
   },
 ] as const;
 
+async function prerender_mermaid_blocks(
+  tokens: Token[],
+): Promise<Map<string, MermaidCacheEntry>> {
+  const cache = new Map<string, MermaidCacheEntry>();
+  const mermaid_codes: string[] = [];
+
+  for (const token of tokens) {
+    if (token.type === "fence" && token.info?.trim() === "mermaid") {
+      const code = token.content.trim();
+      if (code && !cache.has(code)) mermaid_codes.push(code);
+    }
+  }
+
+  if (mermaid_codes.length === 0) return cache;
+
+  try {
+    const mermaid = await import("mermaid");
+    const { rasterize_svg_to_png } = await import(
+      "$lib/shared/domain/svg_rasterizer"
+    );
+
+    mermaid.default.initialize({
+      startOnLoad: false,
+      theme: "default",
+      securityLevel: "strict",
+    });
+
+    for (const code of mermaid_codes) {
+      try {
+        await mermaid.default.parse(code);
+        const id = `pdf-mermaid-${String(Date.now())}-${String(cache.size)}`;
+        const { svg } = await mermaid.default.render(id, code);
+        const png = await rasterize_svg_to_png(svg);
+        cache.set(code, png);
+      } catch {
+        // skip invalid mermaid — will fall through to code block rendering
+      }
+    }
+  } catch {
+    // mermaid or rasterizer unavailable — fall through to code blocks
+  }
+
+  return cache;
+}
+
 async function load_fonts(doc: PdfDoc): Promise<void> {
   for (const { file, url, style } of FONT_FILES) {
     const res = await fetch(url);
@@ -626,8 +704,11 @@ export async function export_note_as_pdf(
       doc.on("error", reject);
     });
 
-    await load_fonts(doc);
-    render_tokens_to_pdf(doc, title, tokens);
+    const [, mermaid_cache] = await Promise.all([
+      load_fonts(doc),
+      prerender_mermaid_blocks(tokens),
+    ]);
+    render_tokens_to_pdf(doc, title, tokens, mermaid_cache);
     doc.end();
 
     await invoke("write_bytes_to_path", {
