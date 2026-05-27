@@ -98,6 +98,8 @@ export function create_test_ports(): Ports {
       discover: () => Promise.resolve([]),
       load: () => Promise.resolve(),
       unload: () => Promise.resolve(),
+      delete_plugin: () => Promise.resolve(),
+      get_bundled_ids: () => Promise.resolve([]),
       watch: () => Promise.resolve(),
       unwatch: () => Promise.resolve(),
       subscribe_plugin_changes: () => () => {},
