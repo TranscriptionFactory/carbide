@@ -119,7 +119,7 @@ pub fn user_plugins_dir(home_dir: &Path) -> PathBuf {
     home_dir.join(".carbide").join("plugins")
 }
 
-const BUNDLED_PLUGIN_IDS: &[&str] = &["smart-templates", "html-to-markdown", "slides"];
+pub const BUNDLED_PLUGIN_IDS: &[&str] = &["smart-templates", "html-to-markdown", "slides"];
 
 pub fn install_bundled_plugins(resource_dir: &Path, home_dir: &Path) -> Result<Vec<String>> {
     let user_dir = user_plugins_dir(home_dir);

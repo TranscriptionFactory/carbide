@@ -199,6 +199,11 @@ export class PluginSettingsService {
     await this.save();
   }
 
+  async remove_plugin(plugin_id: string): Promise<void> {
+    this.store.delete_entry(plugin_id);
+    await this.save();
+  }
+
   ensure_plugin_entry(plugin_id: string) {
     if (!this.store.get_entry(plugin_id)) {
       this.store.set_entry(plugin_id, {

@@ -118,6 +118,8 @@ function make_host_port() {
       discover: vi.fn().mockResolvedValue([]),
       load: vi.fn().mockResolvedValue(undefined),
       unload,
+      delete_plugin: vi.fn().mockResolvedValue(undefined),
+      get_bundled_ids: vi.fn().mockResolvedValue([]),
       watch: vi.fn().mockResolvedValue(undefined),
       unwatch: vi.fn().mockResolvedValue(undefined),
       subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),

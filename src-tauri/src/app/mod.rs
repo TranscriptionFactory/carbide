@@ -290,6 +290,8 @@ pub fn run() {
             features::plugin::plugin_write_settings,
             features::plugin::plugin_approve_permission,
             features::plugin::plugin_deny_permission,
+            features::plugin::plugin_delete,
+            features::plugin::plugin_get_bundled_ids,
             features::plugin::watcher::watch_plugins,
             features::plugin::watcher::unwatch_plugins,
             features::plugin::http_fetch::plugin_http_fetch,
