@@ -56,6 +56,19 @@
     "files": ["manifest.json", "index.html"]
   },
   {
+    "id": "md-export",
+    "name": "PDF Export",
+    "version": "0.1.0",
+    "author": "Carbide",
+    "description": "Export the current note as a beautifully formatted PDF with mermaid diagrams and LaTeX math",
+    "files": [
+      "manifest.json",
+      "index.html",
+      "vendor/marked.min.js",
+      "vendor/jspdf.umd.min.js"
+    ]
+  },
+  {
     "id": "wiki-compiler",
     "name": "Wiki Compiler",
     "version": "0.1.0",
