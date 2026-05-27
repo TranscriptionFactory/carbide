@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import {
     PRINT_STORAGE_KEY,
     extract_print_content,
@@ -13,7 +12,7 @@
     localStorage.removeItem(PRINT_STORAGE_KEY);
 
     if (!raw) {
-      void getCurrentWindow().close();
+      window.close();
       return;
     }
 
@@ -26,7 +25,7 @@
     container.innerHTML = body_html;
 
     window.onafterprint = () => {
-      void getCurrentWindow().close();
+      window.close();
     };
 
     requestAnimationFrame(() => {
