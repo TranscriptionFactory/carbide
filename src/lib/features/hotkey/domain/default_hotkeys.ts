@@ -291,11 +291,11 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
-    action_id: ACTION_IDS.document_export_pdf,
+    action_id: ACTION_IDS.document_print_pdf,
     key: "CmdOrCtrl+Shift+E",
     phase: "capture",
     label: "Export as PDF",
-    description: "Export the current note as a PDF file",
+    description: "Export the current note as a PDF with rendered diagrams",
     category: "editing",
   },
   {

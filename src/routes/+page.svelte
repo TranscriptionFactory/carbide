@@ -9,6 +9,7 @@
   import { parse_window_init } from "$lib/features/window";
   import { to_editor_slash_commands } from "$lib/features/plugin";
   import { resolve_inline_commands } from "$lib/features/ai";
+  import { PrintShell } from "$lib/features/document";
 
   const url_params = new URLSearchParams(window.location.search);
   const vault_path_param = url_params.get("vault_path");
@@ -27,7 +28,7 @@
         ? as_vault_path(vault_path_param)
         : null,
       open_file_after_mount: file_path_param,
-      window_kind: window_init.kind,
+      window_kind: window_init.kind === "print" ? "main" : window_init.kind,
     },
   });
 
@@ -78,7 +79,9 @@
   });
 </script>
 
-{#if window_init.kind === "viewer"}
+{#if window_init.kind === "print"}
+  <PrintShell />
+{:else if window_init.kind === "viewer"}
   <ViewerShell />
 {:else}
   <AppShell />

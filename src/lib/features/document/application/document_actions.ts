@@ -4,6 +4,7 @@ import type { DocumentService } from "$lib/features/document/application/documen
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
 import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
+import { render_note_for_print } from "$lib/features/document/domain/print_render";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -113,7 +114,7 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_export_pdf,
-    label: "Export as PDF",
+    label: "Export as PDF (Text Only)",
     execute: async () => {
       const active_tab = stores.tab.active_tab;
       if (!active_tab || active_tab.kind !== "note") return;
@@ -121,6 +122,28 @@ export function register_document_actions(
       if (!open_note) return;
       const title = open_note.meta.title || open_note.meta.name;
       await export_note_as_pdf(title, open_note.markdown);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_print_pdf,
+    label: "Export as PDF",
+    execute: async () => {
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "note") return;
+      const open_note = stores.editor.open_note;
+      if (!open_note) return;
+      const title = open_note.meta.title || open_note.meta.name;
+      const html = await render_note_for_print(title, open_note.markdown);
+      localStorage.setItem("carbide:print_data", html);
+
+      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      new WebviewWindow("print", {
+        url: "/?window_kind=print",
+        title: "Print Preview",
+        width: 800,
+        height: 600,
+      });
     },
   });
 }

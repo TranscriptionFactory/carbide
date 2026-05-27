@@ -44,7 +44,7 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .accelerator("CmdOrCtrl+S")
         .build(app)?;
     let export_pdf = MenuItemBuilder::new("Export as PDF")
-        .id("document.export_pdf")
+        .id("document.print_pdf")
         .accelerator("CmdOrCtrl+Shift+E")
         .build(app)?;
     let close_tab = MenuItemBuilder::new("Close Tab")
