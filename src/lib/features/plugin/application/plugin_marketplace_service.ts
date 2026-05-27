@@ -73,7 +73,7 @@ export class PluginMarketplaceService {
         description: entry.description,
         files: entry.files.map((filename) => ({
           filename,
-          download_url: derive_file_url(repo_url, entry.id, filename),
+          downloadUrl: derive_file_url(repo_url, entry.id, filename),
         })),
       }));
 
