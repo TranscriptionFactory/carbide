@@ -35,6 +35,17 @@ export function register_plugin_actions(
   });
 
   input.registry.register({
+    id: ACTION_IDS.plugin_marketplace_update,
+    label: "Update Marketplace Plugin",
+    execute: async (plugin_id: unknown) => {
+      const id = plugin_id as string;
+      await marketplace_service.install(id);
+      await _service.discover();
+      await _service.reload_plugin(id);
+    },
+  });
+
+  input.registry.register({
     id: ACTION_IDS.plugin_marketplace_save_url,
     label: "Save Marketplace URL",
     execute: (url: unknown) => marketplace_service.save_url(url as string),

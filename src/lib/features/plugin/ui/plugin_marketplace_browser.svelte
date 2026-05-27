@@ -2,7 +2,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { Button } from "$lib/components/ui/button";
-  import { Download, Loader2, Check, Pencil } from "@lucide/svelte";
+  import { Download, Loader2, Check, Pencil, ArrowUpCircle } from "@lucide/svelte";
   import { onMount } from "svelte";
 
   const { stores, action_registry } = use_app_context();
@@ -12,9 +12,21 @@
 
   const listings = $derived(stores.plugin_marketplace.listings);
   const is_loading = $derived(stores.op.is_pending("plugin.marketplace_fetch"));
-  const installed_ids = $derived(
-    new Set(Array.from(stores.plugin.plugins.keys())),
+  const installed_versions = $derived(
+    new Map(
+      Array.from(stores.plugin.plugins.entries()).map(([id, p]) => [
+        id,
+        p.manifest.version,
+      ]),
+    ),
   );
+  const installed_ids = $derived(new Set(installed_versions.keys()));
+
+  function has_update(listing_id: string, listing_version: string): boolean {
+    const installed = installed_versions.get(listing_id);
+    if (!installed) return false;
+    return listing_version > installed;
+  }
 
   function is_installing(id: string): boolean {
     return stores.op.is_pending(`plugin.marketplace_install:${id}`);
@@ -26,6 +38,10 @@
 
   async function install_plugin(id: string) {
     await action_registry.execute(ACTION_IDS.plugin_marketplace_install, id);
+  }
+
+  async function update_plugin(id: string) {
+    await action_registry.execute(ACTION_IDS.plugin_marketplace_update, id);
   }
 
   function start_edit_url() {
@@ -108,6 +124,7 @@
     <div class="space-y-3">
       {#each listings as listing (listing.id)}
         {@const installed = installed_ids.has(listing.id)}
+        {@const updatable = has_update(listing.id, listing.version)}
         {@const installing = is_installing(listing.id)}
         <div class="flex flex-col p-3 border rounded-lg bg-card">
           <div class="flex items-start justify-between gap-2">
@@ -118,7 +135,22 @@
               </p>
             </div>
             <div class="flex-shrink-0">
-              {#if installed}
+              {#if installed && updatable}
+                <Button
+                  variant="default"
+                  size="sm"
+                  class="h-7 text-xs"
+                  onclick={() => update_plugin(listing.id)}
+                  disabled={installing}
+                >
+                  {#if installing}
+                    <Loader2 class="w-3 h-3 animate-spin mr-1" />
+                  {:else}
+                    <ArrowUpCircle class="w-3 h-3 mr-1" />
+                  {/if}
+                  Update
+                </Button>
+              {:else if installed}
                 <Button
                   variant="outline"
                   size="sm"
