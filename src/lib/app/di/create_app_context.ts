@@ -36,6 +36,7 @@ import {
 import {
   DocumentService,
   register_document_actions,
+  create_pdf_export_tauri_adapter,
 } from "$lib/features/document";
 import {
   GraphService,
@@ -733,6 +734,8 @@ export function create_app_context(input: {
     stores.vault,
     stores.document,
     now_ms,
+    undefined,
+    create_pdf_export_tauri_adapter(),
   );
 
   const terminal_service = new TerminalService(

@@ -3,7 +3,6 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { DocumentService } from "$lib/features/document/application/document_service";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
-import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -120,7 +119,7 @@ export function register_document_actions(
       const open_note = stores.editor.open_note;
       if (!open_note) return;
       const title = open_note.meta.title || open_note.meta.name;
-      await export_note_as_pdf(title, open_note.markdown);
+      await document_service.export_note_pdf(title, open_note.markdown);
     },
   });
 }
