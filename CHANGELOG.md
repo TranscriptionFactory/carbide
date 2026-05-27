@@ -1,5 +1,11 @@
 # carbide
 
+## 1.43.1
+
+### Patch Changes
+
+- b98b7b9: Fix markdown links with alt text (e.g. `[text](path/to/note.md)`) resolving incorrectly in nested folders. They were using vault-global lookup like wikilinks instead of resolving relative to the current file per standard markdown semantics.
+
 ## 1.43.0
 
 ### Minor Changes
