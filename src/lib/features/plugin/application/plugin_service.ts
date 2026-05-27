@@ -344,6 +344,20 @@ export class PluginService {
     this.clear_plugin_contributions(id);
   }
 
+  async get_bundled_ids(): Promise<string[]> {
+    return this.host_port.get_bundled_ids();
+  }
+
+  async uninstall_plugin(id: string) {
+    const plugin = this.store.plugins.get(id);
+    if (plugin && plugin.status === "active") {
+      await this.unload_plugin(id);
+    }
+    await this.host_port.delete_plugin(id);
+    this.store.plugins.delete(id);
+    await this.settings_service?.remove_plugin(id);
+  }
+
   async reload_plugin(id: string) {
     const plugin = this.store.plugins.get(id);
     const vault_path = this.vault_store.vault?.path;

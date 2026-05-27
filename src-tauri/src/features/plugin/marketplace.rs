@@ -24,7 +24,7 @@ fn validate_github_raw_url(url: &str) -> Result<(), String> {
     }
 }
 
-fn validate_path_segment(segment: &str) -> Result<(), String> {
+pub fn validate_path_segment(segment: &str) -> Result<(), String> {
     if segment.is_empty() {
         return Err("Plugin ID cannot be empty".to_string());
     }

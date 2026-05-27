@@ -21,6 +21,8 @@ function create_mock_host(): PluginHostPort {
     discover: vi.fn().mockResolvedValue([] as DiscoveredPlugin[]),
     load: vi.fn().mockResolvedValue(undefined),
     unload: vi.fn().mockResolvedValue(undefined),
+    delete_plugin: vi.fn().mockResolvedValue(undefined),
+    get_bundled_ids: vi.fn().mockResolvedValue([]),
     watch: vi.fn().mockResolvedValue(undefined),
     unwatch: vi.fn().mockResolvedValue(undefined),
     subscribe_plugin_changes: vi.fn().mockReturnValue(() => {}),

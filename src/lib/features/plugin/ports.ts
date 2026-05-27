@@ -125,6 +125,8 @@ export interface PluginHostPort {
   discover(this: void, vault_path: string): Promise<DiscoveredPlugin[]>;
   load(this: void, vault_path: string, id: string): Promise<void>;
   unload(this: void, id: string): Promise<void>;
+  delete_plugin(this: void, id: string): Promise<void>;
+  get_bundled_ids(this: void): Promise<string[]>;
   watch(this: void, vault_path: string): Promise<void>;
   unwatch(this: void): Promise<void>;
   subscribe_plugin_changes(
