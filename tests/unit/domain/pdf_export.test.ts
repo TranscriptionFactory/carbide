@@ -7,7 +7,10 @@ import {
   split_text_to_width,
   export_note_as_pdf,
 } from "$lib/features/document/domain/pdf_export";
-import type { PdfDoc } from "$lib/features/document/domain/pdf_export";
+import type {
+  PdfDoc,
+  MermaidCacheEntry,
+} from "$lib/features/document/domain/pdf_export";
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 
 const A4_WIDTH = 595.28;
@@ -29,6 +32,7 @@ function create_mock_doc(): PdfDoc & {
   stroke: ReturnType<typeof vi.fn>;
   fillAndStroke: ReturnType<typeof vi.fn>;
   addPage: ReturnType<typeof vi.fn>;
+  image: ReturnType<typeof vi.fn>;
   registerFont: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
   end: ReturnType<typeof vi.fn>;
@@ -88,6 +92,10 @@ function create_mock_doc(): PdfDoc & {
   });
   self.addPage = vi.fn(() => {
     calls.push({ method: "addPage", args: [] });
+    return self;
+  });
+  self.image = vi.fn((...args: unknown[]) => {
+    calls.push({ method: "image", args });
     return self;
   });
   self.registerFont = vi.fn();
@@ -421,6 +429,54 @@ describe("render_tokens_to_pdf", () => {
     expect(courier_before).toBeGreaterThanOrEqual(0);
   });
 
+  it("draws h1 underline at ctx.y, not offset above text", () => {
+    render_tokens_to_pdf(doc, "T", parse("# Heading"));
+    const move_calls = doc.moveTo.mock.calls;
+    const line_calls = doc.lineTo.mock.calls;
+    const MM = 2.8346;
+    for (let i = 0; i < move_calls.length; i++) {
+      const move_y = move_calls[i]![1] as number;
+      const line_y = line_calls[i]![1] as number;
+      expect(move_y).toBe(line_y);
+      expect(move_y % (2 * MM)).not.toBeCloseTo(0, 1);
+    }
+  });
+
+  it("renders mermaid fence as image when cache entry exists", () => {
+    const cache = new Map<string, MermaidCacheEntry>();
+    cache.set("graph TD\n  A-->B", {
+      data_url: "data:image/png;base64,abc",
+      width: 200,
+      height: 100,
+    });
+    render_tokens_to_pdf(
+      doc,
+      "T",
+      parse("```mermaid\ngraph TD\n  A-->B\n```"),
+      cache,
+    );
+    expect(doc.image).toHaveBeenCalledWith(
+      "data:image/png;base64,abc",
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({ fit: expect.any(Array) }),
+    );
+    expect(all_text(doc)).not.toContain("graph TD");
+  });
+
+  it("falls back to code block for mermaid fence without cache", () => {
+    render_tokens_to_pdf(doc, "T", parse("```mermaid\ngraph TD\n  A-->B\n```"));
+    expect(doc.image).not.toHaveBeenCalled();
+    expect(all_text(doc)).toContain("graph TD");
+  });
+
+  it("renders math fence as centered italic text", () => {
+    render_tokens_to_pdf(doc, "T", parse("```math\nE = mc^2\n```"));
+    expect(all_text(doc)).toContain("E = mc^2");
+    expect(font_calls(doc)).toContain("Inter-italic");
+    expect(doc.fillAndStroke).not.toHaveBeenCalled();
+  });
+
   it("sets body font before split_text_to_width in tables", () => {
     const call_order: string[] = [];
     doc.font = vi.fn((...args: unknown[]) => {
@@ -505,6 +561,7 @@ describe("export_note_as_pdf", () => {
           stroke: vi.fn().mockReturnThis(),
           fillAndStroke: vi.fn().mockReturnThis(),
           addPage: vi.fn().mockReturnThis(),
+          image: vi.fn().mockReturnThis(),
           registerFont: vi.fn(),
           on: vi.fn((event: string, cb: Function) => {
             (listeners[event] ??= []).push(cb);
