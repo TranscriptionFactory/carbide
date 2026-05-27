@@ -170,13 +170,98 @@ unsafe fn write_macos_pdf(
     Err("createPDF returned neither data nor error".into())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 fn capture_platform(
-    _platform: tauri::webview::PlatformWebview,
-    _save_path: String,
+    platform: tauri::webview::PlatformWebview,
+    save_path: String,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
-    let _ = tx.send(Err(
-        "PDF export is not yet implemented on this platform".into()
-    ));
+    use std::sync::{Arc, Mutex as StdMutex};
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_7;
+    use webview2_com::PrintToPdfCompletedHandler;
+    use windows::core::{Interface, HSTRING};
+
+    let sender = Arc::new(StdMutex::new(Some(tx)));
+
+    let result: Result<(), String> = (|| {
+        let controller = platform.controller();
+        let webview2 = unsafe { controller.CoreWebView2() }
+            .map_err(|e| format!("CoreWebView2() failed: {e}"))?;
+        let webview7 = webview2
+            .cast::<ICoreWebView2_7>()
+            .map_err(|e| format!("cast to ICoreWebView2_7 failed: {e}"))?;
+
+        let path_hstring = HSTRING::from(&save_path);
+        let sender_cb = Arc::clone(&sender);
+
+        let handler = PrintToPdfCompletedHandler::create(Box::new(move |error_code, is_successful| {
+            let result = if error_code.is_ok() && is_successful.as_bool() {
+                Ok(())
+            } else if error_code.is_err() {
+                Err(format!("PrintToPdf failed: {:?}", error_code))
+            } else {
+                Err("PrintToPdf reported failure (isSuccessful = false)".into())
+            };
+            if let Ok(mut guard) = sender_cb.lock() {
+                if let Some(tx) = guard.take() {
+                    let _ = tx.send(result);
+                }
+            }
+            Ok(())
+        }));
+
+        unsafe { webview7.PrintToPdf(&path_hstring, None, &handler) }
+            .map_err(|e| format!("PrintToPdf call failed: {e}"))
+    })();
+
+    if let Err(err) = result {
+        if let Ok(mut guard) = sender.lock() {
+            if let Some(tx) = guard.take() {
+                let _ = tx.send(Err(err));
+            }
+        }
+    }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn capture_platform(
+    platform: tauri::webview::PlatformWebview,
+    save_path: String,
+    tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+) {
+    use gtk::prelude::PrintSettingsExt;
+    use std::sync::{Arc, Mutex as StdMutex};
+    use webkit2gtk::prelude::PrintOperationExt;
+
+    let wv = platform.inner();
+    let operation = webkit2gtk::PrintOperation::new(&wv);
+
+    let settings = gtk::PrintSettings::new();
+    let file_uri = format!("file://{save_path}");
+    settings.set("output-uri", Some(&file_uri));
+    settings.set("output-file-format", Some("pdf"));
+    operation.set_print_settings(&settings);
+
+    let sender = Arc::new(StdMutex::new(Some(tx)));
+
+    let sender_finished = Arc::clone(&sender);
+    operation.connect_finished(move |_op| {
+        if let Ok(mut guard) = sender_finished.lock() {
+            if let Some(tx) = guard.take() {
+                let _ = tx.send(Ok(()));
+            }
+        }
+    });
+
+    let sender_failed = Arc::clone(&sender);
+    operation.connect_failed(move |_op, error| {
+        let msg = error.message().to_owned();
+        if let Ok(mut guard) = sender_failed.lock() {
+            if let Some(tx) = guard.take() {
+                let _ = tx.send(Err(format!("WebKitPrintOperation failed: {msg}")));
+            }
+        }
+    });
+
+    operation.print();
 }

@@ -867,6 +867,7 @@ dependencies = [
  "fuzzy-matcher",
  "git2",
  "glob",
+ "gtk",
  "hex",
  "hf-hub",
  "hnsw_rs",
@@ -911,6 +912,10 @@ dependencies = [
  "tower-http",
  "url",
  "walkdir",
+ "webkit2gtk",
+ "webview2-com",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
  "zip 2.4.2",
 ]
 
