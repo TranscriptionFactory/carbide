@@ -90,6 +90,15 @@ candle-core = { version = "0.9", default-features = false, features = ["accelera
 candle-nn = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 candle-transformers = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 
+[target.'cfg(windows)'.dependencies]
+webview2-com = "=0.38.2"
+windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
+windows-core = "=0.61.2"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
+gtk = "=0.18.2"
+
 [dev-dependencies]
 filetime = "0.2"
 
