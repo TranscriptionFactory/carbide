@@ -1,12 +1,23 @@
-import MarkdownIt from "markdown-it";
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
+import { create_md } from "$lib/features/document/domain/pdf_export";
 
-function create_print_md(): MarkdownIt {
-  return new MarkdownIt({
-    html: false,
-    linkify: true,
-    typographer: false,
-  }).enable(["table", "strikethrough"]);
+export const PRINT_STORAGE_KEY = "carbide:print_data";
+
+const md = create_md();
+
+let mermaid_instance: (typeof import("mermaid"))["default"] | null = null;
+
+async function get_mermaid() {
+  if (!mermaid_instance) {
+    const m = await import("mermaid");
+    m.default.initialize({
+      startOnLoad: false,
+      theme: "default",
+      securityLevel: "loose",
+    });
+    mermaid_instance = m.default;
+  }
+  return mermaid_instance;
 }
 
 const PRINT_STYLES = `
@@ -80,7 +91,6 @@ export async function render_note_for_print(
   title: string,
   markdown: string,
 ): Promise<string> {
-  const md = create_print_md();
   const body = parse_frontmatter(markdown).body;
   let html = md.render(body);
 
@@ -106,33 +116,33 @@ async function render_mermaid_blocks(html: string): Promise<string> {
   const matches = [...html.matchAll(mermaid_regex)];
   if (matches.length === 0) return html;
 
-  const mermaid = await import("mermaid");
-  mermaid.default.initialize({
-    startOnLoad: false,
-    theme: "default",
-    securityLevel: "loose",
-  });
+  const mermaid = await get_mermaid();
 
-  let result = html;
-  for (let i = matches.length - 1; i >= 0; i--) {
+  const rendered: (string | null)[] = await Promise.all(
+    matches.map(async (match, i) => {
+      const diagram_source = decode_html_entities(match[1]!);
+      try {
+        const { svg } = await mermaid.render(
+          `mermaid-print-${i}`,
+          diagram_source,
+        );
+        return `<div class="mermaid-svg">${svg}</div>`;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const parts: string[] = [];
+  let cursor = 0;
+  for (let i = 0; i < matches.length; i++) {
     const match = matches[i]!;
-    const diagram_source = decode_html_entities(match[1]!);
-    try {
-      const { svg } = await mermaid.default.render(
-        `mermaid-print-${i}`,
-        diagram_source,
-      );
-      const replacement = `<div class="mermaid-svg">${svg}</div>`;
-      result =
-        result.slice(0, match.index) +
-        replacement +
-        result.slice(match.index! + match[0].length);
-    } catch {
-      // Leave the code block as-is if mermaid fails to render
-    }
+    parts.push(html.slice(cursor, match.index));
+    parts.push(rendered[i] ?? match[0]);
+    cursor = match.index! + match[0].length;
   }
-
-  return result;
+  parts.push(html.slice(cursor));
+  return parts.join("");
 }
 
 function decode_html_entities(str: string): string {

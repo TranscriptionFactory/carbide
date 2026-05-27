@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
-
-  const STORAGE_KEY = "carbide:print_data";
+  import { PRINT_STORAGE_KEY } from "$lib/features/document/domain/print_render";
 
   onMount(() => {
-    const html = localStorage.getItem(STORAGE_KEY);
-    localStorage.removeItem(STORAGE_KEY);
+    const html = localStorage.getItem(PRINT_STORAGE_KEY);
+    localStorage.removeItem(PRINT_STORAGE_KEY);
 
     if (!html) {
       void getCurrentWindow().close();
@@ -17,11 +16,12 @@
     document.write(html);
     document.close();
 
+    window.onafterprint = () => {
+      void getCurrentWindow().close();
+    };
+
     requestAnimationFrame(() => {
       window.print();
-      setTimeout(() => {
-        void getCurrentWindow().close();
-      }, 500);
     });
   });
 </script>
