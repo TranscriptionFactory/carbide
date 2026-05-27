@@ -578,74 +578,7 @@
           return map;
         }
 
-        async function export_pdf() {
-          try {
-            const [markdown, info] = await Promise.all([
-              carbide.editor.getValue(),
-              carbide.editor.getInfo(),
-            ]);
-
-            if (!markdown || !markdown.trim()) {
-              carbide.ui.showNotice("No content to export");
-              return;
-            }
-
-            const cleaned = normalize_wiki_images(strip_frontmatter(markdown));
-            const tokens = marked.lexer(cleaned);
-
-            const image_hrefs = collect_image_hrefs(tokens);
-            const [image_map, mermaid_map] = await Promise.all([
-              image_hrefs.size > 0
-                ? preload_images(image_hrefs, info.path)
-                : new Map(),
-              prerender_mermaid(tokens),
-            ]);
-
-            const renderer = new PdfRenderer();
-            renderer.image_map = image_map;
-            renderer.mermaid_map = mermaid_map;
-            renderer.render_tokens(tokens);
-
-            const buf = renderer.output();
-            const bytes = Array.from(new Uint8Array(buf));
-            const name =
-              info && info.name ? info.name.replace(/\.[^.]+$/, "") : "export";
-
-            const result = await carbide.export.saveBinary(
-              bytes,
-              name + ".pdf",
-              [{ name: "PDF", extensions: ["pdf"] }],
-            );
-
-            if (result.success) {
-              carbide.ui.showNotice("PDF exported successfully");
-            }
-          } catch (err) {
-            carbide.ui.showNotice("Export failed: " + (err.message || err));
-          }
-        }
-
-        carbide.onload(async () => {
-          await carbide.commands.register({
-            id: "export-pdf",
-            label: "Export as PDF",
-            description:
-              "Export the current note as a beautifully formatted PDF with mermaid diagrams",
-            icon: "file-text",
-            keywords: ["pdf", "export", "print", "mermaid"],
-          });
-
-          window.addEventListener("message", (event) => {
-            const msg = event.data;
-            if (
-              msg &&
-              msg.method === "command.execute" &&
-              msg.params?.[0] === "md-export:export-pdf"
-            ) {
-              export_pdf();
-            }
-          });
-        });
+        carbide.onload(async () => {});
       })();
     </script>
   </body>

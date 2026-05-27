@@ -1,8 +1,9 @@
-import type { DocumentPort } from "$lib/features/document/ports";
+import type { DocumentPort, PdfExportPort } from "$lib/features/document/ports";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentContentState } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentFileType } from "$lib/features/document/types/document";
 import type { VaultStore } from "$lib/features/vault";
+import { render_note_to_html } from "$lib/features/document/domain/note_html";
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
@@ -17,6 +18,7 @@ export class DocumentService {
     private readonly document_store: DocumentStore,
     private readonly now_ms: () => number = () => Date.now(),
     private readonly inactive_content_limit = DEFAULT_INACTIVE_CONTENT_LIMIT,
+    private readonly pdf_export_port?: PdfExportPort,
   ) {
     this.document_store.set_inactive_content_limit(inactive_content_limit);
   }
@@ -157,6 +159,14 @@ export class DocumentService {
       content,
     );
     this.document_store.mark_clean(tab_id, content);
+  }
+
+  async export_note_pdf(title: string, markdown: string): Promise<void> {
+    if (!this.pdf_export_port) return;
+    const path = await this.pdf_export_port.pick_pdf_save_path(title);
+    if (path === null) return;
+    const html = await render_note_to_html(title, markdown);
+    await this.pdf_export_port.export_html_to_pdf(html, path);
   }
 
   close_document(tab_id: string): void {
