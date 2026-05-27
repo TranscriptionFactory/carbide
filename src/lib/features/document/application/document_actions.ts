@@ -4,10 +4,7 @@ import type { DocumentService } from "$lib/features/document/application/documen
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
 import { export_note_as_pdf } from "$lib/features/document/domain/pdf_export";
-import {
-  render_note_for_print,
-  PRINT_STORAGE_KEY,
-} from "$lib/features/document/domain/print_render";
+import { print_note_via_iframe } from "$lib/features/document/domain/print_render";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -142,16 +139,7 @@ export function register_document_actions(
     execute: async () => {
       const note = get_active_note(stores);
       if (!note) return;
-      const html = await render_note_for_print(note.title, note.markdown);
-      localStorage.setItem(PRINT_STORAGE_KEY, html);
-
-      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      new WebviewWindow("print", {
-        url: "/?window_kind=print",
-        title: "Print Preview",
-        width: 800,
-        height: 600,
-      });
+      await print_note_via_iframe(note.title, note.markdown);
     },
   });
 }

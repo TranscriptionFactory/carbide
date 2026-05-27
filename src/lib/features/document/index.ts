@@ -12,4 +12,3 @@ export { create_document_tauri_adapter } from "$lib/features/document/adapters/d
 export { DocumentService } from "$lib/features/document/application/document_service";
 export { register_document_actions } from "$lib/features/document/application/document_actions";
 export { default as DocumentViewer } from "$lib/features/document/ui/document_viewer.svelte";
-export { default as PrintShell } from "$lib/features/document/adapters/print_shell.svelte";
