@@ -26,7 +26,13 @@ export type {
   EditorSelectionSnapshot,
 } from "$lib/shared/types/editor";
 export { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
-export { load_shiki_theme } from "$lib/features/editor/adapters/shiki_highlighter";
+export {
+  load_shiki_theme,
+  init_highlighter,
+  get_highlighter_sync,
+  resolve_language,
+  DEFAULT_LIGHT_THEME,
+} from "$lib/features/editor/adapters/shiki_highlighter";
 export { resolve_source_shiki_vars } from "$lib/features/editor/adapters/shiki_source_theme";
 export {
   MARKDOWN_HARD_BREAK,
