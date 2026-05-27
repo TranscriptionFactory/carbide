@@ -34,6 +34,19 @@ pub fn validate_path_segment(segment: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_plugin_filename(filename: &str) -> Result<(), String> {
+    if filename.is_empty() {
+        return Err("Filename cannot be empty".to_string());
+    }
+    if filename.contains('\\') || filename.contains("..") {
+        return Err(format!("Invalid plugin filename: {filename}"));
+    }
+    if filename.starts_with('/') {
+        return Err(format!("Invalid plugin filename: {filename}"));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn marketplace_fetch_index(url: String) -> Result<String, String> {
     validate_github_raw_url(&url)?;
@@ -68,7 +81,7 @@ pub async fn marketplace_install_plugin(
 
     for file in &files {
         validate_github_raw_url(&file.download_url)?;
-        validate_path_segment(&file.filename)?;
+        validate_plugin_filename(&file.filename)?;
 
         let request = PluginHttpRequest {
             url: file.download_url.clone(),
@@ -86,6 +99,10 @@ pub async fn marketplace_install_plugin(
         }
 
         let file_path = plugin_dir.join(&file.filename);
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory for {}: {e}", file.filename))?;
+        }
         std::fs::write(&file_path, response.body.as_bytes())
             .map_err(|e| format!("Failed to write {}: {e}", file.filename))?;
     }
