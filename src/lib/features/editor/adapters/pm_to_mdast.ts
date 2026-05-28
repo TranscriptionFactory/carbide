@@ -318,10 +318,15 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
           ? (node.attrs["caption"] as string) || ""
           : "");
       return {
-        type: "image",
-        url: (node.attrs["src"] as string) || "",
-        alt,
-        title: (node.attrs["title"] as string) || null,
+        type: "paragraph",
+        children: [
+          {
+            type: "image",
+            url: (node.attrs["src"] as string) || "",
+            alt,
+            title: (node.attrs["title"] as string) || null,
+          },
+        ],
       };
     }
 
