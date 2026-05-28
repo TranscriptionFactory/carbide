@@ -158,4 +158,39 @@ describe("inline code input rule (`text`)", () => {
     const result = trigger_input_rule("``hello`", "`");
     expect(result).toBeNull();
   });
+
+  it("clears stored code_inline mark so subsequent typing is plain text", () => {
+    const result = trigger_input_rule("`hello", "`");
+    expect(result).not.toBeNull();
+    const stored = result!.storedMarks;
+    expect(
+      stored?.some((m) => m.type.name === "code_inline") ?? false,
+    ).toBe(false);
+    const next = result!.apply(result!.tr.insertText("x"));
+    const last_text = next.doc.firstChild!.lastChild!;
+    expect(last_text.text!.endsWith("x")).toBe(true);
+    expect(last_text.marks.some((m) => m.type.name === "code_inline")).toBe(
+      false,
+    );
+  });
+});
+
+describe("stored mark cleared after input rule fires", () => {
+  it("bold rule does not carry strong to next character", () => {
+    const result = trigger_input_rule("**hello*", "*");
+    expect(result).not.toBeNull();
+    const next = result!.apply(result!.tr.insertText("x"));
+    const last_text = next.doc.firstChild!.lastChild!;
+    expect(last_text.text!.endsWith("x")).toBe(true);
+    expect(last_text.marks.some((m) => m.type.name === "strong")).toBe(false);
+  });
+
+  it("italic rule does not carry em to next character", () => {
+    const result = trigger_input_rule("*hello", "*");
+    expect(result).not.toBeNull();
+    const next = result!.apply(result!.tr.insertText("x"));
+    const last_text = next.doc.firstChild!.lastChild!;
+    expect(last_text.text!.endsWith("x")).toBe(true);
+    expect(last_text.marks.some((m) => m.type.name === "em")).toBe(false);
+  });
 });
