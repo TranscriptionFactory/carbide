@@ -278,7 +278,7 @@ fn capture_platform(
         let sender_cb = Arc::clone(&sender);
 
         let handler = PrintToPdfCompletedHandler::create(Box::new(move |error_code, is_successful| {
-            let result = if error_code.is_ok() && is_successful.as_bool() {
+            let result = if error_code.is_ok() && is_successful {
                 Ok(())
             } else if error_code.is_err() {
                 Err(format!("PrintToPdf failed: {:?}", error_code))
@@ -312,9 +312,8 @@ fn capture_platform(
     save_path: String,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
-    use gtk::prelude::PrintSettingsExt;
     use std::sync::{Arc, Mutex as StdMutex};
-    use webkit2gtk::prelude::PrintOperationExt;
+    use webkit2gtk::PrintOperationExt;
 
     let wv = platform.inner();
     let operation = webkit2gtk::PrintOperation::new(&wv);
