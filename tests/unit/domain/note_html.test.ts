@@ -88,4 +88,67 @@ describe("render_note_to_html", () => {
     expect(html).toContain(".katex");
     expect(html).toContain("@page");
   });
+
+  describe("image rendering", () => {
+    it("resolves canonical image src via the resolver and inlines as data URI", async () => {
+      const calls: Array<{ src: string; kind: string }> = [];
+      const html = await render_note_to_html("Note", "![alt](pic.png)", {
+        image_resolver: async (src, kind) => {
+          calls.push({ src, kind });
+          return "data:image/png;base64,AAA";
+        },
+      });
+      expect(calls).toEqual([{ src: "pic.png", kind: "canonical" }]);
+      expect(html).toContain('src="data:image/png;base64,AAA"');
+      expect(html).toContain('alt="alt"');
+    });
+
+    it("rewrites wiki-embed images to canonical syntax and passes wiki kind", async () => {
+      const calls: Array<{ src: string; kind: string }> = [];
+      const html = await render_note_to_html("Note", "![[banner.jpg]]", {
+        image_resolver: async (src, kind) => {
+          calls.push({ src, kind });
+          return "data:image/jpeg;base64,BBB";
+        },
+      });
+      expect(calls).toEqual([{ src: "banner.jpg", kind: "wiki" }]);
+      expect(html).toContain('src="data:image/jpeg;base64,BBB"');
+    });
+
+    it("leaves non-image wiki embeds untouched", async () => {
+      const calls: string[] = [];
+      const html = await render_note_to_html("Note", "![[doc.pdf]]", {
+        image_resolver: async (src) => {
+          calls.push(src);
+          return "data:application/pdf;base64,XYZ";
+        },
+      });
+      expect(calls).toEqual([]);
+      expect(html).not.toContain("data:application/pdf");
+    });
+
+    it("renders a placeholder when the resolver returns null", async () => {
+      const html = await render_note_to_html("Note", "![missing](gone.png)", {
+        image_resolver: async () => null,
+      });
+      expect(html).toContain('class="image-missing"');
+      expect(html).toContain("missing");
+      expect(html).not.toContain('src="gone.png"');
+    });
+
+    it("renders a placeholder when the resolver throws", async () => {
+      const html = await render_note_to_html("Note", "![x](broken.png)", {
+        image_resolver: async () => {
+          throw new Error("nope");
+        },
+      });
+      expect(html).toContain('class="image-missing"');
+    });
+
+    it("renders a placeholder when no resolver is provided", async () => {
+      const html = await render_note_to_html("Note", "![alt](pic.png)");
+      expect(html).toContain('class="image-missing"');
+      expect(html).not.toContain('src="pic.png"');
+    });
+  });
 });
