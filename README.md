@@ -6,7 +6,7 @@
 
 > **Fork of [Otterly](https://github.com/ajkdrag/otterly)** — Carbide extends Otterly with a redesigned UI, deeper search/query workflows, language intelligence, source control, AI, and an extensible plugin/MCP platform.
 
-Carbide is a local-first Markdown workbench built with [Tauri 2](https://tauri.app/), [Svelte 5](https://svelte.dev/), TypeScript, and Rust. Notes live as plain files in vault folders, while Carbide layers rich editing, hybrid search, graph exploration, task views, references, language-server features, Git checkpoints, AI assistance, and plugin/MCP integrations on top.
+Carbide is a local-first Markdown workbench for notes, documents, tasks, references, graphs, and plugin-assisted workflows. Vaults are ordinary folders on disk; Carbide adds editing, search, links, Git history, document export, AI tooling, and MCP/plugin integrations around those files.
 
 ### Why "Carbide"?
 
@@ -15,15 +15,15 @@ Before modern flashlights, coal miners dropped **calcium carbide** into water to
 ## What it does
 
 - **Local-first Markdown vaults**: Vaults are folders on disk. Notes, canvases, query files, settings, indexes, references, plugins, and generated metadata remain inspectable and portable.
-- **Rich Markdown editing**: Visual/source editing, syntax highlighting, wikilinks, embeds, folding, outline navigation, find/replace, PDF export, image handling, and document viewing.
-- **Search, queries, and databases**: Hybrid FTS + semantic search, an omnibar, inline `@` palette, composable note queries, search graph, Bases metadata views, and task-specific queries.
-- **Graph and relationship views**: Full-vault graph, neighborhood graph, search graph, backlinks/outlinks, semantic connections, smart-link edges, and hierarchy views.
-- **Language intelligence**: General LSP infrastructure for Markdown and code, with diagnostics, hovers, code actions, completion, rename/definition support, and managed Markdown tooling.
-- **Tasks and planning**: Markdown-native tasks with list, kanban, schedule, query, grouping, sorting, and quick-capture flows.
+- **Editing and document work**: Visual/source Markdown editing, syntax highlighting, wikilinks, embeds, folding, outline navigation, find/replace, image workflows, PDF/document viewing, and Markdown-to-PDF export.
+- **Search, queries, and metadata views**: Hybrid FTS + semantic search, omnibar, inline `@` palette, composable note/task queries, search graph, and Bases views over frontmatter.
+- **Graph and relationship views**: Full-vault graph, active-note graph, search graph, backlinks/outlinks, attachments, semantic connections, smart-link edges, and hierarchy/canvas views.
+- **Language intelligence**: LSP infrastructure for Markdown and code, with diagnostics, hovers, code actions, completion, rename/definition support, and managed Markdown tooling when available.
+- **Tasks and planning**: Markdown-native tasks with list, kanban, schedule, query, grouping, sorting, relative due dates, and quick-capture flows.
 - **Git-aware workflow**: Repository initialization, status, staging, commits, checkpoints, history, diffs, restore, remotes, push/fetch/pull/sync, and optional auto-commit on save.
 - **References and linked sources**: BibTeX/CSL/RIS import, Zotero Better BibTeX integration, citation picker, bibliography export, linked PDF/HTML source folders, metadata extraction, and annotation sync.
-- **AI assistance**: Configurable CLI-based providers, inline AI edits, ask/edit modes, prompt composition from vault context, and AI-generated file descriptions.
-- **Extensibility and MCP**: Sandboxed plugins, a permissioned plugin SDK/RPC surface, bundled example plugins, Carbide's own MCP server, and plugin-hosted external MCP sidecars.
+- **AI assistance**: Configurable CLI-based providers, inline AI edits, ask/edit modes, prompt composition from vault/editor context, and AI-generated file descriptions.
+- **Extensibility and MCP**: Sandboxed plugins, marketplace install/update/uninstall flows, a permissioned plugin SDK/RPC surface, Carbide's own MCP server, and plugin-hosted external MCP sidecars.
 
 ---
 
@@ -67,22 +67,32 @@ Or open **System Settings → Privacy & Security** and click **Open Anyway** in 
 - Visual Markdown editor and source mode with ProseMirror/CodeMirror-based editing
 - Live Markdown rendering, Shiki syntax highlighting, KaTeX math, callouts, details blocks, tables, lists, and code blocks
 - Wikilinks, heading links, block references, backlink tracking, autocomplete, unresolved-link diagnostics, and rename-aware link repair
-- Inline embeds for notes, headings, blocks, images, PDFs, audio/video, and Mermaid diagrams
+- Inline embeds for notes, headings, blocks, images, PDFs, audio/video, files, and Mermaid diagrams
+- Collapsible code blocks, file embeds, and note embeds
 - Split editing, draggable tabs, pinned/reopened tabs, side-by-side panes, read-only mode, line numbers, zoom, zen mode, and focus mode
 - Document outline, collapsible headings, block transforms, block drag-and-drop, and Vim-style navigation for the file tree, outline, and editor
 - Find/replace in file, copy as Markdown/HTML, paste HTML as Markdown, image paste/drop workflows, image alt text/resize/save/delete actions
-- PDF viewing, Markdown-to-PDF export, Excalidraw canvas files, Mermaid rendering, and external document/viewer windows
+- PDF viewing, image/code/HTML/CSV viewers, Excalidraw canvas files, Mermaid rendering, and external document/viewer windows
 - Daily notes and configurable note naming templates
+
+### Document Rendering & Export
+
+- Markdown-to-PDF export using a self-contained HTML renderer and native platform PDF capture
+- PDF export renders Mermaid diagrams and KaTeX-rendered LaTeX-style inline and block math
+- Exported notes include syntax-highlighted code blocks, tables, callouts/details blocks, and document styling
+- Mermaid diagram export to SVG through the native save dialog
+- Mermaid rendering in slides export
+- Linked PDF/HTML source folders, attachment links, and in-app document viewers keep source files accessible without moving them out of the vault
 
 ### Search, Queries & Navigation
 
 - **Omnibar** (`Cmd+K` / `Ctrl+K`): unified entry point for notes, commands, settings, wiki links, and cross-vault search
-- **Inline `@` palette**: insert notes, all files, headings, dates, tags, citations, and commands from inside the editor
+- **Inline `@` palette**: insert notes, all files, Markdown-only matches, headings, dates, tags, citations, and commands from inside the editor
 - **Hybrid search**: SQLite FTS5 + local semantic embeddings merged with Reciprocal Rank Fusion
 - **Structured query language**: clause-based note/file/folder queries using `named`, `with`, `in`, `linked from`, and `with_property`, with boolean composition, regex, tags, wikilinks, subqueries, and saveable `.query` files
-- **Search graph**: tabbed graph/results view for query hits plus 1-hop neighbors, cross-highlighting, edge toggles, progressive expansion, and persisted tab state
-- **Bases**: UI-driven database views over frontmatter with filter/sort/pagination, table/list layouts, and saved JSON views
-- **Task queries**: line-based DSL for filtering tasks by status, path, section, text, due date, sorting, grouping, and limits
+- **Search graph**: tabbed graph/results view for query hits plus 1-hop neighbors, multi-selection, neighbor hiding, score filtering, cross-highlighting, edge toggles, progressive expansion, and persisted tab state
+- **Bases**: UI-driven metadata views over frontmatter with search/filter/sort/pagination, table/list/kanban/gallery/calendar layouts, saved JSON views, and property updates from kanban drag-and-drop
+- **Task queries**: line-based DSL for filtering tasks by status, path, section, text, tags, and due date, with boolean operators, relative date expressions, sorting, grouping, and limits
 - **Block/section-level discovery**: semantic indexing for related-note and related-section workflows
 
 See [Search & Queries](docs/search_and_queries.md) for syntax and details.
@@ -93,15 +103,19 @@ See [Search & Queries](docs/search_and_queries.md) for syntax and details.
 - Due dates stored inline and editable from task views
 - Task list, kanban, and schedule views
 - Quick capture from app/menu actions
-- Filters for status, path, section, text, due dates, missing/present due dates, sort order, grouping, and result limits
+- Filters for status, path, section, text, tags, due dates, missing/present due dates, sort order, grouping, and result limits
+- Boolean task queries with `AND`, `OR`, `NOT`, plus relative due dates such as today, this week, next N days, and last week
+- Embedded task query results with source-note navigation and in-place status toggles
 - Task progress/aggregates surfaced through metadata and Bases-style workflows
 
 ### Graph, Links & Canvas
 
 - Full-vault and active-note graph views
-- Search graph for query-centered exploration
-- Backlinks, outgoing links, smart links, semantic similarity edges, and toggleable edge types
+- Search graph for query-centered exploration, with multi-select, score filtering, and optional neighbor hiding
+- Backlinks, outgoing links, attachments, smart links, semantic similarity edges, and toggleable edge types
 - WebGL/Pixi graph rendering with worker-based force simulation for larger vaults
+- Fuzzy graph filtering, cluster detection, focus mode, radial layout, and canvas export
+- Graph-to-canvas export with note content loading, embedded Markdown in file nodes, click-to-open behavior, and edge labels
 - Hierarchy tree view for Markdown/LSP-derived structure
 - Excalidraw canvas support and Mermaid diagram rendering with cached output
 
@@ -120,7 +134,7 @@ See [Search & Queries](docs/search_and_queries.md) for syntax and details.
 - Auto-provider resolution based on local CLI availability
 - Ask/edit modes over the current note or selection
 - Inline AI menu with accept/reject flow
-- Prompt builder for composing requests from vault and editor context
+- Prompt builder for composing requests from vault and editor context, with configurable vault-context settings
 - AI-generated file tree descriptions and plugin-accessible AI execution
 
 ### References, Citations & Linked Sources
@@ -145,13 +159,13 @@ See [Bases & References](docs/bases_and_references.md) for details.
 
 ### Plugins, MCP & Extensibility
 
-- Iframe-sandboxed plugin runtime with lifecycle controls, plugin manager UI, and per-plugin settings
+- Iframe-sandboxed plugin runtime with lifecycle controls, plugin manager UI, marketplace browsing, install/update/uninstall flows, and per-plugin settings
 - Permission-gated plugin APIs for vault IO, editor access/modification, commands, UI contributions, settings, events, search, metadata, diagnostics, network fetch, AI execution, export, and external sidecars
 - Plugin contributions for commands, command palette entries, sidebar panels, status bar items, ribbon icons, and settings schemas
-- Bundled plugins: Auto-Tag, HTML Strip, HTML to Markdown, Slides Export, Smart Templates, and Wiki Compiler
+- Bundled plugins: Auto-Tag, HTML Strip, HTML to Markdown, PDF Export, Slides Export, Smart Templates, and Wiki Compiler
 - Carbide MCP server with authenticated HTTP/CLI setup flows for Claude Desktop and Claude Code
-- MCP tools for vault discovery, notes CRUD, search/reindex, graph links, metadata/properties, references, and Git operations
-- External MCP sidecars: plugins can start MCP-compatible binaries, list/call tools, check status, and stop isolated server instances
+- MCP tools for vault discovery, notes CRUD, append/prepend, semantic search/reindex, task queries, graph links, metadata/properties, frontmatter updates, references, and Git operations
+- External MCP sidecars: plugins can start MCP-compatible binaries, list/call tools, check status, and stop isolated server instances through the `sidecar.*` SDK
 
 See [Plugin How-To](docs/plugin_howto.md) for the plugin SDK and RPC surface.
 
