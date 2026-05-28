@@ -3,6 +3,12 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { DocumentService } from "$lib/features/document/application/document_service";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
+import type { ImageResolver } from "$lib/features/document/domain/note_html";
+import {
+  carbide_asset_url,
+  carbide_file_asset_url,
+  resolve_relative_asset_path,
+} from "$lib/features/note";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -37,6 +43,46 @@ function parse_document_open_payload(
     parsed.initial_pdf_page = initial_pdf_page;
   }
   return parsed;
+}
+
+async function fetch_as_data_uri(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onerror = () => {
+        resolve(null);
+      };
+      reader.onload = () => {
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function build_pdf_image_resolver(
+  vault_id: string,
+  note_path: string,
+): ImageResolver {
+  return async (src, kind) => {
+    if (/^data:/i.test(src)) return src;
+    if (/^https?:\/\//i.test(src)) return fetch_as_data_uri(src);
+    if (src.startsWith("/")) {
+      return fetch_as_data_uri(carbide_file_asset_url(src));
+    }
+    const decoded = decodeURIComponent(src);
+    const asset_path =
+      kind === "wiki"
+        ? decoded
+        : resolve_relative_asset_path(note_path, decoded);
+    if (!asset_path) return null;
+    return fetch_as_data_uri(carbide_asset_url(vault_id, asset_path));
+  };
 }
 
 export function register_document_actions(
@@ -119,7 +165,15 @@ export function register_document_actions(
       const open_note = stores.editor.open_note;
       if (!open_note) return;
       const title = open_note.meta.title || open_note.meta.name;
-      await document_service.export_note_pdf(title, open_note.markdown);
+      const vault_id = stores.vault.vault?.id;
+      const image_resolver = vault_id
+        ? build_pdf_image_resolver(vault_id, open_note.meta.path)
+        : undefined;
+      await document_service.export_note_pdf(
+        title,
+        open_note.markdown,
+        image_resolver,
+      );
     },
   });
 }

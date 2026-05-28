@@ -307,24 +307,133 @@ table {
 th, td { padding: 6px 13px; border: 1px solid #d0d7de; }
 th { background: #f6f8fa; font-weight: 600; }
 img { max-width: 100%; }
+.image-missing {
+  display: inline-block;
+  padding: 0.4em 0.8em;
+  color: #57606a;
+  font-size: 90%;
+  font-style: italic;
+  background: #f6f8fa;
+  border: 1px dashed #d0d7de;
+  border-radius: 4px;
+}
 figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
 .mermaid-figure svg { max-width: 100%; height: auto; }
 .katex-display { page-break-inside: avoid; overflow-x: auto; overflow-y: hidden; }
 .math-error { color: #cf222e; }`;
 }
 
+export type ImageSourceKind = "canonical" | "wiki";
+export type ImageResolver = (
+  src: string,
+  kind: ImageSourceKind,
+) => Promise<string | null>;
+
+export type RenderNoteOptions = {
+  image_resolver?: ImageResolver;
+};
+
+const IMAGE_EXT_REGEX = /\.(png|jpe?g|gif|svg|webp|bmp|ico|avif)$/i;
+const WIKI_EMBED_REGEX = /!\[\[([^\]\n]+?)(?:#[^\]]*)?\]\]/g;
+const WIKI_IMAGE_SRC_PREFIX = "carbide-wiki:";
+
+function rewrite_wiki_image_embeds(body: string): string {
+  return body.replace(WIKI_EMBED_REGEX, (match, target: string) => {
+    if (!IMAGE_EXT_REGEX.test(target)) return match;
+    const alt =
+      target
+        .split("/")
+        .pop()
+        ?.replace(/\.[^.]+$/, "") ?? "";
+    const escaped_alt = alt.replace(/[\\\[\]]/g, "\\$&");
+    return `![${escaped_alt}](${WIKI_IMAGE_SRC_PREFIX}${target})`;
+  });
+}
+
+function collect_image_sources(tokens: Token[]): Set<string> {
+  const out = new Set<string>();
+  const walk = (list: Token[]) => {
+    for (const tok of list) {
+      if (tok.type === "image") {
+        const src = tok.attrGet("src");
+        if (src) out.add(src);
+      }
+      if (tok.children) walk(tok.children);
+    }
+  };
+  walk(tokens);
+  return out;
+}
+
+function escape_attr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function resolve_image_sources(
+  sources: Set<string>,
+  resolver: ImageResolver | undefined,
+): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>();
+  if (!resolver || sources.size === 0) return resolved;
+  await Promise.all(
+    [...sources].map(async (src) => {
+      const is_wiki = src.startsWith(WIKI_IMAGE_SRC_PREFIX);
+      const raw = is_wiki ? src.slice(WIKI_IMAGE_SRC_PREFIX.length) : src;
+      try {
+        const data_uri = await resolver(raw, is_wiki ? "wiki" : "canonical");
+        if (data_uri) resolved.set(src, data_uri);
+      } catch {
+        // leave unresolved — placeholder will render
+      }
+    }),
+  );
+  return resolved;
+}
+
+function install_image_renderer(
+  md: MarkdownIt,
+  resolved: Map<string, string>,
+): void {
+  md.renderer.rules.image = (tokens, idx) => {
+    const tok = tokens[idx];
+    if (!tok) return "";
+    const src = tok.attrGet("src") ?? "";
+    const alt = tok.content || "";
+    const title = tok.attrGet("title");
+    const data_uri = resolved.get(src);
+    if (data_uri) {
+      const title_attr = title ? ` title="${escape_attr(title)}"` : "";
+      return `<img src="${escape_attr(data_uri)}" alt="${escape_attr(alt)}"${title_attr} />`;
+    }
+    const label = alt || src.replace(WIKI_IMAGE_SRC_PREFIX, "");
+    return `<span class="image-missing" title="Failed to load image: ${escape_attr(src.replace(WIKI_IMAGE_SRC_PREFIX, ""))}">${escape_attr(label)}</span>`;
+  };
+}
+
 export async function render_note_to_html(
   title: string,
   markdown: string,
+  options?: RenderNoteOptions,
 ): Promise<string> {
   init_highlighter();
 
-  const body = parse_frontmatter(markdown).body;
+  const body = rewrite_wiki_image_embeds(parse_frontmatter(markdown).body);
   const md = create_md();
   register_math(md);
   md.renderer.rules.fence = render_fence;
 
   const tokens = md.parse(body, {});
+  const image_sources = collect_image_sources(tokens);
+  const resolved_images = await resolve_image_sources(
+    image_sources,
+    options?.image_resolver,
+  );
+  install_image_renderer(md, resolved_images);
+
   const mermaid_svgs = await prerender_mermaid(tokens);
   const env: RenderEnv = { mermaid_svgs };
   const body_html = md.renderer.render(tokens, md.options, env);

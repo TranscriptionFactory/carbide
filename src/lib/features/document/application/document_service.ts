@@ -3,7 +3,10 @@ import type { DocumentStore } from "$lib/features/document/state/document_store.
 import type { DocumentContentState } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentFileType } from "$lib/features/document/types/document";
 import type { VaultStore } from "$lib/features/vault";
-import { render_note_to_html } from "$lib/features/document/domain/note_html";
+import {
+  render_note_to_html,
+  type ImageResolver,
+} from "$lib/features/document/domain/note_html";
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
@@ -161,11 +164,17 @@ export class DocumentService {
     this.document_store.mark_clean(tab_id, content);
   }
 
-  async export_note_pdf(title: string, markdown: string): Promise<void> {
+  async export_note_pdf(
+    title: string,
+    markdown: string,
+    image_resolver?: ImageResolver,
+  ): Promise<void> {
     if (!this.pdf_export_port) return;
     const path = await this.pdf_export_port.pick_pdf_save_path(title);
     if (path === null) return;
-    const html = await render_note_to_html(title, markdown);
+    const html = await render_note_to_html(title, markdown, {
+      ...(image_resolver ? { image_resolver } : {}),
+    });
     await this.pdf_export_port.export_html_to_pdf(html, path);
   }
 
