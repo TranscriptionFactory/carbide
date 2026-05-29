@@ -17,6 +17,8 @@ function make_backends(overrides?: Partial<QueryBackends>): QueryBackends {
     } as never,
     tags: {
       get_notes_for_tag_prefix: vi.fn().mockResolvedValue([]),
+      list_all_tags: vi.fn().mockResolvedValue([]),
+      get_notes_for_tag: vi.fn().mockResolvedValue([]),
     } as never,
     bases: {
       query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),

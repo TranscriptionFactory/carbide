@@ -1,7 +1,7 @@
 import { type VaultId, as_note_path } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { SearchPort, WorkspaceIndexPort } from "$lib/features/search";
-import type { TagPort } from "$lib/features/tags";
+import { rank_tags, type TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
 import type {
   ClauseGroup,
@@ -168,9 +168,36 @@ async function resolve_with(
       vault_id,
       value.tag,
     );
-    return paths.map((path) => ({
+    if (paths.length > 0) {
+      return paths.map((path) => ({
+        note: path_to_meta(path),
+        matched_clauses: [`with:#${value.tag}`],
+      }));
+    }
+
+    // Fallback: fuzzy-match against all known tags, union their notes.
+    // Triggers when an exact / hierarchical-prefix lookup misses, so a
+    // typo'd query like `#prjects` still surfaces `#projects/*` notes.
+    const all_tags = await backends.tags.list_all_tags(vault_id);
+    const ranked = rank_tags(
+      value.tag,
+      all_tags.map((info) => info.tag),
+      5,
+    );
+    if (ranked.length === 0) return [];
+    const note_paths = new Set<string>();
+    const matched_tags: string[] = [];
+    for (const match of ranked) {
+      const fuzzy_paths = await backends.tags.get_notes_for_tag_prefix(
+        vault_id,
+        match.tag,
+      );
+      for (const p of fuzzy_paths) note_paths.add(p);
+      matched_tags.push(`#${match.tag}`);
+    }
+    return [...note_paths].map((path) => ({
       note: path_to_meta(path),
-      matched_clauses: [`with:#${value.tag}`],
+      matched_clauses: [`with:fuzzy(${matched_tags.join(",")})`],
     }));
   }
 
