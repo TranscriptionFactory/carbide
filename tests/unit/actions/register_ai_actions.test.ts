@@ -342,7 +342,9 @@ describe("register_ai_actions", () => {
   });
 
   describe("html document tab", () => {
-    function open_html_tab(stores: ReturnType<typeof create_harness>["stores"]) {
+    function open_html_tab(
+      stores: ReturnType<typeof create_harness>["stores"],
+    ) {
       stores.tab.set_dirty = vi.fn();
       Object.defineProperty(stores.tab, "active_tab", {
         configurable: true,

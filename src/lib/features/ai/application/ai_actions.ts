@@ -432,7 +432,10 @@ export function register_ai_actions(
       const ctx = dialog.context;
       let applied: boolean;
       if (ctx.kind === "html_document") {
-        applied = services.document.apply_html_source_output(ctx.tab_id, output);
+        applied = services.document.apply_html_source_output(
+          ctx.tab_id,
+          output,
+        );
         if (applied) input.stores.tab.set_dirty(ctx.tab_id, true);
       } else {
         applied = services.editor.apply_ai_output(
