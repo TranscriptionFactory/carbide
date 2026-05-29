@@ -14,16 +14,17 @@ Before modern flashlights, coal miners dropped **calcium carbide** into water to
 
 ## What it does
 
-- **Local-first Markdown vaults**: Vaults are folders on disk. Notes, canvases, query files, settings, indexes, references, plugins, and generated metadata remain inspectable and portable.
-- **Editing and document work**: Visual/source Markdown editing, syntax highlighting, wikilinks, embeds, folding, outline navigation, find/replace, image workflows, PDF/document viewing, and Markdown-to-PDF export.
-- **Search, queries, and metadata views**: Hybrid FTS + semantic search, omnibar, inline `@` palette, composable note/task queries, search graph, and Bases views over frontmatter.
-- **Graph and relationship views**: Full-vault graph, active-note graph, search graph, backlinks/outlinks, attachments, semantic connections, smart-link edges, and hierarchy/canvas views.
-- **Language intelligence**: LSP infrastructure for Markdown and code, with diagnostics, hovers, code actions, completion, rename/definition support, and managed Markdown tooling when available.
-- **Tasks and planning**: Markdown-native tasks with list, kanban, schedule, query, grouping, sorting, relative due dates, and quick-capture flows.
-- **Git-aware workflow**: Repository initialization, status, staging, commits, checkpoints, history, diffs, restore, remotes, push/fetch/pull/sync, and optional auto-commit on save.
-- **References and linked sources**: BibTeX/CSL/RIS import, Zotero Better BibTeX integration, citation picker, bibliography export, linked PDF/HTML source folders, metadata extraction, and annotation sync.
-- **AI assistance**: Configurable CLI-based providers, inline AI edits, ask/edit modes, prompt composition from vault/editor context, and AI-generated file descriptions.
-- **Extensibility and MCP**: Sandboxed plugins, marketplace install/update/uninstall flows, a permissioned plugin SDK/RPC surface, Carbide's own MCP server, and plugin-hosted external MCP sidecars.
+- **Local-first Markdown vaults**: Vaults are plain folders. Notes, attachments, queries, settings, indexes, and plugins live on disk and remain portable.
+- **Editing and documents**: Visual/source Markdown editing, syntax highlighting, wikilinks, transclusion, outlines, PDF/document viewing, and Markdown-to-PDF export.
+- **HTML artifacts as first-class citizens**: `.html` files are searchable, embeddable (`![[file.html]]`), and renderable in Source/Safe/Live modes with per-file trust grants — drop LLM-generated artifacts straight into your vault. See [HTML Artifacts](docs/html_artifacts.md).
+- **Search, queries, and metadata views**: Hybrid FTS + semantic search with recency-weighted omnibar, inline `@` palette, composable note/task queries, search graph, and Bases views over frontmatter.
+- **Graph and relationships**: Full-vault, active-note, and search graphs with backlinks, attachments, semantic edges, and canvas views.
+- **Language intelligence**: LSP infrastructure for Markdown (IWE, Markdown Oxide, Marksman, rumdl) and common code languages, with diagnostics, hovers, code actions, and rename/definition.
+- **Tasks and planning**: Markdown-native tasks with list/kanban/schedule views, hierarchical heading scoping, relative due dates, and quick-capture.
+- **Git-aware workflow**: Init, stage, commit, checkpoint, diff, restore, remotes, push/fetch/pull/sync, optional auto-commit on save.
+- **References and linked sources**: BibTeX/CSL/RIS, Zotero Better BibTeX integration, citation picker, bibliography export, linked PDF/HTML source folders with content-addressed extraction cache.
+- **AI assistance**: CLI-based providers (Claude Code, Codex, Ollama), inline ask/edit with accept-reject, and vault/editor-aware prompt composition.
+- **Extensibility and MCP**: Sandboxed plugins with marketplace, a permissioned SDK/RPC surface, Carbide's own MCP server, and plugin-hosted external MCP sidecars.
 
 ---
 
@@ -64,126 +65,110 @@ Or open **System Settings → Privacy & Security** and click **Open Anyway** in 
 
 ### Markdown Editing & Documents
 
-- Visual Markdown editor and source mode with ProseMirror/CodeMirror-based editing
-- Live Markdown rendering, Shiki syntax highlighting, KaTeX math, callouts, details blocks, tables, lists, and code blocks
-- Wikilinks, heading links, block references, backlink tracking, autocomplete, unresolved-link diagnostics, and rename-aware link repair
-- Inline embeds for notes, headings, blocks, images, PDFs, audio/video, files, and Mermaid diagrams
-- Collapsible code blocks, file embeds, and note embeds
-- Split editing, draggable tabs, pinned/reopened tabs, side-by-side panes, read-only mode, line numbers, zoom, zen mode, and focus mode
-- Document outline, collapsible headings, block transforms, block drag-and-drop, and Vim-style navigation for the file tree, outline, and editor
-- Find/replace in file, copy as Markdown/HTML, paste HTML as Markdown, image paste/drop workflows, image alt text/resize/save/delete actions
-- PDF viewing, image/code/HTML/CSV viewers, Excalidraw canvas files, Mermaid rendering, and external document/viewer windows
-- Daily notes and configurable note naming templates
+- ProseMirror/CodeMirror-based visual + source editing with Shiki, KaTeX, callouts, tables, and code blocks
+- Wikilinks, heading/block references, backlink tracking, unresolved-link diagnostics, and rename-aware link repair
+- Inline embeds for notes, headings, blocks, images, PDFs, **HTML artifacts**, audio/video, files, and Mermaid diagrams
+- Edit-in-place for transclusions via a pencil action on the embed toolbar
+- Split panes, draggable/pinned tabs, zen/focus modes, line numbers, zoom, and Vim-style navigation
+- Document outline, block transforms, drag-and-drop, find/replace, copy as Markdown/HTML
+- Daily notes and configurable naming templates
 
 ### Document Rendering & Export
 
-- Markdown-to-PDF export using a self-contained HTML renderer and native platform PDF capture
-- PDF export renders Mermaid diagrams and KaTeX-rendered LaTeX-style inline and block math
-- Exported notes include syntax-highlighted code blocks, tables, callouts/details blocks, and document styling
-- Mermaid diagram export to SVG through the native save dialog
-- Mermaid rendering in slides export
-- Linked PDF/HTML source folders, attachment links, and in-app document viewers keep source files accessible without moving them out of the vault
+- Markdown-to-PDF via a self-contained HTML renderer + native platform PDF capture (macOS, Windows, Linux)
+- PDF export inlines images, renders Mermaid diagrams, and rasterizes SVG/KaTeX math
+- Mermaid SVG export and Mermaid rendering in slides export
+- In-app viewers for PDF, image, code, HTML, and CSV; Excalidraw canvases; external viewer windows
+- Linked PDF/HTML source folders keep source material in place with content-addressed extraction cache
+
+### HTML Artifacts
+
+- `.html` files are first-class vault citizens — searchable through FTS (stripped body text + `<title>`), linkable as attachments, and embeddable via `![[file.html]]`
+- Three render modes — **Source / Safe / Live** — with per-file or per-folder trust grants persisted under `.carbide/trusted_html.json`
+- Default-deny: Live mode requires an explicit grant; Live + Network is a separate opt-in
+- **Paste Clipboard HTML as Artifact** writes the file, inserts a transclusion, and records provenance in a `.meta.json` sidecar
+- Provenance banner above the renderer; ✕ clears the sidecar
+- Sandboxed iframe envelope (`allow-scripts` only, no `allow-same-origin`); theme variables injected so artifacts can blend with the app
+
+See [HTML Artifacts](docs/html_artifacts.md) for render modes, trust grants, transclusion, paste-from-clipboard, and the security model.
 
 ### Search, Queries & Navigation
 
-- **Omnibar** (`Cmd+K` / `Ctrl+K`): unified entry point for notes, commands, settings, wiki links, and cross-vault search
-- **Inline `@` palette**: insert notes, all files, Markdown-only matches, headings, dates, tags, citations, and commands from inside the editor
-- **Hybrid search**: SQLite FTS5 + local semantic embeddings merged with Reciprocal Rank Fusion
-- **Structured query language**: clause-based note/file/folder queries using `named`, `with`, `in`, `linked from`, and `with_property`, with boolean composition, regex, tags, wikilinks, subqueries, and saveable `.query` files
-- **Search graph**: tabbed graph/results view for query hits plus 1-hop neighbors, multi-selection, neighbor hiding, score filtering, cross-highlighting, edge toggles, progressive expansion, and persisted tab state
-- **Bases**: UI-driven metadata views over frontmatter with search/filter/sort/pagination, table/list/kanban/gallery/calendar layouts, saved JSON views, and property updates from kanban drag-and-drop
-- **Task queries**: line-based DSL for filtering tasks by status, path, section, text, tags, and due date, with boolean operators, relative date expressions, sorting, grouping, and limits
-- **Block/section-level discovery**: semantic indexing for related-note and related-section workflows
+- **Omnibar** (`Cmd/Ctrl+K`): unified entry for notes, commands, settings, links, and cross-vault search, ranked by an `exact_prefix > substring > fuzzy` rule with a 24h recency boost
+- **Inline `@` palette**: insert notes, files, headings, dates, tags, citations, and commands from the editor
+- **Hybrid search**: SQLite FTS5 + local semantic embeddings merged via Reciprocal Rank Fusion
+- **Structured query language**: clause-based note/file/folder queries (`named`, `with`, `in`, `linked from`, `with_property`) with boolean composition, regex, subqueries, and saveable `.query` files
+- **Task queries**: status, path, section, text, tag, and due-date filters with boolean operators, relative dates, and hierarchical heading scoping (`section under <heading>`)
+- **Fuzzy + hierarchical tag matching**: `#parent` matches `#parent/child`; typos fall back to fuzzy across all tags
+- **Search graph** and **Bases** (UI-driven frontmatter views — table/list/kanban/gallery/calendar)
 
-See [Search & Queries](docs/search_and_queries.md) for syntax and details.
+See [Search & Queries](docs/search_and_queries.md).
 
 ### Tasks & Planning
 
-- Markdown-native tasks (`[ ]`, `[-]`, `[x]`) with 3-state cycling
-- Due dates stored inline and editable from task views
-- Task list, kanban, and schedule views
-- Quick capture from app/menu actions
-- Filters for status, path, section, text, tags, due dates, missing/present due dates, sort order, grouping, and result limits
-- Boolean task queries with `AND`, `OR`, `NOT`, plus relative due dates such as today, this week, next N days, and last week
+- Markdown-native tasks (`[ ]`, `[-]`, `[x]`) with 3-state cycling and inline due dates
+- List, kanban, and schedule views; quick capture from app/menu actions
 - Embedded task query results with source-note navigation and in-place status toggles
-- Task progress/aggregates surfaced through metadata and Bases-style workflows
+- Hierarchical section scoping, boolean operators, relative dates, sort/group/limit
 
 ### Graph, Links & Canvas
 
-- Full-vault and active-note graph views
-- Search graph for query-centered exploration, with multi-select, score filtering, and optional neighbor hiding
-- Backlinks, outgoing links, attachments, smart links, semantic similarity edges, and toggleable edge types
-- WebGL/Pixi graph rendering with worker-based force simulation for larger vaults
-- Fuzzy graph filtering, cluster detection, focus mode, radial layout, and canvas export
-- Graph-to-canvas export with note content loading, embedded Markdown in file nodes, click-to-open behavior, and edge labels
-- Hierarchy tree view for Markdown/LSP-derived structure
-- Excalidraw canvas support and Mermaid diagram rendering with cached output
+- Full-vault, active-note, and search graphs with WebGL/Pixi rendering and worker-based force layout
+- Backlinks, outlinks, attachments, smart links, semantic similarity edges, with toggleable edge types
+- Fuzzy filtering, cluster detection, focus mode, radial layout
+- Graph-to-canvas export, Excalidraw canvases, Mermaid rendering with cached output
 
 ### Language Intelligence & Tooling
 
-- General LSP results panel for diagnostics, hover, code actions, and workspace edits
-- Markdown LSP providers: IWE, Markdown Oxide, and Marksman, with fallback/provider resolution
-- Code LSP support for Python, Rust, TypeScript, JavaScript, Go, JSON, and YAML when the corresponding language server is available
-- Managed toolchain for installing and resolving Markdown tools such as rumdl, IWE, Markdown Oxide, and Marksman
-- Markdown linting/formatting/fix actions through rumdl-backed diagnostics and code actions
-- IWE structural transforms for Markdown: extract/inline sections, inline quotes, list↔section conversion, list sorting, link creation, and provider config management
+- LSP results panel for diagnostics, hover, code actions, and workspace edits
+- Markdown LSP via IWE, Markdown Oxide, or Marksman; rumdl-backed lint/format/fix
+- Code LSP for Python, Rust, TypeScript, JavaScript, Go, JSON, and YAML when the language server is on PATH (lookups memoized)
+- Managed toolchain installs Markdown tools on demand
+- IWE structural transforms: extract/inline sections, list↔section, link creation
 
 ### AI Assistance
 
-- Built-in CLI provider presets for Claude Code, Codex, and Ollama, plus configurable provider definitions
-- Auto-provider resolution based on local CLI availability
-- Ask/edit modes over the current note or selection
-- Inline AI menu with accept/reject flow
-- Prompt builder for composing requests from vault and editor context, with configurable vault-context settings
-- AI-generated file tree descriptions and plugin-accessible AI execution
+- CLI-based provider presets for Claude Code, Codex, and Ollama; auto-resolution by local CLI availability
+- Ask/edit modes with inline accept-reject flow
+- Prompt builder composes requests from vault and editor context; AI-generated file-tree descriptions
 
 ### References, Citations & Linked Sources
 
-- Citation library backed by CSL-JSON with BibTeX, CSL, and RIS import/export via Citation.js
-- Zotero Better BibTeX extension integration with connection testing, live search, import, and annotation sync
-- Citation picker that inserts `[@citekey]`
-- Bibliography rendering/export
-- Linked source folders for PDF/HTML directories with metadata extraction, search inclusion, relocation, rescan, and missing-source handling
-- Frontmatter sync for reference metadata and citation-related properties
+- Citation library (CSL-JSON) with BibTeX/CSL/RIS import/export via Citation.js
+- Zotero Better BibTeX integration: connection testing, live search, import, annotation sync
+- Citation picker inserts `[@citekey]`; bibliography rendering/export
+- Linked PDF/HTML source folders with metadata extraction, search inclusion, and a content-addressed extraction cache that survives renames
 
-See [Bases & References](docs/bases_and_references.md) for details.
+See [Bases & References](docs/bases_and_references.md).
 
 ### Git & Source Control
 
-- Initialize Git repositories from a vault
-- Status, staging, unstaging, staged commits, commit-all, and file diffs
-- Checkpoints for named snapshots
-- Version history with load-more, selected commit preview, and restore
-- Remote management, push, fetch, pull, and sync
+- Init, status, stage/unstage, commit, commit-all, file diffs
+- Named checkpoints, version history with restore, remotes, push/fetch/pull/sync
 - Optional auto-commit on save
 
 ### Plugins, MCP & Extensibility
 
-- Iframe-sandboxed plugin runtime with lifecycle controls, plugin manager UI, marketplace browsing, install/update/uninstall flows, and per-plugin settings
-- Permission-gated plugin APIs for vault IO, editor access/modification, commands, UI contributions, settings, events, search, metadata, diagnostics, network fetch, AI execution, export, and external sidecars
-- Plugin contributions for commands, command palette entries, sidebar panels, status bar items, ribbon icons, and settings schemas
-- Bundled plugins: Auto-Tag, HTML Strip, HTML to Markdown, PDF Export, Slides Export, Smart Templates, and Wiki Compiler
-- Carbide MCP server with authenticated HTTP/CLI setup flows for Claude Desktop and Claude Code
-- MCP tools for vault discovery, notes CRUD, append/prepend, semantic search/reindex, task queries, graph links, metadata/properties, frontmatter updates, references, and Git operations
-- External MCP sidecars: plugins can start MCP-compatible binaries, list/call tools, check status, and stop isolated server instances through the `sidecar.*` SDK
+- Iframe-sandboxed plugin runtime with marketplace browse/install/update/uninstall and per-plugin settings
+- Permission-gated SDK for vault IO, editor, commands, UI contributions, search, metadata, network fetch, AI execution, export, and external sidecars
+- Bundled plugins: Auto-Tag, HTML Strip, HTML to Markdown, PDF Export, Slides Export, Smart Templates, Wiki Compiler
+- Carbide MCP server with authenticated setup flows for Claude Desktop and Claude Code; tools cover notes, search, tasks, graph, metadata, references, and Git
+- External MCP sidecars via the `sidecar.*` SDK
 
-See [Plugin How-To](docs/plugin_howto.md) for the plugin SDK and RPC surface.
+See [Plugin How-To](docs/plugin_howto.md).
 
 ### Layout & Customization
 
-- Multiple sidebar views: explorer, dashboard, starred notes, graph, tasks, tags, source control, and daily notes
-- 20+ built-in themes with light/dark variants
-- Layout variants, activity/sidebar controls, context rail, outline/tasks panels, zen/focus modes, and per-vault settings
-- CSS token editor, inline editing, revert flow, and shadcn/Tailwind semantic styling
-- Rebindable hotkeys and command-palette driven actions
-- File tree style variants and starred notes/folders
+- Sidebar views: explorer, dashboard, starred, graph, tasks, tags, source control, daily notes
+- 20+ themes (light/dark), CSS token editor, rebindable hotkeys, command-palette actions
+- Layout variants, context rail, outline/tasks panels, zen/focus modes, per-vault settings
 
 ### More
 
-- Embedded terminal with multiple sessions, respawn, and WebGL xterm rendering
-- File watcher, atomic writes, asset cache, and indexed metadata pipeline
-- Tags panel with hierarchical tag tree, prefix selection, and tag-based note opening
-- Settings migration and per-vault/global storage documented in [Data Storage](docs/data_storage_locations.md)
+- Embedded terminal (xterm + WebGL) with multiple sessions and respawn
+- File watcher, atomic writes, asset cache, indexed metadata pipeline
+- Hierarchical tags panel with prefix selection and tag-based opening
+- Per-vault and global storage documented in [Data Storage](docs/data_storage_locations.md)
 
 ---
 
@@ -215,6 +200,7 @@ See [Plugin How-To](docs/plugin_howto.md) for the plugin SDK and RPC surface.
 - [Search & Queries](docs/search_and_queries.md) — omnibar, inline `@` palette, query language, search graph, bases, task queries
 - [Bases & References](docs/bases_and_references.md) — database views, citations, linked sources, Zotero
 - [Markdown Syntax Guide](docs/markdown-syntax-guide.md) — supported syntax and embeds
+- [HTML Artifacts](docs/html_artifacts.md) — render modes, trust grants, transclusion, paste-as-artifact, security model
 - [Architecture](docs/architecture.md) — decision tree, layering rules, and project map
 - [Plugin How-To](docs/plugin_howto.md) — build plugins, use permissions, call RPC/SDK APIs, and run external MCP sidecars
 - [HTML to Markdown Plugin](docs/html_to_markdown_plugin.md) — bundled conversion plugin details
