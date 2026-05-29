@@ -108,6 +108,7 @@ const base_execute_input = {
   mode: "edit" as const,
   timeout_seconds: 120,
   context: {
+    kind: "note" as const,
     note_path: as_note_path("docs/demo.md"),
     note_title: "demo",
     note_markdown: as_markdown_text("# Demo"),

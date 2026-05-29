@@ -1125,6 +1125,7 @@ export function create_app_context(input: {
           provider_config: provider,
           prompt: input.prompt,
           context: {
+            kind: "note",
             note_path:
               open_note?.meta.path ??
               ("" as import("$lib/shared/types/ids").NotePath),

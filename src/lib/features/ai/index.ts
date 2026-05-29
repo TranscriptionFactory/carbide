@@ -23,6 +23,8 @@ export {
   type AiMode,
   type AiCliStatus,
   type AiDialogContext,
+  type AiDialogHtmlContext,
+  type AiDialogNoteContext,
   type AiExecutionResult,
   type AiPortExecuteRequest,
   type AiProviderConfig,
@@ -30,10 +32,13 @@ export {
   type AiVaultContext,
   type AiVaultContextNote,
   type VaultContextSettings,
+  context_key,
+  context_original_text,
   provider_command,
 } from "$lib/features/ai/domain/ai_types";
 export {
   build_ai_prompt,
+  build_ai_html_prompt,
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";

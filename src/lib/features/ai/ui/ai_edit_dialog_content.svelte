@@ -19,6 +19,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
+    context_kind: "note" | "html_document";
     note_path: string | null;
     note_title: string | null;
     selection_text: string | null;
@@ -47,6 +48,7 @@
     cli_status,
     cli_error,
     target,
+    context_kind,
     note_path,
     note_title,
     selection_text,
@@ -71,9 +73,11 @@
   <Dialog.Content class="max-w-3xl p-0">
     <Dialog.Header class="sr-only">
       <Dialog.Title>AI Assistant</Dialog.Title>
-      <Dialog.Description
-        >Review and apply AI-assisted note edits</Dialog.Description
-      >
+      <Dialog.Description>
+        {context_kind === "html_document"
+          ? "Review and apply AI-assisted HTML edits"
+          : "Review and apply AI-assisted note edits"}
+      </Dialog.Description>
     </Dialog.Header>
     <AiAssistantContent
       {provider_id}
@@ -83,6 +87,7 @@
       {cli_status}
       {cli_error}
       {target}
+      {context_kind}
       {note_path}
       {note_title}
       {selection_text}

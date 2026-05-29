@@ -615,4 +615,211 @@ describe("DocumentService", () => {
       expect(document_store.get_provenance("docs/chart.html")).toBe(null);
     });
   });
+
+  describe("get_html_source_context", () => {
+    function setup_html_doc(
+      file_path: string,
+      content: string,
+      html_view_mode: "source" | "safe" | "live" = "source",
+    ) {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_viewer_state("tab-html", {
+        tab_id: "tab-html",
+        file_path,
+        file_type: "html",
+        zoom: 1,
+        scroll_top: 0,
+        pdf_page: 1,
+        html_view_mode,
+        load_status: "ready",
+        error_message: null,
+      });
+      document_store.set_content_state("tab-html", {
+        tab_id: "tab-html",
+        file_path,
+        file_type: "html",
+        status: "ready",
+        error_message: null,
+        content,
+        edited_content: null,
+        is_dirty: false,
+        buffer_id: null,
+        line_count: content.split("\n").length,
+        asset_url: null,
+        last_accessed_at: 0,
+        pdf_metadata: null,
+      });
+      return { service, document_store };
+    }
+
+    it("returns an html context for a Source-mode html document", () => {
+      const { service } = setup_html_doc(
+        "notes/chart.html",
+        "<html><body>x</body></html>",
+      );
+
+      const ctx = service.get_html_source_context("tab-html");
+
+      expect(ctx).toEqual({
+        tab_id: "tab-html",
+        file_path: "notes/chart.html",
+        file_title: "chart",
+        html: "<html><body>x</body></html>",
+      });
+    });
+
+    it("prefers edited_content over content", () => {
+      const { service, document_store } = setup_html_doc(
+        "notes/chart.html",
+        "<p>old</p>",
+      );
+      document_store.set_edited_content("tab-html", "<p>new</p>");
+
+      const ctx = service.get_html_source_context("tab-html");
+
+      expect(ctx?.html).toBe("<p>new</p>");
+    });
+
+    it("returns null when the document is not in Source mode", () => {
+      const { service } = setup_html_doc(
+        "notes/chart.html",
+        "<p>x</p>",
+        "safe",
+      );
+
+      expect(service.get_html_source_context("tab-html")).toBeNull();
+    });
+
+    it("returns null for non-html documents", () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_viewer_state("tab-text", {
+        tab_id: "tab-text",
+        file_path: "notes/readme.txt",
+        file_type: "text",
+        zoom: 1,
+        scroll_top: 0,
+        pdf_page: 1,
+        html_view_mode: "source",
+        load_status: "ready",
+        error_message: null,
+      });
+
+      expect(service.get_html_source_context("tab-text")).toBeNull();
+    });
+
+    it("returns null when content has not loaded", () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_viewer_state("tab-html", {
+        tab_id: "tab-html",
+        file_path: "notes/chart.html",
+        file_type: "html",
+        zoom: 1,
+        scroll_top: 0,
+        pdf_page: 1,
+        html_view_mode: "source",
+        load_status: "loading",
+        error_message: null,
+      });
+
+      expect(service.get_html_source_context("tab-html")).toBeNull();
+    });
+  });
+
+  describe("apply_html_source_output", () => {
+    function setup_html_doc(file_path: string, content: string) {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_viewer_state("tab-html", {
+        tab_id: "tab-html",
+        file_path,
+        file_type: "html",
+        zoom: 1,
+        scroll_top: 0,
+        pdf_page: 1,
+        html_view_mode: "source",
+        load_status: "ready",
+        error_message: null,
+      });
+      document_store.set_content_state("tab-html", {
+        tab_id: "tab-html",
+        file_path,
+        file_type: "html",
+        status: "ready",
+        error_message: null,
+        content,
+        edited_content: null,
+        is_dirty: false,
+        buffer_id: null,
+        line_count: content.split("\n").length,
+        asset_url: null,
+        last_accessed_at: 0,
+        pdf_metadata: null,
+      });
+      return { service, document_store };
+    }
+
+    it("writes through document_store.set_edited_content and marks dirty", () => {
+      const { service, document_store } = setup_html_doc(
+        "notes/chart.html",
+        "<p>old</p>",
+      );
+
+      const applied = service.apply_html_source_output(
+        "tab-html",
+        "<p>new</p>",
+      );
+
+      expect(applied).toBe(true);
+      const state = document_store.get_content_state("tab-html");
+      expect(state?.edited_content).toBe("<p>new</p>");
+      expect(state?.is_dirty).toBe(true);
+    });
+
+    it("returns false when the tab is not an html document", () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      expect(
+        service.apply_html_source_output("missing-tab", "<p>x</p>"),
+      ).toBe(false);
+    });
+  });
 });

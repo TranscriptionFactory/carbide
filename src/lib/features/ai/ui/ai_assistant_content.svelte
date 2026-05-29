@@ -25,6 +25,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
+    context_kind: "note" | "html_document";
     note_path: string | null;
     note_title: string | null;
     selection_text: string | null;
@@ -55,6 +56,7 @@
     cli_status,
     cli_error,
     target,
+    context_kind,
     note_path,
     note_title,
     selection_text,
@@ -97,6 +99,9 @@
   const selection_preview = $derived(
     selection_text ? selection_text.trim().slice(0, 180) : "",
   );
+  const subject_word = $derived(
+    context_kind === "html_document" ? "document" : "note",
+  );
   const description_text = $derived(
     description ??
       (note_title
@@ -106,8 +111,8 @@
             ? `Editing a selection in ${note_title}`
             : `Editing ${note_title}`
         : is_ask_mode
-          ? "Ask questions about your note"
-          : "Review and apply AI-assisted note edits"),
+          ? `Ask questions about your ${subject_word}`
+          : `Review and apply AI-assisted ${subject_word} edits`),
   );
   const draft_diff = $derived<AiDraftDiff | null>(
     result?.success && !result_is_answer
@@ -256,31 +261,37 @@
 
     <div class="h-4 w-px bg-border"></div>
 
-    <Button
-      variant={target === "selection" ? "default" : "outline"}
-      size="sm"
-      disabled={!selection_available}
-      onclick={() => on_target_change("selection")}
-    >
-      Selection
-    </Button>
-    <Button
-      variant={target === "full_note" ? "default" : "outline"}
-      size="sm"
-      onclick={() => on_target_change("full_note")}
-    >
-      Full Note
-    </Button>
+    {#if context_kind === "note"}
+      <Button
+        variant={target === "selection" ? "default" : "outline"}
+        size="sm"
+        disabled={!selection_available}
+        onclick={() => on_target_change("selection")}
+      >
+        Selection
+      </Button>
+      <Button
+        variant={target === "full_note" ? "default" : "outline"}
+        size="sm"
+        onclick={() => on_target_change("full_note")}
+      >
+        Full Note
+      </Button>
+    {:else}
+      <Button variant="default" size="sm" disabled>Whole Document</Button>
+    {/if}
 
-    <div class="h-4 w-px bg-border"></div>
+    {#if context_kind === "note"}
+      <div class="h-4 w-px bg-border"></div>
 
-    <Button
-      variant={vault_context_enabled ? "default" : "outline"}
-      size="sm"
-      onclick={on_vault_context_toggle}
-    >
-      Vault Context
-    </Button>
+      <Button
+        variant={vault_context_enabled ? "default" : "outline"}
+        size="sm"
+        onclick={on_vault_context_toggle}
+      >
+        Vault Context
+      </Button>
+    {/if}
 
     <span class="ml-auto truncate text-sm text-muted-foreground">
       {description_text}
@@ -326,8 +337,8 @@
         id="ai-prompt"
         class="flex-1 resize-none border-0 bg-background p-3 text-sm focus:outline-none"
         placeholder={is_ask_mode
-          ? "Ask a question about the note… (⌘↵ to run)"
-          : "Describe how you want to edit the note… (⌘↵ to run)"}
+          ? `Ask a question about the ${subject_word}… (⌘↵ to run)`
+          : `Describe how you want to edit the ${subject_word}… (⌘↵ to run)`}
         value={prompt}
         oninput={(event) => on_prompt_change(event.currentTarget.value)}
         onkeydown={handle_prompt_keydown}
@@ -356,8 +367,12 @@
           >
             {#if partial_selection_active}
               Apply Selected
+            {:else if target === "selection"}
+              Apply to Selection
+            {:else if context_kind === "html_document"}
+              Replace Document
             {:else}
-              {target === "selection" ? "Apply to Selection" : "Replace Note"}
+              Replace Note
             {/if}
           </Button>
         {/if}

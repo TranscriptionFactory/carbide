@@ -23,6 +23,9 @@ export {
   type ImageResolver,
   type ImageSourceKind,
 } from "$lib/features/document/domain/note_html";
-export { DocumentService } from "$lib/features/document/application/document_service";
+export {
+  DocumentService,
+  type HtmlSourceContext,
+} from "$lib/features/document/application/document_service";
 export { register_document_actions } from "$lib/features/document/application/document_actions";
 export { default as DocumentViewer } from "$lib/features/document/ui/document_viewer.svelte";

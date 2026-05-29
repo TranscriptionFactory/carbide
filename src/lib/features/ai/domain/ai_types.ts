@@ -36,13 +36,35 @@ export type AiConversationTurn = {
   result: AiExecutionResult | null;
 };
 
-export type AiDialogContext = {
+export type AiDialogNoteContext = {
+  kind: "note";
   note_path: NotePath;
   note_title: string;
   note_markdown: MarkdownText;
   selection: EditorSelectionSnapshot | null;
   target: AiApplyTarget;
 };
+
+export type AiDialogHtmlContext = {
+  kind: "html_document";
+  tab_id: string;
+  file_path: string;
+  file_title: string;
+  html: string;
+  target: "full_note";
+};
+
+export type AiDialogContext = AiDialogNoteContext | AiDialogHtmlContext;
+
+export function context_key(context: AiDialogContext): string {
+  return context.kind === "note" ? context.note_path : context.file_path;
+}
+
+export function context_original_text(context: AiDialogContext): string {
+  if (context.kind === "html_document") return context.html;
+  if (context.target === "selection") return context.selection?.text ?? "";
+  return context.note_markdown;
+}
 
 export type AiCliCheckRequest = {
   command: string;

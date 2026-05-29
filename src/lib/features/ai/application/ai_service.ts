@@ -13,7 +13,11 @@ import type {
   VaultContextSettings,
 } from "$lib/features/ai/domain/ai_types";
 import { provider_command } from "$lib/features/ai/domain/ai_types";
-import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import {
+  build_ai_html_prompt,
+  build_ai_prompt,
+} from "$lib/features/ai/domain/ai_prompt_builder";
+import { as_note_path } from "$lib/shared/types/ids";
 import type { AiStreamChunk } from "$lib/features/ai/domain/ai_stream_types";
 import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 
@@ -112,28 +116,46 @@ export class AiService {
       throw new Error("No active vault");
     }
 
-    let vault_context: AiVaultContext | undefined;
-    if (input.vault_context_settings?.enabled) {
-      vault_context = await this.fetch_vault_context(
-        input.context.note_path,
-        input.vault_context_settings,
-      );
-    }
+    const { context } = input;
+    let prompt: string;
+    let working_path: string;
+    let subject: "note" | "document";
 
-    const prompt = build_ai_prompt({
-      note_path: input.context.note_path,
-      note_markdown: input.context.note_markdown,
-      selection: input.context.selection,
-      user_prompt: input.prompt,
-      target: input.context.target,
-      mode: input.mode,
-      ...(vault_context ? { vault_context } : {}),
-    });
+    if (context.kind === "html_document") {
+      prompt = build_ai_html_prompt({
+        file_path: context.file_path,
+        file_title: context.file_title,
+        html: context.html,
+        user_prompt: input.prompt,
+        mode: input.mode,
+      });
+      working_path = context.file_path;
+      subject = "document";
+    } else {
+      let vault_context: AiVaultContext | undefined;
+      if (input.vault_context_settings?.enabled) {
+        vault_context = await this.fetch_vault_context(
+          context.note_path,
+          input.vault_context_settings,
+        );
+      }
+      prompt = build_ai_prompt({
+        note_path: context.note_path,
+        note_markdown: context.note_markdown,
+        selection: context.selection,
+        user_prompt: input.prompt,
+        target: context.target,
+        mode: input.mode,
+        ...(vault_context ? { vault_context } : {}),
+      });
+      working_path = context.note_path;
+      subject = "note";
+    }
 
     const result = await this.ai_port.execute({
       provider_config: input.provider_config,
       vault_path,
-      note_path: input.context.note_path,
+      note_path: as_note_path(working_path),
       prompt,
       timeout_seconds: input.timeout_seconds ?? null,
     });
@@ -151,7 +173,7 @@ export class AiService {
         result.error ??
         (result.success
           ? null
-          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : "edit the note"}`),
+          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${subject}`}`),
     };
   }
 

@@ -237,3 +237,45 @@ describe("build_ai_prompt", () => {
     });
   });
 });
+
+import { build_ai_html_prompt } from "$lib/features/ai";
+
+describe("build_ai_html_prompt", () => {
+  const base = {
+    file_path: "notes/chart.html",
+    file_title: "chart",
+    html: "<html><body><h1>Hi</h1></body></html>",
+    user_prompt: "Add a footer",
+    mode: "edit" as const,
+  };
+
+  it("builds an HTML rewrite prompt", () => {
+    const prompt = build_ai_html_prompt(base);
+
+    expect(prompt).toContain("You are editing an HTML document.");
+    expect(prompt).toContain(
+      "Return ONLY the complete edited HTML for the document",
+    );
+    expect(prompt).toContain("Do not include commentary");
+    expect(prompt).toContain("<current_html>");
+    expect(prompt).toContain(base.html);
+    expect(prompt).toContain("<user_instructions>");
+    expect(prompt).toContain("Add a footer");
+    expect(prompt).toContain("chart (notes/chart.html)");
+  });
+
+  it("builds an HTML ask prompt without rewrite instructions", () => {
+    const prompt = build_ai_html_prompt({
+      ...base,
+      mode: "ask",
+      user_prompt: "What does this page render?",
+    });
+
+    expect(prompt).toContain(
+      "answering a question about the content of an HTML document",
+    );
+    expect(prompt).toContain("<user_question>");
+    expect(prompt).toContain("What does this page render?");
+    expect(prompt).not.toContain("Return ONLY");
+  });
+});
