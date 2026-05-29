@@ -8,6 +8,7 @@ pub enum FileCategory {
     Markdown,
     Canvas,
     Pdf,
+    Html,
     Code,
     Text,
     Binary,
@@ -19,6 +20,7 @@ impl FileCategory {
             Self::Markdown => "markdown",
             Self::Canvas => "canvas",
             Self::Pdf => "pdf",
+            Self::Html => "html",
             Self::Code => "code",
             Self::Text => "text",
             Self::Binary => "binary",
@@ -28,6 +30,7 @@ impl FileCategory {
 
 pub struct ExtractedContent {
     pub category: FileCategory,
+    pub title: Option<String>,
     pub body: String,
     pub page_offsets: Vec<usize>,
 }
@@ -42,8 +45,9 @@ pub fn classify_file(path: &Path) -> FileCategory {
         "md" => FileCategory::Markdown,
         "canvas" | "excalidraw" => FileCategory::Canvas,
         "pdf" => FileCategory::Pdf,
+        "html" | "htm" => FileCategory::Html,
         "py" | "r" | "rs" | "ts" | "js" | "jsx" | "tsx" | "json" | "yaml" | "yml" | "toml"
-        | "sh" | "bash" | "css" | "scss" | "html" | "xml" | "sql" | "go" | "java" | "kt" | "c"
+        | "sh" | "bash" | "css" | "scss" | "xml" | "sql" | "go" | "java" | "kt" | "c"
         | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua" | "zig" | "swift" | "dart" | "ex" | "exs"
         | "erl" | "hs" | "ml" | "clj" | "scala" | "php" | "pl" | "vim" | "el" | "nix" | "dhall"
         | "tf" | "hcl" | "graphql" | "proto" | "svelte" | "vue" | "astro" => FileCategory::Code,
@@ -79,6 +83,7 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
     match category {
         FileCategory::Markdown | FileCategory::Canvas => ExtractedContent {
             category,
+            title: None,
             body: String::new(), // handled by existing pipelines
             page_offsets: vec![],
         },
@@ -89,20 +94,32 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
             });
             ExtractedContent {
                 category: FileCategory::Pdf,
+                title: None,
                 body,
                 page_offsets,
+            }
+        }
+        FileCategory::Html => {
+            let extraction = crate::features::search::html_extractor::extract_html_text(bytes);
+            ExtractedContent {
+                category: FileCategory::Html,
+                title: extraction.title,
+                body: truncate_body(extraction.body),
+                page_offsets: vec![],
             }
         }
         FileCategory::Code | FileCategory::Text => {
             let body = decode_text_body(bytes);
             ExtractedContent {
                 category,
+                title: None,
                 body,
                 page_offsets: vec![],
             }
         }
         FileCategory::Binary => ExtractedContent {
             category: FileCategory::Binary,
+            title: None,
             body: String::new(),
             page_offsets: vec![],
         },
@@ -211,6 +228,18 @@ mod tests {
             let p = PathBuf::from(format!("src/file.{ext}"));
             assert_eq!(classify_file(&p), FileCategory::Code, "failed for .{ext}");
         }
+    }
+
+    #[test]
+    fn classify_html_extensions() {
+        for ext in &["html", "htm"] {
+            let p = PathBuf::from(format!("artifacts/page.{ext}"));
+            assert_eq!(classify_file(&p), FileCategory::Html, "failed for .{ext}");
+        }
+        assert_eq!(
+            classify_file(&PathBuf::from("artifacts/page.html")).as_str(),
+            "html"
+        );
     }
 
     #[test]

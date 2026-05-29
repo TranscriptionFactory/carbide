@@ -1820,7 +1820,8 @@ const BATCH_SIZE: usize = 100;
 
 const ATTACHMENT_EXTENSIONS: &[&str] = &[
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
-    ".pdf", ".mp3", ".mp4", ".wav", ".ogg", ".webm", ".flac",
+    ".pdf", ".html", ".htm",
+    ".mp3", ".mp4", ".wav", ".ogg", ".webm", ".flac",
     ".zip", ".tar", ".gz", ".rar",
     ".csv", ".xlsx", ".docx", ".pptx",
 ];
@@ -2111,6 +2112,18 @@ fn index_single_file_from_disk(
             let content = extract_content(abs, &bytes);
             if content.body.is_empty() {
                 log::warn!("PDF extraction empty for {}", abs.display());
+            }
+            upsert_plain_content(conn, meta, &content.body, &content.page_offsets)?;
+            pending_links.push((meta.path.clone(), vec![]));
+            Ok(())
+        }
+        FileCategory::Html => {
+            let bytes = std::fs::read(abs).unwrap_or_default();
+            let content = extract_content(abs, &bytes);
+            if let Some(t) = &content.title {
+                if !t.is_empty() {
+                    meta.title = t.clone();
+                }
             }
             upsert_plain_content(conn, meta, &content.body, &content.page_offsets)?;
             pending_links.push((meta.path.clone(), vec![]));
@@ -3105,6 +3118,14 @@ mod tests {
             file_type: None,
             source: None,
         }
+    }
+
+    #[test]
+    fn is_attachment_target_recognizes_html() {
+        assert!(is_attachment_target("chart.html"));
+        assert!(is_attachment_target("legacy.HTM"));
+        assert!(is_attachment_target("dashboards/quarter.html"));
+        assert!(!is_attachment_target("notes/page.md"));
     }
 
     #[test]
