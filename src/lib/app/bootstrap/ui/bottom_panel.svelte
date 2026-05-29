@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Terminal, CircleAlert, Search, Zap, Bot } from "@lucide/svelte";
+  import {
+    Terminal,
+    CircleAlert,
+    Search,
+    Zap,
+    Bot,
+    ShieldCheck,
+  } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -37,6 +44,8 @@
   const load_lsp_results = () =>
     import("$lib/features/lsp/ui/lsp_results_panel_content.svelte");
   const load_ai = () => import("$lib/features/ai/ui/ai_assistant_panel.svelte");
+  const load_trust = () =>
+    import("$lib/features/document/ui/trust_panel_content.svelte");
 
   const query_result_count = $derived(stores.query.result?.total ?? 0);
 </script>
@@ -98,6 +107,15 @@
       <Bot class="BottomPanel__tab-icon" />
       AI
     </button>
+    <button
+      type="button"
+      class="BottomPanel__tab"
+      class:BottomPanel__tab--active={active_tab === "trust"}
+      onclick={() => set_tab("trust")}
+    >
+      <ShieldCheck class="BottomPanel__tab-icon" />
+      Trust
+    </button>
     <div class="BottomPanel__spacer"></div>
     <button
       type="button"
@@ -133,6 +151,12 @@
         <mod.default />
       {:catch}
         <div class="BottomPanel__error">Failed to load AI panel</div>
+      {/await}
+    {:else if active_tab === "trust"}
+      {#await load_trust() then mod}
+        <mod.default />
+      {:catch}
+        <div class="BottomPanel__error">Failed to load trust panel</div>
       {/await}
     {:else}
       {#await load_problems() then mod}

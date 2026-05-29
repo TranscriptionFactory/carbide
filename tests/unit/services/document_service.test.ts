@@ -483,6 +483,94 @@ describe("DocumentService", () => {
     });
   });
 
+  describe("trusted html", () => {
+    function create_trusted_port() {
+      return {
+        get_level: vi.fn().mockResolvedValue("safe" as const),
+        list: vi.fn().mockResolvedValue([]),
+        grant: vi.fn().mockResolvedValue(undefined),
+        revoke: vi.fn().mockResolvedValue(undefined),
+        parent_folder: vi.fn().mockResolvedValue(""),
+      };
+    }
+
+    it("list_trusted_html forwards to the port for the active vault", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const trusted_port = create_trusted_port();
+      trusted_port.list.mockResolvedValue([
+        { path: "a.html", scope: "file", level: "live" },
+        { path: "trusted/", scope: "folder", level: "live+net" },
+      ]);
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+        undefined,
+        undefined,
+        undefined,
+        trusted_port,
+      );
+
+      const entries = await service.list_trusted_html();
+      expect(trusted_port.list).toHaveBeenCalledWith(vault_store.vault?.id);
+      expect(entries).toEqual([
+        { path: "a.html", scope: "file", level: "live" },
+        { path: "trusted/", scope: "folder", level: "live+net" },
+      ]);
+    });
+
+    it("list_trusted_html returns empty when no vault is open", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      const document_port = create_document_port();
+      const trusted_port = create_trusted_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+        undefined,
+        undefined,
+        undefined,
+        trusted_port,
+      );
+
+      const entries = await service.list_trusted_html();
+      expect(entries).toEqual([]);
+      expect(trusted_port.list).not.toHaveBeenCalled();
+    });
+
+    it("revoke_trust forwards to port and clears the trust cache", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const trusted_port = create_trusted_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+        undefined,
+        undefined,
+        undefined,
+        trusted_port,
+      );
+      document_store.set_trust_level("a.html", "live");
+      expect(document_store.get_trust_level("a.html")).toBe("live");
+
+      await service.revoke_trust("a.html", "file");
+
+      expect(trusted_port.revoke).toHaveBeenCalledWith(
+        vault_store.vault?.id,
+        "a.html",
+        "file",
+      );
+      expect(document_store.get_trust_level("a.html")).toBe("safe");
+    });
+  });
+
   describe("clear_provenance", () => {
     it("deletes the sidecar and clears in-memory state", async () => {
       const document_store = new DocumentStore();
