@@ -444,6 +444,67 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
 
 #[tauri::command]
 #[specta::specta]
+pub fn find_notes_by_name(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<String>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let needle = trimmed.to_lowercase();
+    let cap = limit.unwrap_or(10).clamp(1, 50);
+
+    let root = storage::vault_path(&app, &vault_id)?;
+    let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
+
+    let mut out = Vec::with_capacity(cap);
+    for entry in WalkDir::new(&root)
+        .follow_links(true)
+        .max_depth(constants::MAX_VAULT_WALK_DEPTH)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            !constants::is_excluded_folder(&name)
+                && !ignore_matcher.is_ignored(&root, e.path(), e.file_type().is_dir())
+        })
+        .filter_map(|e| e.ok())
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if stem.is_empty() {
+            continue;
+        }
+        let basename_match = stem == needle
+            || stem.starts_with(&needle)
+            || stem.contains(&needle);
+        if !basename_match {
+            continue;
+        }
+        let rel = path.strip_prefix(&root).map_err(|e| e.to_string())?;
+        let rel = storage::normalize_relative_path(rel);
+        out.push(rel);
+        if out.len() >= cap {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn read_note(
     app: AppHandle,
     vault_id: String,

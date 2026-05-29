@@ -261,6 +261,7 @@ export function create_app_context(input: {
       }),
     input.ports.tag,
     input.ports.bases,
+    () => stores.notes.note_access_history,
   );
 
   let flush_lsp_sync: () => void = () => {};

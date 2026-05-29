@@ -40,11 +40,17 @@ import {
 } from "$lib/features/query";
 import type { TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
+import {
+  rank_notes,
+  type AccessHistory,
+} from "$lib/features/search/domain/omnibar_ranking";
 
 const log = create_logger("search_service");
 const WIKI_SUGGEST_LIMIT = 15;
 const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
+const LIVE_FIND_TIMEOUT_MS = 100;
+const LIVE_FIND_LIMIT = 8;
 
 const STRUCTURED_KEYWORDS =
   /(?:^|\s)(?:notes?|files?|folders?|named|with|in|linked\s+from|not)\s/i;
@@ -164,6 +170,7 @@ export class SearchService {
     private readonly build_context?: () => CommandContext,
     private readonly tags_port?: TagPort,
     private readonly bases_port?: BasesPort,
+    private readonly get_access_history?: () => AccessHistory,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -573,7 +580,10 @@ export class SearchService {
               note: item.note,
               score: result.items.length - i,
             }));
-            return { domain: "notes", items };
+            return {
+              domain: "notes",
+              items: this.rank_note_items(items, raw_query),
+            };
           } catch (error) {
             log.warn("Structured query failed, falling back to hybrid", {
               error: error_message(error),
@@ -594,7 +604,10 @@ export class SearchService {
           snippet_page: hit.snippet_page,
           source: hit.source,
         }));
-        return { domain: "notes", items };
+        return {
+          domain: "notes",
+          items: this.rank_note_items(items, raw_query),
+        };
       } catch (error) {
         log.warn("Hybrid search unavailable, falling back to FTS", {
           error: error_message(error),
@@ -610,7 +623,33 @@ export class SearchService {
       snippet: r.snippet,
       snippet_page: r.snippet_page,
     }));
-    return { domain: "notes", items: fts_items, status: result.status };
+    return {
+      domain: "notes",
+      items: this.rank_note_items(fts_items, raw_query),
+      status: result.status,
+    };
+  }
+
+  private rank_note_items(items: OmnibarItem[], query: string): OmnibarItem[] {
+    const trimmed = query.trim();
+    if (trimmed === "" || items.length === 0) return items;
+
+    const note_items = items.filter(
+      (item): item is Extract<OmnibarItem, { kind: "note" }> =>
+        item.kind === "note",
+    );
+    if (note_items.length === 0) return items;
+
+    const ranked = rank_notes(note_items, {
+      query: trimmed,
+      now_ms: this.now_ms(),
+      access_history: this.get_access_history?.(),
+    });
+
+    return ranked.map(({ ranked: _ranked, ...rest }) => ({
+      ...rest,
+      score: _ranked.total,
+    }));
   }
 
   reset_search_notes_operation() {
@@ -677,7 +716,66 @@ export class SearchService {
       }
     }
 
-    return null;
+    return await this.live_find_note_path(vault_id, candidate);
+  }
+
+  private async live_find_note_path(
+    vault_id: VaultId,
+    candidate: string,
+  ): Promise<string | null> {
+    if (!this.index_port) return null;
+    const normalized = this.strip_internal_target(candidate);
+    if (!normalized) return null;
+    const basename = note_name_from_path(
+      normalized.endsWith(".md") ? normalized : `${normalized}.md`,
+    );
+    if (!basename) return null;
+
+    const targets = this.build_exact_lookup_candidates(candidate).map((p) =>
+      p.toLowerCase(),
+    );
+
+    try {
+      const paths = await this.with_timeout(
+        this.index_port.find_notes_by_name(vault_id, basename, LIVE_FIND_LIMIT),
+        LIVE_FIND_TIMEOUT_MS,
+      );
+      const exact = paths.find((path) => targets.includes(path.toLowerCase()));
+      if (exact) return exact;
+      const by_basename = paths.find(
+        (path) =>
+          note_name_from_path(path).toLowerCase() === basename.toLowerCase(),
+      );
+      return by_basename ?? null;
+    } catch (error) {
+      log.warn("Live find timed out or failed; index may be stale", {
+        candidate,
+        error: error_message(error),
+      });
+      return null;
+    }
+  }
+
+  private async with_timeout<T>(
+    promise: Promise<T>,
+    timeout_ms: number,
+  ): Promise<T> {
+    return await new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("live_find_timeout")),
+        timeout_ms,
+      );
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
   }
 
   async resolve_note_link(
@@ -714,6 +812,22 @@ export class SearchService {
       const cache = await this.search_port.get_file_cache(vault_id, note_path);
       return cache.headings;
     } catch {
+      return [];
+    }
+  }
+
+  async search_headings_matching(
+    query: string,
+    limit = 20,
+  ): Promise<import("$lib/features/search/ports").HeadingMatch[]> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return [];
+    const trimmed = query.trim();
+    if (trimmed === "") return [];
+    try {
+      return await this.search_port.search_headings(vault_id, trimmed, limit);
+    } catch (error) {
+      log.warn("search_headings failed", { error: error_message(error) });
       return [];
     }
   }

@@ -272,6 +272,17 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
         prefix,
       });
     },
+    async find_notes_by_name(
+      vault_id: VaultId,
+      query: string,
+      limit?: number,
+    ): Promise<string[]> {
+      return tauri_invoke<string[]>("find_notes_by_name", {
+        vaultId: vault_id,
+        query,
+        limit: limit ?? 10,
+      });
+    },
     async upsert_note(vault_id: VaultId, note_id: NoteId): Promise<void> {
       await tauri_invoke<undefined>("index_upsert_note", {
         vaultId: vault_id,
