@@ -15,7 +15,9 @@ describe("build_live_csp", () => {
 
   it("mirrors the Rust live_html_csp permissive baseline", () => {
     const csp = build_live_csp(false);
-    expect(csp).toContain("script-src 'unsafe-inline' 'unsafe-eval' blob: data:");
+    expect(csp).toContain(
+      "script-src 'unsafe-inline' 'unsafe-eval' blob: data:",
+    );
     expect(csp).toContain("style-src 'unsafe-inline' data:");
     expect(csp).toContain("img-src data: blob: https: http:");
     expect(csp).toContain("font-src data: https: http:");

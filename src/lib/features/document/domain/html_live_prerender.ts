@@ -9,6 +9,10 @@ const DISPLAY_DOLLAR_RE = /\$\$([\s\S]+?)\$\$/g;
 const DISPLAY_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
 const INLINE_PAREN_RE = /\\\(([\s\S]+?)\\\)/g;
 
+const MASK_OPEN = String.fromCharCode(0xe000);
+const MASK_CLOSE = String.fromCharCode(0xe001);
+const MASK_RE = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, "g");
+
 function attrs_have_class(attrs: string, name: string): boolean {
   const m = CLASS_ATTR_RE.exec(attrs);
   if (!m) return false;
@@ -75,14 +79,11 @@ export function prerender_html_math(html: string): {
   let masked = html.replace(PROTECTED_TAGS_RE, (m) => {
     const i = stash.length;
     stash.push(m);
-    return `\x00MK${String(i)}\x00`;
+    return `${MASK_OPEN}${String(i)}${MASK_CLOSE}`;
   });
 
   let had_math = false;
-  const try_replace = (
-    pattern: RegExp,
-    display: boolean,
-  ): void => {
+  const try_replace = (pattern: RegExp, display: boolean): void => {
     masked = masked.replace(pattern, (raw, src: string) => {
       const out = render_math_safe(src, display);
       if (!out) return raw;
@@ -96,7 +97,7 @@ export function prerender_html_math(html: string): {
   try_replace(INLINE_PAREN_RE, false);
 
   const restored = masked.replace(
-    /\x00MK(\d+)\x00/g,
+    MASK_RE,
     (_, i: string) => stash[Number(i)] ?? "",
   );
   return { html: restored, had_math };

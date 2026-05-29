@@ -32,7 +32,10 @@ export async function prerender_mermaid_codes(
     for (const code of unique) {
       try {
         await mermaid.default.parse(code);
-        const { svg } = await mermaid.default.render(`${prefix}-${String(i++)}`, code);
+        const { svg } = await mermaid.default.render(
+          `${prefix}-${String(i++)}`,
+          code,
+        );
         cache.set(code, svg);
       } catch {
         cache.delete(code);
