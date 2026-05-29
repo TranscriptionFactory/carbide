@@ -16,6 +16,7 @@ pub mod reference;
 pub mod search;
 pub mod settings;
 pub mod smart_links;
+pub mod trusted_html;
 // STT removed — archived on archive/stt-main
 pub mod tasks;
 pub mod toolchain;

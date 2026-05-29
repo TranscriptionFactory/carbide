@@ -71,6 +71,16 @@ export function create_test_ports(): Ports {
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
     document: create_test_document_adapter(),
+    trusted_html: {
+      get_level: () => Promise.resolve("safe"),
+      list: () => Promise.resolve([]),
+      grant: () => Promise.resolve(),
+      revoke: () => Promise.resolve(),
+      parent_folder: (p: string) => {
+        const i = p.lastIndexOf("/");
+        return Promise.resolve(i >= 0 ? p.slice(0, i) : "");
+      },
+    },
     terminal: create_test_terminal_adapter(),
     window: create_test_window_adapter(),
     watcher: create_test_watcher_adapter(),

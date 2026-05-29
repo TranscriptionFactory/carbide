@@ -100,9 +100,23 @@ These are the cleanup gaps identified during planning. Without them, every later
 
 ---
 
-## Phase 1 — Render modes: Source / Safe / Live
+## Phase 1 — Render modes: Source / Safe / Live ✅
 
 The current `html_view_mode` is a binary `source | visual` toggle. Expand to three modes, with the third (Live) being the one that makes LLM artifacts actually work.
+
+**Status (2026-05-29):** Implemented and verified.
+- P1.1 ✅ — `HtmlViewMode` widened to `"source" | "safe" | "live"`; `HTML_VIEW_MODES` constant added. `toggle_html_view_mode` replaced with `set_html_view_mode(mode)` + `cycle_html_view_mode(tab_id)`. Service default switched from `"visual"` to `"safe"`. 3-segment radio toggle in `document_viewer_content.svelte` with Source / Safe / Live buttons; Live click without trust opens the trust dialog. Store/test fixtures updated.
+- P1.2 ✅ — `sandboxed_iframe.svelte` extended with optional `srcdoc` prop (back-compat: `src` and `on_message` are now optional too). New `html_live_renderer.svelte` wraps `SandboxedIframe`, derives a strict CSP per trust grant (`connect-src 'none'` by default, opt-in `*` when `live+net`), and falls back to wrapping bare content in a minimal `<!DOCTYPE html>` shell when the source lacks `<head>`/`<html>`. Routed from `document_viewer_content.svelte` when `html_mode === "live" && live_allowed`.
+- P1.3 ✅ — Rust feature `features/trusted_html`: `.carbide/trusted_html.json` storage with per-file and per-folder maps; resolver prefers file → nearest-ancestor folder → `safe`. Five new Tauri commands (`trusted_html_get_level`, `_list`, `_grant`, `_revoke`, `_parent_folder`) registered in the app handler and specta builder. TS-side `TrustedHtmlPort` + `create_trusted_html_tauri_adapter`, wired through `Ports` and `create_prod_ports`. `DocumentStore` gained `trust_levels`, `pending_trust_request`, and open/close helpers. `DocumentService` gained `refresh_trust_level`, `list_trusted_html`, `grant_trust`, `revoke_trust`, `request_trust_grant`, `resolve_pending_trust`. New `trusted_html_dialog.svelte` (file vs folder, Live vs Live+Network) mounted next to the document viewer.
+- P1.4 ✅ — New `domain/html_theme_vars.ts` exports `build_theme_vars(theme)` and `build_theme_style_block(theme)`; injected into the live iframe's `<head>` as `:root { --carbide-bg, --carbide-fg, --carbide-muted-fg, --carbide-border, --carbide-accent, --carbide-accent-fg, --carbide-link, --carbide-code-bg, --carbide-code-fg, --carbide-font-sans, --carbide-font-mono, --carbide-scheme }` plus `color-scheme: light|dark`. Static CSS, refreshes when Svelte re-renders the iframe on theme change. Documentation deferred to Phase 3.3.
+
+**Verification:**
+- `cargo check` — clean (only pre-existing warnings).
+- `cargo test --lib features::trusted_html::` — 7 / 7 pass (defaults, file grants, folder propagation, file-overrides-folder, sibling isolation, parent-folder strip, leading-slash normalization).
+- `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
+- `pnpm lint` — fails on the same pre-existing layering violation in `note_actions.ts:38` (introduced by `fbf3accc`, untouched by this phase).
+- `pnpm test` — 3869 / 3869 pass, including updated `cycle_html_view_mode` / `set_html_view_mode` cases.
+- `pnpm format` — applied (7 files re-formatted by Prettier; subsequent `pnpm check` still clean).
 
 ### P1.1 — Three-state render mode
 

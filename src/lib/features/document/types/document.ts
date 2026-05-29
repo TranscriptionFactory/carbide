@@ -14,7 +14,13 @@ export function is_editable_type(file_type: DocumentFileType): boolean {
   return file_type === "text" || file_type === "html";
 }
 
-export type HtmlViewMode = "visual" | "source";
+export type HtmlViewMode = "source" | "safe" | "live";
+
+export const HTML_VIEW_MODES: readonly HtmlViewMode[] = [
+  "source",
+  "safe",
+  "live",
+] as const;
 
 export type PdfMetadata = {
   title?: string;

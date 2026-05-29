@@ -8,11 +8,17 @@
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
+  import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
+  import TrustedHtmlDialog from "$lib/features/document/ui/trusted_html_dialog.svelte";
   import { CanvasViewer } from "$lib/features/canvas";
-  import type { PdfMetadata } from "$lib/features/document/types/document";
+  import type {
+    HtmlViewMode,
+    PdfMetadata,
+  } from "$lib/features/document/types/document";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
+  import ZapIcon from "@lucide/svelte/icons/zap";
 
   interface Props {
     viewer_state: DocumentViewerState;
@@ -26,9 +32,20 @@
     stores.document.get_current_content(viewer_state.tab_id),
   );
   const is_html = $derived(viewer_state.file_type === "html");
-  const html_source_mode = $derived(
-    is_html && viewer_state.html_view_mode === "source",
+  const html_mode = $derived(viewer_state.html_view_mode);
+  const trust_level = $derived(
+    is_html ? stores.document.get_trust_level(viewer_state.file_path) : "safe",
   );
+  const live_allowed = $derived(
+    trust_level === "live" || trust_level === "live+net",
+  );
+  const allow_network = $derived(trust_level === "live+net");
+
+  $effect(() => {
+    if (is_html) {
+      void services.document.refresh_trust_level(viewer_state.file_path);
+    }
+  });
 
   function handle_pdf_metadata(metadata: PdfMetadata): void {
     stores.document.set_pdf_metadata(viewer_state.tab_id, metadata);
@@ -39,31 +56,62 @@
     stores.tab.set_dirty(viewer_state.tab_id, true);
   }
 
-  function toggle_html_view_mode(): void {
-    stores.document.toggle_html_view_mode(viewer_state.tab_id);
+  async function set_html_view_mode(mode: HtmlViewMode): Promise<void> {
+    if (mode === "live" && !live_allowed) {
+      const granted = await services.document.request_trust_grant(
+        viewer_state.file_path,
+      );
+      if (!granted) return;
+    }
+    stores.document.set_html_view_mode(viewer_state.tab_id, mode);
   }
 </script>
 
 <div class="DocumentViewer">
   {#if is_html && current_content !== null}
     <div class="DocumentViewer__toolbar">
-      <button
-        type="button"
-        class="DocumentViewer__toggle-btn"
-        class:DocumentViewer__toggle-btn--active={!html_source_mode}
-        onclick={toggle_html_view_mode}
-        aria-label={html_source_mode
-          ? "Switch to visual view"
-          : "Switch to source view"}
+      <div
+        class="DocumentViewer__mode-toggle"
+        role="radiogroup"
+        aria-label="HTML view mode"
       >
-        {#if html_source_mode}
-          <EyeIcon />
-          <span>Visual</span>
-        {:else}
+        <button
+          type="button"
+          class="DocumentViewer__mode-btn"
+          class:DocumentViewer__mode-btn--active={html_mode === "source"}
+          role="radio"
+          aria-checked={html_mode === "source"}
+          onclick={() => set_html_view_mode("source")}
+        >
           <CodeIcon />
           <span>Source</span>
-        {/if}
-      </button>
+        </button>
+        <button
+          type="button"
+          class="DocumentViewer__mode-btn"
+          class:DocumentViewer__mode-btn--active={html_mode === "safe"}
+          role="radio"
+          aria-checked={html_mode === "safe"}
+          onclick={() => set_html_view_mode("safe")}
+        >
+          <EyeIcon />
+          <span>Safe</span>
+        </button>
+        <button
+          type="button"
+          class="DocumentViewer__mode-btn"
+          class:DocumentViewer__mode-btn--active={html_mode === "live"}
+          role="radio"
+          aria-checked={html_mode === "live"}
+          title={live_allowed
+            ? "Run scripts (sandboxed)"
+            : "Trust file to enable Live mode"}
+          onclick={() => set_html_view_mode("live")}
+        >
+          <ZapIcon />
+          <span>Live</span>
+        </button>
+      </div>
     </div>
   {/if}
 
@@ -89,7 +137,7 @@
       background_style={stores.ui.editor_settings.document_image_background}
     />
   {:else if is_html && current_content !== null}
-    {#if html_source_mode}
+    {#if html_mode === "source"}
       {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
         <DocumentEditor
           content={current_content}
@@ -98,6 +146,12 @@
           wrap_lines={stores.ui.editor_settings.document_code_wrap}
         />
       {/key}
+    {:else if html_mode === "live" && live_allowed}
+      <HtmlLiveRenderer
+        content={current_content}
+        theme={stores.ui.active_theme}
+        {allow_network}
+      />
     {:else}
       <HtmlViewer
         content={current_content}
@@ -142,6 +196,8 @@
   {/if}
 </div>
 
+<TrustedHtmlDialog />
+
 <style>
   .DocumentViewer {
     display: flex;
@@ -159,8 +215,17 @@
     flex-shrink: 0;
   }
 
-  .DocumentViewer__toggle-btn {
-    display: flex;
+  .DocumentViewer__mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-0-5, 2px);
+    padding: 2px;
+    background-color: var(--muted);
+    border-radius: var(--radius-sm);
+  }
+
+  .DocumentViewer__mode-btn {
+    display: inline-flex;
     align-items: center;
     gap: var(--space-1);
     padding: var(--space-1) var(--space-2);
@@ -168,17 +233,22 @@
     font-weight: 500;
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
+    background-color: transparent;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
   }
 
-  .DocumentViewer__toggle-btn:hover {
-    background-color: var(--muted);
+  .DocumentViewer__mode-btn:hover {
     color: var(--foreground);
   }
 
-  :global(.DocumentViewer__toggle-btn svg) {
+  .DocumentViewer__mode-btn--active {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  :global(.DocumentViewer__mode-btn svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
   }

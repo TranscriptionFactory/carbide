@@ -1,4 +1,11 @@
-import type { DocumentPort, PdfExportPort } from "$lib/features/document/ports";
+import type {
+  DocumentPort,
+  PdfExportPort,
+  TrustEntry,
+  TrustLevel,
+  TrustScope,
+  TrustedHtmlPort,
+} from "$lib/features/document/ports";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentContentState } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentFileType } from "$lib/features/document/types/document";
@@ -22,8 +29,74 @@ export class DocumentService {
     private readonly now_ms: () => number = () => Date.now(),
     private readonly inactive_content_limit = DEFAULT_INACTIVE_CONTENT_LIMIT,
     private readonly pdf_export_port?: PdfExportPort,
+    private readonly trusted_html_port?: TrustedHtmlPort,
   ) {
     this.document_store.set_inactive_content_limit(inactive_content_limit);
+  }
+
+  async refresh_trust_level(file_path: string): Promise<TrustLevel> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.trusted_html_port) {
+      this.document_store.set_trust_level(file_path, "safe");
+      return "safe";
+    }
+    const level = await this.trusted_html_port.get_level(vault_id, file_path);
+    this.document_store.set_trust_level(file_path, level);
+    return level;
+  }
+
+  async list_trusted_html(): Promise<TrustEntry[]> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.trusted_html_port) return [];
+    return this.trusted_html_port.list(vault_id);
+  }
+
+  async grant_trust(
+    path: string,
+    scope: TrustScope,
+    level: TrustLevel,
+  ): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.trusted_html_port) return;
+    await this.trusted_html_port.grant(vault_id, path, scope, level);
+    this.document_store.clear_trust_levels();
+  }
+
+  async revoke_trust(path: string, scope: TrustScope): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.trusted_html_port) return;
+    await this.trusted_html_port.revoke(vault_id, path, scope);
+    this.document_store.clear_trust_levels();
+  }
+
+  async request_trust_grant(file_path: string): Promise<boolean> {
+    if (!this.trusted_html_port) return false;
+    const folder_path = await this.trusted_html_port.parent_folder(file_path);
+    return new Promise<boolean>((resolve_promise) => {
+      this.document_store.open_trust_request({
+        file_path,
+        folder_path,
+        resolve: (granted) => resolve_promise(granted),
+      });
+    });
+  }
+
+  async resolve_pending_trust(
+    scope: TrustScope | null,
+    level: TrustLevel,
+  ): Promise<void> {
+    const req = this.document_store.pending_trust_request;
+    if (!req) return;
+    if (scope === null) {
+      this.document_store.close_trust_request();
+      req.resolve(false);
+      return;
+    }
+    const path = scope === "file" ? req.file_path : req.folder_path;
+    await this.grant_trust(path, scope, level);
+    await this.refresh_trust_level(req.file_path);
+    this.document_store.close_trust_request();
+    req.resolve(true);
   }
 
   async open_document(
@@ -46,7 +119,7 @@ export class DocumentService {
         zoom: 1,
         scroll_top: 0,
         pdf_page: normalized_initial_pdf_page ?? 1,
-        html_view_mode: "visual",
+        html_view_mode: "safe",
         load_status: "idle",
         error_message: null,
       });
