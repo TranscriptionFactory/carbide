@@ -1,7 +1,13 @@
+import katex from "katex";
 import { prerender_mermaid_codes } from "$lib/features/document/domain/mermaid_prerender";
 
 const PRE_BLOCK_RE = /<pre\b([^>]*)>([\s\S]*?)<\/pre>/gi;
 const CLASS_ATTR_RE = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
+const PROTECTED_TAGS_RE =
+  /<(pre|code|script|style|svg|figure)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const DISPLAY_DOLLAR_RE = /\$\$([\s\S]+?)\$\$/g;
+const DISPLAY_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
+const INLINE_PAREN_RE = /\\\(([\s\S]+?)\\\)/g;
 
 function attrs_have_class(attrs: string, name: string): boolean {
   const m = CLASS_ATTR_RE.exec(attrs);
@@ -48,4 +54,50 @@ export async function prerender_html_mermaid(html: string): Promise<string> {
     id_prefix: "live-mermaid",
   });
   return inject_mermaid_svgs(html, svgs);
+}
+
+function render_math_safe(source: string, display: boolean): string | null {
+  try {
+    return katex.renderToString(source.trim(), {
+      displayMode: display,
+      throwOnError: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function prerender_html_math(html: string): {
+  html: string;
+  had_math: boolean;
+} {
+  const stash: string[] = [];
+  let masked = html.replace(PROTECTED_TAGS_RE, (m) => {
+    const i = stash.length;
+    stash.push(m);
+    return `\x00MK${String(i)}\x00`;
+  });
+
+  let had_math = false;
+  const try_replace = (
+    pattern: RegExp,
+    display: boolean,
+  ): void => {
+    masked = masked.replace(pattern, (raw, src: string) => {
+      const out = render_math_safe(src, display);
+      if (!out) return raw;
+      had_math = true;
+      return out;
+    });
+  };
+
+  try_replace(DISPLAY_DOLLAR_RE, true);
+  try_replace(DISPLAY_BRACKET_RE, true);
+  try_replace(INLINE_PAREN_RE, false);
+
+  const restored = masked.replace(
+    /\x00MK(\d+)\x00/g,
+    (_, i: string) => stash[Number(i)] ?? "",
+  );
+  return { html: restored, had_math };
 }

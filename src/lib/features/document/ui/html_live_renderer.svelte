@@ -4,7 +4,11 @@
   import type { Theme } from "$lib/shared/types/theme";
   import { build_theme_style_block } from "$lib/features/document/domain/html_theme_vars";
   import { build_live_html_document } from "$lib/features/document/domain/html_live_document";
-  import { prerender_html_mermaid } from "$lib/features/document/domain/html_live_prerender";
+  import {
+    prerender_html_mermaid,
+    prerender_html_math,
+  } from "$lib/features/document/domain/html_live_prerender";
+  import { get_inlined_katex_css } from "$lib/features/document/domain/katex_inline_css";
 
   interface Props {
     content: string;
@@ -24,11 +28,16 @@
     let registered_url: string | null = null;
 
     (async () => {
-      const prerendered = await prerender_html_mermaid(current_content);
+      const with_mermaid = await prerender_html_mermaid(current_content);
+      if (cancelled) return;
+      const { html: with_math, had_math } = prerender_html_math(with_mermaid);
+      const katex_css = had_math
+        ? `<style>${await get_inlined_katex_css()}</style>`
+        : "";
       if (cancelled) return;
       const doc = build_live_html_document({
-        content: prerendered,
-        theme_style: theme_block,
+        content: with_math,
+        theme_style: katex_css + theme_block,
         allow_network: network,
       });
       const url = await invoke<string>("html_live_register", { html: doc });
