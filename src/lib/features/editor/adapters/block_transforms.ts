@@ -167,7 +167,12 @@ export function create_turn_into_command(
       if (is_wrapped_block(block.node)) {
         const items = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.list_item.create(
-            { checked: false, listType: "bullet", label: "•" },
+            {
+              checked: false,
+              task_status: "todo",
+              listType: "bullet",
+              label: "•",
+            },
             [schema.nodes.paragraph.create(null, tb.content)],
           ),
         );
@@ -230,6 +235,7 @@ function wrap_as_todo(state: EditorState, dispatch: Dispatch): boolean {
       tr.setNodeMarkup(block.pos + 1 + offset, undefined, {
         ...child.attrs,
         checked: false,
+        task_status: "todo",
       });
     }
   });
@@ -524,7 +530,12 @@ function build_turn_into_replacement(
     const tbs = is_wrapped_block(node) ? unwrap_to_textblocks(node) : [node];
     const items = tbs.map((tb) =>
       schema.nodes.list_item.create(
-        { checked: false, listType: "bullet", label: "•" },
+        {
+          checked: false,
+          task_status: "todo",
+          listType: "bullet",
+          label: "•",
+        },
         [
           schema.nodes.paragraph.create(
             null,

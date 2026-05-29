@@ -1,9 +1,15 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect } from "vitest";
+import { EditorState, TextSelection } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import {
   parse_markdown,
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
 import { schema } from "$lib/features/editor/adapters/schema";
+import { create_turn_into_command } from "$lib/features/editor/adapters/block_transforms";
 
 function make_task_li(
   checked: boolean | null,
@@ -138,5 +144,36 @@ describe("task checkbox toggle cycle", () => {
     const li = reparsed.firstChild?.firstChild;
     expect(li?.attrs["checked"]).toBe(false);
     expect(li?.attrs["task_status"]).toBe("doing");
+  });
+
+  it("bullet_list → todo_list conversion matches disk-loaded task attrs", () => {
+    // Start with a bullet list (already wrapped) so we exercise the
+    // is_wrapped_block branch in turn_into. This guarantees an in-editor
+    // task with the same attrs a freshly-parsed `[ ]` task would have, so
+    // the click handler's 3-state cycle behaves identically before vs.
+    // after a navigate-away-and-back.
+    const li = schema.nodes.list_item.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("hello")),
+    ]);
+    const bullet = schema.nodes.bullet_list.create(null, [li]);
+    const doc = schema.nodes.doc.create(null, [bullet]);
+    const state = EditorState.create({ doc, schema }).apply(
+      EditorState.create({ doc, schema }).tr.setSelection(
+        TextSelection.create(doc, 3),
+      ),
+    );
+    const view = new EditorView(document.createElement("div"), { state });
+    create_turn_into_command("todo_list")(view.state, view.dispatch);
+
+    const list = view.state.doc.firstChild;
+    const item = list?.firstChild;
+    expect(item?.attrs["checked"]).toBe(false);
+    expect(item?.attrs["task_status"]).toBe("todo");
+
+    const disk_li = parse_markdown("- [ ] hello").firstChild?.firstChild;
+    expect(item?.attrs["checked"]).toBe(disk_li?.attrs["checked"]);
+    expect(item?.attrs["task_status"]).toBe(disk_li?.attrs["task_status"]);
+
+    view.destroy();
   });
 });

@@ -300,6 +300,11 @@
           await import("$lib/features/editor/adapters/cm_lsp_completion");
         extensions.push(create_cm_lsp_completion(editor_service));
       }
+      // Source mode intentionally has no [[ / @ / # suggest dropdowns. The
+      // visual-mode suggest stack is a ProseMirror plugin and porting its
+      // orchestration to CodeMirror duplicates the surface area for cosmetic
+      // parity. Phase 5 P5.1 settled on: LSP for code blocks, raw syntax for
+      // wiki/tag/at-palette. See carbide/plans/2026-05-28_bugs_implementation_plan.md.
 
       last_applied_markdown = initial_markdown;
       mounted_note_id = stores.editor.open_note?.meta.id;

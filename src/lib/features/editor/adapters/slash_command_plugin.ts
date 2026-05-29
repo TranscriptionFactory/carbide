@@ -219,7 +219,7 @@ function make_todo_insert() {
       item_spec_attrs,
       "checked",
     )
-      ? { checked: false }
+      ? { checked: false, task_status: "todo" }
       : null;
 
     const $pos = state.doc.resolve(from);
