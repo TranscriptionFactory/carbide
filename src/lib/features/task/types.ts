@@ -18,7 +18,7 @@ export interface TaskUpdate {
 
 export interface TaskFilter {
   property: string;
-  operator: "eq" | "neq" | "contains" | "gt" | "lt" | "gte" | "lte";
+  operator: "eq" | "neq" | "contains" | "gt" | "lt" | "gte" | "lte" | "under";
   value: string;
 }
 

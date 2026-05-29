@@ -329,4 +329,30 @@ not done`;
     expect(errors).toEqual([]);
     expect(query.filter).toEqual(atom("text", "contains", "#"));
   });
+
+  it("parses 'section under Heading' with subheadings included by default", () => {
+    const { query, errors } = parse_task_query("section under Heading");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("section", "under", "Heading"));
+  });
+
+  it("strips a leading # from 'section under'", () => {
+    const { query, errors } = parse_task_query("section under #Heading");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("section", "under", "Heading"));
+  });
+
+  it("'section under X include_subheadings:false' opts out of descendants", () => {
+    const { query, errors } = parse_task_query(
+      "section under Heading include_subheadings:false",
+    );
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("section", "eq", "Heading"));
+  });
+
+  it("'section is Heading' is an exact match (no descendants)", () => {
+    const { query, errors } = parse_task_query("section is Heading");
+    expect(errors).toEqual([]);
+    expect(query.filter).toEqual(atom("section", "eq", "Heading"));
+  });
 });

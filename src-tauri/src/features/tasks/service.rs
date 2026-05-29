@@ -16,13 +16,24 @@ lazy_static! {
 
 pub fn extract_tasks(path: &str, markdown: &str) -> Vec<Task> {
     let mut tasks = Vec::new();
-    let mut current_section = None;
+    // Stack of (heading depth, heading text). The current task's section is the
+    // slash-joined ancestry, so `section LIKE 'A/%' OR section = 'A'` finds
+    // tasks under any descendant of A.
+    let mut heading_stack: Vec<(usize, String)> = Vec::new();
 
     for (index, line) in markdown.lines().enumerate() {
         let line_number = index + 1;
 
-        if line.starts_with('#') {
-            current_section = Some(line.trim_start_matches('#').trim().to_string());
+        if let Some(depth) = heading_depth(line) {
+            let text = line.trim_start_matches('#').trim().to_string();
+            while heading_stack
+                .last()
+                .map(|(d, _)| *d >= depth)
+                .unwrap_or(false)
+            {
+                heading_stack.pop();
+            }
+            heading_stack.push((depth, text));
             continue;
         }
 
@@ -44,6 +55,18 @@ pub fn extract_tasks(path: &str, markdown: &str) -> Vec<Task> {
                         .map(|m: regex::Match| m.as_str().to_string())
                 });
 
+            let section = if heading_stack.is_empty() {
+                None
+            } else {
+                Some(
+                    heading_stack
+                        .iter()
+                        .map(|(_, t)| t.as_str())
+                        .collect::<Vec<_>>()
+                        .join("/"),
+                )
+            };
+
             tasks.push(Task {
                 id: format!("{}:{}", path, line_number),
                 path: path.to_string(),
@@ -51,12 +74,29 @@ pub fn extract_tasks(path: &str, markdown: &str) -> Vec<Task> {
                 status,
                 due_date,
                 line_number,
-                section: current_section.clone(),
+                section,
             });
         }
     }
 
     tasks
+}
+
+fn heading_depth(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let mut depth = 0;
+    while depth < bytes.len() && bytes[depth] == b'#' {
+        depth += 1;
+    }
+    if depth == 0 || depth > 6 {
+        return None;
+    }
+    // ATX heading requires whitespace or end-of-line after the hashes.
+    match bytes.get(depth) {
+        None => Some(depth),
+        Some(b' ') | Some(b'\t') => Some(depth),
+        _ => None,
+    }
 }
 
 pub fn save_tasks(conn: &Connection, path: &str, tasks: &[Task]) -> Result<(), String> {
@@ -176,6 +216,11 @@ fn build_atom_sql(
         "neq" => {
             params_vec.push(Box::new(q.value.clone()));
             format!("{} != ?{}", col, idx)
+        }
+        "under" => {
+            params_vec.push(Box::new(q.value.clone()));
+            params_vec.push(Box::new(format!("{}/%", q.value)));
+            format!("({} = ?{} OR {} LIKE ?{})", col, idx, col, idx + 1)
         }
         "contains" => {
             params_vec.push(Box::new(format!("%{}%", q.value)));
@@ -423,6 +468,49 @@ mod tests {
         assert_eq!(tasks[2].status, TaskStatus::Doing);
 
         assert_eq!(tasks[4].due_date, Some("2024-01-01".to_string()));
+
+        assert_eq!(tasks[5].text, "Task 6");
+        assert_eq!(
+            tasks[5].section,
+            Some("Project A/Subproject B".to_string()),
+            "subheading should be appended to parent for hierarchical scoping"
+        );
+    }
+
+    #[test]
+    fn test_extract_tasks_heading_stack_pops_to_parent() {
+        let markdown = r#"
+# A
+- [ ] In A
+## B
+- [ ] In A/B
+### C
+- [ ] In A/B/C
+## D
+- [ ] In A/D
+# E
+- [ ] In E
+"#;
+        let tasks = extract_tasks("test.md", markdown);
+        assert_eq!(tasks.len(), 5);
+        assert_eq!(tasks[0].section.as_deref(), Some("A"));
+        assert_eq!(tasks[1].section.as_deref(), Some("A/B"));
+        assert_eq!(tasks[2].section.as_deref(), Some("A/B/C"));
+        assert_eq!(tasks[3].section.as_deref(), Some("A/D"));
+        assert_eq!(tasks[4].section.as_deref(), Some("E"));
+    }
+
+    #[test]
+    fn test_build_atom_sql_under_walks_subtree() {
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let expr = make_atom("section", "under", "Project A");
+        let sql = build_filter_sql(&expr, &mut params);
+        assert_eq!(
+            sql,
+            Some("(section = ?1 OR section LIKE ?2)".to_string()),
+            "under should match exact and descendants under the heading subtree"
+        );
+        assert_eq!(params.len(), 2);
     }
 
     fn make_atom(property: &str, operator: &str, value: &str) -> FilterExpr {
