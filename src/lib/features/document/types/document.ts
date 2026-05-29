@@ -22,6 +22,12 @@ export const HTML_VIEW_MODES: readonly HtmlViewMode[] = [
   "live",
 ] as const;
 
+export type ArtifactProvenance = {
+  source: string;
+  pasted_at: string;
+  [key: string]: unknown;
+};
+
 export type PdfMetadata = {
   title?: string;
   author?: string;

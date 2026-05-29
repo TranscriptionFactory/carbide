@@ -1,5 +1,6 @@
 import {
   HTML_VIEW_MODES,
+  type ArtifactProvenance,
   type DocumentFileType,
   type HtmlViewMode,
   type PdfMetadata,
@@ -44,8 +45,26 @@ export class DocumentStore {
   viewer_states = $state<Map<string, DocumentViewerState>>(new Map());
   content_states = $state<Map<string, DocumentContentState>>(new Map());
   trust_levels = $state<Map<string, TrustLevel>>(new Map());
+  provenance = $state<Map<string, ArtifactProvenance | null>>(new Map());
   pending_trust_request = $state<TrustGrantRequest | null>(null);
   inactive_content_limit = $state(3);
+
+  get_provenance(file_path: string): ArtifactProvenance | null {
+    return this.provenance.get(file_path) ?? null;
+  }
+
+  set_provenance(
+    file_path: string,
+    provenance: ArtifactProvenance | null,
+  ): void {
+    const next = new Map(this.provenance);
+    if (provenance === null) {
+      next.delete(file_path);
+    } else {
+      next.set(file_path, provenance);
+    }
+    this.provenance = next;
+  }
 
   get_trust_level(file_path: string): TrustLevel {
     return this.trust_levels.get(file_path) ?? "safe";
