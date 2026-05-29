@@ -1,6 +1,7 @@
 pub mod db;
 pub mod embeddings;
 pub mod hnsw_index;
+pub mod html_extractor;
 pub mod hybrid;
 pub mod model;
 pub mod service;

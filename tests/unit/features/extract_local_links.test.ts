@@ -114,4 +114,16 @@ describe("extract_local_links", () => {
 
     expect(result.attachment_paths).toEqual([]);
   });
+
+  it("classifies .html/.htm targets as attachments, not outlinks", () => {
+    const md = "[chart](page.html) and [legacy](old.htm) and [[dash.html]].";
+    const result = extract_local_links(md);
+
+    expect(result.attachment_paths).toContain("page.html");
+    expect(result.attachment_paths).toContain("old.htm");
+    expect(result.attachment_paths).toContain("dash.html");
+    expect(result.outlink_paths).not.toContain("page.html");
+    expect(result.outlink_paths).not.toContain("old.htm");
+    expect(result.outlink_paths).not.toContain("dash.html");
+  });
 });

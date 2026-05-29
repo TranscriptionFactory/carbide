@@ -11,7 +11,7 @@ export type LocalLinksResult = {
 const WIKI_LINK_RE = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 
 const ATTACHMENT_EXT_RE =
-  /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|pdf|mp3|mp4|wav|ogg|webm|flac|zip|tar|gz|rar|csv|xlsx|docx|pptx)$/i;
+  /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|pdf|html|htm|mp3|mp4|wav|ogg|webm|flac|zip|tar|gz|rar|csv|xlsx|docx|pptx)$/i;
 
 function is_external_url(url: string): boolean {
   return /^https?:\/\//i.test(url) || /^mailto:/i.test(url);
