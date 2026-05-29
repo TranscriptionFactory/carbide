@@ -1,4 +1,5 @@
 import type {
+  HeadingMatch,
   LocalNoteLinksSnapshot,
   NoteLinksSnapshot,
   NoteStats,
@@ -387,6 +388,18 @@ export function create_search_tauri_adapter(): SearchPort {
       return invoke_search<FileCache>("note_get_file_cache", {
         vaultId: vault_id,
         notePath: note_path,
+      });
+    },
+
+    async search_headings(
+      vault_id: VaultId,
+      query: string,
+      limit?: number,
+    ): Promise<HeadingMatch[]> {
+      return invoke_search<HeadingMatch[]>("search_headings", {
+        vaultId: vault_id,
+        query,
+        limit: limit ?? 20,
       });
     },
 

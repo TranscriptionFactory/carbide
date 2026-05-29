@@ -163,9 +163,9 @@ describe("inline code input rule (`text`)", () => {
     const result = trigger_input_rule("`hello", "`");
     expect(result).not.toBeNull();
     const stored = result!.storedMarks;
-    expect(
-      stored?.some((m) => m.type.name === "code_inline") ?? false,
-    ).toBe(false);
+    expect(stored?.some((m) => m.type.name === "code_inline") ?? false).toBe(
+      false,
+    );
     const next = result!.apply(result!.tr.insertText("x"));
     const last_text = next.doc.firstChild!.lastChild!;
     expect(last_text.text!.endsWith("x")).toBe(true);

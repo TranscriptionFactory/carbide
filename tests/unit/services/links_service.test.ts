@@ -499,6 +499,7 @@ function make_search_port(
     rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     get_note_stats: vi.fn().mockResolvedValue({}),
     get_file_cache: vi.fn().mockResolvedValue({}),
+    search_headings: vi.fn().mockResolvedValue([]),
     load_smart_link_rules: vi.fn().mockResolvedValue([]),
     save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
     compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),

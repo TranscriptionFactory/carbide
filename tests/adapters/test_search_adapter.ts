@@ -161,6 +161,7 @@ export function create_test_search_adapter(): SearchPort {
         mtime_ms: 0,
         size_bytes: 0,
       }),
+    search_headings: () => Promise.resolve([]),
     load_smart_link_rules: () => Promise.resolve([]),
     save_smart_link_rules: () => Promise.resolve(),
     compute_smart_link_suggestions: () => Promise.resolve([]),

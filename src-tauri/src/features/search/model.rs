@@ -211,6 +211,18 @@ pub struct NoteHeading {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct HeadingMatch {
+    pub note_path: String,
+    pub level: i32,
+    pub text: String,
+    pub line: i64,
+    /// Slash-joined ancestry, e.g. "Project A/Subproject B/Tasks".
+    pub heading_path: String,
+    /// Match quality in [0, 1]. Mirrors the P4.1 omnibar rule.
+    pub score: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NoteLink {
     pub target_path: String,
     pub link_text: String,
