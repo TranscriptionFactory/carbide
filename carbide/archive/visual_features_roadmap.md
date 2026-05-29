@@ -1,5 +1,7 @@
 # Visual Features Roadmap
 
+> **DEPRECATED (2026-05-29):** This is the original 2026-05-12 draft. The current version with status updates lives at `carbide/plans/visual_features_roadmap.md`. Retained here for history.
+
 **Date:** 2026-05-12
 **Scope:** Four high-value visual features, ordered by implementation phase
 

@@ -1,5 +1,7 @@
 # Bug Reports — 2026-05-16
 
+> **DEPRECATED (2026-05-29):** Duplicate of `carbide/implementation/2026-05-16_bug_reports.md`. Retained here for history.
+
 ## BUG-1: CLI not recognizing app open / stubborn restart attempts
 
 **Component:** CLI ↔ App lifecycle
