@@ -337,6 +337,43 @@ describe("register_tab_actions", () => {
       expect(stores.editor.editor_mode).toBe("visual");
     });
 
+    it("flushes pending editor edits before tearing down the active tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+      services.editor.flush.mockClear();
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(services.editor.flush).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not flush when closing an inactive tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.editor.set_open_note(mock_open_note("b.md"));
+      services.editor.flush.mockClear();
+
+      await registry.execute(ACTION_IDS.tab_close, "a.md");
+
+      expect(services.editor.flush).not.toHaveBeenCalled();
+    });
+
+    it("resets editor split_view when closing the last tab", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+      stores.editor.set_split_view(true);
+      stores.editor.set_editor_mode("source");
+
+      await registry.execute(ACTION_IDS.tab_close, "a.md");
+
+      expect(stores.editor.split_view).toBe(false);
+      expect(stores.editor.editor_mode).toBe("visual");
+    });
+
     it("clears open_note even when close_buffer throws", async () => {
       const { registry, stores, services } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");

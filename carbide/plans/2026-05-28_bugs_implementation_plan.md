@@ -10,9 +10,42 @@ Source: `carbide/2026-05-28_bugs_triaged.md`. Covers every non-deferred item. Ea
 
 ---
 
-## Phase 1 — Quick, contained fixes (no architectural decisions needed)
+## Phase 1 — Quick, contained fixes (no architectural decisions needed) ✅ COMPLETE (2026-05-29, session 001)
 
 Land these first; each is small and independently committable.
+
+**Outcome:** P1.1 + P1.2 fully landed and verified. P1.3 ships the
+structural close-handler hardening (flush before close; reset split_view
+on clear_open_note) plus regression tests; the original "ghost pane"
+symptom still needs human visual verification before we can call the
+defect fully closed, but the most plausible root-cause classes are now
+ruled out.
+
+**Files changed:**
+- `src-tauri/src/features/code_lsp/language_config.rs` — memoized `find_binary` via `LazyLock<Mutex<HashMap>>`; added cache-hit unit test.
+- `src-tauri/src/features/code_lsp/manager.rs` — read `code_lsp.enabled` / `code_lsp.languages` from `SettingsStore`; warn-once-per-server-per-session via a `LazyLock<Mutex<HashSet>>`; replaced per-attempt `log::info!` with the gated `warn`.
+- `src/lib/components/ui/folder_suggest_input.svelte` — `untrack`-guarded `$effect` so user-typed query / drill-down trailing slash aren't stomped by value-mirroring; new `ArrowRight` keybinding drills into the highlighted folder.
+- `src/lib/features/editor/state/editor_store.svelte.ts` — `clear_open_note()` now also resets `split_view` (parity with `reset()`).
+- `src/lib/features/tab/application/tab_action_helpers.ts` — `close_tab_immediate` calls `services.editor.flush()` when the closing tab was active, draining any pending mode-transition sync before teardown.
+- `tests/unit/actions/register_tab_actions.test.ts` — three new tests: flush-on-close (active tab), no-flush (inactive tab), `split_view` reset on last-tab close.
+
+**Verification run:**
+- `cd src-tauri && cargo check` — passes (4 pre-existing dead-code warnings unrelated to this change).
+- `cd src-tauri && cargo test --lib code_lsp::language_config` — 5/5 pass, including new `find_binary_caches_misses`.
+- `pnpm test` — 3830/3830 pass (including the 3 new tab-close tests).
+- `pnpm check` — 0 errors, 3 pre-existing a11y warnings in `image_alt_editor.svelte`.
+- `pnpm lint` — 1 pre-existing layering violation in `note_actions.ts:38` (introduced 2026-05-25, commit `fbf3accc5`, untouched here). `oxlint --type-aware` clean on this PR's files.
+- `pnpm format` — clean for changed files.
+
+**Open follow-up (carry to next session if symptom recurs):** AGENTS.md
+requires UI changes to be verified manually in the running app. The
+structural fixes above plug the most likely root causes for the
+mode-transition-correlated "ghost pane" (P1.3) and the trailing-slash
+stomp in the Save-As drill-down (P1.2), but neither has been driven
+through the actual Tauri shell from this autonomous session. Treat the
+remaining bullet on the P1.3 acceptance ("repro from step 1 no longer
+leaves a ghost across 10 consecutive runs") as the only outstanding item
+for Phase 1; everything else is done.
 
 ### P1.1 — `code_lsp` PATH lookup memoization + opt-out settings (triage 5.1)
 

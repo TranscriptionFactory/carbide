@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 
 use crate::shared::lsp_client::LspClientConfig;
 
@@ -64,7 +66,25 @@ pub fn find_server_spec(language_id: &str) -> Option<&'static LanguageServerSpec
     KNOWN_SERVERS.iter().find(|s| s.language_id == language_id)
 }
 
+static BINARY_CACHE: LazyLock<Mutex<HashMap<String, Option<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 pub fn find_binary(binary_name: &str) -> Option<PathBuf> {
+    {
+        let cache = BINARY_CACHE.lock().expect("binary cache poisoned");
+        if let Some(cached) = cache.get(binary_name) {
+            return cached.clone();
+        }
+    }
+    let resolved = resolve_binary_on_path(binary_name);
+    BINARY_CACHE
+        .lock()
+        .expect("binary cache poisoned")
+        .insert(binary_name.to_string(), resolved.clone());
+    resolved
+}
+
+fn resolve_binary_on_path(binary_name: &str) -> Option<PathBuf> {
     std::process::Command::new("which")
         .arg(binary_name)
         .output()
@@ -73,6 +93,14 @@ pub fn find_binary(binary_name: &str) -> Option<PathBuf> {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| PathBuf::from(s.trim()))
         .filter(|p| p.exists())
+}
+
+#[cfg(test)]
+pub fn _reset_binary_cache_for_tests() {
+    BINARY_CACHE
+        .lock()
+        .expect("binary cache poisoned")
+        .clear();
 }
 
 pub fn build_lsp_config(
@@ -154,5 +182,27 @@ mod tests {
     #[test]
     fn find_spec_for_unknown_language() {
         assert!(find_server_spec("haskell").is_none());
+    }
+
+    #[test]
+    fn find_binary_caches_misses() {
+        _reset_binary_cache_for_tests();
+        let unique = "carbide-test-nonexistent-binary-xyz";
+        let first = find_binary(unique);
+        assert!(first.is_none());
+
+        let cache_snapshot = BINARY_CACHE
+            .lock()
+            .expect("binary cache poisoned")
+            .get(unique)
+            .cloned();
+        assert!(cache_snapshot.is_some(), "cache should have an entry");
+        assert!(
+            cache_snapshot.unwrap().is_none(),
+            "cached value should be the negative result"
+        );
+
+        let second = find_binary(unique);
+        assert!(second.is_none());
     }
 }

@@ -344,9 +344,19 @@ export async function close_tab_immediate(
   const tab = stores.tab.tabs.find((t) => t.id === tab_id);
   if (!tab) return;
 
+  const was_active = stores.tab.active_tab_id === tab_id;
+
+  // Drain any pending mode-transition / edit syncs before tearing down.
+  // Matches `capture_active_tab_snapshot` for symmetry: closing the active
+  // tab mid-source/visual transition can otherwise leave stale view state
+  // (closed-note open_note + destroyed buffer) visible until the async
+  // `open_active_tab_note` below resolves.
+  if (was_active) {
+    services.editor.flush();
+  }
+
   push_closed_tab_history(stores, tab);
 
-  const was_active = stores.tab.active_tab_id === tab_id;
   stores.tab.close_tab(tab_id);
   const no_tabs_remain = !stores.tab.has_tabs;
 
