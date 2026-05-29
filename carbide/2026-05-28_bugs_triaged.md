@@ -139,7 +139,7 @@ Fixes: memoize the PATH lookup per server binary, add `code_lsp.enabled` and `co
 
 ## 6. MCP Server
 
-### 6.1 `create_note` 300s timeout
+### 6.1 `create_note` 300s timeout for writing **long (2000 word)** note
 **Source:** raw #2.
 > Error: MCP server "carbide" tool "create\_note" timed out after 300s
 
@@ -151,9 +151,9 @@ Mitigations: return as soon as the file is written, push indexing onto a backgro
 
 ---
 
-## 7. UI Components
+## 7. ~~UI Components~~ DEFER
 
-### 7.1 Log panel — category dropdown only populates "log"
+~~### 7.1 Log panel — category dropdown only populates "log"
 **Source:** raw #14.
 The log-panel category dropdown is supposed to surface multiple categories (per-subsystem channels) but only the generic `log` bucket is populated. Likely the writer side is emitting everything under one channel, or the panel reads from a single source instead of fanning out by category. Fix requires:
 - Audit emit sites — confirm category metadata is attached.
@@ -161,15 +161,15 @@ The log-panel category dropdown is supposed to surface multiple categories (per-
 
 ### 7.2 Plugin help / info section
 **Source:** raw #15.
-Plugins currently have no place to surface help docs / about-info. Add a standard `help` slot (markdown rendered in a side pane) and a per-plugin info section in settings.
+Plugins currently have no place to surface help docs / about-info. Add a standard `help` slot (markdown rendered in a side pane) and a per-plugin info section in settings.~~
 
 ---
 
-## 8. Auto-generation
+## 8. ~~Auto-generation~~ DEFER
 
-### 8.1 Auto-generate file-tree descriptions/captions
-**Source:** raw #4.
-Optional feature: generate short descriptions/captions for files shown in the file tree (e.g., a 1-line summary derived from the note's first heading + body, or an LLM-generated summary). Should be opt-in, cached on disk, and invalidated on content change.
+### 8.1 ~~Auto-generate file-tree descriptions/captions~~
+~~**Source:** raw #4.
+Optional feature: generate short descriptions/captions for files shown in the file tree (e.g., a 1-line summary derived from the note's first heading + body, or an LLM-generated summary). Should be opt-in, cached on disk, and invalidated on content change.~~
 
 ---
 
