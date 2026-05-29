@@ -14,9 +14,15 @@
     content: string;
     theme: Theme;
     allow_network?: boolean;
+    asset_root?: string;
   }
 
-  let { content, theme, allow_network = false }: Props = $props();
+  let {
+    content,
+    theme,
+    allow_network = false,
+    asset_root,
+  }: Props = $props();
 
   let src = $state<string | null>(null);
 
@@ -24,6 +30,7 @@
     const current_content = content;
     const theme_block = build_theme_style_block(theme);
     const network = allow_network;
+    const root = asset_root;
     let cancelled = false;
     let registered_url: string | null = null;
 
@@ -40,7 +47,10 @@
         theme_style: katex_css + theme_block,
         allow_network: network,
       });
-      const url = await invoke<string>("html_live_register", { html: doc });
+      const url = await invoke<string>("html_live_register", {
+        html: doc,
+        assetRoot: root ?? null,
+      });
       if (cancelled) {
         void invoke("html_live_release", { url });
         return;

@@ -18,6 +18,7 @@
     PdfMetadata,
   } from "$lib/features/document/types/document";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
+  import { parent_folder_path } from "$lib/shared/utils/path";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import ZapIcon from "@lucide/svelte/icons/zap";
@@ -179,6 +180,7 @@
         content={current_content}
         theme={stores.ui.active_theme}
         {allow_network}
+        asset_root={parent_folder_path(viewer_state.file_path)}
       />
     {:else}
       <HtmlViewer
