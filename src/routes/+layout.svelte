@@ -27,6 +27,7 @@
   import { toast } from "svelte-sonner";
   import { create_logger } from "$lib/shared/utils/logger";
   import { error_message } from "$lib/shared/utils/error_message";
+  import { install_drop_guard } from "$lib/shared/utils/drop_guard";
   import { onMount } from "svelte";
 
   const log = create_logger("app");
@@ -60,9 +61,12 @@
     window.addEventListener("error", on_error);
     window.addEventListener("unhandledrejection", on_rejection);
 
+    const dispose_drop_guard = install_drop_guard(window);
+
     return () => {
       window.removeEventListener("error", on_error);
       window.removeEventListener("unhandledrejection", on_rejection);
+      dispose_drop_guard();
     };
   });
 </script>

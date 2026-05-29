@@ -38,7 +38,8 @@ export type BottomPanelTab =
   | "problems"
   | "lsp_results"
   | "query"
-  | "ai";
+  | "ai"
+  | "trust";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
