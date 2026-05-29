@@ -1,8 +1,10 @@
-import type {
-  DocumentFileType,
-  HtmlViewMode,
-  PdfMetadata,
+import {
+  HTML_VIEW_MODES,
+  type DocumentFileType,
+  type HtmlViewMode,
+  type PdfMetadata,
 } from "$lib/features/document/types/document";
+import type { TrustLevel } from "$lib/features/document/ports";
 
 export type DocumentViewerState = {
   tab_id: string;
@@ -32,10 +34,38 @@ export type DocumentContentState = {
   pdf_metadata: PdfMetadata | null;
 };
 
+export type TrustGrantRequest = {
+  file_path: string;
+  folder_path: string;
+  resolve: (granted: boolean) => void;
+};
+
 export class DocumentStore {
   viewer_states = $state<Map<string, DocumentViewerState>>(new Map());
   content_states = $state<Map<string, DocumentContentState>>(new Map());
+  trust_levels = $state<Map<string, TrustLevel>>(new Map());
+  pending_trust_request = $state<TrustGrantRequest | null>(null);
   inactive_content_limit = $state(3);
+
+  get_trust_level(file_path: string): TrustLevel {
+    return this.trust_levels.get(file_path) ?? "safe";
+  }
+
+  set_trust_level(file_path: string, level: TrustLevel): void {
+    this.trust_levels = new Map(this.trust_levels).set(file_path, level);
+  }
+
+  clear_trust_levels(): void {
+    this.trust_levels = new Map();
+  }
+
+  open_trust_request(request: TrustGrantRequest): void {
+    this.pending_trust_request = request;
+  }
+
+  close_trust_request(): void {
+    this.pending_trust_request = null;
+  }
 
   set_viewer_state(tab_id: string, state: DocumentViewerState): void {
     this.viewer_states = new Map(this.viewer_states).set(tab_id, state);
@@ -71,12 +101,20 @@ export class DocumentStore {
     this.#patch(tab_id, { pdf_page: page });
   }
 
-  toggle_html_view_mode(tab_id: string): void {
+  set_html_view_mode(tab_id: string, mode: HtmlViewMode): void {
     const state = this.viewer_states.get(tab_id);
     if (!state || state.file_type !== "html") return;
-    this.#patch(tab_id, {
-      html_view_mode: state.html_view_mode === "visual" ? "source" : "visual",
-    });
+    this.#patch(tab_id, { html_view_mode: mode });
+  }
+
+  cycle_html_view_mode(tab_id: string): void {
+    const state = this.viewer_states.get(tab_id);
+    if (!state || state.file_type !== "html") return;
+    const idx = HTML_VIEW_MODES.indexOf(state.html_view_mode);
+    const next = HTML_VIEW_MODES[
+      (idx + 1) % HTML_VIEW_MODES.length
+    ] as HtmlViewMode;
+    this.#patch(tab_id, { html_view_mode: next });
   }
 
   set_content_state(tab_id: string, state: DocumentContentState): void {

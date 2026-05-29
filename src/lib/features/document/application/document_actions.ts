@@ -146,13 +146,13 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_toggle_source,
-    label: "Toggle HTML Source/Visual View",
+    label: "Cycle HTML View Mode (Source / Safe / Live)",
     execute: () => {
       const active_tab = stores.tab.active_tab;
       if (!active_tab || active_tab.kind !== "document") return;
       const viewer = document_store.get_viewer_state(active_tab.id);
       if (!viewer || viewer.file_type !== "html") return;
-      document_store.toggle_html_view_mode(active_tab.id);
+      document_store.cycle_html_view_mode(active_tab.id);
     },
   });
 

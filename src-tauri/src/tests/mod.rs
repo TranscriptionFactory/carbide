@@ -214,6 +214,12 @@ mod specta_export {
                 crate::features::smart_links::smart_links_load_rules,
                 crate::features::smart_links::smart_links_save_rules,
                 crate::features::smart_links::smart_links_compute_suggestions,
+                // Trusted HTML commands
+                crate::features::trusted_html::trusted_html_get_level,
+                crate::features::trusted_html::trusted_html_list,
+                crate::features::trusted_html::trusted_html_grant,
+                crate::features::trusted_html::trusted_html_revoke,
+                crate::features::trusted_html::trusted_html_parent_folder,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

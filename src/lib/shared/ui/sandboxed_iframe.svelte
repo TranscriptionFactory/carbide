@@ -1,19 +1,21 @@
 <script lang="ts">
   interface Props {
-    src: string;
-    origin: string;
+    src?: string;
+    srcdoc?: string;
+    origin?: string;
     title: string;
     csp?: string;
     sandbox?: string;
     class?: string;
     visible?: boolean;
-    on_message: (data: unknown) => void;
+    on_message?: (data: unknown) => void;
     on_load?: () => void;
   }
 
   let {
     src,
-    origin,
+    srcdoc,
+    origin: _origin,
     title,
     csp = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; connect-src none;",
     sandbox = "allow-scripts",
@@ -26,9 +28,11 @@
   let iframe_element: HTMLIFrameElement | null = $state(null);
 
   $effect(() => {
+    if (!on_message) return;
+    const handler = on_message;
     const handle_message = (event: MessageEvent) => {
       if (event.source !== iframe_element?.contentWindow) return;
-      on_message(event.data);
+      handler(event.data);
     };
 
     window.addEventListener("message", handle_message);
@@ -50,6 +54,7 @@
 <iframe
   bind:this={iframe_element}
   {src}
+  {srcdoc}
   {title}
   {sandbox}
   {...{ csp } as any}
