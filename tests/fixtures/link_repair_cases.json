@@ -1,0 +1,119 @@
+{
+  "$comment": "Shared fixtures for link-rewrite parity between Rust (search_service::rewrite_note_links) and TS (LinkRepairService → search_port.rewrite_note_links → Rust). Phase 2 of 2026-05-28 plan. Each case is fed unchanged to both rewriters; both must produce expected_markdown and expected_changed. If a case diverges, fix the rewriter, not the fixture.",
+  "cases": [
+    {
+      "name": "wikilink_simple",
+      "description": "[[B]] move B via MCP; backlink resolves to new path",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "See [[notes/b]] for details.",
+      "expected_markdown": "See [[archive/b]] for details.",
+      "expected_changed": true
+    },
+    {
+      "name": "wikilink_with_alias",
+      "description": "[[B|alias]] preserves the alias on rewrite",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "See [[notes/b|my B]] for context.",
+      "expected_markdown": "See [[archive/b|my B]] for context.",
+      "expected_changed": true
+    },
+    {
+      "name": "wikilink_with_heading",
+      "description": "[[B#heading]] preserves the heading anchor on rewrite",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "Jump to [[notes/b#summary]] right now.",
+      "expected_markdown": "Jump to [[archive/b#summary]] right now.",
+      "expected_changed": true
+    },
+    {
+      "name": "wikilink_with_heading_and_alias",
+      "description": "[[B#heading|alias]] preserves both anchor and alias",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "See [[notes/b#summary|the summary]] please.",
+      "expected_markdown": "See [[archive/b#summary|the summary]] please.",
+      "expected_changed": true
+    },
+    {
+      "name": "wikilink_embed_preserved",
+      "description": "![[B]] embed prefix is preserved on rewrite",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/image.md": "media/image.md" },
+      "input_markdown": "Hero: ![[notes/image]] inline.",
+      "expected_markdown": "Hero: ![[media/image]] inline.",
+      "expected_changed": true
+    },
+    {
+      "name": "markdown_link_unchanged_documented_gap",
+      "description": "Standard markdown link [x](B.md) is currently NOT rewritten by the Rust rewriter. This case pins that behavior — a future fix that adds markdown-link rewriting should update expected_markdown and expected_changed to match the new behavior in BOTH suites.",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "See [the B doc](notes/b.md) for context.",
+      "expected_markdown": "See [the B doc](notes/b.md) for context.",
+      "expected_changed": false
+    },
+    {
+      "name": "forward_links_from_moved_note_survive",
+      "description": "B's own outlinks survive a move of B (relative anchor resolves from new source path)",
+      "old_source_path": "old/path/b.md",
+      "new_source_path": "new/path/b.md",
+      "target_map": { "old/path/b.md": "new/path/b.md" },
+      "input_markdown": "B references [[../c]] elsewhere.",
+      "expected_markdown": "B references [[../c]] elsewhere.",
+      "expected_changed": false
+    },
+    {
+      "name": "folder_move_rewrites_every_child",
+      "description": "Folder move yields N path-map entries; every backlink to any child is rewritten in one pass",
+      "old_source_path": "notes/index.md",
+      "new_source_path": "notes/index.md",
+      "target_map": {
+        "old_folder/note1.md": "new_folder/note1.md",
+        "old_folder/note2.md": "new_folder/note2.md",
+        "old_folder/sub/note3.md": "new_folder/sub/note3.md"
+      },
+      "input_markdown": "Refs: [[old_folder/note1]], [[old_folder/note2|two]], [[old_folder/sub/note3#x]].",
+      "expected_markdown": "Refs: [[new_folder/note1]], [[new_folder/note2|two]], [[new_folder/sub/note3#x]].",
+      "expected_changed": true
+    },
+    {
+      "name": "skip_frontmatter",
+      "description": "Wikilinks inside frontmatter are not touched (aliases / tags fields)",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "---\naliases: [[notes/b]]\n---\nBody: [[notes/b]] here.",
+      "expected_markdown": "---\naliases: [[notes/b]]\n---\nBody: [[archive/b]] here.",
+      "expected_changed": true
+    },
+    {
+      "name": "skip_code_blocks",
+      "description": "Wikilinks inside fenced code blocks are preserved verbatim",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": { "notes/b.md": "archive/b.md" },
+      "input_markdown": "```\n[[notes/b]]\n```\n[[notes/b]]",
+      "expected_markdown": "```\n[[notes/b]]\n```\n[[archive/b]]",
+      "expected_changed": true
+    },
+    {
+      "name": "empty_target_map_is_noop",
+      "description": "Empty target_map produces no change",
+      "old_source_path": "notes/a.md",
+      "new_source_path": "notes/a.md",
+      "target_map": {},
+      "input_markdown": "See [[notes/b]] here.",
+      "expected_markdown": "See [[notes/b]] here.",
+      "expected_changed": false
+    }
+  ]
+}

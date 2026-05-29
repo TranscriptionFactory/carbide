@@ -266,13 +266,21 @@ async fn cli_rename(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::RenameArgs>,
 ) -> axum::response::Response {
-    match shared_ops::rename_note(
+    match shared_ops::rename_note_and_update_links(
         state.app(),
         &params.vault_id,
         &params.path,
         &params.new_path,
     ) {
-        Ok(path) => mutation_ok(path),
+        Ok((_, updated_count)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "path": params.new_path,
+                "updated_links": updated_count,
+            })),
+        )
+            .into_response(),
         Err(e) => op_err_to_response(e),
     }
 }
@@ -282,7 +290,15 @@ async fn cli_move(
     Json(params): Json<shared_ops::MoveArgs>,
 ) -> axum::response::Response {
     match shared_ops::move_note(state.app(), &params.vault_id, &params.path, &params.to) {
-        Ok(path) => mutation_ok(path),
+        Ok((path, updated_count)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "path": path,
+                "updated_links": updated_count,
+            })),
+        )
+            .into_response(),
         Err(e) => op_err_to_response(e),
     }
 }

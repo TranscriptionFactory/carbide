@@ -1,7 +1,31 @@
-use std::path::PathBuf;
+//! Shared mutation/read operations for MCP and CLI surfaces.
+//!
+//! ## Index consistency policy: writes-complete-first, reads-fall-back
+//!
+//! Any mutation that affects link targets (rename, move, ...) follows this
+//! contract:
+//!
+//! 1. Apply the filesystem mutation first — the source of truth is the disk,
+//!    not the index.
+//! 2. Before consulting the index for backlink sources, `index_upsert` the
+//!    *new* path so a stale index entry does not silently mask a real source.
+//!    See [`repair_links_for`].
+//! 3. The link-rewrite pass reads every backlink source file fresh and writes
+//!    it back atomically — index drift between the upsert and the rewrite is
+//!    tolerated because the disk-side data is what we operate on.
+//!
+//! This policy is the canonical mitigation for the index-staleness failure
+//! mode that drives 1.6 (link resolution misses), 2.4 (backlink repair gaps),
+//! and 6.1 (suspected blocking reindex on `create_note`). New shared ops that
+//! depend on the index for write decisions should follow the same pattern
+//! rather than blocking on a full reindex.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use walkdir::WalkDir;
 
 use crate::features::notes::service::{
     self as notes_service, safe_vault_abs, safe_vault_abs_for_write, MoveItem, MoveItemsArgs,
@@ -228,31 +252,25 @@ pub fn create_note(app: &AppHandle, args: &CreateNoteArgs) -> Result<CreateResul
     .map_err(OpError::Internal)
 }
 
-pub fn rename_note(
+pub fn move_note(
     app: &AppHandle,
     vault_id: &str,
-    from: &str,
+    path: &str,
     to: &str,
-) -> Result<String, OpError> {
-    notes_service::rename_note(
-        NoteRenameArgs {
-            vault_id: vault_id.to_string(),
-            from: from.to_string(),
-            to: to.to_string(),
-        },
-        app.clone(),
-    )
-    .map_err(OpError::Internal)?;
-    Ok(to.to_string())
-}
+) -> Result<(String, usize), OpError> {
+    let root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
+    let source_abs = safe_vault_abs(&root, path).map_err(OpError::BadRequest)?;
+    let is_folder = source_abs
+        .metadata()
+        .map_err(|e| OpError::NotFound(format!("source not found: {}", e)))?
+        .is_dir();
 
-pub fn move_note(app: &AppHandle, vault_id: &str, path: &str, to: &str) -> Result<String, OpError> {
     let results = notes_service::move_items(
         MoveItemsArgs {
             vault_id: vault_id.to_string(),
             items: vec![MoveItem {
                 path: path.to_string(),
-                is_folder: false,
+                is_folder,
             }],
             target_folder: to.to_string(),
             overwrite: false,
@@ -261,13 +279,64 @@ pub fn move_note(app: &AppHandle, vault_id: &str, path: &str, to: &str) -> Resul
     )
     .map_err(OpError::Internal)?;
 
-    match results.into_iter().next() {
-        Some(r) if r.success => Ok(r.new_path),
-        Some(r) => Err(OpError::Internal(
-            r.error.unwrap_or_else(|| "move failed".into()),
-        )),
-        None => Err(OpError::Internal("no move result".into())),
+    let result = results
+        .into_iter()
+        .next()
+        .ok_or_else(|| OpError::Internal("no move result".into()))?;
+
+    if !result.success {
+        return Err(OpError::Internal(
+            result.error.unwrap_or_else(|| "move failed".into()),
+        ));
     }
+
+    let path_map = if is_folder {
+        build_folder_move_path_map(&root, &result.path, &result.new_path)
+    } else {
+        let mut m = HashMap::new();
+        m.insert(result.path.clone(), result.new_path.clone());
+        m
+    };
+
+    let updated = repair_links_for(app, vault_id, &path_map).unwrap_or(0);
+    Ok((result.new_path, updated))
+}
+
+/// After a folder move from `old_root` → `new_root`, walk the new location
+/// and build the `old_subpath → new_subpath` map for every `.md` descendant.
+/// Backlinks point at specific note paths, so every child needs its own entry.
+fn build_folder_move_path_map(
+    vault_root: &Path,
+    old_root: &str,
+    new_root: &str,
+) -> HashMap<String, String> {
+    let mut path_map = HashMap::new();
+    let new_abs = vault_root.join(new_root);
+    if !new_abs.is_dir() {
+        return path_map;
+    }
+
+    for entry in WalkDir::new(&new_abs).into_iter().filter_map(Result::ok) {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = match entry.path().strip_prefix(vault_root) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        let rel_str = rel.to_string_lossy().replace('\\', "/");
+        if !rel_str.ends_with(".md") {
+            continue;
+        }
+        let suffix = match rel_str.strip_prefix(&format!("{}/", new_root)) {
+            Some(s) => s,
+            None => continue,
+        };
+        let old_child = format!("{}/{}", old_root, suffix);
+        path_map.insert(old_child, rel_str);
+    }
+
+    path_map
 }
 
 pub fn delete_note(app: &AppHandle, vault_id: &str, path: &str) -> Result<(), OpError> {
@@ -548,8 +617,6 @@ pub fn rename_note_and_update_links(
     old_path: &str,
     new_path: &str,
 ) -> Result<(String, usize), OpError> {
-    use std::collections::HashMap;
-
     notes_service::rename_note(
         NoteRenameArgs {
             vault_id: vault_id.to_string(),
@@ -560,19 +627,85 @@ pub fn rename_note_and_update_links(
     )
     .map_err(OpError::Internal)?;
 
-    let backlink_notes = search_service::with_read_conn(app, vault_id, |conn| {
-        search_db::get_backlinks(conn, old_path)
-    })
-    .map_err(OpError::Internal)?;
+    let mut path_map = HashMap::new();
+    path_map.insert(old_path.to_string(), new_path.to_string());
+    let updated_count = repair_links_for(app, vault_id, &path_map).unwrap_or(0);
 
-    let mut target_map = HashMap::new();
-    target_map.insert(old_path.to_string(), new_path.to_string());
+    Ok((format!("{} → {}", old_path, new_path), updated_count))
+}
+
+/// Rewrite backlinks for every `(old_path → new_path)` entry in `path_map`.
+///
+/// Best-effort: a stale index, a missing file, or a failed write counts as a
+/// skip and is reflected in the returned count, not as an error. The caller
+/// has already committed the filesystem mutation by the time we get here
+/// (writes-complete-first), so partial rewrites are recoverable by rerunning.
+///
+/// To avoid silently missing sources when the index lags the write, we
+/// `index_upsert_note` each *new* path before querying backlinks. This makes
+/// the new note discoverable by downstream readers even if the indexer
+/// thread hasn't observed the rename yet. See the module docs.
+pub fn repair_links_for(
+    app: &AppHandle,
+    vault_id: &str,
+    path_map: &HashMap<String, String>,
+) -> Result<usize, OpError> {
+    if path_map.is_empty() {
+        return Ok(0);
+    }
 
     let vault_root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
-    let mut updated_count = 0usize;
 
-    for note in &backlink_notes {
-        let abs_path = PathBuf::from(&vault_root).join(&note.path);
+    for new_path in path_map.values() {
+        let _ = search_service::index_upsert_note(
+            app.clone(),
+            vault_id.to_string(),
+            new_path.clone(),
+        );
+    }
+
+    let mut updated_count = 0usize;
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for old_path in path_map.keys() {
+        let backlink_notes = match search_service::with_read_conn(app, vault_id, |conn| {
+            search_db::get_backlinks(conn, old_path)
+        }) {
+            Ok(notes) => notes,
+            Err(_) => continue,
+        };
+
+        for note in backlink_notes {
+            if path_map.contains_key(&note.path) {
+                continue;
+            }
+            if !visited.insert(note.path.clone()) {
+                continue;
+            }
+
+            let abs_path = PathBuf::from(&vault_root).join(&note.path);
+            let content = match std::fs::read_to_string(&abs_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            let result = search_service::rewrite_note_links(
+                content,
+                note.path.clone(),
+                note.path.clone(),
+                path_map.clone(),
+            );
+
+            if result.changed
+                && io_utils::atomic_write(&abs_path, result.markdown.as_bytes()).is_ok()
+            {
+                updated_count += 1;
+            }
+        }
+    }
+
+    for (old_path, new_path) in path_map {
+        let abs_path = PathBuf::from(&vault_root).join(new_path);
         let content = match std::fs::read_to_string(&abs_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -580,19 +713,17 @@ pub fn rename_note_and_update_links(
 
         let result = search_service::rewrite_note_links(
             content,
-            note.path.clone(),
-            note.path.clone(),
-            target_map.clone(),
+            old_path.clone(),
+            new_path.clone(),
+            path_map.clone(),
         );
 
-        if result.changed {
-            if io_utils::atomic_write(&abs_path, result.markdown.as_bytes()).is_ok() {
-                updated_count += 1;
-            }
+        if result.changed && io_utils::atomic_write(&abs_path, result.markdown.as_bytes()).is_ok() {
+            updated_count += 1;
         }
     }
 
-    Ok((format!("{} → {}", old_path, new_path), updated_count))
+    Ok(updated_count)
 }
 
 #[cfg(test)]
@@ -631,5 +762,40 @@ mod tests {
         assert_eq!(format_epoch_ms_as_date(0), "1970-01-01");
         assert_eq!(format_epoch_ms_as_date(1_748_131_200_000), "2025-05-25");
         assert_eq!(format_epoch_ms_as_date(1_779_667_200_000), "2026-05-25");
+    }
+
+    #[test]
+    fn build_folder_map_collects_every_md_child() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let root = temp.path();
+        let new_root = root.join("new_folder");
+        std::fs::create_dir_all(new_root.join("sub")).expect("mkdir sub");
+        std::fs::write(new_root.join("a.md"), "a").expect("a.md");
+        std::fs::write(new_root.join("b.md"), "b").expect("b.md");
+        std::fs::write(new_root.join("sub/c.md"), "c").expect("sub/c.md");
+        std::fs::write(new_root.join("readme.txt"), "readme").expect("readme.txt");
+
+        let map = build_folder_move_path_map(root, "old_folder", "new_folder");
+
+        assert_eq!(
+            map.get("old_folder/a.md").map(String::as_str),
+            Some("new_folder/a.md")
+        );
+        assert_eq!(
+            map.get("old_folder/b.md").map(String::as_str),
+            Some("new_folder/b.md")
+        );
+        assert_eq!(
+            map.get("old_folder/sub/c.md").map(String::as_str),
+            Some("new_folder/sub/c.md")
+        );
+        assert_eq!(map.len(), 3, "non-md files should be excluded");
+    }
+
+    #[test]
+    fn build_folder_map_returns_empty_for_missing_new_root() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let map = build_folder_move_path_map(temp.path(), "old", "does_not_exist");
+        assert!(map.is_empty());
     }
 }
