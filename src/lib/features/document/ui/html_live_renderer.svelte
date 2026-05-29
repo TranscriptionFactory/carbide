@@ -17,12 +17,7 @@
     asset_root?: string;
   }
 
-  let {
-    content,
-    theme,
-    allow_network = false,
-    asset_root,
-  }: Props = $props();
+  let { content, theme, allow_network = false, asset_root }: Props = $props();
 
   let src = $state<string | null>(null);
 
