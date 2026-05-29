@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
@@ -11,6 +12,46 @@ use crate::shared::lsp_client::{
 
 use super::language_config::{build_lsp_config, ext_to_language_id, find_binary, find_server_spec};
 use super::types::*;
+
+static WARNED_MISSING_SERVERS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn warn_missing_server_once(language_id: &str, reason: &str) {
+    let mut warned = WARNED_MISSING_SERVERS
+        .lock()
+        .expect("warned-servers set poisoned");
+    if warned.insert(language_id.to_string()) {
+        log::warn!("code_lsp: server unavailable for {language_id}: {reason}");
+    }
+}
+
+fn is_language_enabled(app: &AppHandle, language_id: &str) -> bool {
+    let store = match crate::features::settings::service::load_settings(app) {
+        Ok(store) => store,
+        Err(_) => return true,
+    };
+
+    let enabled = store
+        .settings
+        .get("code_lsp.enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    if !enabled {
+        return false;
+    }
+
+    let allowed = store
+        .settings
+        .get("code_lsp.languages")
+        .and_then(|v| v.as_array());
+    match allowed {
+        Some(arr) if !arr.is_empty() => arr
+            .iter()
+            .filter_map(|v| v.as_str())
+            .any(|l| l == language_id),
+        _ => true,
+    }
+}
 
 struct LanguageSession {
     client: RestartableLspClient,
@@ -47,8 +88,11 @@ impl CodeLspManager {
         };
 
         if !self.sessions.contains_key(language_id) {
+            if !is_language_enabled(&self.app, language_id) {
+                return Ok(());
+            }
             if let Err(e) = self.start_server(language_id).await {
-                log::info!("code_lsp: no server for {language_id}: {e}");
+                warn_missing_server_once(language_id, &e);
                 return Ok(());
             }
         }

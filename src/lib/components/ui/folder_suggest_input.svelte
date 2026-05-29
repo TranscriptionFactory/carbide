@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
   import {
     filter_folder_paths,
@@ -29,7 +30,15 @@
   let skip_next_blur = $state(false);
 
   $effect(() => {
-    query = value;
+    // Mirror parent value into query without stomping a trailing slash we just
+    // set ourselves (drill-down sets `query = "Foo/"` while value="Foo"; the
+    // raw mirror would erase the slash and collapse the drill-down).
+    // untrack the query read so user keystrokes (which mutate query without
+    // touching value) don't re-trigger this effect and overwrite typing.
+    const trimmed = untrack(() => query).replace(/\/+$/, "");
+    if (trimmed !== value) {
+      query = value;
+    }
   });
 
   const filtered = $derived(filter_folder_paths(query, folder_paths));
@@ -73,6 +82,15 @@
         e.preventDefault();
         commit(filtered[selected_index] ?? "");
       }
+    } else if (e.key === "ArrowRight") {
+      if (filtered.length === 0) return;
+      const target = filtered[selected_index];
+      if (!target) return;
+      const clean = target.replace(/\/+$/, "");
+      const has_children = folder_paths.some((p) => p.startsWith(clean + "/"));
+      if (!has_children) return;
+      e.preventDefault();
+      commit(target);
     } else if (e.key === "Tab" && !e.shiftKey) {
       if (filtered.length === 0) return;
       e.preventDefault();
