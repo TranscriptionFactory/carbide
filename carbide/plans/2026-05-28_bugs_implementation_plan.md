@@ -95,7 +95,89 @@ for Phase 1; everything else is done.
 
 ---
 
-## Phase 2 — Link repair on MCP/CLI surfaces (triage 2.4)
+## Phase 2 — Link repair on MCP/CLI surfaces (triage 2.4) ✅ COMPLETE (2026-05-28, session 002)
+
+**Outcome:** All five plan steps shipped. `shared_ops::repair_links_for`
+is now the canonical link-repair helper, used by both the rename and
+move shared ops; `cli_rename` and `cli_move` now report `updated_links`
+in the response; `cli_move` auto-detects folder vs file and walks the
+destination to build the per-child path_map. Shared fixture file lives
+at `tests/fixtures/link_repair_cases.json` and is driven by both Rust
+and TS test suites (parity at the rewriter boundary).
+
+**Files changed:**
+- `src-tauri/src/features/mcp/shared_ops.rs` — added module-level
+  doc-comment for the writes-complete-first / reads-fall-back policy;
+  introduced `repair_links_for(app, vault_id, path_map)` (canonical
+  helper, dedups source files via a visited set, upserts each new path
+  before backlink query); refactored `rename_note_and_update_links` to
+  delegate to it; reworked `move_note` to detect folder vs file via
+  `metadata().is_dir()`, build the path_map (single entry for file,
+  walked tree for folder), and call the helper; added
+  `build_folder_move_path_map` helper. Deleted the bare
+  `shared_ops::rename_note` wrapper (CLI rename now routes through the
+  link-repair variant). `move_note` now returns
+  `(new_path, updated_count)`.
+- `src-tauri/src/features/mcp/cli_routes.rs` — `cli_rename` routes
+  through `shared_ops::rename_note_and_update_links` and reports
+  `updated_links` in the JSON response; `cli_move` updated to consume
+  the new tuple shape and likewise reports `updated_links`.
+- `src-tauri/src/features/search/service.rs` — added
+  `shared_fixture_parity_with_ts_suite` test that loads
+  `tests/fixtures/link_repair_cases.json` via `CARGO_MANIFEST_DIR` and
+  drives `rewrite_note_links` against every case.
+- `tests/fixtures/link_repair_cases.json` — **new**. 11 cases covering
+  `[[B]]`, `[[B|alias]]`, `[[B#heading]]`, `[[B#heading|alias]]`,
+  `![[B]]`, `[x](B.md)` (documented gap — markdown links not rewritten
+  by current Rust impl; pin the behavior so a future fix updates both
+  suites), forward-link survival on B's own move, folder move with
+  multiple children, frontmatter/code-block skip, empty target_map.
+- `tests/unit/services/link_repair_fixture.test.ts` — **new**. Two
+  tests: fixture schema/well-formedness, and an end-to-end pass that
+  drives `LinkRepairService.repair_links` per fixture case (mocks
+  `search_port.rewrite_note_links` to return the fixture's expected
+  output, then asserts the right write_note call happened).
+
+**Verification run:**
+- `cd src-tauri && cargo check` — passes (4 pre-existing dead-code
+  warnings unrelated to Phase 2).
+- `cd src-tauri && cargo test --lib --tests` — 501 passed, 3 pre-existing
+  failures (`mcp_router::tools_list_returns_note_tools`,
+  `mcp_tools_notes::tool_definitions_count`,
+  `mcp_tools_search_metadata_vault::router_lists_all_eight_tools` — all
+  hardcoded tool-count assertions that were already failing on clean
+  `main` before this session; verified via stash-pop comparison).
+- `pnpm test` — 3832/3832 pass (includes 2 new fixture tests).
+- `pnpm check` — 0 errors, 3 pre-existing a11y warnings in
+  `image_alt_editor.svelte`.
+- `pnpm lint` — 1 pre-existing layering violation in
+  `note_actions.ts:38` (unchanged from Phase 1 baseline).
+- `pnpm format` — clean (Prettier reformatted the new
+  `link_repair_fixture.test.ts`; everything else unchanged).
+
+**Deviations from plan:**
+- The plan assumed `cli_rename` skipped backlink repair. In fact,
+  `notes_service::rename_note` already calls
+  `update_backlinks_after_rename` internally (added in commit
+  `dfb1507f`), so even the bare `shared_ops::rename_note` indirectly
+  did some repair — it just didn't *report* an updated_count. Phase 2
+  still routes `cli_rename` through `rename_note_and_update_links` so
+  the CLI surface returns the count, but the user-facing impact of the
+  rename path is smaller than the triage doc implied. The move path is
+  where the real gap was — that fix is the main delivery.
+- The `notes_service::update_backlinks_after_rename` duplicate is left
+  in place: the in-app Tauri `rename_note` command depends on it. Both
+  passes are idempotent (the second pass finds no matches). Removing
+  the duplicate would require lifting backlink repair to a separate
+  Tauri command and updating UI callers — out of Phase 2 scope.
+- Markdown-link rewriting (`[x](B.md)`) is not handled by the Rust
+  rewriter today. The fixture pins current behavior (no-change,
+  no-error) and documents the gap in-file so a future fix updates both
+  suites in lockstep.
+
+---
+
+### Phase 2 plan-of-record (kept for reference)
 
 This one is already fully scoped in the triage doc; reproducing here only to fit it into the ordering and add the index-staleness wrinkle from the cross-cutting note.
 

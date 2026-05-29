@@ -3125,4 +3125,58 @@ mod tests {
         assert!(!result.changed);
         assert_eq!(result.markdown, md);
     }
+
+    #[derive(serde::Deserialize)]
+    struct LinkRepairFixture {
+        cases: Vec<LinkRepairCase>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct LinkRepairCase {
+        name: String,
+        old_source_path: String,
+        new_source_path: String,
+        target_map: HashMap<String, String>,
+        input_markdown: String,
+        expected_markdown: String,
+        expected_changed: bool,
+    }
+
+    fn load_shared_fixture() -> LinkRepairFixture {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join("tests/fixtures/link_repair_cases.json");
+        let raw = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read fixture at {:?}: {}", path, e));
+        serde_json::from_str(&raw).expect("parse link_repair_cases.json")
+    }
+
+    /// Drives the shared fixture file used by both Rust and TS link-repair
+    /// suites. If this test diverges from the TS side, fix the rewriter —
+    /// not the fixture.
+    #[test]
+    fn shared_fixture_parity_with_ts_suite() {
+        let fixture = load_shared_fixture();
+        assert!(!fixture.cases.is_empty(), "fixture must have cases");
+
+        for case in fixture.cases {
+            let result = rewrite_note_links(
+                case.input_markdown.clone(),
+                case.old_source_path.clone(),
+                case.new_source_path.clone(),
+                case.target_map.clone(),
+            );
+            assert_eq!(
+                result.changed, case.expected_changed,
+                "case '{}': changed flag mismatch",
+                case.name
+            );
+            assert_eq!(
+                result.markdown, case.expected_markdown,
+                "case '{}': markdown mismatch",
+                case.name
+            );
+        }
+    }
 }
