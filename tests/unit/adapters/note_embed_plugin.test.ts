@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { EditorState, TextSelection } from "prosemirror-state";
 import { serialize_markdown } from "$lib/features/editor/adapters/markdown_pipeline";
 import { schema } from "$lib/features/editor/adapters/schema";
+import { build_embed_edit_transaction } from "$lib/features/editor/adapters/note_embed_view_plugin";
 
 const NOTE_EMBED_REGEX = /^!\[\[([^\]#\n]+?)(?:#([^\]]*))?\]\]$/;
 
@@ -140,5 +142,68 @@ describe("note_embed serialization", () => {
     ]);
     const md = serialize_markdown(doc);
     expect(md.trim()).toBe("![[note#^abc123]]");
+  });
+});
+
+describe("note_embed edit-in-place", () => {
+  it("replaces embed with paragraph containing ![[display_src (no closing ]])", () => {
+    const embed = note_embed_type().create({
+      src: "note.md",
+      display_src: "note",
+    });
+    const doc = schema.node("doc", null, [embed]);
+    const state = EditorState.create({ doc, schema });
+
+    const tr = build_embed_edit_transaction(state, 0, embed);
+    expect(tr).not.toBeNull();
+    const next = state.apply(tr!);
+
+    const first = next.doc.firstChild!;
+    expect(first.type.name).toBe("paragraph");
+    expect(first.textContent).toBe("![[note");
+  });
+
+  it("preserves heading fragment in editable text", () => {
+    const embed = note_embed_type().create({
+      src: "folder/note.md",
+      fragment: "Heading",
+      display_src: "folder/note#Heading",
+    });
+    const doc = schema.node("doc", null, [embed]);
+    const state = EditorState.create({ doc, schema });
+
+    const tr = build_embed_edit_transaction(state, 0, embed)!;
+    const next = state.apply(tr);
+    expect(next.doc.firstChild!.textContent).toBe("![[folder/note#Heading");
+  });
+
+  it("places caret at end of editable text so user can immediately type", () => {
+    const embed = note_embed_type().create({
+      src: "note.md",
+      display_src: "note",
+    });
+    const doc = schema.node("doc", null, [embed]);
+    const state = EditorState.create({ doc, schema });
+
+    const tr = build_embed_edit_transaction(state, 0, embed)!;
+    const next = state.apply(tr);
+    const sel = next.selection;
+    expect(sel instanceof TextSelection).toBe(true);
+    // paragraph opens at 0; "![[note" is 7 chars; caret = 1 + 7 = 8.
+    expect(sel.from).toBe(8);
+    expect(sel.to).toBe(8);
+  });
+
+  it("falls back to src minus .md when display_src is empty", () => {
+    const embed = note_embed_type().create({
+      src: "fallback.md",
+      display_src: "",
+    });
+    const doc = schema.node("doc", null, [embed]);
+    const state = EditorState.create({ doc, schema });
+
+    const tr = build_embed_edit_transaction(state, 0, embed)!;
+    const next = state.apply(tr);
+    expect(next.doc.firstChild!.textContent).toBe("![[fallback");
   });
 });
