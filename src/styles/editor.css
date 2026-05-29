@@ -2959,7 +2959,8 @@
   display: none;
 }
 
-.note-embed__open {
+.note-embed__open,
+.note-embed__edit {
   display: flex;
   align-items: center;
   padding: 0.25rem;
@@ -2971,12 +2972,14 @@
   transition: background-color 0.15s;
 }
 
-.note-embed__open:hover {
+.note-embed__open:hover,
+.note-embed__edit:hover {
   background: var(--accent);
   color: var(--editor-foreground);
 }
 
-.note-embed__open svg {
+.note-embed__open svg,
+.note-embed__edit svg {
   width: 0.875rem;
   height: 0.875rem;
 }

@@ -1,8 +1,9 @@
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import type { EditorState, Transaction } from "prosemirror-state";
 import { DOMSerializer } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
-import { FileText, ExternalLink, ChevronRight } from "lucide-static";
+import { FileText, ExternalLink, ChevronRight, Pencil } from "lucide-static";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -49,6 +50,29 @@ function extract_heading_section(
   return "";
 }
 
+export function build_embed_edit_transaction(
+  state: EditorState,
+  pos: number,
+  node: ProseNode,
+): Transaction | null {
+  const display_src =
+    (node.attrs["display_src"] as string) ||
+    ((node.attrs["src"] as string) || "").replace(/\.md$/i, "");
+  // Drop the closing `]]` so the appendTransaction in note_embed_plugin
+  // does not immediately re-render the embed. The user closes the syntax
+  // (typing `]]` or accepting a wiki_suggest entry) when their edit is
+  // complete; that re-triggers the embed conversion.
+  const edit_text = `![[${display_src}`;
+  const para_type = state.schema.nodes["paragraph"];
+  if (!para_type) return null;
+  const text_node = state.schema.text(edit_text);
+  const para_node = para_type.create(null, text_node);
+  const tr = state.tr.replaceWith(pos, pos + node.nodeSize, para_node);
+  const caret = pos + 1 + edit_text.length;
+  tr.setSelection(TextSelection.create(tr.doc, caret));
+  return tr;
+}
+
 function extract_block_by_id(markdown: string, block_id: string): string {
   const lines = markdown.split("\n");
   const suffix = `^${block_id}`;
@@ -74,6 +98,8 @@ class NoteEmbedView implements NodeView {
   private get_pos: () => number | undefined;
   private collapse_btn: HTMLButtonElement;
   private on_collapse: (e: MouseEvent) => void;
+  private edit_btn: HTMLButtonElement;
+  private on_edit: (e: MouseEvent) => void;
 
   constructor(
     node: ProseNode,
@@ -127,6 +153,18 @@ class NoteEmbedView implements NodeView {
     this.collapse_btn.addEventListener("click", this.on_collapse);
     toolbar.appendChild(this.collapse_btn);
 
+    this.edit_btn = document.createElement("button");
+    this.edit_btn.className = "note-embed__edit";
+    this.edit_btn.title = "Edit embed target";
+    this.edit_btn.innerHTML = Pencil;
+    this.on_edit = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.start_edit_in_place();
+    };
+    this.edit_btn.addEventListener("click", this.on_edit);
+    toolbar.appendChild(this.edit_btn);
+
     const open_btn = document.createElement("button");
     open_btn.className = "note-embed__open";
     open_btn.title = "Open in tab";
@@ -162,6 +200,15 @@ class NoteEmbedView implements NodeView {
     this.node = updated;
     this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
     return true;
+  }
+
+  private start_edit_in_place(): void {
+    const pos = this.get_pos();
+    if (pos == null) return;
+    const tr = build_embed_edit_transaction(this.view.state, pos, this.node);
+    if (!tr) return;
+    this.view.dispatch(tr);
+    this.view.focus();
   }
 
   private async _render_content(): Promise<void> {
@@ -212,6 +259,7 @@ class NoteEmbedView implements NodeView {
   destroy(): void {
     this._destroyed = true;
     this.collapse_btn.removeEventListener("click", this.on_collapse);
+    this.edit_btn.removeEventListener("click", this.on_edit);
     if (this._unsubscribe) {
       this._unsubscribe();
       this._unsubscribe = null;
