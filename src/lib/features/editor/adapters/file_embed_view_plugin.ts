@@ -12,6 +12,10 @@ import {
   ChevronRight,
 } from "lucide-static";
 import { create_logger } from "$lib/shared/utils/logger";
+import {
+  build_safe_embed_srcdoc,
+  SAFE_EMBED_SANDBOX,
+} from "./html_embed_renderer";
 
 const log = create_logger("file_embed_view");
 
@@ -26,6 +30,8 @@ function get_icon_for_type(file_type: string): string {
     case "image":
       return Image;
     case "text":
+      return Code;
+    case "html":
       return Code;
     default:
       return File;
@@ -179,6 +185,55 @@ class FileEmbedView implements NodeView {
       }
       content.appendChild(img);
       content.style.height = "auto";
+    } else if (file_type === "html") {
+      const iframe = document.createElement("iframe");
+      iframe.className = "file-embed-html";
+      iframe.setAttribute("sandbox", SAFE_EMBED_SANDBOX);
+      iframe.title = filename;
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "none";
+      iframe.style.background = "transparent";
+      content.appendChild(iframe);
+
+      if (callbacks.resolve_asset_url) {
+        const result = callbacks.resolve_asset_url(src);
+        const load_html = (url: string) => {
+          void fetch(url)
+            .then((r) =>
+              r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)),
+            )
+            .then(async (html_text) => {
+              if (this._destroyed) return;
+              const srcdoc = await build_safe_embed_srcdoc({
+                content: html_text,
+                host_file_path: src,
+                resolve_asset_url: callbacks.resolve_asset_url,
+              });
+              if (this._destroyed) return;
+              iframe.srcdoc = srcdoc;
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to load HTML embed", { error });
+              if (!this._destroyed) {
+                iframe.srcdoc = `<!DOCTYPE html><body style="font-family:sans-serif;color:#71717a;padding:12px;">Failed to load HTML embed</body>`;
+              }
+            });
+        };
+        if (typeof result === "string") {
+          load_html(result);
+        } else {
+          void result
+            .then((url) => {
+              if (!this._destroyed) load_html(url);
+            })
+            .catch((error: unknown) => {
+              log.error("Failed to resolve HTML asset URL", { error });
+            });
+        }
+      } else {
+        iframe.srcdoc = `<!DOCTYPE html><body style="font-family:sans-serif;color:#71717a;padding:12px;">HTML preview unavailable</body>`;
+      }
     } else if (file_type === "text") {
       const pre = document.createElement("pre");
       pre.className = "file-embed-text";

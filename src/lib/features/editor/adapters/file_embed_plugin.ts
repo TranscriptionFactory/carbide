@@ -21,7 +21,9 @@ const IMAGE_EXTENSIONS = [
   "ico",
   "avif",
 ];
+const HTML_EXTENSIONS = ["html", "htm"];
 const EXCLUDED_EXTENSIONS = ["md", "canvas", "excalidraw"];
+const RESERVED_FRAGMENT_KEYS = new Set(["page", "height"]);
 
 const FILE_EMBED_REGEX = /^!\[\[([^\]\n]+\.[a-zA-Z0-9]+)(#[^\]]*)?]]$/;
 
@@ -33,19 +35,47 @@ export function detect_embed_type(filename: string): string {
   if (AUDIO_EXTENSIONS.includes(ext)) return "audio";
   if (VIDEO_EXTENSIONS.includes(ext)) return "video";
   if (IMAGE_EXTENSIONS.includes(ext)) return "image";
+  if (HTML_EXTENSIONS.includes(ext)) return "html";
   return "text";
 }
 
-export function parse_embed_fragment(fragment: string): {
+export type EmbedFragment = {
   page: number | null;
   height: number | null;
-} {
-  if (!fragment) return { page: null, height: null };
-  const params = new URLSearchParams(fragment.replace(/^#/, ""));
+  params: Record<string, string>;
+};
+
+export function parse_embed_fragment(fragment: string): EmbedFragment {
+  if (!fragment) return { page: null, height: null, params: {} };
+  const search = new URLSearchParams(fragment.replace(/^#/, ""));
+  const params: Record<string, string> = {};
+  for (const [key, value] of search.entries()) {
+    if (RESERVED_FRAGMENT_KEYS.has(key)) continue;
+    params[key] = value;
+  }
   return {
-    page: params.has("page") ? Number(params.get("page")) : null,
-    height: params.has("height") ? Number(params.get("height")) : null,
+    page: search.has("page") ? Number(search.get("page")) : null,
+    height: search.has("height") ? Number(search.get("height")) : null,
+    params,
   };
+}
+
+export function serialize_embed_fragment(
+  page: number | null,
+  height: number | null,
+  params: Record<string, string> | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (page != null) parts.push(`page=${String(page)}`);
+  if (height != null && height !== 400) parts.push(`height=${String(height)}`);
+  if (params) {
+    for (const key of Object.keys(params).sort()) {
+      const value = params[key];
+      if (value == null) continue;
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+    }
+  }
+  return parts.length > 0 ? `#${parts.join("&")}` : "";
 }
 
 function replace_paragraph_with_embed(
@@ -66,6 +96,7 @@ function replace_paragraph_with_embed(
     file_type,
     page: parsed.page,
     height: parsed.height ?? 400,
+    params: parsed.params,
   });
 
   tr.replaceWith(para_pos, para_end, new_node);
@@ -128,6 +159,7 @@ export function create_file_embed_plugin(): Plugin {
             file_type,
             page: parsed.page,
             height: parsed.height ?? 400,
+            params: parsed.params,
           });
           tr.replaceWith(block.pos, block.pos + block.node.nodeSize, new_node);
         }

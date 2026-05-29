@@ -1,5 +1,6 @@
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import type { Root, RootContent, PhrasingContent } from "mdast";
+import { serialize_embed_fragment } from "./file_embed_plugin";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -301,12 +302,11 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
 
     case "file_embed": {
       const src = (node.attrs["src"] as string) || "";
-      const params: string[] = [];
-      if (node.attrs["page"] != null)
-        params.push(`page=${String(node.attrs["page"])}`);
-      if ((node.attrs["height"] as number) !== 400)
-        params.push(`height=${String(node.attrs["height"])}`);
-      const fragment = params.length > 0 ? `#${params.join("&")}` : "";
+      const fragment = serialize_embed_fragment(
+        node.attrs["page"] as number | null,
+        node.attrs["height"] as number,
+        node.attrs["params"] as Record<string, string> | undefined,
+      );
       return { type: "wikiEmbed", value: `![[${src}${fragment}]]` };
     }
 

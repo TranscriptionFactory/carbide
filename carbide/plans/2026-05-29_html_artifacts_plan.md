@@ -193,9 +193,21 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 
 ---
 
-## Phase 2 — Transclusion: `![[file.html]]` in markdown
+## Phase 2 — Transclusion: `![[file.html]]` in markdown ✅
 
 The synergy point. Notes stay readable markdown; HTML artifacts become composable blocks.
+
+**Status (2026-05-29):** Implemented and verified.
+- P2.1 ✅ — `detect_embed_type` returns `"html"` for `.html`/`.htm`. The `file_embed` NodeView grew a vanilla-DOM `html` branch that creates a sandboxed iframe (`sandbox="allow-same-origin"`, no scripts) and loads the embedded artifact via `resolve_asset_url → fetch → text → build_safe_embed_srcdoc`. Default is Safe regardless of the file's trust grant — embeds are passive previews; the existing "Open in tab" toolbar button is the route to Live mode. New shared module `src/lib/features/editor/adapters/html_embed_renderer.ts` exports `build_safe_embed_srcdoc(...)`, `rewrite_embed_assets(...)`, and `SAFE_EMBED_SANDBOX = "allow-same-origin"`.
+- P2.2 ✅ — `parse_embed_fragment` now returns `{ page, height, params: Record<string,string> }`, splitting reserved keys (`page`, `height`) from arbitrary user params. A new `serialize_embed_fragment` round-trips back into `#k=v&…` for `pm_to_mdast`. The `file_embed` schema gained a `params` attr (default `{}`) with `data-params` JSON round-trip in `toDOM`/`parseDOM`. `mdast_to_pm.convert_wiki_embed` + both branches of `file_embed_plugin.appendTransaction` thread `parsed.params` onto the node. For v1 the params are not consumable by Safe-mode embed JS (Safe sandbox strips scripts); the wire is in place for future Live-mode embed.
+- P2.3 ✅ — `rewrite_embed_assets(html, host_path, resolver)` regex-rewrites `src=`, `href=`, and `poster=` for vault-relative paths, resolving each through the embed-resolver against the embedder's directory. Absolute URLs (`http(s):`, `//`, `data:`, `blob:`, `mailto:`, `tel:`, `#anchor`) are left untouched. `..` and `.` segments are normalized before resolution. Resolver failures fall through silently — the original href stays in the rewritten document. CSP in the safe srcdoc allows `img-src/font-src/media-src … carbide-asset:` to let the resolved asset protocol load; `connect-src 'none'` keeps dynamic `fetch()` blocked (deferred to Phase 4 as planned).
+
+**Verification:**
+- `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
+- `pnpm test` — 3883 / 3883 pass, including the new `html_embed_renderer` tests and the extended `file_embed_plugin` tests (html detection + params round-trip).
+- `cd src-tauri && cargo check` — clean (only pre-existing warnings).
+- `pnpm lint` — fails on the same pre-existing layering violation in `note_actions.ts:38` (introduced by `fbf3accc`, untouched by this phase).
+- `pnpm format` — applied (3 files re-formatted by Prettier; subsequent `pnpm check` still clean).
 
 ### P2.1 — Route `.html` through the file-embed pipeline
 

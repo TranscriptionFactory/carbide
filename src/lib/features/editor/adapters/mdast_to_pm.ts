@@ -228,6 +228,7 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
     file_type,
     page: parsed.page,
     height: parsed.height ?? 400,
+    params: parsed.params,
   });
 }
 
