@@ -203,7 +203,131 @@ This one is already fully scoped in the triage doc; reproducing here only to fit
 
 ---
 
-## Phase 3 — Indexing & PDF ingest (triage 2.2, 2.3, 6.1)
+## Phase 3 — Indexing & PDF ingest (triage 2.2, 2.3, 6.1) ✅ COMPLETE (2026-05-28, session 003)
+
+**Outcome:** All three items shipped per scope.
+
+- **P3.1** — PDF extraction failures now surface in the log panel with file
+  path + cause on both the in-process indexer path
+  (`search::text_extractor::extract_content`) and the subprocess-isolated
+  linked-source path (`reference::linked_source::extract_pdf`). The previous
+  silent `unwrap_or_default()` swallowed errors; the new code logs `warn!`
+  with the path and the underlying error string so failing files are
+  identifiable without a stack trace. Also tightened the in-process
+  `mpsc::recv_timeout` to distinguish timeout (parser slow) from
+  disconnect (worker panicked) — both still degrade gracefully to an
+  empty body so one bad file does not abort the batch.
+- **P3.2** — File-tree integration for linked sources was **already
+  shipped** prior to this session (`file_tree_show_linked_sources` setting,
+  default `true`; `linked_source_tree.reactor.svelte.ts` materializes
+  `@linked/<name>` folders into `notes_store`). Verified the setting +
+  reactor wiring matches the cross-cutting decision. New work in this
+  session: (a) per-stage timing logs around `extract_pdf` (meta/text/ids
+  phases — output names the dominant phase, satisfying acceptance #2),
+  and (b) a content-addressed extraction cache
+  (`reference::scan_cache::ScanCache`) keyed on the blake3 hash of the
+  file bytes. On cache hit the PDF subprocess and lopdf metadata pass are
+  both skipped; `file_path` / `modified_at` are re-derived from the live
+  file so cached results survive renames. Cache lives at
+  `~/.carbide/linked_source_cache/<hash>.json` with a `schema_version`
+  field; a future schema bump invalidates cleanly without needing to
+  delete the directory.
+- **P3.3** — Code audit of `create_note` confirms the downgrade was
+  correct: `MCP create_note` → `shared_ops::create_note` →
+  `notes_service::create_note` is path-resolve + dir-create + atomic
+  write + metadata-event emit. No synchronous reindex, no contended
+  lock, no embedding call on this path (FTS upsert happens later when
+  the editor saves the buffer via `index_upsert_note_with_content`).
+  The 300s timeout reported in the raw bug report must originate
+  outside this code path — transport, antivirus, slow disk on first
+  write into a new vault subtree. Added per-phase
+  `Instant::elapsed()` debug logging (`resolve / pre_write / write /
+  total`, plus `bytes`) so a recurrence has actionable data. No
+  behavior change.
+
+**Files changed:**
+- `src-tauri/src/features/search/text_extractor.rs` — switched
+  `extract_content` Pdf branch from `unwrap_or_default()` to
+  `unwrap_or_else` that logs `warn!(path, cause)`; introduced
+  `RecvTimeoutError` matching in `extract_pdf_text` so disconnect
+  (worker panic) and timeout are reported separately; added two new
+  tests (`extract_content_bad_pdf_yields_empty_body_without_panic`,
+  `extract_pdf_text_errors_on_garbage_bytes`).
+- `src-tauri/src/features/reference/linked_source.rs` — `extract_pdf`
+  logs `warn!(path, cause)` on subprocess failure (P3.1) and emits
+  per-stage debug timing (P3.2); collapsed `extract_file` into
+  `extract_file_with_cache(path, cache: Option<&ScanCache>)`;
+  `scan_folder_sync` and the two Tauri commands
+  (`linked_source_scan_folder`, `linked_source_extract_file`) now
+  thread an `AppHandle` + `ScanCache` so every linked-source path is
+  cached; tests pass `None` to bypass the cache.
+- `src-tauri/src/features/reference/scan_cache.rs` — **new**. blake3
+  streaming hash (64 KB chunks, no full-file read), versioned JSON
+  cache entries under `~/.carbide/linked_source_cache/`, five unit
+  tests covering hash stability, hash discrimination, per-file field
+  restoration on load, serde round-trip, and stale-schema rejection.
+- `src-tauri/src/features/reference/mod.rs` — exposes `scan_cache`.
+- `src-tauri/src/features/notes/service.rs` — `create_note` gained the
+  P3.3 instrumentation block: `Instant::now()` at entry, deltas at
+  resolve / pre-write / write / total, single `debug!` line at the
+  end. Inline comment documents the audit conclusion so the next
+  reader does not re-derive it.
+
+**Verification run:**
+- `cd src-tauri && cargo check` — passes (4 pre-existing dead-code
+  warnings unrelated to Phase 3).
+- `cd src-tauri && cargo test --lib` — 508/511 pass; same 3
+  pre-existing failures from the Phase 2 baseline
+  (`mcp_router::tools_list_returns_note_tools`,
+  `mcp_tools_notes::tool_definitions_count`,
+  `mcp_tools_search_metadata_vault::router_lists_all_eight_tools`,
+  all hardcoded tool-count assertions). New Phase 3 tests included:
+  2 in `text_extractor`, 5 in `scan_cache`.
+- `pnpm test` — 3832/3832 pass.
+- `pnpm check` — 0 errors, 3 pre-existing a11y warnings in
+  `image_alt_editor.svelte`.
+- `pnpm lint` — 1 pre-existing layering violation in
+  `note_actions.ts:38` (unchanged baseline from Phase 1).
+- `pnpm format` — clean for changed files.
+
+**Deviations from plan:**
+- The plan asked for "collapse symlink + linked-source paths" with
+  the linked-source path as canonical. In practice there was no
+  symlink-specific *code* path to collapse: symlinks are followed
+  transparently via `WalkDir::follow_links(true)` in both
+  `scan_folder_sync` and `linked_source_list_files`, and linked
+  sources already had a parallel ingest path. The cross-cutting
+  decision really meant "linked-source folders show up in the file
+  tree by default" — which was already implemented prior to this
+  session. P3.2 in this session focuses on the perf side (timing +
+  cache) and confirmed the tree-visibility wiring is correct.
+- The plan suggested switching `errors="replace"` vs an encoding
+  detector for PDF bytes. Rust's `pdf_extract` already returns
+  lossy-decoded `String`s; the actual gap was diagnostic
+  observability, not decoding strategy. P3.1 fixes the observability
+  gap.
+- The plan said P3.3's audit conclusion would land "as a short note
+  in `devlog/`". AGENTS.md forbids version-controlling `devlog/`, so
+  the conclusion lives inline in this Outcome section and as a comment
+  block above the instrumented `create_note` body.
+
+**Open follow-ups (carry to next session if needed):**
+- P3.1 added unit tests for the in-process PDF path; the subprocess
+  path's failure mode is harder to unit-test because it requires
+  launching the binary. The linked-source warn path is covered by
+  the same diagnostic improvements but not exercised in tests.
+- P3.2 acceptance #1 (≪10×20s on cache hit) is a manual measurement
+  in the running app — not automated. The cache primitives are unit-
+  tested; the end-to-end measurement should be confirmed by the user
+  on a real 10-paper folder.
+- P3.3 debug timing is gated at `log::debug!`; if recurrence
+  investigation needs production data, the user should bump the
+  `notes::service` log level temporarily or promote the timing line
+  to `info!`.
+
+---
+
+### Phase 3 plan-of-record (kept for reference)
 
 These three share a substrate (indexer lifecycle, PDF parse pipeline) and benefit from being done together.
 

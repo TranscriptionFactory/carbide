@@ -599,14 +599,24 @@ pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, Str
         args.vault_id,
         args.note_path
     );
+    // P3.3 instrumentation: this path does NOT perform a synchronous reindex
+    // (FTS upsert happens later, when the editor saves). The 300s timeout
+    // reported in 2026-05-28_bugs_triaged.md #6.1 must come from elsewhere
+    // (transport, disk slowness, antivirus) — log per-phase timings so a
+    // recurrence has actionable data.
+    let t_start = std::time::Instant::now();
     let root = storage::vault_path(&app, &args.vault_id)?;
+    let t_resolved = t_start.elapsed();
     let abs = safe_vault_abs_for_write(&root, &args.note_path)?;
     let dir = abs.parent().ok_or("invalid note path")?;
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     if abs.exists() {
         return Err("note already exists".to_string());
     }
+    let bytes_len = args.initial_markdown.len();
+    let t_pre_write = t_start.elapsed();
     io_utils::atomic_write(&abs, args.initial_markdown.as_bytes())?;
+    let t_written = t_start.elapsed();
     let note = build_note_meta(&root, &args.note_path, None)?;
     invalidate_note_parent_folder_cache(&args.vault_id, &note.path);
     emit_metadata_changed(
@@ -615,6 +625,15 @@ pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, Str
             vault_id: args.vault_id,
             path: note.path.clone(),
         },
+    );
+    let t_total = t_start.elapsed();
+    log::debug!(
+        "create_note timing path={} bytes={bytes_len} resolve={}ms pre_write={}ms write={}ms total={}ms",
+        note.path,
+        t_resolved.as_millis(),
+        t_pre_write.as_millis(),
+        (t_written - t_pre_write).as_millis(),
+        t_total.as_millis()
     );
     Ok(note)
 }

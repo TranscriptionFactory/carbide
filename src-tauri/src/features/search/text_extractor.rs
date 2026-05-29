@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::sync::mpsc;
+use std::sync::mpsc::RecvTimeoutError;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,7 +83,10 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
             page_offsets: vec![],
         },
         FileCategory::Pdf => {
-            let (body, page_offsets) = extract_pdf_text(bytes).unwrap_or_default();
+            let (body, page_offsets) = extract_pdf_text(bytes).unwrap_or_else(|e| {
+                log::warn!("PDF extraction failed for {}: {e}", path.display());
+                Default::default()
+            });
             ExtractedContent {
                 category: FileCategory::Pdf,
                 body,
@@ -113,13 +117,15 @@ fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
 
     std::thread::spawn(move || {
         let result = pdf_extract::extract_text_from_mem_by_pages(&owned)
-            .map_err(|e| format!("PDF extraction: {e}"));
+            .map_err(|e| format!("pdf_extract: {e}"));
         let _ = tx.send(result);
     });
 
-    let pages = rx
-        .recv_timeout(PDF_EXTRACT_TIMEOUT)
-        .map_err(|_| "PDF extraction timed out".to_string())??;
+    let pages = match rx.recv_timeout(PDF_EXTRACT_TIMEOUT) {
+        Ok(result) => result?,
+        Err(RecvTimeoutError::Timeout) => return Err("extraction timed out".into()),
+        Err(RecvTimeoutError::Disconnected) => return Err("extraction worker panicked".into()),
+    };
 
     let mut body = String::new();
     let mut offsets = Vec::with_capacity(pages.len());
@@ -293,5 +299,25 @@ mod tests {
     fn extract_content_code_has_no_page_offsets() {
         let result = extract_content(&PathBuf::from("main.rs"), b"fn main() {}");
         assert!(result.page_offsets.is_empty());
+    }
+
+    #[test]
+    fn extract_content_bad_pdf_yields_empty_body_without_panic() {
+        // Garbage bytes that are not a valid PDF. extract_pdf_text should Err,
+        // the surrounding extract_content should swallow the error, log a warn
+        // with path + cause, and return an empty body so the indexer doesn't
+        // abort the rest of the batch.
+        let path = PathBuf::from("broken.pdf");
+        let bytes = b"not actually a pdf, just garbage bytes";
+        let result = extract_content(&path, bytes);
+        assert_eq!(result.category, FileCategory::Pdf);
+        assert!(result.body.is_empty());
+        assert!(result.page_offsets.is_empty());
+    }
+
+    #[test]
+    fn extract_pdf_text_errors_on_garbage_bytes() {
+        let err = extract_pdf_text(b"not a pdf").expect_err("garbage bytes must fail");
+        assert!(!err.is_empty(), "error message must be non-empty for log");
     }
 }
