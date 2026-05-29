@@ -617,7 +617,137 @@ These three share a substrate (indexer lifecycle, PDF parse pipeline) and benefi
 
 ---
 
-## Phase 5 — Editor & transclusion (triage 1.4, 1.5, 3.1)
+## Phase 5 — Editor & transclusion (triage 1.4, 1.5, 3.1) ✅ COMPLETE (2026-05-28, session 005)
+
+**Outcome:** All three items shipped per scope.
+
+- **P5.1 (decision)** — Source mode keeps LSP completion as its only
+  in-editor suggest path. The visual-mode suggest stack is a ProseMirror
+  plugin (`suggest_plugin_factory.ts` + 6 per-syntax adapters); lifting
+  it to CodeMirror requires either a CM-native twin of the orchestration
+  (~300 lines mirroring `state.apply` / `view.update` / `handleKeyDown`
+  / view lifecycle in CM primitives) or a `@codemirror/autocomplete`
+  shim per syntax (~100 lines each but with parallel codepaths and
+  cosmetic mismatch vs. the visual-mode dropdown). Per the plan's
+  resolved bias ("ship if clean, otherwise LSP fallback; bias toward
+  fallback if any adapter complexity emerges"), this session committed
+  the LSP-fallback. Inline comment in `source_editor_content.svelte`
+  records the choice with a pointer to this plan so future readers do
+  not re-derive it.
+- **P5.2 (fuzzy match + edit-in-place)** — Fuzzy match in `![[query`
+  syntax was **already working** prior to this session via
+  `wiki_suggest_plugin.extract_wiki_query`, which sets `is_embed=true`
+  when the `[[` open is preceded by `!`. The dropdown reactivates on
+  embed prefix and accept inserts `![[picked]]` → the
+  `note_embed_plugin` appendTransaction re-renders. The triage gap was
+  the second clause: editing the target of an already-rendered embed
+  required dropping to source mode. This session adds a Pencil button
+  to the embed toolbar between collapse and open-in-tab. Click converts
+  the embed back to editable `![[display_src` text — intentionally
+  without the closing `]]` so the embed plugin does not immediately
+  re-render. The user edits the target (wiki_suggest reactivates from
+  the leading `!`), then closes with `]]` to re-render. The transform
+  lives in `build_embed_edit_transaction(state, pos, node) → Transaction`
+  so it is unit-testable without DOM; the NodeView handler is a thin
+  wrapper.
+- **P5.3 (task parsing consistency)** — Root cause identified and fixed.
+  Disk-loaded `[ ]` tasks landed in PM with attrs
+  `{checked: false, task_status: "todo"}` (via
+  `mdast_to_pm.convert_list_item`), but in-editor created tasks (via
+  `block_transforms` `todo_list` target, `wrap_as_todo`, and
+  `slash_command_plugin` `make_todo_insert`) only set
+  `{checked: false, task_status: null}`. The
+  `task_keymap_plugin.handleClick` branched on `!task_status`: binary
+  toggle vs 3-state cycle. Result: the same `[ ]` checkbox behaved
+  differently before vs. after a navigate-away-and-back (which
+  serialized to markdown and reparsed). Fix: in-editor task creation
+  now sets `task_status: "todo"` alongside `checked: false`, matching
+  the disk-loaded attrs. Both paths now produce identical click
+  semantics; the 3-state cycle is reachable on first click for
+  freshly-created tasks too.
+
+**Files changed:**
+- `src/lib/features/editor/ui/source_editor_content.svelte` — inline
+  comment documenting the P5.1 LSP-fallback decision.
+- `src/lib/features/editor/adapters/note_embed_view_plugin.ts` —
+  imported `TextSelection`, `EditorState`, `Transaction`, and `Pencil`
+  icon; added `build_embed_edit_transaction(state, pos, node)` pure
+  helper; added `edit_btn` to the toolbar with `start_edit_in_place`
+  click handler that delegates to the helper; added listener cleanup
+  in `destroy`.
+- `src/styles/editor.css` — extended `.note-embed__open` rule to also
+  cover `.note-embed__edit` (shared hover / size / colour treatment).
+- `src/lib/features/editor/adapters/block_transforms.ts` — added
+  `task_status: "todo"` to the three `list_item.create` call sites
+  that previously only set `checked: false` (wrapped-block todo_list
+  branch, `wrap_as_todo` loop, schema-extracted todo_list branch).
+- `src/lib/features/editor/adapters/slash_command_plugin.ts` —
+  `make_todo_insert` now includes `task_status: "todo"` in the
+  item_attrs object when the schema supports it.
+- `tests/unit/adapters/note_embed_plugin.test.ts` — **4 new** tests
+  for `build_embed_edit_transaction`: paragraph contains
+  `![[display_src` (no closing `]]`), heading fragment preserved
+  (`folder/note#Heading`), caret at end of editable text, fallback to
+  `src` minus `.md` when `display_src` is empty.
+- `tests/unit/adapters/task_toggle_cycle.test.ts` — **1 new** test
+  asserting `bullet_list → todo_list` conversion produces the same
+  `{checked, task_status}` attrs as `parse_markdown("- [ ] hello")`,
+  pinning the consistency invariant.
+
+**Verification run:**
+- `pnpm check` — 0 errors, 3 pre-existing a11y warnings in
+  `image_alt_editor.svelte` (unchanged baseline).
+- `pnpm lint` — 1 pre-existing layering violation in
+  `note_actions.ts:38` (unchanged baseline since Phase 1).
+- `pnpm test` — 3867/3867 pass (includes 4 new note_embed tests + 1
+  new task_toggle_cycle test).
+- `cd src-tauri && cargo check` — passes (4 pre-existing dead-code
+  warnings unchanged from Phase 4 baseline).
+- `pnpm format` — clean for changed files.
+
+**Deviations from plan:**
+- P5.1 plan envisioned a "mode-agnostic hook keyed on caret context".
+  In practice, the PM factory's orchestration is closely coupled to
+  PM primitives (`view.dispatch(tr.setMeta)`, `props.handleKeyDown`,
+  the view-spec lifecycle); a shared hook would either force both
+  editors onto a new abstraction (risky big-bang refactor) or
+  duplicate orchestration (the "doubles surface area" outcome the
+  plan listed as a fallback trigger). LSP fallback was the cleaner
+  ship.
+- P5.2 plan listed fuzzy match and edit-in-place as separate
+  deliverables. Investigation showed fuzzy match was already working
+  via the existing `is_embed` flag in `wiki_suggest_plugin`. Only the
+  edit-in-place affordance needed new code. The plan's stated
+  ergonomic complaint ("selecting the right note + heading for a
+  transclusion is very awkward") is addressed by the combination:
+  fuzzy match (existing) + edit-in-place (this session).
+- P5.3 plan suggested either "cache the parsed task AST keyed on note
+  content hash" or "unify the two code paths". Neither was needed —
+  the bug was not parser/cache divergence but a *creation-side* attr
+  inconsistency that propagated through the click handler's branch
+  predicate. The fix is surgical (~4 small attr-object edits) and
+  preserves the existing 3-state cycle UX.
+
+**Open follow-ups (carry to next session if needed):**
+- P5.1: a user feedback signal indicating high demand for wiki/tag
+  completion in source mode would justify revisiting via a per-syntax
+  `@codemirror/autocomplete` adapter. The data layer is mode-agnostic
+  (`search_service.suggest_wiki_links`), so the future cost is only
+  the orchestration shim per syntax.
+- P5.2: the embed toolbar's edit button is the primary affordance; a
+  keyboard shortcut (e.g. Enter on a selected embed node) could be a
+  follow-up if discovery proves insufficient in practice.
+- P5.3 surfaced a latent transaction-mismatch bug in
+  `block_transforms.wrap_as_todo` (it dispatches a transaction built
+  off `current.doc` but the outer caller applies it against `state.doc`,
+  causing PM to reject in isolated tests). The bug only manifests in
+  test harnesses with a one-shot dispatch; the real editor view's
+  state-mutating dispatch absorbs it. Out of P5.3 scope; flagged here
+  for a future refactor.
+
+---
+
+### Phase 5 plan-of-record (kept for reference)
 
 ### P5.1 — Source-mode suggestion dropdowns (triage 1.5)
 
