@@ -2,6 +2,7 @@ import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
 import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 
 type AiMode = "edit" | "ask";
+type AiApplyTarget = "selection" | "full_note";
 type AiCliStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 type AiExecutionResult = {
@@ -10,18 +11,30 @@ type AiExecutionResult = {
   error: string | null;
 };
 
-type AiDialogContext = {
+type AiDialogNoteContext = {
+  kind: "note";
   note_path: NotePath;
   note_title: string;
   note_markdown: MarkdownText;
   selection: EditorSelectionSnapshot | null;
-  target: "selection" | "full_note";
+  target: AiApplyTarget;
 };
+
+type AiDialogHtmlContext = {
+  kind: "html_document";
+  tab_id: string;
+  file_path: string;
+  file_title: string;
+  html: string;
+  target: "full_note";
+};
+
+type AiDialogContext = AiDialogNoteContext | AiDialogHtmlContext;
 
 type AiConversationTurn = {
   id: number;
   provider_id: string;
-  target: "selection" | "full_note";
+  target: AiApplyTarget;
   mode: AiMode;
   prompt: string;
   status: "pending" | "completed";
@@ -106,6 +119,11 @@ export class AiStore {
       return;
     }
 
+    if (context.kind === "html_document") {
+      this.dialog.context = context;
+      return;
+    }
+
     const next_target =
       context.target === "selection" &&
       (!context.selection || context.selection.text.trim() === "")
@@ -118,12 +136,13 @@ export class AiStore {
     };
   }
 
-  set_target(target: "selection" | "full_note") {
-    if (!this.dialog.context) {
+  set_target(target: AiApplyTarget) {
+    const current = this.dialog.context;
+    if (!current || current.kind !== "note") {
       return;
     }
     this.dialog.context = {
-      ...this.dialog.context,
+      ...current,
       target,
     };
     this.dialog.result = null;

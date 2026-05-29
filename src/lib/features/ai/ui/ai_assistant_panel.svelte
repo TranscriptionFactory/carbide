@@ -3,18 +3,50 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
   import AiAssistantContent from "$lib/features/ai/ui/ai_assistant_content.svelte";
+  import { context_original_text } from "$lib/features/ai/domain/ai_types";
 
   const { stores, action_registry } = use_app_context();
 
   const session = $derived(stores.ai.dialog);
   const ai_disabled = $derived(!stores.ui.editor_settings.ai_enabled);
   const has_session = $derived(session.open && session.context !== null);
-  const original_text = $derived(
-    session.context
-      ? session.context.target === "selection"
-        ? (session.context.selection?.text ?? "")
-        : session.context.note_markdown
-      : "",
+
+  type ViewData = {
+    context_kind: "note" | "html_document";
+    target: "selection" | "full_note";
+    note_path: string | null;
+    note_title: string | null;
+    selection_text: string | null;
+    original_text: string;
+  };
+
+  const view_data = $derived<ViewData>(
+    session.context === null
+      ? {
+          context_kind: "note",
+          target: "full_note",
+          note_path: null,
+          note_title: null,
+          selection_text: null,
+          original_text: "",
+        }
+      : session.context.kind === "html_document"
+        ? {
+            context_kind: "html_document",
+            target: "full_note",
+            note_path: session.context.file_path,
+            note_title: session.context.file_title,
+            selection_text: null,
+            original_text: session.context.html,
+          }
+        : {
+            context_kind: "note",
+            target: session.context.target,
+            note_path: session.context.note_path,
+            note_title: session.context.note_title,
+            selection_text: session.context.selection?.text ?? null,
+            original_text: context_original_text(session.context),
+          },
   );
 
   function hide_panel() {
@@ -29,11 +61,12 @@
     if (!has_session || session.is_executing || session.result) {
       return;
     }
+    if (session.context?.kind !== "note") return;
 
     const current_note = stores.editor.open_note;
     if (!current_note) return;
 
-    if (session.context?.note_path !== current_note.meta.path) {
+    if (session.context.note_path !== current_note.meta.path) {
       start_session();
       return;
     }
@@ -42,18 +75,19 @@
     const markdown = current_note.markdown;
 
     if (
-      selection?.text === session.context?.selection?.text &&
-      markdown === session.context?.note_markdown
+      selection?.text === session.context.selection?.text &&
+      markdown === session.context.note_markdown
     ) {
       return;
     }
 
     void action_registry.execute(ACTION_IDS.ai_update_context, {
+      kind: "note",
       note_path: current_note.meta.path,
       note_title: current_note.meta.title || current_note.meta.name,
       note_markdown: markdown,
       selection,
-      target: session.context?.target ?? "full_note",
+      target: session.context.target,
     });
   });
 </script>
@@ -76,11 +110,11 @@
     <div class="space-y-2">
       <h2 class="text-base font-semibold">AI Assistant</h2>
       <p class="text-sm text-muted-foreground">
-        Open a note to start a draft-editing session and review changes before
-        applying them.
+        Open a note or an HTML document (Source mode) to start a draft-editing
+        session and review changes before applying them.
       </p>
     </div>
-    <Button onclick={start_session}>Use Current Note</Button>
+    <Button onclick={start_session}>Use Current Tab</Button>
   </div>
 {:else}
   <AiAssistantContent
@@ -90,11 +124,12 @@
     prompt={session.prompt}
     cli_status={session.cli_status}
     cli_error={session.cli_error}
-    target={session.context?.target ?? "full_note"}
-    note_path={session.context?.note_path ?? null}
-    note_title={session.context?.note_title ?? null}
-    selection_text={session.context?.selection?.text ?? null}
-    {original_text}
+    target={view_data.target}
+    context_kind={view_data.context_kind}
+    note_path={view_data.note_path}
+    note_title={view_data.note_title}
+    selection_text={view_data.selection_text}
+    original_text={view_data.original_text}
     is_executing={session.is_executing}
     turns={session.turns}
     result={session.result}

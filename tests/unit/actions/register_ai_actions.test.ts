@@ -65,6 +65,10 @@ function create_harness() {
       }),
       apply_ai_output: vi.fn().mockReturnValue(true),
     },
+    document: {
+      get_html_source_context: vi.fn().mockReturnValue(null),
+      apply_html_source_output: vi.fn().mockReturnValue(true),
+    },
     clipboard: {},
     shell: {},
     tab: {},
@@ -207,6 +211,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     const next_context = {
+      kind: "note" as const,
       note_path: as_note_path("docs/demo.md"),
       note_title: "demo",
       note_markdown: as_markdown_text("# New Content"),
@@ -220,8 +225,12 @@ describe("register_ai_actions", () => {
 
     await registry.execute(ACTION_IDS.ai_update_context, next_context);
 
-    expect(ai_store.dialog.context?.note_markdown).toBe("# New Content");
-    expect(ai_store.dialog.context?.selection?.text).toBe("Content");
+    const ctx = ai_store.dialog.context;
+    expect(ctx?.kind).toBe("note");
+    if (ctx?.kind === "note") {
+      expect(ctx.note_markdown).toBe("# New Content");
+      expect(ctx.selection?.text).toBe("Content");
+    }
   });
 
   it("records turns as assistant executions complete", async () => {
@@ -330,5 +339,74 @@ describe("register_ai_actions", () => {
       "# Updated\nLine 2",
       null,
     );
+  });
+
+  describe("html document tab", () => {
+    function open_html_tab(stores: ReturnType<typeof create_harness>["stores"]) {
+      stores.tab.set_dirty = vi.fn();
+      Object.defineProperty(stores.tab, "active_tab", {
+        configurable: true,
+        get: () => ({
+          id: "tab-html",
+          kind: "document",
+          file_path: "notes/chart.html",
+          file_type: "html",
+        }),
+      });
+    }
+
+    it("opens an html_document AI session when an html tab is active", async () => {
+      const { registry, stores, services, ai_store } = create_harness();
+      open_html_tab(stores);
+      services.document.get_html_source_context = vi.fn().mockReturnValue({
+        tab_id: "tab-html",
+        file_path: "notes/chart.html",
+        file_title: "chart",
+        html: "<p>x</p>",
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+
+      expect(services.document.get_html_source_context).toHaveBeenCalledWith(
+        "tab-html",
+      );
+      expect(ai_store.dialog.open).toBe(true);
+      const ctx = ai_store.dialog.context;
+      expect(ctx?.kind).toBe("html_document");
+      if (ctx?.kind === "html_document") {
+        expect(ctx.tab_id).toBe("tab-html");
+        expect(ctx.file_title).toBe("chart");
+        expect(ctx.html).toBe("<p>x</p>");
+      }
+      expect(ai_store.dialog.vault_context_enabled).toBe(false);
+    });
+
+    it("applies AI output through document_service and marks the tab dirty", async () => {
+      const { registry, stores, services, ai_service } = create_harness();
+      open_html_tab(stores);
+      services.document.get_html_source_context = vi.fn().mockReturnValue({
+        tab_id: "tab-html",
+        file_path: "notes/chart.html",
+        file_title: "chart",
+        html: "<p>x</p>",
+      });
+      ai_service.execute = vi.fn().mockResolvedValue({
+        success: true,
+        output: "<p>y</p>",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Rewrite");
+      await registry.execute(ACTION_IDS.ai_execute);
+      await registry.execute(ACTION_IDS.ai_apply_result);
+
+      expect(services.document.apply_html_source_output).toHaveBeenCalledWith(
+        "tab-html",
+        "<p>y</p>",
+      );
+      expect(stores.tab.set_dirty).toHaveBeenCalledWith("tab-html", true);
+      expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
+    });
   });
 });

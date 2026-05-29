@@ -113,6 +113,36 @@ export function build_ai_prompt(input: {
   return parts.join("\n\n");
 }
 
+export function build_ai_html_prompt(input: {
+  file_path: string;
+  file_title: string;
+  html: string;
+  user_prompt: string;
+  mode: AiMode;
+}): string {
+  const user_prompt = input.user_prompt.trim();
+
+  if (input.mode === "ask") {
+    return [
+      "You are a helpful assistant answering a question about the content of an HTML document.",
+      "Answer the user's question clearly and concisely.",
+      "Do not return edited HTML. Do not rewrite the markup.",
+      `Document: ${input.file_title} (${input.file_path})`,
+      section("current_html", input.html),
+      section("user_question", user_prompt),
+    ].join("\n\n");
+  }
+
+  return [
+    "You are editing an HTML document.",
+    "Return ONLY the complete edited HTML for the document and retain all content that is not meant to be edited.",
+    "Do not include commentary, explanations, or enclose the HTML in code fences.",
+    `Document: ${input.file_title} (${input.file_path})`,
+    section("current_html", input.html),
+    section("user_instructions", user_prompt),
+  ].join("\n\n");
+}
+
 export function build_ai_inline_prompt(input: {
   command_id: string;
   custom_prompt?: string;

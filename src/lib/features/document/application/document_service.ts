@@ -26,8 +26,21 @@ import {
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
+export type HtmlSourceContext = {
+  tab_id: string;
+  file_path: string;
+  file_title: string;
+  html: string;
+};
+
 function needs_text_content(file_type: DocumentFileType): boolean {
   return file_type === "text" || file_type === "html";
+}
+
+function derive_html_title(file_path: string): string {
+  const basename = file_path.split("/").pop() ?? file_path;
+  const without_ext = basename.replace(/\.html?$/i, "");
+  return without_ext || basename;
 }
 
 export class DocumentService {
@@ -281,6 +294,27 @@ export class DocumentService {
       });
       this.document_store.set_load_status(tab_id, "error", error_message);
     }
+  }
+
+  get_html_source_context(tab_id: string): HtmlSourceContext | null {
+    const viewer = this.document_store.get_viewer_state(tab_id);
+    if (!viewer || viewer.file_type !== "html") return null;
+    if (viewer.html_view_mode !== "source") return null;
+    const html = this.document_store.get_current_content(tab_id);
+    if (html === null) return null;
+    return {
+      tab_id,
+      file_path: viewer.file_path,
+      file_title: derive_html_title(viewer.file_path),
+      html,
+    };
+  }
+
+  apply_html_source_output(tab_id: string, output: string): boolean {
+    const viewer = this.document_store.get_viewer_state(tab_id);
+    if (!viewer || viewer.file_type !== "html") return false;
+    this.document_store.set_edited_content(tab_id, output);
+    return true;
   }
 
   async save(tab_id: string): Promise<void> {

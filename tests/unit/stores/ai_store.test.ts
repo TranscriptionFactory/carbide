@@ -7,6 +7,7 @@ describe("AiStore", () => {
     const store = new AiStore();
 
     store.open_dialog("claude", {
+      kind: "note",
       note_path: as_note_path("docs/demo.md"),
       note_title: "demo",
       note_markdown: as_markdown_text("# Demo"),
@@ -23,6 +24,7 @@ describe("AiStore", () => {
   it("preserves provider across close", () => {
     const store = new AiStore();
     store.open_dialog("ollama", {
+      kind: "note",
       note_path: as_note_path("docs/demo.md"),
       note_title: "demo",
       note_markdown: as_markdown_text("# Demo"),
@@ -42,6 +44,7 @@ describe("AiStore", () => {
   it("updates target and clears stale result", () => {
     const store = new AiStore();
     store.open_dialog("claude", {
+      kind: "note",
       note_path: as_note_path("docs/demo.md"),
       note_title: "demo",
       note_markdown: as_markdown_text("# Demo"),
@@ -63,6 +66,7 @@ describe("AiStore", () => {
   it("records conversation turns for executions", () => {
     const store = new AiStore();
     store.open_dialog("claude", {
+      kind: "note",
       note_path: as_note_path("docs/demo.md"),
       note_title: "demo",
       note_markdown: as_markdown_text("# Demo"),

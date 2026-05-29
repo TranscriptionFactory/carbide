@@ -2,8 +2,12 @@ import { toast } from "svelte-sonner";
 import YAML from "yaml";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
-import type { AiApplyTarget, AiMode } from "$lib/features/ai/domain/ai_types";
-import { find_provider } from "$lib/features/ai/domain/ai_types";
+import type {
+  AiApplyTarget,
+  AiDialogContext,
+  AiMode,
+} from "$lib/features/ai/domain/ai_types";
+import { context_key, find_provider } from "$lib/features/ai/domain/ai_types";
 import { resolve_auto_ai_backend } from "$lib/features/ai/domain/ai_backend_selection";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
@@ -109,37 +113,66 @@ export function register_ai_actions(
     }
   }
 
+  function resolve_dialog_context(): AiDialogContext | null {
+    const active_tab = input.stores.tab.active_tab;
+    if (active_tab?.kind === "document" && active_tab.file_type === "html") {
+      const html_ctx = services.document.get_html_source_context(active_tab.id);
+      if (html_ctx) {
+        return {
+          kind: "html_document",
+          tab_id: html_ctx.tab_id,
+          file_path: html_ctx.file_path,
+          file_title: html_ctx.file_title,
+          html: html_ctx.html,
+          target: "full_note",
+        };
+      }
+      return null;
+    }
+
+    const editor_ctx = services.editor.get_ai_context();
+    if (!editor_ctx) return null;
+    const selection = editor_ctx.selection;
+    return {
+      kind: "note",
+      note_path: editor_ctx.note_path,
+      note_title: editor_ctx.note_title,
+      note_markdown: editor_ctx.markdown,
+      selection,
+      target:
+        selection && selection.text.trim() !== "" ? "selection" : "full_note",
+    };
+  }
+
   async function open_ai_dialog(provider_id?: string) {
     if (!ensure_ai_enabled()) return;
 
-    const context = services.editor.get_ai_context();
+    const context = resolve_dialog_context();
     if (!context) {
       if (ai_store.dialog.open && ai_store.dialog.context) {
         input.stores.ui.bottom_panel_tab = "ai";
         input.stores.ui.bottom_panel_open = true;
         return;
       }
-      toast.info("Open a note first to use AI editing");
+      toast.info(
+        "Open a note or HTML document (Source mode) to use AI editing",
+      );
       return;
     }
 
     input.stores.ui.bottom_panel_tab = "ai";
     input.stores.ui.bottom_panel_open = true;
 
+    const current_ctx = ai_store.dialog.context;
+    const current_key = current_ctx ? context_key(current_ctx) : null;
+    const next_key = context_key(context);
+
     if (
       ai_store.dialog.open &&
-      ai_store.dialog.context?.note_path === context.note_path &&
+      current_key === next_key &&
       (provider_id === undefined || ai_store.dialog.provider_id === provider_id)
     ) {
-      const selection = context.selection;
-      ai_store.update_context({
-        note_path: context.note_path,
-        note_title: context.note_title,
-        note_markdown: context.markdown,
-        selection,
-        target:
-          selection && selection.text.trim() !== "" ? "selection" : "full_note",
-      });
+      ai_store.update_context(context);
 
       if (ai_store.dialog.cli_status === "idle" && provider_id !== undefined) {
         const revision = ++dialog_revision;
@@ -179,22 +212,12 @@ export function register_ai_actions(
       }
     }
 
-    const selection = context.selection;
-    ai_store.open_dialog(
-      next_provider_id,
-      {
-        note_path: context.note_path,
-        note_title: context.note_title,
-        note_markdown: context.markdown,
-        selection,
-        target:
-          selection && selection.text.trim() !== "" ? "selection" : "full_note",
-      },
-      {
-        vault_context_enabled:
-          input.stores.ui.editor_settings.ai_vault_context_enabled,
-      },
-    );
+    const vault_context_enabled =
+      context.kind === "html_document"
+        ? false
+        : input.stores.ui.editor_settings.ai_vault_context_enabled;
+
+    ai_store.open_dialog(next_provider_id, context, { vault_context_enabled });
 
     if (preset_cli_status === "available") {
       ai_store.set_cli_status("available");
@@ -283,7 +306,9 @@ export function register_ai_actions(
       if (next_target !== "selection" && next_target !== "full_note") {
         return;
       }
-      const selection_text = ai_store.dialog.context?.selection?.text?.trim();
+      const ctx = ai_store.dialog.context;
+      if (!ctx || ctx.kind !== "note") return;
+      const selection_text = ctx.selection?.text?.trim();
       if (next_target === "selection" && !selection_text) {
         return;
       }
@@ -335,10 +360,12 @@ export function register_ai_actions(
       if (dialog.is_executing) return;
       if (dialog.cli_status !== "available") return;
       if (dialog.prompt.trim() === "") {
+        const subject =
+          dialog.context.kind === "html_document" ? "document" : "note";
         toast.info(
           dialog.mode === "ask"
-            ? "Type a question about the note"
-            : "Describe how you want to edit the note",
+            ? `Type a question about the ${subject}`
+            : `Describe how you want to edit the ${subject}`,
         );
         return;
       }
@@ -402,11 +429,18 @@ export function register_ai_actions(
           ? output_override
           : dialog.result.output;
 
-      const applied = services.editor.apply_ai_output(
-        dialog.context.target,
-        output,
-        dialog.context.selection,
-      );
+      const ctx = dialog.context;
+      let applied: boolean;
+      if (ctx.kind === "html_document") {
+        applied = services.document.apply_html_source_output(ctx.tab_id, output);
+        if (applied) input.stores.tab.set_dirty(ctx.tab_id, true);
+      } else {
+        applied = services.editor.apply_ai_output(
+          ctx.target,
+          output,
+          ctx.selection,
+        );
+      }
 
       if (!applied) {
         toast.error("Failed to apply AI edit");
@@ -613,6 +647,7 @@ export function register_ai_actions(
             "Write a single-sentence summary (under 80 characters) of this note. " +
             "Return ONLY the summary text CONTENT, no quotes, no prefix, no explanation. Do not include prefixes like 'Summary:' or 'Description:'.",
           context: {
+            kind: "note",
             note_path: note_path as NotePath,
             note_title: doc.meta.title,
             note_markdown: doc.markdown,
