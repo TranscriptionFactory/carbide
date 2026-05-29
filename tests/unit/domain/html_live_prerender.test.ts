@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extract_mermaid_sources,
   inject_mermaid_svgs,
+  prerender_html_math,
 } from "$lib/features/document/domain/html_live_prerender";
 
 describe("extract_mermaid_sources", () => {
@@ -68,5 +69,59 @@ describe("inject_mermaid_svgs", () => {
   it("returns input unchanged when svg map is empty", () => {
     const html = '<pre class="mermaid">graph A</pre>';
     expect(inject_mermaid_svgs(html, new Map())).toBe(html);
+  });
+});
+
+describe("prerender_html_math", () => {
+  it("renders $$…$$ display math via KaTeX", () => {
+    const { html, had_math } = prerender_html_math("<p>$$x^2$$</p>");
+    expect(had_math).toBe(true);
+    expect(html).toContain("katex-display");
+    expect(html).not.toContain("$$x^2$$");
+  });
+
+  it("renders \\[…\\] display math", () => {
+    const { html, had_math } = prerender_html_math("<p>\\[x^2\\]</p>");
+    expect(had_math).toBe(true);
+    expect(html).toContain("katex-display");
+  });
+
+  it("renders \\(…\\) inline math", () => {
+    const { html, had_math } = prerender_html_math("<p>see \\(x^2\\) here</p>");
+    expect(had_math).toBe(true);
+    expect(html).toContain("katex");
+    expect(html).not.toContain("katex-display");
+  });
+
+  it("does not scan inside <pre>, <code>, <script>, <style>", () => {
+    const cases = [
+      "<pre>$$x^2$$</pre>",
+      "<code>\\(y\\)</code>",
+      "<script>const a = \\(z\\);</script>",
+      "<style>p:before { content: '$$ignored$$'; }</style>",
+    ];
+    for (const html of cases) {
+      const out = prerender_html_math(html);
+      expect(out.had_math).toBe(false);
+      expect(out.html).toBe(html);
+    }
+  });
+
+  it("does not interpret bare $…$ as math (KaTeX default)", () => {
+    const { html, had_math } = prerender_html_math("<p>price is $5 to $9</p>");
+    expect(had_math).toBe(false);
+    expect(html).toBe("<p>price is $5 to $9</p>");
+  });
+
+  it("leaves invalid LaTeX in place", () => {
+    const { html } = prerender_html_math("<p>$$\\frac{}{}$$</p>");
+    // KaTeX with throwOnError:false renders error spans; this still counts as "rendered"
+    expect(html).not.toContain("$$\\frac{}{}$$");
+  });
+
+  it("returns had_math=false when no math is present", () => {
+    const { html, had_math } = prerender_html_math("<p>plain text</p>");
+    expect(had_math).toBe(false);
+    expect(html).toBe("<p>plain text</p>");
   });
 });
