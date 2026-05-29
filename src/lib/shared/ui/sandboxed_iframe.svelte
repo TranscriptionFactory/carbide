@@ -17,7 +17,7 @@
     srcdoc,
     origin: _origin,
     title,
-    csp = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; connect-src none;",
+    csp,
     sandbox = "allow-scripts",
     class: class_name = "",
     visible = false,
@@ -57,7 +57,7 @@
   {srcdoc}
   {title}
   {sandbox}
-  {...{ csp } as any}
+  {...csp ? { csp } : {}}
   class={class_name}
   aria-hidden={!visible}
   onload={on_load}
