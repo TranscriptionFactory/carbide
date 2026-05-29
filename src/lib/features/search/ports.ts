@@ -23,6 +23,15 @@ import type { FileCache } from "$lib/features/metadata";
 
 export type { IndexProgressEvent };
 
+export type HeadingMatch = {
+  note_path: string;
+  level: number;
+  text: string;
+  line: number;
+  heading_path: string;
+  score: number;
+};
+
 export type NoteStats = {
   word_count: number;
   char_count: number;
@@ -118,6 +127,11 @@ export interface SearchPort {
   rebuild_embeddings(vault_id: VaultId): Promise<void>;
   get_note_stats(vault_id: VaultId, note_path: string): Promise<NoteStats>;
   get_file_cache(vault_id: VaultId, note_path: string): Promise<FileCache>;
+  search_headings(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
+  ): Promise<HeadingMatch[]>;
   load_smart_link_rules(vault_id: VaultId): Promise<SmartLinkRuleGroup[]>;
   save_smart_link_rules(
     vault_id: VaultId,
@@ -154,6 +168,11 @@ export interface WorkspaceIndexPort {
   list_note_paths_by_prefix(
     vault_id: VaultId,
     prefix: string,
+  ): Promise<string[]>;
+  find_notes_by_name(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
   ): Promise<string[]>;
   upsert_note(vault_id: VaultId, note_id: NoteId): Promise<void>;
   remove_note(vault_id: VaultId, note_id: NoteId): Promise<void>;

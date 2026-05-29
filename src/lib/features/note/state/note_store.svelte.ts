@@ -13,6 +13,8 @@ function normalized_note_path(path: NotePath): NotePath {
 }
 
 const RECENT_NOTES_LIMIT = 10;
+const ACCESS_WINDOW_MS = 24 * 60 * 60 * 1000;
+const ACCESS_PER_NOTE_LIMIT = 16;
 
 function normalize_starred_paths(paths: string[]): string[] {
   const seen_lower = new Set<string>();
@@ -46,6 +48,7 @@ export class NotesStore {
   files = $state<FileMeta[]>([]);
   recent_notes = $state<NoteMeta[]>([]);
   starred_paths = $state<string[]>([]);
+  note_access_history = $state<Map<string, number[]>>(new Map());
   dashboard_stats = $state<{
     status: "idle" | "loading" | "ready" | "error";
     value: FolderStats | null;
@@ -106,15 +109,33 @@ export class NotesStore {
     this.recent_notes = normalize_recent_notes(notes);
   }
 
-  add_recent_note(note: NoteMeta) {
+  add_recent_note(note: NoteMeta, now_ms?: number) {
     const filtered = this.recent_notes.filter(
       (item) => !paths_equal_ignore_case(item.id, note.id),
     );
     this.recent_notes = normalize_recent_notes([note, ...filtered]);
+    this.record_note_access(note.id, now_ms ?? Date.now());
+  }
+
+  record_note_access(note_id: string, now_ms: number) {
+    const cutoff = now_ms - ACCESS_WINDOW_MS;
+    const next = new Map(this.note_access_history);
+    const prior = next.get(note_id) ?? [];
+    const fresh = [...prior.filter((ts) => ts >= cutoff), now_ms];
+    if (fresh.length > ACCESS_PER_NOTE_LIMIT) {
+      fresh.splice(0, fresh.length - ACCESS_PER_NOTE_LIMIT);
+    }
+    next.set(note_id, fresh);
+    this.note_access_history = next;
   }
 
   remove_recent_note(note_id: NoteId) {
     this.recent_notes = this.recent_notes.filter((note) => note.id !== note_id);
+    if (this.note_access_history.has(note_id)) {
+      const next = new Map(this.note_access_history);
+      next.delete(note_id);
+      this.note_access_history = next;
+    }
   }
 
   remove_recent_notes_by_prefix(prefix: string) {
@@ -400,6 +421,7 @@ export class NotesStore {
     this.files = [];
     this.recent_notes = [];
     this.starred_paths = [];
+    this.note_access_history = new Map();
     this.clear_dashboard_stats();
   }
 }

@@ -569,6 +569,9 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     sync_index_paths() {
       return Promise.resolve();
     },
+    find_notes_by_name() {
+      return Promise.resolve([]);
+    },
   };
   return mock;
 }

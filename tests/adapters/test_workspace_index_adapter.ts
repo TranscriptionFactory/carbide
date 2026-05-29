@@ -7,6 +7,7 @@ export function create_test_workspace_index_adapter(): WorkspaceIndexPort {
     sync_index_paths: () => Promise.resolve(),
     rebuild_index: () => Promise.resolve(),
     list_note_paths_by_prefix: () => Promise.resolve([]),
+    find_notes_by_name: () => Promise.resolve([]),
     upsert_note: () => Promise.resolve(),
     remove_note: () => Promise.resolve(),
     remove_notes: () => Promise.resolve(),
