@@ -71,6 +71,8 @@ function render_editor_status_bar(props?: {
       vim_nav_context: "none",
       vim_nav_pending_keys: "",
       on_vim_nav_cheatsheet: vi.fn(),
+      html_trust_level: null,
+      on_html_trust_click: vi.fn(),
     },
   });
 

@@ -220,6 +220,9 @@ mod specta_export {
                 crate::features::trusted_html::trusted_html_grant,
                 crate::features::trusted_html::trusted_html_revoke,
                 crate::features::trusted_html::trusted_html_parent_folder,
+                // Live HTML scheme
+                crate::shared::live_html::html_live_register,
+                crate::shared::live_html::html_live_release,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

@@ -3,6 +3,7 @@ pub mod buffer;
 pub mod cache;
 pub mod constants;
 pub mod io_utils;
+pub mod live_html;
 pub mod lsp_client;
 pub mod storage;
 pub mod vault_ignore;

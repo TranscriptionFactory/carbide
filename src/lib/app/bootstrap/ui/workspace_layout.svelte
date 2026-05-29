@@ -159,6 +159,18 @@
   const word_count = $derived(stores.editor.cursor?.total_words ?? 0);
   const line_count = $derived(stores.editor.cursor?.total_lines ?? 0);
 
+  const html_trust_level = $derived.by(() => {
+    const tab = stores.tab.active_tab;
+    if (!tab || tab.kind !== "document" || tab.file_type !== "html")
+      return null;
+    return stores.document.get_trust_level(tab.file_path);
+  });
+
+  function open_trust_panel(): void {
+    stores.ui.bottom_panel_tab = "trust";
+    stores.ui.bottom_panel_open = true;
+  }
+
   let details_dialog_open = $state(false);
 
   type HeaderAction = {
@@ -1016,6 +1028,8 @@
         vim_nav_pending_keys={stores.vim_nav.pending_keys}
         on_vim_nav_cheatsheet={() =>
           void action_registry.execute(ACTION_IDS.vim_nav_cheatsheet_toggle)}
+        {html_trust_level}
+        on_html_trust_click={open_trust_panel}
       />
     {/if}
 
