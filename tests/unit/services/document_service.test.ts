@@ -817,9 +817,9 @@ describe("DocumentService", () => {
         document_store,
       );
 
-      expect(
-        service.apply_html_source_output("missing-tab", "<p>x</p>"),
-      ).toBe(false);
+      expect(service.apply_html_source_output("missing-tab", "<p>x</p>")).toBe(
+        false,
+      );
     });
   });
 });

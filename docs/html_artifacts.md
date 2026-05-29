@@ -49,6 +49,21 @@ When an LLM hands you a complete HTML page, drop it into the vault in one step:
 
 The sidecar schema is intentionally minimal — `source` is required, `pasted_at` is recommended, and any extra fields you add are preserved.
 
+## AI editing (Source mode)
+
+The AI assistant works on `.html` files the same way it works on notes — open the file in **Source** mode, then run the **AI Assistant** action (Cmd-K). The assistant opens with the whole document as context and offers:
+
+- **Edit** — rewrite the file. The result is staged into the Source editor's edited buffer and the tab is marked dirty; nothing is written to disk until you save the tab.
+- **Ask** — answer a question about the markup without modifying it.
+
+Constraints by design:
+
+- AI is only available in **Source** mode. Safe and Live modes render inside a sandboxed iframe with no editable surface, so there is nothing to apply changes to.
+- The operation is always whole-file. Selection-scoped edits aren't supported on HTML in this slice — pick the change you want from the diff view, or refine the prompt.
+- Vault context (similar notes, backlinks) is skipped for HTML targets, since backlinks-from-HTML are not extracted yet (see Current limitations).
+
+The Replace Document button writes the AI output back through the same buffer the Source editor uses, so undo and the standard save flow behave normally.
+
 ## Provenance banner
 
 Opening an `.html` file with a sidecar `.meta.json` shows a banner above the renderer (e.g. _"Pasted from clipboard on 2026-05-29"_). The banner exposes a small ✕ button that runs the **Clear HTML Artifact Provenance** action (`document.clear_provenance`), which deletes the sidecar and removes the banner.
@@ -92,3 +107,4 @@ The block also sets `color-scheme: light | dark` on `:root`. Artifacts that igno
 - No JS-rendered text in FTS (intentional — same as code files).
 - Backlinks **from** HTML to vault notes are not extracted yet (deferred to a "richer HTML metadata" pass).
 - The paste-as-artifact action does not yet prompt for a custom filename. Rename via the file tree after pasting.
+- AI editing is whole-file only in Source mode. Inline ghost-text edits (as in the markdown editor) and selection-scoped AI on HTML are not implemented.
