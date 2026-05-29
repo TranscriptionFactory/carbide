@@ -14,6 +14,15 @@ import {
   render_note_to_html,
   type ImageResolver,
 } from "$lib/features/document/domain/note_html";
+import {
+  build_clipboard_provenance,
+  derive_artifact_filename,
+  join_vault_path,
+  parse_provenance,
+  provenance_sidecar_path,
+  serialize_provenance,
+  type ArtifactProvenance,
+} from "$lib/features/document/domain/html_artifact_paste";
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
@@ -97,6 +106,61 @@ export class DocumentService {
     await this.refresh_trust_level(req.file_path);
     this.document_store.close_trust_request();
     req.resolve(true);
+  }
+
+  async save_html_artifact(
+    folder_path: string,
+    html: string,
+    now: Date = new Date(this.now_ms()),
+  ): Promise<{ html_path: string; meta_path: string } | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    const { html_filename, meta_filename } = derive_artifact_filename(
+      html,
+      now,
+    );
+    const html_path = join_vault_path(folder_path, html_filename);
+    const meta_path = join_vault_path(folder_path, meta_filename);
+    const provenance = build_clipboard_provenance(now);
+    await this.document_port.write_file(vault_id, html_path, html);
+    await this.document_port.write_file(
+      vault_id,
+      meta_path,
+      serialize_provenance(provenance),
+    );
+    return { html_path, meta_path };
+  }
+
+  async read_provenance(file_path: string): Promise<ArtifactProvenance | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    const sidecar_path = provenance_sidecar_path(file_path);
+    try {
+      const json = await this.document_port.read_file(vault_id, sidecar_path);
+      return parse_provenance(json);
+    } catch {
+      return null;
+    }
+  }
+
+  async refresh_provenance(
+    file_path: string,
+  ): Promise<ArtifactProvenance | null> {
+    const provenance = await this.read_provenance(file_path);
+    this.document_store.set_provenance(file_path, provenance);
+    return provenance;
+  }
+
+  async clear_provenance(file_path: string): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return;
+    const sidecar_path = provenance_sidecar_path(file_path);
+    try {
+      await this.document_port.delete_file(vault_id, sidecar_path);
+    } catch {
+      // Sidecar may not exist; clearing in-memory state is still useful.
+    }
+    this.document_store.set_provenance(file_path, null);
   }
 
   async open_document(

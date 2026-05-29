@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type {
     DocumentContentState,
@@ -10,6 +11,7 @@
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
   import TrustedHtmlDialog from "$lib/features/document/ui/trusted_html_dialog.svelte";
+  import { format_provenance_banner } from "$lib/features/document/domain/html_artifact_paste";
   import { CanvasViewer } from "$lib/features/canvas";
   import type {
     HtmlViewMode,
@@ -19,6 +21,7 @@
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import ZapIcon from "@lucide/svelte/icons/zap";
+  import XIcon from "@lucide/svelte/icons/x";
 
   interface Props {
     viewer_state: DocumentViewerState;
@@ -26,7 +29,7 @@
   }
 
   let { viewer_state, content_state }: Props = $props();
-  const { stores, services } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
   const asset_url = $derived(content_state?.asset_url ?? null);
   const current_content = $derived(
     stores.document.get_current_content(viewer_state.tab_id),
@@ -40,12 +43,23 @@
     trust_level === "live" || trust_level === "live+net",
   );
   const allow_network = $derived(trust_level === "live+net");
+  const provenance = $derived(
+    is_html ? stores.document.get_provenance(viewer_state.file_path) : null,
+  );
+  const provenance_banner = $derived(
+    provenance ? format_provenance_banner(provenance) : null,
+  );
 
   $effect(() => {
     if (is_html) {
       void services.document.refresh_trust_level(viewer_state.file_path);
+      void services.document.refresh_provenance(viewer_state.file_path);
     }
   });
+
+  function clear_provenance(): void {
+    void action_registry.execute(ACTION_IDS.document_clear_provenance);
+  }
 
   function handle_pdf_metadata(metadata: PdfMetadata): void {
     stores.document.set_pdf_metadata(viewer_state.tab_id, metadata);
@@ -113,6 +127,20 @@
         </button>
       </div>
     </div>
+    {#if provenance_banner}
+      <div class="DocumentViewer__provenance" role="status">
+        <span class="DocumentViewer__provenance-text">{provenance_banner}</span>
+        <button
+          type="button"
+          class="DocumentViewer__provenance-clear"
+          aria-label="Clear provenance metadata"
+          title="Clear provenance metadata"
+          onclick={clear_provenance}
+        >
+          <XIcon />
+        </button>
+      </div>
+    {/if}
   {/if}
 
   {#if viewer_state.file_type === "canvas" || viewer_state.file_type === "excalidraw"}
@@ -249,6 +277,46 @@
   }
 
   :global(.DocumentViewer__mode-btn svg) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
+  }
+
+  .DocumentViewer__provenance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background-color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    flex-shrink: 0;
+  }
+
+  .DocumentViewer__provenance-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .DocumentViewer__provenance-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-0-5, 2px);
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+    background-color: transparent;
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  .DocumentViewer__provenance-clear:hover {
+    color: var(--foreground);
+  }
+
+  :global(.DocumentViewer__provenance-clear svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
   }

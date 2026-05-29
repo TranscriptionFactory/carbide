@@ -36,6 +36,12 @@ export function create_document_tauri_adapter(): DocumentPort {
         content,
       });
     },
+    async delete_file(vault_id: string, relative_path: string): Promise<void> {
+      return invoke("delete_vault_file", {
+        vaultId: vault_id,
+        relativePath: relative_path,
+      });
+    },
     resolve_asset_url(vault_id: string, file_path: string): string {
       if (is_absolute_path(file_path)) {
         return carbide_file_asset_url(file_path);

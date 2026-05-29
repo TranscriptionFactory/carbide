@@ -262,9 +262,21 @@ The synergy point. Notes stay readable markdown; HTML artifacts become composabl
 
 ---
 
-## Phase 3 — LLM workflow: paste capture + provenance
+## Phase 3 — LLM workflow: paste capture + provenance ✅
 
 These turn the feature from "view your own HTML files" into "the natural place to keep LLM artifacts."
+
+**Status (2026-05-29):** Implemented and verified.
+- P3.1 ✅ — New action `document.paste_html_artifact` (id: `document_paste_html_artifact`). It reads `text/html` from the clipboard via `navigator.clipboard.read()`, derives an artifact filename from the `<title>` (falling back to first `<h1>`, then `pasted-html`) plus a `YYYYMMDD-HHMMSS` suffix for uniqueness, writes the file in the open note's folder via `DocumentPort.write_file`, writes a sidecar `<name>.html.meta.json` with `{ source: "clipboard", pasted_at: <iso> }`, and inserts `![[<name>.html]]` at the cursor through `services.editor.insert_text`. New domain module `domain/html_artifact_paste.ts` houses pure helpers (`extract_html_title`, `slugify_for_filename`, `format_timestamp_for_filename`, `derive_artifact_filename`, `join_vault_path`, `provenance_sidecar_path`, `build_clipboard_provenance`, `serialize_provenance`, `parse_provenance`, `format_provenance_banner`). `DocumentService` gained `save_html_artifact(folder, html, now?)`. The plan's "prompt for filename" step is deferred for v1 — the auto-derived slug + timestamp prevents collisions; users rename through the file tree.
+- P3.2 ✅ — `ArtifactProvenance` moved into `types/document.ts` so the store can hold it without breaking the stores-cannot-import-domain layering rule. `DocumentStore` gained a `provenance` map plus `get_provenance` / `set_provenance`. `DocumentService` gained `read_provenance`, `refresh_provenance`, and `clear_provenance` (delete sidecar via the new `DocumentPort.delete_file` method, with in-memory state cleared even when delete fails). `document_viewer_content.svelte` refreshes provenance on HTML open in the same `$effect` as trust level and renders a banner above the renderer (`"Pasted from clipboard on <date>"`) with an ✕ button wired to a new `document.clear_provenance` action. `DocumentPort.delete_file` was added with its Tauri adapter (`delete_vault_file` invoke) and a no-op test adapter.
+- P3.3 ✅ — `docs/html_artifacts.md` covers the three render modes, trust grants and the `.carbide/trusted_html.json` store, `![[file.html]]` transclusion semantics, the paste-from-clipboard flow with sidecar schema, the provenance banner and clear action, the theme variable list injected in Live mode, the FTS indexing decisions, the security envelope, and the documented limitations (no embed `fetch()`, no JS-rendered FTS, no HTML-source backlinks yet, no rename prompt in v1). Linked from `docs/getting_started.md`.
+
+**Verification:**
+- `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
+- `pnpm lint` — fails on the same pre-existing layering violation in `note_actions.ts:38` (introduced by `fbf3accc`, untouched by this phase).
+- `pnpm test` — 3914 / 3914 pass, including the new `html_artifact_paste` domain tests (round-trip, slugify, title extraction, banner format) and the new `DocumentService` tests for `save_html_artifact`, `read_provenance`, `refresh_provenance`, and `clear_provenance`.
+- `cd src-tauri && cargo check` — clean (only pre-existing warnings; no Rust-side changes in this phase).
+- `pnpm format` — applied (3 files re-formatted by Prettier; subsequent `pnpm check` still clean).
 
 ### P3.1 — Paste-from-clipboard as artifact
 

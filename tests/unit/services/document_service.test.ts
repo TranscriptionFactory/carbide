@@ -15,6 +15,7 @@ describe("DocumentService", () => {
       }),
       read_file: vi.fn().mockResolvedValue("file content here"),
       write_file: vi.fn().mockResolvedValue(undefined),
+      delete_file: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -239,6 +240,7 @@ describe("DocumentService", () => {
         return Promise.resolve("second content");
       }),
       write_file: vi.fn().mockResolvedValue(undefined),
+      delete_file: vi.fn().mockResolvedValue(undefined),
     };
 
     const service = new DocumentService(
@@ -333,5 +335,196 @@ describe("DocumentService", () => {
 
     document_store.set_edited_content("tab-1", "edited version");
     expect(document_store.get_current_content("tab-1")).toBe("edited version");
+  });
+
+  describe("save_html_artifact", () => {
+    it("writes the html file and a sidecar provenance file", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      const result = await service.save_html_artifact(
+        "docs",
+        "<title>Chart</title>",
+        new Date("2026-05-29T12:34:56Z"),
+      );
+
+      expect(result?.html_path).toMatch(/^docs\/chart-\d{8}-\d{6}\.html$/);
+      expect(result?.meta_path).toBe(`${result?.html_path}.meta.json`);
+      expect(document_port.write_file).toHaveBeenCalledTimes(2);
+      const html_call = document_port.write_file.mock.calls[0]!;
+      const meta_call = document_port.write_file.mock.calls[1]!;
+      expect(html_call[1]).toBe(result?.html_path);
+      expect(html_call[2]).toBe("<title>Chart</title>");
+      expect(meta_call[1]).toBe(result?.meta_path);
+      const meta_payload = JSON.parse(meta_call[2]);
+      expect(meta_payload.source).toBe("clipboard");
+      expect(meta_payload.pasted_at).toBe("2026-05-29T12:34:56.000Z");
+    });
+
+    it("returns null when no vault is open", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      const result = await service.save_html_artifact("", "<p>x</p>");
+      expect(result).toBe(null);
+      expect(document_port.write_file).not.toHaveBeenCalled();
+    });
+
+    it("writes to vault root when folder is empty", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      const result = await service.save_html_artifact(
+        "",
+        "<title>Root</title>",
+        new Date("2026-05-29T12:34:56Z"),
+      );
+
+      expect(result?.html_path).toMatch(/^root-\d{8}-\d{6}\.html$/);
+      expect(result?.html_path.includes("/")).toBe(false);
+    });
+  });
+
+  describe("read_provenance", () => {
+    it("reads and parses the sidecar metadata", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      document_port.read_file.mockResolvedValue(
+        '{"source":"clipboard","pasted_at":"2026-05-29T00:00:00Z"}',
+      );
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      const meta = await service.read_provenance("docs/chart.html");
+      expect(meta?.source).toBe("clipboard");
+      expect(document_port.read_file).toHaveBeenCalledWith(
+        vault_store.vault?.id,
+        "docs/chart.html.meta.json",
+      );
+    });
+
+    it("returns null when the sidecar file is missing", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      document_port.read_file.mockRejectedValue("missing");
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      const meta = await service.read_provenance("docs/chart.html");
+      expect(meta).toBe(null);
+    });
+  });
+
+  describe("refresh_provenance", () => {
+    it("hydrates the document store with provenance", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      document_port.read_file.mockResolvedValue(
+        '{"source":"clipboard","pasted_at":"2026-05-29T00:00:00Z"}',
+      );
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      await service.refresh_provenance("docs/chart.html");
+      expect(document_store.get_provenance("docs/chart.html")?.source).toBe(
+        "clipboard",
+      );
+    });
+
+    it("stores null when the sidecar is missing", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      document_port.read_file.mockRejectedValue("missing");
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+
+      await service.refresh_provenance("docs/chart.html");
+      expect(document_store.get_provenance("docs/chart.html")).toBe(null);
+    });
+  });
+
+  describe("clear_provenance", () => {
+    it("deletes the sidecar and clears in-memory state", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_provenance("docs/chart.html", {
+        source: "clipboard",
+        pasted_at: "2026-05-29T00:00:00Z",
+      });
+
+      await service.clear_provenance("docs/chart.html");
+      expect(document_port.delete_file).toHaveBeenCalledWith(
+        vault_store.vault?.id,
+        "docs/chart.html.meta.json",
+      );
+      expect(document_store.get_provenance("docs/chart.html")).toBe(null);
+    });
+
+    it("still clears in-memory state if delete fails", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      document_port.delete_file.mockRejectedValue("not found");
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+      );
+      document_store.set_provenance("docs/chart.html", {
+        source: "clipboard",
+        pasted_at: "2026-05-29T00:00:00Z",
+      });
+
+      await service.clear_provenance("docs/chart.html");
+      expect(document_store.get_provenance("docs/chart.html")).toBe(null);
+    });
   });
 });

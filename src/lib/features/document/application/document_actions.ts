@@ -9,6 +9,8 @@ import {
   carbide_file_asset_url,
   resolve_relative_asset_path,
 } from "$lib/features/note";
+import { parent_folder_path } from "$lib/shared/utils/path";
+import { toast } from "svelte-sonner";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -91,7 +93,8 @@ export function register_document_actions(
     document_store: DocumentStore;
   },
 ) {
-  const { registry, stores, document_service, document_store } = input;
+  const { registry, stores, services, document_service, document_store } =
+    input;
 
   registry.register({
     id: ACTION_IDS.document_open,
@@ -174,6 +177,57 @@ export function register_document_actions(
         open_note.markdown,
         image_resolver,
       );
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_clear_provenance,
+    label: "Clear HTML Artifact Provenance",
+    execute: async () => {
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "document") return;
+      const viewer = document_store.get_viewer_state(active_tab.id);
+      if (!viewer || viewer.file_type !== "html") return;
+      await document_service.clear_provenance(viewer.file_path);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_paste_html_artifact,
+    label: "Paste Clipboard HTML as Artifact",
+    execute: async () => {
+      const open_note = stores.editor.open_note;
+      if (!open_note) {
+        toast.error("Open a note before pasting an HTML artifact");
+        return;
+      }
+      let html = "";
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          if (item.types.includes("text/html")) {
+            const blob = await item.getType("text/html");
+            html = (await blob.text()).trim();
+            break;
+          }
+        }
+      } catch (e) {
+        toast.error(`Failed to read clipboard: ${String(e)}`);
+        return;
+      }
+      if (!html) {
+        toast.error("No HTML found in clipboard");
+        return;
+      }
+      const folder = parent_folder_path(open_note.meta.path);
+      const result = await document_service.save_html_artifact(folder, html);
+      if (!result) {
+        toast.error("Failed to save HTML artifact");
+        return;
+      }
+      const wiki_target = result.html_path.split("/").pop() ?? result.html_path;
+      services.editor.insert_text(`![[${wiki_target}]]`);
+      toast.success(`Saved ${wiki_target}`);
     },
   });
 }
