@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use walkdir::WalkDir;
+
+use crate::features::reference::scan_cache::{self, ScanCache};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -436,13 +438,27 @@ fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
         .unwrap_or_default()
         .to_string();
 
+    let t_meta = Instant::now();
     let (title, author, subject, keywords, creation_date) = extract_pdf_metadata(path);
+    let meta_ms = t_meta.elapsed().as_millis();
 
-    let (body_text, page_offsets) = extract_pdf_text_subprocess(path).unwrap_or_default();
+    let t_text = Instant::now();
+    let (body_text, page_offsets) = extract_pdf_text_subprocess(path).unwrap_or_else(|e| {
+        log::warn!("PDF extraction failed for {}: {e}", path.display());
+        Default::default()
+    });
+    let text_ms = t_text.elapsed().as_millis();
 
+    let t_ids = Instant::now();
     let doi = extract_doi_from_text(&body_text, 5000).and_then(|v| normalize_doi(&v));
     let isbn = extract_isbn_from_text(&body_text, 5000);
     let arxiv_id = extract_arxiv_id_from_text(&body_text, 5000);
+    let ids_ms = t_ids.elapsed().as_millis();
+
+    log::debug!(
+        "linked-source extract_pdf {} meta={meta_ms}ms text={text_ms}ms ids={ids_ms}ms",
+        path.display()
+    );
 
     Ok(ScanEntry {
         file_path: path.to_string_lossy().into_owned(),
@@ -550,19 +566,65 @@ fn extract_html(path: &Path) -> Result<ScanEntry, String> {
     })
 }
 
-fn extract_file(path: &Path) -> Result<ScanEntry, String> {
-    match classify_linked_file(path) {
-        Some("pdf") => extract_pdf(path),
-        Some("html") => extract_html(path),
-        _ => Err(format!("unsupported file type: {}", path.display())),
+/// Cache-aware extraction. With `Some(cache)` the file is hashed first; on a
+/// hit we skip PDF/HTML parsing entirely and return the cached metadata + body
+/// with `file_path`/`modified_at` re-derived from the current file. With
+/// `None` (tests, callers without an `AppHandle`) the cache is bypassed.
+fn extract_file_with_cache(path: &Path, cache: Option<&ScanCache>) -> Result<ScanEntry, String> {
+    let kind = classify_linked_file(path)
+        .ok_or_else(|| format!("unsupported file type: {}", path.display()))?;
+
+    let hash = match cache {
+        Some(_) => {
+            let t = Instant::now();
+            match scan_cache::hash_file(path) {
+                Ok(h) => {
+                    log::debug!(
+                        "linked-source hash {} hash={}ms",
+                        path.display(),
+                        t.elapsed().as_millis()
+                    );
+                    Some(h)
+                }
+                Err(e) => {
+                    log::warn!("scan_cache hash failed for {}: {e}", path.display());
+                    None
+                }
+            }
+        }
+        None => None,
+    };
+
+    if let (Some(cache), Some(h)) = (cache, hash.as_ref()) {
+        if let Some(entry) = cache.try_load(h, path) {
+            log::debug!("linked-source cache hit {} ({})", path.display(), h);
+            return Ok(entry);
+        }
     }
+
+    let entry = match kind {
+        "pdf" => extract_pdf(path)?,
+        "html" => extract_html(path)?,
+        _ => return Err(format!("unsupported file type: {}", path.display())),
+    };
+
+    if let (Some(cache), Some(h)) = (cache, hash.as_ref()) {
+        if let Err(e) = cache.store(h, &entry) {
+            log::warn!("scan_cache store failed for {}: {e}", path.display());
+        }
+    }
+
+    Ok(entry)
 }
 
 // ---------------------------------------------------------------------------
 // Tauri commands
 // ---------------------------------------------------------------------------
 
-fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
+fn scan_folder_sync(
+    folder_path: &str,
+    cache: Option<&ScanCache>,
+) -> Result<Vec<ScanEntry>, String> {
     let root = PathBuf::from(folder_path);
     if !root.is_dir() {
         return Err(format!("not a directory: {folder_path}"));
@@ -585,7 +647,7 @@ fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
     let entries: Vec<ScanEntry> = pool.install(|| {
         paths
             .par_iter()
-            .filter_map(|path| match extract_file(path) {
+            .filter_map(|path| match extract_file_with_cache(path, cache) {
                 Ok(entry) => Some(entry),
                 Err(e) => {
                     log::warn!("Skipping {}: {e}", path.display());
@@ -600,21 +662,31 @@ fn scan_folder_sync(folder_path: &str) -> Result<Vec<ScanEntry>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn linked_source_scan_folder(folder_path: String) -> Result<Vec<ScanEntry>, String> {
-    tokio::task::spawn_blocking(move || scan_folder_sync(&folder_path))
-        .await
-        .map_err(|e| format!("spawn_blocking: {e}"))?
+pub async fn linked_source_scan_folder(
+    app: tauri::AppHandle,
+    folder_path: String,
+) -> Result<Vec<ScanEntry>, String> {
+    tokio::task::spawn_blocking(move || {
+        let cache = ScanCache::new(&app);
+        scan_folder_sync(&folder_path, Some(&cache))
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn linked_source_extract_file(file_path: String) -> Result<ScanEntry, String> {
+pub async fn linked_source_extract_file(
+    app: tauri::AppHandle,
+    file_path: String,
+) -> Result<ScanEntry, String> {
     tokio::task::spawn_blocking(move || {
         let path = PathBuf::from(&file_path);
         if !path.is_file() {
             return Err(format!("not a file: {file_path}"));
         }
-        extract_file(&path)
+        let cache = ScanCache::new(&app);
+        extract_file_with_cache(&path, Some(&cache))
     })
     .await
     .map_err(|e| format!("spawn_blocking: {e}"))?
@@ -904,7 +976,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = extract_file(&html_path).unwrap();
+        let entry = extract_file_with_cache(&html_path, None).unwrap();
         assert_eq!(entry.file_type, "html");
         assert_eq!(entry.title, Some("My Paper".to_string()));
         assert_eq!(entry.author, Some("Jane Smith".to_string()));
@@ -924,7 +996,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = extract_file(&html_path).unwrap();
+        let entry = extract_file_with_cache(&html_path, None).unwrap();
         assert_eq!(entry.title, Some("Ünïcödé Tïtlé".to_string()));
         assert_eq!(entry.author, Some("José García".to_string()));
         assert!(entry.body_text.contains("日本語テキスト"));
@@ -1023,7 +1095,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = extract_file(&html_path).unwrap();
+        let entry = extract_file_with_cache(&html_path, None).unwrap();
         assert_eq!(entry.title, Some("Highwire Title".to_string()));
         assert_eq!(entry.author, Some("Smith, John; Doe, Jane".to_string()));
         assert_eq!(entry.doi, Some("10.1234/hw.5678".to_string()));
@@ -1046,7 +1118,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = extract_file(&html_path).unwrap();
+        let entry = extract_file_with_cache(&html_path, None).unwrap();
         assert_eq!(entry.title, Some("Dublin Core Title".to_string()));
         assert_eq!(entry.author, Some("DC Author".to_string()));
         assert_eq!(entry.creation_date, Some("2023-06-01".to_string()));
@@ -1066,7 +1138,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = extract_file(&html_path).unwrap();
+        let entry = extract_file_with_cache(&html_path, None).unwrap();
         assert_eq!(entry.title, Some("OG Title".to_string()));
         assert_eq!(entry.subject, Some("OG Description".to_string()));
     }
@@ -1078,7 +1150,7 @@ mod tests {
         std::fs::write(dir.path().join("b.txt"), "plain text").unwrap();
         std::fs::write(dir.path().join("c.png"), &[0xFF, 0xD8]).unwrap();
 
-        let entries = scan_folder_sync(&dir.path().to_string_lossy()).unwrap();
+        let entries = scan_folder_sync(&dir.path().to_string_lossy(), None).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].file_type, "html");
     }
