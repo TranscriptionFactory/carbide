@@ -4,6 +4,7 @@
   import type { Theme } from "$lib/shared/types/theme";
   import { build_theme_style_block } from "$lib/features/document/domain/html_theme_vars";
   import { build_live_html_document } from "$lib/features/document/domain/html_live_document";
+  import { prerender_html_mermaid } from "$lib/features/document/domain/html_live_prerender";
 
   interface Props {
     content: string;
@@ -13,33 +14,33 @@
 
   let { content, theme, allow_network = false }: Props = $props();
 
-  const doc = $derived(
-    build_live_html_document({
-      content,
-      theme_style: build_theme_style_block(theme),
-      allow_network,
-    }),
-  );
-
   let src = $state<string | null>(null);
 
   $effect(() => {
-    const current_doc = doc;
+    const current_content = content;
+    const theme_block = build_theme_style_block(theme);
+    const network = allow_network;
     let cancelled = false;
     let registered_url: string | null = null;
 
-    invoke<string>("html_live_register", { html: current_doc })
-      .then((url) => {
-        if (cancelled) {
-          void invoke("html_live_release", { url });
-          return;
-        }
-        registered_url = url;
-        src = url;
-      })
-      .catch((err) => {
-        console.error("html_live_register failed", err);
+    (async () => {
+      const prerendered = await prerender_html_mermaid(current_content);
+      if (cancelled) return;
+      const doc = build_live_html_document({
+        content: prerendered,
+        theme_style: theme_block,
+        allow_network: network,
       });
+      const url = await invoke<string>("html_live_register", { html: doc });
+      if (cancelled) {
+        void invoke("html_live_release", { url });
+        return;
+      }
+      registered_url = url;
+      src = url;
+    })().catch((err) => {
+      console.error("html live render failed", err);
+    });
 
     return () => {
       cancelled = true;
