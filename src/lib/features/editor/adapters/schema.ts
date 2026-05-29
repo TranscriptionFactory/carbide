@@ -482,12 +482,33 @@ const file_embed: NodeSpec = {
     height: { default: 400 },
     file_type: { default: "" },
     collapsed: { default: false },
+    params: { default: {} },
   },
   parseDOM: [
     {
       tag: 'div[data-type="file-embed"]',
       getAttrs(dom) {
         if (!(dom instanceof HTMLElement)) return false;
+        let params: Record<string, string> = {};
+        const params_raw = dom.getAttribute("data-params");
+        if (params_raw) {
+          try {
+            const parsed = JSON.parse(params_raw) as unknown;
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              !Array.isArray(parsed)
+            ) {
+              params = Object.fromEntries(
+                Object.entries(parsed as Record<string, unknown>).filter(
+                  ([, v]) => typeof v === "string",
+                ) as Array<[string, string]>,
+              );
+            }
+          } catch {
+            // ignore — treat as empty
+          }
+        }
         return {
           src: dom.getAttribute("data-src") ?? "",
           page: dom.getAttribute("data-page")
@@ -495,11 +516,14 @@ const file_embed: NodeSpec = {
             : null,
           height: Number(dom.getAttribute("data-height") || 400),
           file_type: dom.getAttribute("data-file-type") ?? "",
+          params,
         };
       },
     },
   ],
   toDOM(node) {
+    const params = node.attrs["params"] as Record<string, string> | undefined;
+    const has_params = params && Object.keys(params).length > 0;
     return [
       "div",
       {
@@ -510,6 +534,7 @@ const file_embed: NodeSpec = {
           : {}),
         "data-height": String(node.attrs["height"]),
         "data-file-type": node.attrs["file_type"] as string,
+        ...(has_params ? { "data-params": JSON.stringify(params) } : {}),
       },
     ];
   },

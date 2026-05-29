@@ -59,6 +59,11 @@ describe("detect_embed_type", () => {
     expect(detect_embed_type("img.avif")).toBe("image");
   });
 
+  it("detects html formats", () => {
+    expect(detect_embed_type("chart.html")).toBe("html");
+    expect(detect_embed_type("dashboard.HTM")).toBe("html");
+  });
+
   it("returns text for unrecognized extensions", () => {
     expect(detect_embed_type("file.txt")).toBe("text");
     expect(detect_embed_type("script.js")).toBe("text");
@@ -71,17 +76,26 @@ describe("detect_embed_type", () => {
 
 describe("parse_embed_fragment", () => {
   it("parses empty fragment", () => {
-    expect(parse_embed_fragment("")).toEqual({ page: null, height: null });
+    expect(parse_embed_fragment("")).toEqual({
+      page: null,
+      height: null,
+      params: {},
+    });
   });
 
   it("parses page parameter", () => {
-    expect(parse_embed_fragment("#page=3")).toEqual({ page: 3, height: null });
+    expect(parse_embed_fragment("#page=3")).toEqual({
+      page: 3,
+      height: null,
+      params: {},
+    });
   });
 
   it("parses height parameter", () => {
     expect(parse_embed_fragment("#height=500")).toEqual({
       page: null,
       height: 500,
+      params: {},
     });
   });
 
@@ -89,7 +103,23 @@ describe("parse_embed_fragment", () => {
     expect(parse_embed_fragment("#page=2&height=600")).toEqual({
       page: 2,
       height: 600,
+      params: {},
     });
+  });
+
+  it("exposes additional params verbatim", () => {
+    expect(parse_embed_fragment("#title=Hello&data=sales.csv")).toEqual({
+      page: null,
+      height: null,
+      params: { title: "Hello", data: "sales.csv" },
+    });
+  });
+
+  it("keeps reserved keys out of params", () => {
+    const parsed = parse_embed_fragment("#page=1&height=200&theme=dark");
+    expect(parsed.page).toBe(1);
+    expect(parsed.height).toBe(200);
+    expect(parsed.params).toEqual({ theme: "dark" });
   });
 });
 
@@ -272,5 +302,29 @@ describe("file_embed serialization for new types", () => {
     ]);
     const md = serialize_markdown(doc);
     expect(md.trim()).toBe("![[script.py]]");
+  });
+
+  it("serializes html embed", () => {
+    const doc = schema.node("doc", null, [
+      file_embed_type().create({
+        src: "chart.html",
+        file_type: "html",
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md.trim()).toBe("![[chart.html]]");
+  });
+
+  it("serializes html embed with extra fragment params", () => {
+    const doc = schema.node("doc", null, [
+      file_embed_type().create({
+        src: "chart.html",
+        file_type: "html",
+        height: 200,
+        params: { theme: "dark", title: "Hello" },
+      }),
+    ]);
+    const md = serialize_markdown(doc);
+    expect(md.trim()).toBe("![[chart.html#height=200&theme=dark&title=Hello]]");
   });
 });
