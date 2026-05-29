@@ -39,13 +39,3 @@ export function build_live_html_document({
   }
   return `<!DOCTYPE html><html><head>${meta_csp}${theme_style}</head><body>${content}</body></html>`;
 }
-
-export function build_html_data_url(doc: string): string {
-  const bytes = new TextEncoder().encode(doc);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return `data:text/html;base64,${btoa(binary)}`;
-}

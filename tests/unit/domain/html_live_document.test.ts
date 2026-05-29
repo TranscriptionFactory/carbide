@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  build_html_data_url,
   build_live_csp,
   build_live_html_document,
 } from "$lib/features/document/domain/html_live_document";
@@ -73,26 +72,5 @@ describe("build_live_html_document", () => {
       allow_network: true,
     });
     expect(doc).toContain("connect-src *");
-  });
-});
-
-describe("build_html_data_url", () => {
-  it("returns a base64 data: URL whose payload round-trips to the input", () => {
-    const doc = "<!doctype html><html><body><p>hello</p></body></html>";
-    const url = build_html_data_url(doc);
-    expect(url.startsWith("data:text/html;base64,")).toBe(true);
-    const decoded = atob(url.slice("data:text/html;base64,".length));
-    expect(decoded).toBe(doc);
-  });
-
-  it("encodes non-ASCII characters via UTF-8", () => {
-    const doc = "<p>héllo — 🌊</p>";
-    const url = build_html_data_url(doc);
-    const decoded = new TextDecoder().decode(
-      Uint8Array.from(atob(url.slice("data:text/html;base64,".length)), (c) =>
-        c.charCodeAt(0),
-      ),
-    );
-    expect(decoded).toBe(doc);
   });
 });

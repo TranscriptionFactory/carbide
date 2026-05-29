@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Info, FolderOpen, RefreshCw } from "@lucide/svelte";
+  import {
+    Info,
+    FolderOpen,
+    RefreshCw,
+    ShieldCheck,
+    ShieldAlert,
+    Shield,
+  } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
   import { LintStatusIndicator } from "$lib/features/lint";
@@ -8,6 +15,7 @@
   import type { IndexProgress } from "$lib/features/search";
   import type { GitSyncStatus } from "$lib/features/git";
   import type { StatusBarItem } from "$lib/features/plugin";
+  import type { TrustLevel } from "$lib/features/document";
   import { VimNavStatusIndicator } from "$lib/features/vim_nav";
   import type { NavContext } from "$lib/features/vim_nav";
   // STT removed — archived on archive/stt-main
@@ -59,6 +67,8 @@
     vim_nav_context: NavContext;
     vim_nav_pending_keys: string;
     on_vim_nav_cheatsheet: () => void;
+    html_trust_level: TrustLevel | null;
+    on_html_trust_click: () => void;
     // STT removed — archived on archive/stt-main
     // stt_enabled: boolean;
     // stt_recording_state: "idle" | "recording" | "processing";
@@ -114,6 +124,8 @@
     vim_nav_context,
     vim_nav_pending_keys,
     on_vim_nav_cheatsheet,
+    html_trust_level,
+    on_html_trust_click,
     // stt_enabled,
     // stt_recording_state,
     // stt_model_loading,
@@ -319,6 +331,42 @@
       <Info />
     </button>
 
+    {#if html_trust_level}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <button
+                {...props}
+                type="button"
+                class="StatusBar__item StatusBar__item--clickable StatusBar__trust StatusBar__trust--{html_trust_level ===
+                'live+net'
+                  ? 'live-net'
+                  : html_trust_level}"
+                onclick={on_html_trust_click}
+                aria-label="HTML trust: {html_trust_level}"
+              >
+                {#if html_trust_level === "safe"}
+                  <Shield class="StatusBar__trust-icon" />
+                  <span>Safe</span>
+                {:else if html_trust_level === "live"}
+                  <ShieldCheck class="StatusBar__trust-icon" />
+                  <span>Live</span>
+                {:else}
+                  <ShieldAlert class="StatusBar__trust-icon" />
+                  <span>Live + Net</span>
+                {/if}
+              </button>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content side="top" sideOffset={4}>
+            HTML trust level — click to manage
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    {/if}
+
     {#each status_bar_items as item (item.id)}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <item.component {...item.props} />
@@ -401,6 +449,35 @@
 
   .StatusBar__item--clickable:hover {
     opacity: 1;
+  }
+
+  .StatusBar__trust {
+    background: none;
+    border: none;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-sm);
+    opacity: 0.85;
+  }
+
+  .StatusBar__trust:hover:not(:disabled) {
+    opacity: 1;
+  }
+
+  .StatusBar__trust--safe {
+    color: var(--muted-foreground);
+  }
+
+  .StatusBar__trust--live {
+    color: var(--primary);
+  }
+
+  .StatusBar__trust--live-net {
+    color: var(--warning, var(--chart-4));
+  }
+
+  :global(.StatusBar__trust-icon) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
   }
 
   .StatusBar__separator {

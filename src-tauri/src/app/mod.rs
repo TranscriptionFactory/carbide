@@ -122,6 +122,7 @@ pub fn run() {
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(features::ai::stream::AiStreamState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
+        .manage(shared::live_html::LiveHtmlStore::default())
         .manage(features::mcp::http::HttpServerState::default())
         .manage(features::external_mcp::ExternalMcpState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -408,6 +409,8 @@ pub fn run() {
             features::external_mcp::external_mcp_call_tool,
             features::external_mcp::external_mcp_status,
             features::export::export_html_to_pdf,
+            shared::live_html::html_live_register,
+            shared::live_html::html_live_release,
         ])
         .register_asynchronous_uri_scheme_protocol("carbide-asset", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
@@ -443,6 +446,23 @@ pub fn run() {
         })
         .register_uri_scheme_protocol("pdfexport", |ctx, _req| {
             features::export::handle_export_request(ctx.app_handle())
+        })
+        .register_asynchronous_uri_scheme_protocol("carbide-html", |ctx, req, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let uri = req.uri().to_string();
+                let response = catch_unwind(AssertUnwindSafe(|| {
+                    let store = app.state::<shared::live_html::LiveHtmlStore>();
+                    shared::live_html::handle_live_html_request(&store, &req)
+                }))
+                .unwrap_or_else(|_| {
+                    shared::live_html::internal_error_response(format!(
+                        "panic while handling {}",
+                        uri
+                    ))
+                });
+                responder.respond(response);
+            });
         })
         .register_asynchronous_uri_scheme_protocol("carbide-excalidraw", |ctx, req, responder| {
             let app = ctx.app_handle().clone();
