@@ -274,6 +274,20 @@ pub fn tags_list_all(
 
 #[tauri::command]
 #[specta::specta]
+pub fn search_headings(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<crate::features::search::model::HeadingMatch>, String> {
+    let max = limit.unwrap_or(20).clamp(1, 200);
+    with_read_conn(&app, &vault_id, |conn| {
+        search_db::search_headings(conn, &query, max)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn tags_get_notes_for_tag(
     app: AppHandle,
     vault_id: String,

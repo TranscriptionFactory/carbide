@@ -2813,6 +2813,101 @@ pub fn get_note_stats(
     .map_err(|e| e.to_string())
 }
 
+pub fn search_headings(
+    conn: &Connection,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<crate::features::search::model::HeadingMatch>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Load every heading once; the table is bounded by total markdown
+    // headings in the vault and stays small relative to the FTS index.
+    let mut stmt = conn
+        .prepare(
+            "SELECT note_path, level, text, line FROM note_headings ORDER BY note_path, line",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            let p: String = row.get(0)?;
+            let l: i32 = row.get(1)?;
+            let t: String = row.get(2)?;
+            let line: i64 = row.get(3)?;
+            Ok((p, l, t, line))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let q_lower = trimmed.to_lowercase();
+    let mut current_note: Option<String> = None;
+    let mut stack: Vec<(i32, String)> = Vec::new();
+    let matcher = SkimMatcherV2::default();
+    let mut out: Vec<crate::features::search::model::HeadingMatch> = Vec::new();
+
+    for row in rows {
+        let (note_path, level, text, line) = row.map_err(|e| e.to_string())?;
+        if current_note.as_deref() != Some(note_path.as_str()) {
+            current_note = Some(note_path.clone());
+            stack.clear();
+        }
+        while stack.last().map(|(lv, _)| *lv >= level).unwrap_or(false) {
+            stack.pop();
+        }
+        stack.push((level, text.clone()));
+
+        let heading_path = stack
+            .iter()
+            .map(|(_, t)| t.as_str())
+            .collect::<Vec<_>>()
+            .join("/");
+
+        let text_lower = text.to_lowercase();
+        let path_lower = heading_path.to_lowercase();
+
+        // Apply the P4.1 score table to either the leaf text or the
+        // hierarchical path — whichever ranks higher.
+        let score = if text_lower == q_lower
+            || text_lower.starts_with(&q_lower)
+            || path_lower.starts_with(&q_lower)
+        {
+            1.0
+        } else if text_lower.contains(&q_lower) || path_lower.contains(&q_lower) {
+            0.6
+        } else {
+            let fuzzy = matcher
+                .fuzzy_match(&heading_path, trimmed)
+                .or_else(|| matcher.fuzzy_match(&text, trimmed));
+            match fuzzy {
+                Some(_) => 0.3,
+                None => 0.0,
+            }
+        };
+
+        if score > 0.0 {
+            out.push(crate::features::search::model::HeadingMatch {
+                note_path: note_path.clone(),
+                level,
+                text: text.clone(),
+                line,
+                heading_path,
+                score,
+            });
+        }
+    }
+
+    out.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.note_path.cmp(&b.note_path))
+            .then_with(|| a.line.cmp(&b.line))
+    });
+    out.truncate(limit);
+    Ok(out)
+}
+
 pub fn get_note_headings(
     conn: &Connection,
     path: &str,
@@ -4578,6 +4673,72 @@ mod tests {
         let targets = upsert_note_simple(&conn, &meta, body).expect("upsert_note_simple");
 
         assert_eq!(targets, vec!["target.md".to_string()]);
+    }
+
+    #[test]
+    fn search_headings_returns_hierarchical_paths_ranked_by_match_kind() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let a = note("notes/a.md", "A");
+        let b = note("notes/b.md", "B");
+        upsert_note(
+            &conn,
+            &a,
+            "# Project DLCM\n## Outcomes\n### Pilot\nbody\n## Tasks\nbody",
+        )
+        .expect("upsert a");
+        upsert_note(
+            &conn,
+            &b,
+            "# Unrelated\n## DLCM mention in sub\nbody\n# DLCM Standalone\nbody",
+        )
+        .expect("upsert b");
+
+        let hits = search_headings(&conn, "DLCM", 20).expect("search_headings");
+        assert!(hits.len() >= 4, "expected at least 4 hits, got {:?}", hits);
+
+        // First hits must be exact-prefix / exact matches (score 1.0).
+        assert!(hits[0].score >= 0.999);
+
+        // Hierarchical heading_path is populated for descendant matches.
+        let pilot = hits
+            .iter()
+            .find(|h| h.text == "Pilot" && h.note_path == "notes/a.md");
+        assert!(pilot.is_some(), "Pilot should be returned via hierarchy path");
+        if let Some(p) = pilot {
+            assert_eq!(p.heading_path, "Project DLCM/Outcomes/Pilot");
+        }
+
+        let standalone = hits
+            .iter()
+            .find(|h| h.text == "DLCM Standalone");
+        assert!(standalone.is_some());
+        let standalone = standalone.unwrap();
+        assert_eq!(standalone.heading_path, "DLCM Standalone");
+        assert!(standalone.score >= 0.999);
+    }
+
+    #[test]
+    fn search_headings_empty_query_returns_empty() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        let hits = search_headings(&conn, "   ", 10).expect("ok");
+        assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn search_headings_respects_limit() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        let n = note("n.md", "N");
+        let body = (0..50)
+            .map(|i| format!("# alpha {}", i))
+            .collect::<Vec<_>>()
+            .join("\n");
+        upsert_note(&conn, &n, &body).expect("upsert");
+        let hits = search_headings(&conn, "alpha", 5).expect("search");
+        assert_eq!(hits.len(), 5);
     }
 }
 
