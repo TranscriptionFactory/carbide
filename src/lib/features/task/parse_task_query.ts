@@ -167,6 +167,33 @@ function parse_atom(trimmed: string): FilterExpr | string {
     }
   }
 
+  const section_under_match = trimmed.match(
+    /^section\s+under\s+#?(.+?)(?:\s+include_subheadings:(true|false))?$/,
+  );
+  if (section_under_match) {
+    const value = section_under_match[1]!.trim();
+    const include_subheadings = section_under_match[2] !== "false";
+    return {
+      type: "atom",
+      filter: {
+        property: "section",
+        operator: include_subheadings ? "under" : "eq",
+        value,
+      },
+    };
+  }
+  const section_is_match = trimmed.match(/^section\s+is\s+#?(.+)$/);
+  if (section_is_match) {
+    return {
+      type: "atom",
+      filter: {
+        property: "section",
+        operator: "eq",
+        value: section_is_match[1]!.trim(),
+      },
+    };
+  }
+
   const due_match = trimmed.match(/^due\s+(.+)$/);
   if (due_match) {
     const result = parse_date_comparator(due_match[1]!);
@@ -335,7 +362,10 @@ export function parse_task_query(input: string): ParsedTaskQuery {
 
   const lines = input.split("\n");
   for (const raw of lines) {
-    const line = raw.replace(/#.*$/, "").trim();
+    // Treat `#` as a comment only when preceded by whitespace (or at the
+    // start of the line followed by a space). This preserves hash-prefixed
+    // values such as `section under #Heading` or `tag includes #urgent`.
+    const line = raw.replace(/(?:^|\s)#\s.*$/, "").trim();
     if (!line) continue;
 
     const result = parse_line(line);
