@@ -8,11 +8,12 @@ export function build_live_csp(allow_network: boolean): string {
   const connect = allow_network ? "*" : "'none'";
   return [
     "default-src 'none'",
-    "script-src 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'unsafe-inline'",
-    "img-src data: blob:" + (allow_network ? " https: http:" : ""),
-    "font-src data:" + (allow_network ? " https: http:" : ""),
-    "media-src data: blob:" + (allow_network ? " https: http:" : ""),
+    "script-src 'unsafe-inline' 'unsafe-eval' blob: data:",
+    "style-src 'unsafe-inline' data:",
+    "img-src data: blob: https: http:",
+    "font-src data: https: http:",
+    "media-src data: blob: https: http:",
+    "frame-src data: blob:",
     `connect-src ${connect}`,
   ].join("; ");
 }

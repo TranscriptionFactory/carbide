@@ -11,10 +11,19 @@ describe("build_live_csp", () => {
     const csp = build_live_csp(false);
     expect(csp).toContain("connect-src 'none'");
     expect(csp).toContain("default-src 'none'");
-    expect(csp).toContain("script-src 'unsafe-inline' 'unsafe-eval'");
   });
 
-  it("allows wildcard connect when network is granted", () => {
+  it("mirrors the Rust live_html_csp permissive baseline", () => {
+    const csp = build_live_csp(false);
+    expect(csp).toContain("script-src 'unsafe-inline' 'unsafe-eval' blob: data:");
+    expect(csp).toContain("style-src 'unsafe-inline' data:");
+    expect(csp).toContain("img-src data: blob: https: http:");
+    expect(csp).toContain("font-src data: https: http:");
+    expect(csp).toContain("media-src data: blob: https: http:");
+    expect(csp).toContain("frame-src data: blob:");
+  });
+
+  it("only differs by connect-src when network is granted", () => {
     const csp = build_live_csp(true);
     expect(csp).toContain("connect-src *");
     expect(csp).toContain("img-src data: blob: https: http:");
