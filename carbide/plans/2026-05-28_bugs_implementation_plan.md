@@ -379,9 +379,184 @@ These three share a substrate (indexer lifecycle, PDF parse pipeline) and benefi
 
 ---
 
-## Phase 4 — Search, query & navigation (triage 1.1, 1.2, 1.3, 1.6)
+## Phase 4 — Search, query & navigation (triage 1.1, 1.2, 1.3, 1.6) ✅ COMPLETE (2026-05-28, session 004)
 
-Grouping these because they share the same query parser and ranker.
+**Outcome:** All four items shipped per scope.
+
+- **P4.1** — `OMNIBAR_SCORES` constant table lives in
+  `src/lib/features/search/domain/omnibar_ranking.ts` (exact_prefix 1.0
+  > substring 0.6 > fuzzy 0.3; recency_boost_per_access 0.1, capped at
+  0.3). Notes-store now tracks per-note access timestamps in
+  `note_access_history` (24h window, max 16 entries/note); every
+  `add_recent_note` records the access. `SearchService.search_omnibar`
+  re-ranks every note-producing path (structured query / hybrid / FTS)
+  through `rank_notes` so the documented rule shows through regardless
+  of the underlying retrieval. The 50-note fixture asserts ordering and
+  recency tie-breaking (13 tests).
+  Link-resolution fallback: a new Tauri command
+  `find_notes_by_name(vault_id, query, limit)` does a bounded vault
+  walk filtered by basename. `SearchService.resolve_indexed_note_path`
+  calls it via a 100ms `with_timeout` wrapper after the index lookup
+  misses; timeout downgrades to a `log.warn` ("index may be stale") and
+  returns null so the omnibar never hangs.
+- **P4.2** — Task extraction now stores hierarchical heading paths in
+  `tasks.section` (e.g. `"Project A/Subproject B"`). The new `under`
+  operator on `TaskFilter` translates to
+  `(section = ? OR section LIKE 'value/%')`, walking the heading
+  subtree. Parser supports `section under <heading>` (default
+  include_subheadings=true), `section under <heading>
+  include_subheadings:false` (opts out), and `section is <heading>`
+  (exact). The `#` comment marker was tightened to require a leading
+  space so `section under #Heading` parses correctly. Existing
+  `section includes` keeps backwards-compatible substring behavior.
+- **P4.3** — `src/lib/features/tags/domain/tag_matcher.ts` ranks tags
+  by `max(hierarchical, substring, fuzzy)`: exact / hierarchical
+  prefix → 1.0, substring → 0.6, fuzzy (via existing `fuzzy_score`
+  matcher on both full tag and leaf segment) → ≤ 0.95 (normalized so
+  fuzzy never beats a literal hierarchical hit). `query_solver`
+  `resolve_with` first runs `get_notes_for_tag_prefix`; on zero hits
+  it falls back to `list_all_tags` + `rank_tags` and unions notes for
+  the top-5 fuzzy matches, so `with #prjects` still finds
+  `#projects/carbide` notes.
+- **P4.4** — `search_db::search_headings(conn, query, limit)`
+  streams all headings, rebuilds the per-note hierarchy stack inline,
+  and returns `HeadingMatch { note_path, level, text, line,
+  heading_path, score }` rows scored by the same P4.1 rule (exact /
+  prefix → 1.0, substring → 0.6, fuzzy via SkimMatcherV2 → 0.3).
+  Exposed via the `search_headings` Tauri command and
+  `SearchService.search_headings_matching(query, limit)`. Sorts by
+  score, then by note path / line for determinism.
+
+**Files changed:**
+- `src/lib/features/search/domain/omnibar_ranking.ts` — **new**.
+  `OMNIBAR_SCORES` constant table, `classify_match`, `recency_boost`,
+  `score_note`, `rank_notes`.
+- `src/lib/features/search/application/search_service.ts` —
+  threaded `get_access_history` constructor argument, added
+  `rank_note_items` re-ranker applied to all three note-producing
+  branches in `search_omnibar`; added `live_find_note_path` +
+  `with_timeout` for the index-stale fallback; new
+  `search_headings_matching` method; `LIVE_FIND_TIMEOUT_MS = 100`,
+  `LIVE_FIND_LIMIT = 8` constants.
+- `src/lib/features/search/ports.ts` — added `HeadingMatch` type;
+  `SearchPort.search_headings`; `WorkspaceIndexPort.find_notes_by_name`.
+- `src/lib/features/search/adapters/search_tauri_adapter.ts` —
+  implemented `search_headings` against the new Tauri command.
+- `src/lib/features/search/adapters/workspace_index_tauri_adapter.ts`
+  — implemented `find_notes_by_name`.
+- `src/lib/features/note/state/note_store.svelte.ts` — added
+  `note_access_history` $state Map; `record_note_access(note_id,
+  now_ms)`; updated `add_recent_note` / `remove_recent_note` / `reset`
+  to keep history coherent. Window: 24h. Cap: 16 timestamps/note.
+- `src/lib/app/di/create_app_context.ts` — passed
+  `() => stores.notes.note_access_history` into `SearchService`.
+- `src/lib/features/task/parse_task_query.ts` — added `section under`
+  / `section is` parser atoms; tightened comment regex to `(?:^|\s)#\s`
+  so hash-prefixed values survive.
+- `src/lib/features/task/types.ts` — added `"under"` to the
+  `TaskFilter` operator union.
+- `src/lib/features/tags/domain/tag_matcher.ts` — **new**.
+  `score_tag(query, tag)` + `rank_tags(query, tags, limit)`.
+- `src/lib/features/tags/index.ts` — re-exported the new matcher.
+- `src/lib/features/tags/ports.ts` — added `TagMatchScore` helper
+  type for downstream consumers.
+- `src/lib/features/query/domain/query_solver.ts` — fuzzy fallback
+  in `resolve_with` (tag branch).
+- `src-tauri/src/features/notes/service.rs` — new
+  `find_notes_by_name` Tauri command (basename walk, bounded by
+  vault_ignore + max-depth + result limit).
+- `src-tauri/src/features/tasks/service.rs` — heading stack in
+  `extract_tasks` builds hierarchical `section` strings; added
+  `heading_depth` helper (only ATX, ≤ 6 hashes, requires whitespace
+  after); added `under` operator in `build_atom_sql` (yields
+  `(section = ?N OR section LIKE ?N+1)`).
+- `src-tauri/src/features/search/db.rs` — new `search_headings`
+  function streams all headings, rebuilds per-note hierarchy, scores
+  via the documented rule, sorts by `(score desc, note_path,
+  line)`; three unit tests in the existing `tests` module.
+- `src-tauri/src/features/search/model.rs` — new `HeadingMatch`
+  serializable type.
+- `src-tauri/src/features/search/service.rs` — new `search_headings`
+  Tauri command.
+- `src-tauri/src/app/mod.rs` — registered both new commands in the
+  handler list.
+- `tests/unit/services/omnibar_ranking.test.ts` — **new**. 13 tests
+  covering constant table, classify_match, recency_boost (window +
+  cap), and the 50-note fixture (ordering + tie-break + non-match
+  recency).
+- `tests/unit/domain/tag_matcher.test.ts` — **new**. 13 tests for
+  hierarchical/substring/fuzzy match and rank_tags ordering.
+- `tests/unit/domain/parse_task_query.test.ts` — added 4 tests for
+  `section under` / `section is` parsing.
+- `tests/unit/features/query/query_solver.test.ts` — added
+  `list_all_tags` + `get_notes_for_tag` to the default tag mock
+  (needed once the solver gained the fuzzy fallback).
+- `tests/adapters/test_search_adapter.ts`,
+  `tests/adapters/test_workspace_index_adapter.ts`,
+  `tests/unit/helpers/mock_ports.ts`, all `tests/unit/services/*`
+  mocks — added stubs for the new port methods.
+
+**Verification run:**
+- `cd src-tauri && cargo check` — passes (4 pre-existing dead-code
+  warnings unchanged from Phase 3 baseline).
+- `cd src-tauri && cargo test --lib` — 513/516 pass; same 3
+  pre-existing failures from the Phase 2/3 baseline
+  (`mcp_router::tools_list_returns_note_tools`,
+  `mcp_tools_notes::tool_definitions_count`,
+  `mcp_tools_search_metadata_vault::router_lists_all_eight_tools`,
+  all hardcoded tool-count assertions). New tests included: 3 in
+  `search::db::tests` (search_headings), 2 in `tasks::service::tests`
+  (heading stack + under operator), plus regression
+  `test_extract_tasks` assertion for `Project A/Subproject B`.
+- `pnpm test` — 3862/3862 pass (includes 13 new omnibar_ranking
+  tests, 13 new tag_matcher tests, 4 new parse_task_query tests).
+- `pnpm check` — 0 errors, 3 pre-existing a11y warnings in
+  `image_alt_editor.svelte`.
+- `pnpm lint` — 1 pre-existing layering violation in
+  `note_actions.ts:38` (unchanged baseline).
+- `pnpm format` — Prettier auto-formatted `tauri.conf.json`,
+  `inline_mark_input_rules.test.ts`, and the four new/edited search
+  files; all behavior-preserving.
+
+**Deviations from plan:**
+- The plan suggested adding "@-symbol" prefix logic to the command
+  palette. The omnibar today routes notes through `search_omnibar`
+  without a special `@` prefix — the bug really is that the existing
+  note results are unranked relative to the documented rule. P4.1
+  ships as a re-ranker layered on top of every retrieval branch so
+  the user-visible outcome (correct ordering for any note query) is
+  what changes, not the trigger keystroke.
+- P4.2: The plan called for a generic `tasks under #Heading` clause
+  but the existing task-query parser already has `section`-property
+  clauses (no `tasks` form), so the new operator slots in there
+  rather than adding a sibling primitive.
+- P4.3 implementation note: the fuzzy fallback fetches all tags and
+  ranks in TS, rather than adding a SQL-side fuzzy matcher. Tag lists
+  are bounded (low thousands at most) and the fallback only fires
+  when the prefix lookup misses, so the cost is acceptable.
+- P4.4: the plan suggested integrating into the omnibar with a new
+  prefix syntax. This session ships the primitive (Tauri command +
+  service method + tests) but leaves the UX hookup (omnibar prefix /
+  dedicated query form) to a follow-up so it can be designed
+  alongside the bases/query panel.
+
+**Open follow-ups:**
+- P4.1: the live-find fallback uses a per-call `find_notes_by_name`
+  basename walk. For very large vaults this could be optimized by
+  caching the basename → path map, but the 100ms budget already
+  bounds worst-case latency.
+- P4.4: omnibar prefix syntax for `headings matching X` is not
+  wired yet — the primitive is available via
+  `services.search.search_headings_matching(query)` for callers /
+  plugins.
+- The pre-existing 3 hardcoded tool-count test failures
+  (`tool_definitions_count` etc.) are still failing on `main`. Worth
+  collapsing into a single "tool counts shipped" snapshot test in a
+  later cleanup pass.
+
+---
+
+### Phase 4 plan-of-record (kept for reference)
 
 ### P4.1 — Command palette `@` ranking + link resolution (triage 1.6)
 
