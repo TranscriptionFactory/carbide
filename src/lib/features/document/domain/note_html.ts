@@ -12,6 +12,7 @@ import {
   DEFAULT_LIGHT_THEME,
 } from "$lib/features/editor";
 import { get_inlined_katex_css } from "$lib/features/document/domain/katex_inline_css";
+import { prerender_mermaid_codes } from "$lib/features/document/domain/mermaid_prerender";
 
 type RenderEnv = { mermaid_svgs?: Map<string, string> };
 
@@ -201,37 +202,6 @@ function collect_mermaid_codes(tokens: Token[]): string[] {
     }
   }
   return [...seen];
-}
-
-async function prerender_mermaid(
-  tokens: Token[],
-): Promise<Map<string, string>> {
-  const cache = new Map<string, string>();
-  const codes = collect_mermaid_codes(tokens);
-  if (codes.length === 0) return cache;
-
-  try {
-    const mermaid = await import("mermaid");
-    mermaid.default.initialize({
-      startOnLoad: false,
-      theme: "default",
-      securityLevel: "strict",
-    });
-    for (const code of codes) {
-      try {
-        await mermaid.default.parse(code);
-        const id = `pdf-mermaid-${String(cache.size)}`;
-        const { svg } = await mermaid.default.render(id, code);
-        cache.set(code, svg);
-      } catch {
-        // invalid diagram — falls back to a code block
-      }
-    }
-  } catch {
-    // mermaid unavailable — all diagrams fall back to code blocks
-  }
-
-  return cache;
 }
 
 function document_styles(katex_css: string): string {
@@ -434,7 +404,10 @@ export async function render_note_to_html(
   );
   install_image_renderer(md, resolved_images);
 
-  const mermaid_svgs = await prerender_mermaid(tokens);
+  const mermaid_svgs = await prerender_mermaid_codes(
+    collect_mermaid_codes(tokens),
+    { id_prefix: "pdf-mermaid" },
+  );
   const env: RenderEnv = { mermaid_svgs };
   const body_html = md.renderer.render(tokens, md.options, env);
 
