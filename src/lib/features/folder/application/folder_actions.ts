@@ -35,6 +35,7 @@ import type {
 import { create_logger } from "$lib/shared/utils/logger";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
+import type { EditorSettings } from "$lib/shared/types/editor_settings";
 
 const log = create_logger("folder_actions");
 
@@ -531,6 +532,24 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         stores.ui.set_selected_folder_path(folder);
         stores.ui.set_filetree_revealed_note_path(note_path);
         stores.ui.set_sidebar_view(SIDEBAR_VIEWS.explorer);
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.filetree_toggle_mode,
+      label: "Toggle File Tree Mode",
+      execute: async () => {
+        const current = stores.ui.editor_settings.file_tree_mode ?? "tree";
+        const next: "tree" | "drilldown" =
+          current === "tree" ? "drilldown" : "tree";
+        const updated: EditorSettings = {
+          ...stores.ui.editor_settings,
+          file_tree_mode: next,
+        };
+        const result = await services.settings.save_settings(updated);
+        if (result.status === "success") {
+          stores.ui.set_editor_settings(updated);
+        }
       },
     });
 

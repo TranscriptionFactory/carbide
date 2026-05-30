@@ -98,6 +98,7 @@ export const ACTION_IDS = {
   filetree_skip_move_conflicts: "filetree.skip_move_conflicts",
   filetree_cancel_move_conflicts: "filetree.cancel_move_conflicts",
   filetree_toggle_star_selection: "filetree.toggle_star_selection",
+  filetree_toggle_mode: "filetree.toggle_mode",
 
   shell_open_url: "shell.open_url",
   shell_open_path: "shell.open_path",
