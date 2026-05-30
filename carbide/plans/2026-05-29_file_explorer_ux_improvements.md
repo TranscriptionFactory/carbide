@@ -163,11 +163,12 @@ Order matters; B1–B3 unblock the rest.
 1. **B1**: Add `tree` view mode + `group_by` to bases.
 2. **B2**: Ship default saved views.
 3. **B3**: Sub-tabs in explorer with "Views" tab (#16). Verify `.carbide/` is filtered from the file tree (see D2).
-4. "Related" tab on ContextRail (#3 reframed, see D1) — recents in folder + siblings + shared-tag chips that open bases queries.
-5. Folder-note click-through in explorer (#21, see D3) — clicking a folder opens `folder/folder.md` if it exists.
-6. Peek preview (#5).
-7. Drag-from-tree-into-editor (#24).
-8. Path-aware Cmd+P (#26).
+4. **Drill-down explorer mode (new, #29)** — Finder-column / single-folder explorer mode toggleable from the explorer header. Pairs with the breadcrumb shipped in Phase 1. Unblocks reconsidering the left-rail contextual section (see caveat under D1).
+5. "Related" tab on ContextRail (#3 reframed, see D1) — recents in folder + siblings + shared-tag chips that open bases queries. **Re-evaluate placement after #4 ships** — if drill-down adoption is high, move to a left-rail pane adjacent to the file list.
+6. Folder-note click-through in explorer (#21, see D3) — clicking a folder opens `folder/folder.md` if it exists.
+7. Peek preview (#5).
+8. Drag-from-tree-into-editor (#24).
+9. Path-aware Cmd+P (#26).
 
 ### Phase 3 — Power Features
 
@@ -234,6 +235,22 @@ Item #3 in the Decision Log table is updated accordingly.
 
 These don't need their own phase; bundle with D1's Related-tab work as a small "ContextRail
 ergonomics" PR.
+
+**Caveat — drill-down explorer changes the calculus.** The D1 reframe assumes the
+*tree* explorer, where ancestors and siblings are visible at a glance, so a left-rail
+contextual section duplicates the tree. If we add a Finder-style **drill-down
+(single-folder column) view** as an explorer mode (paired with the just-shipped
+breadcrumb), that affordance disappears — the user is "inside" a folder and the only
+way to see siblings/ancestors/related is to leave it. In that mode, a dedicated
+contextual pane (siblings, recents-in-folder, ancestor chain, shared-tag chips) becomes
+load-bearing rather than redundant.
+
+Treat this as conditional: ship drill-down *first*, then re-evaluate whether the
+contextual pane belongs on the left rail (next to the file list it contextualizes) or
+stays on ContextRail. If drill-down ships, the contextual pane likely wants to live on
+the left, adjacent to the folder list, with the breadcrumb as the unifying header.
+Tracked as a Phase 2 follow-on; do not build the left-rail contextual section until
+drill-down is in.
 
 ### D2. Bases view storage (#1, #2, B3) — **already at `.carbide/bases/{slug}.json`; verify the dotfolder is hidden, no further design needed**
 
