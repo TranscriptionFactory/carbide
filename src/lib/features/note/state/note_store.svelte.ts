@@ -105,6 +105,17 @@ export class NotesStore {
     );
   }
 
+  update_note_after_save(
+    note_id: NoteId,
+    blurb: string,
+    color: string | undefined,
+    icon: string | undefined,
+  ) {
+    this.notes = this.notes.map((note) =>
+      note.id === note_id ? { ...note, blurb, color, icon } : note,
+    );
+  }
+
   set_recent_notes(notes: NoteMeta[]) {
     this.recent_notes = normalize_recent_notes(notes);
   }

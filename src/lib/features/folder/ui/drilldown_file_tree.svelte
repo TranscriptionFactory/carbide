@@ -11,6 +11,10 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import File from "@lucide/svelte/icons/file";
   import PeekTooltip from "./peek_tooltip.svelte";
+  import {
+    sanitize_note_color,
+    sanitize_note_icon,
+  } from "$lib/features/folder/domain/note_visuals";
 
   const PEEK_DELAY_MS = 500;
 
@@ -105,18 +109,34 @@
       </p>
     {:else}
       {#each sorted_entries as entry (entry.path)}
+        {@const entry_color = entry.note
+          ? sanitize_note_color(entry.note.color)
+          : null}
+        {@const entry_icon = entry.note
+          ? sanitize_note_icon(entry.note.icon)
+          : null}
         <button
           type="button"
-          class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          class="DrillRow w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          style={entry_color ? `--note-color: ${entry_color};` : ""}
           ondblclick={() => activate(entry)}
           onclick={() => activate(entry)}
           onmouseenter={(e) => start_peek(entry, e)}
           onmouseleave={clear_peek}
         >
+          {#if entry_color}
+            <span class="DrillRow__color-stripe" aria-hidden="true"></span>
+          {/if}
           {#if entry.is_folder}
             <Folder size={14} class="text-zinc-500 shrink-0" />
           {:else if entry.note}
-            <FileText size={14} class="text-zinc-400 shrink-0" />
+            {#if entry_icon}
+              <span class="DrillRow__icon-emoji" aria-hidden="true"
+                >{entry_icon}</span
+              >
+            {:else}
+              <FileText size={14} class="text-zinc-400 shrink-0" />
+            {/if}
           {:else}
             <File size={14} class="text-zinc-400 shrink-0" />
           {/if}
@@ -128,3 +148,28 @@
 </div>
 
 <PeekTooltip note={peek_note} visible={peek_visible} x={peek_x} y={peek_y} />
+
+<style>
+  .DrillRow {
+    position: relative;
+  }
+  .DrillRow__color-stripe {
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: 4px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--note-color);
+    pointer-events: none;
+  }
+  .DrillRow__icon-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1;
+  }
+</style>
