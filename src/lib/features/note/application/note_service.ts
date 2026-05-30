@@ -113,7 +113,12 @@ export class NoteService {
       note_id,
       markdown,
     );
-    this.notes_store.update_note_blurb(note_id, result.blurb);
+    this.notes_store.update_note_after_save(
+      note_id,
+      result.blurb,
+      result.color,
+      result.icon,
+    );
     return result;
   }
 
@@ -773,7 +778,12 @@ export class NoteService {
         this.resolve_expected_mtime(open_note),
       );
       new_mtime = result.new_mtime;
-      this.notes_store.update_note_blurb(open_note.meta.id, result.blurb);
+      this.notes_store.update_note_after_save(
+        open_note.meta.id,
+        result.blurb,
+        result.color,
+        result.icon,
+      );
     } else {
       new_mtime = await this.notes_port.write_note(
         vault_id,

@@ -22,6 +22,8 @@ export type NoteMeta = {
   item_type?: string;
   external_file_path?: string;
   linked_source_id?: string;
+  color?: string | undefined;
+  icon?: string | undefined;
 };
 
 export function is_linked_note(note: NoteMeta): boolean {

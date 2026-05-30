@@ -27,6 +27,10 @@ pub struct NoteMeta {
     pub mtime_ms: i64,
     pub ctime_ms: i64,
     pub size_bytes: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -216,7 +220,7 @@ pub(crate) fn extract_blurb_from_content(markdown: &str) -> String {
     extract_first_paragraph(body)
 }
 
-fn extract_frontmatter_description(text: &str) -> Option<String> {
+fn frontmatter_block(text: &str) -> Option<&str> {
     if !text.starts_with("---\n") && !text.starts_with("---\r\n") {
         return None;
     }
@@ -232,10 +236,15 @@ fn extract_frontmatter_description(text: &str) -> Option<String> {
     if end < start {
         return None;
     }
-    let yaml_block = &text[start..end];
-    for line in yaml_block.lines() {
+    Some(&text[start..end])
+}
+
+pub(crate) fn extract_frontmatter_str_field(text: &str, key: &str) -> Option<String> {
+    let block = frontmatter_block(text)?;
+    let prefix = format!("{key}:");
+    for line in block.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("description:") {
+        if let Some(rest) = trimmed.strip_prefix(prefix.as_str()) {
             let val = rest.trim().trim_matches('"').trim_matches('\'');
             if !val.is_empty() {
                 return Some(val.to_string());
@@ -243,6 +252,32 @@ fn extract_frontmatter_description(text: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn extract_frontmatter_description(text: &str) -> Option<String> {
+    extract_frontmatter_str_field(text, "description")
+}
+
+fn read_head_text(path: &Path) -> String {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(_) => return String::new(),
+    };
+    let mut buf = vec![0u8; 8192];
+    let n = file.read(&mut buf).unwrap_or(0);
+    buf.truncate(n);
+    String::from_utf8_lossy(&buf).into_owned()
+}
+
+pub(crate) fn extract_color_icon(path: &Path) -> (Option<String>, Option<String>) {
+    let head = read_head_text(path);
+    if head.is_empty() {
+        return (None, None);
+    }
+    (
+        extract_frontmatter_str_field(&head, "color"),
+        extract_frontmatter_str_field(&head, "icon"),
+    )
 }
 
 fn skip_frontmatter(text: &str) -> &str {
@@ -389,6 +424,7 @@ pub(crate) fn build_note_meta(
         .and_then(|m| m.get(rel_path).cloned())
         .unwrap_or_else(|| extract_title(&abs));
     let blurb = extract_blurb(&abs);
+    let (color, icon) = extract_color_icon(&abs);
     let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
@@ -400,6 +436,8 @@ pub(crate) fn build_note_meta(
         mtime_ms,
         ctime_ms,
         size_bytes,
+        color,
+        icon,
     })
 }
 
@@ -580,6 +618,10 @@ pub fn write_note(
 pub struct WriteAndIndexResult {
     pub new_mtime: i64,
     pub blurb: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 #[tauri::command]
@@ -626,6 +668,8 @@ pub fn write_and_index_note(
 
     let (new_mtime, _, _) = file_meta(&abs)?;
     let blurb = extract_blurb_from_content(&args.markdown);
+    let color = extract_frontmatter_str_field(&args.markdown, "color");
+    let icon = extract_frontmatter_str_field(&args.markdown, "icon");
 
     crate::features::search::service::index_upsert_note_with_content(
         &app,
@@ -642,7 +686,12 @@ pub fn write_and_index_note(
         },
     );
 
-    Ok(WriteAndIndexResult { new_mtime, blurb })
+    Ok(WriteAndIndexResult {
+        new_mtime,
+        blurb,
+        color,
+        icon,
+    })
 }
 
 #[derive(Debug, Deserialize, Type)]

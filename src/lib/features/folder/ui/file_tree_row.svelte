@@ -56,6 +56,10 @@
   import { is_linked_note_path } from "$lib/shared/types/note";
   import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
+  import {
+    sanitize_note_color,
+    sanitize_note_icon,
+  } from "$lib/features/folder/domain/note_visuals";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import {
     ChevronRight,
@@ -171,6 +175,12 @@
   }: Props = $props();
 
   const is_linked = $derived(is_linked_note_path(node.path));
+  const note_color = $derived(
+    node.note ? sanitize_note_color(node.note.color) : null,
+  );
+  const note_icon = $derived(
+    node.note ? sanitize_note_icon(node.note.icon) : null,
+  );
 
   function activate_row() {
     if (node.is_folder) {
@@ -270,7 +280,9 @@
     class:TreeRow--drag-source={is_drag_source}
     class:TreeRow--drag-over={drag_over_state === "valid"}
     class:TreeRow--drag-invalid={drag_over_state === "invalid"}
-    style="--tree-depth: {node.depth}"
+    style="--tree-depth: {node.depth};{note_color
+      ? ` --note-color: ${note_color};`
+      : ''}"
     role="treeitem"
     tabindex="0"
     draggable={!node.is_load_more}
@@ -283,6 +295,9 @@
     ondrop={(event) => on_drop_row?.(node, event)}
     ondragend={(event) => on_drag_end_row?.(node, event)}
   >
+    {#if note_color}
+      <span class="TreeRow__color-stripe" aria-hidden="true"></span>
+    {/if}
     {#if node.is_folder}
       {#if node.has_error}
         <button
@@ -331,7 +346,14 @@
       <IconComponent class="TreeRow__type-icon" />
       <span class="TreeRow__label TreeRow__label--file">{node.name}</span>
     {:else}
-      <FileText class="TreeRow__type-icon" />
+      {#if note_icon}
+        <span
+          class="TreeRow__type-icon TreeRow__type-icon--emoji"
+          aria-hidden="true">{note_icon}</span
+        >
+      {:else}
+        <FileText class="TreeRow__type-icon" />
+      {/if}
       {#if has_blurb}
         <span class="TreeRow__label-group">
           <span class="TreeRow__label TreeRow__label--primary"
@@ -777,6 +799,33 @@
     --_offset: calc((var(--size-icon-md) - var(--size-icon-sm)) / 2);
     margin-inline-start: var(--_offset);
     margin-inline-end: var(--_offset);
+  }
+
+  :global(.TreeRow__type-icon--emoji) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-icon-md);
+    height: var(--size-icon-sm);
+    flex-shrink: 0;
+    opacity: 1;
+    font-size: var(--text-sm);
+    line-height: 1;
+    margin-inline-start: 0;
+    margin-inline-end: 0;
+  }
+
+  .TreeRow__color-stripe {
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: calc(
+      var(--size-tree-base-padding) + var(--tree-depth) *
+        var(--size-tree-indent) - 4px
+    );
+    width: 2px;
+    border-radius: 1px;
+    background: var(--note-color);
+    pointer-events: none;
   }
 
   :global(.TreeRow__star-icon) {
