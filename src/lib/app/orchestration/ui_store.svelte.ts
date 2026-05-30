@@ -235,6 +235,7 @@ export class UIStore {
   zen_mode = $state(false);
   floating_outline_collapsed = $state(false);
   sidebar_view = $state<SidebarView>("explorer");
+  explorer_subtab = $state<"files" | "views">("files");
   selected_folder_path = $state("");
   filetree_revealed_note_path = $state("");
   selected_items = $state(new SvelteSet<string>());
@@ -469,6 +470,10 @@ export class UIStore {
   set_sidebar_view(view: SidebarView) {
     this.sidebar_view = view;
     this.sidebar_open = true;
+  }
+
+  set_explorer_subtab(tab: "files" | "views") {
+    this.explorer_subtab = tab;
   }
 
   set_selected_folder_path(path: string) {
