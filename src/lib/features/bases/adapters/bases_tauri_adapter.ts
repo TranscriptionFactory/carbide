@@ -52,5 +52,8 @@ export function create_bases_tauri_adapter(): BasesPort {
         value,
       });
     },
+    async seed_default_views(vault_id: VaultId): Promise<number> {
+      return invoke("bases_seed_default_views", { vaultId: vault_id });
+    },
   };
 }

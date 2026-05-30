@@ -99,4 +99,5 @@ export interface BasesPort {
     key: string,
     value: string,
   ): Promise<void>;
+  seed_default_views(vault_id: VaultId): Promise<number>;
 }

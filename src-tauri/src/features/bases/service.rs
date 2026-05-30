@@ -1,10 +1,13 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db as search_db;
-use crate::features::search::model::{BaseQuery, BaseQueryResults, PropertyInfo};
+use crate::features::search::model::{
+    BaseFilter, BaseQuery, BaseQueryResults, BaseSort, PropertyInfo,
+};
 use crate::features::search::service as search_service;
 use crate::shared::storage;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -147,6 +150,179 @@ pub fn bases_delete_view(app: AppHandle, vault_id: String, path: String) -> Resu
     Ok(())
 }
 
+const SEED_SENTINEL: &str = ".seeded";
+
+fn slugify(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut prev_dash = false;
+    for ch in name.to_lowercase().chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch);
+            prev_dash = false;
+        } else if !prev_dash {
+            out.push('-');
+            prev_dash = true;
+        }
+    }
+    out.trim_matches('-').to_string()
+}
+
+fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
+    fn q(filters: Vec<BaseFilter>, sort: Vec<BaseSort>) -> BaseQuery {
+        BaseQuery {
+            filters,
+            sort,
+            limit: 100,
+            offset: 0,
+        }
+    }
+
+    vec![
+        (
+            BaseViewDefinition {
+                name: "By Tag".into(),
+                query: q(vec![], vec![]),
+                view_mode: "tree".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: Some(TreeConfig {
+                    group_by: vec!["tags".into()],
+                    date_format: None,
+                }),
+            },
+            None,
+        ),
+        (
+            BaseViewDefinition {
+                name: "By Created Month".into(),
+                query: q(vec![], vec![]),
+                view_mode: "tree".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: Some(TreeConfig {
+                    group_by: vec!["created".into()],
+                    date_format: Some("YYYY/MM".into()),
+                }),
+            },
+            Some("created"),
+        ),
+        (
+            BaseViewDefinition {
+                name: "By Status".into(),
+                query: q(vec![], vec![]),
+                view_mode: "tree".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: Some(TreeConfig {
+                    group_by: vec!["status".into()],
+                    date_format: None,
+                }),
+            },
+            Some("status"),
+        ),
+        (
+            BaseViewDefinition {
+                name: "Modified This Week".into(),
+                query: q(
+                    vec![BaseFilter {
+                        property: "modified".into(),
+                        operator: "gt".into(),
+                        value: "now()-7d".into(),
+                    }],
+                    vec![BaseSort {
+                        property: "modified".into(),
+                        descending: true,
+                    }],
+                ),
+                view_mode: "list".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: None,
+            },
+            Some("modified"),
+        ),
+        (
+            BaseViewDefinition {
+                name: "Orphan Notes".into(),
+                query: q(
+                    vec![BaseFilter {
+                        property: "backlink_count".into(),
+                        operator: "eq".into(),
+                        value: "0".into(),
+                    }],
+                    vec![],
+                ),
+                view_mode: "list".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: None,
+            },
+            Some("backlink_count"),
+        ),
+        (
+            BaseViewDefinition {
+                name: "Smart Archive".into(),
+                query: q(
+                    vec![BaseFilter {
+                        property: "accessed".into(),
+                        operator: "lt".into(),
+                        value: "now()-30d".into(),
+                    }],
+                    vec![],
+                ),
+                view_mode: "list".into(),
+                kanban_config: None,
+                calendar_config: None,
+                tree_config: None,
+            },
+            Some("accessed"),
+        ),
+    ]
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn bases_seed_default_views(app: AppHandle, vault_id: String) -> Result<u32, String> {
+    if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
+        return Ok(0);
+    }
+    let root = storage::vault_path(&app, &vault_id)?;
+    let dir = root.join(".carbide").join("bases");
+    let sentinel = dir.join(SEED_SENTINEL);
+    if sentinel.exists() {
+        return Ok(0);
+    }
+
+    let available: HashSet<String> = search_service::with_read_conn(&app, &vault_id, |conn| {
+        search_db::list_all_properties(conn)
+    })?
+    .into_iter()
+    .map(|p: PropertyInfo| p.name)
+    .collect();
+
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let mut written = 0u32;
+    for (view, required_property) in default_seed_views() {
+        if let Some(prop) = required_property {
+            if !available.contains(prop) {
+                continue;
+            }
+        }
+        let slug = slugify(&view.name);
+        let file = dir.join(format!("{}.json", slug));
+        if file.exists() {
+            continue;
+        }
+        let json = serde_json::to_string_pretty(&view).map_err(|e| e.to_string())?;
+        crate::shared::io_utils::atomic_write(&file, json.as_bytes())?;
+        written += 1;
+    }
+
+    crate::shared::io_utils::atomic_write(&sentinel, b"")?;
+    Ok(written)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn bases_update_property(
@@ -217,4 +393,69 @@ fn update_frontmatter_key(markdown: &str, key: &str, value: &str) -> Result<Stri
         result.push('\n');
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slugify_keeps_alphanumerics_and_collapses_separators() {
+        assert_eq!(slugify("By Tag"), "by-tag");
+        assert_eq!(slugify("Modified This Week"), "modified-this-week");
+        assert_eq!(slugify("  trailing  "), "trailing");
+        assert_eq!(slugify("a/b__c"), "a-b-c");
+    }
+
+    #[test]
+    fn default_seeds_cover_planned_views() {
+        let seeds = default_seed_views();
+        let names: Vec<&str> = seeds.iter().map(|(v, _)| v.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "By Tag",
+                "By Created Month",
+                "By Status",
+                "Modified This Week",
+                "Orphan Notes",
+                "Smart Archive",
+            ]
+        );
+    }
+
+    #[test]
+    fn by_tag_seed_has_no_required_property_and_uses_tree_mode() {
+        let seeds = default_seed_views();
+        let (view, required) = &seeds[0];
+        assert_eq!(view.name, "By Tag");
+        assert!(required.is_none(), "tags seed should always apply");
+        assert_eq!(view.view_mode, "tree");
+        let tree = view.tree_config.as_ref().expect("tree_config required");
+        assert_eq!(tree.group_by, vec!["tags"]);
+    }
+
+    #[test]
+    fn by_created_month_seed_uses_date_format() {
+        let (view, required) = default_seed_views().into_iter().nth(1).unwrap();
+        assert_eq!(view.name, "By Created Month");
+        assert_eq!(required, Some("created"));
+        let tree = view.tree_config.as_ref().expect("tree_config required");
+        assert_eq!(tree.group_by, vec!["created"]);
+        assert_eq!(tree.date_format.as_deref(), Some("YYYY/MM"));
+    }
+
+    #[test]
+    fn modified_this_week_seed_filters_and_sorts() {
+        let (view, required) = default_seed_views().into_iter().nth(3).unwrap();
+        assert_eq!(view.name, "Modified This Week");
+        assert_eq!(required, Some("modified"));
+        assert_eq!(view.query.filters.len(), 1);
+        let filter = &view.query.filters[0];
+        assert_eq!(filter.property, "modified");
+        assert_eq!(filter.operator, "gt");
+        assert_eq!(filter.value, "now()-7d");
+        assert_eq!(view.query.sort[0].property, "modified");
+        assert!(view.query.sort[0].descending);
+    }
 }

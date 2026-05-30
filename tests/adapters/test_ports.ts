@@ -95,6 +95,7 @@ export function create_test_ports(): Ports {
       list_views: () => Promise.resolve([]),
       delete_view: () => Promise.resolve(),
       update_property: () => Promise.resolve(),
+      seed_default_views: () => Promise.resolve(0),
     },
     task: {
       queryTasks: () => Promise.resolve([]),

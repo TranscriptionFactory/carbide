@@ -233,6 +233,7 @@ pub fn run() {
             features::bases::service::bases_list_views,
             features::bases::service::bases_delete_view,
             features::bases::service::bases_update_property,
+            features::bases::service::bases_seed_default_views,
             features::tasks::tasks_query,
             features::tasks::tasks_get_for_note,
             features::tasks::tasks_update_state,

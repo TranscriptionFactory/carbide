@@ -23,6 +23,7 @@ function make_port(overrides: Partial<BasesPort> = {}): BasesPort {
     list_views: vi.fn().mockResolvedValue([]),
     delete_view: vi.fn().mockResolvedValue(undefined),
     update_property: vi.fn().mockResolvedValue(undefined),
+    seed_default_views: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
 }

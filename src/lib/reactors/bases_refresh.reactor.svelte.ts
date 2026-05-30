@@ -9,8 +9,11 @@ export function create_bases_refresh_reactor(
     $effect(() => {
       const vault_id = vault_store.active_vault_id;
       if (vault_id) {
-        void bases_service.refresh_properties(vault_id);
-        void bases_service.run_query(vault_id);
+        void (async () => {
+          await bases_service.refresh_properties(vault_id);
+          await bases_service.seed_default_views(vault_id);
+          await bases_service.run_query(vault_id);
+        })();
       }
     });
   });
