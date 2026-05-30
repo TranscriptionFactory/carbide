@@ -700,150 +700,199 @@
                     class="h-full"
                     hidden={stores.ui.sidebar_view !== "explorer"}
                   >
-                    <Sidebar.GroupContent class="h-full">
-                      <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <Sidebar.GroupContent class="h-full flex flex-col min-h-0">
                       <div
-                        class="h-full"
-                        data-vim-nav-region="file_tree"
-                        tabindex="-1"
+                        class="flex items-center border-b border-zinc-200 dark:border-zinc-800 px-1 shrink-0"
                       >
-                        <VirtualFileTree
-                          tree_style={stores.ui.editor_settings.file_tree_style}
-                          show_blurb={stores.ui.editor_settings
-                            .file_tree_show_blurb}
-                          blurb_position={stores.ui.editor_settings
-                            .file_tree_blurb_position}
-                          nodes={flat_nodes}
-                          selected_path={stores.ui.selected_folder_path}
-                          revealed_note_path={stores.ui
-                            .filetree_revealed_note_path}
-                          open_note_path={stores.editor.open_note?.meta.path ??
-                            ""}
-                          selected_items={Array.from(stores.ui.selected_items)}
-                          starred_paths={stores.notes.starred_paths}
-                          on_select_item={(payload) =>
-                            void action_registry.execute(
-                              ACTION_IDS.filetree_select_item,
-                              payload,
+                        {#each [{ id: "files" as const, label: "Files" }, { id: "views" as const, label: "Views" }] as tab}
+                          <button
+                            type="button"
+                            class="px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors {stores
+                              .ui.explorer_subtab === tab.id
+                              ? 'border-blue-500 text-foreground'
+                              : 'border-transparent text-zinc-500 hover:text-foreground'}"
+                            onclick={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.ui_select_explorer_subtab,
+                                tab.id,
+                              )}
+                          >
+                            {tab.label}
+                          </button>
+                        {/each}
+                      </div>
+                      {#if stores.ui.explorer_subtab === "views"}
+                        <div class="flex-1 overflow-auto p-2 space-y-1">
+                          {#if stores.bases.saved_views.length === 0}
+                            <p class="text-xs text-zinc-500 px-2 py-3">
+                              No saved bases views yet.
+                            </p>
+                          {:else}
+                            {#each stores.bases.saved_views as view (view.path)}
+                              <button
+                                type="button"
+                                class="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900 truncate"
+                                onclick={() => {
+                                  void action_registry.execute(
+                                    ACTION_IDS.bases_load_view,
+                                    view.path,
+                                  );
+                                  stores.ui.set_sidebar_view("bases");
+                                }}
+                              >
+                                {view.name}
+                              </button>
+                            {/each}
+                          {/if}
+                        </div>
+                      {:else}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                          class="flex-1 min-h-0"
+                          data-vim-nav-region="file_tree"
+                          tabindex="-1"
+                        >
+                          <VirtualFileTree
+                            tree_style={stores.ui.editor_settings
+                              .file_tree_style}
+                            show_blurb={stores.ui.editor_settings
+                              .file_tree_show_blurb}
+                            blurb_position={stores.ui.editor_settings
+                              .file_tree_blurb_position}
+                            nodes={flat_nodes}
+                            selected_path={stores.ui.selected_folder_path}
+                            revealed_note_path={stores.ui
+                              .filetree_revealed_note_path}
+                            open_note_path={stores.editor.open_note?.meta
+                              .path ?? ""}
+                            selected_items={Array.from(
+                              stores.ui.selected_items,
                             )}
-                          on_toggle_folder={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_toggle,
-                              path,
-                            )}
-                          on_select_note={(note_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.note_open,
-                              note_path,
-                            )}
-                          on_select_file={(file_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.document_open,
-                              file_path,
-                            )}
-                          on_select_folder={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.ui_select_folder,
-                              path,
-                            )}
-                          on_request_delete={(note: NoteMeta) =>
-                            void action_registry.execute(
-                              ACTION_IDS.note_request_delete,
-                              note,
-                            )}
-                          on_request_rename={(note: NoteMeta) =>
-                            void action_registry.execute(
-                              ACTION_IDS.note_request_rename,
-                              note,
-                            )}
-                          on_request_delete_folder={(folder_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_request_delete,
-                              folder_path,
-                            )}
-                          on_request_rename_folder={(folder_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_request_rename,
-                              folder_path,
-                            )}
-                          on_request_create_note={() =>
-                            void action_registry.execute(
-                              ACTION_IDS.note_create,
-                            )}
-                          on_request_create_canvas={() =>
-                            void action_registry.execute(
-                              ACTION_IDS.canvas_create,
-                            )}
-                          on_request_create_folder={(folder_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_request_create,
-                              folder_path,
-                            )}
-                          on_toggle_star={toggle_star_for_selection}
-                          on_open_to_side={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.tab_open_to_side,
-                              path,
-                            )}
-                          on_open_in_new_window={(file_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.window_open_viewer,
-                              file_path,
-                            )}
-                          on_reveal_in_finder={(path: string) => {
-                            const vault_path = stores.vault.vault?.path;
-                            if (vault_path) {
-                              void services.shell.reveal_in_file_manager(
-                                `${vault_path}/${path}`,
-                              );
-                            }
-                          }}
-                          on_open_in_default_app={(path: string) => {
-                            if (path.startsWith("/")) {
-                              void services.shell.open_path(path);
-                            } else {
+                            starred_paths={stores.notes.starred_paths}
+                            on_select_item={(payload) =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_select_item,
+                                payload,
+                              )}
+                            on_toggle_folder={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_toggle,
+                                path,
+                              )}
+                            on_select_note={(note_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_open,
+                                note_path,
+                              )}
+                            on_select_file={(file_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.document_open,
+                                file_path,
+                              )}
+                            on_select_folder={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.ui_select_folder,
+                                path,
+                              )}
+                            on_request_delete={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_delete,
+                                note,
+                              )}
+                            on_request_rename={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_rename,
+                                note,
+                              )}
+                            on_request_delete_folder={(folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_delete,
+                                folder_path,
+                              )}
+                            on_request_rename_folder={(folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_rename,
+                                folder_path,
+                              )}
+                            on_request_create_note={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_create,
+                              )}
+                            on_request_create_canvas={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.canvas_create,
+                              )}
+                            on_request_create_folder={(folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_create,
+                                folder_path,
+                              )}
+                            on_toggle_star={toggle_star_for_selection}
+                            on_open_to_side={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.tab_open_to_side,
+                                path,
+                              )}
+                            on_open_in_new_window={(file_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.window_open_viewer,
+                                file_path,
+                              )}
+                            on_reveal_in_finder={(path: string) => {
                               const vault_path = stores.vault.vault?.path;
                               if (vault_path) {
-                                void services.shell.open_path(
+                                void services.shell.reveal_in_file_manager(
                                   `${vault_path}/${path}`,
                                 );
                               }
-                            }
-                          }}
-                          on_generate_description={stores.ui.editor_settings
-                            .ai_enabled
-                            ? (path: string) =>
-                                void action_registry.execute(
-                                  ACTION_IDS.ai_generate_description,
-                                  path,
-                                )
-                            : undefined}
-                          on_retry_load={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_retry_load,
-                              path,
-                            )}
-                          on_load_more={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_load_more,
-                              path,
-                            )}
-                          on_retry_load_more={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_load_more,
-                              path,
-                            )}
-                          on_move_items={(items, target_folder, overwrite) =>
-                            void action_registry.execute(
-                              ACTION_IDS.filetree_move_items,
-                              {
-                                items,
-                                target_folder,
-                                overwrite,
-                              },
-                            )}
-                        />
-                      </div>
+                            }}
+                            on_open_in_default_app={(path: string) => {
+                              if (path.startsWith("/")) {
+                                void services.shell.open_path(path);
+                              } else {
+                                const vault_path = stores.vault.vault?.path;
+                                if (vault_path) {
+                                  void services.shell.open_path(
+                                    `${vault_path}/${path}`,
+                                  );
+                                }
+                              }
+                            }}
+                            on_generate_description={stores.ui.editor_settings
+                              .ai_enabled
+                              ? (path: string) =>
+                                  void action_registry.execute(
+                                    ACTION_IDS.ai_generate_description,
+                                    path,
+                                  )
+                              : undefined}
+                            on_retry_load={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_retry_load,
+                                path,
+                              )}
+                            on_load_more={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_load_more,
+                                path,
+                              )}
+                            on_retry_load_more={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_load_more,
+                                path,
+                              )}
+                            on_move_items={(items, target_folder, overwrite) =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_move_items,
+                                {
+                                  items,
+                                  target_folder,
+                                  overwrite,
+                                },
+                              )}
+                          />
+                        </div>
+                      {/if}
                     </Sidebar.GroupContent>
                   </Sidebar.Group>
                 </Sidebar.Content>

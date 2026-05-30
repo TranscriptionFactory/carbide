@@ -32,6 +32,17 @@ describe("UIStore", () => {
     expect(store.zen_mode).toBe(false);
   });
 
+  it("explorer_subtab defaults to files", () => {
+    const store = new UIStore();
+    expect(store.explorer_subtab).toBe("files");
+  });
+
+  it("explorer_subtab is mutable to views", () => {
+    const store = new UIStore();
+    store.explorer_subtab = "views";
+    expect(store.explorer_subtab).toBe("views");
+  });
+
   it("set_editor_settings does not overwrite an open settings draft", () => {
     const store = new UIStore();
     store.settings_dialog = {

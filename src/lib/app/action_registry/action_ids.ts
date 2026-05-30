@@ -108,6 +108,7 @@ export const ACTION_IDS = {
   ui_toggle_focus_mode: "ui.toggle_focus_mode",
   ui_select_folder: "ui.select_folder",
   ui_set_sidebar_view: "ui.set_sidebar_view",
+  ui_select_explorer_subtab: "ui.select_explorer_subtab",
   ui_toggle_context_rail: "ui.toggle_context_rail",
   ui_toggle_outline_panel: "ui.toggle_outline_panel",
   ui_toggle_tasks_panel: "ui.toggle_tasks_panel",
