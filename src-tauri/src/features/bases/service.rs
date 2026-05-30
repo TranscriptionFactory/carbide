@@ -9,10 +9,35 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 
 #[derive(Debug, Serialize, Deserialize, Type)]
+pub struct KanbanConfig {
+    pub group_by: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column_order: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct CalendarConfig {
+    pub date_property: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct TreeConfig {
+    pub group_by: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_format: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
 pub struct BaseViewDefinition {
     pub name: String,
     pub query: BaseQuery,
-    pub view_mode: String, // "table", "list"
+    pub view_mode: String, // "table" | "list" | "kanban" | "gallery" | "calendar" | "tree"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kanban_config: Option<KanbanConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calendar_config: Option<CalendarConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree_config: Option<TreeConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
