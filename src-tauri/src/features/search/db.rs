@@ -3283,6 +3283,83 @@ mod tests {
     }
 
     #[test]
+    fn resolve_bases_property_maps_date_aliases() {
+        assert_eq!(resolve_bases_property("modified"), "mtime_ms");
+        assert_eq!(resolve_bases_property("created"), "ctime_ms");
+        assert_eq!(resolve_bases_property("accessed"), "mtime_ms");
+        assert_eq!(resolve_bases_property("status"), "status");
+    }
+
+    #[test]
+    fn resolve_bases_now_value_parses_relative_offsets() {
+        let now = 1_000_000_000_000i64;
+        assert_eq!(resolve_bases_now_value("now()", now), Some(now));
+        assert_eq!(
+            resolve_bases_now_value("now()-7d", now),
+            Some(now - 7 * 86_400_000)
+        );
+        assert_eq!(
+            resolve_bases_now_value("now()+1h", now),
+            Some(now + 3_600_000)
+        );
+        assert_eq!(resolve_bases_now_value("draft", now), None);
+        assert_eq!(resolve_bases_now_value("now()-x", now), None);
+        assert_eq!(resolve_bases_now_value("now()-7y", now), None);
+    }
+
+    #[test]
+    fn query_bases_modified_filter_uses_mtime_and_now() {
+        let conn = open_mem_db();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        let mut recent = note("q/recent.md", "Recent");
+        recent.mtime_ms = now_ms - 86_400_000;
+        upsert_note(&conn, &recent, "body").expect("recent");
+
+        let mut stale = note("q/stale.md", "Stale");
+        stale.mtime_ms = now_ms - 30 * 86_400_000;
+        upsert_note(&conn, &stale, "body").expect("stale");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("modified", "gt", "now()-7d")], vec![], 100, 0),
+        )
+        .expect("query");
+
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/recent.md");
+    }
+
+    #[test]
+    fn query_bases_accessed_filter_selects_stale_notes() {
+        let conn = open_mem_db();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        let mut recent = note("q/recent.md", "Recent");
+        recent.mtime_ms = now_ms - 86_400_000;
+        upsert_note(&conn, &recent, "body").expect("recent");
+
+        let mut stale = note("q/stale.md", "Stale");
+        stale.mtime_ms = now_ms - 45 * 86_400_000;
+        upsert_note(&conn, &stale, "body").expect("stale");
+
+        let result = query_bases(
+            &conn,
+            make_query(vec![filter("accessed", "lt", "now()-30d")], vec![], 100, 0),
+        )
+        .expect("query");
+
+        assert_eq!(result.total, 1);
+        assert_eq!(result.rows[0].note.path, "q/stale.md");
+    }
+
+    #[test]
     fn remove_note_cleans_up_rows() {
         let conn = open_mem_db();
         let meta = note("notes/c.md", "Note C");
@@ -5201,10 +5278,51 @@ pub fn list_all_properties(
     Ok(props)
 }
 
+fn resolve_bases_property(prop: &str) -> &str {
+    match prop {
+        "modified" => "mtime_ms",
+        "created" => "ctime_ms",
+        "accessed" => "mtime_ms",
+        other => other,
+    }
+}
+
+fn resolve_bases_now_value(value: &str, now_ms: i64) -> Option<i64> {
+    let v = value.trim();
+    if v == "now()" {
+        return Some(now_ms);
+    }
+    let rest = v.strip_prefix("now()")?;
+    let (sign, magnitude) = match rest.as_bytes().first()? {
+        b'-' => (-1i64, rest[1..].trim()),
+        b'+' => (1i64, rest[1..].trim()),
+        _ => return None,
+    };
+    let unit = magnitude.chars().last()?;
+    let count: i64 = magnitude[..magnitude.len() - unit.len_utf8()]
+        .trim()
+        .parse()
+        .ok()?;
+    let unit_ms: i64 = match unit {
+        's' => 1_000,
+        'm' => 60_000,
+        'h' => 3_600_000,
+        'd' => 86_400_000,
+        'w' => 604_800_000,
+        _ => return None,
+    };
+    Some(now_ms + sign * count * unit_ms)
+}
+
 pub fn query_bases(
     conn: &Connection,
     query: crate::features::search::model::BaseQuery,
 ) -> Result<crate::features::search::model::BaseQueryResults, String> {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+
     let stat_columns = [
         "word_count",
         "char_count",
@@ -5222,8 +5340,13 @@ pub fn query_bases(
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     for filter in &query.filters {
-        if filter.property == "content" {
-            let fts_query = escape_fts_query(&filter.value);
+        let prop = resolve_bases_property(&filter.property);
+        let value = resolve_bases_now_value(&filter.value, now_ms)
+            .map(|ms| ms.to_string())
+            .unwrap_or_else(|| filter.value.clone());
+
+        if prop == "content" {
+            let fts_query = escape_fts_query(&value);
             let negated = filter.operator == "not_contains";
             let inop = if negated { "NOT IN" } else { "IN" };
             where_clauses.push(format!(
@@ -5232,7 +5355,7 @@ pub fn query_bases(
                 params.len() + 1
             ));
             params.push(Box::new(fts_query));
-        } else if filter.property == "tag" || filter.property == "tags" {
+        } else if prop == "tag" || prop == "tags" {
             let negated = matches!(filter.operator.as_str(), "neq" | "not_contains");
             let inop = if negated { "NOT IN" } else { "IN" };
             if filter.operator == "contains" || filter.operator == "not_contains" {
@@ -5241,16 +5364,16 @@ pub fn query_bases(
                     inop,
                     params.len() + 1
                 ));
-                params.push(Box::new(format!("%{}%", filter.value)));
+                params.push(Box::new(format!("%{}%", value)));
             } else {
                 where_clauses.push(format!(
                     "notes.path {} (SELECT path FROM note_inline_tags WHERE tag = ?{})",
                     inop,
                     params.len() + 1
                 ));
-                params.push(Box::new(filter.value.clone()));
+                params.push(Box::new(value.clone()));
             }
-        } else if is_task_agg_col(&filter.property) {
+        } else if is_task_agg_col(prop) {
             let op = match filter.operator.as_str() {
                 "eq" => "=",
                 "neq" => "!=",
@@ -5260,10 +5383,10 @@ pub fn query_bases(
                 "lte" => "<=",
                 _ => "=",
             };
-            let col = format!("COALESCE(task_agg.{}, 0)", filter.property);
+            let col = format!("COALESCE(task_agg.{}, 0)", prop);
             where_clauses.push(format!("{} {} ?{}", col, op, params.len() + 1));
-            params.push(Box::new(filter.value.clone()));
-        } else if is_direct_col(&filter.property) {
+            params.push(Box::new(value.clone()));
+        } else if is_direct_col(prop) {
             let op = match filter.operator.as_str() {
                 "eq" => "=",
                 "neq" => "!=",
@@ -5276,16 +5399,11 @@ pub fn query_bases(
                 _ => "=",
             };
             let val = if filter.operator == "contains" || filter.operator == "not_contains" {
-                format!("%{}%", filter.value)
+                format!("%{}%", value)
             } else {
-                filter.value.clone()
+                value.clone()
             };
-            where_clauses.push(format!(
-                "notes.{} {} ?{}",
-                filter.property,
-                op,
-                params.len() + 1
-            ));
+            where_clauses.push(format!("notes.{} {} ?{}", prop, op, params.len() + 1));
             params.push(Box::new(val));
         } else {
             let op = match filter.operator.as_str() {
@@ -5300,9 +5418,9 @@ pub fn query_bases(
                 _ => "=",
             };
             let val = if filter.operator == "contains" || filter.operator == "not_contains" {
-                format!("%{}%", filter.value)
+                format!("%{}%", value)
             } else {
-                filter.value.clone()
+                value.clone()
             };
 
             let numeric_ops = matches!(filter.operator.as_str(), "gt" | "lt" | "gte" | "lte");
@@ -5340,16 +5458,17 @@ pub fn query_bases(
     };
 
     let order_sql = if let Some(sort) = query.sort.first() {
-        if is_direct_col(&sort.property) {
+        let sort_prop = resolve_bases_property(&sort.property);
+        if is_direct_col(sort_prop) {
             format!(
                 "ORDER BY notes.{} {}",
-                sort.property,
+                sort_prop,
                 if sort.descending { "DESC" } else { "ASC" }
             )
-        } else if is_task_agg_col(&sort.property) {
+        } else if is_task_agg_col(sort_prop) {
             format!(
                 "ORDER BY COALESCE(task_agg.{}, 0) {}",
-                sort.property,
+                sort_prop,
                 if sort.descending { "DESC" } else { "ASC" }
             )
         } else {
@@ -5366,8 +5485,9 @@ pub fn query_bases(
     let params_len = params.len();
     let mut final_params = params;
     if let Some(sort) = query.sort.first() {
-        if !is_direct_col(&sort.property) && !is_task_agg_col(&sort.property) {
-            final_params.push(Box::new(sort.property.clone()));
+        let sort_prop = resolve_bases_property(&sort.property);
+        if !is_direct_col(sort_prop) && !is_task_agg_col(sort_prop) {
+            final_params.push(Box::new(sort_prop.to_string()));
         }
     }
 

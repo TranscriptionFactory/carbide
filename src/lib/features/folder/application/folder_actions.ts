@@ -541,6 +541,10 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       execute: async (folder_input: unknown) => {
         const folder_path = String(folder_input ?? "").trim();
         if (!folder_path) return;
+        // Open the landing note on expand only, never on collapse. Both call
+        // sites (tree select, drill-down enter) mutate expanded_paths before
+        // dispatching this, so the post-toggle state distinguishes the two.
+        if (!stores.ui.filetree.expanded_paths.has(folder_path)) return;
         const base_name = folder_path.split("/").pop();
         if (!base_name) return;
         const folder_note_path = `${folder_path}/${base_name}.md`;
