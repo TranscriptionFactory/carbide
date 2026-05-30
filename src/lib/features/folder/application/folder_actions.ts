@@ -643,6 +643,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.folder_refresh_tree,
       label: "Refresh File Tree",
       execute: async () => {
+        await services.folder.clear_folder_cache();
         stores.vault.bump_generation();
 
         const current_filetree = stores.ui.filetree;

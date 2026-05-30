@@ -253,6 +253,7 @@ pub fn run() {
             features::notes::service::move_items,
             features::notes::service::delete_folder,
             features::notes::service::list_folder_contents,
+            features::notes::service::clear_folder_cache,
             features::notes::service::get_folder_stats,
             features::notes::service::read_vault_file,
             features::notes::service::read_absolute_text_file,

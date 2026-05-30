@@ -257,6 +257,10 @@ export function create_test_notes_adapter(): NotesPort {
       };
     },
 
+    clear_folder_cache(_vault_id: VaultId): Promise<void> {
+      return Promise.resolve();
+    },
+
     rename_folder(
       _vault_id: VaultId,
       from_path: string,
