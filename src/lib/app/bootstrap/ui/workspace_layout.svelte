@@ -4,7 +4,11 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button";
   import ActivityBar from "$lib/app/bootstrap/ui/activity_bar.svelte";
-  import { VirtualFileTree, PathBreadcrumb } from "$lib/features/folder";
+  import {
+    VirtualFileTree,
+    PathBreadcrumb,
+    DrillDownFileTree,
+  } from "$lib/features/folder";
   import {
     VaultDashboardPanel,
     VaultSwitcherDropdown,
@@ -720,6 +724,22 @@
                             {tab.label}
                           </button>
                         {/each}
+                        {#if stores.ui.explorer_subtab === "files"}
+                          <button
+                            type="button"
+                            class="ml-auto mr-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                            title="Switch explorer mode"
+                            onclick={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_toggle_mode,
+                              )}
+                          >
+                            {stores.ui.editor_settings.file_tree_mode ===
+                            "drilldown"
+                              ? "Drill"
+                              : "Tree"}
+                          </button>
+                        {/if}
                       </div>
                       {#if stores.ui.explorer_subtab === "views"}
                         <div class="flex-1 overflow-auto p-2 space-y-1">
@@ -744,6 +764,37 @@
                               </button>
                             {/each}
                           {/if}
+                        </div>
+                      {:else if stores.ui.editor_settings.file_tree_mode === "drilldown"}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                          class="flex-1 min-h-0"
+                          data-vim-nav-region="file_tree"
+                          tabindex="-1"
+                        >
+                          <DrillDownFileTree
+                            notes={stores.notes.notes}
+                            folder_paths={stores.notes.folder_paths}
+                            files={stores.notes.files}
+                            current_path={stores.ui.selected_folder_path}
+                            show_hidden_files={stores.ui.editor_settings
+                              .show_hidden_files}
+                            on_enter_folder={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_reveal_folder,
+                                path,
+                              )}
+                            on_open_note={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_open,
+                                path,
+                              )}
+                            on_open_file={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.document_open,
+                                path,
+                              )}
+                          />
                         </div>
                       {:else}
                         <!-- svelte-ignore a11y_no_static_element_interactions -->

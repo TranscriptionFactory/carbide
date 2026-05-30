@@ -66,6 +66,8 @@ export type FileTreeStyle =
   | "macos_finder"
   | "refined";
 export type FileTreeBlurbPosition = "caption" | "heading";
+
+export type FileTreeMode = "tree" | "drilldown";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 export type EmbeddingModelId =
@@ -179,6 +181,7 @@ export type EditorSettings = {
   file_tree_show_blurb: boolean;
   file_tree_blurb_position: FileTreeBlurbPosition;
   file_tree_show_linked_sources: boolean;
+  file_tree_mode: FileTreeMode;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -292,6 +295,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   file_tree_show_blurb: false,
   file_tree_blurb_position: "caption",
   file_tree_show_linked_sources: true,
+  file_tree_mode: "tree",
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
@@ -459,6 +463,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_style",
   "file_tree_show_blurb",
   "file_tree_blurb_position",
+  "file_tree_mode",
   "editor_block_drag_handle",
   "editor_block_drag_handle_visibility",
   "vim_nav_enabled",

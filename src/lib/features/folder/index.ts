@@ -20,6 +20,7 @@ export { default as RenameFolderDialog } from "$lib/features/folder/ui/rename_fo
 export { default as FiletreeMoveConflictDialog } from "$lib/features/folder/ui/filetree_move_conflict_dialog.svelte";
 export { default as VirtualFileTree } from "$lib/features/folder/ui/virtual_file_tree.svelte";
 export { default as PathBreadcrumb } from "$lib/features/folder/ui/path_breadcrumb.svelte";
+export { default as DrillDownFileTree } from "$lib/features/folder/ui/drilldown_file_tree.svelte";
 export type {
   FolderMutationResult,
   FolderMoveResult,
