@@ -4,7 +4,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button";
   import ActivityBar from "$lib/app/bootstrap/ui/activity_bar.svelte";
-  import { VirtualFileTree } from "$lib/features/folder";
+  import { VirtualFileTree, PathBreadcrumb } from "$lib/features/folder";
   import {
     VaultDashboardPanel,
     VaultSwitcherDropdown,
@@ -867,6 +867,23 @@
                       <div data-vim-nav-region="tab_bar" tabindex="-1">
                         <TabBar />
                       </div>
+                    {/if}
+                    {#if !zen_mode && stores.editor.open_note}
+                      <PathBreadcrumb
+                        note_path={stores.editor.open_note.meta.path}
+                        note_title={stores.editor.open_note.meta.title}
+                        vault_name={stores.vault.vault?.name ?? null}
+                        on_select_folder={(folder_path) =>
+                          void action_registry.execute(
+                            ACTION_IDS.filetree_reveal_folder,
+                            folder_path,
+                          )}
+                        on_reveal_note={(note_path) =>
+                          void action_registry.execute(
+                            ACTION_IDS.filetree_reveal_note,
+                            note_path,
+                          )}
+                      />
                     {/if}
                     <div class="flex min-h-0 flex-1 flex-col">
                       <FindInFileBar

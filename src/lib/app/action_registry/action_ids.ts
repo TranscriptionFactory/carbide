@@ -90,6 +90,7 @@ export const ACTION_IDS = {
   folder_retry_rename: "folder.retry_rename",
   folder_toggle_star: "folder.toggle_star",
   filetree_reveal_note: "filetree.reveal_note",
+  filetree_reveal_folder: "filetree.reveal_folder",
   filetree_select_item: "filetree.select_item",
   filetree_clear_selection: "filetree.clear_selection",
   filetree_move_items: "filetree.move_items",
