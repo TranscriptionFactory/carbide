@@ -10,6 +10,9 @@
   import Folder from "@lucide/svelte/icons/folder";
   import FileText from "@lucide/svelte/icons/file-text";
   import File from "@lucide/svelte/icons/file";
+  import PeekTooltip from "./peek_tooltip.svelte";
+
+  const PEEK_DELAY_MS = 500;
 
   let {
     notes,
@@ -56,6 +59,31 @@
       return a.name.localeCompare(b.name);
     }),
   );
+
+  let peek_note = $state<NoteMeta | null>(null);
+  let peek_visible = $state(false);
+  let peek_x = $state(0);
+  let peek_y = $state(0);
+  let peek_timer: ReturnType<typeof setTimeout> | undefined;
+
+  function start_peek(entry: DrillDownEntry, e: MouseEvent) {
+    if (!entry.note) return;
+    clearTimeout(peek_timer);
+    const target = entry.note;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    peek_timer = setTimeout(() => {
+      peek_note = target;
+      peek_x = rect.right + 8;
+      peek_y = rect.top;
+      peek_visible = true;
+    }, PEEK_DELAY_MS);
+  }
+
+  function clear_peek() {
+    clearTimeout(peek_timer);
+    peek_visible = false;
+    peek_note = null;
+  }
 </script>
 
 <div class="h-full flex flex-col">
@@ -82,6 +110,8 @@
           class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
           ondblclick={() => activate(entry)}
           onclick={() => activate(entry)}
+          onmouseenter={(e) => start_peek(entry, e)}
+          onmouseleave={clear_peek}
         >
           {#if entry.is_folder}
             <Folder size={14} class="text-zinc-500 shrink-0" />
@@ -96,3 +126,5 @@
     {/if}
   </div>
 </div>
+
+<PeekTooltip note={peek_note} visible={peek_visible} x={peek_x} y={peek_y} />
