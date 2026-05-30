@@ -122,4 +122,13 @@ export class BasesService {
       this.store.error = String(e);
     }
   }
+
+  async seed_default_views(vault_id: VaultId): Promise<number> {
+    try {
+      return await this.port.seed_default_views(vault_id);
+    } catch (e) {
+      this.store.error = String(e);
+      return 0;
+    }
+  }
 }
