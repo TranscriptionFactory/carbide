@@ -146,9 +146,9 @@ Unchanged from original plan. Ship in order:
 1. Inline rename (#8) — *done*
 2. Animated expand/collapse (#9) — *done*
 3. Empty folder states (#11) — *done*
-4. Breadcrumb bar (#10)
-5. Fix refresh button (#18)
-6. Extract file tree settings into a "Sidebar" settings pane (see `carbide/plans/2026-04-15_settings_panel_reorganization_plan.md`)
+4. Breadcrumb bar (#10) — *done* — `src/lib/features/folder/ui/path_breadcrumb.svelte`, wired above the editor pane; ancestor clicks dispatch new `filetree_reveal_folder` action.
+5. Fix refresh button (#18) — *done* — added `clear_folder_cache(vault_id)` Tauri command and invoke it at the head of `folder_refresh_tree`; root cause was the Rust folder-listing cache (30s TTL) returning stale entries after external filesystem changes.
+6. Extract file tree settings into a "Sidebar" settings pane (see `carbide/plans/2026-04-15_settings_panel_reorganization_plan.md`) — *done previously* — `SettingsCategory` already includes `"sidebar"`; `settings_dialog.svelte` renders the pane with `file_tree_style`, `file_tree_show_blurb`, `file_tree_blurb_position`, `file_tree_show_linked_sources`, `max_open_tabs`, and `outline_mode`. Plan archived at `carbide/archive/implementation/2026-04-15_settings_panel_reorganization_plan.md`.
 7. Scroll position persistence (#15)
 8. Auto-expand to active note (#13)
 9. Keyboard shortcut coverage (#12)
