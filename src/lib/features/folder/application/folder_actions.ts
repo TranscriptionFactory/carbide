@@ -535,6 +535,33 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     });
 
     registry.register({
+      id: ACTION_IDS.filetree_reveal_folder,
+      label: "Reveal Folder In File Tree",
+      execute: async (folder_input: unknown) => {
+        const folder_path = String(folder_input ?? "").trim();
+
+        const expanded_paths = new SvelteSet(stores.ui.filetree.expanded_paths);
+        const segments = folder_path.split("/").filter(Boolean);
+        for (let i = 0; i < segments.length; i += 1) {
+          expanded_paths.add(segments.slice(0, i + 1).join("/"));
+        }
+
+        stores.ui.filetree = {
+          ...stores.ui.filetree,
+          expanded_paths,
+        };
+
+        stores.ui.set_selected_folder_path(folder_path);
+        stores.ui.set_filetree_revealed_note_path("");
+        stores.ui.set_sidebar_view(SIDEBAR_VIEWS.explorer);
+
+        if (folder_path && !is_linked_note_path(folder_path)) {
+          await load_folder(input, folder_path);
+        }
+      },
+    });
+
+    registry.register({
       id: ACTION_IDS.folder_load_more,
       label: "Load More Folder Contents",
       execute: async (path: unknown) => {
