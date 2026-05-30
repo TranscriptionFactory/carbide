@@ -160,7 +160,7 @@ Unchanged from original plan. Ship in order:
 
 Order matters; B1–B3 unblock the rest.
 
-1. **B1**: Add `tree` view mode + `group_by` to bases.
+1. **B1**: Add `tree` view mode + `group_by` to bases. — *done* — `tree` ViewMode + `TreeConfig` added to `src/lib/features/bases/ports.ts`; renderer at `src/lib/features/bases/ui/bases_tree.svelte` (uses domain helper at `src/lib/features/bases/domain/tree_grouping.ts`); store carries `tree_config`; Rust `BaseViewDefinition` now persists `tree_config`/`kanban_config`/`calendar_config` (the latter two previously silently dropped on round-trip). Tests in `tests/unit/domain/tree_grouping.test.ts`. Empty `group_by` falls back to a flat list of rows within the tree view.
 2. **B2**: Ship default saved views.
 3. **B3**: Sub-tabs in explorer with "Views" tab (#16). Verify `.carbide/` is filtered from the file tree (see D2).
 4. **Drill-down explorer mode (new, #29)** — Finder-column / single-folder explorer mode toggleable from the explorer header. Pairs with the breadcrumb shipped in Phase 1. Unblocks reconsidering the left-rail contextual section (see caveat under D1).

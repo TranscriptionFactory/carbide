@@ -5,6 +5,7 @@
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
+  import ListTree from "@lucide/svelte/icons/list-tree";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
@@ -21,6 +22,7 @@
   import BasesKanban from "./bases_kanban.svelte";
   import BasesGallery from "./bases_gallery.svelte";
   import BasesCalendar from "./bases_calendar.svelte";
+  import BasesTree from "./bases_tree.svelte";
   import type { ViewMode } from "$lib/features/bases/ports";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { detect_file_type } from "$lib/features/document";
@@ -328,7 +330,7 @@
       <div
         class="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-md p-0.5 shrink-0"
       >
-        {#each [{ mode: "table" as ViewMode, icon: Table, label: "Table" }, { mode: "list" as ViewMode, icon: List, label: "List" }, { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" }, { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" }, { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" }] as view_option}
+        {#each [{ mode: "table" as ViewMode, icon: Table, label: "Table" }, { mode: "list" as ViewMode, icon: List, label: "List" }, { mode: "tree" as ViewMode, icon: ListTree, label: "Tree" }, { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" }, { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" }, { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" }] as view_option}
           <button
             class="p-1 rounded {bases_store.active_view_mode ===
             view_option.mode
@@ -694,6 +696,14 @@
         available_properties={bases_store.available_properties}
         on_note_click={handle_note_click}
         on_config_change={(c) => (bases_store.calendar_config = c)}
+      />
+    {:else if bases_store.active_view_mode === "tree"}
+      <BasesTree
+        rows={bases_store.result_set}
+        config={bases_store.tree_config}
+        available_properties={bases_store.available_properties}
+        on_note_click={handle_note_click}
+        on_config_change={(c) => (bases_store.tree_config = c)}
       />
     {:else}
       <div class="p-4 space-y-4">

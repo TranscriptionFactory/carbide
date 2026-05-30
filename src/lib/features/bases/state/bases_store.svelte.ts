@@ -7,6 +7,7 @@ import type {
   KanbanConfig,
   PropertyInfo,
   SavedViewInfo,
+  TreeConfig,
   ViewMode,
 } from "../ports";
 
@@ -14,6 +15,7 @@ export class BasesStore {
   active_view_mode = $state<ViewMode>("table");
   kanban_config = $state<KanbanConfig | null>(null);
   calendar_config = $state<CalendarConfig | null>(null);
+  tree_config = $state<TreeConfig | null>(null);
   query = $state<BaseQuery>({
     filters: [],
     sort: [],

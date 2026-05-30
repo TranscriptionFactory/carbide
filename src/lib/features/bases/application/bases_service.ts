@@ -55,6 +55,7 @@ export class BasesService {
     if (this.store.kanban_config) view.kanban_config = this.store.kanban_config;
     if (this.store.calendar_config)
       view.calendar_config = this.store.calendar_config;
+    if (this.store.tree_config) view.tree_config = this.store.tree_config;
     try {
       await this.port.save_view(vault_id, path, view);
     } catch (e) {
@@ -72,6 +73,7 @@ export class BasesService {
       this.store.active_view_mode = view.view_mode as ViewMode;
       this.store.kanban_config = view.kanban_config ?? null;
       this.store.calendar_config = view.calendar_config ?? null;
+      this.store.tree_config = view.tree_config ?? null;
       this.store.active_view_name = view.name;
       await this.run_query(vault_id);
     } catch (e) {
