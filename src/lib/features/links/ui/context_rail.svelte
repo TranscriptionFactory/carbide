@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Link, List, Tags } from "@lucide/svelte";
+  import { Link, List, Tags, Compass } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import LinksPanel from "$lib/features/links/ui/links_panel.svelte";
+  import RelatedPanel from "$lib/features/links/ui/related_panel.svelte";
   import { OutlinePanel } from "$lib/features/outline";
   import { MetadataPanel } from "$lib/features/metadata";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -12,6 +13,7 @@
     { id: "links" as const, label: "Links", icon: Link },
     { id: "outline" as const, label: "Outline", icon: List },
     { id: "metadata" as const, label: "Meta", icon: Tags },
+    { id: "related" as const, label: "Related", icon: Compass },
   ];
 
   function on_icon_click(id: (typeof tabs)[number]["id"]) {
@@ -46,6 +48,8 @@
         </div>
       {:else if stores.ui.context_rail_tab === "metadata"}
         <MetadataPanel />
+      {:else if stores.ui.context_rail_tab === "related"}
+        <RelatedPanel />
       {/if}
     </div>
   {/if}
