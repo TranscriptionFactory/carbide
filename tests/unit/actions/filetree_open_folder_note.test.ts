@@ -20,7 +20,7 @@ function make_note(path: string): NoteMeta {
   };
 }
 
-function build_input(notes: NoteMeta[]) {
+function build_input(notes: NoteMeta[], expanded_paths: string[] = []) {
   const registry = new ActionRegistry();
   const notes_store = new NotesStore();
   notes_store.set_notes(notes);
@@ -33,10 +33,14 @@ function build_input(notes: NoteMeta[]) {
   });
 
   // Minimal stub: register_folder_actions touches many stores but
-  // filetree_open_folder_note only reads notes_store.notes + dispatches note_open.
+  // filetree_open_folder_note only reads notes_store.notes,
+  // ui.filetree.expanded_paths, and dispatches note_open.
   const input = {
     registry,
-    stores: { notes: notes_store } as never,
+    stores: {
+      notes: notes_store,
+      ui: { filetree: { expanded_paths: new Set(expanded_paths) } },
+    } as never,
     services: {} as never,
   } as never;
 
@@ -45,21 +49,33 @@ function build_input(notes: NoteMeta[]) {
 }
 
 describe("filetree_open_folder_note action", () => {
-  it("opens folder/folder.md when present", async () => {
-    const { registry, note_open } = build_input([
-      make_note("Projects/Projects.md"),
-      make_note("Projects/launch.md"),
-    ]);
+  it("opens folder/folder.md when present and folder is expanded", async () => {
+    const { registry, note_open } = build_input(
+      [make_note("Projects/Projects.md"), make_note("Projects/launch.md")],
+      ["Projects"],
+    );
 
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Projects");
 
     expect(note_open).toHaveBeenCalledWith("Projects/Projects.md");
   });
 
+  it("does nothing when the folder is collapsed (not expanded)", async () => {
+    const { registry, note_open } = build_input(
+      [make_note("Projects/Projects.md"), make_note("Projects/launch.md")],
+      [],
+    );
+
+    await registry.execute(ACTION_IDS.filetree_open_folder_note, "Projects");
+
+    expect(note_open).not.toHaveBeenCalled();
+  });
+
   it("does nothing when no folder note is present", async () => {
-    const { registry, note_open } = build_input([
-      make_note("Projects/launch.md"),
-    ]);
+    const { registry, note_open } = build_input(
+      [make_note("Projects/launch.md")],
+      ["Projects"],
+    );
 
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Projects");
 
@@ -75,10 +91,10 @@ describe("filetree_open_folder_note action", () => {
   });
 
   it("supports nested folder notes", async () => {
-    const { registry, note_open } = build_input([
-      make_note("Work/Q2/Q2.md"),
-      make_note("Work/Q2/notes.md"),
-    ]);
+    const { registry, note_open } = build_input(
+      [make_note("Work/Q2/Q2.md"), make_note("Work/Q2/notes.md")],
+      ["Work/Q2"],
+    );
 
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Work/Q2");
 

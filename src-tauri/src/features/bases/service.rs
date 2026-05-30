@@ -239,7 +239,7 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                 calendar_config: None,
                 tree_config: None,
             },
-            Some("modified"),
+            None,
         ),
         (
             BaseViewDefinition {
@@ -275,7 +275,7 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                 calendar_config: None,
                 tree_config: None,
             },
-            Some("accessed"),
+            None,
         ),
     ]
 }
@@ -449,7 +449,10 @@ mod tests {
     fn modified_this_week_seed_filters_and_sorts() {
         let (view, required) = default_seed_views().into_iter().nth(3).unwrap();
         assert_eq!(view.name, "Modified This Week");
-        assert_eq!(required, Some("modified"));
+        assert!(
+            required.is_none(),
+            "modified seed resolves to mtime_ms, so it always applies"
+        );
         assert_eq!(view.query.filters.len(), 1);
         let filter = &view.query.filters[0];
         assert_eq!(filter.property, "modified");
