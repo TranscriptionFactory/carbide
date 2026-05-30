@@ -336,6 +336,9 @@ export function create_mock_notes_port(): NotesPort & {
         has_more: end < total_count,
       });
     },
+    clear_folder_cache(_vault_id: VaultId) {
+      return Promise.resolve();
+    },
     rename_folder(vault_id: VaultId, from_path: string, to_path: string) {
       mock._calls.rename_folder.push({ vault_id, from_path, to_path });
       const current = mock._mock_folders.get(vault_id) || [];

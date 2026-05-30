@@ -79,6 +79,7 @@ mod specta_export {
                 crate::features::notes::service::move_items,
                 crate::features::notes::service::delete_folder,
                 crate::features::notes::service::list_folder_contents,
+                crate::features::notes::service::clear_folder_cache,
                 crate::features::notes::service::get_folder_stats,
                 crate::features::notes::service::read_vault_file,
                 crate::features::notes::service::write_vault_file,

@@ -496,6 +496,18 @@ export class FolderService {
     );
   }
 
+  async clear_folder_cache(): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    try {
+      await this.notes_port.clear_folder_cache(vault_id);
+    } catch (error) {
+      log.warn("Failed to clear folder cache", {
+        error: error_message(error),
+      });
+    }
+  }
+
   async load_folder_page(
     path: string,
     offset: number,

@@ -172,6 +172,11 @@ export function create_notes_tauri_adapter(): NotesPort {
         has_more: contents.has_more,
       };
     },
+    async clear_folder_cache(vault_id: VaultId) {
+      assert_tauri();
+      const result = await commands.clearFolderCache(vault_id);
+      unwrap_result(result);
+    },
     async rename_folder(vault_id: VaultId, from_path: string, to_path: string) {
       assert_tauri();
       const result = await commands.renameFolder({
