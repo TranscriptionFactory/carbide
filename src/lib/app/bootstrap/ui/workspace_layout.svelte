@@ -779,11 +779,16 @@
                             current_path={stores.ui.selected_folder_path}
                             show_hidden_files={stores.ui.editor_settings
                               .show_hidden_files}
-                            on_enter_folder={(path: string) =>
+                            on_enter_folder={(path: string) => {
                               void action_registry.execute(
                                 ACTION_IDS.filetree_reveal_folder,
                                 path,
-                              )}
+                              );
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_open_folder_note,
+                                path,
+                              );
+                            }}
                             on_open_note={(path: string) =>
                               void action_registry.execute(
                                 ACTION_IDS.note_open,
@@ -840,11 +845,16 @@
                                 ACTION_IDS.document_open,
                                 file_path,
                               )}
-                            on_select_folder={(path: string) =>
+                            on_select_folder={(path: string) => {
                               void action_registry.execute(
                                 ACTION_IDS.ui_select_folder,
                                 path,
-                              )}
+                              );
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_open_folder_note,
+                                path,
+                              );
+                            }}
                             on_request_delete={(note: NoteMeta) =>
                               void action_registry.execute(
                                 ACTION_IDS.note_request_delete,

@@ -536,6 +536,23 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     });
 
     registry.register({
+      id: ACTION_IDS.filetree_open_folder_note,
+      label: "Open Folder Note",
+      execute: async (folder_input: unknown) => {
+        const folder_path = String(folder_input ?? "").trim();
+        if (!folder_path) return;
+        const base_name = folder_path.split("/").pop();
+        if (!base_name) return;
+        const folder_note_path = `${folder_path}/${base_name}.md`;
+        const exists = stores.notes.notes.some(
+          (n) => n.path === folder_note_path,
+        );
+        if (!exists) return;
+        await registry.execute(ACTION_IDS.note_open, folder_note_path);
+      },
+    });
+
+    registry.register({
       id: ACTION_IDS.filetree_toggle_mode,
       label: "Toggle File Tree Mode",
       execute: async () => {
