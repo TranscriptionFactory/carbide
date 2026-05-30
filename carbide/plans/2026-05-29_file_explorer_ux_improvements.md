@@ -1,7 +1,45 @@
 # File Explorer UX Improvements
 
-> Analysis of current file explorer UX gaps and creative proposals for improvement.
+> Analysis of current file explorer UX gaps and proposals for improvement.
 > Date: 2026-05-29
+> Last triage: 2026-05-29 (bases coordination pass)
+
+---
+
+## Decision Log
+
+Verdicts after evaluating each proposal against the now-shipping `bases` feature
+(`src/lib/features/bases/`), which provides property-typed queries, filters,
+sort, saved views, and view modes (table/list/kanban/gallery/calendar).
+
+The core principle: **bases already owns "query notes by property" — explorer
+features that re-implement that get subsumed, not built in parallel.**
+
+| # | Item | Verdict | Rationale |
+|---|---|---|---|
+| 1 | Pivot Views (by tag/date/property/type) | **Subsume into bases** | Add `tree` view mode + `group_by` to bases; ship pivots as default saved views. |
+| 2 | Smart Collections (saved queries) | **Subsume into bases** | A saved bases view *is* a smart collection. Surface them in the sidebar instead of building a second query engine. |
+| 3 | Contextual Sidebar | **Reframe → "Related" tab on existing ContextRail** | Right rail already exists with Links/Outline/Metadata. Add only the novel pieces (recents in folder, siblings, shared-tag chips → bases queries). See [D1](#d1-contextual-sidebar-3--reframe-as-a-related-tab-on-the-existing-contextrail-do-not-build-a-left-rail-section). |
+| 4 | Two-Pane Explorer | **Drop** | Bases table view scoped to a folder path covers this with zero new code. |
+| 5 | Peek Preview | **Do** | Independent of bases. Genuinely useful. Low risk. |
+| 6 | Workspace Snapshots | **Do — expand scope to include bases state** | Must capture active bases view, filter/sort, kanban column state to be useful. |
+| 7 | Progressive Disclosure | **Split** | Pinned folders = native. Smart Archive = bases default view. Recent section = defer (Cmd+P covers it). |
+| 8–13 | Phase 1 polish | **Do** | Unchanged. Right "feels clunky" fixes. |
+| 14 | Color tags/labels | **Do — drive from frontmatter** | Color is a property; bases already filters/groups by it. Don't build separate storage. |
+| 15 | Scroll position persistence | **Do** | Trivial. |
+| 16 | Sub-tabs in explorer | **Do — add "Views" tab** | Cleanest surface for saved bases views. |
+| 17 | External file drop | **Do** | Independent. |
+| 18 | Fix refresh | **Do** | Trust fix. |
+| 19 | Reveal-in-explorer command (new) | **Do** | On-demand reveal from bases row/backlink/tab. Distinct from auto-expand (#13). |
+| 20 | Tree filter scope toggle (new) | **Do** | Current-folder vs whole-vault scope on the existing filter. Cheaper than smart collections; same problem. |
+| 21 | Folder notes (new) | **Do** | `folder/index.md` as folder landing page. Bases users expect this for MOCs. |
+| 22 | Frontmatter-driven tree icons (new) | **Do** | `icon: 📐` renders next to filename. Pairs with #14. |
+| 23 | Undo for file ops (new) | **Do** | Session-scoped undo for rename/move/delete. Trust impact is large. |
+| 24 | Drag-from-tree-into-editor (new) | **Do** | Drop on doc → insert wikilink. Reuses existing drag. |
+| 25 | Sticky folder headers on scroll (new) | **Do** | Deep-hierarchy nav aid. Cheap. |
+| 26 | Path-aware Cmd+P (new) | **Do** | Pre-fill with selected folder when tree focused. |
+| 27 | Multi-select operations audit (new) | **Do** | Ensure move/delete/star/tag-add/set-property all work on N items. Set-property unlocks bases workflows. |
+| 28 | Shift-Enter opens multi-selection as tab group (new) | **Do** | Power gesture, currently unclear if supported. |
 
 ---
 
@@ -15,14 +53,14 @@ But users report it feels "clunky."
 
 | Friction Point | Why It Feels Clunky |
 |---|---|
-| **Instant expand/collapse** — no animation | Jarring, feels like a debug UI |
-| **No inline rename** — always a modal dialog | Breaks flow, feels heavyweight |
-| **Filter is single-level** — type-and-hope, no saved queries | Useful for quick find, not for organization |
+| ~~**Instant expand/collapse** — no animation~~ | ~~Jarring, feels like a debug UI~~ |
+| ~~**No inline rename** — always a modal dialog~~ | ~~Breaks flow, feels heavyweight~~ |
+| **Filter is single-level** — type-and-hope, no saved queries | Addressed by #20 (scope toggle) and bases-as-collections |
 | **No breadcrumb** — deep hierarchy, no quick-return | Disorienting in large vaults |
-| **No empty-state design** — expanding an empty folder shows nothing | Confusing, feels broken |
+| ~~**No empty-state design** — expanding an empty folder shows nothing~~ | ~~Confusing, feels broken~~ |
 | **Settings buried** — file tree style settings hidden in the overloaded "Layout" tab | Undiscoverable |
 | **Refresh is a no-op** in sidebar (deferred bug) | Violates user expectations |
-| **Explorer is a single-dimensional hierarchy** — just folders | Fails when users have cross-cutting concerns |
+| **Explorer is a single-dimensional hierarchy** — just folders | Resolved by surfacing bases views in sidebar (#1, #2, #16) |
 
 ### Related Bugs / Deferred Items
 
@@ -42,189 +80,60 @@ But users report it feels "clunky."
 
 ---
 
-## Core Insight
+## Core Insight (Updated)
 
-The fundamental issue: **a static folder tree is a single, rigid dimension for organizing notes.**
-Notes have tags, properties, links, modification times, semantic similarity — but the explorer only
-shows the filesystem hierarchy. Users with sophisticated vaults (the ones who use graph view) want
-the explorer to be *multi-dimensional*, not just a folder mirror.
+The original insight: *a static folder tree is a single, rigid dimension for organizing notes.*
 
----
+What changed: **bases now owns the other dimensions.** The explorer's job is no longer to
+become multi-dimensional itself — it's to be a great folder mirror **and** to surface bases
+saved views as first-class sidebar content. Two complementary surfaces, not one overloaded one.
 
-## Creative / Novel Ideas
-
-### 1. Pivot Views — Multi-Dimensional Explorer
-
-**MAJOR CRITICISM:**: This is exactly what bases are meant to accomplish 
-**ASSESSMENT:LOW VALUE/DEFER or coordinate with bases implementation**
-
-Let users "pivot" the file tree by different axes. A toggle or dropdown at the top of the explorer
-switches the organization mode:
-
-| Pivot | Hierarchy |
-|---|---|
-| **By Folder** (current) | `folder/subfolder/note.md` |
-| **By Tag** | `#tag/subtag/note.md` (virtual tree built from frontmatter tags) |
-| **By Date** | `2026/05-May/29/note.md` (created or modified, like a calendar tree) |
-| **By Link Count** | `Highly Connected/Moderately Connected/Orphan/` |
-| **By Property** | Choose any frontmatter property — e.g. `status/draft/note.md`, `project/alpha/note.md` |
-| **By Type** | `Notes/Canvases/Images/PDFs/` |
-
-This is genuinely novel for note-taking apps. Obsidian needs plugins for this. It transforms the
-explorer from a passive file mirror into an active organizational tool.
-
-**Effort**: Medium. Each pivot reuses `build_filetree()` with a different grouping function.
+The integration unlock (your "canvas-graph-as-folder" insight, generalized): any saved bases
+query is a virtual folder. Surface them in a "Views" sub-tab, render results as a tree when
+the view has `group_by` set, and the user gets pivot views, smart collections, and smart
+archive in one mechanism.
 
 ---
 
-### 2. Smart Collections (Saved Queries)
+## Bases Integration Plan (prerequisite for Phase 2)
 
-Virtual folders whose contents are live query results. They appear as special entries in the file
-tree with a distinct icon. Persisted in vault config.
+Before Phase 2 features land, two changes to bases are needed:
 
-Examples:
+### B1. Add `tree` view mode with `group_by`
 
-- "Modified This Week" → `WHERE modified > now() - 7d ORDER BY modified DESC`
-- "Urgent Drafts" → `WHERE tags CONTAINS 'urgent' AND props.status = 'draft'`
-- "Orphan Notes" → `WHERE backlink_count = 0 AND NOT is_daily_note`
-- "Needs Review" → `WHERE tags CONTAINS '#review' OR props.review_date < now()`
+```ts
+// src/lib/features/bases/ports.ts
+export type ViewMode = "table" | "list" | "kanban" | "gallery" | "calendar" | "tree";
 
-This gives users the power of the graph/search engine inside the familiar tree metaphor.
-Think macOS Smart Folders meets SQL views.
+export type TreeConfig = {
+  group_by: string[];           // multi-level: ["tags", "status"] → /tag/status/note.md
+  date_format?: string;         // for date properties: "YYYY/MM"
+};
 
-**Effort**: Medium. Query engine already exists (FTS5 + property indexing). Needs a query builder
-UI and virtual tree node type.
-
----
-
-### 3. Contextual Sidebar (Activity-Aware Explorer)
-**ASSESSMENT:HIGH VALUE/DEFER - can this potentially replace the right rail?**
-
-When editing a note, the explorer adapts to show a "Related" section above the normal tree:
-
-```
-┌─ Related ──────────────────────────┐
-│ ↖ Notes linking here     (3)       │
-│ ↗ Notes linked from here (7)       │
-│ # Shared tags: project-x, review   │
-│ 🕐 Recently accessed in this folder │
-├─ Files ────────────────────────────┤
-│ ▼ project-alpha/                    │
-│   ├─ design.md         ◉           │
-│   ├─ tasks.md                      │
-│   ...                              │
+export interface BaseViewDefinition {
+  // ...existing fields
+  tree_config?: TreeConfig;
+}
 ```
 
-This is like Xcode's "Related Files" jump bar or VS Code's "Timeline" panel. It surfaces
-connections *without* switching to the graph view — perfect for quick navigation while writing.
+### B2. Ship default saved views
 
-**Effort**: Low-Medium. Backlinks, tags, and recents are already indexed and available in stores.
+Seed the vault on first run with these saved bases views, surfaced in the explorer "Views" sub-tab:
 
----
+- **By Tag** — `group_by: ["tags"]`
+- **By Created Month** — `group_by: ["created"]`, `date_format: "YYYY/MM"`
+- **By Status** — `group_by: ["status"]` (if any note has `status` property)
+- **Modified This Week** — `filters: [{property: "modified", operator: ">", value: "now()-7d"}]`, sort by modified desc
+- **Orphan Notes** — `filters: [{property: "backlink_count", operator: "=", value: "0"}]`
+- **Smart Archive** — `filters: [{property: "accessed", operator: "<", value: "now()-30d"}]`
 
-### 4. Two-Pane Explorer (Column + List)
-**ASSESSMENT:UNSURE**
+These replace what the original plan called "Pivot Views" (#1) and "Smart Collections" (#2).
 
-A mode that splits the explorer into two panes:
+### B3. Sidebar surface
 
-```
-┌─ Folders ──────┬─ project-alpha/ ────────────────────┐
-│ ▼ project-alpha │ Name        │ Modified    │ Links   │
-│   ▼ specs/     │ design.md   │ 2 hours ago │ 7 ↗ 12 ↖│
-│     ...        │ tasks.md    │ yesterday   │ 3 ↗ 5 ↖ │
-│ ▼ project-beta  │ README.md   │ 3 days ago  │ 1 ↗ 8 ↖ │
-│ ▼ archive/     │                             │         │
-│                │ Filter: [________________] │ ⬆ Sort  │
-└────────────────┴──────────────────────────────────────┘
-```
-
-The right pane is a flat, sortable, filterable list of the selected folder's contents. Displays
-metadata columns (modification time, link counts, tags, size). Gives you macOS Finder's column view
-merged with a data table — best of both worlds.
-
-**Effort**: Medium-High. New component, but reuses existing `FlatTreeNode` data.
-
----
-
-### 5. Peek Preview (Quick Look)
-**ASSESSMENT:UNSURE**
-Press Space on any file to open a preview panel (not a full navigation):
-
-```
-┌──────────────────────────────────────┐
-│ 📄 design.md                    [✕]  │
-│ ──────────────────────────────────── │
-│ # Design Document                     │
-│                                       │
-│ This document outlines the design     │
-│ principles for the new component...   │
-│                                       │
-│ **Status:** draft                     │
-│ **Tags:** #design #v2                 │
-│                                       │
-│ Backlinks: planning.md, tasks.md      │
-│                                      │
-│ [Open]  [Open to Side]  [Star]       │
-└──────────────────────────────────────┘
-```
-
-Shows rendered first 10-15 lines of the note (ProseMirror/Markdown parser), key properties,
-backlinks, and action buttons. No full page load — just a glance.
-
-**Effort**: Medium. Needs a popover component + lightweight Markdown preview (markdown-it available).
-`Escape` or click-outside dismisses.
-
----
-
-### 6. Workspace Snapshots
-
-**MAJOR CRITICISM:**: This is exactly what bases are meant to accomplish 
-**ASSESSMENT:LOW VALUE/DEFER or coordinate with bases implementation**
-Save the complete sidebar/editor state as a named workspace. A workspace captures:
-
-- Which files are open and in what tab groups
-- Which folders are expanded in the explorer
-- Scroll position in the explorer
-- Active sidebar view
-- Panel sizes
-
-Switch between "Morning Review", "Project X Sprint", "Research" workspaces instantly.
-
-**Effort**: Medium. State is already centralized in stores; needs serialize/deserialize plus
-a small management UI.
-
----
-
-### 7. Progressive Disclosure & Smart Archive
-
-- **Pinned Folders**: Right-click → "Pin to Top". Pinned folders appear in a "Pinned" section above
-  the normal tree, always expanded.
-- **Smart Archive**: Folders not accessed in >30 days auto-collapse into a collapsible "Archive"
-  section at the bottom. Keeps the tree focused on active content.
-- **Recent Section**: A small collapsed section at the top showing the last 5-8 notes you opened,
-  like VS Code's "Open Editors."
-
-**Effort**: Low-Medium. Mostly filtering and sectioning the existing `FlatTreeNode[]` array.
-
----
-
-## High-Impact Polish Fixes
-
-These are less novel but address the "clunky/unpolished" perception directly:
-
-| # | Fix | Effort | Why It Matters |
-|---|---|---|---|
-| 8 | **Inline Rename** (F2/Enter to edit name in-place) | Low | Dialog-based rename is the #1 "feels clunky" culprit. VS Code and Finder both do inline. |
-| 9 | **Animated expand/collapse** (CSS height transition) | Low | Instant jumps feel like a WIP. Smooth animation signals polish. |
-| 10 | **Breadcrumb bar** at top of explorer | Low | Deep hierarchies need a "where am I" indicator. Clickable segments allow quick jumps. |
-| 11 | **Empty folder state** ("This folder is empty — Create first note") | Low | Silence is confusing. A prompt turns confusion into action. |
-| 12 | **Keyboard shortcut coverage** (Enter=rename, Cmd+N=new note, Delete=trash) | Low | Power users navigate by keyboard. Current shortcuts are incomplete. |
-| 13 | **Auto-expand to active note** (sync tree with open tab) | Low | `revealed_note_path` exists but may not always trigger properly. |
-| 14 | **Color tags/labels** (assign colors to files, show colored dots, filter by color) | Medium | macOS Finder tags are loved for a reason. Visual organization without changing structure. |
-| 15 | **Scroll position persistence** (remember expanded folders + scroll when switching sidebar views) | Low | Losing your place is frustrating. Trivial to persist in the store. |
-| 16 | **Sub-tabs within explorer** ("Files" \| "Starred" \| "Recent" \| "Open Editors") | Medium | Reduces need to switch sidebar views entirely. Keeps everything in one panel. |
-| 17 | **External file drop** (drag from OS into tree to import) | Medium | Only internal drag-and-drop works now. External drop is a natural expectation. |
-| 18 | **Fix refresh** (make the refresh button actually rescan) | Low | Deferred bug that erodes trust in the UI. |
+Add a "Views" sub-tab to the explorer (#16). It lists `bases_port.list_views()` results.
+Clicking opens the bases panel. Right-click → "Pin as tree" renders results inline as
+virtual tree nodes (read-only, no drag/rename).
 
 ---
 
@@ -232,31 +141,156 @@ These are less novel but address the "clunky/unpolished" perception directly:
 
 ### Phase 1 — Polish (quick wins, high perception impact)
 
-1. Inline rename (#8)
-2. Animated expand/collapse (#9)
-3. Empty folder states (#11)
+Unchanged from original plan. Ship in order:
+
+1. Inline rename (#8) — *done*
+2. Animated expand/collapse (#9) — *done*
+3. Empty folder states (#11) — *done*
 4. Breadcrumb bar (#10)
 5. Fix refresh button (#18)
 6. Extract file tree settings into a "Sidebar" settings pane (see `carbide/plans/2026-04-15_settings_panel_reorganization_plan.md`)
 7. Scroll position persistence (#15)
 8. Auto-expand to active note (#13)
 9. Keyboard shortcut coverage (#12)
+10. Tree filter scope toggle (#20)
+11. Sticky folder headers (#25)
+12. Reveal-in-explorer command (#19)
 
-### Phase 2 — Novel Features
+### Phase 2 — Bases Integration & Sidebar Restructure
 
-1. Pivot views (#1) — highest differentiation value
-2. Contextual sidebar (#3) — leverages existing graph/link data
-3. Sub-tabs within explorer (#16)
-4. Peek preview (#5)
+Order matters; B1–B3 unblock the rest.
+
+1. **B1**: Add `tree` view mode + `group_by` to bases.
+2. **B2**: Ship default saved views.
+3. **B3**: Sub-tabs in explorer with "Views" tab (#16). Verify `.carbide/` is filtered from the file tree (see D2).
+4. "Related" tab on ContextRail (#3 reframed, see D1) — recents in folder + siblings + shared-tag chips that open bases queries.
+5. Folder-note click-through in explorer (#21, see D3) — clicking a folder opens `folder/folder.md` if it exists.
+6. Peek preview (#5).
+7. Drag-from-tree-into-editor (#24).
+8. Path-aware Cmd+P (#26).
 
 ### Phase 3 — Power Features
 
-1. Smart Collections (#2)
-2. Two-pane explorer (#4)
-3. Workspace snapshots (#6)
-4. Color tags (#14)
-5. Progressive disclosure (#7)
-6. External file drop (#17)
+1. Workspace snapshots (#6) — *must capture bases view + filter/sort/kanban state.*
+2. Undo for file ops (#23, see D4) — session-scoped ring buffer + soft-delete trash.
+3. Color + icon polish driven by frontmatter (#14 + #22).
+4. Pinned folders (#7-pinned).
+5. External file drop (#17).
+6. Multi-select operations audit (#27) + Shift-Enter tab group (#28).
+
+### Dropped
+
+- **Two-pane explorer (#4)** — replaced by "open bases table scoped to selected folder."
+- **Smart Collections as separate engine (#2 as written)** — replaced by surfacing bases saved views.
+- **Pivot Views as separate component (#1 as written)** — replaced by bases `tree` view mode.
+- **Recent section (#7-recent)** — Cmd+P / command palette already covers this; another surface is real-estate cost without payoff. Revisit if usage data suggests otherwise.
+
+---
+
+## Resolved Decisions
+
+All four open questions resolved against the codebase 2026-05-29. Each grounded in a
+specific file/line, not speculation.
+
+### D1. Contextual sidebar (#3) — **reframe as a "Related" tab on the existing ContextRail; do not build a left-rail section**
+
+**Evidence**: `src/lib/features/links/ui/context_rail.svelte` already exists with tabbed
+sections for Links (backlinks + forward links), Outline, and Metadata. It's mounted in
+`workspace_layout.svelte:961` (`<ContextRail />`).
+
+The original #3 proposal duplicates ~80% of this surface (backlinks + shared tags).
+Building a second copy on the left rail fragments the "info about current note" UX
+across two columns.
+
+**Resolution**: instead of a left-explorer contextual section, **add a "Related" tab
+to `ContextRail`** containing only the novel pieces that aren't already there:
+
+- **Recently accessed in same folder** (last 5–8) — new signal, not in Links/Outline/Metadata.
+- **Sibling notes** (same parent folder) — useful "what else is here" jump list.
+- **Shared-tag chips** — each chip is a one-click open of a bases query
+  `tags CONTAINS <tag> AND path != current`. Reuses bases instead of building parallel
+  query logic.
+
+This keeps backlinks where they already live (Links tab), avoids duplicate surfaces, and
+makes the integration with bases concrete: shared-tag chips → bases queries.
+
+Item #3 in the Decision Log table is updated accordingly.
+
+**Cheap ContextRail intrusiveness fixes** (noted while inspecting; ship alongside the
+"Related" tab work since the file is already open):
+
+- **Auto-hide the 36px icon strip when no note is open** — gate `<ContextRail />` mount in
+  `workspace_layout.svelte:961` on `stores.editor.open_note`. Reclaims editor width on
+  welcome/dashboard states where the rail has nothing useful to show.
+- **Settings toggle to hide rail entirely** — boolean in UI settings (`Sidebar` pane, per
+  the settings reorg plan), `if (!ui.context_rail_hidden)` around the mount. Users who
+  rely on Cmd+P / sidebar views may never touch Outline/Metadata.
+- **Make the 280px popout width respect a CSS var** — `width: var(--context-rail-panel-width, 280px)`
+  so the eventual resize handle / settings slider has somewhere to bind. One-line change today.
+- **Hover-to-peek mode** (optional setting) — hover icon → panel slides out, mouseleave →
+  collapses. Lower commitment than click-toggle. Backdrop infra already exists.
+- **Keyboard chord to toggle** — Cmd+\ or similar via the action registry; pairs well with
+  the existing `data-vim-nav-region` model.
+
+These don't need their own phase; bundle with D1's Related-tab work as a small "ContextRail
+ergonomics" PR.
+
+### D2. Bases view storage (#1, #2, B3) — **already at `.carbide/bases/{slug}.json`; verify the dotfolder is hidden, no further design needed**
+
+**Evidence**:
+- `src/lib/app/sidebar_views.ts:60`: `const path = `.carbide/bases/${slugify(name)}.json``
+- `src-tauri/src/features/bases/service.rs:84`: `list_views` reads from `root/.carbide/bases/`
+- Files use `.json` extension, not `.base`.
+
+**Resolution**: storage location is already settled. **The only action item is to verify
+that `.carbide/` is filtered from the explorer's file tree.** If it is (likely — it's
+the standard dotfolder pattern), zero work. If not, add it to the ignore list before
+shipping B3.
+
+The "Views" sub-tab calls `bases_service.list_views(vault_id)` and renders
+`SavedViewInfo[]`. Decision Log entry B3 stands.
+
+### D3. Folder notes naming (#21) — **`folder/folder.md` (Obsidian-style same-name); convention already in code**
+
+**Evidence**: `src/lib/features/search/application/search_service.ts:689` already resolves
+folder notes using the same-name pattern:
+
+```ts
+const folder_note = `${md_path.slice(0, -3)}/${note_name_from_path(md_path)}.md`;
+```
+
+i.e. for `foo.md`, it also looks up `foo/foo.md`. This is the Obsidian convention.
+
+**Resolution**: use the existing convention. **`folder/folder.md` becomes the folder's
+landing page when the folder header is clicked.** No new convention to document; just
+make the explorer respect the one that link resolution already uses.
+
+Side effect: this aligns folder-note behavior between link resolution and explorer
+navigation, which is currently inconsistent (links resolve folder notes; clicking the
+folder in the tree doesn't open them).
+
+### D4. Undo scope (#23) — **in-session, per-vault, bounded ring buffer; no persistent log**
+
+**Evidence**: no existing file-op undo infrastructure. Both `delete_note_dialog.svelte:44`
+and `delete_folder_dialog.svelte:93` ship the copy *"This action cannot be undone."* —
+confirming this is greenfield.
+
+**Resolution**: build session-scoped undo only.
+
+- Add a `FileOpHistoryStore` (Svelte rune store) with a bounded ring buffer (cap: 50 ops).
+- Each entry: `{ op_type: "rename" | "move" | "delete" | "create", performed_at, undo_fn }`.
+  `undo_fn` is a thunk that calls the inverse vault operation (move back, recreate from
+  trash, etc.).
+- Cleared on vault switch and app restart.
+- Bound to `Cmd/Ctrl+Z` *only when the file tree is the focused vim-nav region*
+  (`workspace_layout.svelte:311` already tracks this via `data-vim-nav-region="file_tree"`).
+- Soft-deletes (move to a `.carbide/trash/` directory) make delete reversible without a
+  separate log; rename/move are reversible by inverting the args.
+- Remove the "This action cannot be undone" copy from both delete dialogs; replace with
+  "Move to trash (Cmd+Z to undo)."
+
+Persistent cross-restart undo is deferred. Revisit if user data shows the in-session
+cap is too small.
 
 ---
 
@@ -265,4 +299,5 @@ These are less novel but address the "clunky/unpolished" perception directly:
 - `carbide/2026-05-28_bugs_triaged.md` — Refresh no-op, linked-source visibility
 - `carbide/plans/2026-05-28_bugs_implementation_plan.md` — Cross-cutting linked-source refactor
 - `carbide/plans/2026-04-15_settings_panel_reorganization_plan.md` — Settings pane extraction
+- `src/lib/features/bases/` — Bases feature (ports, domain, ui)
 - `docs/architecture.md` — Decision tree and layered architecture guidance
