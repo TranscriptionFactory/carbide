@@ -162,6 +162,46 @@ describe("register_omnibar_actions", () => {
     expect(stores.ui.cross_vault_open_confirm.open).toBe(false);
   });
 
+  it("pre-fills omnibar with selected folder when tree is focused", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    stores.vault.set_vault(create_test_vault({ id: as_vault_id("vault-a") }));
+    stores.ui.set_selected_folder_path("Work/Q2");
+
+    const target = {
+      closest: (sel: string) =>
+        sel === '[data-vim-nav-region="file_tree"]' ? target : null,
+    };
+    (globalThis as { document?: unknown }).document = {
+      activeElement: target,
+    };
+
+    try {
+      await registry.execute(ACTION_IDS.omnibar_open);
+      expect(stores.ui.omnibar.open).toBe(true);
+      expect(stores.ui.omnibar.query).toBe("Work/Q2/");
+    } finally {
+      delete (globalThis as { document?: unknown }).document;
+    }
+  });
+
+  it("does not pre-fill omnibar when focus is outside the file tree", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    stores.vault.set_vault(create_test_vault({ id: as_vault_id("vault-a") }));
+    stores.ui.set_selected_folder_path("Work/Q2");
+
+    (globalThis as { document?: unknown }).document = {
+      activeElement: { closest: () => null },
+    };
+
+    try {
+      await registry.execute(ACTION_IDS.omnibar_open);
+      expect(stores.ui.omnibar.open).toBe(true);
+      expect(stores.ui.omnibar.query).toBe("");
+    } finally {
+      delete (globalThis as { document?: unknown }).document;
+    }
+  });
+
   it("switches scope and searches across all vaults", async () => {
     const { registry, stores, services } = create_omnibar_actions_harness();
 

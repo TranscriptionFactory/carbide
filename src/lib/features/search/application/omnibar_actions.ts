@@ -182,8 +182,38 @@ function clamp_selected_index(input: ActionRegistrationInput) {
   return Math.min(input.stores.ui.omnibar.selected_index, item_count - 1);
 }
 
+function is_file_tree_focused(): boolean {
+  if (typeof document === "undefined") return false;
+  const active = document.activeElement;
+  if (!active) return false;
+  return Boolean(
+    (active as HTMLElement).closest?.('[data-vim-nav-region="file_tree"]'),
+  );
+}
+
 function open_omnibar(input: ActionRegistrationInput) {
   const had_query = input.stores.ui.omnibar.query.trim().length > 0;
+  const folder_path = input.stores.ui.selected_folder_path;
+
+  if (!had_query && is_file_tree_focused() && folder_path) {
+    const seed = folder_path.endsWith("/") ? folder_path : `${folder_path}/`;
+    set_omnibar_state(input, {
+      open: true,
+      query: seed,
+      selected_index: 0,
+      is_searching: false,
+    });
+    void search_omnibar_query(input, seed, input.stores.ui.omnibar.scope).then(
+      () => {
+        set_omnibar_state(input, {
+          is_searching: false,
+          selected_index: clamp_selected_index(input),
+        });
+      },
+    );
+    return;
+  }
+
   set_omnibar_state(input, {
     open: true,
     selected_index: 0,
