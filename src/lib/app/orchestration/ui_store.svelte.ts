@@ -32,7 +32,13 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { SidebarView } from "$lib/app/sidebar_views";
 
 type AsyncStatus = "idle" | "loading" | "error";
-type ContextRailTab = "links" | "outline" | "graph" | "tasks" | "metadata";
+type ContextRailTab =
+  | "links"
+  | "outline"
+  | "graph"
+  | "tasks"
+  | "metadata"
+  | "related";
 export type BottomPanelTab =
   | "terminal"
   | "problems"
